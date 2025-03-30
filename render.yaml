@@ -1,22 +1,18 @@
 services:
   - type: web
-    name: enjoy-backend # Remplacez par le nom de votre application
+    name: EnjoyBackEnd
     runtime: node
-    buildCommand: npm install && npm run build # Adapté si vous avez une étape de build
-    startCommand: node build/server.js # Adapté si vous avez une étape de build
+    buildCommand: npm install && npm run build
+    startCommand: node build/server.js
     envVars:
       - key: TZ
         value: UTC
-      - key: PORT
-        value: "3333" # Render utilise le port fourni par render, so this might be overwritten.
-      - key: HOST
-        value: localhost # This is not required for render, as it is an external service.
       - key: LOG_LEVEL
         value: info
       - key: APP_KEY
         value: R6BB2m8zu2PFs1HkspxQYBO940YyVBlq
       - key: NODE_ENV
-        value: production # Change to production for deployment
+        value: production
       - key: DB_HOST
         value: db.hnbwbbjziujcbrblxbyw.supabase.co
       - key: DB_PORT

@@ -47,16 +47,7 @@
 import 'reflect-metadata';
 import { Ignitor, prettyPrintError } from '@adonisjs/core';
 
-/**
- * URL to the application root. AdonisJS need it to resolve
- * paths to file and directories for scaffolding commands
- */
 const APP_ROOT = new URL('../', import.meta.url);
-
-/**
- * The importer is used to import files in context of the
- * application.
- */
 const IMPORTER = (filePath: string) => {
   if (filePath.startsWith('./') || filePath.startsWith('../')) {
     return import(new URL(filePath, APP_ROOT).href);
@@ -76,7 +67,8 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
   .start()
   .then(() => {
     const port = process.env.PORT || 3333;
-    console.log(`Server will listen on port ${port}`);
+    const host = '0.0.0.0'; // Listen on all interfaces
+    console.log(`Server will listen on ${host}:${port}`);
     return new Promise<void>((resolve) => {
       // AdonisJs handles the listening internally. The port needs to be set in the .env file.
       resolve();
