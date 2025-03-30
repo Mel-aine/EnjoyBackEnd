@@ -66,8 +66,8 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
   .httpServer()
   .start()
   .then(() => {
-    const port = process.env.PORT || 3333;
-    const host = '0.0.0.0'; // Listen on all interfaces
+    const port = process.env.PORT || 3000;
+    const host = '0.0.0.0';
     console.log(`Server will listen on ${host}:${port}`);
     return new Promise<void>((resolve) => {
       // AdonisJs handles the listening internally. The port needs to be set in the .env file.
