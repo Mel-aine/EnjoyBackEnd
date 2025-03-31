@@ -25,7 +25,7 @@ export default class CrudController<T extends typeof BaseModel> {
       return response.ok(data)
     } catch (error) {
       return response.internalServerError({
-        message: 'Error fetching records',
+        message: 'Error fetching records' + error.stack,
         error: error.message,
       })
     }
