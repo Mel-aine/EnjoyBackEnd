@@ -35,10 +35,7 @@ export default class Service extends BaseModel {
   declare website: string
 
   @column()
-  declare opening_days: string
-
-  @column()
-  declare opening_hours: string
+  declare openings: string
 
   @column()
   declare price_range: string

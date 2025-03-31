@@ -8,6 +8,7 @@
 */
 
 import router from '@adonisjs/core/services/router'
+
 import UsersController from '#controllers/users_controller'
 import RolesController from '#controllers/roles_controller'
 import ServicesController from '#controllers/services_controller'
@@ -22,7 +23,7 @@ import OptionsController from '#controllers/options_controller'
 import InvoicesController from '#controllers/invoices_controller'
 import CommentsController from '#controllers/comments_controller'
 import CategoriesController from '#controllers/categories_controller'
-
+const AuthController = () => import('#controllers/auth_controller')
 
 
 const usersController = new UsersController()
@@ -42,7 +43,8 @@ const categoriesController = new CategoriesController()
 
 
 
-
+router.post('/auth', [AuthController, 'login'])
+router.get('/auth', [AuthController, 'user'])
 router.get('/', async () => {
   return { hello: 'world' }
 })
