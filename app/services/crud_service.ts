@@ -10,16 +10,16 @@ export default class CrudService<T extends typeof BaseModel> {
   /**
    * List records with dynamic filters, sorting, and pagination.
    */
+
   async list(
     filters: any,
     fields: string[],
     sortBy: string,
     order: string,
     page: number,
-    perPage: number=50
+    perPage: number = 50
   ) {
     let query = this.model.query()
-
     // Apply filters dynamically
     for (const key in filters) {
       if (Array.isArray(filters[key])) {
