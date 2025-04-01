@@ -17,7 +17,8 @@ export default class CrudService<T extends typeof BaseModel> {
     sortBy: string,
     order: string,
     page: number,
-    perPage: number = 50
+    perPage: number
+
   ) {
     let query = this.model.query()
     // Apply filters dynamically
