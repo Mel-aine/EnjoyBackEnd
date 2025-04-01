@@ -9,8 +9,6 @@ services:
         value: UTC
       - key: LOG_LEVEL
         value: info
-      - key: APP_KEY
-        value: R6BB2m8zu2PFs1HkspxQYBO940YyVBlq
       - key: NODE_ENV
         value: production
       - key: DB_HOST
@@ -19,7 +17,5 @@ services:
         value: "5432"
       - key: DB_USER
         value: postgres
-      - key: DB_PASSWORD
-        value: 0F6yVUaQY4yJZ1sM
       - key: DB_DATABASE
         value: postgres
