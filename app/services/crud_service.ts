@@ -64,4 +64,10 @@ export default class CrudService<T extends typeof BaseModel> {
     await item.delete()
     return item
   }
+
+  async createMany(data: any[]) {
+    return await this.model.createMany(data)
+  }
+
+
 }

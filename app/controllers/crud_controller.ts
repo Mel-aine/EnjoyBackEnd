@@ -102,4 +102,23 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
+
+
+  public async bulkCreate({ request, response }: HttpContext) {
+  try {
+    const data = request.input('data')
+
+    if (!Array.isArray(data)) {
+      return response.badRequest({ message: 'Expected "data" to be an array' })
+    }
+
+    const items = await this.service.createMany(data)
+    return response.created(items)
+  } catch (error) {
+    return response.badRequest({ message: 'Error creating records', error: error.message })
+  }
+}
+
+
+
 }

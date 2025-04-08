@@ -23,6 +23,9 @@ export default class ProductionOption extends BaseModel {
   declare option_type: string
 
   @column()
+  declare value: string
+
+  @column()
   declare created_by: number | null
 
   @column()

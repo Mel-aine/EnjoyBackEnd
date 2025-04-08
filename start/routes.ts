@@ -23,6 +23,7 @@ import OptionsController from '#controllers/options_controller'
 import InvoicesController from '#controllers/invoices_controller'
 import CommentsController from '#controllers/comments_controller'
 import CategoriesController from '#controllers/categories_controller'
+import TypeProductsController from '#controllers/type_products_controller'
 const AuthController = () => import('#controllers/auth_controller')
 
 
@@ -40,6 +41,7 @@ const optionsController = new OptionsController()
 const invoicesController = new InvoicesController()
 const commentsController = new CommentsController()
 const categoriesController = new CategoriesController()
+const typeProductsController = new TypeProductsController()
 
 
 
@@ -82,11 +84,21 @@ router
     router.delete('/services/:id', servicesController.destroy.bind(servicesController))
   })
 
+  router
+  .group(() => {
+    router.post('/product', typeProductsController.store.bind(typeProductsController ))
+    router.get('/product', typeProductsController.list.bind(typeProductsController ))
+    router.get('/product/:id', typeProductsController.show.bind(typeProductsController ))
+    router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
+    router.delete('/product/:id', typeProductsController.destroy.bind(typeProductsController))
+  })
+
 
   router
   .group(() => {
     router.post('/service_product', serviceProductsController.store.bind(serviceProductsController ))
     router.get('/service_product', serviceProductsController.list.bind(serviceProductsController ))
+    router.get('/service_product_options', serviceProductsController.getAllWithOptions.bind(serviceProductsController ))
     router.get('/service_product/:id', serviceProductsController.show.bind(serviceProductsController ))
     router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))
     router.delete('/service_product/:id', serviceProductsController.destroy.bind(serviceProductsController))
@@ -117,7 +129,9 @@ router
   .group(() => {
     router.get('/production_option', productionOptionsController.list.bind(productionOptionsController))
     router.get('/production_option/:id', productionOptionsController.show.bind(productionOptionsController))
-    router.post('/production_option', productionOptionsController.store.bind(productionOptionsController))
+    // router.post('/production_option', productionOptionsController.store.bind(productionOptionsController))
+    router.post('/production_option', productionOptionsController.bulkCreate.bind(productionOptionsController))
+
     router.put('/production_option/:id', productionOptionsController.update.bind(productionOptionsController))
     router.delete('/production_option/:id', productionOptionsController.destroy.bind(productionOptionsController))
   })
