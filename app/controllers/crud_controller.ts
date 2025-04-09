@@ -119,6 +119,35 @@ export default class CrudController<T extends typeof BaseModel> {
   }
 }
 
+async showByCategorie({ params, request, response }: HttpContext) {
+  try {
+    const { categoryId } = params
+    if (!categoryId) {
+      return response.badRequest({ message: 'categoryId is required' })
+    }
+
+    const fields = request.input('fields', ['*'])
+    const categoryIdNum = parseInt(categoryId, 10)
+    if (isNaN(categoryIdNum)) {
+      return response.badRequest({ message: 'Invalid categoryId' })
+    }
+
+    const items = await this.service.getByCategoryId(categoryIdNum, fields)
+
+    if (!items || items.length === 0) {
+      return response.notFound({ message: 'Record not found' })
+    }
+
+    return response.ok(items)
+  } catch (error) {
+    return response.internalServerError({
+      message: 'Error fetching record',
+      error: error.message,
+    })
+  }
+}
+
+
 
 
 }

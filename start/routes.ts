@@ -79,6 +79,7 @@ router
   .group(() => {
     router.post('/services', servicesController.store.bind(servicesController ))
     router.get('/services', servicesController.list.bind(servicesController ))
+    router.get('/services/:categoryId', servicesController.showByCategorie.bind(servicesController ))
     router.get('/services/:id', servicesController.show.bind(servicesController ))
     router.put('/services/:id', servicesController.update.bind(servicesController))
     router.delete('/services/:id', servicesController.destroy.bind(servicesController))

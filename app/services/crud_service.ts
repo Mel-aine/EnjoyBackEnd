@@ -69,5 +69,18 @@ export default class CrudService<T extends typeof BaseModel> {
     return await this.model.createMany(data)
   }
 
+  async getByCategoryId(category_id: number, fields: string[]) {
+    if (!category_id) {
+      throw new Error('category_id is required')
+    }
+
+    return await this.model
+      .query()
+      .where('category_id', category_id)
+      .select(...fields)
+  }
+
+
+
 
 }

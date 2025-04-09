@@ -12,3 +12,5 @@ export default class ServicesController extends CrudController<typeof Service> {
     super(serviceService)
   }
 }
+
+
