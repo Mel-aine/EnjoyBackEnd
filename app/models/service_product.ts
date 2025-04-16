@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column ,belongsTo,hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo,HasMany } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
+import TypeProduct from '#models/type_product'
 import ProductOption from '#models/production_option'
 import User from '#models/user'
 
@@ -14,8 +15,10 @@ export default class ServiceProduct extends BaseModel {
   @column()
   declare product_name: string
 
+  // @column()
+  // declare product_type: number
   @column()
-  declare product_type: string
+  declare product_type_id: number
 
   @column()
   declare price: number
@@ -55,6 +58,12 @@ export default class ServiceProduct extends BaseModel {
 
   @belongsTo(() => Service, { foreignKey: 'id' })
   declare service: BelongsTo<typeof Service>
+
+  @belongsTo(() => TypeProduct, {
+    foreignKey: 'product_type_id',
+  })
+  declare typeProduct: BelongsTo<typeof TypeProduct>
+
 
   @belongsTo(() => User, { foreignKey: 'created_by'})
   declare creator: BelongsTo<typeof User>
