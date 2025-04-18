@@ -27,6 +27,23 @@ export default class Reservation extends BaseModel {
   declare created_by: number | null
 
   @column()
+  declare total_person: number
+
+  @column()
+  declare arrived_date: Date
+  @column()
+  declare depart_date: Date
+
+  @column()
+  declare reservation_time: string
+
+  @column()
+  declare reservation_product: number
+
+  @column()
+  declare comment?: string
+
+  @column()
   declare last_modified_by: number | null
 
   @column.dateTime({ autoCreate: true })

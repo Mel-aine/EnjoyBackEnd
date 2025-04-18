@@ -148,6 +148,62 @@ async showByCategorie({ params, request, response }: HttpContext) {
 }
 
 
+async showByServiceId({ params, request, response }: HttpContext) {
+  try {
+    const { serviceId } = params
+    if (!serviceId) {
+      return response.badRequest({ message: 'serviceId is required' })
+    }
+
+    const fields = request.input('fields', ['*'])
+    const serviceIdNum = parseInt(serviceId, 10)
+    if (isNaN(serviceIdNum)) {
+      return response.badRequest({ message: 'Invalid categoryId' })
+    }
+
+    const items = await this.service.getServiceProductByServiceId(serviceIdNum, fields)
+
+    if (!items || items.length === 0) {
+      return response.notFound({ message: 'Record not found' })
+    }
+
+    return response.ok(items)
+  } catch (error) {
+    return response.internalServerError({
+      message: 'Error fetching record',
+      error: error.message,
+    })
+  }
+}
+
+async showReservationByServiceId({ params, request, response }: HttpContext) {
+  try {
+    const { serviceId } = params
+    if (!serviceId) {
+      return response.badRequest({ message: 'serviceId is required' })
+    }
+
+    const fields = request.input('fields', ['*'])
+    const serviceIdNum = parseInt(serviceId, 10)
+    if (isNaN(serviceIdNum)) {
+      return response.badRequest({ message: 'Invalid categoryId' })
+    }
+
+    const items = await this.service.getReservationtByServiceId(serviceIdNum, fields)
+
+    if (!items || items.length === 0) {
+      return response.notFound({ message: 'Record not found' })
+    }
+
+    return response.ok(items)
+  } catch (error) {
+    return response.internalServerError({
+      message: 'Error fetching record',
+      error: error.message,
+    })
+  }
+}
+
 
 
 }

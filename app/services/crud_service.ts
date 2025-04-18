@@ -81,6 +81,30 @@ export default class CrudService<T extends typeof BaseModel> {
   }
 
 
+  async getServiceProductByServiceId(service_id: number, fields: string[]) {
+    if (!service_id) {
+      throw new Error('service_id is required')
+    }
+
+    return await this.model
+      .query()
+      .where('service_id', service_id)
+      .select(...fields)
+  }
+
+  async getReservationtByServiceId(service_id: number, fields: string[]) {
+    if (!service_id) {
+      throw new Error('service_id is required')
+    }
+
+    return await this.model
+      .query()
+      .where('service_id', service_id)
+      .select(...fields)
+  }
+
+
+
 
 
 }

@@ -101,6 +101,7 @@ router
     router.get('/service_product', serviceProductsController.list.bind(serviceProductsController ))
     router.get('/service_product_options', serviceProductsController.getAllWithOptions.bind(serviceProductsController ))
     router.get('/service_product/:id', serviceProductsController.show.bind(serviceProductsController ))
+    router.get('/service_product_by_serviceId/:serviceId', serviceProductsController.showByServiceId.bind(serviceProductsController ))
     router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))
     router.delete('/service_product/:id', serviceProductsController.destroy.bind(serviceProductsController))
   })
@@ -109,8 +110,10 @@ router
   router
   .group(() => {
     router.get('/reservations', reservationsController.list.bind(reservationsController))
-    router.get('/reservations/:id', reservationsController.show.bind(reservationsController))
+    // router.get('/reservations/:id', reservationsController.show.bind(reservationsController))
+    router.get('/reservations/:serviceId', reservationsController.showReservationByServiceId.bind(reservationsController))
     router.post('/reservations', reservationsController.store.bind(reservationsController))
+    router.post('/reservationswithuser', reservationsController.createWithUserAndReservation.bind(reservationsController))
     router.put('/reservations/:id', reservationsController.update.bind(reservationsController))
     router.delete('/reservations/:id', reservationsController.destroy.bind(reservationsController))
   })
