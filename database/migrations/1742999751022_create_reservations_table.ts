@@ -9,6 +9,7 @@ export default class extends BaseSchema {
       table.integer('user_id').unsigned().references('id').inTable('users').onDelete('CASCADE')
       table.integer('service_id').unsigned().references('id').inTable('services').onDelete('CASCADE')
       table.string('reservation_type', 50)
+      table.string('payment', 50).nullable()
       table.enu('status', ['pending', 'confirmed','cancelled']).defaultTo('pending')
       table.text('comment').nullable()
       table.date('arrived_date')

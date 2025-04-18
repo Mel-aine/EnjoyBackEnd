@@ -38,6 +38,9 @@ export default class Reservation extends BaseModel {
   declare reservation_time: string
 
   @column()
+  declare payment: string
+
+  @column()
   declare reservation_product: number
 
   @column()

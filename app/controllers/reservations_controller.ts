@@ -68,6 +68,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         comment: data.comment,
         created_by: user.id,
         last_modified_by: user.id,
+        payment:data.payment
       })
 
       return response.created({ user, reservation })
