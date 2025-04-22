@@ -18,7 +18,7 @@ export default class Reservation extends BaseModel {
   declare reservation_type: string
 
   @column()
-  declare status:'active' | 'confirmed' | 'cancelled'
+  declare status:string
 
   @column()
   declare total_price: number

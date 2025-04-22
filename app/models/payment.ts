@@ -24,7 +24,7 @@ export default class Payment extends BaseModel {
   declare payment_method: string
 
   @column()
-  declare status: 'Succeeded' | 'Pending' | 'Failed' // "Succeeded", "Pending", "Failed"
+  declare status: string // "Succeeded", "Pending", "Failed"
 
   @column()
   declare transaction_id: string

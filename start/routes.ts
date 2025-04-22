@@ -45,8 +45,10 @@ const typeProductsController = new TypeProductsController()
 
 
 
-router.post('/auth', [AuthController, 'login'])
-router.get('/auth', [AuthController, 'user'])
+router.post('api/auth', [AuthController, 'login'])
+router.get('api/auth', [AuthController, 'user'])
+router.get('api/validateEmail', [AuthController, 'validateEmail'])
+router.get('api/validatePassword', [AuthController, 'validatePassword'])
 router.get('/', async () => {
   return { hello: 'world' }
 })
@@ -146,6 +148,7 @@ router
     router.get('/payment', paymentsController.list.bind(paymentsController))
     router.get('/payment/:id', paymentsController.show.bind(paymentsController))
     router.post('/payment', paymentsController.store.bind(paymentsController))
+    router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
     router.put('/payment/:id', paymentsController.update.bind(paymentsController))
     router.delete('/payment/:id', paymentsController.destroy.bind(paymentsController))
   })

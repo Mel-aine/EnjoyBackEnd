@@ -108,4 +108,57 @@ export default class AuthController {
 
     this.response('Logout successfully')
   }
+
+  async validateEmail ({response,request}:HttpContext){
+    const { email } = request.only(['email'])
+
+    try {
+      const user = await User.findBy('email', email)
+      if (!user) {
+        return response.status(401).json({
+          message: 'Invalid credentials',
+        })
+      }
+
+      return response.status(200).json({
+        message: 'Email is valid',
+      })
+    } catch (error) {
+      return response.status(400).json({
+        message: 'An error occurred during validation',
+      })
+    }
+
+  }
+
+  public async validatePassword({ request, response }: HttpContext) {
+    const { email, password } = request.only(['email', 'password'])
+
+    try {
+      const user = await User.findBy('email', email)
+
+      if (!user) {
+        return response.status(401).json({
+          message: 'Identifiants invalides (email)',
+        })
+      }
+
+      const passwordValid = await hash.verify(user.password, password)
+
+      if (!passwordValid) {
+        return response.status(401).json({
+          message: 'Invalid Password',
+        })
+      }
+
+      return response.status(200).json({
+        message: 'valid Password',
+      })
+
+    } catch (error) {
+      return response.status(500).json({
+        message: 'server error',
+      })
+    }
+  }
 }
