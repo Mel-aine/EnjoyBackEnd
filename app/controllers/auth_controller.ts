@@ -119,10 +119,10 @@ export default class AuthController {
           message: 'Invalid credentials',
         })
       }
-
       return response.status(200).json({
         message: 'Email is valid',
       })
+
     } catch (error) {
       return response.status(400).json({
         message: 'An error occurred during validation',
@@ -139,7 +139,7 @@ export default class AuthController {
 
       if (!user) {
         return response.status(401).json({
-          message: 'Identifiants invalides (email)',
+          message: 'Invalid credentials (email)',
         })
       }
 

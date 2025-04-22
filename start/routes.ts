@@ -47,8 +47,8 @@ const typeProductsController = new TypeProductsController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.get('api/auth', [AuthController, 'user'])
-router.get('api/validateEmail', [AuthController, 'validateEmail'])
-router.get('api/validatePassword', [AuthController, 'validatePassword'])
+router.post('api/validateEmail', [AuthController, 'validateEmail'])
+router.post('api/validatePassword', [AuthController, 'validatePassword'])
 router.get('/', async () => {
   return { hello: 'world' }
 })
