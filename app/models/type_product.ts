@@ -16,6 +16,9 @@ export default class TypeProduct extends BaseModel {
   @column()
   declare status: string
 
+  @column()
+  declare service_id: number
+
   @hasMany(() => Option,{foreignKey: 'id'})
   declare options: HasMany <typeof Option>
 
