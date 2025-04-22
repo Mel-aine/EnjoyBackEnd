@@ -15,6 +15,13 @@ export default class extends BaseSchema {
       table.integer('role_id').unsigned().references('id').inTable('roles').onDelete('CASCADE')
       table.enu('status', ['active', 'inactive']).defaultTo('active')
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
+      table
+      .integer('service_id')
+      .unsigned()
+      .references('id')
+      .inTable('services')
+      .onDelete('SET NULL')
+      .nullable()
       table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
       table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())

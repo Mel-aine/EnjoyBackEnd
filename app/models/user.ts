@@ -6,6 +6,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import hash from '@adonisjs/core/services/hash'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import Role from '#models/role'
+import Services from '#models/service'
 
 const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
   uids: ['email'],
@@ -35,6 +36,9 @@ export default class User extends AuthFinder(BaseModel) {
   declare role_id: number
 
   @column()
+  declare service_id: number
+
+  @column()
   declare status: 'active' | 'inactive'
 
   @column()
@@ -50,8 +54,11 @@ export default class User extends AuthFinder(BaseModel) {
   declare updated_at: DateTime
 
   /** Relation avec le rôle */
-  @belongsTo(() => Role, { foreignKey: 'id' })
+  @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
+
+  @belongsTo(() => Services, { foreignKey: 'service_id' })
+  declare Services: BelongsTo<typeof Services>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>

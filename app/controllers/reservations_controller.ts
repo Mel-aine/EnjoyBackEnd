@@ -56,7 +56,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.created({ user, reservation })
     } catch (error) {
       return response.status(500).send({
-        message: 'Erreur lors de la création',
+        message: 'Error while creating',
         error: error.message,
       })
     }

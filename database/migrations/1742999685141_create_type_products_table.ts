@@ -9,6 +9,13 @@ export default class extends BaseSchema {
       table.string('name').notNullable()
       table.text('description').nullable()
       table.string('status', 20).defaultTo('active')
+      table
+      .integer('service_id')
+      .unsigned()
+      .references('id')
+      .inTable('services')
+      .onDelete('SET NULL')
+      .nullable()
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
       table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
     })

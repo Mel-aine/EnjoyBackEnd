@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany , belongsTo} from '@adonisjs/lucid/orm'
+import type { HasMany,BelongsTo } from '@adonisjs/lucid/types/relations'
 import Option from '#models/option'
+import Services from '#models/service'
 
 export default class TypeProduct extends BaseModel {
   @column({ isPrimary: true })
@@ -17,6 +18,9 @@ export default class TypeProduct extends BaseModel {
 
   @hasMany(() => Option,{foreignKey: 'id'})
   declare options: HasMany <typeof Option>
+
+  @belongsTo(() => Services, { foreignKey: 'service_id' })
+    declare Services: BelongsTo<typeof Services>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
