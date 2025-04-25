@@ -19,7 +19,7 @@ export default class CrudController<T extends typeof BaseModel> {
       const sortBy = request.input('sortBy', 'id')
       const order = request.input('order', 'asc') // 'asc' or 'desc'
       const page = request.input('page', 1)
-      const perPage = request.input('perPage', 50)
+      const perPage = request.input('perPage', 200)
 
       const data = await this.service.list(filters, fields, sortBy, order, page, perPage)
       return response.ok(data)
@@ -176,6 +176,34 @@ async showByServiceId({ params, request, response }: HttpContext) {
   }
 }
 
+async showByServiceProductId({ params, request, response }: HttpContext) {
+  try {
+    const { serviceProductId } = params
+    if (!serviceProductId) {
+      return response.badRequest({ message: 'serviceProductId is required' })
+    }
+
+    const fields = request.input('fields', ['*'])
+    const serviceIdNum = parseInt(serviceProductId, 10)
+    if (isNaN(serviceIdNum)) {
+      return response.badRequest({ message: 'Invalid serviceProductId' })
+    }
+
+    const items = await this.service.getProductOptionByServiceProductId(serviceIdNum, fields)
+
+    if (!items || items.length === 0) {
+      return response.notFound({ message: 'Record not found' })
+    }
+
+    return response.ok(items)
+  } catch (error) {
+    return response.internalServerError({
+      message: 'Error fetching record',
+      error: error.message,
+    })
+  }
+}
+
 async showReservationByServiceId({ params, request, response }: HttpContext) {
   try {
     const { serviceId } = params
@@ -203,6 +231,28 @@ async showReservationByServiceId({ params, request, response }: HttpContext) {
     })
   }
 }
+
+async updateByServiceProductId({ params, request, response }: HttpContext) {
+  const serviceProductId = parseInt(params.service_product_id, 10);
+  const optionsPayload = request.input('options');
+
+  if (isNaN(serviceProductId)) {
+    return response.badRequest({ message: 'Invalid service_product_id' });
+  }
+
+  if (!Array.isArray(optionsPayload)) {
+    return response.badRequest({ message: 'options doit être un tableau' });
+  }
+
+  try {
+    await this.service.updateByServiceProductId(serviceProductId, optionsPayload);
+    return response.ok({ message: 'Options mises à jour avec succès' });
+  } catch (error) {
+    console.error(error);
+    return response.status(500).send({ message: 'Erreur serveur', error: error.message });
+  }
+}
+
 
 
 

@@ -113,11 +113,12 @@ router
   router
   .group(() => {
     router.get('/reservations', reservationsController.list.bind(reservationsController))
-    // router.get('/reservations/:id', reservationsController.show.bind(reservationsController))
+    router.get('/reservations_by_id/:id', reservationsController.show.bind(reservationsController))
     router.get('/reservations/:serviceId', reservationsController.showReservationByServiceId.bind(reservationsController))
     router.post('/reservations', reservationsController.store.bind(reservationsController))
     router.post('/reservationswithuser', reservationsController.createWithUserAndReservation.bind(reservationsController))
     router.put('/reservations/:id', reservationsController.update.bind(reservationsController))
+    router.put('/reservations_update/:id', reservationsController.updateReservation.bind(reservationsController))
     router.delete('/reservations/:id', reservationsController.destroy.bind(reservationsController))
   })
 
@@ -136,9 +137,10 @@ router
   .group(() => {
     router.get('/production_option', productionOptionsController.list.bind(productionOptionsController))
     router.get('/production_option/:id', productionOptionsController.show.bind(productionOptionsController))
+    router.get('/production_options/:serviceProductId', productionOptionsController.showByServiceProductId.bind(productionOptionsController))
     // router.post('/production_option', productionOptionsController.store.bind(productionOptionsController))
     router.post('/production_option', productionOptionsController.bulkCreate.bind(productionOptionsController))
-
+    router.put('/product_option/by-service/:service_product_id', productionOptionsController.updateByServiceProductId.bind(productionOptionsController))
     router.put('/production_option/:id', productionOptionsController.update.bind(productionOptionsController))
     router.delete('/production_option/:id', productionOptionsController.destroy.bind(productionOptionsController))
   })

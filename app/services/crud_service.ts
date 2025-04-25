@@ -92,6 +92,17 @@ export default class CrudService<T extends typeof BaseModel> {
       .select(...fields)
   }
 
+  async getProductOptionByServiceProductId(service_product_id: number, fields: string[]) {
+    if (!service_product_id) {
+      throw new Error('service_product_id is required')
+    }
+
+    return await this.model
+      .query()
+      .where('service_product_id', service_product_id)
+      .select(...fields)
+  }
+
   async getReservationtByServiceId(service_id: number, fields: string[]) {
     if (!service_id) {
       throw new Error('service_id is required')
@@ -103,8 +114,26 @@ export default class CrudService<T extends typeof BaseModel> {
       .select(...fields)
   }
 
+  async findById(id: number | string) {
+    return this.model.find(id)
+  }
 
+  async updateByServiceProductId(service_product_id:number, optionsPayload:any) {
+    for (const option of optionsPayload) {
+      const existing = await this.model
+        .query()
+        .where('service_product_id', service_product_id)
+        .where('option_id', option.option_id)
+        .first();
 
+      if (existing) {
+        existing.merge(option);
+        await existing.save();
+      } else {
+        await this.model.create(option);
+      }
+    }
+  }
 
 
 }

@@ -29,7 +29,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         last_name: data.last_name,
         email: data.email,
         phone_number: data.phone_number,
-        role_id: data.role_id || 1,
+        role_id: data.role_id || 4,
         status: 'active',
         created_by: data.created_by || null,
         last_modified_by: data.last_modified_by || null,
@@ -61,6 +61,61 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
+
+  public async updateReservation({ request, response, params }: HttpContext) {
+    const reservationId = params.id
+    const data = request.body()
+
+    try {
+      // Récupère la réservation
+      const existingReservation = await this.reservationService.findById(reservationId)
+      if (!existingReservation) {
+        return response.status(404).send({ message: 'Reservation not found' })
+      }
+
+      // Met à jour l'utilisateur lié à la réservation si des infos utilisateur sont présentes
+      const userId = existingReservation.user_id
+      const userUpdatePayload: any = {}
+
+      if (data.first_name) userUpdatePayload.first_name = data.first_name
+      if (data.last_name) userUpdatePayload.last_name = data.last_name
+      if (data.email) userUpdatePayload.email = data.email
+      if (data.phone_number) userUpdatePayload.phone_number = data.phone_number
+      if (data.role_id) userUpdatePayload.role_id = data.role_id
+      if (data.last_modified_by) userUpdatePayload.last_modified_by = data.last_modified_by
+
+      if (Object.keys(userUpdatePayload).length > 0) {
+        await this.userService.update(userId, userUpdatePayload)
+      }
+
+      // Met à jour la réservation
+      const updatedReservation = await this.reservationService.update(reservationId, {
+        service_id: data.service_id,
+        reservation_type: data.reservation_type,
+        status: data.status,
+        total_price: data.total_price,
+        total_person: data.total_person,
+        arrived_date: data.arrived_date,
+        depart_date: data.depart_date,
+        reservation_product: data.reservation_product,
+        reservation_time: data.reservation_time,
+        comment: data.comment,
+        last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
+        payment: data.payment
+      })
+
+      return response.ok({
+        message: 'Reservation and user updated successfully',
+        reservation: updatedReservation
+      })
+    } catch (error) {
+      return response.status(500).send({
+        message: 'Error while updating reservation or user',
+        error: error.message,
+      })
+    }
+  }
+
 }
 
 
