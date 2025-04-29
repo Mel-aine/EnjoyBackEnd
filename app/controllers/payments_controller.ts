@@ -4,6 +4,7 @@ import Reservation from '#models/reservation';
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 
+
 const paymentService = new CrudService(Payment)
 
 export default class PaymentsController extends CrudController<typeof Payment> {
@@ -22,7 +23,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
         amount_paid: data.amount_paid,
         payment_method: data.payment_method,
         date: data.date,
-        status: 'succeeded',
+        status: data.status,
         transaction_id: data.transaction_id,
         created_by: data.created_by,
         last_modified_by: data.last_modified_by,
@@ -33,7 +34,12 @@ export default class PaymentsController extends CrudController<typeof Payment> {
 
       const reservation = await Reservation.find(data.reservation_id)
       if (reservation) {
-        reservation.payment = 'paid'
+        if(paymentData.status == 'pending'){
+          reservation.payment = 'pending'
+        }else{
+          reservation.payment = 'paid'
+        }
+        // reservation.payment = 'paid'
         reservation.status = 'confirmed'
         await reservation.save()
       } else {
