@@ -24,6 +24,10 @@ import InvoicesController from '#controllers/invoices_controller'
 import CommentsController from '#controllers/comments_controller'
 import CategoriesController from '#controllers/categories_controller'
 import TypeProductsController from '#controllers/type_products_controller'
+import StockCategoriesController from '#controllers/stock_categories_controller'
+import SuppliersController from '#controllers/suppliers_controller'
+import ProductServicesController from '#controllers/product_services_controller'
+import  MouvementsController from '#controllers/mouvements_controller'
 const AuthController = () => import('#controllers/auth_controller')
 
 
@@ -42,6 +46,10 @@ const invoicesController = new InvoicesController()
 const commentsController = new CommentsController()
 const categoriesController = new CategoriesController()
 const typeProductsController = new TypeProductsController()
+const stockCategoriesController = new StockCategoriesController()
+const suppliersController = new SuppliersController()
+const productServicesController  = new ProductServicesController()
+const mouvementsController = new MouvementsController()
 
 
 
@@ -76,6 +84,46 @@ router
 
   })
 
+
+  router
+  .group(() => {
+    router.get('/stockCategory', stockCategoriesController.list.bind(stockCategoriesController))
+    router.get('/stockCategory/:serviceId',stockCategoriesController.showReservationByServiceId.bind(stockCategoriesController))
+    router.post('/stockCategory', stockCategoriesController.store.bind(stockCategoriesController))
+    router.put('/stockCategory/:id', stockCategoriesController.update.bind(stockCategoriesController))
+    router.delete('/stockCategory/:id', stockCategoriesController.destroy.bind(stockCategoriesController))
+
+  })
+
+  router
+  .group(() => {
+    router.get('/supplier', suppliersController.list.bind(suppliersController))
+    router.get('/supplier/:serviceId',suppliersController.showReservationByServiceId.bind(suppliersController))
+    router.post('/supplier', suppliersController.store.bind(suppliersController))
+    router.put('/supplier/:id', suppliersController.update.bind(suppliersController))
+    router.delete('/supplier/:id', suppliersController.destroy.bind(suppliersController))
+
+  })
+
+  router
+  .group(() => {
+    router.get('/prooductService', productServicesController.list.bind(productServicesController))
+    router.get('/prooductService/:serviceId',productServicesController.showReservationByServiceId.bind(productServicesController))
+    router.post('/prooductService', productServicesController.store.bind(productServicesController))
+    router.put('/prooductService/:id', productServicesController.update.bind(productServicesController))
+    router.delete('/prooductService/:id',productServicesController.destroy.bind(productServicesController))
+
+  })
+
+  router
+  .group(() => {
+    router.get('/movement', mouvementsController.list.bind(mouvementsController))
+    router.get('/movement/:serviceId',mouvementsController.showReservationByServiceId.bind(mouvementsController))
+    router.post('/movement', mouvementsController.store.bind(mouvementsController))
+    router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
+    router.delete('/movement/:id',mouvementsController.destroy.bind(mouvementsController))
+
+  })
 
   router
   .group(() => {
