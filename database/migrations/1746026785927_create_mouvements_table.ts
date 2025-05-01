@@ -12,6 +12,7 @@ export default class extends BaseSchema {
       table.string('destination').notNullable()
       table.string('user').notNullable()
       table.text('notes').nullable()
+      table.date('date').nullable()
 
       table
         .integer('service_id')

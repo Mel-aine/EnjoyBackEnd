@@ -11,6 +11,9 @@ export default class Mouvement extends BaseModel {
   @column()
  declare product_id: number
 
+ @column.date()
+  declare date: DateTime
+
   @column()
  declare type: string
 
