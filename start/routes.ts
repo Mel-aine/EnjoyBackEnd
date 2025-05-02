@@ -28,6 +28,7 @@ import StockCategoriesController from '#controllers/stock_categories_controller'
 import SuppliersController from '#controllers/suppliers_controller'
 import ProductServicesController from '#controllers/product_services_controller'
 import  MouvementsController from '#controllers/mouvements_controller'
+import  DepartmentsController from '#controllers/departments_controller'
 const AuthController = () => import('#controllers/auth_controller')
 
 
@@ -50,6 +51,7 @@ const stockCategoriesController = new StockCategoriesController()
 const suppliersController = new SuppliersController()
 const productServicesController  = new ProductServicesController()
 const mouvementsController = new MouvementsController()
+const departmentsController = new DepartmentsController()
 
 
 
@@ -114,6 +116,17 @@ router
     router.delete('/prooductService/:id',productServicesController.destroy.bind(productServicesController))
 
   })
+
+  router
+  .group(() => {
+    router.get('/department', departmentsController.list.bind(departmentsController))
+    router.get('/department/:serviceId',departmentsController.showReservationByServiceId.bind(departmentsController))
+    router.post('/department', departmentsController.store.bind(departmentsController))
+    router.put('/department/:id', departmentsController.update.bind(departmentsController))
+    router.delete('/department/:id',departmentsController.destroy.bind(departmentsController))
+
+  })
+
 
   router
   .group(() => {

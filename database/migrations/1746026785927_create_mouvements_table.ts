@@ -20,7 +20,7 @@ export default class extends BaseSchema {
         .references('id')
         .inTable('services')
         .onDelete('CASCADE')
-        table
+      table
         .integer('product_id')
         .unsigned()
         .references('id')
