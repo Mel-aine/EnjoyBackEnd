@@ -29,6 +29,9 @@ import SuppliersController from '#controllers/suppliers_controller'
 import ProductServicesController from '#controllers/product_services_controller'
 import  MouvementsController from '#controllers/mouvements_controller'
 import  DepartmentsController from '#controllers/departments_controller'
+import ExpensesController from '#controllers/expenses_controller'
+
+
 const AuthController = () => import('#controllers/auth_controller')
 
 
@@ -52,6 +55,7 @@ const suppliersController = new SuppliersController()
 const productServicesController  = new ProductServicesController()
 const mouvementsController = new MouvementsController()
 const departmentsController = new DepartmentsController()
+const expensesController = new ExpensesController()
 
 
 
@@ -116,6 +120,16 @@ router
     router.delete('/prooductService/:id',productServicesController.destroy.bind(productServicesController))
 
   })
+
+  router
+  .group(() => {
+    router.get('/expenses', expensesController.list.bind(expensesController))
+    router.get('/expenses/:serviceId', expensesController.showReservationByServiceId.bind(expensesController))
+    router.post('/expenses', expensesController.store.bind(expensesController))
+    router.put('/expenses/:id', expensesController.update.bind(expensesController))
+    router.delete('/expenses/:id', expensesController.destroy.bind(expensesController))
+  })
+
 
   router
   .group(() => {

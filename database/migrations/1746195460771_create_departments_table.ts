@@ -8,6 +8,15 @@ export default class extends BaseSchema {
       table.increments('id')
       table.string('name').notNullable()
       table.string('description').nullable()
+      table.string('responsible').nullable()
+      table.string('status').nullable()
+      table.string('number_employees').nullable()
+      table
+      .integer('service_id')
+      .unsigned()
+      .references('id')
+      .inTable('services')
+      .onDelete('CASCADE')
       table
       .integer('product_id')
       .unsigned()
