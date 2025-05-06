@@ -51,46 +51,151 @@ export default class AuthController {
   }
 
   // Mettre à jour le profil utilisateur
-  async update_user({ auth, request }: HttpContext) {
-    const user = await auth.authenticate()
-    const payload = request.body()
+  // async update_user({ auth, request }: HttpContext) {
+  //   const user = await auth.authenticate()
+  //   const payload = request.body()
 
-    const validator = vine.compile(
-      vine.object({
-        password: vine.string().minLength(8).maxLength(32).confirmed().optional(),
-        name: vine.string().optional(),
-        email: vine.string().email().unique({ table: 'users', column: 'email' }).optional()
+  //   const validator = vine.compile(
+  //     vine.object({
+  //       password: vine.string().minLength(8).maxLength(32).confirmed().optional(),
+  //       name: vine.string().optional(),
+  //       email: vine
+  //         .string()
+  //         .email()
+  //         .optional()
 
+  //     })
+  //   )
+
+  //   try {
+  //     const output = await validator.validate(payload)
+
+  //     if (output.password) {
+  //       output.password = await hash.make(output.password)
+  //     }
+
+  //     await user.merge(output).save()
+  //     this.response('User updated successfully', user)
+  //   } catch (error) {
+  //     return this.responseError('Validation failed', 422, error.messages)
+  //   }
+  // }
+
+  public async update_user({ auth, request, response }: HttpContext) {
+    try {
+      const user = await auth.authenticate()
+
+      const userId = Number(request.param('id'))
+      if (user.id !== userId) {
+        return response.status(403).send({ message: 'You do not have permission to update this user.' })
+      }
+
+      const userToUpdate = await User.findOrFail(userId)
+      const payload = request.body()
+
+      console.log('Reçu du frontend :', payload)
+
+      const validator = vine.compile(
+        vine.object({
+          name: vine.string().optional(),
+          email: vine.string().email().optional(),
+          password: vine.string().minLength(8).maxLength(32).confirmed().optional()
+        })
+      )
+
+      const output = await validator.validate(payload)
+      console.log('Après validation VINE :', output)
+
+      if (output.email && output.email !== userToUpdate.email) {
+        const existing = await User.findBy('email', output.email)
+        if (existing) {
+          return response.status(409).send({ message: 'Email already in use.' })
+        }
+        userToUpdate.email = output.email
+      }
+
+      if (output.password) {
+        userToUpdate.password = await hash.make(output.password)
+        console.log('Mot de passe haché et prêt à être sauvegardé.')
+      }
+
+      await userToUpdate.save()
+      console.log('Utilisateur mis à jour dans la base de données.')
+
+      return response.status(200).send({
+        message: 'User updated successfully',
+        data: userToUpdate
       })
-    )
 
-    const output = await validator.validate(payload)
-    // const photo = request.file('photo', {
-    //   size: '2mb',
-    //   extnames: ['jpg', 'png', 'jpeg'],
-    // })
-
-    // // Téléchargement de la photo si fournie
-    // if (photo) {
-    //   if (!photo.isValid) return this.responseError('Validation error', 422, photo.errors)
-
-    //   // Suppression de l'ancienne photo
-    //   if (user.photo) {
-    //     fs.unlink(app.makePath(`uploads/user-photo/${user.photo}`), (err) => {
-    //       if (err) console.error('Error removing file:', err)
-    //     })
-    //   }
-
-    //   // Déplacement de la nouvelle photo
-    //   await photo.move(app.makePath('uploads/user-photo'), {
-    //     name: `${cuid()}.${photo.extname}`,
-    //   })
-    //   output.photo = photo.fileName!
-    // }
-
-    await user?.merge(output).save()
-    this.response('User updated successfully', user)
+    } catch (error) {
+      console.error(error)
+      return response.status(422).send({
+        message: 'Validation failed',
+        errors: error.messages || error.message
+      })
+    }
   }
+
+
+
+// async update_user({ auth, request }: HttpContext) {
+//   const user = await auth.authenticate()
+//   const payload = request.body()
+
+//   const validator = vine.compile(
+//     vine.object({
+//       password: vine.string().minLength(8).maxLength(32).confirmed().optional(),
+//       name: vine.string().optional(),
+//       email: vine
+//         .string()
+//         .email()
+//         .optional()
+//         .unique({ table: 'users', column: 'email', whereNot: { id: user.id } }),
+//     })
+//   )
+
+//   try {
+//     const output = await validator.validate(payload)
+
+//     if (output.password) {
+//       output.password = await hash(output.password)
+//     }
+
+//     const photo = request.file('photo', {
+//       size: '2mb',
+//       extnames: ['jpg', 'png', 'jpeg'],
+//     })
+
+//     if (photo) {
+//       if (!photo.isValid) {
+//         return this.responseError('Invalid photo', 422, photo.errors)
+//       }
+
+//       // Supprimer l'ancienne photo
+//       if (user.photo) {
+//         const oldPhotoPath = app.makePath(`uploads/user-photo/${user.photo}`)
+//         fs.existsSync(oldPhotoPath) &&
+//           fs.unlink(oldPhotoPath, (err) => {
+//             if (err) console.error('Error removing old photo:', err)
+//           })
+//       }
+
+//       // Enregistrer la nouvelle photo
+//       await photo.move(app.makePath('uploads/user-photo'), {
+//         name: `${cuid()}.${photo.extname}`,
+//       })
+
+//       output.photo = photo.fileName!
+//     }
+
+//     await user.merge(output).save()
+
+//     return this.response('User updated successfully', user)
+//   } catch (error) {
+//     return this.responseError('Validation failed', 422, error.messages || error.message)
+//   }
+// }
+
 
   // Rafraîchir le token
   async refresh_token({ auth }: HttpContext) {

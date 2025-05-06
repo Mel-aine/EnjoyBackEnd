@@ -61,6 +61,7 @@ const expensesController = new ExpensesController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.get('api/auth', [AuthController, 'user'])
+router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
 router.get('/', async () => {
