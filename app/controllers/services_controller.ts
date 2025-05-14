@@ -42,7 +42,7 @@ export default class ServicesController extends CrudController<typeof Service> {
         category_id: data.category_id,
         address: data.address,
         phone_number: data.phone_number,
-        email: data.email,
+        email_service: data.email_service,
         website: data.website,
         openings: data.openings,
         price_range: data.price_range,

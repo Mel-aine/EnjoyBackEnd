@@ -4,6 +4,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import StockCategory from '#models/stock_category'
+import Category from '#models/category'
 import Supplier from '#models/supplier'
 
 export default class ProductService  extends BaseModel {
@@ -25,6 +26,11 @@ export default class ProductService  extends BaseModel {
   @column()
   declare stock_category_id: number
 
+  @column()
+  declare category_id: number
+
+  @column()
+  declare description: string
 
   @column()
   declare price: number
@@ -43,6 +49,9 @@ export default class ProductService  extends BaseModel {
 
   @belongsTo(() => StockCategory)
   declare category: BelongsTo<typeof StockCategory>
+
+  @belongsTo(() => Category)
+  declare Category: BelongsTo<typeof Category>
 
   @belongsTo(() => Supplier)
   declare supplier: BelongsTo<typeof Supplier>

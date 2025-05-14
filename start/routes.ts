@@ -60,6 +60,7 @@ const expensesController = new ExpensesController()
 
 
 router.post('api/auth', [AuthController, 'login'])
+router.post('api/authLogin', [AuthController, 'signin'])
 router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
@@ -226,6 +227,7 @@ router
   .group(() => {
     router.get('/payment', paymentsController.list.bind(paymentsController))
     router.get('/payment/:id', paymentsController.show.bind(paymentsController))
+    router.get('/payments/:serviceId', paymentsController.showReservationByServiceId.bind(paymentsController))
     router.post('/payment', paymentsController.store.bind(paymentsController))
     router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
     router.put('/payment/:id', paymentsController.update.bind(paymentsController))

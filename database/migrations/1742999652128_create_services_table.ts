@@ -11,7 +11,7 @@ export default class extends BaseSchema {
       table.integer('category_id').unsigned().references('id').inTable('categories').onDelete('CASCADE')
       table.string('address', 255)
       table.string('phone_number', 20)
-      table.string('email', 255)
+      table.string('email_service', 255)
       table.string('website', 255)
       table.text('openings')
       table.string('price_range', 50)

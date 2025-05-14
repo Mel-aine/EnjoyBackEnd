@@ -18,7 +18,7 @@ export default class Service extends BaseModel {
   declare category_id: number
 
   @belongsTo(() => Category, {
-    foreignKey: 'id'
+    foreignKey: 'category_id'
   })
   declare category: BelongsTo<typeof Category>
 
@@ -29,7 +29,7 @@ export default class Service extends BaseModel {
   declare phone_number: string
 
   @column()
-  declare email: string
+  declare email_service: string
 
   @column()
   declare website: string

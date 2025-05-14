@@ -8,6 +8,7 @@ export default class extends BaseSchema {
       table.increments('id')
       table.string('code').notNullable()
       table.string('name').notNullable()
+      table.text('description').nullable()
       table.integer('quantity').notNullable().defaultTo(0)
       table.decimal('price', 10, 2).notNullable().defaultTo(0.00)
 
@@ -16,6 +17,14 @@ export default class extends BaseSchema {
         .unsigned()
         .references('id')
         .inTable('services')
+        .onDelete('SET NULL')
+        .nullable()
+
+        table
+        .integer('category_id')
+        .unsigned()
+        .references('id')
+        .inTable('category')
         .onDelete('SET NULL')
         .nullable()
 
