@@ -118,6 +118,12 @@ export default class CrudService<T extends typeof BaseModel> {
     return this.model.find(id)
   }
 
+
+
+  public async findOne(conditions: Partial<InstanceType<T>>): Promise<InstanceType<T> | null> {
+    return this.model.query().where(conditions).first()
+  }
+
   async updateByServiceProductId(service_product_id:number, optionsPayload:any) {
     for (const option of optionsPayload) {
       const existing = await this.model
