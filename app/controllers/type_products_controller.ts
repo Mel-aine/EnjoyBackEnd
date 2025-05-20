@@ -1,4 +1,4 @@
-import TypeProduct from '#models/type_product'
+import TypeProduct from '#models/product_type'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 

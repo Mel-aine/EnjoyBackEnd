@@ -6,8 +6,9 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
-      table.string('role_name',255)
-      table.text('description', 'longtext')
+      table.string('role_name', 255).notNullable()
+      table.text('description', 'longtext').nullable()
+      table.json('permissions').nullable()
       table.integer('created_by').unsigned().nullable()
       table.integer('last_modified_by').unsigned().nullable()
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())

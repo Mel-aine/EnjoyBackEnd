@@ -1,5 +1,3 @@
-
-
 import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import User from '#models/user'
@@ -36,21 +34,53 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
 
       // Créer la réservation associée à l'utilisateur
+      // const reservation = await this.reservationService.create({
+      //   user_id: user.id,
+      //   service_id: data.service_id,
+      //   reservation_type: data.reservation_type,
+      //   reservation_number: data.reservation_number || null,
+      //   status: data.status || 'pending',
+      //   total_amount: data.total_amount,
+      //   guest_count: data.guest_count,
+      //   number_of_seats: data.number_of_seats || null,
+      //   special_requests: data.special_requests || null,
+      //   cancellation_reason: data.cancellation_reason || null,
+      //   arrived_date: data.arrived_date,
+      //   depart_date: data.depart_date,
+      //   reservation_product: data.reservation_product,
+      //   reservation_time: data.reservation_time,
+      //   comment: data.comment,
+      //   created_by: user.id,
+      //   last_modified_by: user.id,
+      //   payment: data.payment,
+      //   payment_status: data.payment_status,
+      // })
+      // Ajoute ces champs à ton payload de création
       const reservation = await this.reservationService.create({
         user_id: user.id,
         service_id: data.service_id,
         reservation_type: data.reservation_type,
+        reservation_number: data.reservation_number || null,
         status: data.status || 'pending',
-        total_price: data.total_price,
-        total_person: data.total_person,
+        total_amount: data.total_amount,
+        guest_count: data.guest_count,
+        number_of_seats: data.number_of_seats || null,
+        special_requests: data.special_requests || null,
+        cancellation_reason: data.cancellation_reason || null,
         arrived_date: data.arrived_date,
         depart_date: data.depart_date,
-        reservation_product : data.reservation_product,
+        reservation_product: data.reservation_product,
         reservation_time: data.reservation_time,
         comment: data.comment,
         created_by: user.id,
         last_modified_by: user.id,
-        payment:data.payment
+        payment_status: data.payment_status,
+
+        // Nouveaux champs du modèle
+        discount_amount: data.discount_amount || 0,
+        tax_amount: data.tax_amount || 0,
+        final_amount: data.final_amount || data.total_amount,
+        paid_amount: data.paid_amount || 0,
       })
 
       return response.created({ user, reservation })
@@ -89,24 +119,43 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Met à jour la réservation
+      // const updatedReservation = await this.reservationService.update(reservationId, {
+      //   service_id: data.service_id,
+      //   reservation_type: data.reservation_type,
+      //   status: data.status,
+      //   total_amount: data.total_amount,
+      //   total_person: data.total_person,
+      //   arrived_date: data.arrived_date,
+      //   depart_date: data.depart_date,
+      //   reservation_product: data.reservation_product,
+      //   reservation_time: data.reservation_time,
+      //   comment: data.comment,
+      //   last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
+      //   payment: data.payment,
+      // })
       const updatedReservation = await this.reservationService.update(reservationId, {
         service_id: data.service_id,
         reservation_type: data.reservation_type,
         status: data.status,
-        total_price: data.total_price,
-        total_person: data.total_person,
+        total_amount: data.total_amount,
+        guest_count: data.guest_count,
+        number_of_seats: data.number_of_seats,
         arrived_date: data.arrived_date,
         depart_date: data.depart_date,
         reservation_product: data.reservation_product,
         reservation_time: data.reservation_time,
         comment: data.comment,
         last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
-        payment: data.payment
+        payment_status: data.payment_status,
+        discount_amount: data.discount_amount,
+        tax_amount: data.tax_amount,
+        final_amount: data.final_amount,
+        paid_amount: data.paid_amount,
       })
 
       return response.ok({
         message: 'Reservation and user updated successfully',
-        reservation: updatedReservation
+        reservation: updatedReservation,
       })
     } catch (error) {
       return response.status(500).send({
@@ -115,9 +164,4 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
-
 }
-
-
-
-

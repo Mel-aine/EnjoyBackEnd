@@ -36,7 +36,7 @@ export default class Invoice extends BaseModel {
   declare updatedAt: DateTime
 
   // Relations
-  @belongsTo(() => Payment, { foreignKey: 'id' })
+  @belongsTo(() => Payment, { foreignKey: 'payment_id' })
   declare payment: BelongsTo<typeof Payment>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })

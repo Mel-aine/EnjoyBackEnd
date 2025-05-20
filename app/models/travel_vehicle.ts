@@ -1,61 +1,49 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import Service from '#models/service'
-import Department from '#models/department'
 import User from '#models/user'
+import Service from '#models/service'
+import ServiceProduct from '#models/service_product'
 
-export default class Expense extends BaseModel {
+export default class TravelVehicle extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
   @column()
-  declare department_id: number | null
+  declare service_id: number
 
   @column()
-  declare supplier_id: number | null
+  declare service_product_id?: number
 
   @column()
-  declare expense_category_id: number
+  declare vehicle_type: 'bus' | 'minibus' | 'car' | 'van' | 'motorcycle' | 'other'
 
   @column()
-  declare invoice_number: string | null
+  declare brand: string | null
 
   @column()
-  declare description: string
+  declare model: string | null
 
   @column()
-  declare amount_before_tax: number
+  declare year: number | null
 
   @column()
-  declare tax_rate: number
+  declare registration_number: string
 
   @column()
-  declare tax_amount: number | null
+  declare capacity: number
 
   @column()
-  declare total_amount: number | null
+  declare features: string[] | null
+
+  @column.date()
+  declare last_maintenance_date: DateTime | null
+
+  @column.date()
+  declare next_maintenance_date: DateTime | null
 
   @column()
-  declare expense_date: Date
-
-  @column()
-  declare due_date: Date | null
-
-  @column()
-  declare payment_date: Date | null
-
-  @column()
-  declare payment_method: string
-
-  @column()
-  declare payment_reference: string | null
-
-  @column()
-  declare receipt_image: string | null
-
-  @column()
-  declare status: 'pending' | 'paid' | 'cancelled' | 'disputed'
+  declare status: 'available' | 'in_use' | 'maintenance' | 'out_of_order'
 
   @column()
   declare notes: string | null
@@ -66,14 +54,11 @@ export default class Expense extends BaseModel {
   @column()
   declare last_modified_by: number | null
 
-  @column()
-  declare service_id: number
+  @belongsTo(() => ServiceProduct, { foreignKey: 'service_product_id' })
+  declare serviceProduct: BelongsTo<typeof ServiceProduct>
 
   @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
-
-  @belongsTo(() => Department, { foreignKey: 'department_id' })
-  declare department: BelongsTo<typeof Department>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>

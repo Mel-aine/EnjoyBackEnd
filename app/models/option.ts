@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column ,belongsTo} from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import typeProduct from '#models/type_product'
+import ProductType from '#models/product_type'
+import Category from '#models/category'
 
 export default class Option extends BaseModel {
   @column({ isPrimary: true })
@@ -10,6 +11,12 @@ export default class Option extends BaseModel {
 
   @column()
   declare option_name: string
+
+  @column()
+  declare product_type_id?: number
+
+  @column()
+  declare category_id?: number
 
   @column()
   declare description: string
@@ -46,7 +53,6 @@ export default class Option extends BaseModel {
   })
   declare values: string[]
 
-
   @column()
   declare created_by: number | null
 
@@ -59,9 +65,12 @@ export default class Option extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
-  @belongsTo(() => typeProduct,{foreignKey:'id'})
-  declare typeProduct: BelongsTo<typeof typeProduct>
-  // Relations
+  @belongsTo(() => ProductType, { foreignKey: 'product_type_id' })
+  declare typeProduct: BelongsTo<typeof ProductType>
+
+  @belongsTo(() => Category, { foreignKey: 'category_id' })
+  declare category: BelongsTo<typeof Category>
+ 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 

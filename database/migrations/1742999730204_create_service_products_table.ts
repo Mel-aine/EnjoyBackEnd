@@ -17,8 +17,8 @@ export default class extends BaseSchema {
       table.string('status', 20).defaultTo('active')
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
-      table.timestamp('created_at').defaultTo(this.now())
-      table.timestamp('updated_at').defaultTo(this.now())
+      table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
+      table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
     })
   }
 

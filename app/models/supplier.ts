@@ -1,12 +1,9 @@
-
-// app/Models/Supplier.ts
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 
 export default class Supplier extends BaseModel {
-
   @column({ isPrimary: true })
   declare id: number
 
@@ -14,18 +11,39 @@ export default class Supplier extends BaseModel {
   declare name: string
 
   @column()
-  declare email?: string
+  declare service_id: number
 
   @column()
-  declare phone?: string
+  declare email: string
 
   @column()
-  declare address?: string
+  declare phone: string
+
+  // @column()
+  // declare website: string | null
 
   @column()
-  declare serviceId?: number
+  declare address: string | null
 
-  @belongsTo(() => Service)
+  // @column()
+  // declare category?: string
+
+  // @column()
+  // declare description: string | null
+
+  // // Statut actif/inactif
+  // @column()
+  // declare status?: 'active' | 'inactive'
+
+  // // Horaires d’ouverture éventuels (si applicable)
+  // @column()
+  // declare openings: string | null // JSON stringifié
+
+  // // Méthodes de paiement acceptées (Mobile Money, Carte, etc.)
+  // @column()
+  // declare paymentMethods: string | null // JSON stringifié
+
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
 
   @column.dateTime({ autoCreate: true })

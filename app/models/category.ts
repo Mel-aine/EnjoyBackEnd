@@ -19,7 +19,7 @@ export default class Category extends BaseModel {
   declare parent_category_id: number
 
   @column()
-  declare status: 'active' | 'inactive'
+  declare status: 'active' | 'inactive' | 'archived'
 
   @column()
   declare created_by: number | null
@@ -27,15 +27,15 @@ export default class Category extends BaseModel {
   @column()
   declare last_modified_by: number | null
 
-  @belongsTo(() => Category, {
-    foreignKey: 'parent_category_id'
-  })
-  declare parentCategory: BelongsTo<typeof Category>
+  // @belongsTo(() => Category, {
+  //   foreignKey: 'parent_category_id'
+  // })
+  // declare parentCategory: BelongsTo<typeof Category>
 
-  @hasMany(() => Category, {
-    foreignKey: 'parent_category_id'
-  })
-  declare subCategories: HasMany<typeof Category>
+  // @hasMany(() => Category, {
+  //   foreignKey: 'parent_category_id'
+  // })
+  // declare subCategories: HasMany<typeof Category>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>

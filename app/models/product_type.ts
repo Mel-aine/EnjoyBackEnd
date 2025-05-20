@@ -4,7 +4,7 @@ import type { HasMany,BelongsTo } from '@adonisjs/lucid/types/relations'
 import Option from '#models/option'
 import Services from '#models/service'
 
-export default class TypeProduct extends BaseModel {
+export default class ProductType extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
   @column()
@@ -13,13 +13,13 @@ export default class TypeProduct extends BaseModel {
   @column()
   declare description: string
 
-  @column()
-  declare status: string
+   @column()
+  declare status: 'active' | 'inactive' | 'suspended'
 
   @column()
   declare service_id: number
 
-  @hasMany(() => Option,{foreignKey: 'id'})
+  @hasMany(() => Option,{foreignKey: 'product_type_id'})
   declare options: HasMany <typeof Option>
 
   @belongsTo(() => Services, { foreignKey: 'service_id' })

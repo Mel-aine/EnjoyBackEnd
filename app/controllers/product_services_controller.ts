@@ -1,6 +1,6 @@
 
 
-import ProductService from '#models/product_service';
+import ProductService from '#models/products';
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 

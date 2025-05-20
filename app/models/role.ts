@@ -11,7 +11,10 @@ export default class Role extends BaseModel {
   declare role_name: string
 
   @column()
-  declare description: string
+  declare description: string | null
+
+  @column()
+  declare permissions: Record<string, any> | null
 
   @column()
   declare created_by: number | null
@@ -33,4 +36,14 @@ export default class Role extends BaseModel {
 
   @hasMany(() => User, { foreignKey: 'role_id' })
   declare users: HasMany<typeof User>
+
+  /**
+   * Vérifie si le rôle a une permission donnée
+   */
+  // public hasPermission(permissionKey: string): boolean {
+  //   if (!this.permissions) {
+  //     return false
+  //   }
+  //   return !!this.permissions[permissionKey]
+  // }
 }

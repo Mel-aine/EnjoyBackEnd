@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column ,belongsTo} from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Reservation from '#models/reservation'
@@ -29,8 +29,14 @@ export default class Payment extends BaseModel {
   @column()
   declare transaction_id: string
 
+  @column()
+  declare notes: string | null
+
+  @column()
+  declare payment_details: any | null
+
   @column.dateTime()
-  declare date: DateTime
+  declare payment_date: DateTime
 
   @column()
   declare created_by: number | null
@@ -45,17 +51,20 @@ export default class Payment extends BaseModel {
   declare updatedAt: DateTime
 
   // Relations
-  @belongsTo(() => User, { foreignKey: 'id' })
+  @belongsTo(() => User, { foreignKey: 'user_id' })
   declare user: BelongsTo<typeof User>
 
-  @belongsTo(() => Reservation, { foreignKey: 'id' })
+  @belongsTo(() => Reservation, { foreignKey: 'reservation_id' })
   declare reservation: BelongsTo<typeof Reservation>
 
-  @belongsTo(() => Order, { foreignKey: 'id' })
+  @belongsTo(() => Order, { foreignKey: 'order_id' })
   declare order: BelongsTo<typeof Order>
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'created_by' })
+  declare creator: BelongsTo<typeof User>
 
 
 }

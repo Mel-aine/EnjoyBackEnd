@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column ,belongsTo} from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Service from '#models/service'
@@ -18,30 +18,62 @@ export default class Reservation extends BaseModel {
   declare reservation_type: string
 
   @column()
-  declare status:string
+  declare reservation_number: string | null
 
   @column()
-  declare total_price: number
+  declare guest_count: number | null
+
+  @column()
+  declare special_requests: string | null
+
+  // @column()
+  // declare status:string
+  @column()
+  declare status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
+
+  @column()
+  declare cancellation_reason: string | null
+  // @column()
+  // declare total_price: number
 
   @column()
   declare created_by: number | null
 
-  @column()
-  declare total_person: number
+  // @column()
+  // declare total_person: number
 
   @column()
-  declare arrived_date: Date
+  declare arrived_date?: DateTime
   @column()
-  declare depart_date: Date
+  declare depart_date?: DateTime
 
   @column()
-  declare reservation_time: string
+  declare reservation_time?: string
 
   @column()
-  declare payment: string
+  declare number_of_seats: number | null
+
 
   @column()
-  declare reservation_product: number
+  declare total_amount?: number
+
+  @column()
+  declare discount_amount?: number
+
+  @column()
+  declare tax_amount?: number
+
+  @column()
+  declare final_amount?: number
+
+  @column()
+  declare paid_amount?: number
+
+  @column()
+  declare payment_status: 'unpaid' | 'partially_paid' | 'paid' | 'refunded' | 'disputed' | 'pending'
+
+  @column()
+  declare reservation_product: string | number
 
   @column()
   declare comment?: string
@@ -56,10 +88,10 @@ export default class Reservation extends BaseModel {
   declare updatedAt: DateTime
 
   // Relations
-  @belongsTo(() => User, { foreignKey: 'id' })
+  @belongsTo(() => User, { foreignKey: 'user_id' })
   declare user: BelongsTo<typeof User>
 
-  @belongsTo(() => Service, { foreignKey: 'id' })
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })

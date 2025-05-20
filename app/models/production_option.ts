@@ -38,10 +38,10 @@ export default class ProductionOption extends BaseModel {
   declare updatedAt: DateTime
 
   // Relations
-  @belongsTo(() => ServiceProduct, { foreignKey: 'id' })
+  @belongsTo(() => ServiceProduct, { foreignKey: 'service_product_id' })
   declare serviceProduct: BelongsTo<typeof ServiceProduct>
 
-  @belongsTo(() => Option, { foreignKey: 'id' })
+  @belongsTo(() => Option, { foreignKey: 'option_id' })
   declare option: BelongsTo<typeof Option>
 
 

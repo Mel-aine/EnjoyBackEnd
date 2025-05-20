@@ -55,7 +55,7 @@ export default class ServiceProduct extends BaseModel {
 
   // Relations
 
-  @belongsTo(() => Service, { foreignKey: 'id' })
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
 
   // @belongsTo(() => TypeProduct, {

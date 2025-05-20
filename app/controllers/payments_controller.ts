@@ -19,11 +19,13 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       const paymentData = {
         user_id: data.user_id,
         reservation_id: data.reservation_id,
-        order_id: data.order_id ,
+        order_id: data.order_id,
         amount_paid: data.amount_paid,
         payment_method: data.payment_method,
-        date: data.date,
+        payment_date: data.payment_date,
+        payment_details: data.payment_details || null,
         status: data.status,
+        notes: data.notes || null,
         transaction_id: data.transaction_id,
         created_by: data.created_by,
         last_modified_by: data.last_modified_by,
@@ -34,10 +36,10 @@ export default class PaymentsController extends CrudController<typeof Payment> {
 
       const reservation = await Reservation.find(data.reservation_id)
       if (reservation) {
-        if(paymentData.status == 'pending'){
-          reservation.payment = 'pending'
-        }else{
-          reservation.payment = 'paid'
+        if (paymentData.status === 'pending') {
+          reservation.payment_status = 'pending'
+        } else {
+          reservation.payment_status = 'paid'
         }
         // reservation.payment = 'paid'
         reservation.status = 'confirmed'

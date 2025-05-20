@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column ,belongsTo} from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
-import ProductService from '#models/product_service'
+import ProductService from '#models/products'
 
 export default class Mouvement extends BaseModel {
   @column({ isPrimary: true })

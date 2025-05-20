@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column,belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo   } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
+import ServiceImage from '#models/service_image'
 import Category from '#models/category'
 
 export default class Service extends BaseModel {
@@ -12,7 +13,7 @@ export default class Service extends BaseModel {
   declare name: string
 
   @column()
-  declare description: string
+  declare description: string | null
 
   @column()
   declare category_id: number
@@ -23,46 +24,81 @@ export default class Service extends BaseModel {
   declare category: BelongsTo<typeof Category>
 
   @column()
-  declare address: string
+  declare address_service: string | null
 
   @column()
-  declare phone_number: string
+  declare phone_number_service: string | null
 
   @column()
-  declare email_service: string
+  declare email_service: string | null
 
   @column()
-  declare website: string
+  declare website: string | null
+
+  // @column()
+  // declare openings: string | null
+  // @column({
+  //   prepare: (value: any) => JSON.stringify(value),
+  //   consume: (value: string) => JSON.parse(value),
+  // })
+  // declare openings: any
 
   @column()
-  declare openings: string
+  declare price_range: '$' | '$$' | '$$$' | '$$$$'
 
   @column()
-  declare price_range: string
+  declare average_rating: number | null
 
   @column()
-  declare facilities: string
+  declare review_count: number | null
+
+  // @column()
+  // declare facilities: any
 
   @column()
-  declare policies: string
+  declare policies: string | null
 
   @column()
-  declare capacity: number
+  declare capacity: number | null
+
+  // @column()
+  // declare payment_methods: any
 
   @column()
-  declare payment_methods: string
+  declare logo: string | null
 
-  @column()
-  declare logo: string
+  // @column({
+  //   prepare: (value: string[]) => JSON.stringify(value), // Convertir en JSON avant l’insertion
+  //   consume: (value: string) => JSON.parse(value), // Convertir JSON en tableau après récupération
+  // })
+  // declare images: string[]
 
   @column({
-    prepare: (value: string[]) => JSON.stringify(value), // Convertir en JSON avant l’insertion
-    consume: (value: string) => JSON.parse(value), // Convertir JSON en tableau après récupération
+    prepare: (value) => JSON.stringify(value),
+    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   })
-  declare images: string[]
-
+  openings: Record<string, any>
+  
+  @column({
+    prepare: (value) => JSON.stringify(value),
+    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+  })
+  images: string[]
+  
+  @column({
+    prepare: (value) => JSON.stringify(value),
+    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+  })
+  facilities: string[]
+  
+  @column({
+    prepare: (value) => JSON.stringify(value),
+    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+  })
+  payment_methods: string[]
+  
   @column()
-  declare status: 'active' | 'inactive' | 'suspended'
+  declare status_service: 'active' | 'inactive' | 'suspended'
 
   @column()
   declare created_by: number | null
@@ -77,6 +113,11 @@ export default class Service extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @hasMany(() => ServiceImage, {
+    foreignKey: 'service_id',
+  })
+  declare serviceImages: HasMany<typeof ServiceImage>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

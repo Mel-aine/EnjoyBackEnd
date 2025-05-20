@@ -24,10 +24,10 @@ export default class extends BaseSchema {
         .integer('product_id')
         .unsigned()
         .references('id')
-        .inTable('product_services')
+        .inTable('products')
         .onDelete('CASCADE')
-      table.timestamp('created_at')
-      table.timestamp('updated_at')
+        table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
+        table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
     })
   }
 

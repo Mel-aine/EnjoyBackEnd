@@ -1,12 +1,13 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column,belongsTo } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasOne } from '@adonisjs/lucid/orm'
 import { AccessToken } from '@adonisjs/auth/access_tokens'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import type { BelongsTo, HasOne } from '@adonisjs/lucid/types/relations'
 import hash from '@adonisjs/core/services/hash'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import Role from '#models/role'
 import Services from '#models/service'
+
 
 const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
   uids: ['email'],
@@ -26,8 +27,20 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare email: string
 
+  // @column()
+  // declare profile_picture: string | null
+
+  @column.dateTime()
+  declare last_login: DateTime | null
+
   @column()
-  declare phone_number: string
+  declare two_factor_enabled: boolean
+
+  @column()
+  declare phone_number: string | null
+
+  @column()
+  declare address: string
 
   @column({ serializeAs: null }) // Masquer le mot de passe dans les réponses
   declare password: string
@@ -36,10 +49,9 @@ export default class User extends AuthFinder(BaseModel) {
   declare role_id: number
 
   @column()
-  declare service_id: number
-
+  declare service_id: number | null
   @column()
-  declare status: 'active' | 'inactive'
+  declare status: 'active' | 'inactive' | 'suspended'
 
   @column()
   declare created_by: number | null

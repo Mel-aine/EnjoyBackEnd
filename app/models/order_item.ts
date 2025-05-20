@@ -37,7 +37,7 @@ export default class OrderItem extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updated_at: DateTime
 
-  @belongsTo(() => Order, { foreignKey: 'id' })
+  @belongsTo(() => Order, { foreignKey: 'order_id' })
   declare order: BelongsTo<typeof Order>
 
   @belongsTo(() => ServiceProduct, { foreignKey: 'service_product_id' })
