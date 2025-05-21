@@ -77,26 +77,26 @@ export default class Service extends BaseModel {
     prepare: (value) => JSON.stringify(value),
     consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   })
-  openings: Record<string, any>
-  
+  declare openings: Record<string, any>
+
   @column({
     prepare: (value) => JSON.stringify(value),
     consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   })
-  images: string[]
-  
+  declare images: string[]
+
   @column({
     prepare: (value) => JSON.stringify(value),
     consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   })
-  facilities: string[]
-  
+  declare facilities: string[]
+
   @column({
     prepare: (value) => JSON.stringify(value),
     consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   })
-  payment_methods: string[]
-  
+  declare payment_methods: string[]
+
   @column()
   declare status_service: 'active' | 'inactive' | 'suspended'
 

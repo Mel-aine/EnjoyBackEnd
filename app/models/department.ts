@@ -34,18 +34,12 @@ export default class Department extends BaseModel {
   @column()
   public created_by?: number
 
-  @belongsTo(() => User, {
-    foreignKey: 'created_by',
-  })
-  declare creator?: BelongsTo<typeof User>
+  @belongsTo(() => User, { foreignKey: 'created_by' })
+    declare creator: BelongsTo<typeof User>
 
-  @column()
-  declare last_modified_by?: number
+    @belongsTo(() => User, { foreignKey: 'last_modified_by' })
+    declare modifier: BelongsTo<typeof User>
 
-  @belongsTo(() => User, {
-    foreignKey: 'last_modified_by',
-  })
-  declare lastModifier?: BelongsTo<typeof User>
   @hasMany(() => ProductService, { foreignKey: 'product_id' })
   declare products: HasMany<typeof ProductService>
 

@@ -5,7 +5,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import StockCategory from '#models/stock_category'
 import ProductType from '#models/product_type'
-import Department from '#models/department'
+// import Department from '#models/department'
 // import Supplier from '#models/supplier'
 
 export default class Products extends BaseModel {
