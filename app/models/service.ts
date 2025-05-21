@@ -75,15 +75,30 @@ export default class Service extends BaseModel {
 
   @column({
     prepare: (value) => JSON.stringify(value),
-    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+    consume: (value) => {
+      try {
+        if (!value) return [];
+        return typeof value === 'string' ? JSON.parse(value) : value;
+      } catch (e) {
+        console.error('Erreur parsing images:', e, value);
+        return [];
+      }
+    },
   })
-  declare openings: Record<string, any>
+  declare images: string[]
+
 
   @column({
     prepare: (value) => JSON.stringify(value),
     consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   })
-  declare images: string[]
+  declare openings: Record<string, any>
+
+  // @column({
+  //   prepare: (value) => JSON.stringify(value),
+  //   consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+  // })
+  // declare images: string[]
 
   @column({
     prepare: (value) => JSON.stringify(value),
