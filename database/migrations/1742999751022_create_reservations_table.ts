@@ -30,7 +30,7 @@ export default class extends BaseSchema {
       table.enu('payment_status', ['unpaid', 'partially_paid', 'paid', 'refunded', 'disputed','pending'])
         .defaultTo('unpaid')
       // table.integer('total_person')
-      table.integer('reservation_product').nullable()
+      // table.integer('reservation_product').nullable()
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())

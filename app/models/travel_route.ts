@@ -24,9 +24,13 @@ export default class TravelRoute extends BaseModel {
   declare distance: number | null
 
   @column()
-  declare estimated_duration: number | null
+  declare estimated_duration: string | null
 
-  @column()
+
+  @column({
+    prepare: (value) => JSON.stringify(value),
+    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+  })
   declare stops: string[] | null
 
   @column()

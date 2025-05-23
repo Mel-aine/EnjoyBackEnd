@@ -16,7 +16,7 @@ export default class TravelVehicle extends BaseModel {
   declare service_product_id?: number
 
   @column()
-  declare vehicle_type: 'bus' | 'minibus' | 'car' | 'van' | 'motorcycle' | 'other'
+  declare vehicle_type: string
 
   @column()
   declare brand: string | null

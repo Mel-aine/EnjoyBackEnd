@@ -72,8 +72,8 @@ export default class Reservation extends BaseModel {
   @column()
   declare payment_status: 'unpaid' | 'partially_paid' | 'paid' | 'refunded' | 'disputed' | 'pending'
 
-  @column()
-  declare reservation_product: string | number
+  // @column()
+  // declare reservation_product: string | number
 
   @column()
   declare comment?: string

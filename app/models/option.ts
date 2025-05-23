@@ -24,6 +24,12 @@ export default class Option extends BaseModel {
   @column()
   declare value: string
 
+  @column()
+  declare linked_entity_type: string | null
+
+  @column()
+  declare linked_entity_id: number | null
+
 
   @column()
   declare is_default: boolean
@@ -70,7 +76,7 @@ export default class Option extends BaseModel {
 
   @belongsTo(() => Category, { foreignKey: 'category_id' })
   declare category: BelongsTo<typeof Category>
- 
+
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 

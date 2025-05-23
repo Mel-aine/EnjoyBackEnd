@@ -30,6 +30,9 @@ import ProductServicesController from '#controllers/product_services_controller'
 import MouvementsController from '#controllers/mouvements_controller'
 import DepartmentsController from '#controllers/departments_controller'
 import ExpensesController from '#controllers/expenses_controller'
+import TravelVehiclesController from '#controllers/travel_vehicles_controller'
+import TravelSchedulesController from '#controllers/travel_schedules_controller'
+import TravelRoutesController from '#controllers/travel_routes_controller'
 
 const AuthController = () => import('#controllers/auth_controller')
 
@@ -54,6 +57,9 @@ const productServicesController = new ProductServicesController()
 const mouvementsController = new MouvementsController()
 const departmentsController = new DepartmentsController()
 const expensesController = new ExpensesController()
+const travelVehiclesController = new TravelVehiclesController()
+const travelSchedulesController = new TravelSchedulesController()
+const travelRoutesController = new TravelRoutesController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -357,6 +363,30 @@ router
       router.post('/category', categoriesController.store.bind(categoriesController))
       router.put('/category/:id', categoriesController.update.bind(categoriesController))
       router.delete('/category/:id', categoriesController.destroy.bind(categoriesController))
+    })
+
+    router.group(() => {
+      router.get('/vehicle', travelVehiclesController.list.bind(travelVehiclesController))
+      router.get('/vehicle/:serviceId', travelVehiclesController.showByServiceId.bind(travelVehiclesController))
+      router.post('/vehicle', travelVehiclesController.store.bind(travelVehiclesController))
+      router.put('/vehicle/:id', travelVehiclesController.update.bind(travelVehiclesController))
+      router.delete('/vehicle/:id', travelVehiclesController.destroy.bind(travelVehiclesController))
+    })
+
+    router.group(() => {
+      router.get('/schedule', travelSchedulesController.list.bind(travelSchedulesController))
+      router.get('/schedule/:id', travelSchedulesController.show.bind(travelSchedulesController))
+      router.post('/schedule', travelSchedulesController.store.bind(travelSchedulesController))
+      router.put('/schedule/:id', travelSchedulesController.update.bind(travelSchedulesController))
+      router.delete('/schedule/:id', travelSchedulesController.destroy.bind(travelSchedulesController))
+    })
+
+    router.group(() => {
+      router.get('/route', travelRoutesController.list.bind(travelRoutesController))
+      router.get('/route/:serviceId', travelRoutesController.showByServiceId.bind(travelRoutesController))
+      router.post('/route', travelRoutesController.store.bind(travelRoutesController))
+      router.put('/route/:id', travelRoutesController.update.bind(travelRoutesController))
+      router.delete('/route/:id', travelRoutesController.destroy.bind(travelRoutesController))
     })
   })
   .prefix('/api')

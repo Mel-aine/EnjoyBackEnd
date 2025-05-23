@@ -8,7 +8,7 @@ export default class extends BaseSchema {
       table.increments('id').primary()
       table.integer('service_id').unsigned().notNullable().references('id').inTable('services').onDelete('CASCADE')
       table.integer('service_product_id').unsigned().references('id').inTable('service_products').onDelete('CASCADE').nullable()
-      table.enu('vehicle_type', ['bus', 'minibus', 'car', 'van', 'motorcycle', 'other']).nullable()
+      table.string('vehicle_type').nullable()
       table.string('brand', 100).nullable()
       table.string('model', 100).nullable()
       table.integer('year').nullable()

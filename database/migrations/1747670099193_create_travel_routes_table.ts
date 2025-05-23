@@ -13,8 +13,8 @@ export default class extends BaseSchema {
       table.string('destination', 255).nullable()
 
       table.decimal('distance', 10, 2).nullable()
-      table.integer('estimated_duration').nullable() 
-      table.json('stops').nullable()
+      table.string('estimated_duration').nullable()
+      table.jsonb('stops').nullable()
       table.string('route_map', 255).nullable()
 
       table.enu('status', ['active', 'inactive', 'seasonal']).defaultTo('active')
