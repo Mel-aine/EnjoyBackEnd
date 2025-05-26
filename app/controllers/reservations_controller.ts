@@ -412,7 +412,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       console.log('Reservation status updated to checked-in')
 
       // Update service product status
-      serviceProduct.status = 'booking'
+      serviceProduct.status = 'occupied'
       await serviceProduct.save()
       console.log('Service product status updated to booking')
 
@@ -434,15 +434,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ message: 'Reservation not found' })
       }
 
-      const serviceProduct = await ServiceProduct.findBy('id', reservation.service_id)
-      if (!serviceProduct) {
-        return response.notFound({ message: 'Service product not found' })
+      const resServices = await ReservationServiceProduct.query()
+        .where('reservation_id', params.id)
+        .preload('serviceProduct')
+
+      if (resServices.length === 0) {
+        return response.notFound({ message: 'No service products linked to this reservation' })
       }
 
-      // Update statuses
-      await this.reservationService.update(reservation.id, { status: 'checked_out' })
-      serviceProduct.status = 'cleaning' // or 'available' if you prefer
-      await serviceProduct.save()
+      await this.reservationService.update(reservation.id, { status: 'checked-out' })
+
+      for (const rsp of resServices) {
+        const serviceProduct = rsp.serviceProduct
+        if (serviceProduct) {
+          serviceProduct.status = 'cleaning'
+          await serviceProduct.save()
+        }
+      }
 
       return response.ok({ message: 'Check-out successful' })
     } catch (error) {
@@ -452,4 +460,5 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
+
 }

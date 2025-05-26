@@ -40,6 +40,21 @@ export default class ServiceProductsController extends CrudController<typeof Ser
     return response.ok({ success: true, data: rooms })
   }
 
+  public async setAvailable({ params, response }: HttpContext) {
+    const serviceProduct = await ServiceProduct.find(params.id)
+
+    if (!serviceProduct) {
+      return response.notFound({ message: 'Service product not found' })
+    }
+
+    serviceProduct.status = 'available'
+    await serviceProduct.save()
+
+    return response.ok({ success: true, message: 'Room status set to available' })
+
+  }
+
+
   public async updateStatus({ params, request, response }: HttpContext) {
     const { status } = request.only(['status'])
 

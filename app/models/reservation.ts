@@ -38,7 +38,7 @@ export default class Reservation extends BaseModel {
   // @column()
   // declare status: ReservationStatus
   @column()
-  declare status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'checked_out' | 'checked_in' | 'occupied'
+  declare status: string
 
   @column()
   declare cancellation_reason: string | null

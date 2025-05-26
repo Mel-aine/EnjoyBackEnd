@@ -227,6 +227,10 @@ router
         '/service_product/:id',
         serviceProductsController.update.bind(serviceProductsController)
       )
+      router.put(
+        '/service_products/:id/set-available',
+        serviceProductsController.setAvailable.bind(serviceProductsController)
+      )
       router.delete(
         '/service_product/:id',
         serviceProductsController.destroy.bind(serviceProductsController)

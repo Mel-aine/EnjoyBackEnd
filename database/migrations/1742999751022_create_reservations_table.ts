@@ -14,7 +14,7 @@ export default class extends BaseSchema {
       table.integer('number_of_seats').nullable()
       table.text('special_requests').nullable()
       table.string('payment', 50).nullable()
-      table.enu('status', ['pending', 'confirmed', 'in_progress', 'completed' , 'cancelled' ,'no_show']).defaultTo('pending')
+      table.string('status')
       table.text('comment').nullable()
       table.text('cancellation_reason').nullable()
       table.date('arrived_date').nullable()
