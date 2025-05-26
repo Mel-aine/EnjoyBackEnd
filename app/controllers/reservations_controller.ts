@@ -97,7 +97,6 @@
 //         await ReservationServiceProduct.createMany(serviceProductsToCreate)
 //       }
 
-
 //       return response.created({ user, reservation })
 //     } catch (error) {
 //       return response.status(500).send({
@@ -186,7 +185,6 @@
 //         await ReservationServiceProduct.createMany(newProducts)
 //       }
 
-
 //       return response.ok({
 //         message: 'Reservation and user updated successfully',
 //         reservation: updatedReservation,
@@ -203,6 +201,7 @@ import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import User from '#models/user'
 import Reservation from '#models/reservation'
+import ServiceProduct from '#models/service_product'
 import ReservationServiceProduct from '#models/reservation_service_product'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -325,9 +324,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Mise à jour des produits associés
       if (Array.isArray(data.products)) {
-        await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
-          .delete()
+        await ReservationServiceProduct.query().where('reservation_id', reservationId).delete()
 
         const newProducts = data.products.map((item) => ({
           reservation_id: reservationId,
@@ -348,6 +345,109 @@ export default class ReservationsController extends CrudController<typeof Reserv
     } catch (error) {
       return response.status(500).send({
         message: 'Error while updating reservation or user',
+        error: error.message,
+      })
+    }
+  }
+
+  async showByServiceProductId({ params, response }: HttpContext) {
+    try {
+      const { serviceProductId } = params
+
+      // Validation du paramètre
+      if (!serviceProductId) {
+        return response.badRequest({ message: 'serviceProductId is required' })
+      }
+
+      const serviceIdNum = parseInt(serviceProductId, 10)
+      if (isNaN(serviceIdNum)) {
+        return response.badRequest({ message: 'Invalid serviceProductId' })
+      }
+
+      // Récupération des réservations liées à un service product
+      const items = await ReservationServiceProduct.query()
+        .where('service_product_id', serviceIdNum)
+        .preload('reservation')
+        .preload('serviceProduct')
+        .preload('creator')
+        .preload('modifier')
+
+      // Si aucune réservation trouvée
+      if (items.length === 0) {
+        return response.notFound({ message: 'No reservations found for this service product' })
+      }
+
+      return response.ok(items)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({
+        message: 'Error fetching reservations for service product',
+        error: error.message,
+      })
+    }
+  }
+
+  public async checkIn({ params, response }: HttpContext) {
+    try {
+      console.log('Check-in started for reservation ID:', params.id)
+
+      const reservation = await this.reservationService.findById(params.id)
+      console.log('Reservation fetched:', reservation)
+
+      if (!reservation) {
+        console.log('Reservation not found')
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      const serviceProduct = await ServiceProduct.findBy('id', reservation.service_id)
+      console.log('Service product fetched:', serviceProduct)
+
+      if (!serviceProduct) {
+        console.log('Service product not found')
+        return response.notFound({ message: 'Service product not found' })
+      }
+
+      // Update reservation status
+      await this.reservationService.update(reservation.id, { status: 'checked-in' })
+      console.log('Reservation status updated to checked-in')
+
+      // Update service product status
+      serviceProduct.status = 'booking'
+      await serviceProduct.save()
+      console.log('Service product status updated to booking')
+
+      console.log('Check-in completed successfully')
+      return response.ok({ message: 'Check-in successful' })
+    } catch (error) {
+      console.error('Error during check-in:', error)
+      return response.status(500).send({
+        message: 'Error during check-in',
+        error: error.message,
+      })
+    }
+  }
+
+  public async checkOut({ params, response }: HttpContext) {
+    try {
+      const reservation = await this.reservationService.findById(params.id)
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      const serviceProduct = await ServiceProduct.findBy('id', reservation.service_id)
+      if (!serviceProduct) {
+        return response.notFound({ message: 'Service product not found' })
+      }
+
+      // Update statuses
+      await this.reservationService.update(reservation.id, { status: 'checked_out' })
+      serviceProduct.status = 'cleaning' // or 'available' if you prefer
+      await serviceProduct.save()
+
+      return response.ok({ message: 'Check-out successful' })
+    } catch (error) {
+      return response.status(500).send({
+        message: 'Error during check-out',
         error: error.message,
       })
     }

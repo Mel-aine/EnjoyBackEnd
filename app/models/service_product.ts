@@ -35,7 +35,7 @@ export default class ServiceProduct extends BaseModel {
   declare payment_type: string
 
   @column()
-  declare status: 'active' | 'inactive' | 'suspended' // "active", "inactive", "suspended"
+  declare status: string
   @hasMany(() => ProductOption, {
     foreignKey: 'service_product_id',
   })

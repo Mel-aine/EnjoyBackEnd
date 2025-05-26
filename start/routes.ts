@@ -247,6 +247,18 @@ router
         '/reservations/:id',
         reservationsController.destroy.bind(reservationsController)
       )
+      router.patch(
+        '/reservations/:id/check-in',
+        reservationsController.checkIn.bind(reservationsController)
+      )
+      router.patch(
+        '/reservations/:id/check-out',
+        reservationsController.checkOut.bind(reservationsController)
+      )
+      router.get(
+        '/reservations/service-product/:serviceProductId',
+        reservationsController.showByServiceProductId.bind(reservationsController)
+      )
     })
 
     router.group(() => {
@@ -367,7 +379,10 @@ router
 
     router.group(() => {
       router.get('/vehicle', travelVehiclesController.list.bind(travelVehiclesController))
-      router.get('/vehicle/:serviceId', travelVehiclesController.showByServiceId.bind(travelVehiclesController))
+      router.get(
+        '/vehicle/:serviceId',
+        travelVehiclesController.showByServiceId.bind(travelVehiclesController)
+      )
       router.post('/vehicle', travelVehiclesController.store.bind(travelVehiclesController))
       router.put('/vehicle/:id', travelVehiclesController.update.bind(travelVehiclesController))
       router.delete('/vehicle/:id', travelVehiclesController.destroy.bind(travelVehiclesController))
@@ -378,12 +393,18 @@ router
       router.get('/schedule/:id', travelSchedulesController.show.bind(travelSchedulesController))
       router.post('/schedule', travelSchedulesController.store.bind(travelSchedulesController))
       router.put('/schedule/:id', travelSchedulesController.update.bind(travelSchedulesController))
-      router.delete('/schedule/:id', travelSchedulesController.destroy.bind(travelSchedulesController))
+      router.delete(
+        '/schedule/:id',
+        travelSchedulesController.destroy.bind(travelSchedulesController)
+      )
     })
 
     router.group(() => {
       router.get('/route', travelRoutesController.list.bind(travelRoutesController))
-      router.get('/route/:serviceId', travelRoutesController.showByServiceId.bind(travelRoutesController))
+      router.get(
+        '/route/:serviceId',
+        travelRoutesController.showByServiceId.bind(travelRoutesController)
+      )
       router.post('/route', travelRoutesController.store.bind(travelRoutesController))
       router.put('/route/:id', travelRoutesController.update.bind(travelRoutesController))
       router.delete('/route/:id', travelRoutesController.destroy.bind(travelRoutesController))

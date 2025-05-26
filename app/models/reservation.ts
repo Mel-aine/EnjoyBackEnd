@@ -4,6 +4,15 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Service from '#models/service'
 
+export enum ReservationStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  CHECKED_IN = 'checked_in',
+  CHECKED_OUT = 'checked_out',
+  CANCELLED = 'cancelled',
+  COMPLETED = 'completed',
+}
+
 export default class Reservation extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
@@ -27,9 +36,9 @@ export default class Reservation extends BaseModel {
   declare special_requests: string | null
 
   // @column()
-  // declare status:string
+  // declare status: ReservationStatus
   @column()
-  declare status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
+  declare status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'checked_out' | 'checked_in' | 'occupied'
 
   @column()
   declare cancellation_reason: string | null
@@ -52,7 +61,6 @@ export default class Reservation extends BaseModel {
 
   @column()
   declare number_of_seats: number | null
-
 
   @column()
   declare total_amount?: number
@@ -99,6 +107,4 @@ export default class Reservation extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
-
-
 }

@@ -55,9 +55,11 @@
     "@adonisjs/core": "^6.17.2",
     "@adonisjs/cors": "^2.2.1",
     "@adonisjs/lucid": "^21.6.1",
+    "@adonisjs/mail": "^9.2.2",
     "@vinejs/vine": "^3.0.0",
     "dotenv": "^16.4.7",
     "luxon": "^3.6.0",
+    "node-cron": "^4.0.7",
     "pg": "^8.14.1",
     "reflect-metadata": "^0.2.2"
   },
