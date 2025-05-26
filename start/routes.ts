@@ -33,6 +33,7 @@ import ExpensesController from '#controllers/expenses_controller'
 import TravelVehiclesController from '#controllers/travel_vehicles_controller'
 import TravelSchedulesController from '#controllers/travel_schedules_controller'
 import TravelRoutesController from '#controllers/travel_routes_controller'
+import ServiceImagesController from '#controllers/service_images_controller'
 
 const AuthController = () => import('#controllers/auth_controller')
 
@@ -60,6 +61,7 @@ const expensesController = new ExpensesController()
 const travelVehiclesController = new TravelVehiclesController()
 const travelSchedulesController = new TravelSchedulesController()
 const travelRoutesController = new TravelRoutesController()
+const serviceImagesController = new ServiceImagesController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -72,15 +74,23 @@ router.get('/', async () => {
 })
 router
   .group(() => {
-    router.group(() => {
-      router.get('/users', usersController.list.bind(usersController))
-      router.get('/users/:id', usersController.show.bind(usersController))
-      router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-      router.post('/user', usersController.store.bind(usersController))
-      router.put('/users/:id', usersController.update.bind(usersController))
-      router.delete('/users/:id', usersController.destroy.bind(usersController))
-    })
+      router.group(() => {
+        router.get('/users', usersController.list.bind(usersController))
+        router.get('/users/:id', usersController.show.bind(usersController))
+        router.post('/users', usersController.createWithUserAndRole.bind(usersController))
+        router.post('/user', usersController.store.bind(usersController))
+        router.put('/users/:id', usersController.update.bind(usersController))
+        router.delete('/users/:id', usersController.destroy.bind(usersController))
+      })
     //.middleware('auth') // Protège toutes les routes
+
+    router.group(() => {
+      router.get('/images', serviceImagesController.list.bind(serviceImagesController))
+      router.get('/images/:id', serviceImagesController.show.bind(serviceImagesController))
+      router.post('/images', serviceImagesController.store.bind(serviceImagesController))
+      router.put('/images/:id', serviceImagesController.update.bind(serviceImagesController))
+      router.delete('/images/:id', serviceImagesController.destroy.bind(serviceImagesController))
+    })
 
     router.group(() => {
       router.get('/roles', rolesController.list.bind(rolesController))

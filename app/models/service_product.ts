@@ -3,6 +3,7 @@ import { BaseModel, column ,belongsTo,hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo,HasMany } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import ProductOption from '#models/production_option'
+import ServiceImage from '#models/service_image'
 import User from '#models/user'
 
 export default class ServiceProduct extends BaseModel {
@@ -62,6 +63,9 @@ export default class ServiceProduct extends BaseModel {
   //   foreignKey: 'product_type_id',
   // })
   // declare typeProduct: BelongsTo<typeof TypeProduct>
+
+  @hasMany(() => ServiceImage, { foreignKey: 'service_product_id', })
+  declare images: HasMany<typeof ServiceImage>
 
 
   @belongsTo(() => User, { foreignKey: 'created_by'})

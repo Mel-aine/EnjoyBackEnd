@@ -7,10 +7,10 @@ export default defineConfig({
   |--------------------------------------------------------------------------
   |
   | List of ace commands to register from packages. The application commands
-  | will be scanned automatically from the "./commands" directory.
+  | will be scanned automatically from the "./commands" directory., () => import('@adonisjs/mail/commands')
   |
   */
-  commands: [() => import('@adonisjs/core/commands'), () => import('@adonisjs/lucid/commands'), () => import('@adonisjs/mail/commands')],
+  commands: [() => import('@adonisjs/core/commands'), () => import('@adonisjs/lucid/commands')],
 
   /*
   |--------------------------------------------------------------------------
@@ -32,7 +32,7 @@ export default defineConfig({
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/auth/auth_provider'),
-    () => import('@adonisjs/mail/mail_provider')
+    // () => import('@adonisjs/mail/mail_provider')
   ],
 
   /*
