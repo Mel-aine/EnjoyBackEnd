@@ -34,7 +34,7 @@ export default class AutoReleaseRooms extends BaseCommand {
 
       for (const reservation of expiredReservations) {
         if (!reservation.serviceProduct) {
-          this.logger.warn(`ServiceProduct non trouvé pour réservation ${reservation.id}`)
+          // this.logger.warn(`ServiceProduct non trouvé pour réservation ${reservation.id}`)
           continue
         }
 
