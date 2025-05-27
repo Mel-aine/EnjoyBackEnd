@@ -210,6 +210,10 @@ router
         '/service_product',
         serviceProductsController.store.bind(serviceProductsController)
       )
+      router.patch(
+        '/service_product/:id/available',
+        serviceProductsController.setAvailable.bind(serviceProductsController)
+      )
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
       router.get(
         '/service_product_options',
@@ -227,10 +231,7 @@ router
         '/service_product/:id',
         serviceProductsController.update.bind(serviceProductsController)
       )
-      router.put(
-        '/service_products/:id/set-available',
-        serviceProductsController.setAvailable.bind(serviceProductsController)
-      )
+
       router.delete(
         '/service_product/:id',
         serviceProductsController.destroy.bind(serviceProductsController)
@@ -340,6 +341,7 @@ router
       router.post('/payment', paymentsController.store.bind(paymentsController))
       router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
       router.put('/payment/:id', paymentsController.update.bind(paymentsController))
+      router.put('/payment/:id/confirm', paymentsController.confirmPayment.bind(paymentsController))
       router.delete('/payment/:id', paymentsController.destroy.bind(paymentsController))
     })
 

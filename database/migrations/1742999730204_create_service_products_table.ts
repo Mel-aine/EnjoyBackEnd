@@ -14,7 +14,7 @@ export default class extends BaseSchema {
       table.boolean('availability').defaultTo(true)
       table.boolean('customization_allowed').defaultTo(false)
       table.string('payment_type', 20).defaultTo('Deferred')
-      table.string('status', 20).defaultTo('available')
+      table.text('status')
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())

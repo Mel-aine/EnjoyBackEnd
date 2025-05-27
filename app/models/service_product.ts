@@ -37,6 +37,7 @@ export default class ServiceProduct extends BaseModel {
 
   @column()
   declare status: string
+
   @hasMany(() => ProductOption, {
     foreignKey: 'service_product_id',
   })

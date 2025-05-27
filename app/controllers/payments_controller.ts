@@ -27,6 +27,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
         status: data.status,
         notes: data.notes || null,
         transaction_id: data.transaction_id,
+        service_id : data.service_id,
         created_by: data.created_by,
         last_modified_by: data.last_modified_by,
       };
@@ -54,5 +55,36 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       return response.status(500).json({ error: 'Failed to store payment' });
     }
   }
+
+  async confirmPayment({ params, response }: HttpContext) {
+    try {
+      const paymentId = params.id
+
+      const payment = await Payment.find(paymentId)
+      if (!payment) {
+        return response.status(404).json({ error: 'Paiement introuvable' })
+      }
+
+      payment.status = 'paid'
+      payment.last_modified_by = payment.created_by
+      await payment.save()
+
+      const reservation = await Reservation.find(payment.reservation_id)
+      if (!reservation) {
+        return response.status(404).json({ error: 'Réservation introuvable' })
+      }
+
+      reservation.payment_status = 'paid'
+      // reservation.status = 'confirmed'
+      await reservation.save()
+
+      return response.ok({ message: 'Paiement confirmé avec succès', payment, reservation })
+    } catch (error) {
+      console.error('Erreur lors de la confirmation du paiement :', error)
+      return response.status(500).json({ error: 'Erreur serveur lors de la confirmation' })
+    }
+  }
+
+
 }
 

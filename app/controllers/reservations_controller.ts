@@ -256,6 +256,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
 
       // Gérer les produits liés à la réservation
+      // if (Array.isArray(data.products) && data.products.length > 0) {
+      //   const productsPayload = data.products.map((item) => ({
+      //     reservation_id: reservation.id,
+      //     service_product_id: item.service_product_id,
+      //     start_date: item.start_date,
+      //     end_date: item.end_date,
+      //     created_by: user.id,
+      //     last_modified_by: user.id,
+      //   }))
+
+
+      //   await ReservationServiceProduct.createMany(productsPayload)
+      // }
       if (Array.isArray(data.products) && data.products.length > 0) {
         const productsPayload = data.products.map((item) => ({
           reservation_id: reservation.id,
@@ -267,7 +280,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }))
 
         await ReservationServiceProduct.createMany(productsPayload)
+        for (const product of data.products) {
+          const serviceProduct = await ServiceProduct.find(product.service_product_id)
+          if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
+            serviceProduct.status = 'booked'
+            await serviceProduct.save()
+          }
+        }
       }
+
+
 
       return response.created({ user, reservation })
     } catch (error) {
@@ -389,76 +411,103 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
   public async checkIn({ params, response }: HttpContext) {
     try {
-      console.log('Check-in started for reservation ID:', params.id)
+      console.log('Check-in started for reservation ID:', params.id);
 
-      const reservation = await this.reservationService.findById(params.id)
-      console.log('Reservation fetched:', reservation)
+      const reservation = await this.reservationService.findById(params.id);
+      console.log('Reservation fetched:', reservation);
 
       if (!reservation) {
-        console.log('Reservation not found')
-        return response.notFound({ message: 'Reservation not found' })
+        return response.notFound({ message: 'Reservation not found' });
       }
 
-      const serviceProduct = await ServiceProduct.findBy('id', reservation.service_id)
-      console.log('Service product fetched:', serviceProduct)
+      // Récupérer la liaison avec les produits
+      const reservationProducts = await ReservationServiceProduct.query()
+        .where('reservation_id', reservation.id);
 
-      if (!serviceProduct) {
-        console.log('Service product not found')
-        return response.notFound({ message: 'Service product not found' })
+      if (!reservationProducts.length) {
+        return response.notFound({ message: 'No service product linked to this reservation' });
       }
 
-      // Update reservation status
-      await this.reservationService.update(reservation.id, { status: 'checked-in' })
-      console.log('Reservation status updated to checked-in')
+      for (const link of reservationProducts) {
+        const serviceProduct = await ServiceProduct.find(link.service_product_id);
 
-      // Update service product status
-      serviceProduct.status = 'occupied'
-      await serviceProduct.save()
-      console.log('Service product status updated to booking')
+        if (serviceProduct) {
+          serviceProduct.status = 'occupied';
+          await serviceProduct.save();
+          console.log(`Service product ${serviceProduct.id} status updated to occupied`);
+        }
+      }
 
-      console.log('Check-in completed successfully')
-      return response.ok({ message: 'Check-in successful' })
+      // Mettre à jour le statut de la réservation
+      await this.reservationService.update(reservation.id, { status: 'checked-in' });
+      console.log('Reservation status updated to checked-in');
+
+      return response.ok({
+        message: 'Check-in successful',
+        reservation,
+        reservationProducts,
+        serviceProducts: reservationProducts.map((rp) => rp.service_product_id),
+      });
+
     } catch (error) {
-      console.error('Error during check-in:', error)
+      console.error('Error during check-in:', error);
       return response.status(500).send({
         message: 'Error during check-in',
         error: error.message,
-      })
+      });
     }
   }
 
+
+
   public async checkOut({ params, response }: HttpContext) {
     try {
-      const reservation = await this.reservationService.findById(params.id)
+      console.log('Check-out started for reservation ID:', params.id);
+
+      const reservation = await this.reservationService.findById(params.id);
+      console.log('Reservation fetched:', reservation);
+
       if (!reservation) {
-        return response.notFound({ message: 'Reservation not found' })
+        return response.notFound({ message: 'Reservation not found' });
       }
 
       const resServices = await ReservationServiceProduct.query()
         .where('reservation_id', params.id)
-        .preload('serviceProduct')
+        .preload('serviceProduct');
 
       if (resServices.length === 0) {
-        return response.notFound({ message: 'No service products linked to this reservation' })
+        return response.notFound({ message: 'No service products linked to this reservation' });
       }
 
-      await this.reservationService.update(reservation.id, { status: 'checked-out' })
+      await this.reservationService.update(reservation.id, { status: 'checked-out' });
+      console.log('Reservation status updated to checked-out');
+
+      const updatedServiceProducts: number[] = [];
 
       for (const rsp of resServices) {
-        const serviceProduct = rsp.serviceProduct
+        const serviceProduct = rsp.serviceProduct;
         if (serviceProduct) {
-          serviceProduct.status = 'cleaning'
-          await serviceProduct.save()
+          serviceProduct.status = 'cleaning';
+          await serviceProduct.save();
+          updatedServiceProducts.push(serviceProduct.id);
+          console.log(`Service product ${serviceProduct.id} status updated to cleaning`);
         }
       }
 
-      return response.ok({ message: 'Check-out successful' })
+      return response.ok({
+        message: 'Check-out successful',
+        reservation,
+        reservationProducts: resServices.map(rsp => rsp.id),
+        serviceProducts: updatedServiceProducts,
+      });
     } catch (error) {
+      console.error('Error during check-out:', error);
       return response.status(500).send({
         message: 'Error during check-out',
         error: error.message,
-      })
+      });
     }
   }
+
 
 }

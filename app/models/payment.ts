@@ -4,6 +4,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Reservation from '#models/reservation'
 import Order from '#models/order'
+import Services from '#models/service'
 
 export default class Payment extends BaseModel {
   @column({ isPrimary: true })
@@ -39,6 +40,9 @@ export default class Payment extends BaseModel {
   declare payment_date: DateTime
 
   @column()
+  declare service_id: number
+
+  @column()
   declare created_by: number | null
 
   @column()
@@ -65,6 +69,9 @@ export default class Payment extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
+
+   @belongsTo(() => Services, { foreignKey: 'service_id' })
+      declare Services: BelongsTo<typeof Services>
 
 
 }
