@@ -22,6 +22,8 @@ export default class ServiceProductsController extends CrudController<typeof Ser
     return response.ok(serviceProducts)
   }
 
+
+
   public async adminIndex({ request, response }: HttpContext) {
     const { status, search } = request.qs()
 
@@ -68,4 +70,39 @@ export default class ServiceProductsController extends CrudController<typeof Ser
       data: room,
     })
   }
+
+  public async getServiceProductByDate({ request, response }: HttpContext) {
+    const serviceId = request.qs().serviceId
+    const startDate = request.qs().start_date
+    const endDate = request.qs().end_date
+
+    if (!startDate || !endDate) {
+      return response.badRequest({ message: 'start_date and end_date are required' })
+    }
+
+    const query = ServiceProduct.query()
+      .preload('options')
+      .preload('reservationServiceProducts', (reservationQuery) => {
+        reservationQuery.select(['id', 'start_date', 'end_date', 'service_product_id'])
+      })
+      .whereNotExists((subquery) => {
+        subquery
+          .from('reservation_service_products')
+          .whereRaw('reservation_service_products.service_product_id = service_products.id')
+          .whereRaw('? <= reservation_service_products.end_date', [endDate])
+          .whereRaw('? >= reservation_service_products.start_date', [startDate])
+      })
+
+    if (serviceId) {
+      query.where('service_id', serviceId)
+    }
+
+    const serviceProducts = await query
+    return response.ok({
+      count: serviceProducts.length,
+      serviceProducts: serviceProducts,
+    })
+
+  }
+
 }

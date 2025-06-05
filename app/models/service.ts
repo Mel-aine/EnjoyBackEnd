@@ -67,25 +67,41 @@ export default class Service extends BaseModel {
   @column()
   declare logo: string | null
 
-  // @column({
-  //   prepare: (value: string[]) => JSON.stringify(value), // Convertir en JSON avant l’insertion
-  //   consume: (value: string) => JSON.parse(value), // Convertir JSON en tableau après récupération
-  // })
-  // declare images: string[]
-
   @column({
-    prepare: (value) => JSON.stringify(value),
+  prepare: (value: string[]) => JSON.stringify(value),
     consume: (value) => {
-      try {
-        if (!value) return [];
-        return typeof value === 'string' ? JSON.parse(value) : value;
-      } catch (e) {
-        console.error('Erreur parsing images:', e, value);
-        return [];
+    try {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string' && value.trim().startsWith('[')) {
+        return JSON.parse(value);
       }
-    },
+      if (typeof value === 'string') {
+        return [value];
+      }
+
+      return [];
+    } catch (e) {
+      console.error('Erreur parsing images:', e, value);
+      return [];
+    }
+  }
   })
   declare images: string[]
+
+  // @column({
+  //   prepare: (value) => JSON.stringify(value),
+  //   consume: (value) => {
+  //     try {
+  //       if (!value) return [];
+  //       return typeof value === 'string' ? JSON.parse(value) : value;
+  //     } catch (e) {
+  //       console.error('Erreur parsing images:', e, value);
+  //       return [];
+  //     }
+  //   },
+  // })
+  // declare images: string[]
 
 
   @column({

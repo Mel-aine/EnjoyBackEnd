@@ -3,6 +3,7 @@ import { BaseModel, column ,belongsTo,hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo,HasMany } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import ProductOption from '#models/production_option'
+import ReservationServiceProduct from '#models/reservation_service_product'
 import ServiceImage from '#models/service_image'
 import User from '#models/user'
 
@@ -59,6 +60,10 @@ export default class ServiceProduct extends BaseModel {
 
   @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
+
+  @hasMany(() => ReservationServiceProduct, { foreignKey: 'service_product_id' })
+declare reservationServiceProducts: HasMany<typeof ReservationServiceProduct>
+
 
   // @belongsTo(() => TypeProduct, {
   //   foreignKey: 'product_type_id',
