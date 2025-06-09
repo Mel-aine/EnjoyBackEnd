@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import ServiceProduct from '#models/service_product'
+import Option from '#models/option'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 const serviceProductService = new CrudService(ServiceProduct)
@@ -9,18 +10,52 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   constructor() {
     super(serviceProductService)
   }
-  public async getAllWithOptions({ request, response }: HttpContext) {
-    const serviceId = request.qs().serviceId
+  // public async getAllWithOptions({ request, response }: HttpContext) {
+  //   const serviceId = request.qs().serviceId
 
-    const query = ServiceProduct.query().preload('options')
+  //   const query = ServiceProduct.query().preload('options')
 
-    if (serviceId) {
-      query.where('service_id', serviceId)
-    }
+  // //    const query = ServiceProduct.query().preload('availableOptions', (optionQuery) => {
+  // //   optionQuery.select('id', 'option_name')
+  // // })
 
-    const serviceProducts = await query
-    return response.ok(serviceProducts)
+  //   if (serviceId) {
+  //     query.where('service_id', serviceId)
+  //   }
+
+  //   const serviceProducts = await query
+  //   return response.ok(serviceProducts)
+  // }
+
+public async getAllWithOptions({ request, response }: HttpContext) {
+  const serviceId = request.qs().serviceId
+
+  const query = ServiceProduct.query()
+    .preload('options', (optionQuery) => {
+      optionQuery.preload('option', (opt) => {
+        opt.select(['id', 'option_name'])
+      })
+    })
+
+  if (serviceId) {
+    query.where('service_id', serviceId)
   }
+
+  const serviceProducts = await query
+  const formatted = serviceProducts.map(product => {
+    return {
+      ...product.serialize(),
+      options: product.options.map(opt => ({
+        optionId: opt.option_id,
+        optionName: opt.option?.option_name,
+        value: opt.value,
+      })),
+    }
+  })
+
+  return response.ok(formatted)
+}
+
 
 
 

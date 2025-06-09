@@ -188,6 +188,7 @@ router
         '/servicesByCategory/:categoryId',
         servicesController.showByCategorie.bind(servicesController)
       )
+
       router.post(
         '/servicesWithUser',
         servicesController.createWithUserAndService.bind(servicesController)
@@ -195,6 +196,7 @@ router
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.put('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
+      router.get('/servicesWithServiceProduct',servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
 
     router.group(() => {

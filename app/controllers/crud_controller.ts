@@ -102,7 +102,7 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
-
+//la cration en masse des donnees
   public async bulkCreate({ request, response }: HttpContext) {
     try {
       const data = request.input('data')
@@ -117,7 +117,7 @@ export default class CrudController<T extends typeof BaseModel> {
       return response.badRequest({ message: 'Error creating records', error: error.message })
     }
   }
-
+//get les services by categoryId
   async showByCategorie({ params, request, response }: HttpContext) {
     try {
       const { categoryId } = params
@@ -146,6 +146,7 @@ export default class CrudController<T extends typeof BaseModel> {
     }
   }
 
+  //get les services product by services id
   async showByServiceId({ params, request, response }: HttpContext) {
     try {
       const { serviceId } = params
@@ -173,7 +174,7 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
-
+//get les services products avec leurs options
   async showByServiceProductId({ params, request, response }: HttpContext) {
     try {
       const { serviceProductId } = params
@@ -201,6 +202,7 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
+  //get les resrvation d un service
 
   async showReservationByServiceId({ params, request, response }: HttpContext) {
     try {
@@ -229,7 +231,7 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
-
+//update service Product
   async updateByServiceProductId({ params, request, response }: HttpContext) {
     const serviceProductId = parseInt(params.service_product_id, 10)
     const optionsPayload = request.input('options')
@@ -250,4 +252,6 @@ export default class CrudController<T extends typeof BaseModel> {
       return response.status(500).send({ message: 'Erreur serveur', error: error.message })
     }
   }
+
+
 }

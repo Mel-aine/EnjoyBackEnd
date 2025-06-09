@@ -1,11 +1,12 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column ,belongsTo,hasMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo,HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column ,belongsTo,hasMany,manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo,HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import ProductOption from '#models/production_option'
 import ReservationServiceProduct from '#models/reservation_service_product'
 import ServiceImage from '#models/service_image'
 import User from '#models/user'
+import Option from '#models/option'
 
 export default class ServiceProduct extends BaseModel {
   @column({ isPrimary: true })
@@ -79,4 +80,13 @@ declare reservationServiceProducts: HasMany<typeof ReservationServiceProduct>
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+@manyToMany(() => Option, {
+  pivotTable: 'production_options',
+  pivotForeignKey: 'service_product_id',
+  pivotRelatedForeignKey: 'option_id',
+  pivotColumns: ['value'],
+})
+declare availableOptions: ManyToMany<typeof Option>
+
 }

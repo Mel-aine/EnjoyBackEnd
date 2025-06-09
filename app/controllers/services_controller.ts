@@ -14,6 +14,63 @@ export default class ServicesController extends CrudController<typeof Service> {
     this.serviceService = new CrudService(Service)
   }
 
+    //recuperer les services avec leurs services product et option
+ public async getServicesWithProductsAndOptions({ request, params, response }: HttpContext) {
+  try {
+    const categoryId = params.categoryId || request.qs().categoryId
+    const serviceId = request.qs().serviceId
+
+    const query = Service.query()
+      .preload('products', (productQuery: any) => {
+        productQuery.preload('options', (optionQuery: any) => {
+          optionQuery.preload('option', (opt: any) => {
+            opt.select(['id', 'option_name'])
+          })
+        })
+      })
+
+    if (categoryId) {
+      const categoryIdNum = parseInt(categoryId, 10)
+      if (isNaN(categoryIdNum)) {
+        return response.badRequest({ message: 'Invalid categoryId' })
+      }
+      query.where('category_id', categoryIdNum)
+    }
+
+    if (serviceId) {
+      query.where('id', serviceId)
+    }
+
+    const services = await query
+
+    if (!services || services.length === 0) {
+      return response.notFound({ message: 'Aucun service trouvé' })
+    }
+
+    const formatted = services.map(service => ({
+      ...service.serialize(),
+      products: service.products.map(product => ({
+        ...product.serialize(),
+        options: product.options.map(opt => ({
+          optionId: opt.option_id,
+          optionName: opt.option?.option_name,
+          value: opt.value,
+        })),
+      }))
+    }))
+
+    return response.ok(formatted)
+
+  } catch (error) {
+    return response.internalServerError({
+      message: 'Erreur lors de la récupération des services',
+      error: error.message,
+    })
+  }
+}
+
+
+
   public async createWithUserAndService({ request, response }: HttpContext) {
     const data = request.body()
 
@@ -67,4 +124,7 @@ export default class ServicesController extends CrudController<typeof Service> {
       })
     }
   }
+
+
+
 }

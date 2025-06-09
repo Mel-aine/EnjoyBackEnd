@@ -4,6 +4,7 @@ import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ServiceImage from '#models/service_image'
 import Category from '#models/category'
+import ServiceProduct from '#models/service_product'
 
 export default class Service extends BaseModel {
   @column({ isPrimary: true })
@@ -144,6 +145,9 @@ export default class Service extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+   @hasMany(() => ServiceProduct , { foreignKey: 'service_id' })
+  declare products: HasMany<typeof ServiceProduct>
 
   @hasMany(() => ServiceImage, {
     foreignKey: 'service_id',
