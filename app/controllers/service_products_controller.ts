@@ -1,7 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import ServiceProduct from '#models/service_product'
-import Option from '#models/option'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 const serviceProductService = new CrudService(ServiceProduct)
