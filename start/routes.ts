@@ -221,6 +221,11 @@ router
         '/service_product_options',
         serviceProductsController.getAllWithOptions.bind(serviceProductsController)
       )
+       router.get(
+        '/service_product_option',
+        serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController)
+      )
+
       router.get(
         '/service_product/:id',
         serviceProductsController.show.bind(serviceProductsController)
@@ -286,6 +291,10 @@ router
       router.get(
         '/reservation_service',
         reservationServiceProductsController.list.bind(reservationServiceProductsController)
+      )
+       router.get(
+        '/reservation_service/:reservationId',
+        reservationServiceProductsController.showReservationServiceProductByResrvationId.bind(reservationServiceProductsController)
       )
       router.get(
         '/reservation_service/:id',

@@ -231,6 +231,39 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
+
+  //reservation service product by reservation id
+
+  async showReservationServiceProductByResrvationId({ params, request, response }: HttpContext) {
+    try {
+      const { reservationId } = params
+      if (!reservationId) {
+        return response.badRequest({ message: 'reservationId is required' })
+      }
+
+      const fields = request.input('fields', ['*'])
+      const reservationIdNum = parseInt(reservationId, 10)
+      if (isNaN(reservationIdNum)) {
+        return response.badRequest({ message: 'Invalid reservationId' })
+      }
+
+      const items = await this.service.getReservationtServiceProductByReservationId(reservationIdNum, fields)
+
+      if (!items || items.length === 0) {
+        return response.notFound({ message: 'Record not found' })
+      }
+
+      return response.ok(items)
+    } catch (error) {
+      return response.internalServerError({
+        message: 'Error fetching record',
+        error: error.message,
+      })
+    }
+  }
+
+
+
 //update service Product
   async updateByServiceProductId({ params, request, response }: HttpContext) {
     const serviceProductId = parseInt(params.service_product_id, 10)

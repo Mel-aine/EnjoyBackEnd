@@ -9,22 +9,19 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   constructor() {
     super(serviceProductService)
   }
-  // public async getAllWithOptions({ request, response }: HttpContext) {
-  //   const serviceId = request.qs().serviceId
+  public async getServiceProductAllWithOptions({ request, response }: HttpContext) {
+    const serviceId = request.qs().serviceId
 
-  //   const query = ServiceProduct.query().preload('options')
+    const query = ServiceProduct.query().preload('options')
 
-  // //    const query = ServiceProduct.query().preload('availableOptions', (optionQuery) => {
-  // //   optionQuery.select('id', 'option_name')
-  // // })
 
-  //   if (serviceId) {
-  //     query.where('service_id', serviceId)
-  //   }
+    if (serviceId) {
+      query.where('service_id', serviceId)
+    }
 
-  //   const serviceProducts = await query
-  //   return response.ok(serviceProducts)
-  // }
+    const serviceProducts = await query
+    return response.ok(serviceProducts)
+  }
 
 public async getAllWithOptions({ request, response }: HttpContext) {
   const serviceId = request.qs().serviceId
