@@ -13,6 +13,9 @@ export default class Role extends BaseModel {
   @column()
   declare description: string | null
 
+   @column()
+  declare category_name: string | null
+
   @column()
   declare permissions: Record<string, any> | null
 

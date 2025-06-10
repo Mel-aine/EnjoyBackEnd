@@ -292,20 +292,135 @@ private toJSDateSafe(dateValue: any): Date | null {
 
 
 
+// public async getAvailable({ request, response }: HttpContext) {
+//   const rawAddress = request.qs().address
+//   const startDate = request.qs().start_date
+//   const endDate = request.qs().end_date
+//   const guestCount = Number(request.qs().guest_count || 1)
+
+//   // if (!startDate || !endDate || !rawAddress) {
+//   //   return response.badRequest({ message: 'start_date, end_date and address are required' })
+//   // }
+
+//   const address = this.normalize(rawAddress)
+
+//   try {
+//     // 1. Récupérer les services hôtels correspondant à l'adresse
+//     const allServices = await Service.query().where('category_id', 14)
+//     const matchingServiceIds = allServices
+//       .filter((service: any) => {
+//         try {
+//           const parsed = JSON.parse(service.address_service)
+//           const serviceAddress = this.normalize(parsed.text || '')
+//           return serviceAddress.includes(address)
+//         } catch {
+//           return false
+//         }
+//       })
+//       .map((s) => s.id)
+
+//     if (matchingServiceIds.length === 0) {
+//       return response.ok({ count: 0, serviceProducts: [], partiallyAvailable: [] })
+//     }
+
+//     // 2. Chambres totalement disponibles (pas de réservation qui chevauche la période)
+//     const serviceProducts = await ServiceProduct.query()
+//       .whereIn('service_id', matchingServiceIds)
+//       .whereHas('availableOptions', (builder) => {
+//         builder
+//           .where('option_name', 'Maximum Occupancy')
+//           .whereRaw("production_options.value ~ '^[0-9]+$' AND CAST(production_options.value AS INTEGER) >= ?", [guestCount])
+//       })
+//       .whereNotExists((subquery) => {
+//         subquery
+//           .from('reservation_service_products')
+//           .whereRaw('reservation_service_products.service_product_id = service_products.id')
+//           // Condition corrigée pour exclure les réservations qui chevauchent la période
+//           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
+//       })
+//       .preload('service')
+//       .preload('options', (optionQuery) => {
+//         optionQuery.preload('option', (opt) => {
+//           opt.select(['id', 'option_name'])
+//         })
+//       })
+
+//     const availableFormatted = serviceProducts
+//       .filter(p => p.service !== null)
+//       .map(product => ({
+//         ...product.serialize(),
+//         options: product.options.map(opt => ({
+//           optionId: opt.option_id,
+//           optionName: opt.option?.option_name,
+//           value: opt.value,
+//         })),
+//       }))
+
+//     // 3. Chambres occupées partiellement (avec réservation chevauchant la période)
+//     const partiallyOccupied = await ServiceProduct.query()
+//       .whereIn('service_id', matchingServiceIds)
+//       .whereHas('availableOptions', (builder) => {
+//         builder
+//           .where('option_name', 'Maximum Occupancy')
+//           .whereRaw("production_options.value ~ '^[0-9]+$' AND CAST(production_options.value AS INTEGER) >= ?", [guestCount])
+//       })
+//       .whereExists((subquery) => {
+//         subquery
+//           .from('reservation_service_products')
+//           .whereRaw('reservation_service_products.service_product_id = service_products.id')
+
+//           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
+//       })
+//       .preload('service')
+//       .preload('reservations', (resQuery) => {
+//         resQuery
+//           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
+//           .orderBy('end_date', 'desc')
+//           .limit(1)
+//       })
+
+//       const partiallyAvailable = partiallyOccupied.map(product => {
+//         const lastRes = product.reservations[0]
+
+//         let availableFrom: string | null = null
+
+//         const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
+
+//         if (jsDate) {
+//           const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
+//           availableFrom = nextDay.toISOString().split('T')[0]
+//         }
+
+//         return {
+//           serviceProductId: product.id,
+//           availableFrom,
+//           service: product.service?.serialize(),
+//         }
+//       })
+
+
+
+//     return response.ok({
+//       count: availableFormatted.length,
+//       serviceProducts: availableFormatted,
+//       partiallyAvailable,
+//     })
+//   } catch (error) {
+//     console.error('Query error:', error)
+//     return response.status(500).send({ message: 'Internal Server Error', error: error.message })
+//   }
+// }
+
 public async getAvailable({ request, response }: HttpContext) {
   const rawAddress = request.qs().address
   const startDate = request.qs().start_date
   const endDate = request.qs().end_date
   const guestCount = Number(request.qs().guest_count || 1)
 
-  if (!startDate || !endDate || !rawAddress) {
-    return response.badRequest({ message: 'start_date, end_date and address are required' })
-  }
-
   const address = this.normalize(rawAddress)
 
   try {
-    // 1. Récupérer les services hôtels correspondant à l'adresse
+    // 1. Find services (hotels) by address
     const allServices = await Service.query().where('category_id', 14)
     const matchingServiceIds = allServices
       .filter((service: any) => {
@@ -320,10 +435,10 @@ public async getAvailable({ request, response }: HttpContext) {
       .map((s) => s.id)
 
     if (matchingServiceIds.length === 0) {
-      return response.ok({ count: 0, serviceProducts: [], partiallyAvailable: [] })
+      return response.ok({ count: 0, hotels: [] })
     }
 
-    // 2. Chambres totalement disponibles (pas de réservation qui chevauche la période)
+    // 2. Totally available rooms
     const serviceProducts = await ServiceProduct.query()
       .whereIn('service_id', matchingServiceIds)
       .whereHas('availableOptions', (builder) => {
@@ -335,7 +450,6 @@ public async getAvailable({ request, response }: HttpContext) {
         subquery
           .from('reservation_service_products')
           .whereRaw('reservation_service_products.service_product_id = service_products.id')
-          // Condition corrigée pour exclure les réservations qui chevauchent la période
           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
       })
       .preload('service')
@@ -345,18 +459,7 @@ public async getAvailable({ request, response }: HttpContext) {
         })
       })
 
-    const availableFormatted = serviceProducts
-      .filter(p => p.service !== null)
-      .map(product => ({
-        ...product.serialize(),
-        options: product.options.map(opt => ({
-          optionId: opt.option_id,
-          optionName: opt.option?.option_name,
-          value: opt.value,
-        })),
-      }))
-
-    // 3. Chambres occupées partiellement (avec réservation chevauchant la période)
+    // 3. Partially available rooms
     const partiallyOccupied = await ServiceProduct.query()
       .whereIn('service_id', matchingServiceIds)
       .whereHas('availableOptions', (builder) => {
@@ -368,7 +471,6 @@ public async getAvailable({ request, response }: HttpContext) {
         subquery
           .from('reservation_service_products')
           .whereRaw('reservation_service_products.service_product_id = service_products.id')
-
           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
       })
       .preload('service')
@@ -379,38 +481,79 @@ public async getAvailable({ request, response }: HttpContext) {
           .limit(1)
       })
 
-      const partiallyAvailable = partiallyOccupied.map(product => {
-        const lastRes = product.reservations[0]
+    // 4. Group rooms by hotel
+    const hotelsMap = new Map<number, any>()
 
-        let availableFrom: string | null = null
+    for (const product of serviceProducts) {
+      const service = product.service!
+      const serviceId = service.id
 
-        const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
+      if (!hotelsMap.has(serviceId)) {
+        hotelsMap.set(serviceId, {
+          ...service.serialize(),
+          rooms: [],
+          partiallyAvailable: []
+        })
+      }
 
-        if (jsDate) {
-          const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
-          availableFrom = nextDay.toISOString().split('T')[0]
-        }
+      const { service: _, ...productData } = product.serialize()
 
-        return {
-          serviceProductId: product.id,
-          availableFrom,
-          service: product.service?.serialize(),
-        }
+        hotelsMap.get(serviceId).rooms.push({
+          ...productData,
+          options: product.options.map(opt => ({
+            optionId: opt.option_id,
+            optionName: opt.option?.option_name,
+            value: opt.value,
+          }))
+        })
+
+
+
+    }
+
+    for (const product of partiallyOccupied) {
+      const service = product.service
+      if (!service) continue
+
+      const serviceId = service.id
+      const lastRes = product.reservations[0]
+
+      let availableFrom: string | null = null
+      const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
+
+      if (jsDate) {
+        const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
+        availableFrom = nextDay.toISOString().split('T')[0]
+      }
+
+      if (!hotelsMap.has(serviceId)) {
+        hotelsMap.set(serviceId, {
+          ...product.serialize(),
+          rooms: [],
+          partiallyAvailable: [],
+        })
+      }
+
+      hotelsMap.get(serviceId).partiallyAvailable.push({
+        serviceProductId: product.id,
+        availableFrom,
       })
+    }
 
-
+    // 5. Format result
+    const hotelsFormatted = Array.from(hotelsMap.values()).filter(hotel =>
+      hotel.rooms.length > 0 || hotel.partiallyAvailable.length > 0
+    )
 
     return response.ok({
-      count: availableFormatted.length,
-      serviceProducts: availableFormatted,
-      partiallyAvailable,
+      count: hotelsFormatted.length,
+      hotels: hotelsFormatted,
     })
   } catch (error) {
     console.error('Query error:', error)
     return response.status(500).send({ message: 'Internal Server Error', error: error.message })
   }
 }
-
 
 
 

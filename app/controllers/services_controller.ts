@@ -75,7 +75,6 @@ export default class ServicesController extends CrudController<typeof Service> {
     const data = request.body()
 
     try {
-      //  Créer le service
       const newService = await this.serviceService.create({
         name: data.name,
         description: data.description,
@@ -89,7 +88,7 @@ export default class ServicesController extends CrudController<typeof Service> {
         capacity: data.capacity,
         payment_methods: data.payment_methods,
         logo: data.logo || null,
-        address_service: data.address_service || null,
+        address_service: data.address_service,
         phone_number_service: data.phone_number_service || null,
         average_rating: data.average_rating || null,
         review_count: data.review_count || null,
@@ -99,7 +98,6 @@ export default class ServicesController extends CrudController<typeof Service> {
         last_modified_by: data.last_modified_by || null,
       })
 
-      // Créer l'utilisateur avec le service_id du nouveau service
       const user = await this.userService.create({
         first_name: data.first_name,
         last_name: data.last_name,

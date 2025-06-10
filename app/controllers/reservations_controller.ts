@@ -404,7 +404,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         number_of_seats: data.number_of_seats,
         arrived_date: data.arrived_date,
         depart_date: data.depart_date,
-        reservation_product: data.reservation_product,
         reservation_time: data.reservation_time,
         comment: data.comment,
         last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
@@ -415,10 +414,39 @@ export default class ReservationsController extends CrudController<typeof Reserv
         paid_amount: data.paid_amount,
       })
 
-      // Mise à jour des produits associés
-      if (Array.isArray(data.products)) {
-        await ReservationServiceProduct.query().where('reservation_id', reservationId).delete()
+      // if (Array.isArray(data.products)) {
+      //   await ReservationServiceProduct.query().where('reservation_id', reservationId).delete()
 
+      //   const newProducts = data.products.map((item) => ({
+      //     reservation_id: reservationId,
+      //     service_product_id: item.service_product_id,
+      //     start_date: item.start_date,
+      //     end_date: item.end_date,
+      //     created_by: data.last_modified_by,
+      //     last_modified_by: data.last_modified_by,
+      //   }))
+
+      //   await ReservationServiceProduct.createMany(newProducts)
+      // }
+      if (Array.isArray(data.products)) {
+        // Libérer les anciennes chambres
+        const oldProducts = await ReservationServiceProduct.query()
+          .where('reservation_id', reservationId)
+
+        for (const product of oldProducts) {
+
+            await ServiceProduct.query()
+            .where('id', product.service_product_id)
+            .update({ status: 'available' })
+
+        }
+
+        // Supprimer les anciens liens
+        await ReservationServiceProduct.query()
+          .where('reservation_id', reservationId)
+          .delete()
+
+        // Réserver les nouvelles chambres
         const newProducts = data.products.map((item) => ({
           reservation_id: reservationId,
           service_product_id: item.service_product_id,
@@ -426,21 +454,34 @@ export default class ReservationsController extends CrudController<typeof Reserv
           end_date: item.end_date,
           created_by: data.last_modified_by,
           last_modified_by: data.last_modified_by,
+
         }))
 
         await ReservationServiceProduct.createMany(newProducts)
+
+        const productIds = data.products.map(p => p.service_product_id)
+
+        await ServiceProduct.query()
+          .whereIn('id', productIds)
+          .update({ status: 'booked' })
+
       }
+
 
       return response.ok({
         message: 'Reservation and user updated successfully',
         reservation: updatedReservation,
       })
-    } catch (error) {
+   } catch (error) {
+      console.error('🔴 Update Reservation Error:', error)
       return response.status(500).send({
         message: 'Error while updating reservation or user',
         error: error.message,
+        stack: error.stack,
+        dataReceived: data
       })
-    }
+}
+
   }
 
   async showByServiceProductId({ params, response }: HttpContext) {

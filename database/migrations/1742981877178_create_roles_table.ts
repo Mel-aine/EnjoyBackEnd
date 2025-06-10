@@ -8,6 +8,7 @@ export default class extends BaseSchema {
       table.increments('id').primary()
       table.string('role_name', 255).notNullable()
       table.text('description', 'longtext').nullable()
+      table.text('category_name', 'longtext').nullable()
       table.json('permissions').nullable()
       table.integer('created_by').unsigned().nullable()
       table.integer('last_modified_by').unsigned().nullable()
