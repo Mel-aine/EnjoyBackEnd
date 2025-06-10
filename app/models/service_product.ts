@@ -7,6 +7,7 @@ import ReservationServiceProduct from '#models/reservation_service_product'
 import ServiceImage from '#models/service_image'
 import User from '#models/user'
 import Option from '#models/option'
+import Reservation from '#models/reservation'
 
 export default class ServiceProduct extends BaseModel {
   @column({ isPrimary: true })
@@ -80,6 +81,13 @@ declare reservationServiceProducts: HasMany<typeof ReservationServiceProduct>
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+    @manyToMany(() => Reservation, {
+    pivotTable: 'reservation_service_products',
+    pivotForeignKey: 'service_product_id',
+    pivotRelatedForeignKey: 'reservation_id',
+  })
+  declare reservations: ManyToMany<typeof Reservation>
 
 @manyToMany(() => Option, {
   pivotTable: 'production_options',

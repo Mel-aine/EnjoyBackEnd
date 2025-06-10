@@ -232,7 +232,7 @@ router
       )
       router.get(
         '/service_product_by_date',
-        serviceProductsController.getServiceProductByDate.bind(serviceProductsController)
+        serviceProductsController.getAvailable.bind(serviceProductsController)
       )
       router.get(
         '/service_product_by_serviceId/:serviceId',
