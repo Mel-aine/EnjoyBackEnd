@@ -287,4 +287,30 @@ export default class CrudController<T extends typeof BaseModel> {
   }
 
 
+  //get les roles by category name
+
+    async showRoleByCategoryName({ params, request, response }: HttpContext) {
+    try {
+      const { categoryName } = params
+      if (!categoryName) {
+        return response.badRequest({ message: 'categoryName is required' })
+      }
+
+      const fields = request.input('fields', ['*'])
+
+      const items = await this.service.getRoleByCategoryName(categoryName, fields)
+
+      if (!items || items.length === 0) {
+        return response.notFound({ message: 'Record not found' })
+      }
+
+      return response.ok(items)
+    } catch (error) {
+      return response.internalServerError({
+        message: 'Error fetching record',
+        error: error.message,
+      })
+    }
+  }
+
 }

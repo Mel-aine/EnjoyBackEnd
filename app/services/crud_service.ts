@@ -103,6 +103,18 @@ export default class CrudService<T extends typeof BaseModel> {
       .select(...fields)
   }
 
+
+  async getRoleByCategoryName(categoryName: string, fields: string[]) {
+    if (!categoryName) {
+      throw new Error('categoryName is required')
+    }
+
+    return await this.model
+      .query()
+      .where('category_name', categoryName)
+      .select(...fields)
+  }
+
   async getReservationtByServiceId(service_id: number, fields: string[]) {
     if (!service_id) {
       throw new Error('service_id is required')

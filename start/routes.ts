@@ -77,8 +77,8 @@ router
       router.group(() => {
         router.get('/users', usersController.list.bind(usersController))
         router.get('/users/:id', usersController.show.bind(usersController))
-        router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-        router.post('/user', usersController.store.bind(usersController))
+//router.post('/users', usersController.createWithUserAndRole.bind(usersController))
+        router.post('/users', usersController.store.bind(usersController))
         router.put('/users/:id', usersController.update.bind(usersController))
         router.delete('/users/:id', usersController.destroy.bind(usersController))
       })

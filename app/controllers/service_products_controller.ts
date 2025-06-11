@@ -481,7 +481,6 @@ public async getAvailable({ request, response }: HttpContext) {
           .limit(1)
       })
 
-    // 4. Group rooms by hotel
     const hotelsMap = new Map<number, any>()
 
     for (const product of serviceProducts) {
