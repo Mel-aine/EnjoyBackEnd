@@ -9,10 +9,22 @@ export default class extends BaseSchema {
       table.string('type').notNullable()
       table.integer('quantity').unsigned().notNullable()
       table.string('source').notNullable()
-      table.string('destination').notNullable()
       table.string('user').notNullable()
       table.text('notes').nullable()
       table.date('date').nullable()
+      table
+        .integer('department_id')
+        .unsigned()
+        .references('id')
+        .inTable('departments')
+        .onDelete('CASCADE')
+
+          table
+        .integer('stock_category_id')
+        .unsigned()
+        .references('id')
+        .inTable('stock_categories')
+        .onDelete('CASCADE')
 
       table
         .integer('service_id')

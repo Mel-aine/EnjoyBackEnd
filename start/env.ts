@@ -36,4 +36,15 @@ export default await Env.create(new URL('../', import.meta.url), {
   */
   // SMTP_HOST: Env.schema.string(),
   // SMTP_PORT: Env.schema.string()
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring the cloudinary package
+  |----------------------------------------------------------
+  */
+
+  CLOUDINARY_CLOUD_NAME: Env.schema.string(),
+  CLOUDINARY_API_KEY: Env.schema.string(),
+  CLOUDINARY_API_SECRET: Env.schema.string(),
+
 })

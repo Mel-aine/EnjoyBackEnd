@@ -3,6 +3,8 @@ import { BaseModel, column ,belongsTo} from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import ProductService from '#models/products'
+import Department from '#models/department'
+import StockCategory from '#models/stock_category'
 
 export default class Mouvement extends BaseModel {
   @column({ isPrimary: true })
@@ -10,6 +12,9 @@ export default class Mouvement extends BaseModel {
 
   @column()
  declare product_id: number
+
+  @column()
+ declare stock_category_id: number
 
  @column.date()
   declare date: DateTime
@@ -24,7 +29,7 @@ export default class Mouvement extends BaseModel {
  declare source: string
 
   @column()
- declare destination: string
+ declare department_id: number
 
   @column()
  declare user: string
@@ -35,10 +40,16 @@ export default class Mouvement extends BaseModel {
   @column()
  declare service_id: number
 
-  @belongsTo(() => Service)
+   @belongsTo(() => StockCategory, { foreignKey: 'stock_category_id' })
+   declare stockCategory: BelongsTo<typeof StockCategory>
+
+  @belongsTo(() => Department, { foreignKey: 'department_id' })
+   declare department: BelongsTo<typeof Department>
+
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
  declare service: BelongsTo<typeof Service>
 
- @belongsTo(() => ProductService)
+ @belongsTo(() => ProductService, { foreignKey: 'product_id' })
  declare productService: BelongsTo<typeof ProductService>
 
   @column.dateTime({ autoCreate: true })
