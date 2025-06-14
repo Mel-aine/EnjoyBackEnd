@@ -74,14 +74,14 @@ router.get('/', async () => {
 })
 router
   .group(() => {
-      router.group(() => {
-        router.get('/users', usersController.list.bind(usersController))
-        router.get('/users/:id', usersController.show.bind(usersController))
-//router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-        router.post('/users', usersController.store.bind(usersController))
-        router.put('/users/:id', usersController.update.bind(usersController))
-        router.delete('/users/:id', usersController.destroy.bind(usersController))
-      })
+    router.group(() => {
+      router.get('/users', usersController.list.bind(usersController))
+      router.get('/users/:id', usersController.show.bind(usersController))
+      //router.post('/users', usersController.createWithUserAndRole.bind(usersController))
+      router.post('/users', usersController.store.bind(usersController))
+      router.put('/users/:id', usersController.update.bind(usersController))
+      router.delete('/users/:id', usersController.destroy.bind(usersController))
+    })
     //.middleware('auth') // Protège toutes les routes
 
     router.group(() => {
@@ -196,7 +196,7 @@ router
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.put('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
-      router.get('/servicesWithServiceProduct',servicesController.getServicesWithProductsAndOptions.bind(servicesController))
+      router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
 
     router.group(() => {
@@ -221,7 +221,7 @@ router
         '/service_product_options',
         serviceProductsController.getAllWithOptions.bind(serviceProductsController)
       )
-       router.get(
+      router.get(
         '/service_product_option',
         serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController)
       )
@@ -292,7 +292,7 @@ router
         '/reservation_service',
         reservationServiceProductsController.list.bind(reservationServiceProductsController)
       )
-       router.get(
+      router.get(
         '/reservation_service/:reservationId',
         reservationServiceProductsController.showReservationServiceProductByResrvationId.bind(reservationServiceProductsController)
       )
@@ -439,6 +439,10 @@ router
       router.post('/route', travelRoutesController.store.bind(travelRoutesController))
       router.put('/route/:id', travelRoutesController.update.bind(travelRoutesController))
       router.delete('/route/:id', travelRoutesController.destroy.bind(travelRoutesController))
+    })
+
+    router.group(() => {
+      router.get('/services/:serviceId/products/grouped', serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController))
     })
   })
   .prefix('/api')
