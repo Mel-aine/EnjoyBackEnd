@@ -9,7 +9,7 @@ export default class extends BaseSchema {
       table.string('role_name', 255).notNullable()
       table.text('description', 'longtext').nullable()
       table.text('category_name', 'longtext').nullable()
-      table.json('permissions').nullable()
+      // table.json('permissions').nullable()
       table.integer('created_by').unsigned().nullable()
       table.integer('last_modified_by').unsigned().nullable()
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())

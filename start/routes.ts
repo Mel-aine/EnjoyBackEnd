@@ -194,7 +194,7 @@ router
         servicesController.createWithUserAndService.bind(servicesController)
       )
       router.get('/services/:id', servicesController.show.bind(servicesController))
-      router.put('/services/:id', servicesController.update.bind(servicesController))
+      router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
       router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
