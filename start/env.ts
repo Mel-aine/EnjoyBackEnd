@@ -35,7 +35,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Variables for configuring the google api
   |----------------------------------------------------------
   */
-  GOOGLE_MAPS_API_KEY: Env.schema.string()
+  // GOOGLE_MAPS_API_KEY: Env.schema.string()
 
   /*
   |----------------------------------------------------------
