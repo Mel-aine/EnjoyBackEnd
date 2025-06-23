@@ -16,6 +16,9 @@ export default class Category extends BaseModel {
   declare description: string
 
   @column()
+  declare icon: string
+
+  @column()
   declare parent_category_id: number
 
   @column()

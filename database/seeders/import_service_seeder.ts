@@ -14,6 +14,7 @@ import * as fs from 'fs'
 
 const defaultFacilities = ['Piscine', 'Bar', 'Restaurant', 'Parking', 'Wi-Fi gratuit']
 const defaultPolicies = 'Check-in à partir de 14h00. Check-out avant 12h00. Animaux non admis.'
+const openings = "{\"Monday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Tuesday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Wednesday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Thursday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Friday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Saturday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Sunday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"}}"
 const defaultCapacity = 100
 const defaultPaymentMethods = ['Espèces', 'Mobile Money', 'Carte Bancaire','SmallPay']
 
@@ -55,7 +56,7 @@ export default class extends BaseSeeder {
         category_id: 14,
         email_service: data.email_service || null,
         website: data.website || null,
-        openings: data.horaires || null,
+        openings: openings || null,
         price_range: data.price_range  || null,
         price: data.prix || null,
         facilities: JSON.stringify(defaultFacilities),

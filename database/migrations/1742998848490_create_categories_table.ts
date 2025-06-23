@@ -9,6 +9,7 @@ export default class extends BaseSchema {
       table.string('category_name', 255).notNullable()
       table.integer('parent_category_id')
       table.text('description', 'longtext')
+      table.text('icon', 'longtext')
       table.enu('status', ['active', 'inactive', 'archived']).defaultTo('active')
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
       table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL')
