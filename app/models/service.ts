@@ -5,6 +5,7 @@ import User from '#models/user'
 import ServiceImage from '#models/service_image'
 import Category from '#models/category'
 import ServiceProduct from '#models/service_product'
+import ServiceUserAssignment from '#models/service_user_assignment'
 
 export default class Service extends BaseModel {
   @column({ isPrimary: true })
@@ -36,16 +37,13 @@ export default class Service extends BaseModel {
   @column()
   declare website: string | null
 
-  // @column()
-  // declare openings: string | null
-  // @column({
-  //   prepare: (value: any) => JSON.stringify(value),
-  //   consume: (value: string) => JSON.parse(value),
-  // })
-  // declare openings: any
+
 
   @column()
   declare price_range: '$' | '$$' | '$$$' | '$$$$'
+
+  @column()
+  declare price: string | null
 
   @column()
   declare average_rating: number | null
@@ -53,8 +51,6 @@ export default class Service extends BaseModel {
   @column()
   declare review_count: number | null
 
-  // @column()
-  // declare facilities: any
 
   @column()
   declare policies: string | null
@@ -62,8 +58,6 @@ export default class Service extends BaseModel {
   @column()
   declare capacity: number | null
 
-  // @column()
-  // declare payment_methods: any
 
   @column()
   declare logo: string | null
@@ -90,38 +84,42 @@ export default class Service extends BaseModel {
   })
   declare images: string[]
 
-  // @column({
-  //   prepare: (value) => JSON.stringify(value),
-  //   consume: (value) => {
-  //     try {
-  //       if (!value) return [];
-  //       return typeof value === 'string' ? JSON.parse(value) : value;
-  //     } catch (e) {
-  //       console.error('Erreur parsing images:', e, value);
-  //       return [];
-  //     }
-  //   },
-  // })
-  // declare images: string[]
 
-
-  @column({
-    prepare: (value) => JSON.stringify(value),
-    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
-  })
-  declare openings: Record<string, any>
 
   // @column({
   //   prepare: (value) => JSON.stringify(value),
   //   consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
   // })
-  // declare images: string[]
-
+  // declare openings: Record<string, any>
   @column({
     prepare: (value) => JSON.stringify(value),
-    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
-  })
-  declare facilities: string[]
+  consume: (value) => {
+  try {
+    if (!value) return {};
+    if (typeof value === 'string' && value.trim().startsWith('{')) {
+      return JSON.parse(value);
+    }
+    if (typeof value === 'object') {
+      return value;
+    }
+    return {};
+  } catch (e) {
+    console.error('Erreur parsing openings:', e, value);
+    return {};
+  }
+}
+})
+  declare openings: Record<string, any>
+
+
+
+
+@column({
+  prepare: (value) => JSON.stringify(value),
+  consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+})
+declare facilities: string[]
+
 
   @column({
     prepare: (value) => JSON.stringify(value),
@@ -145,6 +143,11 @@ export default class Service extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @hasMany(() => ServiceUserAssignment, { foreignKey: 'service_id' })
+declare userAssignments: HasMany<typeof ServiceUserAssignment>
+
+
 
    @hasMany(() => ServiceProduct , { foreignKey: 'service_id' })
   declare products: HasMany<typeof ServiceProduct>

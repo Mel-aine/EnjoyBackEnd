@@ -12,6 +12,7 @@ export default class extends BaseSchema {
       table.string('address_service', 255).nullable()
       table.string('phone_number_service', 20).nullable()
       table.string('email_service', 255).nullable()
+      table.text('price').nullable()
       table.string('website', 255).nullable()
       table.json('openings').nullable()
       table.enu('price_range', ['$', '$$', '$$$', '$$$$']).defaultTo('$$')

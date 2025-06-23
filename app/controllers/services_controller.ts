@@ -3,6 +3,7 @@ import CrudService from '#services/crud_service'
 import User from '#models/user'
 import Service from '#models/service'
 import type { HttpContext } from '@adonisjs/core/http'
+import ServiceUserAssignment from '#models/service_user_assignment'
 
 export default class ServicesController extends CrudController<typeof Service> {
   private userService: CrudService<typeof User>
@@ -71,38 +72,21 @@ export default class ServicesController extends CrudController<typeof Service> {
 
 
 
-  public async createWithUserAndService({ request, response }: HttpContext) {
-    const data = request.body()
+ public async createWithUserAndService({ request, response }: HttpContext) {
+  const data = request.body()
 
-    try {
-      const newService = await this.serviceService.create({
-        name: data.name,
-        description: data.description,
-        category_id: data.category_id,
-        email_service: data.email_service,
-        website: data.website,
-        openings: data.openings,
-        price_range: data.price_range,
-        facilities: data.facilities,
-        policies: data.policies,
-        capacity: data.capacity,
-        payment_methods: data.payment_methods,
-        logo: data.logo || null,
-        address_service: data.address_service,
-        phone_number_service: data.phone_number_service || null,
-        average_rating: data.average_rating || null,
-        review_count: data.review_count || null,
-        images: data.images || null,
-        status_service: data.status_service || 'active',
-        created_by: data.created_by || null,
-        last_modified_by: data.last_modified_by || null,
-      })
+  try {
 
-      const user = await this.userService.create({
+    const existingUser = await this.userService.findByEmail(data.email)
+
+    let user
+    if (existingUser) {
+      user = existingUser
+    } else {
+      user = await this.userService.create({
         first_name: data.first_name,
         last_name: data.last_name,
         password: data.password,
-        service_id: newService.id,
         email: data.email,
         phone_number: data.phone_number,
         address: data.address || null,
@@ -113,15 +97,46 @@ export default class ServicesController extends CrudController<typeof Service> {
         created_by: data.created_by || null,
         last_modified_by: data.last_modified_by || null,
       })
-
-      return response.created({ service: newService, user })
-    } catch (error) {
-      return response.status(500).send({
-        message: 'Error while creating',
-        error: error.message,
-      })
     }
+
+
+    const newService = await this.serviceService.create({
+      name: data.name,
+      description: data.description,
+      category_id: data.category_id,
+      email_service: data.email_service,
+      website: data.website,
+      openings: data.openings,
+      price_range: data.price_range,
+      facilities: data.facilities,
+      policies: data.policies,
+      capacity: data.capacity,
+      payment_methods: data.payment_methods,
+      logo: data.logo || null,
+      address_service: data.address_service,
+      phone_number_service: data.phone_number_service || null,
+      average_rating: data.average_rating || null,
+      review_count: data.review_count || null,
+      images: data.images || null,
+      status_service: data.status_service || 'active',
+      created_by: user.id ,
+      last_modified_by: data.last_modified_by || null,
+
+    })
+    await ServiceUserAssignment.create({
+      user_id: user.id,
+      service_id: newService.id,
+      role: 'admin',
+    })
+
+    return response.created({ service: newService, user })
+  } catch (error) {
+    return response.status(500).send({
+      message: 'Error while creating service and/or user',
+      error: error.message,
+    })
   }
+}
 
 
 

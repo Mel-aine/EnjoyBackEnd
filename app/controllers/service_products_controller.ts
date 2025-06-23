@@ -107,9 +107,9 @@ export default class ServiceProductsController extends CrudController<typeof Ser
     })
   }
 
-  private normalize(text: string) {
-    return text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
-  }
+  // private normalize(text: string) {
+  //   return text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  // }
 
   // public async getAvailable({ request, response }: HttpContext) {
   //     const rawAddress = request.qs().address
@@ -292,20 +292,18 @@ export default class ServiceProductsController extends CrudController<typeof Ser
 
 
 
+
+
   // public async getAvailable({ request, response }: HttpContext) {
   //   const rawAddress = request.qs().address
   //   const startDate = request.qs().start_date
   //   const endDate = request.qs().end_date
   //   const guestCount = Number(request.qs().guest_count || 1)
 
-  //   // if (!startDate || !endDate || !rawAddress) {
-  //   //   return response.badRequest({ message: 'start_date, end_date and address are required' })
-  //   // }
-
   //   const address = this.normalize(rawAddress)
 
   //   try {
-  //     // 1. Récupérer les services hôtels correspondant à l'adresse
+  //     // 1. Find services (hotels) by address
   //     const allServices = await Service.query().where('category_id', 14)
   //     const matchingServiceIds = allServices
   //       .filter((service: any) => {
@@ -320,10 +318,10 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   //       .map((s) => s.id)
 
   //     if (matchingServiceIds.length === 0) {
-  //       return response.ok({ count: 0, serviceProducts: [], partiallyAvailable: [] })
+  //       return response.ok({ count: 0, hotels: [] })
   //     }
 
-  //     // 2. Chambres totalement disponibles (pas de réservation qui chevauche la période)
+  //     // 2. Totally available rooms
   //     const serviceProducts = await ServiceProduct.query()
   //       .whereIn('service_id', matchingServiceIds)
   //       .whereHas('availableOptions', (builder) => {
@@ -335,7 +333,6 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   //         subquery
   //           .from('reservation_service_products')
   //           .whereRaw('reservation_service_products.service_product_id = service_products.id')
-  //           // Condition corrigée pour exclure les réservations qui chevauchent la période
   //           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
   //       })
   //       .preload('service')
@@ -345,18 +342,7 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   //         })
   //       })
 
-  //     const availableFormatted = serviceProducts
-  //       .filter(p => p.service !== null)
-  //       .map(product => ({
-  //         ...product.serialize(),
-  //         options: product.options.map(opt => ({
-  //           optionId: opt.option_id,
-  //           optionName: opt.option?.option_name,
-  //           value: opt.value,
-  //         })),
-  //       }))
-
-  //     // 3. Chambres occupées partiellement (avec réservation chevauchant la période)
+  //     // 3. Partially available rooms
   //     const partiallyOccupied = await ServiceProduct.query()
   //       .whereIn('service_id', matchingServiceIds)
   //       .whereHas('availableOptions', (builder) => {
@@ -368,7 +354,6 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   //         subquery
   //           .from('reservation_service_products')
   //           .whereRaw('reservation_service_products.service_product_id = service_products.id')
-
   //           .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
   //       })
   //       .preload('service')
@@ -379,180 +364,78 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   //           .limit(1)
   //       })
 
-  //       const partiallyAvailable = partiallyOccupied.map(product => {
-  //         const lastRes = product.reservations[0]
+  //     const hotelsMap = new Map<number, any>()
 
-  //         let availableFrom: string | null = null
+  //     for (const product of serviceProducts) {
+  //       const service = product.service!
+  //       const serviceId = service.id
 
-  //         const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
+  //       if (!hotelsMap.has(serviceId)) {
+  //         hotelsMap.set(serviceId, {
+  //           ...service.serialize(),
+  //           rooms: [],
+  //           partiallyAvailable: []
+  //         })
+  //       }
 
-  //         if (jsDate) {
-  //           const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
-  //           availableFrom = nextDay.toISOString().split('T')[0]
-  //         }
+  //       const { service: _, ...productData } = product.serialize()
 
-  //         return {
-  //           serviceProductId: product.id,
-  //           availableFrom,
-  //           service: product.service?.serialize(),
-  //         }
+  //       hotelsMap.get(serviceId).rooms.push({
+  //         ...productData,
+  //         options: product.options.map(opt => ({
+  //           optionId: opt.option_id,
+  //           optionName: opt.option?.option_name,
+  //           value: opt.value,
+  //         }))
   //       })
 
 
 
+  //     }
+
+  //     for (const product of partiallyOccupied) {
+  //       const service = product.service
+  //       if (!service) continue
+
+  //       const serviceId = service.id
+  //       const lastRes = product.reservations[0]
+
+  //       let availableFrom: string | null = null
+  //       const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
+
+  //       if (jsDate) {
+  //         const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
+  //         availableFrom = nextDay.toISOString().split('T')[0]
+  //       }
+
+  //       if (!hotelsMap.has(serviceId)) {
+  //         hotelsMap.set(serviceId, {
+  //           ...product.serialize(),
+  //           rooms: [],
+  //           partiallyAvailable: [],
+  //         })
+  //       }
+
+  //       hotelsMap.get(serviceId).partiallyAvailable.push({
+  //         serviceProductId: product.id,
+  //         availableFrom,
+  //       })
+  //     }
+
+  //     // 5. Format result
+  //     const hotelsFormatted = Array.from(hotelsMap.values()).filter(hotel =>
+  //       hotel.rooms.length > 0 || hotel.partiallyAvailable.length > 0
+  //     )
+
   //     return response.ok({
-  //       count: availableFormatted.length,
-  //       serviceProducts: availableFormatted,
-  //       partiallyAvailable,
+  //       count: hotelsFormatted.length,
+  //       hotels: hotelsFormatted,
   //     })
   //   } catch (error) {
   //     console.error('Query error:', error)
   //     return response.status(500).send({ message: 'Internal Server Error', error: error.message })
   //   }
   // }
-
-  public async getAvailable({ request, response }: HttpContext) {
-    const rawAddress = request.qs().address
-    const startDate = request.qs().start_date
-    const endDate = request.qs().end_date
-    const guestCount = Number(request.qs().guest_count || 1)
-
-    const address = this.normalize(rawAddress)
-
-    try {
-      // 1. Find services (hotels) by address
-      const allServices = await Service.query().where('category_id', 14)
-      const matchingServiceIds = allServices
-        .filter((service: any) => {
-          try {
-            const parsed = JSON.parse(service.address_service)
-            const serviceAddress = this.normalize(parsed.text || '')
-            return serviceAddress.includes(address)
-          } catch {
-            return false
-          }
-        })
-        .map((s) => s.id)
-
-      if (matchingServiceIds.length === 0) {
-        return response.ok({ count: 0, hotels: [] })
-      }
-
-      // 2. Totally available rooms
-      const serviceProducts = await ServiceProduct.query()
-        .whereIn('service_id', matchingServiceIds)
-        .whereHas('availableOptions', (builder) => {
-          builder
-            .where('option_name', 'Maximum Occupancy')
-            .whereRaw("production_options.value ~ '^[0-9]+$' AND CAST(production_options.value AS INTEGER) >= ?", [guestCount])
-        })
-        .whereNotExists((subquery) => {
-          subquery
-            .from('reservation_service_products')
-            .whereRaw('reservation_service_products.service_product_id = service_products.id')
-            .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
-        })
-        .preload('service')
-        .preload('options', (optionQuery) => {
-          optionQuery.preload('option', (opt) => {
-            opt.select(['id', 'option_name'])
-          })
-        })
-
-      // 3. Partially available rooms
-      const partiallyOccupied = await ServiceProduct.query()
-        .whereIn('service_id', matchingServiceIds)
-        .whereHas('availableOptions', (builder) => {
-          builder
-            .where('option_name', 'Maximum Occupancy')
-            .whereRaw("production_options.value ~ '^[0-9]+$' AND CAST(production_options.value AS INTEGER) >= ?", [guestCount])
-        })
-        .whereExists((subquery) => {
-          subquery
-            .from('reservation_service_products')
-            .whereRaw('reservation_service_products.service_product_id = service_products.id')
-            .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
-        })
-        .preload('service')
-        .preload('reservations', (resQuery) => {
-          resQuery
-            .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
-            .orderBy('end_date', 'desc')
-            .limit(1)
-        })
-
-      const hotelsMap = new Map<number, any>()
-
-      for (const product of serviceProducts) {
-        const service = product.service!
-        const serviceId = service.id
-
-        if (!hotelsMap.has(serviceId)) {
-          hotelsMap.set(serviceId, {
-            ...service.serialize(),
-            rooms: [],
-            partiallyAvailable: []
-          })
-        }
-
-        const { service: _, ...productData } = product.serialize()
-
-        hotelsMap.get(serviceId).rooms.push({
-          ...productData,
-          options: product.options.map(opt => ({
-            optionId: opt.option_id,
-            optionName: opt.option?.option_name,
-            value: opt.value,
-          }))
-        })
-
-
-
-      }
-
-      for (const product of partiallyOccupied) {
-        const service = product.service
-        if (!service) continue
-
-        const serviceId = service.id
-        const lastRes = product.reservations[0]
-
-        let availableFrom: string | null = null
-        const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
-
-        if (jsDate) {
-          const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
-          availableFrom = nextDay.toISOString().split('T')[0]
-        }
-
-        if (!hotelsMap.has(serviceId)) {
-          hotelsMap.set(serviceId, {
-            ...product.serialize(),
-            rooms: [],
-            partiallyAvailable: [],
-          })
-        }
-
-        hotelsMap.get(serviceId).partiallyAvailable.push({
-          serviceProductId: product.id,
-          availableFrom,
-        })
-      }
-
-      // 5. Format result
-      const hotelsFormatted = Array.from(hotelsMap.values()).filter(hotel =>
-        hotel.rooms.length > 0 || hotel.partiallyAvailable.length > 0
-      )
-
-      return response.ok({
-        count: hotelsFormatted.length,
-        hotels: hotelsFormatted,
-      })
-    } catch (error) {
-      console.error('Query error:', error)
-      return response.status(500).send({ message: 'Internal Server Error', error: error.message })
-    }
-  }
 
   // ...existing code...
 
@@ -624,309 +507,210 @@ export default class ServiceProductsController extends CrudController<typeof Ser
 
   // ...existing code...
 
+
+  ///
+
+
+public async getAvailable({ request, response }: HttpContext) {
+  // const rawAddress = request.qs().address
+  const rawAddress = Array.isArray(request.qs().address)
+  ? request.qs().address.join(' ')
+  : request.qs().address
+
+  const startDate = request.qs().start_date
+  const endDate = request.qs().end_date
+  const guestCount = Number(request.qs().guest_count || 1)
+
+  console.log('[1] Adresse brute :', rawAddress)
+  const inputWords = this.normalizeToWords(rawAddress)
+  console.log('[2] Mots extraits de l’adresse :', inputWords)
+
+  try {
+    const allServices = await Service.query().where('category_id', 14)
+    console.log('[3] Total services trouvés:', allServices.length)
+
+    const serviceWithMatchCount = allServices
+      .map((service: any) => {
+        try {
+          const parsed = JSON.parse(service.address_service)
+          const serviceWords = this.normalizeToWords(parsed.text || '')
+
+          const commonWords = inputWords.filter(word => serviceWords.includes(word))
+          const score = commonWords.length
+
+          if (score > 0) {
+            console.log(`[4] Match trouvé pour ID ${service.id}, score: ${score}, mots communs:`, commonWords)
+            return { service, score }
+          }
+
+          return null
+        } catch (err) {
+          console.warn(`[4.1] Erreur parsing JSON pour service ID ${service.id}`, err)
+          return null
+        }
+      })
+      .filter((item): item is { service: any; score: number } => item !== null)
+      .sort((a, b) => b.score - a.score)
+
+    const matchingServiceIds = serviceWithMatchCount.map(item => item.service.id)
+    console.log('[5] Services pertinents après filtrage:', matchingServiceIds)
+
+    if (matchingServiceIds.length === 0) {
+      console.warn('[5.1] Aucun service pertinent trouvé')
+      return response.ok({ count: 0, hotels: [] })
+    }
+
+    const serviceProducts = await ServiceProduct.query()
+      .whereIn('service_id', matchingServiceIds)
+      .whereHas('availableOptions', (builder) => {
+        builder
+          .where('option_name', 'Maximum Occupancy')
+          .whereRaw("production_options.value ~ '^[0-9]+$' AND CAST(production_options.value AS INTEGER) >= ?", [guestCount])
+      })
+      .whereNotExists((subquery) => {
+        subquery
+          .from('reservation_service_products')
+          .whereRaw('reservation_service_products.service_product_id = service_products.id')
+          .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
+      })
+      .preload('service')
+      .preload('options', (optionQuery) => {
+        optionQuery.preload('option', (opt) => {
+          opt.select(['id', 'option_name'])
+        })
+      })
+
+    console.log('[6] Produits disponibles:', serviceProducts.length)
+
+    const partiallyOccupied = await ServiceProduct.query()
+      .whereIn('service_id', matchingServiceIds)
+      .whereHas('availableOptions', (builder) => {
+        builder
+          .where('option_name', 'Maximum Occupancy')
+          .whereRaw("production_options.value ~ '^[0-9]+$' AND CAST(production_options.value AS INTEGER) >= ?", [guestCount])
+      })
+      .whereExists((subquery) => {
+        subquery
+          .from('reservation_service_products')
+          .whereRaw('reservation_service_products.service_product_id = service_products.id')
+          .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
+      })
+      .preload('service')
+      .preload('reservations', (resQuery) => {
+        resQuery
+          .whereRaw('NOT (end_date < ? OR start_date > ?)', [startDate, endDate])
+          .orderBy('end_date', 'desc')
+          .limit(1)
+      })
+
+    console.log('[7] Produits partiellement occupés:', partiallyOccupied.length)
+
+    const hotelsMap = new Map<number, any>()
+
+    for (const product of serviceProducts) {
+      const service = product.service!
+      const serviceId = service.id
+
+      if (!hotelsMap.has(serviceId)) {
+        hotelsMap.set(serviceId, {
+          ...service.serialize(),
+          rooms: [],
+          partiallyAvailable: [],
+          relevanceScore: serviceWithMatchCount.find(s => s.service.id === serviceId)?.score || 0
+        })
+      }
+
+      const { service: _, ...productData } = product.serialize()
+
+      hotelsMap.get(serviceId).rooms.push({
+        ...productData,
+        options: product.options.map(opt => ({
+          optionId: opt.option_id,
+          optionName: opt.option?.option_name,
+          value: opt.value,
+        }))
+      })
+    }
+
+    for (const product of partiallyOccupied) {
+      const service = product.service
+      if (!service) continue
+
+      const serviceId = service.id
+      const lastRes = product.reservations[0]
+
+      let availableFrom: string | null = null
+      const jsDate = this.toJSDateSafe(lastRes?.arrived_date)
+
+      if (jsDate) {
+        const nextDay = new Date(jsDate.getTime() + 24 * 60 * 60 * 1000)
+        availableFrom = nextDay.toISOString().split('T')[0]
+      }
+
+      if (!hotelsMap.has(serviceId)) {
+        hotelsMap.set(serviceId, {
+          ...product.serialize(),
+          rooms: [],
+          partiallyAvailable: [],
+          relevanceScore: serviceWithMatchCount.find(s => s.service.id === serviceId)?.score || 0
+        })
+      }
+
+      hotelsMap.get(serviceId).partiallyAvailable.push({
+        serviceProductId: product.id,
+        availableFrom,
+      })
+    }
+
+    const hotelsFormatted = Array.from(hotelsMap.values())
+      .filter(hotel => hotel.rooms.length > 0 || hotel.partiallyAvailable.length > 0)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+
+    console.log('[8] Hôtels formatés (à retourner) :', hotelsFormatted.length)
+
+    return response.ok({
+      count: hotelsFormatted.length,
+      hotels: hotelsFormatted,
+    })
+  } catch (error) {
+    console.error('[X] ERREUR GÉNÉRALE:', error)
+    return response.status(500).send({ message: 'Internal Server Error', error: error.message })
+  }
+}
+
+// ✅ Fonction pour supprimer les accents et normaliser
+removeAccents(text: any): string {
+  if (typeof text !== 'string') {
+    return ''
+  }
+
+  return text
+    .normalize('NFD')                    // Décompose les caractères accentués
+    .replace(/[\u0300-\u036f]/g, '')     // Supprime les diacritiques (accents)
+    .toLowerCase()                       // Met tout en minuscule
+    .replace(/[^a-z0-9\s]/g, '')         // Supprime ponctuation spéciale
+    .replace(/\s+/g, ' ')                // Remplace les multiples espaces
+    .trim()
+}
+
+// ✅ Fonction pour extraire les mots significatifs d’une adresse
+normalizeToWords(text: string): string[] {
+  const ignoredWords = new Set(['cm', 'cmr', 'cameroun']) // Mots à ignorer
+
+  const cleaned = this.removeAccents(text)
+
+  return cleaned
+    .split(/\s|,/)
+    .map(word => word.trim())
+    .filter(word => word.length > 1 && !ignoredWords.has(word))
 }
 
 
-//   public async getAvailableServiceProducts({ request, response }: HttpContext) {
-//   const {
-//     address,
-//     start_date: startDate,
-//     end_date: endDate,
-//     guest_count: guestCount = 1,
-//   } = request.qs()
 
-//   // Validation des paramètres obligatoires
-//   if (!startDate || !endDate || (!address && (!latitude || !longitude))) {
-//     return response.badRequest({
-//       message: 'start_date, end_date, and (address or coordinates) are required',
-//     })
-//   }
+}
 
-//   try {
-//     // 1. Construction de la requête principale avec filtres
-//     let query = ServiceProduct.query()
-//       .where('availability', true)
-//       .where('status', 'active')
 
-//     // 2. Filtre par capacité d'invités
-//     const serviceProductIds = await Database
-//       .from('production_options')
-//       .join('options', 'production_options.option_id', '=', 'options.id')
-//       .where('options.name', 'guest_count')
-//       .andWhereRaw('CAST(production_options.value AS INTEGER) >= ?', [Number(guestCount)])
-//       .select('production_options.service_product_id')
 
-//     const matchingIds = serviceProductIds.map(row => row.service_product_id)
-
-//     if (matchingIds.length === 0) {
-//       return response.ok({
-//         count: 0,
-//         totalPages: 0,
-//         currentPage: page,
-//         serviceProducts: [],
-//         filters: this.getAvailableFilters()
-//       })
-//     }
-
-//     query = query.whereIn('id', matchingIds)
-
-//     // 3. Filtre par disponibilité (pas de réservations conflictuelles)
-//     query = query.whereNotExists((subquery) => {
-//       subquery
-//         .from('reservation_service_products')
-//         .whereRaw('reservation_service_products.service_product_id = service_products.id')
-//         .where('status', '!=', 'cancelled')
-//         .whereRaw('? < reservation_service_products.end_date', [endDate])
-//         .whereRaw('? > reservation_service_products.start_date', [startDate])
-//     })
-
-//     // 4. Filtre par prix
-//     if (min_price) {
-//       query = query.where('price', '>=', Number(min_price))
-//     }
-//     if (max_price) {
-//       query = query.where('price', '<=', Number(max_price))
-//     }
-
-//     // 5. Filtre par type de service
-//     if (service_type) {
-//       query = query.whereHas('service', (serviceQuery) => {
-//         serviceQuery.where('type', service_type)
-//       })
-//     }
-
-//     // 6. Filtre par note minimale
-//     if (rating_min) {
-//       query = query.where('average_rating', '>=', Number(rating_min))
-//     }
-
-//     // 7. Filtre par amenities/équipements
-//     if (amenities && Array.isArray(amenities)) {
-//       query = query.whereHas('availableOptions', (optionQuery) => {
-//         optionQuery.whereIn('name', amenities)
-//       })
-//     }
-
-//     // 8. Filtre géographique
-//     if (latitude && longitude) {
-//       // Recherche par coordonnées avec rayon
-//       query = query.preload('service', (serviceQuery) => {
-//         serviceQuery.whereRaw(`
-//           ST_DWithin(
-//             ST_GeogFromText('POINT(' || address->>'longitude' || ' ' || address->>'latitude' || ')'),
-//             ST_GeogFromText('POINT(? ?)'),
-//             ?
-//           )
-//         `, [longitude, latitude, radius * 1000]) // rayon en mètres
-//       })
-//     } else if (address) {
-//       // Recherche par adresse textuelle
-//       query = query.preload('service', (serviceQuery) => {
-//         serviceQuery.whereRaw(`
-//           LOWER(address->>'text') LIKE ? OR
-//           LOWER(address->>'city') LIKE ? OR
-//           LOWER(address->>'region') LIKE ?
-//         `, [
-//           `%${address.toLowerCase()}%`,
-//           `%${address.toLowerCase()}%`,
-//           `%${address.toLowerCase()}%`
-//         ])
-//       })
-//     }
-
-//     // 9. Tri des résultats
-//     switch (sort_by) {
-//       case 'price_low':
-//         query = query.orderBy('price', 'asc')
-//         break
-//       case 'price_high':
-//         query = query.orderBy('price', 'desc')
-//         break
-//       case 'rating':
-//         query = query.orderBy('average_rating', 'desc')
-//         break
-//       case 'distance':
-//         if (latitude && longitude) {
-//           query = query.orderByRaw(`
-//             ST_Distance(
-//               ST_GeogFromText('POINT(' || services.address->>'longitude' || ' ' || services.address->>'latitude' || ')'),
-//               ST_GeogFromText('POINT(? ?)')
-//             )
-//           `, [longitude, latitude])
-//         }
-//         break
-//       case 'newest':
-//         query = query.orderBy('created_at', 'desc')
-//         break
-//       case 'popularity':
-//         query = query.orderBy('booking_count', 'desc')
-//         break
-//       default: // relevance
-//         query = query.orderBy([
-//           { column: 'is_featured', order: 'desc' },
-//           { column: 'average_rating', order: 'desc' },
-//           { column: 'booking_count', order: 'desc' }
-//         ])
-//     }
-
-//     // 10. Préchargement des relations
-//     query = query
-//       .preload('availableOptions')
-//       .preload('images', (imageQuery) => {
-//         imageQuery.orderBy('is_main', 'desc').limit(5)
-//       })
-//       .preload('service', (serviceQuery) => {
-//         serviceQuery.select([
-//           'id', 'name', 'address', 'type', 'description',
-//           'average_rating', 'review_count'
-//         ])
-//       })
-//       .preload('reviews', (reviewQuery) => {
-//         reviewQuery
-//           .where('status', 'approved')
-//           .orderBy('created_at', 'desc')
-//           .limit(3)
-//           .preload('user', (userQuery) => {
-//             userQuery.select(['id', 'name', 'avatar'])
-//           })
-//       })
-
-//     // 11. Pagination
-//     const offset = (Number(page) - 1) * Number(limit)
-//     const totalCount = await query.clone().clearOrder().count('* as total')
-//     const total = totalCount[0].$extras.total
-
-//     const serviceProducts = await query
-//       .offset(offset)
-//       .limit(Number(limit))
-
-//     // 12. Filtrer ceux qui n'ont pas de service valide
-//     const validProducts = serviceProducts.filter(sp => sp.service !== null)
-
-//     // 13. Enrichir les données avec des calculs supplémentaires
-//     const enrichedProducts = await Promise.all(
-//       validProducts.map(async (product) => {
-//         // Calculer la distance si coordonnées fournies
-//         let distance = null
-//         if (latitude && longitude && product.service?.address) {
-//           const serviceCoords = product.service.address
-//           if (serviceCoords.latitude && serviceCoords.longitude) {
-//             distance = this.calculateDistance(
-//               Number(latitude), Number(longitude),
-//               Number(serviceCoords.latitude), Number(serviceCoords.longitude)
-//             )
-//           }
-//         }
-
-//         // Calculer le prix total pour la période
-//         const nights = Math.ceil(
-//           (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
-//         )
-//         const totalPrice = product.price * nights * Number(guestCount)
-
-//         return {
-//           ...product.toJSON(),
-//           distance,
-//           totalPrice,
-//           pricePerNight: product.price,
-//           nights,
-//           availabilityStatus: 'available'
-//         }
-//       })
-//     )
-
-//     // 14. Obtenir les filtres disponibles pour l'interface
-//     const availableFilters = await this.getAvailableFilters(matchingIds)
-
-//     return response.ok({
-//       count: validProducts.length,
-//       total,
-//       totalPages: Math.ceil(total / Number(limit)),
-//       currentPage: Number(page),
-//       hasNextPage: Number(page) * Number(limit) < total,
-//       hasPrevPage: Number(page) > 1,
-//       serviceProducts: enrichedProducts,
-//       filters: availableFilters,
-//       searchParams: {
-//         address,
-//         startDate,
-//         endDate,
-//         guestCount: Number(guestCount),
-//         sortBy: sort_by
-//       }
-//     })
-
-//   } catch (error) {
-//     Logger.error('Error in getAvailableServiceProducts:', error)
-//     return response.internalServerError({
-//       message: 'An error occurred while searching for services'
-//     })
-//   }
-// }
-
-// Méthode helper pour calculer la distance
-// private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-//   const R = 6371 // Rayon de la Terre en km
-//   const dLat = this.deg2rad(lat2 - lat1)
-//   const dLon = this.deg2rad(lon2 - lon1)
-//   const a =
-//     Math.sin(dLat/2) * Math.sin(dLat/2) +
-//     Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) *
-//     Math.sin(dLon/2) * Math.sin(dLon/2)
-//   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-//   return Math.round(R * c * 10) / 10 // Arrondi à 1 décimale
-// }
-
-// private deg2rad(deg: number): number {
-//   return deg * (Math.PI/180)
-// }
-
-// // Méthode pour obtenir les filtres disponibles
-// private async getAvailableFilters(serviceProductIds?: number[]) {
-//   const baseQuery = serviceProductIds
-//     ? Database.from('service_products').whereIn('id', serviceProductIds)
-//     : Database.from('service_products').where('availability', true)
-
-//   const [priceRange, serviceTypes, amenities, ratings] = await Promise.all([
-//     // Gamme de prix
-//     baseQuery.clone()
-//       .min('price as min_price')
-//       .max('price as max_price'),
-
-//     // Types de services
-//     Database.from('services')
-//       .join('service_products', 'services.id', '=', 'service_products.service_id')
-//       .whereIn('service_products.id', serviceProductIds || [])
-//       .groupBy('services.type')
-//       .select('services.type')
-//       .count('* as count'),
-
-//     // Équipements disponibles
-//     Database.from('options')
-//       .join('production_options', 'options.id', '=', 'production_options.option_id')
-//       .whereIn('production_options.service_product_id', serviceProductIds || [])
-//       .where('options.type', 'amenity')
-//       .groupBy('options.name', 'options.display_name')
-//       .select('options.name', 'options.display_name')
-//       .count('* as count'),
-
-//     // Distribution des notes
-//     baseQuery.clone()
-//       .whereNotNull('average_rating')
-//       .select(
-//         Database.raw('FLOOR(average_rating) as rating'),
-//         Database.raw('COUNT(*) as count')
-//       )
-//       .groupBy(Database.raw('FLOOR(average_rating)'))
-//   ])
-
-//   return {
-//     priceRange: priceRange[0] || { min_price: 0, max_price: 1000 },
-//     serviceTypes,
-//     amenities,
-//     ratings
-//   }
-// }
 
 
 

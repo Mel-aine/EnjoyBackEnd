@@ -164,5 +164,9 @@ export default class CrudService<T extends typeof BaseModel> {
     }
   }
 
+  async findByEmail(email: string) {
+  return await this.model.query().where('email', email).first()
+}
+
 
 }

@@ -1,0 +1,81 @@
+// import { BaseSeeder } from '@adonisjs/lucid/seeders'
+
+// export default class extends BaseSeeder {
+//   async run() {
+//     // Write your database queries inside the run method
+//   }
+// }
+
+import { BaseSeeder } from '@adonisjs/lucid/seeders'
+import Service from '#models/service'
+import User from '#models/user'
+import * as fs from 'fs'
+
+
+const defaultFacilities = ['Piscine', 'Bar', 'Restaurant', 'Parking', 'Wi-Fi gratuit']
+const defaultPolicies = 'Check-in à partir de 14h00. Check-out avant 12h00. Animaux non admis.'
+const defaultCapacity = 100
+const defaultPaymentMethods = ['Espèces', 'Mobile Money', 'Carte Bancaire','SmallPay']
+
+export default class extends BaseSeeder {
+  public async run() {
+    const rawData = fs.readFileSync('./data/services_with_coords_uploaded.json', 'utf-8')
+    const services = JSON.parse(rawData)
+
+    const adminEmail = 'admin@monapp.cm'
+    let admin = await User.findBy('email', adminEmail)
+
+    if (!admin) {
+      admin = await User.create({
+        first_name: 'Super',
+        last_name: 'Admin',
+        password: 'admin123',
+        email: adminEmail,
+        phone_number: '000000000',
+        address: 'Odza',
+        last_login: null,
+        two_factor_enabled: false,
+        role_id: 2,
+        status: 'active',
+        created_by: 1,
+        last_modified_by: 1,
+      })
+      console.log('✅ Utilisateur admin créé')
+    } else {
+      console.log('ℹ️ Utilisateur admin déjà existant')
+    }
+
+
+    const chunkSize = 100
+    for (let i = 0; i < services.length; i += chunkSize) {
+      const chunk = services.slice(i, i + chunkSize)
+      const serviceRecords = chunk.map((data:any) => ({
+        name: data.nom,
+        description: data.description,
+        category_id: 14,
+        email_service: data.email_service || null,
+        website: data.website || null,
+        openings: data.horaires || null,
+        price_range: data.price_range  || null,
+        price: data.prix || null,
+        facilities: JSON.stringify(defaultFacilities),
+        policies: defaultPolicies,
+        capacity: defaultCapacity,
+        payment_methods: JSON.stringify(defaultPaymentMethods),
+        logo: data.cover || null,
+        address_service: JSON.stringify(data.address_service),
+        phone_number_service: data.phone_number_service || null,
+        average_rating: null,
+        review_count: null,
+        images: JSON.stringify(data.images || []),
+        status_service: 'active',
+        created_by: admin.id,
+        last_modified_by: admin.id,
+
+      }))
+
+      await Service.createMany(serviceRecords)
+      console.log(`✅ Importé: ${i + chunk.length} / ${services.length}`)
+    }
+  }
+}

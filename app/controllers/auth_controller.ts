@@ -50,37 +50,37 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
-  async signin({ request, response }: HttpContext) {
-    const { email, password } = request.only(['email', 'password'])
+  // async signin({ request, response }: HttpContext) {
+  //   const { email, password } = request.only(['email', 'password'])
 
-    try {
-      const user = await User
-        .query()
-        .where('email', email)
-        .preload('Services', (serviceQuery) => {
-          serviceQuery.preload('category')
-        })
-        .first()
+  //   try {
+  //     const user = await User
+  //     .query()
+  //     .where('email', email)
+  //     .preload('services', (serviceQuery) => {
+  //       serviceQuery.preload('category')
+  //     })
+  //     .first()
 
-      if (!user) return response.unauthorized({ message: 'Invalid credentials' })
+  //     if (!user) return response.unauthorized({ message: 'Invalid credentials' })
 
-      const passwordValid = await hash.verify(user.password, password)
-      if (!passwordValid) return response.unauthorized({ message: 'Invalid credentials' })
+  //     const passwordValid = await hash.verify(user.password, password)
+  //     if (!passwordValid) return response.unauthorized({ message: 'Invalid credentials' })
 
-      const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
+  //     const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
 
-      return response.ok({
-        message: 'Login successfully',
-        data: {
-          user,
-          user_token: token,
-        }
-      })
-    } catch (error) {
-      console.error('Login error:', error)
-      return response.badRequest({ message: 'Login failed' })
-    }
-  }
+  //     return response.ok({
+  //       message: 'Login successfully',
+  //       data: {
+  //         user,
+  //         user_token: token,
+  //       }
+  //     })
+  //   } catch (error) {
+  //     console.error('Login error:', error)
+  //     return response.badRequest({ message: 'Login failed' })
+  //   }
+  // }
 
 
 
@@ -114,6 +114,60 @@ export default class AuthController {
   //     return this.responseError('Validation failed', 422, error.messages)
   //   }
   // }
+
+async signin({ request, response }: HttpContext) {
+  const { email, password } = request.only(['email', 'password'])
+
+  try {
+    const user = await User
+      .query()
+      .where('email', email)
+      .preload('role')
+      .firstOrFail()
+
+    const passwordValid = await hash.verify(user.password, password)
+    if (!passwordValid) {
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+
+    const isAdmin = user.role?.role_name === 'admin'
+
+    let userServices
+
+    if (isAdmin) {
+
+      userServices = await user.related('services')
+        .query()
+        .preload('category')
+        .limit(30)
+    } else {
+
+      const assignments = await user.related('serviceAssignments')
+        .query()
+        .preload('service', (serviceQuery) => {
+          serviceQuery.preload('category')
+        })
+        .limit(10)
+
+      userServices = assignments.map((a) => a.service)
+    }
+
+    const token = await User.accessTokens.create(user, ['*'], { name: email })
+
+    return response.ok({
+      message: 'Login successful',
+      data: {
+        user,
+        userServices,
+        user_token: token,
+      }
+    })
+  } catch (error) {
+    console.error('Login error:', error)
+    return response.badRequest({ message: 'Login failed' })
+  }
+}
+
 
   public async update_user({ auth, request, response }: HttpContext) {
     try {
