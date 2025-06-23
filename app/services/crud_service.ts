@@ -78,6 +78,7 @@ export default class CrudService<T extends typeof BaseModel> {
       .query()
       .where('category_id', category_id)
       .select(...fields)
+      .limit(25)
   }
 
 
