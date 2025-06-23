@@ -137,7 +137,7 @@ export default class CrudController<T extends typeof BaseModel> {
         return response.notFound({ message: 'Record not found' })
       }
 
-      return response.ok(items)
+      return response.ok({items, count: items.length})
     } catch (error) {
       return response.internalServerError({
         message: 'Error fetching record',
