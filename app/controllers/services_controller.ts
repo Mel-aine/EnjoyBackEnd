@@ -138,6 +138,29 @@ export default class ServicesController extends CrudController<typeof Service> {
   }
 }
 
+ /**
+   * Find all services where the name contains the given text (case-insensitive).
+   * Query param: ?q=searchText
+   */
+  public async searchByName({ request, response }: HttpContext) {
+    const searchText = request.input('q') || request.qs().q
 
+    if (!searchText || typeof searchText !== 'string') {
+      return response.badRequest({ message: 'Search text (q) is required' })
+    }
+
+    try {
+      const services = await Service
+        .query()
+        .whereILike('name', `%${searchText}%`)
+
+      return response.ok(services)
+    } catch (error) {
+      return response.internalServerError({
+        message: 'Erreur lors de la recherche des services',
+        error: error.message,
+      })
+    }
+  }
 
 }

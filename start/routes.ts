@@ -196,6 +196,7 @@ router
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
+      router.get('/services/search', servicesController.searchByName.bind(servicesController))
       router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
 
