@@ -34,6 +34,8 @@ import TravelVehiclesController from '#controllers/travel_vehicles_controller'
 import TravelSchedulesController from '#controllers/travel_schedules_controller'
 import TravelRoutesController from '#controllers/travel_routes_controller'
 import ServiceImagesController from '#controllers/service_images_controller'
+import AssigmentUsersController from '#controllers/assigment_users_controller'
+import PermissionsController from '#controllers/permissions_controller'
 
 const AuthController = () => import('#controllers/auth_controller')
 
@@ -62,6 +64,8 @@ const travelVehiclesController = new TravelVehiclesController()
 const travelSchedulesController = new TravelSchedulesController()
 const travelRoutesController = new TravelRoutesController()
 const serviceImagesController = new ServiceImagesController()
+const assigmentUsersController = new AssigmentUsersController()
+const permissionsController = new PermissionsController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -77,9 +81,10 @@ router
     router.group(() => {
       router.get('/users', usersController.list.bind(usersController))
       router.get('/users/:id', usersController.show.bind(usersController))
-      //router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-      router.post('/users', usersController.store.bind(usersController))
+      router.post('/users', usersController.createWithUserAndRole.bind(usersController))
+      // router.post('/users', usersController.store.bind(usersController))
       router.put('/users/:id', usersController.update.bind(usersController))
+      router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
     })
     //.middleware('auth') // Protège toutes les routes
@@ -94,7 +99,8 @@ router
 
     router.group(() => {
       router.get('/roles', rolesController.list.bind(rolesController))
-      router.get('/roles/:id', rolesController.show.bind(rolesController))
+      router.get('/roles/:serviceId', rolesController.GetByServiceId.bind(rolesController))
+      router.get('/services/:serviceId/roles', rolesController.getRolesByService.bind(rolesController))
       router.post('/roles', rolesController.store.bind(rolesController))
       router.put('/roles/:id', rolesController.update.bind(rolesController))
       router.delete('/roles/:id', rolesController.destroy.bind(rolesController))
@@ -104,7 +110,7 @@ router
       router.get('/stockCategory', stockCategoriesController.list.bind(stockCategoriesController))
       router.get(
         '/stockCategory/:serviceId',
-        stockCategoriesController.showReservationByServiceId.bind(stockCategoriesController)
+        stockCategoriesController.GetByServiceId.bind(stockCategoriesController)
       )
       router.post('/stockCategory', stockCategoriesController.store.bind(stockCategoriesController))
       router.put(
@@ -121,7 +127,7 @@ router
       router.get('/supplier', suppliersController.list.bind(suppliersController))
       router.get(
         '/supplier/:serviceId',
-        suppliersController.showReservationByServiceId.bind(suppliersController)
+        suppliersController.GetByServiceId.bind(suppliersController)
       )
       router.post('/supplier', suppliersController.store.bind(suppliersController))
       router.put('/supplier/:id', suppliersController.update.bind(suppliersController))
@@ -132,7 +138,7 @@ router
       router.get('/prooductService', productServicesController.list.bind(productServicesController))
       router.get(
         '/prooductService/:serviceId',
-        productServicesController.showReservationByServiceId.bind(productServicesController)
+        productServicesController.GetByServiceId.bind(productServicesController)
       )
       router.post(
         '/prooductService',
@@ -152,7 +158,7 @@ router
       router.get('/expenses', expensesController.list.bind(expensesController))
       router.get(
         '/expenses/:serviceId',
-        expensesController.showReservationByServiceId.bind(expensesController)
+        expensesController.GetByServiceId.bind(expensesController)
       )
       router.post('/expenses', expensesController.store.bind(expensesController))
       router.put('/expenses/:id', expensesController.update.bind(expensesController))
@@ -163,7 +169,7 @@ router
       router.get('/department', departmentsController.list.bind(departmentsController))
       router.get(
         '/department/:serviceId',
-        departmentsController.showReservationByServiceId.bind(departmentsController)
+        departmentsController.GetByServiceId.bind(departmentsController)
       )
       router.post('/department', departmentsController.store.bind(departmentsController))
       router.put('/department/:id', departmentsController.update.bind(departmentsController))
@@ -174,7 +180,7 @@ router
       router.get('/movement', mouvementsController.list.bind(mouvementsController))
       router.get(
         '/movement/:serviceId',
-        mouvementsController.showReservationByServiceId.bind(mouvementsController)
+        mouvementsController.GetByServiceId.bind(mouvementsController)
       )
       router.post('/movement', mouvementsController.store.bind(mouvementsController))
       router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
@@ -203,7 +209,7 @@ router
     router.group(() => {
       router.post('/product', typeProductsController.store.bind(typeProductsController))
       router.get('/product', typeProductsController.list.bind(typeProductsController))
-      router.get('/product/:id', typeProductsController.show.bind(typeProductsController))
+      router.get('/product/:serviceId', typeProductsController.GetByServiceId.bind(typeProductsController))
       router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
       router.delete('/product/:id', typeProductsController.destroy.bind(typeProductsController))
     })
@@ -258,7 +264,7 @@ router
       )
       router.get(
         '/reservations/:serviceId',
-        reservationsController.showReservationByServiceId.bind(reservationsController)
+        reservationsController.GetByServiceId.bind(reservationsController)
       )
       router.post('/reservations', reservationsController.store.bind(reservationsController))
       router.post(
@@ -295,7 +301,7 @@ router
       )
       router.get(
         '/reservation_service/:reservationId',
-        reservationServiceProductsController.showReservationServiceProductByResrvationId.bind(reservationServiceProductsController)
+        reservationServiceProductsController.showByResrvationId.bind(reservationServiceProductsController)
       )
       router.get(
         '/reservation_service/:id',
@@ -352,7 +358,7 @@ router
       router.get('/payment/:id', paymentsController.show.bind(paymentsController))
       router.get(
         '/payments/:serviceId',
-        paymentsController.showReservationByServiceId.bind(paymentsController)
+        paymentsController.GetByServiceId.bind(paymentsController)
       )
       router.post('/payment', paymentsController.store.bind(paymentsController))
       router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
@@ -444,6 +450,14 @@ router
 
     router.group(() => {
       router.get('/services/:serviceId/products/grouped', serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController))
+    })
+
+    router.group(() => {
+      router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
+    })
+
+    router.group(() => {
+      router.get('/permission', permissionsController.list.bind(permissionsController))
     })
   })
   .prefix('/api')

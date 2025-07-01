@@ -13,6 +13,19 @@ export default class ProductType extends BaseModel {
   @column()
   declare description: string
 
+  @column()
+  declare default_guest: number
+
+  @column()
+  declare price : number
+
+  @column()
+  declare extra_guest_price: number | null
+
+
+  @column()
+  declare default_deposit: number | null
+
    @column()
   declare status: 'active' | 'inactive' | 'suspended'
 

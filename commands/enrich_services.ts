@@ -23,8 +23,8 @@ export default class EnrichServices extends BaseCommand {
   static description = 'Enrichit les services avec des coordonnées géographiques'
 
   async run() {
-    const inputFile = './data/address.json'
-    const outputFile = './data/services_with_address.json'
+    const inputFile = './data/data-administrations.json'
+    const outputFile = './data/data-administrations.json'
     const failedFile = './data/failed_geocoding.json'
 
     if (!existsSync(inputFile)) {
@@ -102,7 +102,7 @@ export default class EnrichServices extends BaseCommand {
         lng: coords?.lng ?? null,
       }
 
-      await new Promise((res) => setTimeout(res, 1000)) // Respect Nominatim : 1 requête/sec
+      await new Promise((res) => setTimeout(res, 1000))
     }
 
     await writeFile(outputFile, JSON.stringify(services, null, 2), 'utf-8')
