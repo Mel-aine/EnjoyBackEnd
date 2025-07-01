@@ -29,8 +29,8 @@ export default class UploadImages extends BaseCommand {
   static description = 'Upload les images locales vers Cloudinary et met à jour les URLs dans le JSON'
 
   async run() {
-    const inputFile = './data/services_with_coords_updated.json'
-    const outputFile = './data/services_with_coords_uploaded.json'
+    const inputFile = './data/data-modes-et-beaute_lat_lon.json'
+    const outputFile = './data/data-modes-et-beaute_lat_lon_uploaded.json'
 
     try {
       this.logger.info('Lecture du fichier JSON...')
@@ -58,7 +58,7 @@ export default class UploadImages extends BaseCommand {
             const imgPath = path.resolve(service.images[i])
             try {
               const res = await cloudinary.uploader.upload(imgPath, {
-                folder: 'services/images',
+                folder: 'services/images/modes-et-beaute',
               })
               service.images[i] = res.secure_url
               this.logger.info(`✅ Image ${i + 1} uploadée pour ${service.nom || 'service inconnu'}`)

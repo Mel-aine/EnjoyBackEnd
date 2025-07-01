@@ -128,6 +128,16 @@ export default class ServicesController extends CrudController<typeof Service> {
       service_id: newService.id,
       role: 'admin',
     })
+    const RESTO_SERVICE_Id = 1
+
+    if (data.category_id === RESTO_SERVICE_Id) {
+      await  this.callAron({
+        ...data,
+        external_id:user.id,
+        service_id: newService.id,
+        user_id: user.id,
+      })
+    }
 
     return response.created({ service: newService, user })
   } catch (error) {
@@ -138,6 +148,76 @@ export default class ServicesController extends CrudController<typeof Service> {
   }
 }
 
+private async callAron(data: any) {
+  try {
+    const url = 'https://account-resto.arouncloud.workers.dev/api/v1/Auth/Register'
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(this.formatService(data)),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Aron API error: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    console.log('Aron API response:', result)
+  } catch (error) {
+    console.error('Error calling Aron API:', error.message)
+  }
+}
+private formatService(data: any) {
+  return {
+    "bussiness": {
+        "external_id": data.service_id +""|| "", //!
+        "name": data.name, //!
+        "description": data.description, //!
+        "address_service": data.address_service, //!
+        "phone_number_service": data.phone_number_service, //!
+        "email_service": data.email_service, //!
+        "website": data.website, //?
+        "logo": data.logo || '', //!
+        "images": data.images || [], //?
+        "openings": {
+            "Monday": {
+                "opening": "09:00", "closing": "18:00"
+            },
+            "Tuesday": {
+                "opening": "09:00", "closing": "18:00"
+            },
+            "Wednesday": {
+                "opening": "09:00", "closing": "18:00"
+            },
+            "Thursday": {
+                "opening": "09:00",  "closing": "18:00"
+            },
+            "Friday": {
+                "opening": "09:00", "closing": "18:00"
+            }
+        },
+        "policies": data.policies,
+        "facilities": data.facilities,
+        "capacity": data.capacity, //?
+        "payment_methods": data.payment_methods || [], //?
+    },
+    "contact": {
+        "external_id": data.service_id,
+        "first_name": data.first_name, //!
+        "last_name": data.last_name,//!
+        "phone_number": data.phone_number,//!
+        "email": data.email,//! 
+        "address": data.address , //!
+    },
+    "credentials": {
+        "username": data.email,//!
+        "password": data.password//!
+    }
+}
+
+}
 
 
 }

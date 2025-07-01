@@ -15,12 +15,7 @@
       "images/secours/univers_m_dical___centre_d_analyse_m_dicale/image1.jpg",
       "images/secours/univers_m_dical___centre_d_analyse_m_dicale/image2.jpg",
       "images/secours/univers_m_dical___centre_d_analyse_m_dicale/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Derrière la pharmacie Xavyo juste à côté du prestige, Olezoa, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Serenity Medical Center",
@@ -38,12 +33,7 @@
       "images/secours/serenity_medical_center/image1.jpg",
       "images/secours/serenity_medical_center/image2.jpg",
       "images/secours/serenity_medical_center/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Maison, Damas, Yaoundé, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Cabinet Anne-Marie",
@@ -61,12 +51,7 @@
       "images/secours/cabinet_anne_marie/image1.jpg",
       "images/secours/cabinet_anne_marie/image2.jpg",
       "images/secours/cabinet_anne_marie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Unnamed Road, Yaoundé, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Clinique La Fortune Divine",
@@ -84,12 +69,7 @@
       "images/secours/clinique_la_fortune_divine/image1.jpg",
       "images/secours/clinique_la_fortune_divine/image2.jpg",
       "images/secours/clinique_la_fortune_divine/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Sur la route de Soa, Tsinga village, Yaounde, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Centre Medical Sainte Bernadette",
@@ -107,12 +87,7 @@
       "images/secours/centre_medical_sainte_bernadette/image1.jpg",
       "images/secours/centre_medical_sainte_bernadette/image2.jpg",
       "images/secours/centre_medical_sainte_bernadette/image3.jpg"
-    ],
-    "address_service": {
-      "text": "derrière le Fonds national de l'emploi, Fouda, Yaounde, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Centre Médical Saint John De Douala",
@@ -130,12 +105,7 @@
       "images/secours/centre_m_dical_saint_john_de_douala/image1.jpg",
       "images/secours/centre_m_dical_saint_john_de_douala/image2.jpg",
       "images/secours/centre_m_dical_saint_john_de_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Yansoki, Yassa, Douala, CM.",
-      "lat": 3.9683525,
-      "lng": 9.7921473
-    }
+    ]
   },
   {
     "nom": "Lunetterie Leclair",
@@ -153,12 +123,7 @@
       "images/secours/lunetterie_leclair/image1.jpg",
       "images/secours/lunetterie_leclair/image2.jpg",
       "images/secours/lunetterie_leclair/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau de la BANQUE CCA, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Panafrican Health Collaboration-Ong Jouvence",
@@ -176,12 +141,7 @@
       "images/secours/panafrican_health_collaboration_ong_jouvence/image1.jpg",
       "images/secours/panafrican_health_collaboration_ong_jouvence/image2.jpg",
       "images/secours/panafrican_health_collaboration_ong_jouvence/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face du snack olimpia, Montée Jouvence, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Panafrican Health Collaboration-Ong Odza",
@@ -199,12 +159,7 @@
       "images/secours/panafrican_health_collaboration_ong_odza/image1.jpg",
       "images/secours/panafrican_health_collaboration_ong_odza/image2.jpg",
       "images/secours/panafrican_health_collaboration_ong_odza/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Petit marché à côté du foyer bamileke, Odza, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Unité Optique",
@@ -222,12 +177,7 @@
       "images/secours/unit__optique/image1.jpg",
       "images/secours/unit__optique/image2.jpg",
       "images/secours/unit__optique/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Carrefour intendance, YAOUNDE, CM.",
-      "lat": 3.8665145,
-      "lng": 11.5205145
-    }
+    ]
   },
   {
     "nom": "Harries Optique",
@@ -245,12 +195,7 @@
       "images/secours/harries_optique/image1.jpg",
       "images/secours/harries_optique/image2.jpg",
       "images/secours/harries_optique/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Yaoundé, YAOUNDE, CM.",
-      "lat": 3.8707816,
-      "lng": 11.5258987
-    }
+    ]
   },
   {
     "nom": "Goshen Optique Médicale",
@@ -268,12 +213,7 @@
       "images/secours/goshen_optique_m_dicale/image1.jpg",
       "images/secours/goshen_optique_m_dicale/image2.jpg",
       "images/secours/goshen_optique_m_dicale/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Maison Rose, Damas, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Casino Optique Yaoundé",
@@ -291,12 +231,7 @@
       "images/secours/casino_optique_yaound_/image1.jpg",
       "images/secours/casino_optique_yaound_/image2.jpg",
       "images/secours/casino_optique_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Non loin de l'avenue Kennedy, Carrefour Intendance, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Casino Optique Douala",
@@ -314,12 +249,7 @@
       "images/secours/casino_optique_douala/image1.jpg",
       "images/secours/casino_optique_douala/image2.jpg",
       "images/secours/casino_optique_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien 3ème, Douala, CM.",
-      "lat": 4.040947,
-      "lng": 9.7016708
-    }
+    ]
   },
   {
     "nom": "Lune Optique Médicale",
@@ -337,12 +267,7 @@
       "images/secours/lune_optique_m_dicale/image1.jpg",
       "images/secours/lune_optique_m_dicale/image2.jpg",
       "images/secours/lune_optique_m_dicale/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Etoug-Ebe, YAOUNDE, CM.",
-      "lat": 3.8521363,
-      "lng": 11.4758972
-    }
+    ]
   },
   {
     "nom": "Sos Vision Yaoundé",
@@ -360,12 +285,7 @@
       "images/secours/sos_vision_yaound_/image1.jpg",
       "images/secours/sos_vision_yaound_/image2.jpg",
       "images/secours/sos_vision_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Total école de police, Ngousso, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Sos Vision Douala",
@@ -383,12 +303,7 @@
       "images/secours/sos_vision_douala/image1.jpg",
       "images/secours/sos_vision_douala/image2.jpg",
       "images/secours/sos_vision_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Entre le carrefour TIFF et le carrefour idéal, Akwa, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Imic",
@@ -406,12 +321,7 @@
       "images/secours/imic/image1.jpg",
       "images/secours/imic/image2.jpg",
       "images/secours/imic/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Rue Kouffra, Bali, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Cabinet Dentaire Du Centre Médical Hope& Blessing",
@@ -429,12 +339,7 @@
       "images/secours/cabinet_dentaire_du_centre_m_dical_hope__blessing/image1.jpg",
       "images/secours/cabinet_dentaire_du_centre_m_dical_hope__blessing/image2.jpg",
       "images/secours/cabinet_dentaire_du_centre_m_dical_hope__blessing/image3.jpg"
-    ],
-    "address_service": {
-      "text": "omnisport en face mission catholique saint esprit, Bepanda, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Centre De Santé La Passerelle",
@@ -452,12 +357,7 @@
       "images/secours/centre_de_sant__la_passerelle/image1.jpg",
       "images/secours/centre_de_sant__la_passerelle/image2.jpg",
       "images/secours/centre_de_sant__la_passerelle/image3.jpg"
-    ],
-    "address_service": {
-      "text": "cité des palmiers, Citée des palmiers, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Labex Ngousso",
@@ -475,12 +375,7 @@
       "images/secours/labex_ngousso/image1.jpg",
       "images/secours/labex_ngousso/image2.jpg",
       "images/secours/labex_ngousso/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Immeuble Pharmacie Bleu - face Hôpital Général, Ngousso, Yaoundé, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Labex Biyem Assi",
@@ -498,12 +393,7 @@
       "images/secours/labex_biyem_assi/image1.jpg",
       "images/secours/labex_biyem_assi/image2.jpg",
       "images/secours/labex_biyem_assi/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Immeuble face station oilibya, Biyem-Assi, Yaoundé, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Clinique La Patience",
@@ -521,12 +411,7 @@
       "images/secours/clinique_la_patience/image1.jpg",
       "images/secours/clinique_la_patience/image2.jpg",
       "images/secours/clinique_la_patience/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Cité de la paix, Douala, CM.",
-      "lat": 4.0418134,
-      "lng": 9.7273215
-    }
+    ]
   },
   {
     "nom": "Lunetterie Serena Yaoundé",
@@ -544,12 +429,7 @@
       "images/secours/lunetterie_serena_yaound_/image1.jpg",
       "images/secours/lunetterie_serena_yaound_/image2.jpg",
       "images/secours/lunetterie_serena_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face Advan's, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Serena Douala",
@@ -567,12 +447,7 @@
       "images/secours/lunetterie_serena_douala/image1.jpg",
       "images/secours/lunetterie_serena_douala/image2.jpg",
       "images/secours/lunetterie_serena_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien 3è, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Centre De Santé La Patience De Ndogbong",
@@ -590,12 +465,7 @@
       "images/secours/centre_de_sant__la_patience_de_ndogbong/image1.jpg",
       "images/secours/centre_de_sant__la_patience_de_ndogbong/image2.jpg",
       "images/secours/centre_de_sant__la_patience_de_ndogbong/image3.jpg"
-    ],
-    "address_service": {
-      "text": "CAMLAIT, Ndogbong, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Clinique De L'ocean Douala",
@@ -613,12 +483,7 @@
       "images/secours/clinique_de_l_ocean_douala/image1.jpg",
       "images/secours/clinique_de_l_ocean_douala/image2.jpg",
       "images/secours/clinique_de_l_ocean_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Bel Air Dépot de Bois à 500 mètres du Commissariat 10e, Makèpè, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Cabinet Dentaire Akwa",
@@ -636,12 +501,7 @@
       "images/secours/cabinet_dentaire_akwa/image1.jpg",
       "images/secours/cabinet_dentaire_akwa/image2.jpg",
       "images/secours/cabinet_dentaire_akwa/image3.jpg"
-    ],
-    "address_service": {
-      "text": "DERRIERE LE PALAIS DIKA, DANS LE BÂTIMENT PEINT EN VERT, Akwa, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Cabinet Dentaire Ndogbong",
@@ -659,12 +519,7 @@
       "images/secours/cabinet_dentaire_ndogbong/image1.jpg",
       "images/secours/cabinet_dentaire_ndogbong/image2.jpg",
       "images/secours/cabinet_dentaire_ndogbong/image3.jpg"
-    ],
-    "address_service": {
-      "text": "DANS L'HÔPITAL BETHESDA, APRES LE COLLEGE LA CONQUÊTE, Ndogbong, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Gbs Optique",
@@ -682,12 +537,7 @@
       "images/secours/gbs_optique/image1.jpg",
       "images/secours/gbs_optique/image2.jpg",
       "images/secours/gbs_optique/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face de la pharmacie du stade, Omnisport, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie House",
@@ -705,12 +555,7 @@
       "images/secours/lunetterie_house/image1.jpg",
       "images/secours/lunetterie_house/image2.jpg",
       "images/secours/lunetterie_house/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Bricolux, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Photon Optic",
@@ -728,12 +573,7 @@
       "images/secours/photon_optic/image1.jpg",
       "images/secours/photon_optic/image2.jpg",
       "images/secours/photon_optic/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien bureau de transport, Bafoussam",
-      "lat": 5.4758844,
-      "lng": 10.4217852
-    }
+    ]
   },
   {
     "nom": "Triple S Lunetterie",
@@ -751,12 +591,7 @@
       "images/secours/triple_s_lunetterie/image1.jpg",
       "images/secours/triple_s_lunetterie/image2.jpg",
       "images/secours/triple_s_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Carrefour intendance, Elig essono, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Kfm",
@@ -774,12 +609,7 @@
       "images/secours/lunetterie_kfm/image1.jpg",
       "images/secours/lunetterie_kfm/image2.jpg",
       "images/secours/lunetterie_kfm/image3.jpg"
-    ],
-    "address_service": {
-      "text": "A côté du Boun's hôtel, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Nouno Fils",
@@ -797,12 +627,7 @@
       "images/secours/lunetterie_nouno_fils/image1.jpg",
       "images/secours/lunetterie_nouno_fils/image2.jpg",
       "images/secours/lunetterie_nouno_fils/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancienne route, a côté du supermarché domino contacts, Bonabéri, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Daïbou Douala",
@@ -820,12 +645,7 @@
       "images/secours/lunetterie_da_bou_douala/image1.jpg",
       "images/secours/lunetterie_da_bou_douala/image2.jpg",
       "images/secours/lunetterie_da_bou_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau de l'immeuble cca banque., Ancien 3eme, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Daïbou Yaoaundé",
@@ -843,12 +663,7 @@
       "images/secours/lunetterie_da_bou_yaoaund_/image1.jpg",
       "images/secours/lunetterie_da_bou_yaoaund_/image2.jpg",
       "images/secours/lunetterie_da_bou_yaoaund_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Carrefour Sho, Yaoundé, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Onyx",
@@ -866,12 +681,7 @@
       "images/secours/lunetterie_onyx/image1.jpg",
       "images/secours/lunetterie_onyx/image2.jpg",
       "images/secours/lunetterie_onyx/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Marché central, Yaoundé, CM.",
-      "lat": 3.8489596385291835, 
-      "lng": 11.501993139469391
-    }
+    ]
   },
   {
     "nom": "Lunetterie F.p",
@@ -889,12 +699,7 @@
       "images/secours/lunetterie_f_p/image1.jpg",
       "images/secours/lunetterie_f_p/image2.jpg",
       "images/secours/lunetterie_f_p/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face CCA Bank, Ancien 3eme, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie La Solution",
@@ -912,12 +717,7 @@
       "images/secours/lunetterie_la_solution/image1.jpg",
       "images/secours/lunetterie_la_solution/image2.jpg",
       "images/secours/lunetterie_la_solution/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien cinéma étoile, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie God Bless",
@@ -935,12 +735,7 @@
       "images/secours/lunetterie_god_bless/image1.jpg",
       "images/secours/lunetterie_god_bless/image2.jpg",
       "images/secours/lunetterie_god_bless/image3.jpg"
-    ],
-    "address_service": {
-      "text": "CCA Bank, Ancien 3eme, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Pam Lunetterie",
@@ -958,12 +753,7 @@
       "images/secours/pam_lunetterie/image1.jpg",
       "images/secours/pam_lunetterie/image2.jpg",
       "images/secours/pam_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau de la banque CCA., Ancien troisième, Douala, DE.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "James Lunetterie",
@@ -981,12 +771,7 @@
       "images/secours/james_lunetterie/image1.jpg",
       "images/secours/james_lunetterie/image2.jpg",
       "images/secours/james_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Non loin du Poste de police, Ancien 3eme, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Van Banas Lunetterie",
@@ -1004,12 +789,7 @@
       "images/secours/van_banas_lunetterie/image1.jpg",
       "images/secours/van_banas_lunetterie/image2.jpg",
       "images/secours/van_banas_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien cinéma étoile, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Global Vision",
@@ -1027,12 +807,7 @@
       "images/secours/lunetterie_global_vision/image1.jpg",
       "images/secours/lunetterie_global_vision/image2.jpg",
       "images/secours/lunetterie_global_vision/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face poste de police à l'étage, Ancien 3eme, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Fred Optic Lunetterie",
@@ -1050,12 +825,7 @@
       "images/secours/fred_optic_lunetterie/image1.jpg",
       "images/secours/fred_optic_lunetterie/image2.jpg",
       "images/secours/fred_optic_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "CCA Bank, Ancien 3eme, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Deco Optic",
@@ -1073,12 +843,7 @@
       "images/secours/deco_optic/image1.jpg",
       "images/secours/deco_optic/image2.jpg",
       "images/secours/deco_optic/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Yaoundé, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Phœnix Optic",
@@ -1096,12 +861,7 @@
       "images/secours/ph_nix_optic/image1.jpg",
       "images/secours/ph_nix_optic/image2.jpg",
       "images/secours/ph_nix_optic/image3.jpg"
-    ],
-    "address_service": {
-      "text": "??????? ?? ???? ?????? ??????? ??? ???? ?? ??????́ ??????, Biyem-assi, Yaoundé, CM.",
-      "lat": 3.8404701,
-      "lng": 11.4864781
-    }
+    ]
   },
   {
     "nom": "Luxe Optic Douala",
@@ -1119,12 +879,7 @@
       "images/secours/luxe_optic_douala/image1.jpg",
       "images/secours/luxe_optic_douala/image2.jpg",
       "images/secours/luxe_optic_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face pharmacie Joss ou ancien Air France, Bonanjo, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Chez L'opticien",
@@ -1142,12 +897,7 @@
       "images/secours/chez_l_opticien/image1.jpg",
       "images/secours/chez_l_opticien/image2.jpg",
       "images/secours/chez_l_opticien/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Obili, Yaounde, CM.",
-      "lat": 3.8539819,
-      "lng": 11.488532
-    }
+    ]
   },
   {
     "nom": "Gloria Divine Optic Yaoundé",
@@ -1165,12 +915,7 @@
       "images/secours/gloria_divine_optic_yaound_/image1.jpg",
       "images/secours/gloria_divine_optic_yaound_/image2.jpg",
       "images/secours/gloria_divine_optic_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "à côté de L'immeuble Bricolux, Carrefour SHO, Yaounde, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Gloria Divine Optic Douala",
@@ -1188,12 +933,7 @@
       "images/secours/gloria_divine_optic_douala/image1.jpg",
       "images/secours/gloria_divine_optic_douala/image2.jpg",
       "images/secours/gloria_divine_optic_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien troisième CCA Bank, Akwa, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Marie - Thérèse Optical Center",
@@ -1211,12 +951,7 @@
       "images/secours/marie___th_r_se_optical_center/image1.jpg",
       "images/secours/marie___th_r_se_optical_center/image2.jpg",
       "images/secours/marie___th_r_se_optical_center/image3.jpg"
-    ],
-    "address_service": {
-      "text": "En face de la délégation régionale des transports pour l'oues, carrefour Explosif, Bafoussam, CM.",
-      "lat": 5.4758844,
-      "lng": 10.4217852
-    }
+    ]
   },
   {
     "nom": "Fresnel Optique Médicale Sarl",
@@ -1234,12 +969,7 @@
       "images/secours/fresnel_optique_m_dicale_sarl/image1.jpg",
       "images/secours/fresnel_optique_m_dicale_sarl/image2.jpg",
       "images/secours/fresnel_optique_m_dicale_sarl/image3.jpg"
-    ],
-    "address_service": {
-      "text": "juste à côté de la banque UBA, MVOG-MBI, Yaounde, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Optic Laser Medical Sarl",
@@ -1257,12 +987,7 @@
       "images/secours/optic_laser_medical_sarl/image1.jpg",
       "images/secours/optic_laser_medical_sarl/image2.jpg",
       "images/secours/optic_laser_medical_sarl/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face à la pharmacie des Hôpitaux, juste à côté de l’ancien immeuble Nextel, Akwa, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Sawa Lunetterie Douala",
@@ -1280,12 +1005,7 @@
       "images/secours/sawa_lunetterie_douala/image1.jpg",
       "images/secours/sawa_lunetterie_douala/image2.jpg",
       "images/secours/sawa_lunetterie_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau de la banque CCA, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Sawa Lunetterie Yaoundé",
@@ -1303,12 +1023,7 @@
       "images/secours/sawa_lunetterie_yaound_/image1.jpg",
       "images/secours/sawa_lunetterie_yaound_/image2.jpg",
       "images/secours/sawa_lunetterie_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "En face bricolux, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Optical Lens",
@@ -1326,12 +1041,7 @@
       "images/secours/optical_lens/image1.jpg",
       "images/secours/optical_lens/image2.jpg",
       "images/secours/optical_lens/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Biscuiterie à l’immeuble en pierre, Biyem-assi, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Vision Yaoundé",
@@ -1349,12 +1059,7 @@
       "images/secours/lunetterie_vision_yaound_/image1.jpg",
       "images/secours/lunetterie_vision_yaound_/image2.jpg",
       "images/secours/lunetterie_vision_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Devant Bricolux, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Vision Douala",
@@ -1372,12 +1077,7 @@
       "images/secours/lunetterie_vision_douala/image1.jpg",
       "images/secours/lunetterie_vision_douala/image2.jpg",
       "images/secours/lunetterie_vision_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau de BANQUE CCA, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Tchaya Optique Bafoussam",
@@ -1395,12 +1095,7 @@
       "images/secours/tchaya_optique_bafoussam/image1.jpg",
       "images/secours/tchaya_optique_bafoussam/image2.jpg",
       "images/secours/tchaya_optique_bafoussam/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Feu Rouge, Feu rouge, Bafoussam, CM.",
-      "lat": 5.4758844,
-      "lng": 10.4217852
-    }
+    ]
   },
   {
     "nom": "Tchaya Optique Yaoundé",
@@ -1418,12 +1113,7 @@
       "images/secours/tchaya_optique_yaound_/image1.jpg",
       "images/secours/tchaya_optique_yaound_/image2.jpg",
       "images/secours/tchaya_optique_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Montée anne rouge, Montée Anne rouge, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Tchaya Optique Douala",
@@ -1441,12 +1131,7 @@
       "images/secours/tchaya_optique_douala/image1.jpg",
       "images/secours/tchaya_optique_douala/image2.jpg",
       "images/secours/tchaya_optique_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Akwa, Douala, CM.",
-      "lat": 4.052544,
-      "lng": 9.6963304
-    }
+    ]
   },
   {
     "nom": "Révolution Optical Bertoua",
@@ -1464,12 +1149,7 @@
       "images/secours/r_volution_optical_bertoua/image1.jpg",
       "images/secours/r_volution_optical_bertoua/image2.jpg",
       "images/secours/r_volution_optical_bertoua/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Carrefour Nokam, Bodomo, Bertoua, CM.",
-      "lat": 4.5776155,
-      "lng": 13.6843792
-    }
+    ]
   },
   {
     "nom": "Révolution Optical Yaoundé",
@@ -1487,12 +1167,7 @@
       "images/secours/r_volution_optical_yaound_/image1.jpg",
       "images/secours/r_volution_optical_yaound_/image2.jpg",
       "images/secours/r_volution_optical_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Carrefour Intendance, Elig essono, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Bethel Eye Care Clinique Ange Raphael",
@@ -1510,12 +1185,7 @@
       "images/secours/bethel_eye_care_clinique_ange_raphael/image1.jpg",
       "images/secours/bethel_eye_care_clinique_ange_raphael/image2.jpg",
       "images/secours/bethel_eye_care_clinique_ange_raphael/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Derrière Santa Lucia, Ange Raphael, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Bethel Eye Care Clinique Sic",
@@ -1533,12 +1203,7 @@
       "images/secours/bethel_eye_care_clinique_sic/image1.jpg",
       "images/secours/bethel_eye_care_clinique_sic/image2.jpg",
       "images/secours/bethel_eye_care_clinique_sic/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face Uba, Sic Cacao, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Médical Franck Optique Yaoundé",
@@ -1556,12 +1221,7 @@
       "images/secours/lunetterie_m_dical_franck_optique_yaound_/image1.jpg",
       "images/secours/lunetterie_m_dical_franck_optique_yaound_/image2.jpg",
       "images/secours/lunetterie_m_dical_franck_optique_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Marché central SHO, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Médical Franck Optique Douala",
@@ -1579,12 +1239,7 @@
       "images/secours/lunetterie_m_dical_franck_optique_douala/image1.jpg",
       "images/secours/lunetterie_m_dical_franck_optique_douala/image2.jpg",
       "images/secours/lunetterie_m_dical_franck_optique_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien cinéma étoiles, Akwa, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Le Confort",
@@ -1602,12 +1257,7 @@
       "images/secours/lunetterie_le_confort/image1.jpg",
       "images/secours/lunetterie_le_confort/image2.jpg",
       "images/secours/lunetterie_le_confort/image3.jpg"
-    ],
-    "address_service": {
-      "text": "A 50m de la rue cinéma Étoile, Akwa, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Gideon",
@@ -1625,12 +1275,7 @@
       "images/secours/lunetterie_gideon/image1.jpg",
       "images/secours/lunetterie_gideon/image2.jpg",
       "images/secours/lunetterie_gideon/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Ancien 3ème, Douala, CM.",
-      "lat": 4.040947,
-      "lng": 9.7016708
-    }
+    ]
   },
   {
     "nom": "Milan Optique Yaoundé",
@@ -1648,12 +1293,7 @@
       "images/secours/milan_optique_yaound_/image1.jpg",
       "images/secours/milan_optique_yaound_/image2.jpg",
       "images/secours/milan_optique_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Devant Bricolux, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Milan Optique Douala",
@@ -1671,12 +1311,7 @@
       "images/secours/milan_optique_douala/image1.jpg",
       "images/secours/milan_optique_douala/image2.jpg",
       "images/secours/milan_optique_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau de BANQUE CCA, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "César Lunetterie",
@@ -1694,12 +1329,7 @@
       "images/secours/c_sar_lunetterie/image1.jpg",
       "images/secours/c_sar_lunetterie/image2.jpg",
       "images/secours/c_sar_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Carrefour intendance, YAOUNDE, CM.",
-      "lat": 3.8665145,
-      "lng": 11.5205145
-    }
+    ]
   },
   {
     "nom": "Lunetterie Pro",
@@ -1717,12 +1347,7 @@
       "images/secours/lunetterie_pro/image1.jpg",
       "images/secours/lunetterie_pro/image2.jpg",
       "images/secours/lunetterie_pro/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face pharmacieSaint Laurent, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "The Frame Lunetterie",
@@ -1740,12 +1365,7 @@
       "images/secours/the_frame_lunetterie/image1.jpg",
       "images/secours/the_frame_lunetterie/image2.jpg",
       "images/secours/the_frame_lunetterie/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Denver, Bonamoussadi, Douala, CM.",
-      "lat": 4.0915045,
-      "lng": 9.7323226
-    }
+    ]
   },
   {
     "nom": "Lunetterie Du Cameroun Douala",
@@ -1763,12 +1383,7 @@
       "images/secours/lunetterie_du_cameroun_douala/image1.jpg",
       "images/secours/lunetterie_du_cameroun_douala/image2.jpg",
       "images/secours/lunetterie_du_cameroun_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Entrée Laïc, Pk 8, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   },
   {
     "nom": "Lunetterie Du Cameroun Yaoundé",
@@ -1786,12 +1401,7 @@
       "images/secours/lunetterie_du_cameroun_yaound_/image1.jpg",
       "images/secours/lunetterie_du_cameroun_yaound_/image2.jpg",
       "images/secours/lunetterie_du_cameroun_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Face hôpital général, Ngousso, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Vision D’aigle Yaoundé",
@@ -1809,12 +1419,7 @@
       "images/secours/lunetterie_vision_d_aigle_yaound_/image1.jpg",
       "images/secours/lunetterie_vision_d_aigle_yaound_/image2.jpg",
       "images/secours/lunetterie_vision_d_aigle_yaound_/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Devant Bricolux, Carrefour SHO, YAOUNDE, CM.",
-      "lat": 3.8689867,
-      "lng": 11.5213344
-    }
+    ]
   },
   {
     "nom": "Lunetterie Vision D’aigle Douala",
@@ -1832,11 +1437,6 @@
       "images/secours/lunetterie_vision_d_aigle_douala/image1.jpg",
       "images/secours/lunetterie_vision_d_aigle_douala/image2.jpg",
       "images/secours/lunetterie_vision_d_aigle_douala/image3.jpg"
-    ],
-    "address_service": {
-      "text": "Au niveau du poste de police, Ancien 3ème, Douala, CM.",
-      "lat": 4.0429389,
-      "lng": 9.7062018
-    }
+    ]
   }
 ]

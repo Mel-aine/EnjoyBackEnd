@@ -13,22 +13,22 @@ import * as fs from 'fs'
 
 
 const defaultFacilities = ['Piscine', 'Bar', 'Restaurant', 'Parking', 'Wi-Fi gratuit']
-const defaultPolicies = 'Check-in à partir de 14h00. Check-out avant 12h00. Animaux non admis.'
+const defaultPolicies = 'Garder le calme et le respect des autres clients. Pas d\'animaux domestiques. Respecter les horaires d\'ouverture et de fermeture.'
 const openings = "{\"Monday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Tuesday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Wednesday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Thursday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Friday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Saturday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"},\"Sunday\":{\"opening\":\"09:00\",\"closing\":\"18:00\"}}"
 const defaultCapacity = 100
 const defaultPaymentMethods = ['Espèces', 'Mobile Money', 'Carte Bancaire','SmallPay']
 
 export default class extends BaseSeeder {
   public async run() {
-    const rawData = fs.readFileSync('./data/services_with_coords_uploaded.json', 'utf-8')
+    const rawData = fs.readFileSync('./data/data-modes-et-beaute_lat_lon_uploaded.json', 'utf-8')
     const services = JSON.parse(rawData)
 
-    const adminEmail = 'admin@monapp.cm'
+    const adminEmail = 'beautyandmodes@monapp.cm'
     let admin = await User.findBy('email', adminEmail)
 
     if (!admin) {
       admin = await User.create({
-        first_name: 'Super',
+        first_name: 'beauty_admin',
         last_name: 'Admin',
         password: 'admin123',
         email: adminEmail,
@@ -43,7 +43,7 @@ export default class extends BaseSeeder {
       })
       console.log('✅ Utilisateur admin créé')
     } else {
-      console.log('ℹ️ Utilisateur admin déjà existant')
+      console.log(' Utilisateur admin déjà existant')
     }
 
 
@@ -53,7 +53,7 @@ export default class extends BaseSeeder {
       const serviceRecords = chunk.map((data:any) => ({
         name: data.nom,
         description: data.description,
-        category_id: 14,
+        category_id: 5,
         email_service: data.email_service || null,
         website: data.website || null,
         openings: openings || null,

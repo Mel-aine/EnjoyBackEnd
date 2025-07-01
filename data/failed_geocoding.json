@@ -1,0 +1,40 @@
+[
+  {
+    "nom": "Lorry's Wigs",
+    "localisation": "NGOUSSO, face à la Pharmacie de la REFERENCE",
+    "adresse": {
+      "street": "NGOUSSO",
+      "city": "face à la Pharmacie de la REFERENCE",
+      "country": "Yaoundé"
+    },
+    "description": null,
+    "horaires": "Aucune disponibilité définie",
+    "prix": "15,000 XAF",
+    "cover": "images/modes-et-beaute/lorry_s_wigs/cover.jpg",
+    "images": [
+      "images/modes-et-beaute/lorry_s_wigs/image1.jpg",
+      "images/modes-et-beaute/lorry_s_wigs/image2.jpg",
+      "images/modes-et-beaute/lorry_s_wigs/image3.jpg"
+    ],
+    "attempted_address": "NGOUSSO, face à la Pharmacie de la REFERENCE, NGOUSSO, face à la Pharmacie de la REFERENCE, Yaoundé"
+  },
+  {
+    "nom": "Christ-N Wig & Hair",
+    "localisation": "Makepe, entrée lycée",
+    "adresse": {
+      "street": "Makepe",
+      "city": "entrée lycée",
+      "country": "Douala"
+    },
+    "description": null,
+    "horaires": "Aucune disponibilité définie",
+    "prix": "10,000 XAF",
+    "cover": "images/modes-et-beaute/christ_n_wig___hair/cover.jpg",
+    "images": [
+      "images/modes-et-beaute/christ_n_wig___hair/image1.jpg",
+      "images/modes-et-beaute/christ_n_wig___hair/image2.jpg",
+      "images/modes-et-beaute/christ_n_wig___hair/image3.jpg"
+    ],
+    "attempted_address": "Makepe, entrée lycée, Makepe, entrée lycée, Douala"
+  }
+]

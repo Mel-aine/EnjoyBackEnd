@@ -23,8 +23,8 @@ export default class EnrichServices extends BaseCommand {
   static description = 'Enrichit les services avec des coordonnées géographiques'
 
   async run() {
-    const inputFile = './data/address.json'
-    const outputFile = './data/services_with_address.json'
+    const inputFile = './data/data-modes-et-beaute.json'
+    const outputFile = './data/data-modes-et-beaute_lat_lon.json'
     const failedFile = './data/failed_geocoding.json'
 
     if (!existsSync(inputFile)) {
