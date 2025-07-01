@@ -8,6 +8,10 @@ export default class extends BaseSchema {
       table.increments('id').primary()
       table.string('name').notNullable()
       table.text('description').nullable()
+      table.integer('default_guest').nullable()
+      table.float('price').nullable()
+      table.float('extra_guest_price').nullable()
+      table.float('default_deposit').nullable()
       table.enu('status', ['active', 'inactive']).defaultTo('active')
       table
       .integer('service_id')

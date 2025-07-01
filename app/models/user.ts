@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
 import { AccessToken } from '@adonisjs/auth/access_tokens'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
-import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import hash from '@adonisjs/core/services/hash'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import Role from '#models/role'
@@ -49,8 +49,6 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare role_id: number
 
-  // @column()
-  // declare service_id: number | null
   @column()
   declare status: 'active' | 'inactive' | 'suspended'
 
@@ -70,9 +68,6 @@ export default class User extends AuthFinder(BaseModel) {
   @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
 
-  // @belongsTo(() => Services, { foreignKey: 'service_id' })
-  // declare Services: BelongsTo<typeof Services>
-
   @hasMany(() => Services, {
   foreignKey: 'created_by',
   })
@@ -80,8 +75,6 @@ export default class User extends AuthFinder(BaseModel) {
 
   @hasMany(() => ServiceUserAssignment, { foreignKey: 'user_id' })
   declare serviceAssignments: HasMany<typeof ServiceUserAssignment>
-
-
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>

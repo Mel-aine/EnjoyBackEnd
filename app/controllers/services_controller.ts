@@ -138,6 +138,30 @@ export default class ServicesController extends CrudController<typeof Service> {
   }
 }
 
+// public async searchHotels({ request, response }: HttpContext) {
+//   const searchText = request.input('text')
+
+//   if (!searchText) {
+//     return response.status(400).send({ message: 'Le texte de recherche est requis.' })
+//   }
+
+//   try {
+//     const hotels = await Service.query()
+//       .where('category_id', 14)
+//       .andWhere((query) => {
+//         query
+//           .whereILike('name', `%${searchText}%`)
+//           .orWhereILike('description', `%${searchText}%`)
+//       })
+
+//     return response.ok(hotels)
+//   } catch (error) {
+//     return response.status(500).send({
+//       message: 'Erreur lors de la recherche des hôtels',
+//       error: error.message,
+//     })
+//   }
+// }
 
 
 }
