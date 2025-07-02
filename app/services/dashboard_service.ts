@@ -200,4 +200,5 @@ export class RoomAnalyticsService {
     return Math.round(average * 100) / 100
   }
 
+
 }
