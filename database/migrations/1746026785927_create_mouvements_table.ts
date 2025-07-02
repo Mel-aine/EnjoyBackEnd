@@ -17,7 +17,7 @@ export default class extends BaseSchema {
         .unsigned()
         .references('id')
         .inTable('departments')
-        .onDelete('CASCADE')
+        .onDelete('CASCADE').nullable()
 
           table
         .integer('stock_category_id')

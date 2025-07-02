@@ -29,7 +29,7 @@ export default class Mouvement extends BaseModel {
  declare source: string
 
   @column()
- declare department_id: number
+ declare department_id: number | null
 
   @column()
  declare user: string
