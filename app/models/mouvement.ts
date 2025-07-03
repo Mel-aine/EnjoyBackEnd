@@ -14,7 +14,7 @@ export default class Mouvement extends BaseModel {
  declare product_id: number
 
   @column()
- declare stock_category_id: number
+ declare stock_category_id:  number | null
 
  @column.date()
   declare date: DateTime
