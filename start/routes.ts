@@ -17,11 +17,7 @@ import ReservationsController from '#controllers/reservations_controller'
 import ReservationServiceProductsController from '#controllers/reservation_service_products_controller'
 import ProductionOptionsController from '#controllers/production_options_controller'
 import PaymentsController from '#controllers/payments_controller'
-import OrdersController from '#controllers/orders_controller'
-import OrderItemsController from '#controllers/order_items_controller'
 import OptionsController from '#controllers/options_controller'
-import InvoicesController from '#controllers/invoices_controller'
-import CommentsController from '#controllers/comments_controller'
 import CategoriesController from '#controllers/categories_controller'
 import TypeProductsController from '#controllers/type_products_controller'
 import StockCategoriesController from '#controllers/stock_categories_controller'
@@ -31,11 +27,11 @@ import MouvementsController from '#controllers/mouvements_controller'
 import DepartmentsController from '#controllers/departments_controller'
 import ExpensesController from '#controllers/expenses_controller'
 import TravelVehiclesController from '#controllers/travel_vehicles_controller'
-import TravelSchedulesController from '#controllers/travel_schedules_controller'
+import SchedulesController from '#controllers/schedules_controller'
 import TravelRoutesController from '#controllers/travel_routes_controller'
-import ServiceImagesController from '#controllers/service_images_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
+import TasksController from '#controllers/tasks_controller'
 
 const AuthController = () => import('#controllers/auth_controller')
 
@@ -47,11 +43,7 @@ const reservationsController = new ReservationsController()
 const reservationServiceProductsController = new ReservationServiceProductsController()
 const productionOptionsController = new ProductionOptionsController()
 const paymentsController = new PaymentsController()
-const ordersController = new OrdersController()
-const orderItemsController = new OrderItemsController()
 const optionsController = new OptionsController()
-const invoicesController = new InvoicesController()
-const commentsController = new CommentsController()
 const categoriesController = new CategoriesController()
 const typeProductsController = new TypeProductsController()
 const stockCategoriesController = new StockCategoriesController()
@@ -61,11 +53,11 @@ const mouvementsController = new MouvementsController()
 const departmentsController = new DepartmentsController()
 const expensesController = new ExpensesController()
 const travelVehiclesController = new TravelVehiclesController()
-const travelSchedulesController = new TravelSchedulesController()
+const schedulesController = new SchedulesController()
 const travelRoutesController = new TravelRoutesController()
-const serviceImagesController = new ServiceImagesController()
 const assigmentUsersController = new AssigmentUsersController()
 const permissionsController = new PermissionsController()
+const tasksController = new TasksController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -89,13 +81,7 @@ router
     })
     //.middleware('auth') // Protège toutes les routes
 
-    router.group(() => {
-      router.get('/images', serviceImagesController.list.bind(serviceImagesController))
-      router.get('/images/:id', serviceImagesController.show.bind(serviceImagesController))
-      router.post('/images', serviceImagesController.store.bind(serviceImagesController))
-      router.put('/images/:id', serviceImagesController.update.bind(serviceImagesController))
-      router.delete('/images/:id', serviceImagesController.destroy.bind(serviceImagesController))
-    })
+
 
     router.group(() => {
       router.get('/roles', rolesController.list.bind(rolesController))
@@ -367,21 +353,7 @@ router
       router.delete('/payment/:id', paymentsController.destroy.bind(paymentsController))
     })
 
-    router.group(() => {
-      router.get('/order', ordersController.list.bind(ordersController))
-      router.get('/order/:id', ordersController.show.bind(ordersController))
-      router.post('/order', ordersController.store.bind(ordersController))
-      router.put('/order/:id', ordersController.update.bind(ordersController))
-      router.delete('/order/:id', ordersController.destroy.bind(ordersController))
-    })
 
-    router.group(() => {
-      router.get('/order_item', orderItemsController.list.bind(orderItemsController))
-      router.get('/order_item/:id', orderItemsController.show.bind(orderItemsController))
-      router.post('/order_item', orderItemsController.store.bind(orderItemsController))
-      router.put('/order_item/:id', orderItemsController.update.bind(orderItemsController))
-      router.delete('/order_item/:id', orderItemsController.destroy.bind(orderItemsController))
-    })
 
     router.group(() => {
       router.get('/option', optionsController.list.bind(optionsController))
@@ -391,21 +363,6 @@ router
       router.delete('/option/:id', optionsController.destroy.bind(optionsController))
     })
 
-    router.group(() => {
-      router.get('/invoice', invoicesController.list.bind(invoicesController))
-      router.get('/invoice/:id', invoicesController.show.bind(invoicesController))
-      router.post('/invoice', invoicesController.store.bind(invoicesController))
-      router.put('/invoice/:id', invoicesController.update.bind(invoicesController))
-      router.delete('/invoice/:id', invoicesController.destroy.bind(invoicesController))
-    })
-
-    router.group(() => {
-      router.get('/comment', commentsController.list.bind(commentsController))
-      router.get('/comment/:id', commentsController.show.bind(commentsController))
-      router.post('/comment', commentsController.store.bind(invoicesController))
-      router.put('/comment/:id', commentsController.update.bind(commentsController))
-      router.delete('/comment/:id', commentsController.destroy.bind(commentsController))
-    })
 
     router.group(() => {
       router.get('/category', categoriesController.list.bind(categoriesController))
@@ -427,14 +384,8 @@ router
     })
 
     router.group(() => {
-      router.get('/schedule', travelSchedulesController.list.bind(travelSchedulesController))
-      router.get('/schedule/:id', travelSchedulesController.show.bind(travelSchedulesController))
-      router.post('/schedule', travelSchedulesController.store.bind(travelSchedulesController))
-      router.put('/schedule/:id', travelSchedulesController.update.bind(travelSchedulesController))
-      router.delete(
-        '/schedule/:id',
-        travelSchedulesController.destroy.bind(travelSchedulesController)
-      )
+      router.post('/schedules', schedulesController.create.bind(SchedulesController))
+      router.get('/schedules', schedulesController.lister.bind(SchedulesController))
     })
 
     router.group(() => {
@@ -458,6 +409,11 @@ router
 
     router.group(() => {
       router.get('/permission', permissionsController.list.bind(permissionsController))
+    })
+
+     router.group(() => {
+      router.post('/tasks', tasksController.store.bind(tasksController))
+      router.get('/tasks/:serviceId', tasksController.showByServiceId.bind(tasksController))
     })
   })
   .prefix('/api')
