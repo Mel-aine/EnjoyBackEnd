@@ -32,10 +32,14 @@ router.group(() => {
 
   // DASHBOARD
   router.group(() => {
-    router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))
-    router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))
-    router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))
+    router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année
+    router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))// Endpoint pour les disponibilités des chambres le taux d'ocupation, le nombre de chambres disponibles, le nombre de chambres occupées, le nombre de chambres réservées aujourd'hui et le taux de réservation aujourd'hui et la semaine dernière
+    router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))// Endpoint pour la durée moyenne de séjour
+    router.get('/revenue/:serviceId/stats', dashboardController.getRevenueStats.bind(dashboardController))// Endpoint pour les statistiques de revenus annuels, mensuels, trimestriels et semestriels
+    router.get('/revenue/:serviceId/monthly-comparison',dashboardController.getMonthlyRevenueComparison.bind(dashboardController)) // Endpoint pour la comparaison des revenus mensuels
+    router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController))
 
+  
   })
 
 }).prefix('api')

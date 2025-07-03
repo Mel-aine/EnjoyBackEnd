@@ -1,8 +1,6 @@
-import { RoomAvailabilityService, RoomAnalyticsService } from '#services/dashboard_service'
+import { RoomAvailabilityService, RoomAnalyticsService,RevenueAnalyticsService } from '#services/dashboard_service'
 import type { HttpContext } from '@adonisjs/core/http'
-
-
-
+import { HotelAnalyticsService } from '#services/dashboard_servicedp'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
     try {
@@ -56,7 +54,6 @@ export default class DashboardController {
   }
 }
 
-
   public async occupancyStats({ request, params, response }: HttpContext) {
     try {
       const serviceId = parseInt(params.serviceId)
@@ -83,5 +80,58 @@ export default class DashboardController {
       })
     }
   }
-  
+
+public async getRevenueStats({ params, request, response }: HttpContext) {
+  try {
+    const serviceId = parseInt(params.serviceId)
+    const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+
+    if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+      return response.badRequest({ success: false, message: 'Période invalide' })
+    }
+
+    const stats = await RevenueAnalyticsService.getRevenueByPeriod(serviceId, period)
+
+    return response.ok({ success: true, data: stats })
+  } catch (error) {
+    return response.internalServerError({ success: false, message: error.message })
+  }
+} 
+public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
+  try {
+    const serviceId = parseInt(params.serviceId)
+    if (!serviceId || isNaN(serviceId)) {
+      return response.badRequest({ success: false, message: 'ID de service invalide' })
+    }
+
+    const stats = await RevenueAnalyticsService.getMonthlyRevenueComparison(serviceId)
+
+    return response.ok({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    return response.internalServerError({
+      success: false,
+      message: error.message || 'Erreur serveur'
+    })
+  }
+}
+
+public async averageOccupancyRate({ params, request, response }: HttpContext) {
+  const serviceId = parseInt(params.serviceId)
+  const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+
+  try {
+    const data = await HotelAnalyticsService.getAverageOccupancyRate(serviceId, period)
+
+    return response.ok({
+      success: true,
+      data
+    })
+  } catch (error) {
+    return response.badRequest({ success: false, message: error.message })
+  }
+}
+
 }
