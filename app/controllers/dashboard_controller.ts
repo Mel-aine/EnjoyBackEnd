@@ -20,7 +20,9 @@ export default class DashboardController {
     occupancyRate: `${Math.round(((stats.total - stats.available) / stats.total) * 10000) / 100}%`,
     reservedToday: stats.reservedToday,
     reservationRateToday: `${stats.reservationRateToday}%`,
-    reservationRateLastWeek: `${stats.reservationRateLastWeek}%`
+    reservationRateLastWeek: `${stats.reservationRateLastWeek}%`,
+    totalReservationsThisMonth: stats.totalReservationsThisMonth,
+    totalRevenueThisMonth: stats.totalRevenueThisMonth
   }
 })
 
@@ -131,6 +133,78 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     })
   } catch (error) {
     return response.badRequest({ success: false, message: error.message })
+  }
+}
+ public async monthlyOccupancy({ params, response }: HttpContext) {
+    const { id } = params
+
+    try {
+      const data = await HotelAnalyticsService.getMonthlyOccupancyRates(Number(id))
+
+      return response.ok({
+        success: true,
+        data,
+      })
+    } catch (error) {
+      return response.badRequest({
+        success: false,
+        message: error.message,
+      })
+    }
+  }
+  public async getAverageDailyRate({ params, response }: HttpContext) {
+    try {
+      const { serviceId } = params
+      const { period = 'monthly' } = params
+      
+      const result = await HotelAnalyticsService.getAverageDailyRate(
+        Number(serviceId),
+        period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+      )
+      
+      return response.ok({
+        success: true,
+        data: result
+      })
+    } catch (error) {
+      return response.badRequest({
+        success: false,
+        message: error.message
+      })
+    }
+  }
+
+//   public async getNationalityStats({ response }: HttpContext) {
+//   try {
+//     const stats = await HotelAnalyticsService.getNationalityStats()
+
+//     return response.ok({
+//       success: true,
+//       data: stats
+//     })
+//   } catch (error) {
+//     return response.badRequest({
+//       success: false,
+//       message: error.message
+//     })
+//   }
+// }
+
+public async stayDurationStats({ params, response }: HttpContext) {
+  try {
+    const { serviceId } = params
+
+    const result = await HotelAnalyticsService.getStayDurationDistribution(Number(serviceId))
+
+    return response.ok({
+      success: true,
+      data: result
+    })
+  } catch (error) {
+    return response.badRequest({
+      success: false,
+      message: error.message
+    })
   }
 }
 

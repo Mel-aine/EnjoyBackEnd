@@ -7,60 +7,87 @@ import Payment from '#models/payment'
 
 export class RoomAvailabilityService {
   public static async getHotelStats(serviceId: number): Promise<{
-    available: number
-    total: number
-    reservedToday: number
-    reservationRateToday: number
-    reservationRateLastWeek: number
-  }> {
-    const service = await Service.find(serviceId)
-    if (!service || service.category_id !== 14) {
-      throw new Error('Ce service ne correspond pas à un hôtel')
-    }
-
-    const totalResult = await ServiceProduct.query().where('service_id', serviceId).count('* as total')
-    const availableResult = await ServiceProduct
-      .query()
-      .where('service_id', serviceId)
-      .where('availability', true)
-      .where('status', 'available')
-      .count('* as available')
-
-    const total = Number(totalResult[0].$extras.total || '0')
-    const available = Number(availableResult[0].$extras.available || '0')
-    const occupied = total - available
-
-    const todayStart = DateTime.now().startOf('day').toSQL()
-    const tomorrowStart = DateTime.now().plus({ days: 1 }).startOf('day').toSQL()
-    const lastWeekStart = DateTime.now().minus({ days: 7 }).startOf('day').toSQL()
-    const lastWeekEnd = DateTime.now().minus({ days: 6 }).startOf('day').toSQL()
-
-    const reservedTodayResult = await Reservation
-      .query()
-      .where('service_id', serviceId)
-      .whereBetween('created_at', [todayStart, tomorrowStart])
-      .count('* as count')
-
-    const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
-    const reservationRateToday = occupied > 0 ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100) : 0
-
-    const reservedLastWeekResult = await Reservation
-      .query()
-      .where('service_id', serviceId)
-      .whereBetween('created_at', [lastWeekStart, lastWeekEnd])
-      .count('* as count')
-
-    const reservedLastWeek = Number(reservedLastWeekResult[0].$extras.count || '0')
-    const reservationRateLastWeek = occupied > 0 ? Math.min(100, Math.round((reservedLastWeek / occupied) * 10000) / 100) : 0
-
-    return {
-      available,
-      total,
-      reservedToday,
-      reservationRateToday,
-      reservationRateLastWeek
-    }
+  available: number
+  total: number
+  reservedToday: number
+  reservationRateToday: number
+  reservationRateLastWeek: number
+  totalReservationsThisMonth: number
+  totalRevenueThisMonth: number
+}> {
+  const service = await Service.find(serviceId)
+  if (!service || service.category_id !== 14) {
+    throw new Error('Ce service ne correspond pas à un hôtel')
   }
+
+  const totalResult = await ServiceProduct.query().where('service_id', serviceId).count('* as total')
+  const availableResult = await ServiceProduct
+    .query()
+    .where('service_id', serviceId)
+    .where('availability', true)
+    .where('status', 'available')
+    .count('* as available')
+
+  const total = Number(totalResult[0].$extras.total || '0')
+  const available = Number(availableResult[0].$extras.available || '0')
+  const occupied = total - available
+
+  const now = DateTime.now()
+  const todayStart = now.startOf('day').toSQL()
+  const tomorrowStart = now.plus({ days: 1 }).startOf('day').toSQL()
+  const lastWeekStart = now.minus({ days: 7 }).startOf('day').toSQL()
+  const lastWeekEnd = now.minus({ days: 6 }).startOf('day').toSQL()
+
+  // ✅ Réservations du jour
+  const reservedTodayResult = await Reservation
+    .query()
+    .where('service_id', serviceId)
+    .whereBetween('created_at', [todayStart, tomorrowStart])
+    .count('* as count')
+
+  const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
+  const reservationRateToday = occupied > 0 ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100) : 0
+
+  // ✅ Réservations semaine dernière
+  const reservedLastWeekResult = await Reservation
+    .query()
+    .where('service_id', serviceId)
+    .whereBetween('created_at', [lastWeekStart, lastWeekEnd])
+    .count('* as count')
+
+  const reservedLastWeek = Number(reservedLastWeekResult[0].$extras.count || '0')
+  const reservationRateLastWeek = occupied > 0 ? Math.min(100, Math.round((reservedLastWeek / occupied) * 10000) / 100) : 0
+
+  // ✅ Réservations totales du mois
+  const startOfMonth = now.startOf('month').toSQL()
+  const endOfMonth = now.endOf('month').toSQL()
+
+  const totalReservationsThisMonthResult = await Reservation
+    .query()
+    .where('service_id', serviceId)
+    .whereBetween('created_at', [startOfMonth, endOfMonth])
+    .count('* as count')
+
+  const totalReservationsThisMonth = Number(totalReservationsThisMonthResult[0].$extras.count || '0')
+
+  const totalRevenueThisMonthResult = await Payment
+    .query()
+    .where('service_id', serviceId)
+    .whereBetween('payment_date', [startOfMonth, endOfMonth])
+    .sum('amount_paid as total')
+
+  const totalRevenueThisMonth = Number(totalRevenueThisMonthResult[0].$extras.total || '0')
+
+  return {
+    available,
+    total,
+    reservedToday,
+    reservationRateToday,
+    reservationRateLastWeek,
+    totalReservationsThisMonth,
+    totalRevenueThisMonth
+  }
+}
 }
 
 export class RoomAnalyticsService {
