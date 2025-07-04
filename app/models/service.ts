@@ -21,7 +21,7 @@ export default class Service extends BaseModel {
   declare category_id: number
 
   @belongsTo(() => Category, {
-    foreignKey: 'category_id'
+    foreignKey: 'category_id',
   })
   declare category: BelongsTo<typeof Category>
 
@@ -37,8 +37,6 @@ export default class Service extends BaseModel {
   @column()
   declare website: string | null
 
-
-
   @column()
   declare price_range: '$' | '$$' | '$$$' | '$$$$'
 
@@ -51,79 +49,66 @@ export default class Service extends BaseModel {
   @column()
   declare review_count: number | null
 
-
   @column()
   declare policies: string | null
 
   @column()
   declare capacity: number | null
 
-
   @column()
   declare logo: string | null
 
   @column({
-  prepare: (value: string[]) => JSON.stringify(value),
+    prepare: (value: string[]) => JSON.stringify(value),
     consume: (value) => {
-    try {
-      if (!value) return [];
-      if (Array.isArray(value)) return value;
-      if (typeof value === 'string' && value.trim().startsWith('[')) {
-        return JSON.parse(value);
-      }
-      if (typeof value === 'string') {
-        return [value];
-      }
+      try {
+        if (!value) return []
+        if (Array.isArray(value)) return value
+        if (typeof value === 'string' && value.trim().startsWith('[')) {
+          return JSON.parse(value)
+        }
+        if (typeof value === 'string') {
+          return [value]
+        }
 
-      return [];
-    } catch (e) {
-      console.error('Erreur parsing images:', e, value);
-      return [];
-    }
-  }
+        return []
+      } catch (e) {
+        console.error('Erreur parsing images:', e, value)
+        return []
+      }
+    },
   })
   declare images: string[]
 
-
-
-  // @column({
-  //   prepare: (value) => JSON.stringify(value),
-  //   consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
-  // })
-  // declare openings: Record<string, any>
   @column({
     prepare: (value) => JSON.stringify(value),
-  consume: (value) => {
-  try {
-    if (!value) return {};
-    if (typeof value === 'string' && value.trim().startsWith('{')) {
-      return JSON.parse(value);
-    }
-    if (typeof value === 'object') {
-      return value;
-    }
-    return {};
-  } catch (e) {
-    console.error('Erreur parsing openings:', e, value);
-    return {};
-  }
-}
-})
+    consume: (value) => {
+      try {
+        if (!value) return {}
+        if (typeof value === 'string' && value.trim().startsWith('{')) {
+          return JSON.parse(value)
+        }
+        if (typeof value === 'object') {
+          return value
+        }
+        return {}
+      } catch (e) {
+        console.error('Erreur parsing openings:', e, value)
+        return {}
+      }
+    },
+  })
   declare openings: Record<string, any>
 
-
-
-
-@column({
-  prepare: (value) => JSON.stringify(value),
-  consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
-})
-declare facilities: string[]
-
+  @column({
+    prepare: (value) => JSON.stringify(value),
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
+  })
+  declare facilities: string[]
 
   @column({
     prepare: (value) => JSON.stringify(value),
-    consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
   })
   declare payment_methods: string[]
 
@@ -137,7 +122,7 @@ declare facilities: string[]
   declare last_modified_by: number | null
 
   @belongsTo(() => User, {
-    foreignKey: 'created_by'
+    foreignKey: 'created_by',
   })
   declare creator: BelongsTo<typeof User>
 
@@ -145,11 +130,9 @@ declare facilities: string[]
   declare modifier: BelongsTo<typeof User>
 
   @hasMany(() => ServiceUserAssignment, { foreignKey: 'service_id' })
-declare userAssignments: HasMany<typeof ServiceUserAssignment>
+  declare userAssignments: HasMany<typeof ServiceUserAssignment>
 
-
-
-   @hasMany(() => ServiceProduct , { foreignKey: 'service_id' })
+  @hasMany(() => ServiceProduct, { foreignKey: 'service_id' })
   declare products: HasMany<typeof ServiceProduct>
 
   @hasMany(() => ServiceImage, {

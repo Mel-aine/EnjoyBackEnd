@@ -26,7 +26,9 @@ export default class extends BaseSeeder {
       { category_name: 'Religious Organization', description: 'Religious Organization', icon: 'fa-solid fa-church' },
       { category_name: 'Travel', description: 'Travel', icon: 'fa-solid fa-bus' },
       { category_name: 'Media', description: 'Media', icon: 'fa-solid fa-newspaper' },
-      { category_name: 'Coffees & Teas', description: 'Coffees & Teas', icon: 'fa-solid fa-coffee' }
+      { category_name: 'Coffees & Teas', description: 'Coffees & Teas', icon: 'fa-solid fa-coffee' },
+      { category_name: 'Tourist Attractions', description: 'Sites and places of tourist interest', icon: 'fa-solid fa-map-signs' }
+
     ]
 
     for (const category of categories) {

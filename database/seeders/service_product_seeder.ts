@@ -96,7 +96,7 @@ export default class extends BaseSeeder {
           return await ServiceProduct.create({
             service_id: service.id,
             product_name: `Room ${roomNumberStr}`,
-            product_type: 'room',
+            product_type_id: 1,
             price: getRandomPrice(10000, 20000, 500),
             description: `Room number ${i + 1} at hotel ${service.name}`,
             availability: true,

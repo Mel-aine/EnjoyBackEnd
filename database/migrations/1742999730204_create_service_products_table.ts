@@ -8,7 +8,7 @@ export default class extends BaseSchema {
       table.increments('id').primary()
       table.integer('service_id').unsigned().references('id').inTable('services').onDelete('CASCADE')
       table.string('product_name', 255).notNullable()
-      table.string('product_type', 255).nullable()
+      table.integer('product_type_id').unsigned().references('id').inTable('product_types').onDelete('CASCADE').nullable()
       table.float('price').notNullable()
       table.text('description').nullable()
       table.boolean('availability').defaultTo(true)
