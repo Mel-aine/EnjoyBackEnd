@@ -24,15 +24,14 @@ import TravelVehiclesController from '#controllers/travel_vehicles_controller'
 import TravelSchedulesController from '#controllers/travel_schedules_controller'
 import TravelRoutesController from '#controllers/travel_routes_controller'
 import ServiceImagesController from '#controllers/service_images_controller'
-import AssigmentUsersController from '#controllers/assigment_users_controller'
-import PermissionsController from '#controllers/permissions_controller'
 
-import DashboardController from '#controllers/dashboard_controller'
+
+import DashboardController from '#controllers/dasboard_controller'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
-
 const dashboardController = new DashboardController()
+
 const usersController = new UsersController()
 const rolesController = new RolesController()
 const servicesController = new ServicesController()
@@ -193,7 +192,6 @@ router
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
-      router.get('/services/search', servicesController.searchByName.bind(servicesController))
       router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
 
@@ -442,5 +440,21 @@ router
     router.group(() => {
       router.get('/services/:serviceId/products/grouped', serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController))
     })
+
+    // DASHBOARD
+  router.group(() => {
+    router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année
+    router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))// Endpoint pour les disponibilités des chambres le taux d'ocupation, le nombre de chambres disponibles, le nombre de chambres occupées, le nombre de chambres réservées aujourd'hui et le taux de réservation aujourd'hui et la semaine dernière
+    router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))// Endpoint pour la durée moyenne de séjour
+    router.get('/revenue/:serviceId/stats', dashboardController.getRevenueStats.bind(dashboardController))// Endpoint pour les statistiques de revenus annuels, mensuels, trimestriels et semestriels
+    router.get('/revenue/:serviceId/monthly-comparison',dashboardController.getMonthlyRevenueComparison.bind(dashboardController)) // Endpoint pour la comparaison des revenus mensuels
+    router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController)) // Endpoint pour le taux d'occupation moyen sur une période donnée
+    router.get('/occupancy/:id/monthly', dashboardController.monthlyOccupancy.bind(dashboardController))// Endpoint pour les statistiques d'occupation mensuelles
+    router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
+    //router.get('/clients/origin-stats', dashboardController.getNationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
+    router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
+
+  
+  })
   })
   .prefix('/api')

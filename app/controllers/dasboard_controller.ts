@@ -1,6 +1,7 @@
-import { RoomAvailabilityService, RoomAnalyticsService,RevenueAnalyticsService } from '#services/dashboard_service'
+import { RoomAvailabilityService, RoomAnalyticsService, RevenueAnalyticsService } from '#services/dashboard_service'
 import type { HttpContext } from '@adonisjs/core/http'
-import { HotelAnalyticsService } from '#services/dashboard_servicedp'
+// import { HotelAnalyticsService } from '#services/dashboard_servicedp'
+import { HotelAnalyticsService } from '#services/dasboard_servicepd'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
     try {
@@ -208,4 +209,4 @@ public async stayDurationStats({ params, response }: HttpContext) {
   }
 }
 
-}
+} 

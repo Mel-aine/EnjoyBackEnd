@@ -50,6 +50,70 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
+  // async signin({ request, response }: HttpContext) {
+  //   const { email, password } = request.only(['email', 'password'])
+
+  //   try {
+  //     const user = await User
+  //     .query()
+  //     .where('email', email)
+  //     .preload('services', (serviceQuery) => {
+  //       serviceQuery.preload('category')
+  //     })
+  //     .first()
+
+  //     if (!user) return response.unauthorized({ message: 'Invalid credentials' })
+
+  //     const passwordValid = await hash.verify(user.password, password)
+  //     if (!passwordValid) return response.unauthorized({ message: 'Invalid credentials' })
+
+  //     const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
+
+  //     return response.ok({
+  //       message: 'Login successfully',
+  //       data: {
+  //         user,
+  //         user_token: token,
+  //       }
+  //     })
+  //   } catch (error) {
+  //     console.error('Login error:', error)
+  //     return response.badRequest({ message: 'Login failed' })
+  //   }
+  // }
+
+
+
+  // Mettre à jour le profil utilisateur
+  // async update_user({ auth, request }: HttpContext) {
+  //   const user = await auth.authenticate()
+  //   const payload = request.body()
+
+  //   const validator = vine.compile(
+  //     vine.object({
+  //       password: vine.string().minLength(8).maxLength(32).confirmed().optional(),
+  //       name: vine.string().optional(),
+  //       email: vine
+  //         .string()
+  //         .email()
+  //         .optional()
+
+  //     })
+  //   )
+
+  //   try {
+  //     const output = await validator.validate(payload)
+
+  //     if (output.password) {
+  //       output.password = await hash.make(output.password)
+  //     }
+
+  //     await user.merge(output).save()
+  //     this.response('User updated successfully', user)
+  //   } catch (error) {
+  //     return this.responseError('Validation failed', 422, error.messages)
+  //   }
+  // }
 
 async signin({ request, response }: HttpContext) {
   const { email, password } = request.only(['email', 'password'])
@@ -75,7 +139,7 @@ async signin({ request, response }: HttpContext) {
       userServices = await user.related('services')
         .query()
         .preload('category')
-        .limit(50)
+        .limit(30)
     } else {
 
       const assignments = await user.related('serviceAssignments')
