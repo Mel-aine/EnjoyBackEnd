@@ -4,16 +4,14 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import type { HttpContext } from '@adonisjs/core/http'
-// const userService = new CrudService(User)
+
 
 export default class UsersController extends CrudController<typeof User> {
-  //  constructor() {
-  //   super(userService)
-  // }
+
   private userService: CrudService<typeof User>
   // private roleService: CrudService<typeof Role>
   constructor() {
-    //super(userService)
+
     super(new CrudService(User))
     this.userService = new CrudService(User)
     // this.roleService = new CrudService(Role)
@@ -83,6 +81,8 @@ export default class UsersController extends CrudController<typeof User> {
         user_id: user.id,
         service_id: data.service_id,
         role: data.role,
+        department_id:data.department_id || null,
+        hire_date : data.hire_date || null
       })
 
       await user.load('serviceAssignments')
@@ -156,17 +156,6 @@ export default class UsersController extends CrudController<typeof User> {
 
 
 
-  // public async index({ auth, response }: HttpContext) {
-  //   const user = auth.user!
-
-  //   const canViewUsers = await user.hasPermission('view_users')
-
-  //   if (!canViewUsers) {
-  //     return response.unauthorized({ message: 'Permission refusée' })
-  //   }
-
-  //   return { users: ['Alice', 'Bob'] }
-  // }
 
 
 

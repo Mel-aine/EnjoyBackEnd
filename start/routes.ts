@@ -33,7 +33,9 @@ import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 
+
 const AuthController = () => import('#controllers/auth_controller')
+const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 
 const usersController = new UsersController()
 const rolesController = new RolesController()
@@ -65,6 +67,7 @@ router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
+router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/', async () => {
   return { hello: 'world' }
 })
@@ -405,6 +408,7 @@ router
 
     router.group(() => {
       router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
+      router.get('/assigmentUser/:serviceId', assigmentUsersController.showByServiceId.bind(assigmentUsersController))
     })
 
     router.group(() => {
@@ -414,6 +418,7 @@ router
      router.group(() => {
       router.post('/tasks', tasksController.store.bind(tasksController))
       router.get('/tasks/:serviceId', tasksController.showByServiceId.bind(tasksController))
+      router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
     })
   })
   .prefix('/api')

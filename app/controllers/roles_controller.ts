@@ -33,6 +33,13 @@ async getRolesByService({ params, response }: HttpContext) {
       .orWhere(query => {
         query.where('service_id', serviceId)
       })
+      .orWhere(query => {
+        query
+          .where('role_name', 'admin')
+          .andWhereNull('service_id')
+          .andWhereNull('category_id')
+      })
+
 
     return response.ok(roles)
 

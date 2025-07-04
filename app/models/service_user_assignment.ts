@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import User from '#models/user'
+import Department from '#models/department'
 
 export default class ServiceUserAssignment extends BaseModel {
   @column({ isPrimary: true })
@@ -17,6 +18,15 @@ export default class ServiceUserAssignment extends BaseModel {
 
   @column()
   declare role: string
+
+  @column()
+  public department_id?: number
+
+   @column.dateTime()
+  declare hire_date: DateTime | null
+
+  @belongsTo(() => Department, { foreignKey: 'department_id' })
+  declare department: BelongsTo<typeof Department>
 
   @belongsTo(() => User, { foreignKey: 'user_id' })
     declare user: BelongsTo<typeof User>
