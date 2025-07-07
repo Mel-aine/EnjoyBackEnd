@@ -4,7 +4,8 @@ import hash from '@adonisjs/core/services/hash'
 import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
-// import fs from 'node:fs'
+import ServiceUserAssignment from '#models/service_user_assignment'
+
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -51,59 +52,82 @@ export default class AuthController {
   }
 
 
-async signin({ request, response }: HttpContext) {
-  const { email, password } = request.only(['email', 'password'])
+  public async signin({ request, response }: HttpContext) {
+    const { email, password } = request.only(['email', 'password'])
 
-  try {
-    const user = await User
-      .query()
-      .where('email', email)
-      .preload('role')
-      .firstOrFail()
-
-    const passwordValid = await hash.verify(user.password, password)
-    if (!passwordValid) {
-      return response.unauthorized({ message: 'Invalid credentials' })
-    }
-
-    const isAdmin = user.role?.role_name === 'admin'
-
-    let userServices
-
-    if (isAdmin) {
-
-      userServices = await user.related('services')
+    try {
+      const user = await User
         .query()
-        .preload('category')
-        .limit(50)
-    } else {
+        .where('email', email)
+        .preload('role')
+        .firstOrFail()
 
-      const assignments = await user.related('serviceAssignments')
-        .query()
-        .preload('service', (serviceQuery) => {
-          serviceQuery.preload('category')
-        })
-        .limit(10)
-
-      userServices = assignments.map((a) => a.service)
-    }
-
-    const token = await User.accessTokens.create(user, ['*'], { name: email })
-
-    return response.ok({
-      message: 'Login successful',
-      data: {
-        user,
-        userServices,
-        user_token: token,
+      const passwordValid = await hash.verify(user.password, password)
+      if (!passwordValid) {
+        return response.unauthorized({ message: 'Invalid credentials' })
       }
-    })
-  } catch (error) {
-    console.error('Login error:', error)
-    return response.badRequest({ message: 'Login failed' })
-  }
-}
 
+      const isAdmin = user.role?.role_name === 'admin'
+
+      let userServices
+
+      if (isAdmin) {
+        userServices = await user.related('services')
+          .query()
+          .preload('category')
+          .limit(50)
+      } else {
+        const assignments = await user.related('serviceAssignments')
+          .query()
+          .preload('service', (serviceQuery) => {
+            serviceQuery.preload('category')
+          })
+
+        userServices = assignments.map((a) => a.service)
+      }
+
+      const token = await User.accessTokens.create(user, ['*'], { name: email })
+
+      // ⬇️ Ajout de detailedPermissions (comme getUserPermissions)
+      const assignments = await ServiceUserAssignment.query()
+        .where('user_id', user.id)
+        .preload('service')
+        .preload('roleModel', (roleQuery) => {
+          roleQuery.preload('permissions')
+        })
+
+      const detailedPermissions = assignments.map((assignment) => ({
+        service: {
+          id: assignment.service?.id,
+          name: assignment.service?.name,
+        },
+        role: {
+          name: assignment.roleModel?.role_name,
+          description: assignment.roleModel?.description,
+        },
+        permissions:
+          assignment.roleModel?.permissions.map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.label,
+          })) ?? [],
+      }))
+
+      return response.ok({
+        message: 'Login successful',
+        data: {
+          user,
+          user_token: token,
+          userServices,
+          permissions: detailedPermissions, // 🟢 directement ici
+        },
+      })
+
+    } catch (error) {
+      console.error('Login error:', error)
+      return response.badRequest({ message: 'Login failed' })
+    }
+  }
 
   public async update_user({ auth, request, response }: HttpContext) {
     try {

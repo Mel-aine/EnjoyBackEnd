@@ -1,54 +1,48 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Permission from '#models/permission'
 
-const permissionLabels: Record<string, { label: string; icon: string; category: string }> = {
-  bookings_read: { label: 'Consulter les réservations', icon: 'eye', category: 'Réservations' },
-  bookings_create: { label: 'Créer des réservations', icon: 'plus', category: 'Réservations' },
-  bookings_update: { label: 'Modifier les réservations', icon: 'edit', category: 'Réservations' },
-  bookings_delete: { label: 'Supprimer les réservations', icon: 'trash-2', category: 'Réservations' },
-
-  rooms_read: { label: 'Consulter les chambres', icon: 'bed', category: 'Chambres' },
-  rooms_create: { label: 'Créer des chambres', icon: 'plus', category: 'Chambres' },
-  rooms_update: { label: 'Modifier les chambres', icon: 'edit', category: 'Chambres' },
-  rooms_delete: { label: 'Supprimer les chambres', icon: 'trash-2', category: 'Chambres' },
-
-  users_read: { label: 'Consulter les utilisateurs', icon: 'users', category: 'Utilisateurs' },
-  users_create: { label: 'Créer des utilisateurs', icon: 'plus', category: 'Utilisateurs' },
-  users_update: { label: 'Modifier les utilisateurs', icon: 'edit', category: 'Utilisateurs' },
-  users_delete: { label: 'Supprimer les utilisateurs', icon: 'trash-2', category: 'Utilisateurs' },
-
-  inventory_read: { label: "Consulter l'inventaire", icon: 'shopping-cart', category: 'Inventaire' },
-  inventory_update: { label: "Modifier l'inventaire", icon: 'edit', category: 'Inventaire' },
-
-  reports_view: { label: 'Consulter les rapports', icon: 'file-text', category: 'Rapports' },
-  reports_export: { label: 'Exporter les rapports', icon: 'download', category: 'Rapports' },
-
-  budget_view: { label: 'Consulter les budgets', icon: 'dollar-sign', category: 'Finance' },
-  budget_edit: { label: 'Modifier les budgets', icon: 'edit', category: 'Finance' },
-  billing_manage: { label: 'Gérer la facturation', icon: 'dollar-sign', category: 'Finance' },
-
-  maintenance_request_create: { label: 'Créer demande maintenance', icon: 'plus', category: 'Maintenance' },
-  maintenance_request_manage: { label: 'Gérer les interventions', icon: 'wrench', category: 'Maintenance' },
-
-  room_service_request: { label: 'Service en chambre', icon: 'utensils', category: 'Services' },
-
-  menu_manage: { label: 'Gérer les menus', icon: 'utensils', category: 'Restauration' },
-  menu_view: { label: 'Consulter les menus', icon: 'eye', category: 'Restauration' },
-
-  promotions_manage: { label: 'Gérer les promotions', icon: 'calendar', category: 'Marketing' },
-
-  settings_manage: { label: 'Gérer les paramètres', icon: 'settings', category: 'Administration' },
-}
 
 export default class PermissionSeeder extends BaseSeeder {
   public async run () {
-    const permissionData = Object.entries(permissionLabels).map(([name, { label, icon, category }]) => ({
-      name,
-      label,
-      icon,
-      category,
-    }))
+    const permissions = [
+      { name: 'dashboard_view', label: 'Dashboard', icon: 'layout-dashboard', category: 'Général' },
+      { name: 'bookings_view', label: 'Réservations', icon: 'calendar-check', category: 'Réservations' },
+      { name: 'bookings_read', label: 'Voir toutes les réservations', icon: 'calendar-check', category: 'Réservations' },
+      { name: 'bookings_create', label: 'Ajouter une réservation', icon: 'calendar-check', category: 'Réservations' },
+      { name: 'rooms_view', label: 'Chambres', icon: 'bed-double', category: 'Chambres' },
+      { name: 'rooms_read', label: 'Voir toutes les chambres', icon: 'bed-double', category: 'Chambres' },
+      { name: 'rooms_manage', label: 'Gérer les types de chambres', icon: 'bed-double', category: 'Chambres' },
+      { name: 'rooms_occupancy_view', label: 'Voir l’occupation', icon: 'bed-double', category: 'Chambres' },
+      { name: 'calendar_view', label: 'Voir le calendrier', icon: 'calendar-days', category: 'Général' },
+      { name: 'departments_view', label: 'Voir les départements', icon: 'building', category: 'Services Hôteliers' },
+      { name: 'reports_view', label: 'Voir les rapports', icon: 'clipboard-plus', category: 'Rapports' },
+      { name: 'inventory_view', label: 'Voir la gestion des stocks', icon: 'clipboard-plus', category: 'Inventaire' },
+      { name: 'inventory_read', label: 'Voir les produits', icon: 'clipboard-plus', category: 'Inventaire' },
+      { name: 'inventory_history_view', label: 'Voir les mouvements de stock', icon: 'clipboard-plus', category: 'Inventaire' },
+      { name: 'inventory_category_view', label: 'Voir les catégories de stock', icon: 'clipboard-plus', category: 'Inventaire' },
+      { name: 'suppliers_view', label: 'Voir les fournisseurs', icon: 'clipboard-plus', category: 'Inventaire' },
+      { name: 'expenses_view', label: 'Voir les dépenses', icon: 'clipboard-plus', category: 'Comptabilité' },
+      { name: 'customers_view', label: 'Voir les clients', icon: 'users-round', category: 'Clients' },
+      { name: 'billing_manage', label: 'Gérer la facturation', icon: 'banknote', category: 'Paiement' },
+      { name: 'staff_view', label: 'Voir la gestion du personnel', icon: 'user-circle', category: 'RH' },
+      { name: 'staff_dashboard_view', label: 'Voir le dashboard du personnel', icon: 'user-circle', category: 'RH' },
+      { name: 'staff_manage', label: 'Gérer le personnel', icon: 'user-circle', category: 'RH' },
+      { name: 'permissions_manage', label: 'Gérer les permissions', icon: 'user-circle', category: 'RH' },
+      { name: 'task_manage', label: 'Gérer les tâches', icon: 'user-circle', category: 'RH' },
+      { name: 'schedule_manage', label: 'Gérer les plannings', icon: 'user-circle', category: 'RH' },
+      { name: 'staff_history_view', label: 'Voir l’historique du personnel', icon: 'user-circle', category: 'RH' },
+      { name: 'settings_manage', label: 'Gérer les paramètres', icon: 'settings', category: 'Configuration' },
+    ]
 
-    await Permission.updateOrCreateMany('name', permissionData)
+    for (const permission of permissions) {
+      await Permission.updateOrCreate(
+        { name: permission.name },
+        {
+          label: permission.label,
+          icon: permission.icon,
+          category: permission.category,
+        }
+      )
+    }
   }
 }

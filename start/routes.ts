@@ -32,7 +32,7 @@ import TravelRoutesController from '#controllers/travel_routes_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
-import { middleware } from '#start/kernel'
+// import { middleware } from '#start/kernel'
 
 const AuthController = () => import('#controllers/auth_controller')
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
@@ -88,7 +88,7 @@ router
     //.middleware('auth') // Protège toutes les routes
 
     router.group(() => {
-      router.get('/roles', rolesController.list.bind(rolesController))
+      router.get('/roles_permissions/:serviceId', rolesController.getRolesByServiceWithPermissions.bind(rolesController))
       router.get('/roles/:serviceId', rolesController.GetByServiceId.bind(rolesController))
       router.get(
         '/services/:serviceId/roles',
@@ -262,7 +262,8 @@ router
         router.get(
           '/reservations/:serviceId',
           reservationsController.GetByServiceId.bind(reservationsController)
-        ).use(middleware.checkPermission(['bookings_read']))
+        )
+        // .use(middleware.checkPermission(['bookings_read']))
         router.post('/reservations', reservationsController.store.bind(reservationsController))
         router.post(
           '/reservationswithuser',
@@ -424,6 +425,7 @@ router
 
     router.group(() => {
       router.get('/permission', permissionsController.list.bind(permissionsController))
+       router.get('/permissions', permissionsController.getUserPermissions.bind(permissionsController))
     })
 
     router.group(() => {
@@ -433,4 +435,4 @@ router
     })
   })
   .prefix('/api')
-  .use(middleware.auth())
+  // .use(middleware.auth())

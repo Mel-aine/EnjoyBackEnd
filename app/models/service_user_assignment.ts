@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import User from '#models/user'
+import Role from '#models/role'
 import Department from '#models/department'
 
 export default class ServiceUserAssignment extends BaseModel {
@@ -18,6 +19,12 @@ export default class ServiceUserAssignment extends BaseModel {
 
   @column()
   declare role: string
+
+  @belongsTo(() => Role, {
+    foreignKey: 'role',
+    localKey: 'role_name',
+  })
+  declare roleModel: BelongsTo<typeof Role>
 
   @column()
   public department_id?: number

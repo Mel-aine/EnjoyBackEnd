@@ -101,26 +101,26 @@ export default class User extends AuthFinder(BaseModel) {
   currentAccessToken?: AccessToken
 
   // Méthode pour vérifier si l'utilisateur a une permission
-  // public async hasPermission(permissionName: string): Promise<boolean> {
-  //   if (!this.role_id) return false
+  public async hasPermission(permissionName: string): Promise<boolean> {
+    if (!this.role_id) return false
 
-  //   await this.load('role', (query) => {
-  //     query.preload('permissions')
-  //   })
+    await this.load('role', (query) => {
+      query.preload('permissions')
+    })
 
-  //   return this.role.permissions.some((permission) => permission.name === permissionName)
-  // }
+    return this.role.permissions.some((permission) => permission.name === permissionName)
+  }
 
-  // // Méthode pour vérifier plusieurs permissions
-  // public async hasAnyPermission(permissions: string[]): Promise<boolean> {
-  //   if (!this.role_id) return false
+  // Méthode pour vérifier plusieurs permissions
+  public async hasAnyPermission(permissions: string[]): Promise<boolean> {
+    if (!this.role_id) return false
 
-  //   await this.load('role', (query) => {
-  //     query.preload('permissions')
-  //   })
+    await this.load('role', (query) => {
+      query.preload('permissions')
+    })
 
-  //   return permissions.some((permission) =>
-  //     this.role.permissions.some((p) => p.name === permission)
-  //   )
-  // }
+    return permissions.some((permission) =>
+      this.role.permissions.some((p) => p.name === permission)
+    )
+  }
 }
