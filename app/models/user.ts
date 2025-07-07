@@ -28,8 +28,8 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare email: string
 
-  // @column()
-  // declare profile_picture: string | null
+  @column()
+   declare nationality: string | null
 
   @column.dateTime()
   declare last_login: DateTime | null

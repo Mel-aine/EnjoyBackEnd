@@ -12,7 +12,7 @@ export default class extends BaseSchema {
       table.string('email', 255).notNullable().unique()
       table.string('phone_number', 20)
       table.string('address', 255).nullable()
-      // table.string('profile_picture', 255).nullable()
+      table.text('nationality').nullable()
       table.dateTime('last_login').nullable()
       table.boolean('two_factor_enabled').defaultTo('false')
       table.string('password', 255).nullable()

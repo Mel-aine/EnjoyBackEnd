@@ -5,7 +5,7 @@ import User from '#models/user'
 import Service from '#models/service'
 import ServiceProduct from '#models/service_product'
 
-export default class TravelSchedule extends BaseModel {
+export default class Schedules extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
@@ -16,31 +16,43 @@ export default class TravelSchedule extends BaseModel {
   declare service_product_id: number | null
 
   @column()
-  declare travel_route_id: number
+  declare travel_route_id: number | null
 
   @column()
-  declare travel_vehicle_id: number
+  declare travel_vehicle_id: number | null
 
   @column()
   declare driver_user_id: number | null
 
   @column.dateTime()
-  declare departure_datetime: DateTime
+  declare departure_datetime: DateTime | null
 
   @column.dateTime()
-  declare arrival_datetime: DateTime
+  declare arrival_datetime: DateTime | null
 
   @column()
-  declare available_seats: number
+  declare available_seats: number | null
 
   @column()
-  declare price_per_seat: number
+  declare price_per_seat: number | null
 
   @column()
-  declare status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  declare status: string
 
   @column()
   declare notes: string | null
+
+   @column()
+  declare user_id: number | null
+
+  @column.date()
+  declare schedule_date: DateTime | null
+
+  @column.dateTime()
+  declare start_time: DateTime | null
+
+  @column.dateTime()
+  declare end_time: DateTime | null
 
   @column()
   declare created_by: number | null
@@ -59,6 +71,9 @@ export default class TravelSchedule extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'user_id' })
+  declare user: BelongsTo<typeof User>
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
