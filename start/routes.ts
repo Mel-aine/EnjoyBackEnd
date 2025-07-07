@@ -97,7 +97,7 @@ router
       router.get('/stockCategory', stockCategoriesController.list.bind(stockCategoriesController))
       router.get(
         '/stockCategory/:serviceId',
-        stockCategoriesController.showReservationByServiceId.bind(stockCategoriesController)
+        stockCategoriesController.GetByServiceId.bind(stockCategoriesController)
       )
       router.post('/stockCategory', stockCategoriesController.store.bind(stockCategoriesController))
       router.put(
@@ -114,7 +114,7 @@ router
       router.get('/supplier', suppliersController.list.bind(suppliersController))
       router.get(
         '/supplier/:serviceId',
-        suppliersController.showReservationByServiceId.bind(suppliersController)
+        suppliersController.GetByServiceId.bind(suppliersController)
       )
       router.post('/supplier', suppliersController.store.bind(suppliersController))
       router.put('/supplier/:id', suppliersController.update.bind(suppliersController))
@@ -125,7 +125,7 @@ router
       router.get('/prooductService', productServicesController.list.bind(productServicesController))
       router.get(
         '/prooductService/:serviceId',
-        productServicesController.showReservationByServiceId.bind(productServicesController)
+        productServicesController.GetByServiceId.bind(productServicesController)
       )
       router.post(
         '/prooductService',
@@ -153,7 +153,7 @@ router
       router.get('/department', departmentsController.list.bind(departmentsController))
       router.get(
         '/department/:serviceId',
-        departmentsController.showReservationByServiceId.bind(departmentsController)
+        departmentsController.GetByServiceId.bind(departmentsController)
       )
       router.post('/department', departmentsController.store.bind(departmentsController))
       router.put('/department/:id', departmentsController.update.bind(departmentsController))
@@ -164,7 +164,7 @@ router
       router.get('/movement', mouvementsController.list.bind(mouvementsController))
       router.get(
         '/movement/:serviceId',
-        mouvementsController.showReservationByServiceId.bind(mouvementsController)
+        mouvementsController.GetByServiceId.bind(mouvementsController)
       )
       router.post('/movement', mouvementsController.store.bind(mouvementsController))
       router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
