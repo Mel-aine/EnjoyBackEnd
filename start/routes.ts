@@ -22,7 +22,7 @@ import TravelRoutesController from '#controllers/travel_routes_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
-import { middleware } from '#start/kernel'
+// import { middleware } from '#start/kernel'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
@@ -440,4 +440,4 @@ router
   })
   })
   .prefix('/api')
-  .use(middleware.auth())
+  // .use(middleware.auth())
