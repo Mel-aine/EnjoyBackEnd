@@ -32,6 +32,7 @@ import TravelRoutesController from '#controllers/travel_routes_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
+import { middleware } from '#start/kernel'
 
 const AuthController = () => import('#controllers/auth_controller')
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
@@ -261,7 +262,7 @@ router
         router.get(
           '/reservations/:serviceId',
           reservationsController.GetByServiceId.bind(reservationsController)
-        )
+        ).use(middleware.checkPermission(['bookings_read']))
         router.post('/reservations', reservationsController.store.bind(reservationsController))
         router.post(
           '/reservationswithuser',
@@ -289,7 +290,7 @@ router
           reservationsController.showByServiceProductId.bind(reservationsController)
         )
       })
-      .middleware(['auth', router.named('checkPermission', ['bookings_read'])])
+
 
     router.group(() => {
       router.get(
@@ -432,3 +433,4 @@ router
     })
   })
   .prefix('/api')
+  .use(middleware.auth())

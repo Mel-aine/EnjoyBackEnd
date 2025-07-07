@@ -53,13 +53,10 @@ router.use([
 //   auth: () => import('#middleware/auth_middleware'),
 //   checkPermission: () => import('#middleware/check_permission_middleware'),
 // })
+/**
+ * Named middleware collection
+ */
 export const middleware = router.named({
-  auth: async () => {
-    const module = await import('#middleware/auth_middleware')
-    return new module.default()
-  },
-  checkPermission: async () => {
-    const module = await import('#middleware/check_permission_middleware')
-    return new module.default()
-  },
+  auth: () => import('#middleware/auth_middleware'),
+  checkPermission: () => import('#middleware/check_permission_middleware'),
 })
