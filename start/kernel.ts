@@ -29,15 +29,37 @@ server.use([
 ])
 
 /**
+ * Named middleware collection for the server
+ * Ces middlewares peuvent être utilisés sur les routes individuelles
+ */
+// router.named({
+//   checkPermission: () => import('#middleware/check_permission_middleware'),
+// })
+
+/**
  * The router middleware stack runs middleware on all the HTTP
  * requests with a registered route.
  */
-router.use([() => import('@adonisjs/core/bodyparser_middleware'), () => import('@adonisjs/auth/initialize_auth_middleware')])
+router.use([
+  () => import('@adonisjs/core/bodyparser_middleware'),
+  () => import('@adonisjs/auth/initialize_auth_middleware'),
+])
 
 /**
  * Named middleware collection must be explicitly assigned to
  * the routes or the routes group.
  */
+// export const middleware = router.named({
+//   auth: () => import('#middleware/auth_middleware'),
+//   checkPermission: () => import('#middleware/check_permission_middleware'),
+// })
 export const middleware = router.named({
-  auth: () => import('#middleware/auth_middleware')
+  auth: async () => {
+    const module = await import('#middleware/auth_middleware')
+    return new module.default()
+  },
+  checkPermission: async () => {
+    const module = await import('#middleware/check_permission_middleware')
+    return new module.default()
+  },
 })

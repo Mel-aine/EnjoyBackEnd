@@ -1,4 +1,3 @@
-
 import type { HttpContext } from '@adonisjs/core/http'
 import PermissionService from '../services/permission_service.js'
 
