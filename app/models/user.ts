@@ -1,14 +1,14 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
 import { AccessToken } from '@adonisjs/auth/access_tokens'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
-import type { BelongsTo, HasMany} from '@adonisjs/lucid/types/relations'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import hash from '@adonisjs/core/services/hash'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import Role from '#models/role'
 import Services from '#models/service'
 import ServiceUserAssignment from '#models/service_user_assignment'
-
+import Permission from '#models/permission'
 
 const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
   uids: ['email'],
@@ -29,7 +29,7 @@ export default class User extends AuthFinder(BaseModel) {
   declare email: string
 
   @column()
-   declare nationality: string | null
+  declare nationality: string | null
 
   @column.dateTime()
   declare last_login: DateTime | null
@@ -69,7 +69,7 @@ export default class User extends AuthFinder(BaseModel) {
   declare role: BelongsTo<typeof Role>
 
   @hasMany(() => Services, {
-  foreignKey: 'created_by',
+    foreignKey: 'created_by',
   })
   declare services: HasMany<typeof Services>
 
@@ -82,6 +82,14 @@ export default class User extends AuthFinder(BaseModel) {
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
 
+  @manyToMany(() => Permission, {
+    pivotTable: 'role_permissions',
+    pivotForeignKey: 'role_id',
+    pivotRelatedForeignKey: 'permission_id',
+    pivotColumns: ['role_id'],
+  })
+  declare permissions: ManyToMany<typeof Permission>
+
   static accessTokens = DbAccessTokensProvider.forModel(User, {
     expiresIn: '30 days',
     prefix: 'ray_',
@@ -91,4 +99,28 @@ export default class User extends AuthFinder(BaseModel) {
   })
 
   currentAccessToken?: AccessToken
+
+  // Méthode pour vérifier si l'utilisateur a une permission
+  public async hasPermission(permissionName: string): Promise<boolean> {
+    if (!this.role_id) return false
+
+    await this.load('role', (query) => {
+      query.preload('permissions')
+    })
+
+    return this.role.permissions.some((permission) => permission.name === permissionName)
+  }
+
+  // Méthode pour vérifier plusieurs permissions
+  public async hasAnyPermission(permissions: string[]): Promise<boolean> {
+    if (!this.role_id) return false
+
+    await this.load('role', (query) => {
+      query.preload('permissions')
+    })
+
+    return permissions.some((permission) =>
+      this.role.permissions.some((p) => p.name === permission)
+    )
+  }
 }

@@ -1,13 +1,15 @@
 
 import type { HttpContext } from '@adonisjs/core/http'
+import type { NextFn } from '@adonisjs/core/types/http'
 import PermissionService from '../services/permission_service.js'
 
 export default class CheckPermissionMiddleware {
   public async handle(
-    { auth, params, response }: HttpContext,
-    next: () => Promise<void>,
-    guards: string[] // Liste des permissions à vérifier, ex: ['dashboard.view']
+    ctx: HttpContext,
+    next: NextFn,
+    guards: string[] = [] // Liste des permissions à vérifier, ex: ['dashboard.view']
   ) {
+    const { auth, params, response } = ctx
     const user = auth.user
 
     // Si l'utilisateur n'est pas connecté
@@ -16,9 +18,14 @@ export default class CheckPermissionMiddleware {
     }
 
     // Vérifie qu'on a bien un ID de service dans les paramètres de l'URL
-    const serviceId = params.service_id
+    const serviceId = params.serviceId
     if (!serviceId) {
       return response.badRequest({ error: 'Identifiant du service manquant' })
+    }
+
+    // Si aucune permission n'est spécifiée, on autorise l'accès
+    if (guards.length === 0) {
+      return await next()
     }
 
     // Vérifie si l'utilisateur a l'une des permissions demandées dans ce service
@@ -28,10 +35,13 @@ export default class CheckPermissionMiddleware {
         return await next() // Autorisé, on continue
       }
     }
+    console.log('params:', params)
+    console.log('user:', user)
+
 
     // Si aucune permission n'est présente, on bloque l'accès
     return response.forbidden({
-      error: 'Vous n’avez pas la permission requise',
+      error: 'Vous n\'avez pas la permission requise',
     })
   }
 }

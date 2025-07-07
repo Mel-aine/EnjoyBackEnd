@@ -1,10 +1,11 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column ,belongsTo,hasMany, manyToMany} from '@adonisjs/lucid/orm'
-import type { BelongsTo , HasMany, ManyToMany  } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Service from '#models/service'
 import Category from '#models/category'
 import Permission from '#models/permission'
+import RolePermission from '#models/role_permission'
 
 export default class Role extends BaseModel {
   @column({ isPrimary: true })
@@ -30,7 +31,6 @@ export default class Role extends BaseModel {
   })
   declare category: BelongsTo<typeof Category>
 
-
   @column()
   declare last_modified_by: number | null
 
@@ -49,26 +49,26 @@ export default class Role extends BaseModel {
   @hasMany(() => User, { foreignKey: 'role_id' })
   declare users: HasMany<typeof User>
 
+  @hasMany(() => RolePermission, {
+    foreignKey: 'role_id',
+  })
+  declare rolePermissions: HasMany<typeof RolePermission>
+
   @manyToMany(() => Permission, {
     pivotTable: 'role_permissions',
-    pivotTimestamps: true,
+    pivotForeignKey: 'role_id',
+    pivotRelatedForeignKey: 'permission_id',
   })
   declare permissions: ManyToMany<typeof Permission>
-
-
 
   @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
 
-
   /**
    * Vérifie si le rôle a une permission donnée
    */
-public async hasPermission(permissionName: string): Promise<boolean> {
-  await this.load((loader:any) => loader.load('permissions'))
-  return this.permissions.some((perm) => perm.name === permissionName)
-}
-
-
-
+  public async hasPermission(permissionName: string): Promise<boolean> {
+    await this.load((loader: any) => loader.load('permissions'))
+    return this.permissions.some((perm) => perm.name === permissionName)
+  }
 }
