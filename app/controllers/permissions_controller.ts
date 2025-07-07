@@ -68,6 +68,7 @@ export default class PermissionsController extends CrudController<typeof Permiss
     return user.role?.permissions || []
   }
 
+
   // Vérifier si un utilisateur a une permission
   // public async userHasPermission(userId: number, permissionName: string): Promise<boolean> {
   //   const user = await User.findOrFail(userId)
