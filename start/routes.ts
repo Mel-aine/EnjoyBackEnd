@@ -26,6 +26,10 @@ import TasksController from '#controllers/tasks_controller'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
+import DashboardController from '#controllers/dasboard_controller'
+
+// Import dynamique
+const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 
 const usersController = new UsersController()
@@ -408,5 +412,21 @@ router
       router.get('/tasks/:serviceId', tasksController.showByServiceId.bind(tasksController))
       router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
     })
+
+     // DASHBOARD
+  router.group(() => {
+    router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année
+    router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))// Endpoint pour les disponibilités des chambres le taux d'ocupation, le nombre de chambres disponibles, le nombre de chambres occupées, le nombre de chambres réservées aujourd'hui et le taux de réservation aujourd'hui et la semaine dernière
+    router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))// Endpoint pour la durée moyenne de séjour
+    router.get('/revenue/:serviceId/stats', dashboardController.getRevenueStats.bind(dashboardController))// Endpoint pour les statistiques de revenus annuels, mensuels, trimestriels et semestriels
+    router.get('/revenue/:serviceId/monthly-comparison',dashboardController.getMonthlyRevenueComparison.bind(dashboardController)) // Endpoint pour la comparaison des revenus mensuels
+    router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController)) // Endpoint pour le taux d'occupation moyen sur une période donnée
+    router.get('/occupancy/:id/monthly', dashboardController.monthlyOccupancy.bind(dashboardController))// Endpoint pour les statistiques d'occupation mensuelles
+    router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
+    //router.get('/clients/origin-stats', dashboardController.getNationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
+    router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
+
+  
+  })
   })
   .prefix('/api')
