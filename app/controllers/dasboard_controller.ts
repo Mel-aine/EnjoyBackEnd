@@ -2,6 +2,7 @@ import { RoomAvailabilityService, RoomAnalyticsService, RevenueAnalyticsService 
 import type { HttpContext } from '@adonisjs/core/http'
 // import { HotelAnalyticsService } from '#services/dashboard_servicedp'
 import { HotelAnalyticsService } from '#services/dasboard_servicepd'
+import { DateTime } from 'luxon'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
     try {
@@ -208,33 +209,19 @@ public async stayDurationStats({ params, response }: HttpContext) {
 }
 
 
-  public async reservationTypeStats({ request, params, response }: HttpContext) {
-    try {
-      const serviceId = Number(params.serviceId)
-      const month = Number(request.input('month'))
-      const year = Number(request.input('year'))
+  public async yearlyReservationTypes({ params, request, response }: HttpContext) {
+  const serviceId = Number(params.serviceId)
+  const year = Number(request.input('year')) || DateTime.now().year
 
-      if (!serviceId || isNaN(month) || isNaN(year)) {
-        return response.badRequest({
-          success: false,
-          message: 'Paramètres invalides. Veuillez fournir un serviceId, un mois et une année valides.',
-        })
-      }
-
-      const data = await HotelAnalyticsService.getMonthlyReservationTypesStats(serviceId, month, year)
-
-      return response.ok({
-        success: true,
-        data,
-      })
-    } catch (error) {
-      console.error(error)
-      return response.internalServerError({
-        success: false,
-        message: 'Une erreur est survenue lors du calcul des statistiques.',
-      })
-    }
+  if (!serviceId) {
+    return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
+
+  const data = await HotelAnalyticsService.getYearlyReservationTypesStats(serviceId, year)
+
+  return response.ok({ success: true, data })
+}
+
 }
 
 

@@ -435,7 +435,7 @@ router
     router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
     router.get('/clients/origin-stats/:serviceId', dashboardController.nationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
     router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
-    router.get('/reservations/types/:serviceId', dashboardController.reservationTypeStats.bind(dashboardController))
+    router.get('/reservation/:serviceId', dashboardController.yearlyReservationTypes.bind(dashboardController))
 
 
 
