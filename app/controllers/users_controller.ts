@@ -71,6 +71,7 @@ export default class UsersController extends CrudController<typeof User> {
         phone_number: data.phone_number,
         role_id: data.role_id,
         address: data.address,
+        service_id: data.service_id,
         status: 'active',
         created_by: data.created_by || null,
         last_modified_by: data.last_modified_by || null,
@@ -85,9 +86,7 @@ export default class UsersController extends CrudController<typeof User> {
         hire_date : data.hire_date || null
       })
 
-      await user.load('serviceAssignments')
       return response.created({ user })
-
 
 } catch (error) {
       console.error('Error in createWithUser:', error)

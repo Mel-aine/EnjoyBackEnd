@@ -1,14 +1,4 @@
-/*
-|--------------------------------------------------------------------------
-| Routes file
-|--------------------------------------------------------------------------
-|
-| The routes file is used for defining the HTTP routes.
-|
-*/
-
 import router from '@adonisjs/core/services/router'
-
 import UsersController from '#controllers/users_controller'
 import RolesController from '#controllers/roles_controller'
 import ServicesController from '#controllers/services_controller'
@@ -33,8 +23,14 @@ import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 // import { middleware } from '#start/kernel'
+// import { middleware } from '#start/kernel'
 
+// Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
+import DashboardController from '#controllers/dasboard_controller'
+
+// Import dynamique
+const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 
 const usersController = new UsersController()
@@ -79,10 +75,9 @@ router
     router.group(() => {
       router.get('/users', usersController.list.bind(usersController))
       router.get('/users/:id', usersController.show.bind(usersController))
-      router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-      // router.post('/users', usersController.store.bind(usersController))
+      //router.post('/users', usersController.createWithUserAndRole.bind(usersController))
+      router.post('/users', usersController.store.bind(usersController))
       router.put('/users/:id', usersController.update.bind(usersController))
-      router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
     })
     //.middleware('auth') // Protège toutes les routes
@@ -193,10 +188,7 @@ router
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
       router.get('/services/search', servicesController.searchByName.bind(servicesController))
-      router.get(
-        '/servicesWithServiceProduct',
-        servicesController.getServicesWithProductsAndOptions.bind(servicesController)
-      )
+      router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
 
     router.group(() => {
@@ -291,6 +283,7 @@ router
           reservationsController.showByServiceProductId.bind(reservationsController)
         )
       })
+
 
 
     router.group(() => {
@@ -433,6 +426,24 @@ router
       router.get('/tasks/:serviceId', tasksController.showByServiceId.bind(tasksController))
       router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
     })
+
+     // DASHBOARD
+  router.group(() => {
+    router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année
+    router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))// Endpoint pour les disponibilités des chambres le taux d'ocupation, le nombre de chambres disponibles, le nombre de chambres occupées, le nombre de chambres réservées aujourd'hui et le taux de réservation aujourd'hui et la semaine dernière
+    router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))// Endpoint pour la durée moyenne de séjour
+    router.get('/revenue/:serviceId/stats', dashboardController.getRevenueStats.bind(dashboardController))// Endpoint pour les statistiques de revenus annuels, mensuels, trimestriels et semestriels
+    router.get('/revenue/:serviceId/monthly-comparison',dashboardController.getMonthlyRevenueComparison.bind(dashboardController)) // Endpoint pour la comparaison des revenus mensuels
+    router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController)) // Endpoint pour le taux d'occupation moyen sur une période donnée
+    router.get('/occupancy/:id/monthly', dashboardController.monthlyOccupancy.bind(dashboardController))// Endpoint pour les statistiques d'occupation mensuelles
+    router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
+    router.get('/clients/origin-stats', dashboardController.getNationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
+    router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
+    router.get('/reservation-types/:serviceId', dashboardController.getReservationSourcesStats.bind(dashboardController))
+
+
+
+  })
   })
   .prefix('/api')
   // .use(middleware.auth())

@@ -1,4 +1,5 @@
-// import type { HttpContext } from '@adonisjs/core/http'
+import type { HttpContext } from '@adonisjs/core/http'
+
 
 import Role from '#models/role'
 import CrudService from '#services/crud_service'
@@ -11,7 +12,6 @@ import RolePermission from '#models/role_permission'
 // const roleService = new CrudService(Role)
 
 export default class RolesController extends CrudController<typeof Role> {
-
   constructor() {
     super(new CrudService(Role))
   }
