@@ -23,7 +23,8 @@ export default class DashboardController {
     reservationRateToday: `${stats.reservationRateToday}%`,
     reservationRateLastWeek: `${stats.reservationRateLastWeek}%`,
     totalReservationsThisMonth: stats.totalReservationsThisMonth,
-    totalRevenueThisMonth: stats.totalRevenueThisMonth
+    totalRevenueThisMonth: stats.totalRevenueThisMonth,
+    revenueGrowthRate: `${stats.revenueGrowthRate}%`
   }
 })
 
@@ -175,21 +176,18 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     }
   }
 
-  public async getNationalityStats({ response }: HttpContext) {
-  try {
-    const stats = await HotelAnalyticsService.getNationalityStats()
+  public async nationalityStats({ params, response }: HttpContext) {
+  const serviceId = Number(params.serviceId)
 
-    return response.ok({
-      success: true,
-      data: stats
-    })
-  } catch (error) {
-    return response.badRequest({
-      success: false,
-      message: error.message
-    })
+  if (!serviceId) {
+    return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
+
+  const data = await HotelAnalyticsService.getNationalityStats(serviceId)
+
+  return response.ok({ success: true, data })
 }
+
 
 public async stayDurationStats({ params, response }: HttpContext) {
   try {
@@ -208,22 +206,36 @@ public async stayDurationStats({ params, response }: HttpContext) {
     })
   }
 }
-public async getReservationSourcesStats({ params, response }: HttpContext) {
-  try {
-    const { serviceId } = params
-    const stats = await HotelAnalyticsService.getMonthlyReservationTypesStats(Number(serviceId))
 
-    return response.ok({
-      success: true,
-      data: stats
-    })
-  } catch (error) {
-    return response.internalServerError({
-      success: false,
-      message: error.message
-    })
+
+  public async reservationTypeStats({ request, params, response }: HttpContext) {
+    try {
+      const serviceId = Number(params.serviceId)
+      const month = Number(request.input('month'))
+      const year = Number(request.input('year'))
+
+      if (!serviceId || isNaN(month) || isNaN(year)) {
+        return response.badRequest({
+          success: false,
+          message: 'Paramètres invalides. Veuillez fournir un serviceId, un mois et une année valides.',
+        })
+      }
+
+      const data = await HotelAnalyticsService.getMonthlyReservationTypesStats(serviceId, month, year)
+
+      return response.ok({
+        success: true,
+        data,
+      })
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({
+        success: false,
+        message: 'Une erreur est survenue lors du calcul des statistiques.',
+      })
+    }
   }
 }
 
 
-} 
+
