@@ -433,8 +433,10 @@ router
     router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController)) // Endpoint pour le taux d'occupation moyen sur une période donnée
     router.get('/occupancy/:id/monthly', dashboardController.monthlyOccupancy.bind(dashboardController))// Endpoint pour les statistiques d'occupation mensuelles
     router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
-    //router.get('/clients/origin-stats', dashboardController.getNationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
+    router.get('/clients/origin-stats', dashboardController.getNationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
     router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
+    router.get('/reservation-types/:serviceId', dashboardController.getReservationSourcesStats.bind(dashboardController))
+
 
 
   })

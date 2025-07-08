@@ -175,21 +175,21 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     }
   }
 
-//   public async getNationalityStats({ response }: HttpContext) {
-//   try {
-//     const stats = await HotelAnalyticsService.getNationalityStats()
+  public async getNationalityStats({ response }: HttpContext) {
+  try {
+    const stats = await HotelAnalyticsService.getNationalityStats()
 
-//     return response.ok({
-//       success: true,
-//       data: stats
-//     })
-//   } catch (error) {
-//     return response.badRequest({
-//       success: false,
-//       message: error.message
-//     })
-//   }
-// }
+    return response.ok({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    return response.badRequest({
+      success: false,
+      message: error.message
+    })
+  }
+}
 
 public async stayDurationStats({ params, response }: HttpContext) {
   try {
@@ -208,5 +208,22 @@ public async stayDurationStats({ params, response }: HttpContext) {
     })
   }
 }
+public async getReservationSourcesStats({ params, response }: HttpContext) {
+  try {
+    const { serviceId } = params
+    const stats = await HotelAnalyticsService.getMonthlyReservationTypesStats(Number(serviceId))
+
+    return response.ok({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    return response.internalServerError({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
 
 } 

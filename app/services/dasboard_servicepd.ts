@@ -295,31 +295,31 @@ public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
     variationPercentage
   }
 }
-// public static async getNationalityStats(): Promise<{ nationality: string, count: number }[]> {
-//     // Récupérer toutes les réservations avec les utilisateurs associés
-//     const reservations = await Reservation
-//       .query()
-//       .preload('user') // assure-toi que la relation user existe dans Reservation
+public static async getNationalityStats(): Promise<{ nationality: string, count: number }[]> {
+    // Récupérer toutes les réservations avec les utilisateurs associés
+    const reservations = await Reservation
+      .query()
+      .preload('user') // assure-toi que la relation user existe dans Reservation
 
-//     // Créer un dictionnaire de nationalités
-//     const nationalityMap: Record<string, number> = {}
+    // Créer un dictionnaire de nationalités
+    const nationalityMap: Record<string, number> = {}
 
-//     for (const reservation of reservations) {
-//       const nationality = reservation.user?.nationality || 'Inconnue'
+    for (const reservation of reservations) {
+      const nationality = reservation.user?.nationality || 'Inconnue'
 
-//       if (!nationalityMap[nationality]) {
-//         nationalityMap[nationality] = 0
-//       }
+      if (!nationalityMap[nationality]) {
+        nationalityMap[nationality] = 0
+      }
 
-//       nationalityMap[nationality]++
-//     }
+      nationalityMap[nationality]++
+    }
 
-//     // Convertir en tableau
-//     return Object.entries(nationalityMap).map(([nationality, count]) => ({
-//       nationality,
-//       count
-//     }))
-//   }
+    // Convertir en tableau
+    return Object.entries(nationalityMap).map(([nationality, count]) => ({
+      nationality,
+      count
+    }))
+  }
  public static async getStayDurationDistribution(serviceId: number) {
     const reservations = await Reservation
       .query()
@@ -363,4 +363,56 @@ public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
       '10+ nuits': toPercentage(overTen)
     }
   }
+public static async getMonthlyReservationTypesStats(serviceId: number) {
+  const now = DateTime.now()
+  const startCurrent = now.startOf('month').toSQL()
+  const endCurrent = now.endOf('month').toSQL()
+
+  const startPrevious = now.minus({ months: 1 }).startOf('month').toSQL()
+  const endPrevious = now.minus({ months: 1 }).endOf('month').toSQL()
+
+  // On récupère tous les types distincts dans la table
+  const distinctTypes = await Reservation
+    .query()
+    .where('service_id', serviceId)
+    .distinct('reservation_type')
+
+  const types = distinctTypes.map(r => r.reservation_type || 'inconnu')
+
+  const results: { type: string; count: number; progression: number }[] = []
+
+  for (const type of types) {
+    const currentCountResult = await Reservation
+      .query()
+      .where('service_id', serviceId)
+      .where('reservation_type', type)
+      .whereBetween('created_at', [startCurrent, endCurrent])
+      .count('* as count')
+
+    const previousCountResult = await Reservation
+      .query()
+      .where('service_id', serviceId)
+      .where('reservation_type', type)
+      .whereBetween('created_at', [startPrevious, endPrevious])
+      .count('* as count')
+
+    const currentCount = Number(currentCountResult[0].$extras.count || 0)
+    const previousCount = Number(previousCountResult[0].$extras.count || 0)
+
+    const progression = previousCount === 0
+      ? currentCount > 0 ? 100 : 0
+      : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
+
+    results.push({
+      type: type.charAt(0).toUpperCase() + type.slice(1), // Majuscule au début
+      count: currentCount,
+      progression
+    })
+  }
+
+  return results
 }
+
+  
+}
+
