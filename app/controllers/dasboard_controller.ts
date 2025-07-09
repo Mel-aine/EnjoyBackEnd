@@ -25,7 +25,7 @@ export default class DashboardController {
     reservationRateLastWeek: `${stats.reservationRateLastWeek}%`,
     totalReservationsThisMonth: stats.totalReservationsThisMonth,
     totalRevenueThisMonth: stats.totalRevenueThisMonth,
-    revenueGrowthRate: `${stats.revenueGrowthRate}%`
+    revenueGrowthRate: `${stats.revenueGrowthRate}`
   }
 })
 
