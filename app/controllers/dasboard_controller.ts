@@ -2,6 +2,7 @@ import { RoomAvailabilityService, RoomAnalyticsService, RevenueAnalyticsService 
 import type { HttpContext } from '@adonisjs/core/http'
 // import { HotelAnalyticsService } from '#services/dashboard_servicedp'
 import { HotelAnalyticsService } from '#services/dasboard_servicepd'
+import { DateTime } from 'luxon'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
     try {
@@ -23,7 +24,8 @@ export default class DashboardController {
     reservationRateToday: `${stats.reservationRateToday}%`,
     reservationRateLastWeek: `${stats.reservationRateLastWeek}%`,
     totalReservationsThisMonth: stats.totalReservationsThisMonth,
-    totalRevenueThisMonth: stats.totalRevenueThisMonth
+    totalRevenueThisMonth: stats.totalRevenueThisMonth,
+    revenueGrowthRate: `${stats.revenueGrowthRate}%`
   }
 })
 
@@ -175,21 +177,18 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     }
   }
 
-  public async getNationalityStats({ response }: HttpContext) {
-  try {
-    const stats = await HotelAnalyticsService.getNationalityStats()
+  public async nationalityStats({ params, response }: HttpContext) {
+  const serviceId = Number(params.serviceId)
 
-    return response.ok({
-      success: true,
-      data: stats
-    })
-  } catch (error) {
-    return response.badRequest({
-      success: false,
-      message: error.message
-    })
+  if (!serviceId) {
+    return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
+
+  const data = await HotelAnalyticsService.getNationalityStats(serviceId)
+
+  return response.ok({ success: true, data })
 }
+
 
 public async stayDurationStats({ params, response }: HttpContext) {
   try {
@@ -208,22 +207,22 @@ public async stayDurationStats({ params, response }: HttpContext) {
     })
   }
 }
-public async getReservationSourcesStats({ params, response }: HttpContext) {
-  try {
-    const { serviceId } = params
-    const stats = await HotelAnalyticsService.getMonthlyReservationTypesStats(Number(serviceId))
 
-    return response.ok({
-      success: true,
-      data: stats
-    })
-  } catch (error) {
-    return response.internalServerError({
-      success: false,
-      message: error.message
-    })
+
+  public async yearlyReservationTypes({ params, request, response }: HttpContext) {
+  const serviceId = Number(params.serviceId)
+  const year = Number(request.input('year')) || DateTime.now().year
+
+  if (!serviceId) {
+    return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
+
+  const data = await HotelAnalyticsService.getYearlyReservationTypesStats(serviceId, year)
+
+  return response.ok({ success: true, data })
+}
+
 }
 
 
-} 
+

@@ -295,31 +295,27 @@ public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
     variationPercentage
   }
 }
-public static async getNationalityStats(): Promise<{ nationality: string, count: number }[]> {
-    // Récupérer toutes les réservations avec les utilisateurs associés
-    const reservations = await Reservation
-      .query()
-      .preload('user') // assure-toi que la relation user existe dans Reservation
+public static async getNationalityStats(serviceId: number): Promise<{ nationality: string, count: number }[]> {
+  // Récupérer les réservations du service avec les utilisateurs associés
+  const reservations = await Reservation
+    .query()
+    .where('service_id', serviceId)
+    .preload('user') // Assure-toi que la relation 'user' est bien définie dans le modèle Reservation
 
-    // Créer un dictionnaire de nationalités
-    const nationalityMap: Record<string, number> = {}
+  const nationalityMap: Record<string, number> = {}
 
-    for (const reservation of reservations) {
-      const nationality = reservation.user?.nationality || 'Inconnue'
+  for (const reservation of reservations) {
+    const nationality = reservation.user?.nationality || 'Inconnue'
 
-      if (!nationalityMap[nationality]) {
-        nationalityMap[nationality] = 0
-      }
-
-      nationalityMap[nationality]++
-    }
-
-    // Convertir en tableau
-    return Object.entries(nationalityMap).map(([nationality, count]) => ({
-      nationality,
-      count
-    }))
+    nationalityMap[nationality] = (nationalityMap[nationality] || 0) + 1
   }
+
+  return Object.entries(nationalityMap).map(([nationality, count]) => ({
+    nationality,
+    count
+  }))
+}
+
  public static async getStayDurationDistribution(serviceId: number) {
     const reservations = await Reservation
       .query()
@@ -363,56 +359,100 @@ public static async getNationalityStats(): Promise<{ nationality: string, count:
       '10+ nuits': toPercentage(overTen)
     }
   }
-public static async getMonthlyReservationTypesStats(serviceId: number) {
+
+
+
+  public static async getYearlyReservationTypesStats(serviceId: number, year: number) {
   const now = DateTime.now()
-  const startCurrent = now.startOf('month').toSQL()
-  const endCurrent = now.endOf('month').toSQL()
+  const currentYear = year || now.year
 
-  const startPrevious = now.minus({ months: 1 }).startOf('month').toSQL()
-  const endPrevious = now.minus({ months: 1 }).endOf('month').toSQL()
+  const results: {
+    month: string
+    weeks: { label: string, data: { type: string, count: number }[] }[]
+    summary: { type: string, count: number, progression: number }[]
+  }[] = []
 
-  // On récupère tous les types distincts dans la table
-  const distinctTypes = await Reservation
-    .query()
-    .where('service_id', serviceId)
-    .distinct('reservation_type')
+  for (let month = 1; month <= 12; month++) {
+    const startOfMonth = DateTime.fromObject({ year: currentYear, month }).startOf('month')
+    const endOfMonth = startOfMonth.endOf('month')
 
-  const types = distinctTypes.map(r => r.reservation_type || 'inconnu')
+    const startOfPrevMonth = startOfMonth.minus({ months: 1 })
+    const endOfPrevMonth = startOfPrevMonth.endOf('month')
 
-  const results: { type: string; count: number; progression: number }[] = []
-
-  for (const type of types) {
-    const currentCountResult = await Reservation
+    // Récupération des types distincts pour le mois
+    const distinctReservations = await Reservation
       .query()
       .where('service_id', serviceId)
-      .where('reservation_type', type)
-      .whereBetween('created_at', [startCurrent, endCurrent])
-      .count('* as count')
+      .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+      .distinct('reservation_type')
 
-    const previousCountResult = await Reservation
-      .query()
-      .where('service_id', serviceId)
-      .where('reservation_type', type)
-      .whereBetween('created_at', [startPrevious, endPrevious])
-      .count('* as count')
+    const types = distinctReservations.map(r => r.reservation_type || 'Inconnu')
 
-    const currentCount = Number(currentCountResult[0].$extras.count || 0)
-    const previousCount = Number(previousCountResult[0].$extras.count || 0)
+    // Statistiques hebdomadaires (4 semaines)
+    const weeks: { label: string, data: { type: string, count: number }[] }[] = []
 
-    const progression = previousCount === 0
-      ? currentCount > 0 ? 100 : 0
-      : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
+    for (let i = 0; i < 4; i++) {
+      const weekStart = startOfMonth.plus({ days: i * 7 })
+      const weekEnd = i === 3 ? endOfMonth : weekStart.plus({ days: 6 })
+
+      const data: { type: string, count: number }[] = []
+
+      for (const type of types) {
+        const query = Reservation.query()
+          .where('service_id', serviceId)
+          .whereBetween('created_at', [weekStart.toSQL()!, weekEnd.toSQL()!])
+
+        type === 'Inconnu'
+          ? query.whereNull('reservation_type')
+          : query.where('reservation_type', type)
+
+        const result = await query.count('* as count')
+
+        data.push({
+          type,
+          count: Number(result[0].$extras.count || 0),
+        })
+      }
+
+      weeks.push({ label: `Semaine ${i + 1}`, data })
+    }
+
+    // Résumé du mois et progression
+    const summary = await Promise.all(types.map(async (type) => {
+      const currentQuery = Reservation.query()
+        .where('service_id', serviceId)
+        .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+
+      const prevQuery = Reservation.query()
+        .where('service_id', serviceId)
+        .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
+
+      type === 'Inconnu'
+        ? (currentQuery.whereNull('reservation_type'), prevQuery.whereNull('reservation_type'))
+        : (currentQuery.where('reservation_type', type), prevQuery.where('reservation_type', type))
+
+      const currentCount = Number((await currentQuery.count('* as count'))[0].$extras.count || 0)
+      const previousCount = Number((await prevQuery.count('* as count'))[0].$extras.count || 0)
+
+      const progression = previousCount === 0
+        ? (currentCount > 0 ? 100 : 0)
+        : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
+
+      return { type, count: currentCount, progression }
+    }))
 
     results.push({
-      type: type.charAt(0).toUpperCase() + type.slice(1), // Majuscule au début
-      count: currentCount,
-      progression
+      month: startOfMonth.toFormat('LLLL'), // Nom du mois (ex: Janvier)
+      weeks,
+      summary
     })
   }
 
   return results
 }
 
-  
 }
+
+
+
 
