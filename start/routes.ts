@@ -169,7 +169,7 @@ router
         '/movement/:serviceId',
         mouvementsController.GetByServiceId.bind(mouvementsController)
       )
-      router.post('/movement', mouvementsController.store.bind(mouvementsController))
+      router.post('/movement', mouvementsController.storeMouvement.bind(mouvementsController))
       router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
       router.delete('/movement/:id', mouvementsController.destroy.bind(mouvementsController))
     })
@@ -435,6 +435,10 @@ router
 
    router.group(() => {
       router.post('/roles/assign-permissions', rolePermissionsController.assignPermissions.bind(rolePermissionsController))
+    })
+
+    router.group(() => {
+      router.post('/assign-user', assigmentUsersController.createUser.bind(assigmentUsersController))
     })
      // DASHBOARD
   router.group(() => {

@@ -5,6 +5,7 @@ import Service from '#models/service'
 import ProductService from '#models/products'
 import Department from '#models/department'
 import StockCategory from '#models/stock_category'
+import User from '#models/user'
 
 export default class Mouvement extends BaseModel {
   @column({ isPrimary: true })
@@ -40,8 +41,15 @@ export default class Mouvement extends BaseModel {
   @column()
  declare service_id: number
 
-   @belongsTo(() => StockCategory, { foreignKey: 'stock_category_id' })
-   declare stockCategory: BelongsTo<typeof StockCategory>
+
+  @column()
+  declare created_by: number | null
+
+  @column()
+  declare last_modified_by: number | null
+
+  @belongsTo(() => StockCategory, { foreignKey: 'stock_category_id' })
+  declare stockCategory: BelongsTo<typeof StockCategory>
 
   @belongsTo(() => Department, { foreignKey: 'department_id' })
    declare department: BelongsTo<typeof Department>
@@ -51,6 +59,12 @@ export default class Mouvement extends BaseModel {
 
  @belongsTo(() => ProductService, { foreignKey: 'product_id' })
  declare productService: BelongsTo<typeof ProductService>
+
+ @belongsTo(() => User, { foreignKey: 'created_by'})
+   declare creator: BelongsTo<typeof User>
+
+   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
+   declare modifier: BelongsTo<typeof User>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

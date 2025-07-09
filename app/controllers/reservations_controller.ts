@@ -321,7 +321,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await this.reservationService.create({
         user_id: user.id,
         service_id: data.service_id,
-        reservation_type: data.reservation_type || 'booking via Enjoy',
+        reservation_type: data.reservation_type || 'Booking via Enjoy',
         reservation_number: data.reservation_number || null,
         status: data.status || 'pending',
         total_amount: data.total_amount,

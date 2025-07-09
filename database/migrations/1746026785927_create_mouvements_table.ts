@@ -38,6 +38,8 @@ export default class extends BaseSchema {
         .references('id')
         .inTable('products')
         .onDelete('CASCADE')
+      table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
+      table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
         table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
         table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
     })
