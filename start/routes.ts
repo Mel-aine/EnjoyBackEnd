@@ -22,6 +22,7 @@ import TravelRoutesController from '#controllers/travel_routes_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
+import RolePermissionsController from '#controllers/role_permissions_controller'
 // import { middleware } from '#start/kernel'
 // import { middleware } from '#start/kernel'
 
@@ -56,6 +57,7 @@ const travelRoutesController = new TravelRoutesController()
 const assigmentUsersController = new AssigmentUsersController()
 const permissionsController = new PermissionsController()
 const tasksController = new TasksController()
+const rolePermissionsController = new RolePermissionsController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -297,6 +299,10 @@ router
           reservationServiceProductsController
         )
       )
+       router.get(
+        '/reservation_service_serviceId/:serviceId',
+        reservationServiceProductsController.getRecentBookings.bind(reservationServiceProductsController)
+      )
       router.get(
         '/reservation_service/:id',
         reservationServiceProductsController.show.bind(reservationServiceProductsController)
@@ -427,6 +433,9 @@ router
       router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
     })
 
+   router.group(() => {
+      router.post('/roles/assign-permissions', rolePermissionsController.assignPermissions.bind(rolePermissionsController))
+    })
      // DASHBOARD
   router.group(() => {
     router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année

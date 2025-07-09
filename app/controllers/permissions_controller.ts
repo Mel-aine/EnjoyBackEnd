@@ -6,6 +6,7 @@ import RolePermission from '#models/role_permission'
 import type { HttpContext } from '@adonisjs/core/http'
 import Role from '#models/role'
 import ServiceUserAssignment from '#models/service_user_assignment'
+import db from '@adonisjs/lucid/services/db'
 // import PermissionService from '../services/permission_service.js'
 
 const permissionService = new CrudService(Permission)
@@ -37,6 +38,7 @@ export default class PermissionsController extends CrudController<typeof Permiss
 
   // Assigner une permission à un rôle
   public async assignPermissionToRole(roleId: number, permissionId: number): Promise<void> {
+
     const existingAssignment = await RolePermission.query()
       .where('role_id', roleId)
       .where('permission_id', permissionId)
@@ -128,7 +130,73 @@ export default class PermissionsController extends CrudController<typeof Permiss
     })
   }
 
+  // Nouvelle méthode pour assigner plusieurs permissions à un rôle
+public async assignPermissionsToRole(
+  roleId: number,
+  permissionIds: number[],
+  serviceId?: number,
+  userId?: number
+): Promise<void> {
+  // Récupérer les permissions déjà assignées à ce rôle
+  const existingAssignments = await RolePermission.query()
+    .where('role_id', roleId)
+    .whereIn('permission_id', permissionIds)
+
+  // Extraire les IDs des permissions déjà assignées
+  const existingPermissionIds = existingAssignments.map(assignment => assignment.permission_id)
+
+  // Filtrer les nouvelles permissions à créer
+  const newPermissionIds = permissionIds.filter(id => !existingPermissionIds.includes(id))
+
+  // Créer les nouvelles assignations en batch
+  if (newPermissionIds.length > 0) {
+    const newAssignments = newPermissionIds.map(permissionId => ({
+      role_id: roleId,
+      permission_id: permissionId,
+      service_id: serviceId || null,
+      created_by: userId || null,
+      last_modified_by: userId || null,
+    }))
+
+    await RolePermission.createMany(newAssignments)
+  }
+}
+
   //role , permissions , by service id
+  public async updateRolePermissions(
+  roleId: number,
+  permissionIds: number[],
+  serviceId?: number,
+  userId?: number
+): Promise<void> {
+  // Commencer une transaction pour assurer la cohérence
+  const trx = await db.transaction()
+
+  try {
+    // Supprimer toutes les permissions existantes pour ce rôle
+    await RolePermission.query({ client: trx })
+      .where('role_id', roleId)
+      .delete()
+
+    // Créer les nouvelles assignations
+    if (permissionIds.length > 0) {
+      const newAssignments = permissionIds.map(permissionId => ({
+        role_id: roleId,
+        permission_id: permissionId,
+        service_id: serviceId || null,
+        created_by: userId || null,
+        last_modified_by: userId || null,
+      }))
+
+      await RolePermission.createMany(newAssignments, { client: trx })
+    }
+
+    await trx.commit()
+  } catch (error) {
+    await trx.rollback()
+    throw error
+  }
+}
 
 
 }
