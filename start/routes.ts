@@ -28,6 +28,7 @@ import RolePermissionsController from '#controllers/role_permissions_controller'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
+const StocksHistoriesController = () => import('#controllers/stocks_histories_controller')
 import DashboardController from '#controllers/dasboard_controller'
 
 // Import dynamique
@@ -61,10 +62,12 @@ const rolePermissionsController = new RolePermissionsController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
+router.post('api/authLogout', [AuthController, 'logout'])
 router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
+router.get('api/action/:serviceId', [StocksHistoriesController, 'indexByService'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
@@ -248,7 +251,6 @@ router
 
     router
       .group(() => {
-        router.get('/reservations', reservationsController.list.bind(reservationsController))
         router.get(
           '/reservations_by_id/:id',
           reservationsController.show.bind(reservationsController)

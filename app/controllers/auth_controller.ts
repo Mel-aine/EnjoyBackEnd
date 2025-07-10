@@ -5,7 +5,7 @@ import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
 import ServiceUserAssignment from '#models/service_user_assignment'
-
+import ActionHistoryService from '../services/stocks_histories_service.js'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -51,16 +51,12 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
-
-  public async signin({ request, response }: HttpContext) {
+  public async signin(ctx: HttpContext) {
+    const { request, response } = ctx
     const { email, password } = request.only(['email', 'password'])
 
     try {
-      const user = await User
-        .query()
-        .where('email', email)
-        .preload('role')
-        .firstOrFail()
+      const user = await User.query().where('email', email).preload('role').firstOrFail()
 
       const passwordValid = await hash.verify(user.password, password)
       if (!passwordValid) {
@@ -72,12 +68,10 @@ export default class AuthController {
       let userServices
 
       if (isAdmin) {
-        userServices = await user.related('services')
-          .query()
-          .preload('category')
-          .limit(50)
+        userServices = await user.related('services').query().preload('category').limit(50)
       } else {
-        const assignments = await user.related('serviceAssignments')
+        const assignments = await user
+          .related('serviceAssignments')
           .query()
           .preload('service', (serviceQuery) => {
             serviceQuery.preload('category')
@@ -87,8 +81,9 @@ export default class AuthController {
       }
 
       const token = await User.accessTokens.create(user, ['*'], { name: email })
+      await ActionHistoryService.logAuth(ctx, 'login', userServices?.[0]?.id ?? null, user.id)
 
-      // ⬇️ Ajout de detailedPermissions (comme getUserPermissions)
+      //  Ajout de detailedPermissions (comme getUserPermissions)
       const assignments = await ServiceUserAssignment.query()
         .where('user_id', user.id)
         .preload('service')
@@ -119,10 +114,9 @@ export default class AuthController {
           user,
           user_token: token,
           userServices,
-          permissions: detailedPermissions, // 🟢 directement ici
+          permissions: detailedPermissions,
         },
       })
-
     } catch (error) {
       console.error('Login error:', error)
       return response.badRequest({ message: 'Login failed' })
@@ -135,7 +129,9 @@ export default class AuthController {
 
       const userId = Number(request.param('id'))
       if (user.id !== userId) {
-        return response.status(403).send({ message: 'You do not have permission to update this user.' })
+        return response
+          .status(403)
+          .send({ message: 'You do not have permission to update this user.' })
       }
 
       const userToUpdate = await User.findOrFail(userId)
@@ -147,7 +143,7 @@ export default class AuthController {
         vine.object({
           name: vine.string().optional(),
           email: vine.string().email().optional(),
-          password: vine.string().minLength(8).maxLength(32).confirmed().optional()
+          password: vine.string().minLength(8).maxLength(32).confirmed().optional(),
         })
       )
 
@@ -172,78 +168,16 @@ export default class AuthController {
 
       return response.status(200).send({
         message: 'User updated successfully',
-        data: userToUpdate
+        data: userToUpdate,
       })
-
     } catch (error) {
       console.error(error)
       return response.status(422).send({
         message: 'Validation failed',
-        errors: error.messages || error.message
+        errors: error.messages || error.message,
       })
     }
   }
-
-
-
-// async update_user({ auth, request }: HttpContext) {
-//   const user = await auth.authenticate()
-//   const payload = request.body()
-
-//   const validator = vine.compile(
-//     vine.object({
-//       password: vine.string().minLength(8).maxLength(32).confirmed().optional(),
-//       name: vine.string().optional(),
-//       email: vine
-//         .string()
-//         .email()
-//         .optional()
-//         .unique({ table: 'users', column: 'email', whereNot: { id: user.id } }),
-//     })
-//   )
-
-//   try {
-//     const output = await validator.validate(payload)
-
-//     if (output.password) {
-//       output.password = await hash(output.password)
-//     }
-
-//     const photo = request.file('photo', {
-//       size: '2mb',
-//       extnames: ['jpg', 'png', 'jpeg'],
-//     })
-
-//     if (photo) {
-//       if (!photo.isValid) {
-//         return this.responseError('Invalid photo', 422, photo.errors)
-//       }
-
-//       // Supprimer l'ancienne photo
-//       if (user.photo) {
-//         const oldPhotoPath = app.makePath(`uploads/user-photo/${user.photo}`)
-//         fs.existsSync(oldPhotoPath) &&
-//           fs.unlink(oldPhotoPath, (err) => {
-//             if (err) console.error('Error removing old photo:', err)
-//           })
-//       }
-
-//       // Enregistrer la nouvelle photo
-//       await photo.move(app.makePath('uploads/user-photo'), {
-//         name: `${cuid()}.${photo.extname}`,
-//       })
-
-//       output.photo = photo.fileName!
-//     }
-
-//     await user.merge(output).save()
-
-//     return this.response('User updated successfully', user)
-//   } catch (error) {
-//     return this.responseError('Validation failed', 422, error.messages || error.message)
-//   }
-// }
-
 
   // Rafraîchir le token
   async refresh_token({ auth }: HttpContext) {
@@ -254,15 +188,28 @@ export default class AuthController {
     this.response('Refresh token successfully', { user, user_token: token })
   }
 
-  // Déconnexion
-  async logout({ auth }: HttpContext) {
-    const user = await auth.authenticate()
-    await User.accessTokens.delete(user, user.currentAccessToken.identifier)
+  // // Déconnexion
+  // async logout({ auth }: HttpContext) {
+  //   const user = await auth.authenticate()
+  //   await User.accessTokens.delete(user, user.currentAccessToken.identifier)
 
-    this.response('Logout successfully')
+  //   this.response('Logout successfully')
+  // }
+
+  public async logout(ctx: HttpContext) {
+    const { auth, response } = ctx
+
+    const user = await auth.authenticate()
+
+    await User.accessTokens.delete(user, user.currentAccessToken.identifier)
+    const serviceAssignment = await user.related('serviceAssignments').query().first()
+    const serviceId = serviceAssignment?.service_id ?? null
+    await ActionHistoryService.logAuth(ctx, 'logout', serviceId ?? 0, user.id)
+
+    return response.ok({ message: 'Logout successfully' })
   }
 
-  async validateEmail ({response,request}:HttpContext){
+  async validateEmail({ response, request }: HttpContext) {
     const { email } = request.only(['email'])
 
     try {
@@ -275,13 +222,11 @@ export default class AuthController {
       return response.status(200).json({
         message: 'Email is valid',
       })
-
     } catch (error) {
       return response.status(400).json({
         message: 'An error occurred during validation',
       })
     }
-
   }
 
   public async validatePassword({ request, response }: HttpContext) {
@@ -307,7 +252,6 @@ export default class AuthController {
       return response.status(200).json({
         message: 'valid Password',
       })
-
     } catch (error) {
       return response.status(500).json({
         message: 'server error',

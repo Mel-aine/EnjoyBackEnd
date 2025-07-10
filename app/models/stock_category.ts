@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column , belongsTo} from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import Services from '#models/service'
+import Service from '#models/service'
 import User from '#models/user'
 
 export default class StockCategory extends BaseModel {
@@ -35,8 +35,8 @@ export default class StockCategory extends BaseModel {
   declare modifier: BelongsTo<typeof User>
 
 
-  @belongsTo(() => Services, { foreignKey: 'service_id' })
-  declare Services: BelongsTo<typeof Services>
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
+  declare Services: BelongsTo<typeof Service>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
