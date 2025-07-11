@@ -1,4 +1,10 @@
 import { BaseModel } from '@adonisjs/lucid/orm'
+import type { HttpContext } from '@adonisjs/core/http'
+import ActionHistoryService from '../services/stocks_histories_service.js'
+
+interface ModelWithId {
+  id: number
+}
 
 export default class CrudService<T extends typeof BaseModel> {
   private model: T
@@ -7,6 +13,9 @@ export default class CrudService<T extends typeof BaseModel> {
     this.model = model
   }
 
+  private getModelName(): string {
+    return this.model.name
+  }
   /**
    * List records with dynamic filters, sorting, and pagination.
    */
@@ -49,6 +58,24 @@ export default class CrudService<T extends typeof BaseModel> {
     console.log('model.user', this.model)
     return await this.model.create(data)
   }
+//  async create(data: any, ctx: HttpContext, serviceId : number) {
+//     const item = await this.model.create(data)
+
+//     const instance = item as unknown as ModelWithId
+
+//     await ActionHistoryService.logCrud(
+//       ctx,
+//       'created',
+//       this.getModelName(),
+//       instance.id,
+//       serviceId,
+//       item.toJSON()
+//     )
+
+//     return item
+//   }
+
+
 
   async update(id: number, data: any) {
     const item = await this.model.find(id)

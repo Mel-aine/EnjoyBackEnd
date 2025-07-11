@@ -126,4 +126,15 @@ public async hasAnyPermission(permissions: string[]): Promise<boolean> {
   )
 }
 
+
+public async getServiceId(): Promise<number | null> {
+  const assignment = await ServiceUserAssignment.query()
+    .where('user_id', this.id)
+    .first()
+
+  return assignment?.service_id ?? null
+}
+
+
+
 }
