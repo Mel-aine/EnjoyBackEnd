@@ -60,6 +60,15 @@ export default class Reservation extends BaseModel {
   declare reservation_time?: string
 
   @column()
+  declare customer_type: string | null
+
+  @column()
+  declare company_name: string | null
+
+  @column()
+  declare group_name: string | null
+
+  @column()
   declare number_of_seats: number | null
 
   @column()
