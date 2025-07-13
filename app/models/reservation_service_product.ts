@@ -27,6 +27,24 @@ export default class ReservationServiceProduct extends BaseModel {
   @column()
   declare last_modified_by: number | null
 
+  @column()
+  declare total_adult: number | null
+
+  @column()
+  declare total_children: number | null
+
+  @column()
+  declare rate_per_night: number | null
+  
+  @column()
+  declare taxes: number | null
+
+  @column()
+  declare discounts: number | null
+
+  @column()
+  declare extra_guest: number | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
