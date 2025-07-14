@@ -201,6 +201,7 @@ router
     router.group(() => {
       router.post('/product', typeProductsController.store.bind(typeProductsController))
       router.get('/product', typeProductsController.list.bind(typeProductsController))
+      router.get('/type-products/room-count/:typeId', typeProductsController.countRoomsByType.bind(typeProductsController))
       router.get(
         '/product/:serviceId',
         typeProductsController.GetByServiceId.bind(typeProductsController)

@@ -25,6 +25,9 @@ export default class ServiceProduct extends BaseModel {
   @column()
    declare floor: number | null
 
+   @column()
+   declare room_number: number | null
+
   @column()
   declare product_type_id: number
 

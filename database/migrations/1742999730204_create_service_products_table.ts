@@ -12,6 +12,7 @@ export default class extends BaseSchema {
       table.float('price').notNullable()
       table.integer('capacity').nullable()
       table.integer('floor').nullable()
+      table.integer('room_number').nullable()
       table.text('description').nullable()
       table.boolean('availability').defaultTo(true)
       table.boolean('customization_allowed').defaultTo(false)
