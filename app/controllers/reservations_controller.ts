@@ -206,6 +206,7 @@ import ReservationServiceProduct from '#models/reservation_service_product'
 import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
+import { DateTime } from 'luxon'
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -292,7 +293,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           extra_guest: extraGuests,
           extra_guest_price: extraGuestPrice,
           total_extra_guest_price: totalExtraGuestPrice,
-          total_amount: totalExtraGuestPrice + item.rate_per_night * numberOfNights
+          total_amount: totalExtraGuestPrice + item.rate_per_night * numberOfNights,
+          // TODO status: 'awaiting',
         };
       });
 
@@ -497,7 +499,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   public async checkIn(ctx: HttpContext) {
-    const { params, response } = ctx
+    const { params, response, request } = ctx;
+    const { reservationServiceProducts } = request.body();
     try {
       console.log('Check-in started for reservation ID:', params.id);
 
@@ -510,15 +513,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Récupérer la liaison avec les produits
       const reservationProducts = await ReservationServiceProduct.query()
-        .where('reservation_id', reservation.id);
+        .where('reservation_id', reservation.id).andWhereIn('id', reservationServiceProducts);
 
       if (!reservationProducts.length) {
         return response.notFound({ message: 'No service product linked to this reservation' });
       }
-
+      const now = DateTime.now();;
+      if(!reservation.check_in_date){
+        reservation.check_in_date = now;
+      }
       for (const link of reservationProducts) {
-        const serviceProduct = await ServiceProduct.find(link.service_product_id);
 
+        const serviceProduct = await ServiceProduct.find(link.service_product_id);
+        // TODO link.status ='check_in';
+        // TODO link.check_in_date= new Date();
+        await link.save();
         if (serviceProduct) {
           serviceProduct.status = 'occupied';
           await serviceProduct.save();
@@ -559,7 +568,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
   public async checkOut(ctx: HttpContext) {
-    const { params, response } = ctx
+    const { params, response,request } = ctx
+    const { reservationServiceProducts } = request.body();
     try {
       console.log('Check-out started for reservation ID:', params.id);
 
@@ -571,19 +581,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       const resServices = await ReservationServiceProduct.query()
-        .where('reservation_id', params.id)
+        .where('reservation_id', params.id).andWhereIn('id', reservationServiceProducts)
         .preload('serviceProduct');
 
       if (resServices.length === 0) {
         return response.notFound({ message: 'No service products linked to this reservation' });
       }
-
+/// TODO Update the Reservation status to checkout if all the reservatioh product are checked out. 
       await this.reservationService.update(reservation.id, { status: 'checked-out' });
       console.log('Reservation status updated to checked-out');
 
       const updatedServiceProducts: number[] = [];
 
       for (const rsp of resServices) {
+        //rsp.check_out_date = DateTime.now();
+        //rsp.status = 'checked-out';
+        //await rsp.save();
         const serviceProduct = rsp.serviceProduct;
         if (serviceProduct) {
           serviceProduct.status = 'cleaning';
