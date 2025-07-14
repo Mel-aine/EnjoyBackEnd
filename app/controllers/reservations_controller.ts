@@ -355,7 +355,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       })
       if (Array.isArray(data.products) && data.products.length > 0) {
-        const productsPayload = data.products.map((item) => ({
+        const productsPayload = data.products.map((item) => {
+        const numberOfNights = reservation.number_of_nights ?? 0;
+        const extraGuests = parseInt(item.extra_guest, 10) || 0;
+        const totalExtraGuestPrice = (item.extra_guest_price || 0) * extraGuests * numberOfNights;
+        return {
           reservation_id: reservation.id,
           service_product_id: item.service_product_id,
           start_date: item.start_date,
@@ -367,8 +371,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
           rate_per_night: item.rate_per_night,
           taxes: item.taxes,
           discounts: item.discounts,
-          extra_guest: parseInt(item.extra_guest, 10) || 0,
-        }))
+          extra_guest: extraGuests,
+          extra_guest_price: reservation.tax_amount || 0,
+          total_extra_guest_price: totalExtraGuestPrice,
+          total_amount: totalExtraGuestPrice + item.rate_per_night * numberOfNights
+        };
+      });
+
 
         await ReservationServiceProduct.createMany(productsPayload)
 
@@ -401,131 +410,135 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   public async updateReservation(ctx: HttpContext) {
-    const { request, response, params } = ctx
-    const reservationId = params.id
-    const data = request.body()
+  const { request, response, params } = ctx
+  const reservationId = params.id
+  const data = request.body()
 
-    try {
-      const existingReservation = await this.reservationService.findById(reservationId)
-      if (!existingReservation) {
-        return response.status(404).send({ message: 'Reservation not found' })
-      }
+  try {
+    const existingReservation = await this.reservationService.findById(reservationId)
+    if (!existingReservation) {
+      return response.status(404).send({ message: 'Reservation not found' })
+    }
 
-      const userId = existingReservation.user_id
-      const userUpdatePayload: Partial<User> = {}
+    const userId = existingReservation.user_id
+    const userUpdatePayload: Partial<User> = {}
 
-      if (data.first_name) userUpdatePayload.first_name = data.first_name
-      if (data.last_name) userUpdatePayload.last_name = data.last_name
-      if (data.email) userUpdatePayload.email = data.email
-      if (data.phone_number) userUpdatePayload.phone_number = data.phone_number
-      if (data.role_id) userUpdatePayload.role_id = data.role_id
-      if (data.last_modified_by) userUpdatePayload.last_modified_by = data.last_modified_by
+    if (data.first_name) userUpdatePayload.first_name = data.first_name
+    if (data.last_name) userUpdatePayload.last_name = data.last_name
+    if (data.email) userUpdatePayload.email = data.email
+    if (data.phone_number) userUpdatePayload.phone_number = data.phone_number
+    if (data.role_id) userUpdatePayload.role_id = data.role_id
+    if (data.last_modified_by) userUpdatePayload.last_modified_by = data.last_modified_by
 
-      if (Object.keys(userUpdatePayload).length > 0) {
-        await this.userService.update(userId, userUpdatePayload)
-      }
+    if (Object.keys(userUpdatePayload).length > 0) {
+      await this.userService.update(userId, userUpdatePayload)
+    }
 
-      const updatedReservation = await this.reservationService.update(reservationId, {
-        service_id: data.service_id,
-        reservation_type: data.reservation_type,
-        customer_type: data.customer_type,
-        status: data.status,
-        total_amount: data.total_amount,
-        guest_count: data.guest_count,
-        number_of_seats: data.number_of_seats,
-        arrived_date: data.arrived_date,
-        depart_date: data.depart_date,
-        reservation_time: data.reservation_time,
-        group_name: data.group_name,
-        company_name: data.company_name,
-        comment: data.comment,
-        last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
-        payment_status: data.payment_status,
-        discount_amount: data.discount_amount,
-        tax_amount: data.tax_amount,
-        final_amount: data.final_amount,
-        paid_amount: data.paid_amount,
+    const updatedReservation = await this.reservationService.update(reservationId, {
+      service_id: data.service_id,
+      reservation_type: data.reservation_type,
+      customer_type: data.customer_type,
+      status: data.status,
+      total_amount: data.total_amount,
+      guest_count: data.guest_count,
+      number_of_seats: data.number_of_seats,
+      arrived_date: data.arrived_date,
+      depart_date: data.depart_date,
+      reservation_time: data.reservation_time,
+      group_name: data.group_name,
+      company_name: data.company_name,
+      comment: data.comment,
+      last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
+      payment_status: data.payment_status,
+      discount_amount: data.discount_amount,
+      tax_amount: data.tax_amount,
+      final_amount: data.final_amount,
+      paid_amount: data.paid_amount,
+    })
+
+
+    if (!updatedReservation) {
+      return response.status(500).send({
+        message: 'Échec de la mise à jour de la réservation',
       })
+    }
 
-      // if (Array.isArray(data.products)) {
-      //   await ReservationServiceProduct.query().where('reservation_id', reservationId).delete()
+    // 🔁 Gestion des produits liés à la réservation
+    if (Array.isArray(data.products)) {
+      // Libérer les anciennes chambres
+      const oldProducts = await ReservationServiceProduct.query()
+        .where('reservation_id', reservationId)
 
-      //   const newProducts = data.products.map((item) => ({
-      //     reservation_id: reservationId,
-      //     service_product_id: item.service_product_id,
-      //     start_date: item.start_date,
-      //     end_date: item.end_date,
-      //     created_by: data.last_modified_by,
-      //     last_modified_by: data.last_modified_by,
-      //   }))
+      for (const product of oldProducts) {
+        await ServiceProduct.query()
+          .where('id', product.service_product_id)
+          .update({ status: 'available' })
+      }
 
-      //   await ReservationServiceProduct.createMany(newProducts)
-      // }
-      if (Array.isArray(data.products)) {
-        // Libérer les anciennes chambres
-        const oldProducts = await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
+      // Supprimer les anciens liens
+      await ReservationServiceProduct.query()
+        .where('reservation_id', reservationId)
+        .delete()
 
-        for (const product of oldProducts) {
+      const numberOfNights = updatedReservation.number_of_nights ?? 0
 
-          await ServiceProduct.query()
-            .where('id', product.service_product_id)
-            .update({ status: 'available' })
-
-        }
-
-        // Supprimer les anciens liens
-        await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
-          .delete()
-
-        // Réserver les nouvelles chambres
-        const newProducts = data.products.map((item) => ({
+      const productsPayload = data.products.map((item) => {
+        const extraGuests = parseInt(item.extra_guest, 10) || 0
+        const totalExtraGuestPrice = (item.extra_guest_price || 0) * extraGuests * numberOfNights
+        return {
           reservation_id: reservationId,
           service_product_id: item.service_product_id,
           start_date: item.start_date,
           end_date: item.end_date,
           created_by: data.last_modified_by,
           last_modified_by: data.last_modified_by,
-
-        }))
-
-        await ReservationServiceProduct.createMany(newProducts)
-
-        const productIds = data.products.map(p => p.service_product_id)
-
-        await ServiceProduct.query()
-          .whereIn('id', productIds)
-          .update({ status: 'booked' })
-
-      }
-
-      // Log the update activity
-      await LoggerService.log({
-        actorId: data.last_modified_by || existingReservation.last_modified_by,
-        action: 'UPDATE',
-        entityType: 'Reservation',
-        entityId: reservationId,
-        description: `Reservation #${reservationId} was updated.`,
-        ctx: ctx,
+          total_adult: parseInt(item.total_adult, 10) || 0,
+          total_children: parseInt(item.total_children, 10) || 0,
+          rate_per_night: item.rate_per_night,
+          taxes: item.taxes,
+          discounts: item.discounts,
+          extra_guest: extraGuests,
+          extra_guest_price: updatedReservation.tax_amount || 0,
+          total_extra_guest_price: totalExtraGuestPrice,
+          total_amount: totalExtraGuestPrice + (item.rate_per_night || 0) * numberOfNights
+        }
       })
 
+      // Créer les nouveaux liens
+      await ReservationServiceProduct.createMany(productsPayload)
 
-      return response.ok({
-        message: 'Reservation and user updated successfully',
-        reservation: updatedReservation,
-      })
-    } catch (error) {
-      console.error('🔴 Update Reservation Error:', error)
-      return response.status(500).send({
-        message: 'Error while updating reservation or user',
-        error: error.message,
-        stack: error.stack,
-        dataReceived: data
-      })
+      const productIds = data.products.map(p => p.service_product_id)
+
+      await ServiceProduct.query()
+        .whereIn('id', productIds)
+        .update({ status: 'booked' })
     }
 
+    // ✅ Logging de l'action
+    await LoggerService.log({
+      actorId: data.last_modified_by || existingReservation.last_modified_by,
+      action: 'UPDATE',
+      entityType: 'Reservation',
+      entityId: reservationId,
+      description: `Reservation #${reservationId} was updated.`,
+      ctx: ctx,
+    })
+
+    return response.ok({
+      message: 'Réservation et utilisateur mis à jour avec succès',
+      reservation: updatedReservation,
+    })
+  } catch (error) {
+    console.error('🔴 Erreur lors de la mise à jour de la réservation :', error)
+    return response.status(500).send({
+      message: 'Erreur lors de la mise à jour de la réservation ou de l’utilisateur',
+      error: error.message,
+      stack: error.stack,
+      dataReceived: data
+    })
   }
+}
+
 
   async showByServiceProductId({ params, response }: HttpContext) {
     try {

@@ -35,9 +35,19 @@ export default class ReservationServiceProduct extends BaseModel {
 
   @column()
   declare rate_per_night: number | null
-  
+
   @column()
   declare taxes: number | null
+
+  @column()
+  declare extra_guest_price: number | null
+
+  @column()
+  declare total_extra_guest_price: number | null
+
+  @column()
+  declare total_amount: number | null
+
 
   @column()
   declare discounts: number | null
