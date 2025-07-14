@@ -217,90 +217,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     this.reservationService = new CrudService(Reservation)
   }
 
-  // public async createWithUserAndReservation({ request, response }: HttpContext) {
-  //   const data = request.body()
 
-  //   try {
-  //     const user = await this.userService.create({
-  //       first_name: data.first_name,
-  //       last_name: data.last_name,
-  //       email: data.email,
-  //       phone_number: data.phone_number,
-  //       role_id: data.role_id || 4,
-  //       status: 'active',
-  //       created_by: data.created_by || null,
-  //       last_modified_by: data.last_modified_by || null,
-  //     })
-
-  //     const reservation = await this.reservationService.create({
-  //       user_id: user.id,
-  //       service_id: data.service_id,
-  //       reservation_type: data.reservation_type,
-  //       reservation_number: data.reservation_number || null,
-  //       status: data.status || 'pending',
-  //       total_amount: data.total_amount,
-  //       guest_count: data.guest_count,
-  //       number_of_seats: data.number_of_seats || null,
-  //       special_requests: data.special_requests || null,
-  //       cancellation_reason: data.cancellation_reason || null,
-  //       arrived_date: data.arrived_date || null,
-  //       depart_date: data.depart_date || null,
-  //       // reservation_product: data.reservation_product,
-  //       reservation_time: data.reservation_time || null,
-  //       comment: data.comment,
-  //       created_by: user.id,
-  //       last_modified_by: user.id,
-  //       payment_status: data.payment_status || 'pending',
-  //       discount_amount: data.discount_amount || 0,
-  //       tax_amount: data.tax_amount || 0,
-  //       final_amount: data.final_amount || data.total_amount,
-  //       paid_amount: data.paid_amount || 0,
-  //     })
-
-  //     // Gérer les produits liés à la réservation
-  //     // if (Array.isArray(data.products) && data.products.length > 0) {
-  //     //   const productsPayload = data.products.map((item) => ({
-  //     //     reservation_id: reservation.id,
-  //     //     service_product_id: item.service_product_id,
-  //     //     start_date: item.start_date,
-  //     //     end_date: item.end_date,
-  //     //     created_by: user.id,
-  //     //     last_modified_by: user.id,
-  //     //   }))
-
-
-  //     //   await ReservationServiceProduct.createMany(productsPayload)
-  //     // }
-  //     if (Array.isArray(data.products) && data.products.length > 0) {
-  //       const productsPayload = data.products.map((item) => ({
-  //         reservation_id: reservation.id,
-  //         service_product_id: item.service_product_id,
-  //         start_date: item.start_date,
-  //         end_date: item.end_date,
-  //         created_by: user.id,
-  //         last_modified_by: user.id,
-  //       }))
-
-  //       await ReservationServiceProduct.createMany(productsPayload)
-  //       for (const product of data.products) {
-  //         const serviceProduct = await ServiceProduct.find(product.service_product_id)
-  //         if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
-  //           serviceProduct.status = 'booked'
-  //           await serviceProduct.save()
-  //         }
-  //       }
-  //     }
-
-
-
-  //     return response.created({ user, reservation })
-  //   } catch (error) {
-  //     return response.status(500).send({
-  //       message: 'Error while creating reservation and user',
-  //       error: error.message,
-  //     })
-  //   }
-  // }
 
   public async createWithUserAndReservation(ctx: HttpContext) {
     console.log(JSON.stringify(ctx.request.body()))
@@ -358,7 +275,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const productsPayload = data.products.map((item) => {
         const numberOfNights = reservation.number_of_nights ?? 0;
         const extraGuests = parseInt(item.extra_guest, 10) || 0;
-        const totalExtraGuestPrice = (item.extra_guest_price || 0) * extraGuests * numberOfNights;
+        const extraGuestPrice = reservation.tax_amount || 0;
+        const totalExtraGuestPrice = extraGuestPrice * extraGuests * numberOfNights;
         return {
           reservation_id: reservation.id,
           service_product_id: item.service_product_id,
@@ -372,7 +290,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           taxes: item.taxes,
           discounts: item.discounts,
           extra_guest: extraGuests,
-          extra_guest_price: reservation.tax_amount || 0,
+          extra_guest_price: extraGuestPrice,
           total_extra_guest_price: totalExtraGuestPrice,
           total_amount: totalExtraGuestPrice + item.rate_per_night * numberOfNights
         };
@@ -484,7 +402,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const productsPayload = data.products.map((item) => {
         const extraGuests = parseInt(item.extra_guest, 10) || 0
-        const totalExtraGuestPrice = (item.extra_guest_price || 0) * extraGuests * numberOfNights
+        const extraGuestPrice = updatedReservation.tax_amount || 0;
+        const totalExtraGuestPrice = extraGuestPrice * extraGuests * numberOfNights
         return {
           reservation_id: reservationId,
           service_product_id: item.service_product_id,
@@ -498,7 +417,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           taxes: item.taxes,
           discounts: item.discounts,
           extra_guest: extraGuests,
-          extra_guest_price: updatedReservation.tax_amount || 0,
+          extra_guest_price: extraGuestPrice,
           total_extra_guest_price: totalExtraGuestPrice,
           total_amount: totalExtraGuestPrice + (item.rate_per_night || 0) * numberOfNights
         }
