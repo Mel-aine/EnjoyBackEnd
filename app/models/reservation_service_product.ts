@@ -21,6 +21,15 @@ export default class ReservationServiceProduct extends BaseModel {
   @column.dateTime()
   declare end_date: DateTime
 
+  @column.dateTime()
+  declare check_in_date: DateTime | null
+
+  @column.dateTime()
+  declare check_out_date: DateTime | null
+
+  @column()
+  declare status: string | null
+
   @column()
   declare created_by: number | null
 
