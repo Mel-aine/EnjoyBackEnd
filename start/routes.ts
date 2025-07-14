@@ -16,9 +16,7 @@ import ProductServicesController from '#controllers/product_services_controller'
 import MouvementsController from '#controllers/mouvements_controller'
 import DepartmentsController from '#controllers/departments_controller'
 import ExpensesController from '#controllers/expenses_controller'
-import TravelVehiclesController from '#controllers/travel_vehicles_controller'
 import SchedulesController from '#controllers/schedules_controller'
-import TravelRoutesController from '#controllers/travel_routes_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
@@ -29,7 +27,6 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
-const StocksHistoriesController = () => import('#controllers/stocks_histories_controller')
 import DashboardController from '#controllers/dasboard_controller'
 
 // Import dynamique
@@ -53,9 +50,7 @@ const productServicesController = new ProductServicesController()
 const mouvementsController = new MouvementsController()
 const departmentsController = new DepartmentsController()
 const expensesController = new ExpensesController()
-const travelVehiclesController = new TravelVehiclesController()
 const schedulesController = new SchedulesController()
-const travelRoutesController = new TravelRoutesController()
 const assigmentUsersController = new AssigmentUsersController()
 const permissionsController = new PermissionsController()
 const tasksController = new TasksController()
@@ -69,13 +64,9 @@ router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
-router.get('api/action/:serviceId', [StocksHistoriesController, 'indexByService'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
-})
-router.get('/', async () => {
-  return { hello: 'world' }
 })
 router
   .group(() => {
@@ -102,55 +93,27 @@ router
     })
 
     router.group(() => {
-      router.get('/stockCategory', stockCategoriesController.list.bind(stockCategoriesController))
-      router.get(
-        '/stockCategory/:serviceId',
-        stockCategoriesController.GetByServiceId.bind(stockCategoriesController)
-      )
+      router.get('/stockCategory/:serviceId',stockCategoriesController.GetByServiceId.bind(stockCategoriesController))
       router.post('/stockCategory', stockCategoriesController.store.bind(stockCategoriesController))
-      router.put(
-        '/stockCategory/:id',
-        stockCategoriesController.update.bind(stockCategoriesController)
-      )
-      router.delete(
-        '/stockCategory/:id',
-        stockCategoriesController.destroy.bind(stockCategoriesController)
-      )
+      router.put('/stockCategory/:id',stockCategoriesController.update.bind(stockCategoriesController))
+      router.delete('/stockCategory/:id',stockCategoriesController.destroy.bind(stockCategoriesController))
     })
 
     router.group(() => {
-      router.get('/supplier', suppliersController.list.bind(suppliersController))
-      router.get(
-        '/supplier/:serviceId',
-        suppliersController.GetByServiceId.bind(suppliersController)
-      )
+      router.get('/supplier/:serviceId',suppliersController.GetByServiceId.bind(suppliersController))
       router.post('/supplier', suppliersController.store.bind(suppliersController))
       router.put('/supplier/:id', suppliersController.update.bind(suppliersController))
       router.delete('/supplier/:id', suppliersController.destroy.bind(suppliersController))
     })
 
     router.group(() => {
-      router.get('/prooductService', productServicesController.list.bind(productServicesController))
-      router.get(
-        '/prooductService/:serviceId',
-        productServicesController.GetByServiceId.bind(productServicesController)
-      )
-      router.post(
-        '/prooductService',
-        productServicesController.store.bind(productServicesController)
-      )
-      router.put(
-        '/prooductService/:id',
-        productServicesController.update.bind(productServicesController)
-      )
-      router.delete(
-        '/prooductService/:id',
-        productServicesController.destroy.bind(productServicesController)
-      )
+      router.get('/prooductService/:serviceId',productServicesController.GetByServiceId.bind(productServicesController))
+      router.post('/prooductService',productServicesController.store.bind(productServicesController))
+      router.put('/prooductService/:id',productServicesController.update.bind(productServicesController))
+      router.delete('/prooductService/:id',productServicesController.destroy.bind(productServicesController))
     })
 
     router.group(() => {
-      router.get('/expenses', expensesController.list.bind(expensesController))
       router.get('/expenses/:serviceId', expensesController.GetByServiceId.bind(expensesController))
       router.post('/expenses', expensesController.store.bind(expensesController))
       router.put('/expenses/:id', expensesController.update.bind(expensesController))
@@ -158,22 +121,14 @@ router
     })
 
     router.group(() => {
-      router.get('/department', departmentsController.list.bind(departmentsController))
-      router.get(
-        '/department/:serviceId',
-        departmentsController.GetByServiceId.bind(departmentsController)
-      )
+      router.get('/department/:serviceId',departmentsController.GetByServiceId.bind(departmentsController))
       router.post('/department', departmentsController.store.bind(departmentsController))
       router.put('/department/:id', departmentsController.update.bind(departmentsController))
       router.delete('/department/:id', departmentsController.destroy.bind(departmentsController))
     })
 
     router.group(() => {
-      router.get('/movement', mouvementsController.list.bind(mouvementsController))
-      router.get(
-        '/movement/:serviceId',
-        mouvementsController.GetByServiceId.bind(mouvementsController)
-      )
+      router.get('/movement/:serviceId',mouvementsController.GetByServiceId.bind(mouvementsController))
       router.post('/movement', mouvementsController.storeMouvement.bind(mouvementsController))
       router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
       router.delete('/movement/:id', mouvementsController.destroy.bind(mouvementsController))
@@ -182,15 +137,8 @@ router
     router.group(() => {
       router.post('/services', servicesController.store.bind(servicesController))
       router.get('/services', servicesController.list.bind(servicesController))
-      router.get(
-        '/servicesByCategory/:categoryId',
-        servicesController.showByCategorie.bind(servicesController)
-      )
-
-      router.post(
-        '/servicesWithUser',
-        servicesController.createWithUserAndService.bind(servicesController)
-      )
+      router.get('/servicesByCategory/:categoryId',servicesController.showByCategorie.bind(servicesController))
+      router.post('/servicesWithUser',servicesController.createWithUserAndService.bind(servicesController))
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
@@ -200,55 +148,22 @@ router
 
     router.group(() => {
       router.post('/product', typeProductsController.store.bind(typeProductsController))
-      router.get('/product', typeProductsController.list.bind(typeProductsController))
-      router.get(
-        '/product/:serviceId',
-        typeProductsController.GetByServiceId.bind(typeProductsController)
-      )
+      router.get('/product/:serviceId',typeProductsController.GetByServiceId.bind(typeProductsController))
       router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
       router.delete('/product/:id', typeProductsController.destroy.bind(typeProductsController))
     })
 
     router.group(() => {
-      router.post(
-        '/service_product',
-        serviceProductsController.store.bind(serviceProductsController)
-      )
-      router.patch(
-        '/service_product/:id/available',
-        serviceProductsController.setAvailable.bind(serviceProductsController)
-      )
+      router.post('/service_product',serviceProductsController.store.bind(serviceProductsController))
+      router.patch('/service_product/:id/available',serviceProductsController.setAvailable.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
-      router.get(
-        '/service_product_options',
-        serviceProductsController.getAllWithOptions.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_option',
-        serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController)
-      )
-
-      router.get(
-        '/service_product/:id',
-        serviceProductsController.show.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_by_date',
-        serviceProductsController.getAvailable.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_by_serviceId/:serviceId',
-        serviceProductsController.showByServiceId.bind(serviceProductsController)
-      )
-      router.put(
-        '/service_product/:id',
-        serviceProductsController.update.bind(serviceProductsController)
-      )
-
-      router.delete(
-        '/service_product/:id',
-        serviceProductsController.destroy.bind(serviceProductsController)
-      )
+      router.get('/service_product_options',serviceProductsController.getAllWithOptions.bind(serviceProductsController))
+      router.get('/service_product_option',serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
+      router.get('/service_product/:id',serviceProductsController.show.bind(serviceProductsController))
+      router.get('/service_product_by_date',serviceProductsController.getAvailable.bind(serviceProductsController))
+      router.get('/service_product_by_serviceId/:serviceId',serviceProductsController.showByServiceId.bind(serviceProductsController))
+      router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))
+      router.delete('/service_product/:id',serviceProductsController.destroy.bind(serviceProductsController))
     })
 
     router
@@ -353,7 +268,6 @@ router
         '/production_options/:serviceProductId',
         productionOptionsController.showByServiceProductId.bind(productionOptionsController)
       )
-      // router.post('/production_option', productionOptionsController.store.bind(productionOptionsController))
       router.post(
         '/production_option',
         productionOptionsController.bulkCreate.bind(productionOptionsController)
@@ -400,30 +314,8 @@ router
     })
 
     router.group(() => {
-      router.get('/vehicle', travelVehiclesController.list.bind(travelVehiclesController))
-      router.get(
-        '/vehicle/:serviceId',
-        travelVehiclesController.showByServiceId.bind(travelVehiclesController)
-      )
-      router.post('/vehicle', travelVehiclesController.store.bind(travelVehiclesController))
-      router.put('/vehicle/:id', travelVehiclesController.update.bind(travelVehiclesController))
-      router.delete('/vehicle/:id', travelVehiclesController.destroy.bind(travelVehiclesController))
-    })
-
-    router.group(() => {
       router.post('/schedules', schedulesController.create.bind(SchedulesController))
       router.get('/schedules', schedulesController.lister.bind(SchedulesController))
-    })
-
-    router.group(() => {
-      router.get('/route', travelRoutesController.list.bind(travelRoutesController))
-      router.get(
-        '/route/:serviceId',
-        travelRoutesController.showByServiceId.bind(travelRoutesController)
-      )
-      router.post('/route', travelRoutesController.store.bind(travelRoutesController))
-      router.put('/route/:id', travelRoutesController.update.bind(travelRoutesController))
-      router.delete('/route/:id', travelRoutesController.destroy.bind(travelRoutesController))
     })
 
     router.group(() => {

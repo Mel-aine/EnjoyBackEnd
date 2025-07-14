@@ -36,21 +36,15 @@ export default class Reservation extends BaseModel {
   @column()
   declare special_requests: string | null
 
-  // @column()
-  // declare status: ReservationStatus
   @column()
   declare status: string
 
   @column()
   declare cancellation_reason: string | null
-  // @column()
-  // declare total_price: number
+
 
   @column()
   declare created_by: number | null
-
-  // @column()
-  // declare total_person: number
 
   @column()
   declare arrived_date?: DateTime
@@ -108,9 +102,6 @@ export default class Reservation extends BaseModel {
   @column()
   declare payment_status: 'unpaid' | 'partially_paid' | 'paid' | 'refunded' | 'disputed' | 'pending'
 
-  // @column()
-  // declare reservation_product: string | number
-
   @column()
   declare comment?: string
 
@@ -145,5 +136,5 @@ export default class Reservation extends BaseModel {
     foreignKey: 'reservation_id',
   })
   declare payments: HasMany<typeof Payment>
-  
+
 }

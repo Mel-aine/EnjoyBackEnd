@@ -5,7 +5,6 @@ import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
 import ServiceUserAssignment from '#models/service_user_assignment'
-import ActionHistoryService from '../services/stocks_histories_service.js'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -81,7 +80,6 @@ export default class AuthController {
       }
 
       const token = await User.accessTokens.create(user, ['*'], { name: email })
-      await ActionHistoryService.logAuth(ctx, 'login', userServices?.[0]?.id ?? null, user.id)
 
       //  Ajout de detailedPermissions (comme getUserPermissions)
       const assignments = await ServiceUserAssignment.query()
@@ -188,24 +186,11 @@ export default class AuthController {
     this.response('Refresh token successfully', { user, user_token: token })
   }
 
-  // // Déconnexion
-  // async logout({ auth }: HttpContext) {
-  //   const user = await auth.authenticate()
-  //   await User.accessTokens.delete(user, user.currentAccessToken.identifier)
-
-  //   this.response('Logout successfully')
-  // }
 
   public async logout(ctx: HttpContext) {
     const { auth, response } = ctx
-
     const user = await auth.authenticate()
-
     await User.accessTokens.delete(user, user.currentAccessToken.identifier)
-    const serviceAssignment = await user.related('serviceAssignments').query().first()
-    const serviceId = serviceAssignment?.service_id ?? null
-    await ActionHistoryService.logAuth(ctx, 'logout', serviceId ?? 0, user.id)
-
     return response.ok({ message: 'Logout successfully' })
   }
 

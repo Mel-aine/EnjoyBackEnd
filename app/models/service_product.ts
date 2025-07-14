@@ -5,7 +5,6 @@ import Service from '#models/service'
 import ProductOption from '#models/production_option'
 import ReservationServiceProduct from '#models/reservation_service_product'
 import ProductType from '#models/product_type'
-import ServiceImage from '#models/service_image'
 import User from '#models/user'
 import Option from '#models/option'
 import Reservation from '#models/reservation'
@@ -19,8 +18,6 @@ export default class ServiceProduct extends BaseModel {
   @column()
   declare product_name: string
 
-  // @column()
-  // declare product_type: number
   @column()
   declare product_type_id: number
 
@@ -72,10 +69,6 @@ declare reservationServiceProducts: HasMany<typeof ReservationServiceProduct>
     foreignKey: 'product_type_id',
   })
   declare productType: BelongsTo<typeof ProductType>
-
-  @hasMany(() => ServiceImage, { foreignKey: 'service_product_id', })
-  declare images: HasMany<typeof ServiceImage>
-
 
   @belongsTo(() => User, { foreignKey: 'created_by'})
   declare creator: BelongsTo<typeof User>

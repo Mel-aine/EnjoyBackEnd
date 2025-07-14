@@ -5,8 +5,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Service from '#models/service'
 import StockCategory from '#models/stock_category'
 import ProductType from '#models/product_type'
-// import Department from '#models/department'
-// import Supplier from '#models/supplier'
+
 
 export default class Products extends BaseModel {
   @column({ isPrimary: true })
@@ -29,9 +28,6 @@ export default class Products extends BaseModel {
 
   @column()
   declare stock_category_id?: number
-
-  // @column()
-  // declare category_id: number
 
   @column()
   declare min_stock_level: number
@@ -63,12 +59,6 @@ export default class Products extends BaseModel {
   @column()
   declare status: 'active' | 'inactive' | 'out_of_stock' | 'discontinued' | 'coming_soon'
 
-  // @column()
-  // public department_id?: number
-
-  // @belongsTo(() => Department)
-  // declare department: BelongsTo<typeof Department>
-
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -80,9 +70,6 @@ export default class Products extends BaseModel {
 
   @belongsTo(() => ProductType)
   declare productType: BelongsTo<typeof ProductType>
-
-  // @belongsTo(() => Supplier)
-  // declare supplier: BelongsTo<typeof Supplier>
 
   @belongsTo(() => Service)
   declare service: BelongsTo<typeof Service>
