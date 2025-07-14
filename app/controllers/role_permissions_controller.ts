@@ -3,6 +3,7 @@ import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import RolePermission from '#models/role_permission'
 import type { HttpContext } from '@adonisjs/core/http'
+import LoggerService from '#services/logger_service'
 
 const rolePermissionService = new CrudService(RolePermission)
 
@@ -11,7 +12,9 @@ export default class RolePermissionsController extends CrudController<typeof Rol
     super(rolePermissionService)
   }
 
-async assignPermissions({ request, response }: HttpContext) {
+async assignPermissions(ctx: HttpContext) {
+  const { request, response, auth } = ctx
+
   const { role_id, permissions, user_id, service_id } = request.only([
     'role_id',
     'permissions',
@@ -27,6 +30,7 @@ async assignPermissions({ request, response }: HttpContext) {
 
   const permissionIds = permissions.map((p) => p.permission_id)
 
+  // Supprimer les anciennes permissions qui ne sont plus valides
   await RolePermission.query()
     .where('role_id', role_id)
     .andWhere('service_id', service_id)
@@ -34,7 +38,6 @@ async assignPermissions({ request, response }: HttpContext) {
     .delete()
 
   const updatedPermissionIds: number[] = []
-
 
   for (const perm of permissions) {
     const { permission_id } = perm
@@ -62,11 +65,20 @@ async assignPermissions({ request, response }: HttpContext) {
     }
   }
 
+  if (auth.user) {
+    await LoggerService.log({
+      actorId: auth.user.id,
+      action: 'UPDATE',
+      entityType: 'RolePermission',
+      entityId: `${role_id}`,
+      description: `Mise à jour des permissions pour le rôle #${role_id} dans le service #${service_id} → [${permissionIds.join(', ')}]`,
+      ctx: ctx,
+    })
+  }
+
   return response.ok({
     message: 'Permissions mises à jour avec succès',
     updated_ids: updatedPermissionIds,
   })
 }
-
-
 }

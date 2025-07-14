@@ -143,6 +143,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       return response.status(500).json({ error: 'Erreur serveur lors de la confirmation' })
     }
   }
+  
 
 
 }

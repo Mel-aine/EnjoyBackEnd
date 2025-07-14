@@ -7,7 +7,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Role from '#models/role'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import db from '@adonisjs/lucid/services/db'
-// import PermissionService from '../services/permission_service.js'
+import LoggerService from '#services/logger_service'
 
 const permissionService = new CrudService(Permission)
 
@@ -16,29 +16,34 @@ export default class PermissionsController extends CrudController<typeof Permiss
     super(permissionService)
   }
 
-  // Voir tous les rôles
   public async getRoles({ response }: HttpContext) {
     const roles = await Role.query().preload('permissions').where('is_active', true)
-
     return response.ok(roles)
   }
 
-  // Voir toutes les permissions
   public async getPermissions({ response }: HttpContext) {
     const permissions = await Permission.all()
     return response.ok(permissions)
   }
 
-  // Assigner un rôle à un utilisateur
-  public async assignRole(userId: number, roleId: number): Promise<void> {
+  public async assignRole(userId: number, roleId: number, ctx?: HttpContext): Promise<void> {
     const user = await User.findOrFail(userId)
     user.role_id = roleId
     await user.save()
+
+    if (ctx?.auth.user) {
+      await LoggerService.log({
+        actorId: ctx.auth.user.id,
+        action: 'UPDATE',
+        entityType: 'User',
+        entityId: userId,
+        description: `Role assigned to user #${userId} -> role #${roleId}`,
+        ctx,
+      })
+    }
   }
 
-  // Assigner une permission à un rôle
-  public async assignPermissionToRole(roleId: number, permissionId: number): Promise<void> {
-
+  public async assignPermissionToRole(roleId: number, permissionId: number, ctx?: HttpContext): Promise<void> {
     const existingAssignment = await RolePermission.query()
       .where('role_id', roleId)
       .where('permission_id', permissionId)
@@ -49,31 +54,46 @@ export default class PermissionsController extends CrudController<typeof Permiss
         role_id: roleId,
         permission_id: permissionId,
       })
+
+      if (ctx?.auth.user) {
+        await LoggerService.log({
+          actorId: ctx.auth.user.id,
+          action: 'CREATE',
+          entityType: 'RolePermission',
+          entityId: `${roleId}-${permissionId}`,
+          description: `Permission #${permissionId} assigned to role #${roleId}`,
+          ctx,
+        })
+      }
     }
   }
 
-  // Retirer une permission d'un rôle
-  public async removePermissionFromRole(roleId: number, permissionId: number): Promise<void> {
+  public async removePermissionFromRole(roleId: number, permissionId: number, ctx?: HttpContext): Promise<void> {
     await RolePermission.query()
       .where('role_id', roleId)
       .where('permission_id', permissionId)
       .delete()
+
+    if (ctx?.auth.user) {
+      await LoggerService.log({
+        actorId: ctx.auth.user.id,
+        action: 'DELETE',
+        entityType: 'RolePermission',
+        entityId: `${roleId}-${permissionId}`,
+        description: `Removed permission #${permissionId} from role #${roleId}`,
+        ctx,
+      })
+    }
   }
 
-  // Obtenir toutes les permissions d'un utilisateur
   public async getUserPermissions({ auth, response }: HttpContext) {
     const user = auth.user
-    if (!user) {
-      return response.unauthorized({ error: 'Utilisateur non authentifié' })
-    }
+    if (!user) return response.unauthorized({ error: 'Utilisateur non authentifié' })
 
-    // On récupère les assignations avec leurs relations
     const assignments = await ServiceUserAssignment.query()
       .where('user_id', user.id)
       .preload('service')
-      .preload('roleModel', (roleQuery) => {
-        roleQuery.preload('permissions')
-      })
+      .preload('roleModel', (roleQuery) => roleQuery.preload('permissions'))
 
     const detailedPermissions = assignments.map((assignment) => ({
       service: {
@@ -84,12 +104,11 @@ export default class PermissionsController extends CrudController<typeof Permiss
         name: assignment.roleModel?.role_name,
         description: assignment.roleModel?.description,
       },
-      permissions:
-        assignment.roleModel?.permissions.map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.label,
-        })) ?? [],
+      permissions: assignment.roleModel?.permissions.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.label,
+      })) ?? [],
     }))
 
     return response.ok({
@@ -98,7 +117,6 @@ export default class PermissionsController extends CrudController<typeof Permiss
     })
   }
 
-  // Vérifier si un utilisateur a une permission
   public async userHasPermission(userId: number, permissionName: string): Promise<boolean> {
     const user = await User.findOrFail(userId)
     return await user.hasPermission(permissionName)
@@ -108,16 +126,11 @@ export default class PermissionsController extends CrudController<typeof Permiss
     const user = auth.user
     if (!user) return response.unauthorized()
 
-    // Préchargement des rôles et des permissions depuis les assignations
     const assignments = await ServiceUserAssignment.query()
       .where('user_id', user.id)
-      .preload('roleModel', (roleQuery) => {
-        roleQuery.preload('permissions')
-      })
+      .preload('roleModel', (roleQuery) => roleQuery.preload('permissions'))
 
-    // Récupérer toutes les permissions
     const permissionsSet = new Set<string>()
-
     assignments.forEach((assignment) => {
       const role = assignment.roleModel
       if (role && role.permissions) {
@@ -130,57 +143,22 @@ export default class PermissionsController extends CrudController<typeof Permiss
     })
   }
 
-  // Nouvelle méthode pour assigner plusieurs permissions à un rôle
-public async assignPermissionsToRole(
-  roleId: number,
-  permissionIds: number[],
-  serviceId?: number,
-  userId?: number
-): Promise<void> {
-  // Récupérer les permissions déjà assignées à ce rôle
-  const existingAssignments = await RolePermission.query()
-    .where('role_id', roleId)
-    .whereIn('permission_id', permissionIds)
-
-  // Extraire les IDs des permissions déjà assignées
-  const existingPermissionIds = existingAssignments.map(assignment => assignment.permission_id)
-
-  // Filtrer les nouvelles permissions à créer
-  const newPermissionIds = permissionIds.filter(id => !existingPermissionIds.includes(id))
-
-  // Créer les nouvelles assignations en batch
-  if (newPermissionIds.length > 0) {
-    const newAssignments = newPermissionIds.map(permissionId => ({
-      role_id: roleId,
-      permission_id: permissionId,
-      service_id: serviceId || null,
-      created_by: userId || null,
-      last_modified_by: userId || null,
-    }))
-
-    await RolePermission.createMany(newAssignments)
-  }
-}
-
-  //role , permissions , by service id
-  public async updateRolePermissions(
-  roleId: number,
-  permissionIds: number[],
-  serviceId?: number,
-  userId?: number
-): Promise<void> {
-  // Commencer une transaction pour assurer la cohérence
-  const trx = await db.transaction()
-
-  try {
-    // Supprimer toutes les permissions existantes pour ce rôle
-    await RolePermission.query({ client: trx })
+  public async assignPermissionsToRole(
+    roleId: number,
+    permissionIds: number[],
+    serviceId?: number,
+    userId?: number,
+    ctx?: HttpContext
+  ): Promise<void> {
+    const existingAssignments = await RolePermission.query()
       .where('role_id', roleId)
-      .delete()
+      .whereIn('permission_id', permissionIds)
 
-    // Créer les nouvelles assignations
-    if (permissionIds.length > 0) {
-      const newAssignments = permissionIds.map(permissionId => ({
+    const existingPermissionIds = existingAssignments.map(a => a.permission_id)
+    const newPermissionIds = permissionIds.filter(id => !existingPermissionIds.includes(id))
+
+    if (newPermissionIds.length > 0) {
+      const newAssignments = newPermissionIds.map(permissionId => ({
         role_id: roleId,
         permission_id: permissionId,
         service_id: serviceId || null,
@@ -188,15 +166,62 @@ public async assignPermissionsToRole(
         last_modified_by: userId || null,
       }))
 
-      await RolePermission.createMany(newAssignments, { client: trx })
+      await RolePermission.createMany(newAssignments)
+
+      if (ctx?.auth.user) {
+        await LoggerService.log({
+          actorId: ctx.auth.user.id,
+          action: 'CREATE',
+          entityType: 'RolePermission',
+          entityId: roleId,
+          description: `Assigned permissions [${newPermissionIds.join(', ')}] to role #${roleId}`,
+          ctx,
+        })
+      }
     }
-
-    await trx.commit()
-  } catch (error) {
-    await trx.rollback()
-    throw error
   }
-}
 
+  public async updateRolePermissions(
+    roleId: number,
+    permissionIds: number[],
+    serviceId?: number,
+    userId?: number,
+    ctx?: HttpContext
+  ): Promise<void> {
+    const trx = await db.transaction()
 
+    try {
+      await RolePermission.query({ client: trx })
+        .where('role_id', roleId)
+        .delete()
+
+      if (permissionIds.length > 0) {
+        const newAssignments = permissionIds.map(permissionId => ({
+          role_id: roleId,
+          permission_id: permissionId,
+          service_id: serviceId || null,
+          created_by: userId || null,
+          last_modified_by: userId || null,
+        }))
+
+        await RolePermission.createMany(newAssignments, { client: trx })
+      }
+
+      await trx.commit()
+
+      if (ctx?.auth.user) {
+        await LoggerService.log({
+          actorId: ctx.auth.user.id,
+          action: 'UPDATE',
+          entityType: 'RolePermission',
+          entityId: roleId,
+          description: `Updated role #${roleId} permissions to: [${permissionIds.join(', ')}]`,
+          ctx,
+        })
+      }
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
+  }
 }
