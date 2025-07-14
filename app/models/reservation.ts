@@ -1,9 +1,10 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo,hasMany  } from '@adonisjs/lucid/orm'
+import type { BelongsTo,HasMany} from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Service from '#models/service'
-
+import ReservationServiceProduct from '#models/reservation_service_product'
+import Payment from '#models/payment'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -60,7 +61,28 @@ export default class Reservation extends BaseModel {
   declare reservation_time?: string
 
   @column()
+  declare customer_type: string | null
+
+  @column()
+  declare company_name: string | null
+
+  @column()
+  declare group_name: string | null
+
+  @column()
   declare number_of_seats: number | null
+
+  @column()
+  declare booking_source: string | null
+
+  @column.dateTime()
+  declare check_in_date: DateTime | null
+
+  @column.dateTime()
+  declare check_out_date: DateTime | null
+
+  @column()
+  declare number_of_nights: number | null
 
   @column()
   declare total_amount?: number
@@ -76,6 +98,12 @@ export default class Reservation extends BaseModel {
 
   @column()
   declare paid_amount?: number
+
+  @column()
+  declare remaining_amount: number | null
+
+  @column()
+  declare invoice_available: boolean
 
   @column()
   declare payment_status: 'unpaid' | 'partially_paid' | 'paid' | 'refunded' | 'disputed' | 'pending'
@@ -107,4 +135,15 @@ export default class Reservation extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @hasMany(() => ReservationServiceProduct, {
+    foreignKey: 'reservation_id',
+  })
+  declare reservationServiceProducts: HasMany<typeof ReservationServiceProduct>
+
+  @hasMany(() => Payment, {
+    foreignKey: 'reservation_id',
+  })
+  declare payments: HasMany<typeof Payment>
+  
 }

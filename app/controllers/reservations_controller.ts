@@ -204,6 +204,8 @@ import Reservation from '#models/reservation'
 import ServiceProduct from '#models/service_product'
 import ReservationServiceProduct from '#models/reservation_service_product'
 import type { HttpContext } from '@adonisjs/core/http'
+import LoggerService from '#services/logger_service'
+import { generateReservationNumber } from '../utils/generate_reservation_number.js'
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -300,9 +302,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
   //   }
   // }
 
-  public async createWithUserAndReservation({ request, response }: HttpContext) {
+  public async createWithUserAndReservation(ctx: HttpContext) {
+    console.log(JSON.stringify(ctx.request.body()))
+    const { request, response } = ctx
     const data = request.body()
-
     try {
       let user = await User.query().where('email', data.email).first()
 
@@ -322,7 +325,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         user_id: user.id,
         service_id: data.service_id,
         reservation_type: data.reservation_type || 'Booking via Enjoy',
-        reservation_number: data.reservation_number || null,
+        reservation_number: generateReservationNumber(),
         status: data.status || 'pending',
         total_amount: data.total_amount,
         guest_count: data.guest_count,
@@ -335,11 +338,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
         comment: data.comment,
         created_by: user.id,
         last_modified_by: user.id,
+        customer_type: data.customer_type || null,
+        group_name: data.group_name || null,
+        company_name: data.company_name || null,
         payment_status: data.payment_status || 'pending',
         discount_amount: data.discount_amount || 0,
         tax_amount: data.tax_amount || 0,
         final_amount: data.final_amount || data.total_amount,
         paid_amount: data.paid_amount || 0,
+        booking_source: data.booking_source || null,
+        check_in_date: data.check_in_date || null,
+        check_out_date: data.check_out_date || null,
+        number_of_nights: data.number_of_nights || null,
+        remaining_amount: data.remaining_amount || 0,
+        invoice_available: data.invoice_available || false,
+
       })
       if (Array.isArray(data.products) && data.products.length > 0) {
         const productsPayload = data.products.map((item) => ({
@@ -349,6 +362,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
           end_date: item.end_date,
           created_by: user.id,
           last_modified_by: user.id,
+          total_adult: parseInt(item.total_adult, 10) || 0,
+          total_children: parseInt(item.total_children, 10) || 0,
+          rate_per_night: item.rate_per_night,
+          taxes: item.taxes,
+          discounts: item.discounts,
+          extra_guest: parseInt(item.extra_guest, 10) || 0,
         }))
 
         await ReservationServiceProduct.createMany(productsPayload)
@@ -362,6 +381,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
+      // Log the activity using our new service
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'CREATE',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        description: `Reservation #${reservation.id} was created for user ${user.first_name}.`,
+        ctx: ctx, // Pass the full context
+      })
+
       return response.created({ user, reservation })
     } catch (error) {
       return response.status(500).send({
@@ -371,7 +400,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async updateReservation({ request, response, params }: HttpContext) {
+  public async updateReservation(ctx: HttpContext) {
+    const { request, response, params } = ctx
     const reservationId = params.id
     const data = request.body()
 
@@ -398,6 +428,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const updatedReservation = await this.reservationService.update(reservationId, {
         service_id: data.service_id,
         reservation_type: data.reservation_type,
+        customer_type: data.customer_type,
         status: data.status,
         total_amount: data.total_amount,
         guest_count: data.guest_count,
@@ -405,6 +436,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         arrived_date: data.arrived_date,
         depart_date: data.depart_date,
         reservation_time: data.reservation_time,
+        group_name: data.group_name,
+        company_name: data.company_name,
         comment: data.comment,
         last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
         payment_status: data.payment_status,
@@ -435,7 +468,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         for (const product of oldProducts) {
 
-            await ServiceProduct.query()
+          await ServiceProduct.query()
             .where('id', product.service_product_id)
             .update({ status: 'available' })
 
@@ -467,12 +500,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       }
 
+      // Log the update activity
+      await LoggerService.log({
+        actorId: data.last_modified_by || existingReservation.last_modified_by,
+        action: 'UPDATE',
+        entityType: 'Reservation',
+        entityId: reservationId,
+        description: `Reservation #${reservationId} was updated.`,
+        ctx: ctx,
+      })
+
 
       return response.ok({
         message: 'Reservation and user updated successfully',
         reservation: updatedReservation,
       })
-   } catch (error) {
+    } catch (error) {
       console.error('🔴 Update Reservation Error:', error)
       return response.status(500).send({
         message: 'Error while updating reservation or user',
@@ -480,7 +523,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         stack: error.stack,
         dataReceived: data
       })
-}
+    }
 
   }
 
@@ -521,7 +564,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async checkIn({ params, response }: HttpContext) {
+  public async checkIn(ctx: HttpContext) {
+    const { params, response } = ctx
     try {
       console.log('Check-in started for reservation ID:', params.id);
 
@@ -554,6 +598,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await this.reservationService.update(reservation.id, { status: 'checked-in' });
       console.log('Reservation status updated to checked-in');
 
+      // Log the check-in activity
+      await LoggerService.log({
+        actorId: reservation.last_modified_by!, // Assuming the user who checks in is the last modifier
+        action: 'CHECK_IN',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        description: `Reservation #${reservation.id} was checked in.`,
+        ctx: ctx,
+      })
+
       return response.ok({
         message: 'Check-in successful',
         reservation,
@@ -572,7 +626,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
 
-  public async checkOut({ params, response }: HttpContext) {
+  public async checkOut(ctx: HttpContext) {
+    const { params, response } = ctx
     try {
       console.log('Check-out started for reservation ID:', params.id);
 
@@ -606,6 +661,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
+      // Log the check-out activity
+      await LoggerService.log({
+        actorId: reservation.last_modified_by!, // Assuming the user who checks out is the last modifier
+        action: 'CHECK_OUT',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        description: `Reservation #${reservation.id} was checked out.`,
+        ctx: ctx,
+      })
+
       return response.ok({
         message: 'Check-out successful',
         reservation,
@@ -621,5 +686,34 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+  /**
+ * Get a single reservation with all its related information,
+ * including the user, service product, and payment.
+ *
+ * GET /reservations/:id
+ */
+  public async getReservationDetails({ params, response }: HttpContext) {
+    try {
+      const reservationId = params.reservationId
 
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('user')
+        .preload('service')
+        .preload('payments')
+        .preload('reservationServiceProducts', (query) => {
+          query.preload('serviceProduct')
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      return response.ok(reservation)
+    } catch (error) {
+      console.error('Error fetching reservation details:', error)
+      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
+    }
+  }
 }

@@ -147,9 +147,12 @@ export default class CrudService<T extends typeof BaseModel> {
       throw new Error('reservation_id is required')
     }
 
-    return await this.model
-      .query()
+    const Model = this.model as any
+    return await Model.query()
       .where('reservation_id', reservation_id)
+      .preload('serviceProduct', (query: any) => {
+        query.preload('service')
+      })
       .select(...fields)
   }
 

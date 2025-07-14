@@ -24,6 +24,7 @@ import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
 // import { middleware } from '#start/kernel'
+import ActivityLogsController from '#controllers/activity_logs_controller'
 // import { middleware } from '#start/kernel'
 
 // Import dynamique
@@ -59,6 +60,7 @@ const assigmentUsersController = new AssigmentUsersController()
 const permissionsController = new PermissionsController()
 const tasksController = new TasksController()
 const rolePermissionsController = new RolePermissionsController()
+const activityLogsController = new ActivityLogsController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -259,6 +261,10 @@ router
           '/reservations/:serviceId',
           reservationsController.GetByServiceId.bind(reservationsController)
         )
+        router.get(
+          '/reservations/:reservationId/details',
+          reservationsController.getReservationDetails.bind(reservationsController)
+        )
         // .use(middleware.checkPermission(['bookings_read']))
         router.post('/reservations', reservationsController.store.bind(reservationsController))
         router.post(
@@ -288,6 +294,17 @@ router
         )
       })
 
+    router.group(() => {
+      router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))
+      router.post('/activity-logs', activityLogsController.store.bind(activityLogsController))
+      // This route must be before /:id to avoid 'by-entity' being treated as an id
+      router.get(
+        '/activity-logs/by-entity',
+        activityLogsController.showByEntity.bind(activityLogsController)
+      )
+      router.get('/activity-logs/:id', activityLogsController.show.bind(activityLogsController))
+      router.put('/activity-logs/:id', activityLogsController.update.bind(activityLogsController))
+    })
 
 
     router.group(() => {
