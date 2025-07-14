@@ -10,6 +10,8 @@ export default class extends BaseSchema {
       table.string('product_name', 255).notNullable()
       table.integer('product_type_id').unsigned().references('id').inTable('product_types').onDelete('CASCADE').nullable()
       table.float('price').notNullable()
+      table.integer('capacity').nullable()
+      table.integer('floor').nullable()
       table.text('description').nullable()
       table.boolean('availability').defaultTo(true)
       table.boolean('customization_allowed').defaultTo(false)

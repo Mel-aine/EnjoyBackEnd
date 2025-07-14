@@ -19,8 +19,12 @@ export default class ServiceProduct extends BaseModel {
   @column()
   declare product_name: string
 
-  // @column()
-  // declare product_type: number
+  @column()
+   declare capacity: number | null
+
+  @column()
+   declare floor: number | null
+
   @column()
   declare product_type_id: number
 
