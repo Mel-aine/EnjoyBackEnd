@@ -587,7 +587,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (resServices.length === 0) {
         return response.notFound({ message: 'No service products linked to this reservation' });
       }
-/// TODO Update the Reservation status to checkout if all the reservatioh product are checked out. 
+/// TODO Update the Reservation status to checkout if all the reservations product are checked out. 
       await this.reservationService.update(reservation.id, { status: 'checked-out' });
       console.log('Reservation status updated to checked-out');
 
