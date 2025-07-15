@@ -1,6 +1,6 @@
 export enum ReservationProductStatus {
   PENDING = 'pending',
-  CHECKED_IN = 'checked_in',
-  CHECKED_OUT = 'checked_out',
+  CHECKED_IN = 'checked-in',
+  CHECKED_OUT = 'checked-out',
   CANCELLED = 'cancelled',
 }
