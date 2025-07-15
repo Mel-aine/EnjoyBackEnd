@@ -201,7 +201,7 @@ router
     router.group(() => {
       router.post('/product', typeProductsController.store.bind(typeProductsController))
       router.get('/product', typeProductsController.list.bind(typeProductsController))
-      router.get('/type-products/room-count/:typeId', typeProductsController.countRoomsByType.bind(typeProductsController))
+      router.get('/type-products/room-count', typeProductsController.countRoomsByType.bind(typeProductsController))
       router.get(
         '/product/:serviceId',
         typeProductsController.GetByServiceId.bind(typeProductsController)
@@ -219,6 +219,7 @@ router
         '/service_product/:id/available',
         serviceProductsController.setAvailable.bind(serviceProductsController)
       )
+       router.patch('/service_product/update_status/:id',serviceProductsController.updateStatus.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
       router.get(
         '/service_product_options',

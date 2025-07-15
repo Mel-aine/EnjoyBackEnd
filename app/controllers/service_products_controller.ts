@@ -102,7 +102,7 @@ export default class ServiceProductsController extends CrudController<typeof Ser
 
     return response.ok({
       success: true,
-      message: 'Statut mis à jour avec succès',
+      message: 'Status update ',
       data: room,
     })
   }

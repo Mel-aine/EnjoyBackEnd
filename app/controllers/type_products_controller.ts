@@ -10,33 +10,26 @@ export default class TypeProductsController extends CrudController<typeof TypePr
   constructor() {
     super(typeProductService)
   }
-public async countRoomsByType({ params, response }: HttpContext) {
-    console.log('Route appelée avec typeId:', params.typeId)
+public async countRoomsByType({ request, response }: HttpContext) {
+    const serviceId = request.input('service_id')
+    const typeId = request.input('product_type_id')
 
-    const typeId = params.typeId
-
-    if (!typeId) {
-      return response.badRequest({ message: 'product_type_id est requis' })
+    if (!serviceId || !typeId) {
+      return response.badRequest({ message: 'service_id et product_type_id are required' })
     }
 
-    try {
-      const result = await ServiceProduct.query()
-        .where('product_type_id', typeId)
-        .count('* as total')
-        .first()
+    const count = await ServiceProduct.query()
+      .where('service_id', serviceId)
+      .andWhere('product_type_id', typeId)
+      .count('* as total')
+      .first()
 
-      const total = result?.$extras?.total || 0
-
-      return response.ok({
-        product_type_id: typeId,
-        total_rooms: Number(total),
-      })
-    } catch (error) {
-      console.error('Erreur lors du comptage des chambres:', error)
-      return response.internalServerError({
-        message: 'Erreur lors du comptage des chambres'
-      })
+    return {
+      service_id: serviceId,
+      product_type_id: typeId,
+      total_rooms: count?.$extras.total || 0,
     }
+
   }
 
 
