@@ -4,6 +4,8 @@ import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
+import LoggerService from '#services/logger_service'
+
 
 
 const scheduleService = new CrudService(Schedule)
@@ -52,7 +54,8 @@ export default class SchedulesController extends CrudController<typeof Schedule>
    */
 
 
-public async create({ request, response }: HttpContext) {
+public async create(ctx: HttpContext) {
+  const { request, response } = ctx
   try {
     const scheduleValidator = vine.compile(
       vine.object({
@@ -87,7 +90,15 @@ public async create({ request, response }: HttpContext) {
       schedule_date: payload.schedule_date ? DateTime.fromJSDate(payload.schedule_date) : null,
       start_time: request.input('start_time'),
       end_time: request.input('end_time')
+    })
 
+    await LoggerService.log({
+      actorId: payload.created_by || 0,
+      action: 'CREATE',
+      entityType: 'Schedule',
+      entityId: created.id.toString(),
+      description: `Horaire créé pour le service_id=${payload.service_id ?? 'N/A'}`,
+      ctx: ctx,
     })
 
     const schedule = await Schedule.query()
@@ -113,6 +124,7 @@ public async create({ request, response }: HttpContext) {
     })
   }
 }
+
 
   /**
    * Afficher un horaire spécifique

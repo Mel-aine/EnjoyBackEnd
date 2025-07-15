@@ -4,6 +4,7 @@ import User from '#models/user'
 import Service from '#models/service'
 import type { HttpContext } from '@adonisjs/core/http'
 import ServiceUserAssignment from '#models/service_user_assignment'
+import LoggerService from '#services/logger_service'
 
 export default class ServicesController extends CrudController<typeof Service> {
   private userService: CrudService<typeof User>
@@ -72,7 +73,8 @@ export default class ServicesController extends CrudController<typeof Service> {
 
 
 
- public async createWithUserAndService({ request, response }: HttpContext) {
+ public async createWithUserAndService(ctx: HttpContext) {
+  const { request, response } = ctx
   const data = request.body()
 
   try {
@@ -80,24 +82,34 @@ export default class ServicesController extends CrudController<typeof Service> {
     const existingUser = await this.userService.findByEmail(data.email)
 
     let user
-    if (existingUser) {
-      user = existingUser
-    } else {
-      user = await this.userService.create({
-        first_name: data.first_name,
-        last_name: data.last_name,
-        password: data.password,
-        email: data.email,
-        phone_number: data.phone_number,
-        address: data.address || null,
-        last_login: data.last_login || null,
-        two_factor_enabled: data.two_factor_enabled || null,
-        role_id: data.role_id || 2,
-        status: 'active',
-        created_by: data.created_by || null,
-        last_modified_by: data.last_modified_by || null,
-      })
-    }
+   if (existingUser) {
+  user = existingUser
+} else {
+  user = await this.userService.create({
+    first_name: data.first_name,
+    last_name: data.last_name,
+    password: data.password,
+    email: data.email,
+    phone_number: data.phone_number,
+    address: data.address || null,
+    last_login: data.last_login || null,
+    two_factor_enabled: data.two_factor_enabled || null,
+    role_id: data.role_id || 2,
+    status: 'active',
+    created_by: data.created_by || null,
+    last_modified_by: data.last_modified_by || null,
+  })
+
+  await LoggerService.log({
+    actorId: data.created_by,
+    action: 'CREATE',
+    entityType: 'User',
+    entityId: user.id.toString(),
+    description: `Nouvel utilisateur créé avec l'email ${user.email}`,
+    ctx: ctx,
+  })
+}
+
 
 
     const newService = await this.serviceService.create({
@@ -127,6 +139,14 @@ export default class ServicesController extends CrudController<typeof Service> {
       user_id: user.id,
       service_id: newService.id,
       role: 'admin',
+    })
+    await LoggerService.log({
+      actorId: data.created_by,
+      action: 'CREATE',
+      entityType: 'Service',
+      entityId: newService.id.toString(),
+      description: `Service #${newService.id} créé par l'utilisateur ${user.email}`,
+      ctx: ctx,
     })
 
     return response.created({ service: newService, user })
