@@ -163,5 +163,36 @@ export default class ServicesController extends CrudController<typeof Service> {
     }
   }
 
+  /*Customer*/
+  public async customers({ params }: HttpContext) {
+  const serviceId = params.serviceId
+
+  const customers = await User.query().where('role_id', 4)
+    .andWhere('created_by', serviceId)
+
+    .preload('reservations', (reservationQuery) => {
+      reservationQuery
+        .where('service_id', serviceId)
+        .orderBy('createdAt', 'desc')
+    })
+  const result = customers.map(user => {
+    const reservations = user.reservations
+    const lastReservation = reservations[0] ?? null
+    const countReservations = reservations.length
+
+    return {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      phone_number:user.phone_number,
+      lastReservation,
+      countReservations,
+    }
+  })
+
+  return result
+}
+
 
 }

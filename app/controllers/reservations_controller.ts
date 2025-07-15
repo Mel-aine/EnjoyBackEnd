@@ -391,7 +391,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (resServices.length === 0) {
         return response.notFound({ message: 'No service products linked to this reservation' });
       }
-      /// TODO Update the Reservation status to checkout if all the reservations product are checked out. 
+      /// TODO Update the Reservation status to checkout if all the reservations product are checked out.
       await this.reservationService.update(reservation.id, { status: 'checked-out' });
       console.log('Reservation status updated to checked-out');
 
@@ -403,7 +403,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         await rsp.save();
         const serviceProduct = rsp.serviceProduct;
         if (serviceProduct) {
-          serviceProduct.status = 'cleaning';
+          serviceProduct.status = 'dirty';
           await serviceProduct.save();
           updatedServiceProducts.push(serviceProduct.id);
           console.log(`Service product ${serviceProduct.id} status updated to cleaning`);

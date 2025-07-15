@@ -9,6 +9,7 @@ import Role from '#models/role'
 import Services from '#models/service'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Permission from '#models/permission'
+import Reservation from '#models/reservation'
 
 const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
   uids: ['email'],
@@ -81,6 +82,10 @@ export default class User extends AuthFinder(BaseModel) {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @hasMany(() => Reservation, { foreignKey: 'user_id' })
+  declare reservations: HasMany<typeof Reservation>
+
 
   @manyToMany(() => Permission, {
     pivotTable: 'role_permissions',

@@ -1,10 +1,6 @@
 import { BaseModel } from '@adonisjs/lucid/orm'
-import type { HttpContext } from '@adonisjs/core/http'
-import ActionHistoryService from '../services/stocks_histories_service.js'
 
-interface ModelWithId {
-  id: number
-}
+
 
 export default class CrudService<T extends typeof BaseModel> {
   private model: T
@@ -13,9 +9,6 @@ export default class CrudService<T extends typeof BaseModel> {
     this.model = model
   }
 
-  private getModelName(): string {
-    return this.model.name
-  }
   /**
    * List records with dynamic filters, sorting, and pagination.
    */
@@ -140,6 +133,7 @@ export default class CrudService<T extends typeof BaseModel> {
       .query()
       .where('service_id', service_id)
       .select(...fields)
+      .limit(30)
   }
 
     async getReservationtServiceProductByReservationId(reservation_id: number, fields: string[]) {

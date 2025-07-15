@@ -143,12 +143,14 @@ router
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
       router.get('/services/search', servicesController.searchByName.bind(servicesController))
+      router.get('/services/customer/:serviceId', servicesController.customers.bind(servicesController))
       router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
     })
 
     router.group(() => {
       router.post('/product', typeProductsController.store.bind(typeProductsController))
       router.get('/product/:serviceId',typeProductsController.GetByServiceId.bind(typeProductsController))
+      router.get('/type-products/room-count',typeProductsController.countRoomsByType.bind(typeProductsController))
       router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
       router.delete('/product/:id', typeProductsController.destroy.bind(typeProductsController))
     })
@@ -163,7 +165,8 @@ router
       router.get('/service_product_by_date',serviceProductsController.getAvailable.bind(serviceProductsController))
       router.get('/service_product_by_serviceId/:serviceId',serviceProductsController.showByServiceId.bind(serviceProductsController))
       router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))
-      router.delete('/service_product/:id',serviceProductsController.destroy.bind(serviceProductsController))
+      router.delete('/service_product/:id',serviceProductsController.destroyed.bind(serviceProductsController))
+      router.patch('/service_product/update_status/:id',serviceProductsController.updateStatus.bind(serviceProductsController))
     })
 
     router

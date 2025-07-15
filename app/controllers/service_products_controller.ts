@@ -393,4 +393,26 @@ export default class ServiceProductsController extends CrudController<typeof Ser
       .map((word) => word.trim())
       .filter((word) => word.length > 1 && !ignoredWords.has(word))
   }
+
+  //delete room
+
+  public async destroyed({ params, response }: HttpContext) {
+    const serviceProduct = await ServiceProduct.find(params.id)
+
+    if (!serviceProduct) {
+      return response.status(404).json({ message: 'Room not found.' })
+    }
+    await serviceProduct.load('reservationServiceProducts')
+
+    const hasActiveReservations = serviceProduct.reservationServiceProducts.length > 0
+
+    if (hasActiveReservations) {
+      return response.status(400).json({
+        message: `Cannot delete room "${serviceProduct.room_number}" because it has active reservations.`,
+      })
+    }
+    await serviceProduct.delete()
+
+    return response.status(200).json({ message: 'Room successfully deleted.' })
+  }
 }
