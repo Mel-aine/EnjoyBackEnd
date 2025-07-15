@@ -21,6 +21,15 @@ export default class ReservationServiceProduct extends BaseModel {
   @column.dateTime()
   declare end_date: DateTime
 
+  @column.dateTime()
+  declare check_in_date: DateTime | null
+
+  @column.dateTime()
+  declare check_out_date: DateTime | null
+
+  @column()
+  declare status: string | null
+
   @column()
   declare created_by: number | null
 
@@ -35,9 +44,19 @@ export default class ReservationServiceProduct extends BaseModel {
 
   @column()
   declare rate_per_night: number | null
-  
+
   @column()
   declare taxes: number | null
+
+  @column()
+  declare extra_guest_price: number | null
+
+  @column()
+  declare total_extra_guest_price: number | null
+
+  @column()
+  declare total_amount: number | null
+
 
   @column()
   declare discounts: number | null

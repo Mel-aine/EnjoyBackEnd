@@ -37,10 +37,6 @@ export default class Option extends BaseModel {
   @column()
   declare type: 'picklist' | 'text' | 'number'
 
-  // @column({
-  //   prepare: (value: string[] | null) => JSON.stringify(value),
-  //   consume: (value: string | null) => value ? JSON.parse(value) : [],
-  // })
   @column({
     consume: (value: any) => {
       if (Array.isArray(value)) return value

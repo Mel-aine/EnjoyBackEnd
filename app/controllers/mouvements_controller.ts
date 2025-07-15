@@ -2,10 +2,12 @@ import Mouvement from '#models/mouvement'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import Expense from '#models/expense'
+import LoggerService from '#services/logger_service'
+
 
 import { DateTime } from 'luxon'
 
-import type { HttpContext } from '@adonisjs/core/http'
+import { HttpContext } from '@adonisjs/core/http'
 const mouvementService = new CrudService(Mouvement)
 
 export default class MouvementsController extends CrudController<typeof Mouvement> {
@@ -13,7 +15,8 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
     super(mouvementService)
   }
 
-  public async storeMouvement({ request, response }: HttpContext) {
+ public async storeMouvement(ctx: HttpContext) {
+  const { request, response } = ctx
     try {
 
       const data = request.only([
@@ -46,7 +49,7 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
         created_by: data.created_by ?? null,
         last_modified_by: data.last_modified_by?? null,
       })
-
+      
 
       if (mouvement.type === 'Entry') {
         await mouvement.load('productService')
@@ -86,7 +89,18 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
           last_modified_by: mouvement.last_modified_by,
           service_id: mouvement.service_id,
         })
+        
       }
+      if (mouvement.created_by) {
+          await LoggerService.log({
+            actorId: mouvement.created_by,
+            action: 'CREATE',
+            entityType: 'Mouvement',
+            entityId: mouvement.id,
+            description: `Mouvement #${mouvement.id} créé avec succès.`,
+            ctx: ctx,
+          })
+        }
 
       return response.created(mouvement)
     } catch (error) {

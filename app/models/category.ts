@@ -30,16 +30,6 @@ export default class Category extends BaseModel {
   @column()
   declare last_modified_by: number | null
 
-  // @belongsTo(() => Category, {
-  //   foreignKey: 'parent_category_id'
-  // })
-  // declare parentCategory: BelongsTo<typeof Category>
-
-  // @hasMany(() => Category, {
-  //   foreignKey: 'parent_category_id'
-  // })
-  // declare subCategories: HasMany<typeof Category>
-
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 

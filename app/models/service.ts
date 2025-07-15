@@ -2,7 +2,6 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import ServiceImage from '#models/service_image'
 import Category from '#models/category'
 import ServiceProduct from '#models/service_product'
 import ServiceUserAssignment from '#models/service_user_assignment'
@@ -134,11 +133,6 @@ export default class Service extends BaseModel {
 
   @hasMany(() => ServiceProduct, { foreignKey: 'service_id' })
   declare products: HasMany<typeof ServiceProduct>
-
-  @hasMany(() => ServiceImage, {
-    foreignKey: 'service_id',
-  })
-  declare serviceImages: HasMany<typeof ServiceImage>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

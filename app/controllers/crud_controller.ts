@@ -102,7 +102,7 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
-//la cration en masse des donnees
+  //la cration en masse des donnees
   public async bulkCreate({ request, response }: HttpContext) {
     try {
       const data = request.input('data')
@@ -117,7 +117,7 @@ export default class CrudController<T extends typeof BaseModel> {
       return response.badRequest({ message: 'Error creating records', error: error.message })
     }
   }
-//get les services by categoryId
+  //get les services by categoryId
   async showByCategorie({ params, request, response }: HttpContext) {
     try {
       const { categoryId } = params
@@ -137,7 +137,7 @@ export default class CrudController<T extends typeof BaseModel> {
         return response.notFound({ message: 'Record not found' })
       }
 
-      return response.ok({items, count: items.length})
+      return response.ok({ items, count: items.length })
     } catch (error) {
       return response.internalServerError({
         message: 'Error fetching record',
@@ -174,7 +174,7 @@ export default class CrudController<T extends typeof BaseModel> {
       })
     }
   }
-//get les services products avec leurs options
+  //get les services products avec leurs options
   async showByServiceProductId({ params, request, response }: HttpContext) {
     try {
       const { serviceProductId } = params
@@ -232,9 +232,6 @@ export default class CrudController<T extends typeof BaseModel> {
     }
   }
 
-
-
-
   //reservation service product by reservation id
 
   async showByResrvationId({ params, request, response }: HttpContext) {
@@ -250,7 +247,10 @@ export default class CrudController<T extends typeof BaseModel> {
         return response.badRequest({ message: 'Invalid reservationId' })
       }
 
-      const items = await this.service.getReservationtServiceProductByReservationId(reservationIdNum, fields)
+      const items = await this.service.getReservationtServiceProductByReservationId(
+        reservationIdNum,
+        fields
+      )
 
       if (!items || items.length === 0) {
         return response.notFound({ message: 'Record not found' })
@@ -265,9 +265,7 @@ export default class CrudController<T extends typeof BaseModel> {
     }
   }
 
-
-
-//update service Product
+  //update service Product
   async updateByServiceProductId({ params, request, response }: HttpContext) {
     const serviceProductId = parseInt(params.service_product_id, 10)
     const optionsPayload = request.input('options')
@@ -288,37 +286,4 @@ export default class CrudController<T extends typeof BaseModel> {
       return response.status(500).send({ message: 'Erreur serveur', error: error.message })
     }
   }
-
-
-
 }
-
-
-
-  //get les roles by category name
-
-  //   async showRoleByCategoryName({ params, request, response }: HttpContext) {
-  //   try {
-  //     const { categoryName } = params
-  //     if (!categoryName) {
-  //       return response.badRequest({ message: 'categoryName is required' })
-  //     }
-
-  //     const fields = request.input('fields', ['*'])
-
-  //     const items = await this.service.getRoleByCategoryName(categoryName, fields)
-
-  //     if (!items || items.length === 0) {
-  //       return response.notFound({ message: 'Record not found' })
-  //     }
-
-  //     return response.ok(items)
-  //   } catch (error) {
-  //     return response.internalServerError({
-  //       message: 'Error fetching record',
-  //       error: error.message,
-  //     })
-  //   }
-  // }
-
-

@@ -19,29 +19,8 @@ export default class Supplier extends BaseModel {
   @column()
   declare phone: string
 
-  // @column()
-  // declare website: string | null
-
   @column()
   declare address: string | null
-
-  // @column()
-  // declare category?: string
-
-  // @column()
-  // declare description: string | null
-
-  // // Statut actif/inactif
-  // @column()
-  // declare status?: 'active' | 'inactive'
-
-  // // Horaires d’ouverture éventuels (si applicable)
-  // @column()
-  // declare openings: string | null // JSON stringifié
-
-  // // Méthodes de paiement acceptées (Mobile Money, Carte, etc.)
-  // @column()
-  // declare paymentMethods: string | null // JSON stringifié
 
   @belongsTo(() => Service, { foreignKey: 'service_id' })
   declare service: BelongsTo<typeof Service>
