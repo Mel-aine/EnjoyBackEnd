@@ -5,6 +5,8 @@ import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
 import ServiceUserAssignment from '#models/service_user_assignment'
+import LoggerService from '#services/logger_service'
+
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -27,22 +29,35 @@ export default class AuthController {
   }
 
   // Connexion
-  async login({ request }: HttpContext) {
-    const { email, password } = request.only(['email', 'password'])
+ async login(ctx: HttpContext) {
+  const { request } = ctx
+  const { email, password } = request.only(['email', 'password'])
 
-    try {
-      const user = await User.findBy('email', email)
-      if (!user) return this.responseError('Invalid credentials', 401)
+  try {
+    const user = await User.findBy('email', email)
+    if (!user) return this.responseError('Invalid credentials', 401)
 
-      const login = await hash.verify(user.password, password)
-      if (!login) return this.responseError('Invalid credentials', 401)
+    const login = await hash.verify(user.password, password)
+    if (!login) return this.responseError('Invalid credentials', 401)
 
-      const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
-      return this.response('Login successfully', { user, user_token: token })
-    } catch (error: any) {
-      this.responseError('Invalid credentials', 400)
-    }
+    const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
+
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Connexion de l'utilisateur ${email}`,
+      ctx: ctx,
+    })
+
+    return this.response('Login successfully', { user, user_token: token })
+  } catch (error: any) {
+    return this.responseError('Invalid credentials', 400)
   }
+}
+
+
 
   // Récupérer les informations de l'utilisateur
   async user({ auth }: HttpContext) {
@@ -187,12 +202,23 @@ export default class AuthController {
   }
 
 
-  public async logout(ctx: HttpContext) {
-    const { auth, response } = ctx
-    const user = await auth.authenticate()
-    await User.accessTokens.delete(user, user.currentAccessToken.identifier)
-    return response.ok({ message: 'Logout successfully' })
-  }
+ public async logout(ctx: HttpContext) {
+  const { auth, response } = ctx
+  const user = await auth.authenticate()
+  await User.accessTokens.delete(user, user.currentAccessToken.identifier)
+
+  await LoggerService.log({
+    actorId: user.id,
+    action: 'LOGOUT',
+    entityType: 'User',
+    entityId: user.id.toString(),
+    description: `Déconnexion de l'utilisateur ${user.email}`,
+    ctx: ctx
+  })
+
+  return response.ok({ message: 'Logout successfully' })
+}
+
 
   async validateEmail({ response, request }: HttpContext) {
     const { email } = request.only(['email'])
