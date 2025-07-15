@@ -4,6 +4,8 @@ import ServiceProduct from '#models/service_product'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import Service from '#models/service'
+import { DateTime } from 'luxon'
+import vine from '@vinejs/vine'
 
 const serviceProductService = new CrudService(ServiceProduct)
 
@@ -11,6 +13,60 @@ export default class ServiceProductsController extends CrudController<typeof Ser
   constructor() {
     super(serviceProductService)
   }
+
+  /**
+   * Recherche les chambres disponibles pour un type, un service et une période donnés.
+   * @param {HttpContext} ctx - Le contexte HTTP
+   * @returns {Promise<any>}
+   *
+   * @example
+   * GET /available-rooms?serviceId=1&roomTypeId=1&arrivalDate=2024-12-20&departureDate=2024-12-25
+   */
+  public async findAvailableRooms({ request, response }: HttpContext) {
+    const validator = vine.compile(
+      vine.object({
+        serviceId: vine.number(),
+        roomTypeId: vine.number(),
+        arrivalDate: vine.date(),
+        departureDate: vine.date(),
+      })
+    )
+
+    try {
+      const { serviceId, roomTypeId, arrivalDate, departureDate } = await request.validateUsing(validator, {
+        data: request.qs(), // Valider les paramètres de la query string
+      })
+
+      // `arrivalDate` and `departureDate` are now JS Date objects.
+      // We must use fromJSDate to convert them to Luxon DateTime objects.
+      const startDate = DateTime.fromJSDate(arrivalDate)
+      const endDate = DateTime.fromJSDate(departureDate)
+
+      if (endDate <= startDate) {
+        return response.badRequest({ message: "La date de départ doit être après la date d'arrivée." })
+      }
+
+      const availableRooms = await ServiceProduct.query()
+        .where('service_id', serviceId)
+        .where('product_type_id', roomTypeId)
+        .where('status', 'available') // On ne cherche que parmi les chambres marquées comme disponibles
+        .whereDoesntHave('reservationServiceProducts', (query) => {
+          // Exclure les chambres qui ont une réservation qui chevauche la période demandée.
+          // La condition de chevauchement est : (débutRéservation < finDemande) ET (finRéservation > débutDemande)
+          query.where('end_date', '>', startDate.toSQLDate()??'').andWhere('start_date', '<', endDate.toSQLDate()??"")
+        })
+
+      return response.ok(availableRooms)
+    } catch (error) {
+      if (error.messages) {
+        // Erreur de validation de Vine
+        return response.badRequest({ errors: error.messages })
+      }
+      console.error('Erreur lors de la recherche de chambres disponibles :', error)
+      return response.internalServerError({ message: 'Une erreur est survenue lors de la recherche des chambres disponibles.' })
+    }
+  }
+
   public async getServiceProductAllWithOptions({ request, response }: HttpContext) {
     const serviceId = request.qs().serviceId
 
