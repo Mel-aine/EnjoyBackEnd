@@ -23,16 +23,23 @@ export default class TasksController extends CrudController<typeof Task> {
 
   try {
     const task = await Task.findOrFail(taskId)
+    const oldStatus = task.status 
 
     task.status = newStatus
     await task.save()
+
+    const changes = LoggerService.extractChanges(
+      { status: oldStatus },
+      { status: task.status }
+    )
 
     await LoggerService.log({
       actorId: request.input('updated_by'),
       action: 'UPDATE',
       entityType: 'Task',
       entityId: taskId.toString(),
-      description: `Le statut de la tâche #${taskId} a été mis à jour en '${newStatus}'`,
+      description: `Le statut de la tâche #${taskId} a été mis à jour`,
+      changes: changes, 
       ctx: ctx,
     })
 
@@ -42,5 +49,6 @@ export default class TasksController extends CrudController<typeof Task> {
     return response.internalServerError({ message: 'Erreur serveur' })
   }
 }
+
 
 }
