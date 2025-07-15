@@ -323,7 +323,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ message: 'No service product linked to this reservation' });
       }
       const now = DateTime.now();;
-      if (!reservation.check_in_date) {
+      if (reservation.check_in_date) {
         reservation.check_in_date = now;
       }
       for (const link of reservationProducts) {
@@ -391,9 +391,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (resServices.length === 0) {
         return response.notFound({ message: 'No service products linked to this reservation' });
       }
-      /// TODO Update the Reservation status to checkout if all the reservations product are checked out. 
-      await this.reservationService.update(reservation.id, { status: 'checked-out' });
-      console.log('Reservation status updated to checked-out');
 
       const updatedServiceProducts: number[] = [];
 
@@ -408,6 +405,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
           updatedServiceProducts.push(serviceProduct.id);
           console.log(`Service product ${serviceProduct.id} status updated to cleaning`);
         }
+      }
+
+      const res = await ReservationServiceProduct.query().where('reservation_id', params.id).andWhere('status', '<>', 'checked-out')
+      const allCheckedOut = res.length === 0;
+      if (allCheckedOut) {
+        await this.reservationService.update(reservation.id, { status: 'checked-out' });
+        console.log('Reservation status updated to checked-out');
       }
 
       // Log the check-out activity
