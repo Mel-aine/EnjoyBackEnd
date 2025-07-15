@@ -29,7 +29,14 @@ export default class RolePermissionsController extends CrudController<typeof Rol
 
     const permissionIds = permissions.map((p) => p.permission_id)
 
-    // Supprimer les anciennes permissions qui ne sont plus valides
+    // 🔎 Récupérer les anciennes permissions AVANT modification
+    const existingPermissions = await RolePermission.query()
+      .where('role_id', role_id)
+      .andWhere('service_id', service_id)
+
+    const beforePermissions = existingPermissions.map((p) => p.permission_id)
+
+    // 🚫 Supprimer celles qui ne sont plus présentes
     await RolePermission.query()
       .where('role_id', role_id)
       .andWhere('service_id', service_id)
@@ -64,12 +71,21 @@ export default class RolePermissionsController extends CrudController<typeof Rol
       }
     }
 
+    const afterPermissions = permissionIds
+    const changes = {
+      permissions: {
+        old: beforePermissions,
+        new: afterPermissions,
+      },
+    }
+
     await LoggerService.log({
-      actorId: auth.user?.id ?? user_id, 
+      actorId: auth.user?.id ?? user_id,
       action: 'UPDATE',
       entityType: 'RolePermission',
       entityId: `${role_id}`,
-      description: `Mise à jour des permissions pour le rôle #${role_id} dans le service #${service_id} → [${permissionIds.join(', ')}]`,
+      description: `Mise à jour des permissions pour le rôle #${role_id} dans le service #${service_id}`,
+      changes,
       ctx: ctx,
     })
 
