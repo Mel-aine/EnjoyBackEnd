@@ -3,6 +3,7 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import User from '#models/user'
 import RolePermission from '#models/role_permission'
+import Role from '#models/role'
 import type { HttpContext } from '@adonisjs/core/http'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import db from '@adonisjs/lucid/services/db'
@@ -61,8 +62,20 @@ export default class PermissionsController extends CrudController<typeof Permiss
     const trx = await db.transaction()
 
     try {
+      const existingPermissions = await RolePermission
+        .query({ client: trx })
+        .where('role_id', roleId)
+        .andWhere((q) => {
+          if (serviceId) q.where('service_id', serviceId)
+        })
+
+      const beforePermissions = existingPermissions.map(p => p.permission_id)
+
       await RolePermission.query({ client: trx })
         .where('role_id', roleId)
+        .andWhere((q) => {
+          if (serviceId) q.where('service_id', serviceId)
+        })
         .delete()
 
       if (permissionIds.length > 0) {
@@ -73,22 +86,33 @@ export default class PermissionsController extends CrudController<typeof Permiss
           created_by: userId || null,
           last_modified_by: userId || null,
         }))
-
         await RolePermission.createMany(newAssignments, { client: trx })
       }
 
       await trx.commit()
 
-      if (ctx?.auth.user) {
+      if (ctx?.auth.user || userId) {
+        const role = await Role.find(roleId)
+        const roleName = role?.role_name || `Rôle #${roleId}`
+
+        const changes = {
+          permissions: {
+            old: beforePermissions,
+            new: permissionIds,
+          },
+        }
+
         await LoggerService.log({
-          actorId: ctx.auth.user.id,
+          actorId: ctx?.auth.user?.id ?? userId ?? 0,
           action: 'UPDATE',
           entityType: 'RolePermission',
-          entityId: roleId,
-          description: `Updated role #${roleId} permissions to: [${permissionIds.join(', ')}]`,
-          ctx,
+          entityId: `${roleId}`,
+          description: `Modification des permissions pour le rôle "${roleName}"`,
+          changes,
+          ctx: ctx!,
         })
       }
+
     } catch (error) {
       await trx.rollback()
       throw error

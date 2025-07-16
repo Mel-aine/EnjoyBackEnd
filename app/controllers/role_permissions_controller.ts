@@ -1,6 +1,7 @@
 import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import RolePermission from '#models/role_permission'
+import Role from '#models/role'
 import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
 
@@ -71,11 +72,13 @@ export default class RolePermissionsController extends CrudController<typeof Rol
       }
     }
 
-    const afterPermissions = permissionIds
+    const role = await Role.find(role_id)
+    const roleName = role?.role_name || `Rôle inconnu (${role_id})`
+
     const changes = {
       permissions: {
         old: beforePermissions,
-        new: afterPermissions,
+        new: permissionIds,
       },
     }
 
@@ -84,9 +87,9 @@ export default class RolePermissionsController extends CrudController<typeof Rol
       action: 'UPDATE',
       entityType: 'RolePermission',
       entityId: `${role_id}`,
-      description: `Mise à jour des permissions pour le rôle #${role_id} dans le service #${service_id}`,
+      description: `Permissions mises à jour pour le rôle "${roleName}" dans le service #${service_id}`,
       changes,
-      ctx: ctx,
+      ctx,
     })
 
     return response.ok({
