@@ -386,6 +386,6 @@ router
     })
   })
   .prefix('/api').use(middleware.auth({
-        guards: ['api']
-      }))
+    guards: ['api']
+  }))
 // .use(middleware.auth())
