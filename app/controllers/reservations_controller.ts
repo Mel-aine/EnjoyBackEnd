@@ -9,7 +9,11 @@ import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
 import { DateTime } from 'luxon'
+import vine from '@vinejs/vine'
+import db from '@adonisjs/lucid/services/db'
 import { ReservationProductStatus } from '../enums.js'
+import { messages } from '@vinejs/vine/defaults'
+import logger from '@adonisjs/core/services/logger'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -467,6 +471,178 @@ export default class ReservationsController extends CrudController<typeof Reserv
     } catch (error) {
       console.error('Error fetching reservation details:', error)
       return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
+    }
+  }
+
+
+
+  /**
+ * Verify if user can extend stay in the hotel
+ * @param {HttpContext} ctx - Le contexte HTTP
+ * @body {{ new_depart_date: string }} - New Depart Date au format ISO (YYYY-MM-DD).
+ */
+  public async checkExtendStay(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
+    const reservationId = params.id
+    const res = {
+      scenario: -1,
+      messages: ""
+    }
+    const validator = vine.compile(
+      vine.object({
+        new_depart_date: vine.date(),
+      })
+    )
+    const trx = await db.transaction()
+    try {
+
+      const payload = await request.validateUsing(validator, {
+        data: request.body(),
+      })
+
+      const newDepartDate = DateTime.fromJSDate(payload.new_depart_date)
+
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('reservationServiceProducts')
+        .first()
+
+      if (!reservation) {
+        await trx.rollback()
+        res.messages = 'Reservation not found.'
+        return response.status(200).json(res)
+      }
+
+      const oldDepartDate = reservation.depart_date
+
+      if (!oldDepartDate || newDepartDate <= oldDepartDate) {
+        await trx.rollback();
+        res.messages = 'The new departure date must be later than the current departure date.'
+        return response
+          .status(200)
+          .json(res)
+      }
+
+      // --- Vérification des conflits ---
+      const conflicts = []
+      for (const rsp of reservation.reservationServiceProducts) {
+        const product = await ServiceProduct.find(rsp.service_product_id)
+        const conflictingReservation = await ReservationServiceProduct.query({ client: trx })
+          .where('service_product_id', rsp.service_product_id)
+          .where('reservation_id', '!=', reservationId)
+          .andWhere((query) => {
+            query
+              .where('start_date', '<', newDepartDate.toISODate()!)
+            //.andWhere('end_date', '>', oldDepartDate.toISODate()!)
+          })
+          .first()
+
+        if (conflictingReservation) {
+          conflicts.push({
+            productName: product?.product_name || `ID ${rsp.service_product_id}`,
+            productId: rsp.service_product_id,
+          })
+        }
+      }
+
+      if (conflicts.length > 0) {
+        await trx.rollback()
+        res.scenario = 0
+        return response.status(200).json(res)
+      } else {
+        res.scenario = 2
+        return response.status(200).json(res)
+      }
+    } catch (error) {
+      await trx.rollback();
+      res.messages = "An error has occurred." + error.message
+      console.error('Erreur lors de la prolongation du séjour :', error)
+      return response.status(200)
+        .json(res)
+    }
+  }
+  /**
+   * Prolonge la date de départ d'une réservation existante.
+   * @param {HttpContext} ctx - Le contexte HTTP
+   * @body {{ new_depart_date: string }} - La nouvelle date de départ au format ISO (YYYY-MM-DD).
+   */
+  public async extendStay(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
+    const reservationId = params.id
+
+    const validator = vine.compile(
+      vine.object({
+        new_depart_date: vine.date(),
+      })
+    )
+    const trx = await db.transaction()
+    try {
+
+      const payload = await request.validateUsing(validator, {
+        data: request.body(),
+      })
+
+      const newDepartDate = DateTime.fromJSDate(payload.new_depart_date)
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('reservationServiceProducts')
+        .first()
+      if (!reservation || !reservation.arrived_date) {
+        await trx.rollback()
+        return response.notFound({ message: 'Réservation non trouvée.' })
+      }
+      // --- Aucune conflit : Procéder à la prolongation ---
+      const oldReservationData = { ...reservation.serialize() }
+
+      const oldNumberOfNights = reservation.number_of_nights || 0
+      const newNumberOfNights =newDepartDate.diff(reservation.arrived_date, 'days').days
+      const additionalNights = newNumberOfNights - oldNumberOfNights
+      logger.info('newDepartDate ' + JSON.stringify(newDepartDate));
+      logger.info('oldNumberOfNights ' + oldNumberOfNights);
+      logger.info('additionalNights ' + additionalNights);
+      logger.info('newNumberOfNights ' + JSON.stringify(newNumberOfNights));
+      let additionalAmount = 0
+      // Mettre à jour les produits de la réservation
+      for (const rsp of reservation.reservationServiceProducts) {
+        const rspInTrx = await ReservationServiceProduct.findOrFail(rsp.id, { client: trx })
+
+        const additionalProductCost = (rspInTrx.rate_per_night || 0) * additionalNights
+        additionalAmount += additionalProductCost
+
+        rspInTrx.end_date = newDepartDate
+        rspInTrx.total_amount = (rspInTrx.total_amount || 0) + additionalProductCost
+        rspInTrx.last_modified_by = auth.user!.id
+        await rspInTrx.save()
+      }
+
+      // Mettre à jour la réservation principale
+      reservation.depart_date = newDepartDate
+      reservation.number_of_nights = newNumberOfNights
+      reservation.total_amount = (reservation.total_amount || 0) + additionalAmount
+      reservation.final_amount = (reservation.final_amount || 0) + additionalAmount
+      reservation.remaining_amount = (reservation.remaining_amount || 0) + additionalAmount
+      reservation.last_modified_by = auth.user!.id
+
+      logger.info('reservation ' + JSON.stringify(reservation))
+      await reservation.save()
+
+      await trx.commit()
+
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'Reservation',
+        entityId: reservationId,
+        description: `Séjour pour la réservation #${reservationId} prolongé jusqu'au ${newDepartDate.toISODate()}.`,
+        changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
+        ctx,
+      })
+
+      return response.ok({ message: 'Le séjour a été prolongé avec succès.', reservation })
+    } catch (error) {
+      await trx.rollback()
+      console.error('Erreur lors de la prolongation du séjour :', error)
+      return response.internalServerError({ message: "Une erreur est survenue.", error: error.message })
     }
   }
 }

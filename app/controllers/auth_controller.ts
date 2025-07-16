@@ -66,7 +66,7 @@ export default class AuthController {
   }
 
   public async signin(ctx: HttpContext) {
-    const { request, response } = ctx
+    const { request, response,auth } = ctx
     const { email, password } = request.only(['email', 'password'])
 
     try {
@@ -76,7 +76,6 @@ export default class AuthController {
       if (!passwordValid) {
         return response.unauthorized({ message: 'Invalid credentials' })
       }
-
       const isAdmin = user.role?.role_name === 'admin'
 
       let userServices
