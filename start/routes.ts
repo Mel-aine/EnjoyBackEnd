@@ -152,7 +152,7 @@ router
       router.get('/product/:serviceId',typeProductsController.GetByServiceId.bind(typeProductsController))
       router.get('/type-products/room-count',typeProductsController.countRoomsByType.bind(typeProductsController))
       router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
-      router.delete('/product/:id', typeProductsController.destroy.bind(typeProductsController))
+      router.delete('/product/:id', typeProductsController.destroyed.bind(typeProductsController))
     })
 
     router.group(() => {
@@ -162,6 +162,7 @@ router
       router.get('/service_product_options',serviceProductsController.getAllWithOptions.bind(serviceProductsController))
       router.get('/service_product_option',serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
       router.get('/service_product/:id',serviceProductsController.show.bind(serviceProductsController))
+      router.get('/service_products/:id',serviceProductsController.showWithReservations.bind(serviceProductsController))
       router.get('/service_product_by_date',serviceProductsController.getAvailable.bind(serviceProductsController))
       router.get('/service_product_by_serviceId/:serviceId',serviceProductsController.showByServiceId.bind(serviceProductsController))
       router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))

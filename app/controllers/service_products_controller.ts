@@ -452,23 +452,89 @@ export default class ServiceProductsController extends CrudController<typeof Ser
 
   //delete room
 
-  public async destroyed({ params, response }: HttpContext) {
-    const serviceProduct = await ServiceProduct.find(params.id)
+ public async destroyed({ params, response }: HttpContext) {
+  const serviceProduct = await ServiceProduct.find(params.id)
+
+  if (!serviceProduct) {
+    return response.status(404).json({ message: 'Room not found.' })
+  }
+
+  await serviceProduct.load('reservationServiceProducts', (query) => {
+    query.preload('reservation')
+  })
+
+  const now = DateTime.now()
+  const activeStatuses = ['confirmed', 'checked_in']
+
+  const hasActiveReservations = serviceProduct.reservationServiceProducts.some((rsp) => {
+    const reservation = rsp.reservation
+
+    return (
+      reservation &&
+      activeStatuses.includes(reservation.status) &&
+      reservation.depart_date &&
+      reservation.depart_date >= now
+    )
+  })
+
+  if (hasActiveReservations) {
+    return response.status(400).json({
+      message: `Cannot delete room "${serviceProduct.room_number}" because it has active or upcoming reservations.`,
+    })
+  }
+
+  await serviceProduct.delete()
+
+  return response.status(200).json({ message: 'Room successfully deleted.' })
+}
+
+async showWithReservations({ params, response }: HttpContext) {
+    const serviceProductId = params.id
+
+    const serviceProduct = await ServiceProduct.query()
+      .where('id', serviceProductId)
+      .preload('availableOptions', (query) => {
+        query.pivotColumns(['value'])
+      })
+      .preload('productType') // 🏷️ Précharge le type de chambre (roomType)
+      .preload('reservationServiceProducts', (query) => {
+        query.preload('reservation').preload('creator')
+      })
+      .first()
 
     if (!serviceProduct) {
-      return response.status(404).json({ message: 'Room not found.' })
+      return response.notFound({ message: 'Chambre non trouvée' })
     }
-    await serviceProduct.load('reservationServiceProducts')
 
-    const hasActiveReservations = serviceProduct.reservationServiceProducts.length > 0
+    // 🎯 Mapping des options
+    const options: Record<string, string | boolean> = {}
+    for (const option of serviceProduct.availableOptions) {
+      const key = `option_${option.id}`
+      const value = option.$extras.pivot_value
 
-    if (hasActiveReservations) {
-      return response.status(400).json({
-        message: `Cannot delete room "${serviceProduct.room_number}" because it has active reservations.`,
-      })
+      options[key] = value === 'true' ? true : value === 'false' ? false : value
     }
-    await serviceProduct.delete()
-
-    return response.status(200).json({ message: 'Room successfully deleted.' })
+    const reservations = serviceProduct.reservationServiceProducts.map((rsp) => {
+      return {
+        id: rsp.id,
+        checkIn: rsp.check_in_date?.toISODate() ?? rsp.start_date.toISODate(),
+        checkOut: rsp.check_out_date?.toISODate() ?? rsp.end_date.toISODate(),
+        guest: rsp.creator ? `${rsp.creator.first_name} ${rsp.creator.last_name}` : null,
+        status: rsp.status ?? 'unknown',
+      }
+    })
+    return response.ok({
+      id: serviceProduct.id,
+      name: serviceProduct.product_name,
+      roomType: serviceProduct.productType?.name ?? null,
+      capacity: serviceProduct.capacity,
+      floor: serviceProduct.floor,
+      room_number: serviceProduct.room_number,
+      price: serviceProduct.price,
+      status: serviceProduct.status,
+      updatedAt: serviceProduct.updatedAt,
+      options,
+      reservations,
+    })
   }
 }

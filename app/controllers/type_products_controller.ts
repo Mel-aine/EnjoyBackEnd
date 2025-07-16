@@ -32,5 +32,53 @@ public async countRoomsByType({ request, response }: HttpContext) {
 
   }
 
+  //delete room types
+public async destroyed({ request, params, response }: HttpContext) {
+  const serviceId = request.input('service_id')
+
+  if (!serviceId) {
+    return response.status(400).json({
+      status: 'error',
+      code: 'MISSING_SERVICE_ID',
+      message: 'service_id is required',
+    })
+  }
+
+  const typeProduct = await TypeProduct.find(params.id)
+
+  if (!typeProduct) {
+    return response.status(404).json({
+      status: 'error',
+      code: 'TYPE_NOT_FOUND',
+      message: 'Room type not found.',
+    })
+  }
+
+  const associatedRooms = await ServiceProduct
+    .query()
+    .where('product_type_id', typeProduct.id)
+    .andWhere('service_id', serviceId)
+    .count('* as total')
+    .first()
+
+  const total = Number(associatedRooms?.$extras.total || 0)
+
+  if (total > 0) {
+    return response.status(400).json({
+      status: 'error',
+      code: 'ROOMS_ASSOCIATED',
+      message: `Unable to delete type "${typeProduct.name}" because ${total} room(s) are still associated with it. Please reclassify or delete these rooms first.`,
+    })
+  }
+
+  await typeProduct.delete()
+
+  return response.status(200).json({
+    status: 'success',
+    message: `Type "${typeProduct.name}" successfully deleted.`,
+  })
+}
+
+
 
 }
