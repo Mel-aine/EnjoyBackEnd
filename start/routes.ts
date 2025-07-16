@@ -21,6 +21,8 @@ import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
+import { middleware } from '#start/kernel'
+
 // import { middleware } from '#start/kernel'
 import ActivityLogsController from '#controllers/activity_logs_controller'
 // import { middleware } from '#start/kernel'
@@ -28,7 +30,6 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
 import DashboardController from '#controllers/dasboard_controller'
-
 // Import dynamique
 const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
@@ -93,24 +94,24 @@ router
     })
 
     router.group(() => {
-      router.get('/stockCategory/:serviceId',stockCategoriesController.GetByServiceId.bind(stockCategoriesController))
+      router.get('/stockCategory/:serviceId', stockCategoriesController.GetByServiceId.bind(stockCategoriesController))
       router.post('/stockCategory', stockCategoriesController.store.bind(stockCategoriesController))
-      router.put('/stockCategory/:id',stockCategoriesController.update.bind(stockCategoriesController))
-      router.delete('/stockCategory/:id',stockCategoriesController.destroy.bind(stockCategoriesController))
+      router.put('/stockCategory/:id', stockCategoriesController.update.bind(stockCategoriesController))
+      router.delete('/stockCategory/:id', stockCategoriesController.destroy.bind(stockCategoriesController))
     })
 
     router.group(() => {
-      router.get('/supplier/:serviceId',suppliersController.GetByServiceId.bind(suppliersController))
+      router.get('/supplier/:serviceId', suppliersController.GetByServiceId.bind(suppliersController))
       router.post('/supplier', suppliersController.store.bind(suppliersController))
       router.put('/supplier/:id', suppliersController.update.bind(suppliersController))
       router.delete('/supplier/:id', suppliersController.destroy.bind(suppliersController))
     })
 
     router.group(() => {
-      router.get('/prooductService/:serviceId',productServicesController.GetByServiceId.bind(productServicesController))
-      router.post('/prooductService',productServicesController.store.bind(productServicesController))
-      router.put('/prooductService/:id',productServicesController.update.bind(productServicesController))
-      router.delete('/prooductService/:id',productServicesController.destroy.bind(productServicesController))
+      router.get('/prooductService/:serviceId', productServicesController.GetByServiceId.bind(productServicesController))
+      router.post('/prooductService', productServicesController.store.bind(productServicesController))
+      router.put('/prooductService/:id', productServicesController.update.bind(productServicesController))
+      router.delete('/prooductService/:id', productServicesController.destroy.bind(productServicesController))
     })
 
     router.group(() => {
@@ -121,14 +122,14 @@ router
     })
 
     router.group(() => {
-      router.get('/department/:serviceId',departmentsController.GetByServiceId.bind(departmentsController))
+      router.get('/department/:serviceId', departmentsController.GetByServiceId.bind(departmentsController))
       router.post('/department', departmentsController.store.bind(departmentsController))
       router.put('/department/:id', departmentsController.update.bind(departmentsController))
       router.delete('/department/:id', departmentsController.destroy.bind(departmentsController))
     })
 
     router.group(() => {
-      router.get('/movement/:serviceId',mouvementsController.GetByServiceId.bind(mouvementsController))
+      router.get('/movement/:serviceId', mouvementsController.GetByServiceId.bind(mouvementsController))
       router.post('/movement', mouvementsController.storeMouvement.bind(mouvementsController))
       router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
       router.delete('/movement/:id', mouvementsController.destroy.bind(mouvementsController))
@@ -137,8 +138,8 @@ router
     router.group(() => {
       router.post('/services', servicesController.store.bind(servicesController))
       router.get('/services', servicesController.list.bind(servicesController))
-      router.get('/servicesByCategory/:categoryId',servicesController.showByCategorie.bind(servicesController))
-      router.post('/servicesWithUser',servicesController.createWithUserAndService.bind(servicesController))
+      router.get('/servicesByCategory/:categoryId', servicesController.showByCategorie.bind(servicesController))
+      router.post('/servicesWithUser', servicesController.createWithUserAndService.bind(servicesController))
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
@@ -156,8 +157,8 @@ router
     })
 
     router.group(() => {
-      router.post('/service_product',serviceProductsController.store.bind(serviceProductsController))
-      router.patch('/service_product/:id/available',serviceProductsController.setAvailable.bind(serviceProductsController))
+      router.post('/service_product', serviceProductsController.store.bind(serviceProductsController))
+      router.patch('/service_product/:id/available', serviceProductsController.setAvailable.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
       router.get('/service_product_options',serviceProductsController.getAllWithOptions.bind(serviceProductsController))
       router.get('/service_product_option',serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
@@ -207,11 +208,25 @@ router
           '/reservations/:id/check-out',
           reservationsController.checkOut.bind(reservationsController)
         )
+        router.patch(
+          '/reservations/:id/extend',
+          reservationsController.extendStay.bind(reservationsController)
+        )
         router.get(
           '/reservations/service-product/:serviceProductId',
           reservationsController.showByServiceProductId.bind(reservationsController)
         )
-      })
+        router.patch(
+          '/reservations/:id/checkExtendStay',
+          reservationsController.checkExtendStay.bind(reservationsController)
+        )
+        router.patch(
+          '/reservations/:id/extendStay',
+          reservationsController.extendStay.bind(reservationsController)
+        )
+      }).use(middleware.auth({
+        guards: ['api']
+      }))
 
     router.group(() => {
       router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))
@@ -237,7 +252,7 @@ router
           reservationServiceProductsController
         )
       )
-       router.get(
+      router.get(
         '/reservation_service_serviceId/:serviceId',
         reservationServiceProductsController.getRecentBookings.bind(reservationServiceProductsController)
       )
@@ -339,7 +354,7 @@ router
 
     router.group(() => {
       router.get('/permission', permissionsController.list.bind(permissionsController))
-       router.get('/permissions', permissionsController.getUserPermissions.bind(permissionsController))
+      router.get('/permissions', permissionsController.getUserPermissions.bind(permissionsController))
     })
 
     router.group(() => {
@@ -348,30 +363,32 @@ router
       router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
     })
 
-   router.group(() => {
+    router.group(() => {
       router.post('/roles/assign-permissions', rolePermissionsController.assignPermissions.bind(rolePermissionsController))
     })
 
     router.group(() => {
       router.post('/assign-user', assigmentUsersController.createUser.bind(assigmentUsersController))
     })
-     // DASHBOARD
-  router.group(() => {
-    router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année
-    router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))// Endpoint pour les disponibilités des chambres le taux d'ocupation, le nombre de chambres disponibles, le nombre de chambres occupées, le nombre de chambres réservées aujourd'hui et le taux de réservation aujourd'hui et la semaine dernière
-    router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))// Endpoint pour la durée moyenne de séjour
-    router.get('/revenue/:serviceId/stats', dashboardController.getRevenueStats.bind(dashboardController))// Endpoint pour les statistiques de revenus annuels, mensuels, trimestriels et semestriels
-    router.get('/revenue/:serviceId/monthly-comparison',dashboardController.getMonthlyRevenueComparison.bind(dashboardController)) // Endpoint pour la comparaison des revenus mensuels
-    router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController)) // Endpoint pour le taux d'occupation moyen sur une période donnée
-    router.get('/occupancy/:id/monthly', dashboardController.monthlyOccupancy.bind(dashboardController))// Endpoint pour les statistiques d'occupation mensuelles
-    router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
-    router.get('/clients/origin-stats/:serviceId', dashboardController.nationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
-    router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
-    router.get('/reservation/:serviceId', dashboardController.yearlyReservationTypes.bind(dashboardController))
+    // DASHBOARD
+    router.group(() => {
+      router.get('/occupancy/:serviceId/stats', dashboardController.occupancyStats.bind(dashboardController))// Endpoint pour les taux d'occupation semaine, mois, année
+      router.get('/availability/:serviceId', dashboardController.getAvailability.bind(dashboardController))// Endpoint pour les disponibilités des chambres le taux d'ocupation, le nombre de chambres disponibles, le nombre de chambres occupées, le nombre de chambres réservées aujourd'hui et le taux de réservation aujourd'hui et la semaine dernière
+      router.get('/occupancy/:serviceId/average-stay', dashboardController.averageStay.bind(dashboardController))// Endpoint pour la durée moyenne de séjour
+      router.get('/revenue/:serviceId/stats', dashboardController.getRevenueStats.bind(dashboardController))// Endpoint pour les statistiques de revenus annuels, mensuels, trimestriels et semestriels
+      router.get('/revenue/:serviceId/monthly-comparison', dashboardController.getMonthlyRevenueComparison.bind(dashboardController)) // Endpoint pour la comparaison des revenus mensuels
+      router.get('/occupancy/:serviceId/average-rate', dashboardController.averageOccupancyRate.bind(dashboardController)) // Endpoint pour le taux d'occupation moyen sur une période donnée
+      router.get('/occupancy/:id/monthly', dashboardController.monthlyOccupancy.bind(dashboardController))// Endpoint pour les statistiques d'occupation mensuelles
+      router.get('/adr/:serviceId/:period', dashboardController.getAverageDailyRate.bind(dashboardController)) // Endpoint pour le tarif journalier moyen
+      router.get('/clients/origin-stats/:serviceId', dashboardController.nationalityStats.bind(dashboardController))//Endpoint pour les statistiques de nationalité des clients
+      router.get('/stay-duration/:serviceId', dashboardController.stayDurationStats.bind(dashboardController))
+      router.get('/reservation/:serviceId', dashboardController.yearlyReservationTypes.bind(dashboardController))
 
 
 
+    })
   })
-  })
-  .prefix('/api')
-  // .use(middleware.auth())
+  .prefix('/api').use(middleware.auth({
+    guards: ['api']
+  }))
+// .use(middleware.auth())
