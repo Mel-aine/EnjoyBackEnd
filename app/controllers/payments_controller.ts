@@ -61,8 +61,10 @@ export default class PaymentsController extends CrudController<typeof Payment> {
           reservation.payment_status = 'paid'
         }
         // reservation.payment = 'paid'
-        if (reservation.payment_status === 'paid')
+        if (reservation.payment_status === 'paid' && reservation.status === 'pending') {
           reservation.status = 'confirmed';
+        }
+
         reservation.paid_amount = parseFloat(`${reservation.paid_amount}`) + parseFloat(`${data.amount_paid}`);
         if (reservation.total_amount && reservation.paid_amount)
           reservation.remaining_amount = reservation.total_amount - reservation.paid_amount;
@@ -94,7 +96,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
   }
 
   async confirmPayment(ctx: HttpContext) {
-    const { params, response,auth } = ctx
+    const { params, response, auth } = ctx
     try {
       const paymentId = params.id
 
@@ -143,7 +145,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       return response.status(500).json({ error: 'Erreur serveur lors de la confirmation' })
     }
   }
-  
+
 
 
 }

@@ -169,6 +169,7 @@ router
       router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))
       router.delete('/service_product/:id',serviceProductsController.destroyed.bind(serviceProductsController))
       router.patch('/service_product/update_status/:id',serviceProductsController.updateStatus.bind(serviceProductsController))
+      router.get('/service-products/available', serviceProductsController.findAvailableRooms.bind(serviceProductsController))
     })
 
     router
