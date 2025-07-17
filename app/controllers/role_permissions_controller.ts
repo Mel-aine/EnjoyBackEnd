@@ -86,7 +86,7 @@ export default class RolePermissionsController extends CrudController<typeof Rol
 
     // Création du log
     await LoggerService.log({
-      actorId: auth.user?.id ?? user_id,
+      actorId: auth.user!.id,
       action: 'UPDATE',
       entityType: 'RolePermission',
       entityId: `${role_id}`,

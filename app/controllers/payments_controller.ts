@@ -5,6 +5,7 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import LoggerService from '#services/logger_service'
 import logger from '@adonisjs/core/services/logger'
+import auth from '@ioc:Adonis/auth/build/services/auth.js';
 
 
 const paymentService = new CrudService(Payment)
@@ -15,7 +16,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
   }
 
   async storePayment(ctx: HttpContext) {
-    const { request, response } = ctx
+    const { request, response, auth } = ctx
     try {
       const data = request.body()
 
@@ -75,7 +76,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
         // Log reservation update
         if (payment.created_by)
           await LoggerService.log({
-            actorId: payment.created_by,
+            actorId: auth.user!.id,
             action: 'UPDATE',
             entityType: 'Reservation',
             entityId: reservation.id,
@@ -94,7 +95,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
   }
 
   async confirmPayment(ctx: HttpContext) {
-    const { params, response } = ctx
+    const { params, response,auth } = ctx
     try {
       const paymentId = params.id
 
@@ -109,7 +110,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       // Log payment confirmation
       if (payment.last_modified_by)
         await LoggerService.log({
-          actorId: payment.last_modified_by,
+          actorId: auth.user!.id,
           action: 'UPDATE',
           entityType: 'Payment',
           entityId: payment.id,
@@ -129,7 +130,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       // Log reservation update
       if (payment.last_modified_by)
         await LoggerService.log({
-          actorId: payment.last_modified_by,
+          actorId: auth.user!.id,
           action: 'UPDATE',
           entityType: 'Reservation',
           entityId: reservation.id,

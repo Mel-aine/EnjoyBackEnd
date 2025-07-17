@@ -74,7 +74,7 @@ export default class ServicesController extends CrudController<typeof Service> {
 
 
  public async createWithUserAndService(ctx: HttpContext) {
-  const { request, response } = ctx
+  const { request, response,auth} = ctx
   const data = request.body()
 
   try {
@@ -101,7 +101,7 @@ export default class ServicesController extends CrudController<typeof Service> {
   })
 
   await LoggerService.log({
-    actorId: data.created_by,
+    actorId: auth.user!.id,
     action: 'CREATE',
     entityType: 'User',
     entityId: user.id.toString(),
@@ -141,7 +141,7 @@ export default class ServicesController extends CrudController<typeof Service> {
       role: 'admin',
     })
     await LoggerService.log({
-      actorId: data.created_by,
+      actorId: auth.user!.id,
       action: 'CREATE',
       entityType: 'Service',
       entityId: newService.id.toString(),

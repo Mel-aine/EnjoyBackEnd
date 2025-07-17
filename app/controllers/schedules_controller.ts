@@ -55,7 +55,7 @@ export default class SchedulesController extends CrudController<typeof Schedule>
 
 
 public async create(ctx: HttpContext) {
-  const { request, response } = ctx
+  const { request, response,auth} = ctx
   try {
     const scheduleValidator = vine.compile(
       vine.object({
@@ -93,7 +93,7 @@ public async create(ctx: HttpContext) {
     })
 
     await LoggerService.log({
-      actorId: payload.created_by || 0,
+      actorId: auth.user!.id,
       action: 'CREATE',
       entityType: 'Schedule',
       entityId: created.id.toString(),

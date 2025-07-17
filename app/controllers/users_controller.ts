@@ -14,7 +14,7 @@ export default class UsersController extends CrudController<typeof User> {
   }
 
   public async createWithUserAndRole(ctx: HttpContext) {
-    const { request, response } = ctx
+    const { request, response, auth } = ctx
     const data = request.body()
 
     try {
@@ -27,8 +27,8 @@ export default class UsersController extends CrudController<typeof User> {
         address: data.address,
         nationality: data.nationality,
         status: 'active',
-        created_by: data.created_by || null,
-        last_modified_by: data.last_modified_by || null,
+        created_by: auth.user?.id || null,
+        last_modified_by: auth.user?.id || null,
         password: data.password,
       })
 
@@ -44,7 +44,7 @@ export default class UsersController extends CrudController<typeof User> {
       })
 
       await LoggerService.log({
-        actorId: data.created_by || 0,
+        actorId: auth.user!.id,
         action: 'CREATE',
         entityType: 'User',
         entityId: user.id.toString(),
@@ -63,7 +63,7 @@ export default class UsersController extends CrudController<typeof User> {
   }
 
   public async updateUserWithService(ctx: HttpContext) {
-    const { request, response, params } = ctx
+    const { request, response, params, auth } = ctx
     const data = request.body()
     const userId = params.id
 
@@ -73,7 +73,6 @@ export default class UsersController extends CrudController<typeof User> {
         return response.status(404).send({ message: 'Utilisateur non trouvé' })
       }
 
-      // Charger la relation role pour récupérer le nom du rôle actuel
       await user.load('role')
       const oldRoleName = user.role?.role_name || 'Rôle inconnu'
 
@@ -82,13 +81,12 @@ export default class UsersController extends CrudController<typeof User> {
         last_name: user.last_name,
         email: user.email,
         phone_number: user.phone_number,
-        role_name: oldRoleName, // Nom du rôle au lieu de l'ID
+        role_name: oldRoleName,
         address: user.address,
         nationality: user.nationality,
         service_id: await this.getUserServiceId(user.id),
       }
 
-      // Mise à jour des données utilisateur
       user.first_name = data.first_name
       user.last_name = data.last_name
       user.email = data.email
@@ -96,7 +94,7 @@ export default class UsersController extends CrudController<typeof User> {
       user.role_id = data.role_id
       user.address = data.address
       user.nationality = data.nationality
-      user.last_modified_by = data.last_modified_by || null
+      user.last_modified_by = auth.user?.id || null
 
       if (data.password) {
         user.password = data.password
@@ -104,7 +102,6 @@ export default class UsersController extends CrudController<typeof User> {
 
       await user.save()
 
-      // Gestion des affectations de service
       const assignment = await ServiceUserAssignment.query().where('user_id', user.id).first()
 
       if (assignment) {
@@ -119,7 +116,6 @@ export default class UsersController extends CrudController<typeof User> {
         })
       }
 
-      // Recharger la relation role pour obtenir le nouveau nom du rôle
       await user.load('role')
       const newRoleName = user.role?.role_name || 'Rôle inconnu'
 
@@ -128,7 +124,7 @@ export default class UsersController extends CrudController<typeof User> {
         last_name: user.last_name,
         email: user.email,
         phone_number: user.phone_number,
-        role_name: newRoleName, // Nom du nouveau rôle
+        role_name: newRoleName,
         address: user.address,
         nationality: user.nationality,
         service_id: data.service_id,
@@ -137,7 +133,7 @@ export default class UsersController extends CrudController<typeof User> {
       const changes = LoggerService.extractChanges(oldData, newData)
 
       await LoggerService.log({
-        actorId: data.last_modified_by || 0,
+        actorId: auth.user!.id,
         action: 'UPDATE',
         entityType: 'User',
         entityId: user.id.toString(),
@@ -156,10 +152,8 @@ export default class UsersController extends CrudController<typeof User> {
     }
   }
 
-  // 🔧 Utilitaire pour récupérer l'ancien service lié à l'utilisateur
   private async getUserServiceId(userId: number): Promise<number | null> {
     const assignment = await ServiceUserAssignment.query().where('user_id', userId).first()
     return assignment?.service_id ?? null
   }
-
 }
