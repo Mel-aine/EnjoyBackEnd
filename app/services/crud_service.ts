@@ -9,6 +9,11 @@ export default class CrudService<T extends typeof BaseModel> {
     this.model = model
   }
 
+  // Ajout d un getter getter
+  getModelName(): string {
+    return this.model.name
+  }
+
   /**
    * List records with dynamic filters, sorting, and pagination.
    */

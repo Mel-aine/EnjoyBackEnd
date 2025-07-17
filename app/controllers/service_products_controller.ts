@@ -1,11 +1,13 @@
 import type { HttpContext } from '@adonisjs/core/http'
 
 import ServiceProduct from '#models/service_product'
+import ReservationServiceProduct from '#models/reservation_service_product'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import Service from '#models/service'
 import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
+import LoggerService from '#services/logger_service'
 
 const serviceProductService = new CrudService(ServiceProduct)
 
@@ -14,7 +16,7 @@ export default class ServiceProductsController extends CrudController<typeof Ser
     super(serviceProductService)
   }
 
-  /**
+   /**
    * Recherche les chambres disponibles pour un type, un service et une période donnés.
    * @param {HttpContext} ctx - Le contexte HTTP
    * @returns {Promise<any>}
@@ -22,6 +24,7 @@ export default class ServiceProductsController extends CrudController<typeof Ser
    * @example
    * GET /available-rooms?serviceId=1&roomTypeId=1&arrivalDate=2024-12-20&departureDate=2024-12-25
    */
+
   public async findAvailableRooms({ request, response }: HttpContext) {
     const validator = vine.compile(
       vine.object({
@@ -126,32 +129,85 @@ export default class ServiceProductsController extends CrudController<typeof Ser
     return response.ok({ success: true, data: rooms })
   }
 
-  public async setAvailable({ params, response }: HttpContext) {
-    const serviceProduct = await ServiceProduct.find(params.id)
+  public async updateStatus(ctx: HttpContext)  {
+    const { params, request, response, auth } = ctx
+  const {
+    status,
+    force = false,
+    reason,
+    startDate,
+    endDate,
+    notes,
+  } = request.only([
+    'status',
+    'force',
+    'reason',
+    'startDate',
+    'endDate',
+    'notes',
+  ])
 
-    if (!serviceProduct) {
-      return response.notFound({ message: 'Service product not found' })
-    }
+  const room = await ServiceProduct.findOrFail(params.id)
 
-    serviceProduct.status = 'available'
-    await serviceProduct.save()
-
-    return response.ok({ success: true, message: 'Room status set to available' })
-  }
-
-  public async updateStatus({ params, request, response }: HttpContext) {
-    const { status } = request.only(['status'])
-
-    const room = await ServiceProduct.findOrFail(params.id)
-    room.status = status
-    await room.save()
-
+  if (room.status === status) {
     return response.ok({
       success: true,
-      message: 'Status update ',
+      message: `La chambre est déjà dans l'état "${status}".`,
       data: room,
     })
   }
+
+  const isSettingUnavailable = ['maintenance', 'out_of_service', 'out_of_order'].includes(status)
+
+  const ongoingReservation = await ReservationServiceProduct
+    .query()
+    .where('service_product_id', room.id)
+    .whereNull('check_out_date')
+    .first()
+
+  if (isSettingUnavailable && ongoingReservation && !force) {
+    return response.forbidden({
+      success: false,
+      message: "La chambre est actuellement occupée. Voulez-vous forcer le changement de statut ?",
+    })
+  }
+   const oldRoomData = room.serialize()
+  // Met à jour le statut
+  room.status = status
+
+  if (status === 'maintenance') {
+    // Ajoute les infos de maintenance si fournies
+    room.maintenance = {
+      reason: reason || '',
+      startDate: startDate || '',
+      endDate: endDate || '',
+      notes: notes || '',
+    }
+  } else {
+    // Nettoie les infos de maintenance si on sort de maintenance
+    room.maintenance = null
+  }
+
+  await room.save()
+
+   await LoggerService.log({
+    actorId: auth.user!.id,
+    action: 'UPDATE',
+    entityType: 'ServiceProduct',
+    entityId: room.id,
+    description: `Change of room status #${room.id} : "${oldRoomData.status}" → "${status}".`,
+    changes: LoggerService.extractChanges(oldRoomData, room.serialize()),
+    ctx,
+  })
+
+  return response.ok({
+    success: true,
+    message: `Room updated with status "${status}".`,
+    data: room,
+  })
+  }
+
+
 
   private toJSDateSafe(dateValue: any): Date | null {
     if (!dateValue) return null
@@ -533,6 +589,7 @@ async showWithReservations({ params, response }: HttpContext) {
       price: serviceProduct.price,
       status: serviceProduct.status,
       updatedAt: serviceProduct.updatedAt,
+      maintenance:serviceProduct.maintenance,
       options,
       reservations,
     })

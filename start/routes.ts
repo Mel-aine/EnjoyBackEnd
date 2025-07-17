@@ -158,7 +158,6 @@ router
 
     router.group(() => {
       router.post('/service_product', serviceProductsController.store.bind(serviceProductsController))
-      router.patch('/service_product/:id/available', serviceProductsController.setAvailable.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
       router.get('/service_product_options',serviceProductsController.getAllWithOptions.bind(serviceProductsController))
       router.get('/service_product_option',serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))

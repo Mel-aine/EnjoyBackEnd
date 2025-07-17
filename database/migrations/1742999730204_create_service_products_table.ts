@@ -14,6 +14,7 @@ export default class extends BaseSchema {
       table.integer('floor').nullable()
       table.integer('room_number').nullable()
       table.text('description').nullable()
+      table.json('maintenance').nullable()
       table.boolean('availability').defaultTo(true)
       table.boolean('customization_allowed').defaultTo(false)
       table.string('payment_type', 20).defaultTo('Deferred')
