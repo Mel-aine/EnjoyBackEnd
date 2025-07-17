@@ -12,7 +12,7 @@ import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import { ReservationProductStatus } from '../enums.js'
-import { messages } from '@vinejs/vine/defaults'
+// import { messages } from '@vinejs/vine/defaults'
 import logger from '@adonisjs/core/services/logger'
 
 
@@ -482,7 +482,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
  * @body {{ new_depart_date: string }} - New Depart Date au format ISO (YYYY-MM-DD).
  */
   public async checkExtendStay(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
+    const { params, request, response } = ctx
     const reservationId = params.id
     const res = {
       scenario: -1,

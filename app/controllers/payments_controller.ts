@@ -5,7 +5,6 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import LoggerService from '#services/logger_service'
 import logger from '@adonisjs/core/services/logger'
-import auth from '@ioc:Adonis/auth/build/services/auth.js';
 
 
 const paymentService = new CrudService(Payment)

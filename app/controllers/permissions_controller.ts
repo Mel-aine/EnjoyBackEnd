@@ -8,7 +8,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import db from '@adonisjs/lucid/services/db'
 import LoggerService from '#services/logger_service'
-import auth from '@ioc:Adonis/auth/build/services/auth.js'
 
 const permissionService = new CrudService(Permission)
 
