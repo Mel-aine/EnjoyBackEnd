@@ -7,11 +7,11 @@ export default class extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('policy_id').primary()
       table
-        .integer('hotel_id')
+        .integer('service_id')
         .unsigned()
         .notNullable()
-        .references('hotel_id')
-        .inTable('hotels')
+        .references('id')
+        .inTable('services')
         .onDelete('CASCADE')
       table.string('policy_name', 255).notNullable()
       table.integer('free_cancellation_period_value').notNullable()

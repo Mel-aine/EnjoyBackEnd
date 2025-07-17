@@ -13,34 +13,34 @@ export default class CancellationPolicy extends BaseModel {
   public static table = 'cancellation_policies'
 
   @column({ isPrimary: true })
-  declare policyId: number
+  declare policy_id: number
 
   @column()
-  declare hotelId: number
+  declare service_id: number
 
   @column()
-  declare policyName: string
+  declare policy_name: string
 
   @column()
-  declare freeCancellationPeriodValue: number
+  declare free_cancellation_periodValue: number
 
   @column()
-  declare freeCancellationPeriodUnit: 'hours' | 'days'
+  declare free_cancellation_period_unit: 'hours' | 'days'
 
   @column()
-  declare cancellationFeeType: 'none' | 'fixed' | 'percentage' | 'first_night'
+  declare cancellation_fee_type: 'none' | 'fixed' | 'percentage' | 'first_night'
 
   @column()
-  declare cancellationFeeValue: number | null
+  declare cancellation_fee_value: number | null
 
   @column()
-  declare nonRefundableRateEnabled: boolean
+  declare non_refundable_rate_enabled: boolean
 
   @column()
-  declare specialConditionsNotes: string | null
+  declare special_conditions_notes: string | null
 
-  @column()
-  declare lastModifiedByUserId: number
+   @column()
+  declare last_modified_by: number | null
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare lastModifiedAt: DateTime
@@ -49,13 +49,9 @@ export default class CancellationPolicy extends BaseModel {
   declare createdAt: DateTime
 
   // Relationships
-  @belongsTo(() => Service, {
-    foreignKey: 'hotelId',
-  })
-  declare hotel: BelongsTo<typeof Service>
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
+    declare service: BelongsTo<typeof Service>
 
-  @belongsTo(() => User, {
-    foreignKey: 'lastModifiedByUserId',
-  })
-  declare lastModifiedByUser: BelongsTo<typeof User>
+ @belongsTo(() => User, { foreignKey: 'last_modified_by' })
+  declare modifier: BelongsTo<typeof User>
 }
