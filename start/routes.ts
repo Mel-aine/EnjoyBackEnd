@@ -22,6 +22,7 @@ import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
 import CancellationPoliciesController from '#controllers/cancellation_policies_controller'
+import RefundsController from '#controllers/refunds_controller'
 
 import { middleware } from '#start/kernel'
 
@@ -60,6 +61,7 @@ const tasksController = new TasksController()
 const rolePermissionsController = new RolePermissionsController()
 const activityLogsController = new ActivityLogsController()
 const cancellationPoliciesController = new CancellationPoliciesController()
+const refundsController = new RefundsController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -390,6 +392,16 @@ router
 
 
     })
+
+    //Refund routes
+    router.group(() => {
+      router.post('/refund', refundsController.store.bind(refundsController))
+      router.get('/refund', refundsController.list.bind(refundsController))
+      router.get('/refund/:id', refundsController.show.bind(refundsController))
+      router.put('/refund/:id', refundsController.update.bind(refundsController))
+      router.delete('/refund/:id', refundsController.destroy.bind(refundsController))
+    })
+
 
     router
       .group(() => {
