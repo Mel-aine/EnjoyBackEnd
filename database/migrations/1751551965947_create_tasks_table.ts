@@ -10,7 +10,6 @@ export default class extends BaseSchema {
       table.text('description').nullable()
       table.text('task_type').nullable()
       table.integer('assigned_to').unsigned().references('id').inTable('users').onDelete('CASCADE')
-      table.integer('created_by').unsigned().references('id').inTable('users').onDelete('CASCADE')
       table.datetime('due_date').nullable()
       table.float('estimated_hours').nullable()
       table.enum('priority', ['low', 'medium', 'high']).defaultTo('medium')
