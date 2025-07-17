@@ -13,7 +13,7 @@ export default class TasksController extends CrudController<typeof Task> {
   }
 
   public async updateStatus(ctx: HttpContext) {
-    const { params, request, response } = ctx
+    const { params, request, response,auth } = ctx
     const taskId = params.id
     const newStatus = request.input('status')
     const updatedBy = request.input('updated_by')
@@ -44,7 +44,7 @@ export default class TasksController extends CrudController<typeof Task> {
       )
 
       await LoggerService.log({
-        actorId: updatedBy || 0,
+        actorId: auth.user!.id,
         action: 'UPDATE',
         entityType: 'Task',
         entityId: taskId.toString(),

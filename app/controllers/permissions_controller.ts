@@ -16,7 +16,8 @@ export default class PermissionsController extends CrudController<typeof Permiss
     super(permissionService)
   }
 
-  public async getUserPermissions({ auth, response }: HttpContext) {
+  public async getUserPermissions(ctx: HttpContext) {
+    const { response, auth } = ctx
     const user = auth.user
     if (!user) return response.unauthorized({ error: 'Utilisateur non authentifié' })
 
@@ -57,7 +58,7 @@ export default class PermissionsController extends CrudController<typeof Permiss
     permissionIds: number[],
     serviceId?: number,
     userId?: number,
-    ctx?: HttpContext
+    ctx?: HttpContext,
   ): Promise<void> {
     const trx = await db.transaction()
 
@@ -103,7 +104,7 @@ export default class PermissionsController extends CrudController<typeof Permiss
         }
 
         await LoggerService.log({
-          actorId: ctx?.auth.user?.id ?? userId ?? 0,
+          actorId: ctx?.auth?.user?.id || userId!,
           action: 'UPDATE',
           entityType: 'RolePermission',
           entityId: `${roleId}`,

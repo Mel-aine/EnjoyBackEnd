@@ -2,7 +2,7 @@
 import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import User from '#models/user'
-import Reservation from '#models/reservation'
+import Reservation, { ReservationStatus } from '#models/reservation'
 import ServiceProduct from '#models/service_product'
 import ReservationServiceProduct from '#models/reservation_service_product'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -12,7 +12,7 @@ import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import { ReservationProductStatus } from '../enums.js'
-import { messages } from '@vinejs/vine/defaults'
+// import { messages } from '@vinejs/vine/defaults'
 import logger from '@adonisjs/core/services/logger'
 
 
@@ -52,7 +52,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         service_id: data.service_id,
         reservation_type: data.reservation_type || 'Booking via Enjoy',
         reservation_number: generateReservationNumber(),
-        status: data.status || 'pending',
+        status: data.status || ReservationStatus.PENDING,
         total_amount: data.total_amount,
         guest_count: data.guest_count,
         number_of_seats: data.number_of_seats || null,
@@ -307,7 +307,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   public async checkIn(ctx: HttpContext) {
-    const { params, response, request } = ctx;
+    const { params, response, request, auth } = ctx;
     const { reservationServiceProducts } = request.body();
     try {
       console.log('Check-in started for reservation ID:', params.id);
@@ -342,14 +342,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
           console.log(`Service product ${serviceProduct.id} status updated to occupied`);
         }
       }
+      reservation.status = ReservationStatus.CHECKED_IN;
+      await reservation.save();
 
       // Mettre à jour le statut de la réservation
-      await this.reservationService.update(reservation.id, { status: 'checked-in' });
       console.log('Reservation status updated to checked-in');
 
-      // Log the check-in activity
       await LoggerService.log({
-        actorId: reservation.last_modified_by!, // Assuming the user who checks in is the last modifier
+        actorId: auth.user!.id, // Assuming the user who checks in is the last modifier
         action: 'CHECK_IN',
         entityType: 'Reservation',
         entityId: reservation.id,
@@ -376,7 +376,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
   public async checkOut(ctx: HttpContext) {
-    const { params, response, request } = ctx
+    const { params, response, request, auth } = ctx
     const { reservationServiceProducts } = request.body();
     try {
       console.log('Check-out started for reservation ID:', params.id);
@@ -414,13 +414,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const res = await ReservationServiceProduct.query().where('reservation_id', params.id).andWhere('status', '<>', 'checked-out')
       const allCheckedOut = res.length === 0;
       if (allCheckedOut) {
-        await this.reservationService.update(reservation.id, { status: 'checked-out' });
+        reservation.check_out_date = DateTime.now();
+        await reservation.save();
         console.log('Reservation status updated to checked-out');
       }
 
       // Log the check-out activity
       await LoggerService.log({
-        actorId: reservation.last_modified_by!, // Assuming the user who checks out is the last modifier
+        actorId: auth.user!.id, // Assuming the user who checks out is the last modifier
         action: 'CHECK_OUT',
         entityType: 'Reservation',
         entityId: reservation.id,
@@ -482,7 +483,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
  * @body {{ new_depart_date: string }} - New Depart Date au format ISO (YYYY-MM-DD).
  */
   public async checkExtendStay(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
+    const { params, request, response } = ctx
     const reservationId = params.id
     const res = {
       scenario: -1,
@@ -581,36 +582,42 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const payload = await request.validateUsing(validator, {
         data: request.body(),
       })
-
-      const newDepartDate = DateTime.fromJSDate(payload.new_depart_date)
+      const body = request.body();
+      //const newDepartDate = DateTime.fromJSDate(payload.new_depart_date)
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationServiceProducts')
         .first()
+
       if (!reservation || !reservation.arrived_date) {
         await trx.rollback()
         return response.notFound({ message: 'Réservation non trouvée.' })
       }
+
+      if (!body.new_depart_date) {
+        await trx.rollback()
+        return response.notFound({ message: 'Réservation non trouvée.' })
+      }
+      reservation.depart_date = body.new_depart_date;
       // --- Aucune conflit : Procéder à la prolongation ---
       const oldReservationData = { ...reservation.serialize() }
+      const newDepartDate = reservation.depart_date;
 
+      const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
+      const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
       const oldNumberOfNights = reservation.number_of_nights || 0
-      const newNumberOfNights =newDepartDate.diff(reservation.arrived_date, 'days').days
+      const newNumberOfNights = newDepartDateLuxon!.diff(arrivedDateLuxon, 'days').days
       const additionalNights = newNumberOfNights - oldNumberOfNights
-      logger.info('newDepartDate ' + JSON.stringify(newDepartDate));
-      logger.info('oldNumberOfNights ' + oldNumberOfNights);
-      logger.info('additionalNights ' + additionalNights);
-      logger.info('newNumberOfNights ' + JSON.stringify(newNumberOfNights));
       let additionalAmount = 0
       // Mettre à jour les produits de la réservation
       for (const rsp of reservation.reservationServiceProducts) {
         const rspInTrx = await ReservationServiceProduct.findOrFail(rsp.id, { client: trx })
 
-        const additionalProductCost = (rspInTrx.rate_per_night || 0) * additionalNights
+        const additionalProductCost = parseFloat(`${rspInTrx.rate_per_night!}`) * additionalNights
         additionalAmount += additionalProductCost
 
-        rspInTrx.end_date = newDepartDate
-        rspInTrx.total_amount = (rspInTrx.total_amount || 0) + additionalProductCost
+        rspInTrx.end_date = newDepartDate!
+        rspInTrx.total_amount = parseFloat(`${rspInTrx.total_amount!}`) + additionalProductCost
         rspInTrx.last_modified_by = auth.user!.id
         await rspInTrx.save()
       }
@@ -618,12 +625,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Mettre à jour la réservation principale
       reservation.depart_date = newDepartDate
       reservation.number_of_nights = newNumberOfNights
-      reservation.total_amount = (reservation.total_amount || 0) + additionalAmount
-      reservation.final_amount = (reservation.final_amount || 0) + additionalAmount
-      reservation.remaining_amount = (reservation.remaining_amount || 0) + additionalAmount
+      reservation.total_amount = parseFloat(`${reservation.total_amount!}`) + additionalAmount
+      reservation.final_amount = parseFloat(`${reservation.final_amount!}`) + additionalAmount
+      reservation.remaining_amount = parseFloat(`${reservation.remaining_amount!}`) + additionalAmount
       reservation.last_modified_by = auth.user!.id
-
-      logger.info('reservation ' + JSON.stringify(reservation))
       await reservation.save()
 
       await trx.commit()
@@ -633,7 +638,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'UPDATE',
         entityType: 'Reservation',
         entityId: reservationId,
-        description: `Séjour pour la réservation #${reservationId} prolongé jusqu'au ${newDepartDate.toISODate()}.`,
+        description: `Séjour pour la réservation #${reservationId} prolongé jusqu'au ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
         ctx,
       })

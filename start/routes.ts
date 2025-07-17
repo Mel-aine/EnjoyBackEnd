@@ -21,6 +21,8 @@ import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
+import CancellationPoliciesController from '#controllers/cancellation_policies_controller'
+
 import { middleware } from '#start/kernel'
 
 // import { middleware } from '#start/kernel'
@@ -57,6 +59,7 @@ const permissionsController = new PermissionsController()
 const tasksController = new TasksController()
 const rolePermissionsController = new RolePermissionsController()
 const activityLogsController = new ActivityLogsController()
+const cancellationPoliciesController = new CancellationPoliciesController()
 
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
@@ -150,8 +153,8 @@ router
 
     router.group(() => {
       router.post('/product', typeProductsController.store.bind(typeProductsController))
-      router.get('/product/:serviceId',typeProductsController.GetByServiceId.bind(typeProductsController))
-      router.get('/type-products/room-count',typeProductsController.countRoomsByType.bind(typeProductsController))
+      router.get('/product/:serviceId', typeProductsController.GetByServiceId.bind(typeProductsController))
+      router.get('/type-products/room-count', typeProductsController.countRoomsByType.bind(typeProductsController))
       router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
       router.delete('/product/:id', typeProductsController.destroyed.bind(typeProductsController))
     })
@@ -159,15 +162,16 @@ router
     router.group(() => {
       router.post('/service_product', serviceProductsController.store.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
-      router.get('/service_product_options',serviceProductsController.getAllWithOptions.bind(serviceProductsController))
-      router.get('/service_product_option',serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
-      router.get('/service_product/:id',serviceProductsController.show.bind(serviceProductsController))
-      router.get('/service_products/:id',serviceProductsController.showWithReservations.bind(serviceProductsController))
-      router.get('/service_product_by_date',serviceProductsController.getAvailable.bind(serviceProductsController))
-      router.get('/service_product_by_serviceId/:serviceId',serviceProductsController.showByServiceId.bind(serviceProductsController))
+      router.get('/service_product_options', serviceProductsController.getAllWithOptions.bind(serviceProductsController))
+      router.get('/service_product_option', serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
+      router.get('/service_product/:id', serviceProductsController.show.bind(serviceProductsController))
+      router.get('/service_products/:id', serviceProductsController.showWithReservations.bind(serviceProductsController))
+      router.get('/service_product_by_date', serviceProductsController.getAvailable.bind(serviceProductsController))
+      router.get('/service_product_by_serviceId/:serviceId', serviceProductsController.showByServiceId.bind(serviceProductsController))
       router.put('/service_product/:id', serviceProductsController.update.bind(serviceProductsController))
-      router.delete('/service_product/:id',serviceProductsController.destroyed.bind(serviceProductsController))
-      router.patch('/service_product/update_status/:id',serviceProductsController.updateStatus.bind(serviceProductsController))
+      router.delete('/service_product/:id', serviceProductsController.destroyed.bind(serviceProductsController))
+      router.patch('/service_product/update_status/:id', serviceProductsController.updateStatus.bind(serviceProductsController))
+      router.get('/service-products/available', serviceProductsController.findAvailableRooms.bind(serviceProductsController))
     })
 
     router
@@ -386,8 +390,20 @@ router
 
 
     })
+
+    router
+      .group(() => {
+        // Custom route to get all policies for a specific hotel
+        router.get('/hotel/:hotelId', cancellationPoliciesController.showByHotel.bind(cancellationPoliciesController));
+        router.get('/:id', cancellationPoliciesController.show.bind(cancellationPoliciesController));
+        router.post('/', cancellationPoliciesController.store.bind(cancellationPoliciesController));
+        router.get('/', cancellationPoliciesController.index.bind(cancellationPoliciesController));
+        router.put('/:id', cancellationPoliciesController.update.bind(cancellationPoliciesController));
+        router.delete('/:id', cancellationPoliciesController.destroy.bind(cancellationPoliciesController));
+      })
+      .prefix('cancellation-policies')
+
   })
   .prefix('/api').use(middleware.auth({
     guards: ['api']
   }))
-// .use(middleware.auth())

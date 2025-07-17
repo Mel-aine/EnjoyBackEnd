@@ -16,7 +16,7 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
   }
 
  public async storeMouvement(ctx: HttpContext) {
-  const { request, response } = ctx
+  const { request, response,auth } = ctx
     try {
 
       const data = request.only([
@@ -93,7 +93,7 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
       }
       if (mouvement.created_by) {
           await LoggerService.log({
-            actorId: mouvement.created_by,
+            actorId: auth.user!.id,
             action: 'CREATE',
             entityType: 'Mouvement',
             entityId: mouvement.id,
