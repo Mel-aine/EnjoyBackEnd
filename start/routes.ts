@@ -229,6 +229,14 @@ router
           '/reservations/:id/extendStay',
           reservationsController.extendStay.bind(reservationsController)
         )
+          router.get(
+          '/reservations/:id/cancellation-summary',
+          reservationsController.getCancellationSummary.bind(reservationsController)
+        )
+        router.post(
+          '/reservations/:id/cancel',
+          reservationsController.cancelReservation.bind(reservationsController)
+        )
       }).use(middleware.auth({
         guards: ['api']
       }))

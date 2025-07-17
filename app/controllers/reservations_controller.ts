@@ -11,6 +11,8 @@ import { generateReservationNumber } from '../utils/generate_reservation_number.
 import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
+import CancellationPolicy from '#models/cancellation_policy'
+import Refund from '#models/refund'
 import { ReservationProductStatus } from '../enums.js'
 // import { messages } from '@vinejs/vine/defaults'
 import logger from '@adonisjs/core/services/logger'
@@ -648,6 +650,264 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await trx.rollback()
       console.error('Erreur lors de la prolongation du séjour :', error)
       return response.internalServerError({ message: "Une erreur est survenue.", error: error.message })
+    }
+  }
+
+  public async getCancellationSummary({ params, response }: HttpContext) {
+    try {
+      const reservationId = params.id
+      const reservation = await Reservation.query().where('id', reservationId).preload('service').preload('reservationServiceProducts').first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      const policy = await CancellationPolicy.query().where('service_id', reservation.service_id).first()
+
+      // Case where no policy is defined
+      if (!policy) {
+        return response.ok({
+          isFreeCancellationPossible: true,
+          cancellationFee: 0.00,
+          deadline: null,
+          summaryMessage: "Free cancellation possible at any time, as no policy is defined.",
+        })
+      }
+
+      // Case where cancellation is always free
+      if (policy.cancellation_fee_type === 'none') {
+        return response.ok({
+          isFreeCancellationPossible: true,
+          cancellationFee: 0.00,
+          deadline: null,
+          summaryMessage: 'Free cancellation possible at any time.',
+        })
+      }
+
+      if (!reservation.arrived_date) {
+        return response.badRequest({ message: "The reservation does not have an arrival date." })
+      } 
+
+      // Calculate free cancellation deadline
+      const arrivalDate = DateTime.fromJSDate(new Date(reservation.arrived_date))
+      const freeCancellationDeadline = arrivalDate.minus({ [policy.free_cancellation_period_unit]: policy.free_cancellation_periodValue })
+
+      const now = DateTime.now()
+      const isFreeCancellationPossible = now <= freeCancellationDeadline
+
+      let cancellationFee = 0.00
+      let feeDescription = 'Gratuit'
+
+      if (!isFreeCancellationPossible) {
+        switch (policy.cancellation_fee_type) {
+          case 'fixed':
+            cancellationFee = parseFloat(`${policy.cancellation_fee_value || 0}`)
+            feeDescription = `$${cancellationFee} (fixed fee)`
+            break
+          case 'percentage':
+            cancellationFee =
+              (reservation.final_amount || 0) * ((policy.cancellation_fee_value || 0) / 100)
+            feeDescription = `${policy.cancellation_fee_value}% of the total amount`
+            break
+          case 'first_night':
+            cancellationFee = reservation.reservationServiceProducts.reduce(
+              (total, p) => total + (parseFloat(`${p.rate_per_night}`) || 0),
+              0
+            )
+            feeDescription = `The amount of the first night ($${cancellationFee})`
+            break
+        }
+      }
+
+      const summaryMessage = isFreeCancellationPossible
+        ? `Free cancellation possible until ${freeCancellationDeadline.toFormat('dd/MM/yyyy HH:mm')}.`
+        : `A cancellation fee applies: ${feeDescription}. The deadline for free cancellation was ${freeCancellationDeadline.toFormat('dd/MM/yyyy HH:mm')}.`
+
+      return response.ok({
+        isFreeCancellationPossible,
+        cancellationFee: isFreeCancellationPossible ? 0 : cancellationFee,
+        deadline: freeCancellationDeadline.toISO(),
+        summaryMessage,
+        policyName: policy.policy_name,
+      })
+    } catch (error) {
+      console.error('Error getting cancellation summary:', error)
+      return response.internalServerError({
+        message: 'Failed to get cancellation summary',
+        error: error.message,
+      })
+    }
+  }
+
+
+
+  /**
+   * Cancel a reservation, apply cancellation policy, and create a refund if necessary.
+   * @param {HttpContext} ctx
+   */
+  public async cancelReservation(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
+    const reservationId = params.id
+    const { reason = 'Cancelled by user' } = request.body()
+
+    const trx = await db.transaction()
+
+    try {
+      // 1. Find the reservation and its related data
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('service')
+        .first()
+
+      if (!reservation) {
+        await trx.rollback()
+        return response.notFound({ message: 'Reservation not found.' })
+      }
+
+      // 2. Check if cancellation is allowed
+      if (
+        [ReservationStatus.CANCELLED, ReservationStatus.CHECKED_OUT, ReservationStatus.CHECKED_IN].includes(
+          reservation.status as ReservationStatus
+        )
+      ) {
+        await trx.rollback()
+        return response.badRequest({
+          message: `Cannot cancel a reservation with status '${reservation.status}'.`,
+        })
+      }
+
+      // 3. Find the applicable cancellation policy
+      const policy = await CancellationPolicy.query({ client: trx })
+        .where('service_id', reservation.service_id)
+        .first()
+
+      // Handle case where no policy is defined (default to full refund)
+      if (!policy) {
+        reservation.status = ReservationStatus.CANCELLED
+        reservation.cancellation_reason = reason
+        reservation.last_modified_by = auth.user!.id
+
+        const totalPaid = reservation.paid_amount || 0
+        if (totalPaid > 0) {
+          await Refund.create(
+            {
+              reservation_id: reservation.id,
+              refund_amount: totalPaid,
+              reason: 'Full refund: No cancellation policy found.',
+              status: 'processed',
+              refund_date: DateTime.now(),
+              refund_method: 'automatic',
+              processed_by_user_id: auth.user!.id,
+            },
+            { client: trx }
+          )
+          reservation.payment_status = 'refunded'
+        }
+        await reservation.save()
+
+        await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'CANCEL',
+          entityType: 'Reservation',
+          entityId: reservation.id,
+          description: `Reservation #${reservation.id} cancelled. No policy found, full refund processed.`,
+          ctx: ctx,
+        })
+
+        await trx.commit()
+        return response.ok({
+          message:
+            'Reservation cancelled successfully. No policy was found, a full refund has been issued.',
+        })
+      }
+
+      // 4. Calculate cancellation fee based on policy
+      let cancellationFee = 0
+      const now = DateTime.now()
+
+      if (!reservation.arrived_date) {
+        await trx.rollback()
+        return response.badRequest({ message: 'Reservation is missing an arrival date.' })
+      }
+
+      const hoursUntilCheckIn = DateTime.fromJSDate(new Date(reservation.arrived_date)).diff(now, 'hours').hours
+      const freeCancellationHours =
+        policy.free_cancellation_period_unit === 'days'
+          ? policy.free_cancellation_periodValue * 24
+          : policy.free_cancellation_periodValue
+
+      if (hoursUntilCheckIn < freeCancellationHours) {
+        switch (policy.cancellation_fee_type) {
+          case 'fixed':
+            cancellationFee = policy.cancellation_fee_value || 0
+            break
+          case 'percentage':
+            cancellationFee = (reservation.final_amount || 0) * ((policy.cancellation_fee_value || 0) / 100)
+            break
+          case 'first_night':
+            const reservationProducts = await ReservationServiceProduct.query({ client: trx }).where(
+              'reservation_id',
+              reservation.id
+            )
+            cancellationFee = reservationProducts.reduce(
+              (total, p) => total + (p.rate_per_night || 0),
+              0
+            )
+            break
+        }
+      }
+
+      // 5. Calculate refund and update reservation
+      const totalPaid = reservation.paid_amount || 0
+      const refundAmount = Math.max(0, totalPaid - cancellationFee)
+
+      reservation.status = ReservationStatus.CANCELLED
+      reservation.cancellation_reason = reason
+      reservation.last_modified_by = auth.user!.id
+
+      if (refundAmount > 0) {
+        await Refund.create(
+          {
+            reservation_id: reservation.id,
+            refund_amount: refundAmount,
+            reason: `Cancellation fee applied: ${cancellationFee}.`,
+            status: 'processed',
+            refund_date: DateTime.now(),
+            refund_method: 'automatic',
+            processed_by_user_id: auth.user!.id,
+          },
+          { client: trx }
+        )
+        reservation.payment_status = 'refunded'
+      } else if (totalPaid > 0) {
+        reservation.payment_status = 'paid' // Kept as paid since the fee covers the payment
+      }
+      await reservation.save()
+
+      // 6. Log and commit
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'CANCEL',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. Refund: ${refundAmount}.`,
+        ctx: ctx,
+      })
+
+      await trx.commit()
+
+      return response.ok({
+        message: `Reservation cancelled. Fee: ${cancellationFee}. Refund issued: ${refundAmount}.`,
+        cancellationFee: cancellationFee,
+        refundAmount: refundAmount,
+      })
+    } catch (error) {
+      await trx.rollback()
+      console.error('Error cancelling reservation:', error)
+      return response.internalServerError({
+        message: 'Failed to cancel reservation.',
+        error: error.message,
+      })
     }
   }
 }
