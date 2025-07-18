@@ -151,6 +151,7 @@ router
       router.get('/services/search', servicesController.searchByName.bind(servicesController))
       router.get('/services/customer/:serviceId', servicesController.customers.bind(servicesController))
       router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
+      router.get('/services/:id/reservation/search', reservationsController.searchReservations.bind(servicesController))
     })
 
     router.group(() => {

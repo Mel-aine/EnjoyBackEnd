@@ -640,16 +640,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'UPDATE',
         entityType: 'Reservation',
         entityId: reservationId,
-        description: `Séjour pour la réservation #${reservationId} prolongé jusqu'au ${newDepartDate}.`,
+        description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
         ctx,
       })
 
-      return response.ok({ message: 'Le séjour a été prolongé avec succès.', reservation })
+      return response.ok({ message: 'The stay was successfully extended.', reservation })
     } catch (error) {
       await trx.rollback()
       console.error('Erreur lors de la prolongation du séjour :', error)
-      return response.internalServerError({ message: "Une erreur est survenue.", error: error.message })
+      return response.internalServerError({ message: "An error has occurred.", error: error.message })
     }
   }
 
@@ -662,7 +662,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ message: 'Reservation not found' })
       }
 
-      const policy = await CancellationPolicy.query().where('service_id', reservation.service_id).first()
+      const policy = await CancellationPolicy.query()
+        .where('service_id', reservation.service_id)
+        .orderBy('created_at', 'desc')
+        .first()
 
       // Case where no policy is defined
       if (!policy) {
@@ -686,7 +689,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       if (!reservation.arrived_date) {
         return response.badRequest({ message: "The reservation does not have an arrival date." })
-      } 
+      }
 
       // Calculate free cancellation deadline
       const arrivalDate = DateTime.fromJSDate(new Date(reservation.arrived_date))
@@ -779,6 +782,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 3. Find the applicable cancellation policy
       const policy = await CancellationPolicy.query({ client: trx })
         .where('service_id', reservation.service_id)
+        .orderBy('created_at', 'desc')
         .first()
 
       // Handle case where no policy is defined (default to full refund)
@@ -804,7 +808,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservation.payment_status = 'refunded'
         }
         await reservation.save()
-
+        const resServices = await ReservationServiceProduct.query()
+          .where('reservation_id', params.id)
+          .preload('serviceProduct');
         await LoggerService.log({
           actorId: auth.user!.id,
           action: 'CANCEL',
@@ -883,6 +889,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservation.payment_status = 'paid' // Kept as paid since the fee covers the payment
       }
       await reservation.save()
+      const resServices = await ReservationServiceProduct.query({ client: trx })
+        .where('reservation_id', params.id)
+      for (const resService of resServices) {
+        resService.status = ReservationProductStatus.CANCELLED;
+        resService.last_modified_by = auth.user!.id;
+        await resService.save()
+        await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'CANCEL',
+          entityType: 'ReservationServiceProduct',
+          entityId: resService.id,
+          description: `Reservation #${resService.id} cancelled.`,
+          ctx: ctx,
+        })
+      }
 
       // 6. Log and commit
       await LoggerService.log({
@@ -906,6 +927,79 @@ export default class ReservationsController extends CrudController<typeof Reserv
       console.error('Error cancelling reservation:', error)
       return response.internalServerError({
         message: 'Failed to cancel reservation.',
+        error: error.message,
+      })
+    }
+  }
+
+  public async searchReservations({ request, response }: HttpContext) {
+    try {
+      const {
+        searchText = '',
+        status = '',
+        roomType = '',
+        checkInDate = '',
+        checkOutDate = '',
+      } = request.qs()
+      const params = request.params()
+
+      const query = Reservation.query()
+
+      // 1. Filter by searchText (guest name, email, reservation number, etc.)
+      if (searchText) {
+        query.where((builder) => {
+          builder
+            .where('reservation_number', 'like', `%${searchText}%`)
+            .orWhere('group_name', 'like', `%${searchText}%`)
+            .orWhere('company_name', 'like', `%${searchText}%`)
+            .orWhereHas('user', (userQuery) => {
+              userQuery
+                .where('first_name', 'like', `%${searchText}%`)
+                .orWhere('last_name', 'like', `%${searchText}%`)
+                .orWhere('email', 'like', `%${searchText}%`)
+                .orWhere('phone_number', 'like', `%${searchText}%`)
+            })
+        })
+      }
+
+      // 2. Filter by status
+      if (status) {
+        query.where('status', status)
+      }
+
+      // 3. Filter by date range (check for overlapping reservations)
+      if (checkInDate && checkOutDate) {
+        const startDate = DateTime.fromISO(checkInDate).toISODate()
+        const endDate = DateTime.fromISO(checkOutDate).toISODate()
+
+        if (startDate && endDate) {
+          // A reservation overlaps if its start is before the search's end
+          // AND its end is after the search's start.
+          query.where('arrived_date', '<', endDate).andWhere('depart_date', '>', startDate)
+        }
+      }
+
+      // 4. Filter by roomType (product name)
+      if (roomType) {
+        query.whereHas('reservationServiceProducts', (rspQuery) => {
+          rspQuery.whereHas('serviceProduct', (spQuery) => {
+            spQuery.where('product_name', 'like', `%${roomType}%`)
+          })
+        })
+      }
+
+      // Preload related data for the response
+      query.andWhere('service_id', params.id).preload('user').preload('service').preload('reservationServiceProducts', (rspQuery) => {
+        rspQuery.preload('serviceProduct')
+      }).orderBy('created_at', 'desc').limit(50)
+
+      const reservations = await query
+
+      return response.ok(reservations)
+    } catch (error) {
+      logger.error('Error searching reservations: %o', error)
+      return response.internalServerError({
+        message: 'An error occurred while searching for reservations.',
         error: error.message,
       })
     }
