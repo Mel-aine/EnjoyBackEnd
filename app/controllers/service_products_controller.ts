@@ -684,4 +684,63 @@ public async getServiceProductsWithDetails({ params, response }: HttpContext) {
   }
 }
 
+public async filter({ request, response }: HttpContext) {
+  try {
+    const {
+      searchText,
+      roomType,
+      status,
+      floor,
+      equipment = []
+    } = request.qs()
+
+    const query = ServiceProduct.query()
+      .preload('availableOptions')
+      .preload('productType')
+
+    // Search by room number
+    if (searchText) {
+      query.whereILike('room_number', `%${searchText}%`)
+    }
+
+    // Filter by room type
+    if (roomType) {
+      query.where('product_type_id', roomType)
+    }
+
+    // Filter by floor
+    if (floor) {
+      query.where('floor', floor)
+    }
+
+    // Filter by status
+    if (status) {
+      query.where('status', status)
+    }
+
+    // Filter by equipment
+    if (Array.isArray(equipment) && equipment.length > 0) {
+      for (const item of equipment) {
+        if (!item.label || !item.value) continue
+
+        // Extraire "Air Conditioning" depuis "Air Conditioning: Yes"
+        const [optionName] = item.label.split(':').map((s:any) => s.trim())
+        const value = item.value
+
+        query.whereHas('availableOptions', (optionQuery) => {
+          optionQuery
+            .where('option_name', optionName)
+            .wherePivot('value', value)
+        })
+      }
+    }
+
+    const rooms = await query
+    return response.ok(rooms)
+  } catch (error) {
+    console.error('Error filtering rooms:', error)
+    return response.status(500).json({ message: 'Server error' })
+  }
+}
+
 }
