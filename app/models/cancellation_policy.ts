@@ -40,7 +40,7 @@ export default class CancellationPolicy extends BaseModel {
   declare special_conditions_notes: string | null
 
    @column()
-  declare last_modified_by: number | null
+  declare last_modified_by_user_id: number | null
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare lastModifiedAt: DateTime
@@ -52,6 +52,6 @@ export default class CancellationPolicy extends BaseModel {
   @belongsTo(() => Service, { foreignKey: 'service_id' })
     declare service: BelongsTo<typeof Service>
 
- @belongsTo(() => User, { foreignKey: 'last_modified_by' })
-  declare modifier: BelongsTo<typeof User>
+ @belongsTo(() => User, { foreignKey: 'last_modified_by_user_id' })
+  declare last_modified_by: BelongsTo<typeof User>
 }

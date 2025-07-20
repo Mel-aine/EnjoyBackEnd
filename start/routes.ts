@@ -83,6 +83,8 @@ router
       router.post('/users', usersController.store.bind(usersController))
       router.put('/users/:id', usersController.update.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
+      router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))
+
     })
     //.middleware('auth') // Protège toutes les routes
 
@@ -151,6 +153,7 @@ router
       router.get('/services/search', servicesController.searchByName.bind(servicesController))
       router.get('/services/customer/:serviceId', servicesController.customers.bind(servicesController))
       router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
+      router.get('/services/:id/reservation/search', reservationsController.searchReservations.bind(servicesController))
     })
 
     router.group(() => {
@@ -230,6 +233,14 @@ router
         router.patch(
           '/reservations/:id/extendStay',
           reservationsController.extendStay.bind(reservationsController)
+        )
+        router.get(
+          '/reservations/:id/cancellation-summary',
+          reservationsController.getCancellationSummary.bind(reservationsController)
+        )
+        router.post(
+          '/reservations/:id/cancel',
+          reservationsController.cancelReservation.bind(reservationsController)
         )
       }).use(middleware.auth({
         guards: ['api']

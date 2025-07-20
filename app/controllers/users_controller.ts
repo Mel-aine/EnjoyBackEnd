@@ -3,7 +3,11 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import type { HttpContext } from '@adonisjs/core/http'
+import Reservation from '#models/reservation'
+import Payment from '#models/payment'
+import Log from '#models/activity_log'
 import LoggerService from '#services/logger_service'
+import { DateTime } from 'luxon'
 
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
@@ -155,5 +159,141 @@ export default class UsersController extends CrudController<typeof User> {
   private async getUserServiceId(userId: number): Promise<number | null> {
     const assignment = await ServiceUserAssignment.query().where('user_id', userId).first()
     return assignment?.service_id ?? null
+  }
+
+  public async getCustomerProfile({ params, response }: HttpContext) {
+    const customerId = Number(params.id)
+
+    if (isNaN(customerId)) {
+      return response.badRequest({ message: 'Invalid customer ID.' })
+    }
+
+    try {
+      // 1. Customer Details
+      const customer = await User.query().where('id', customerId).preload('role').firstOrFail()
+
+      // 2. Payment History
+      const payments = await Payment.query().where('user_id', customerId).orderBy('created_at', 'desc')
+      const paymentIds = payments.map((p) => p.id.toString())
+
+      // Get all reservations for the user
+      const reservations = await Reservation.query().where('user_id', customerId).preload('service')
+        .orderBy('arrived_date', 'desc')
+      const reservationIds = reservations.map((r) => r.id.toString())
+
+      // 3. Activity Logs
+      // Note: This assumes a 'Log' model exists for activity logging.
+      const activityLogs = await Log.query()
+        .where((query) => {
+          query
+            .where('user_id', customerId)
+            .orWhere((subQuery) => {
+              subQuery.where('entity_type', 'User').andWhere('entity_id', customerId.toString())
+            })
+            .orWhere((subQuery) => {
+              subQuery.where('entity_type', 'Reservation').whereIn('entity_id', reservationIds)
+            })
+            .orWhere((subQuery) => {
+              subQuery.where('entity_type', 'Payment').whereIn('entity_id', paymentIds)
+            })
+        })
+        .orderBy('created_at', 'desc')
+        .limit(50)
+
+      // 4. Reservation Payments is covered by Payment History
+
+      // 5. Hotel Status
+      const now = DateTime.now()
+      const currentReservation = reservations.find((r) => r.status === 'checked_in')
+      let currentReservationDetails = null;
+
+      if (currentReservation) {
+        await currentReservation.load('reservationServiceProducts', (rspQuery) => {
+          rspQuery.preload('serviceProduct')
+        })
+        currentReservationDetails = currentReservation.serialize()
+      }
+      // Last visit details (most recent completed/checked-out reservation in the past)
+      const lastVisit = reservations.find(
+        (r) =>
+          (r.status === 'checked_out' || r.status === 'completed') &&
+          r.depart_date &&
+          r.depart_date < now
+      )
+      const lastVisitDetails = lastVisit
+        ? {
+          reservationId: lastVisit.id,
+          reservationNumber: lastVisit.reservation_number,
+          serviceName: lastVisit.service.name,
+          checkInDate: lastVisit.arrived_date?.toISODate(),
+          checkOutDate: lastVisit.depart_date?.toISODate(),
+        }
+        : null;
+      // Upcoming visit details (closest confirmed/pending reservation in the future)
+      const upcomingVisit = reservations
+        .filter(
+          (r) =>
+            (r.status === 'confirmed' || r.status === 'pending') &&
+            r.arrived_date &&
+            r.arrived_date > now
+        )
+        .sort((a, b) => a.arrived_date!.toMillis() - b.arrived_date!.toMillis())[0]
+
+      const upcomingVisitDetails = upcomingVisit
+        ? {
+          reservationId: upcomingVisit.id,
+          reservationNumber: upcomingVisit.reservation_number,
+          serviceName: upcomingVisit.service.name,
+          checkInDate: upcomingVisit.arrived_date?.toISODate(),
+          checkOutDate: upcomingVisit.depart_date?.toISODate(),
+        }
+        : null;
+
+      const hotelStatus = {
+        isPresent: !!currentReservation,
+        reservationDetails: {
+          reservationId: currentReservationDetails?.id,
+          reservationNumber: currentReservationDetails?.reservationNumber,
+          serviceName: currentReservationDetails?.service.name,
+          checkInDate: currentReservationDetails?.arrivedDate,
+          checkOutDate: currentReservationDetails?.departDate,
+          roomNumber: currentReservationDetails?.reservationServiceProducts[0]?.serviceProduct.productName,
+
+        },
+      }
+
+      // 6. Outstanding Balances
+      const unpaidReservations = reservations.filter(
+        (r) => r.remaining_amount && r.remaining_amount > 0 && r.status !== 'cancelled'
+      )
+
+      const outstandingBalances = {
+        hasOutstanding: unpaidReservations.length > 0,
+        details: unpaidReservations.map((r) => ({
+          reservationId: r.id,
+          reservationNumber: r.reservation_number,
+          remainingAmount: r.remaining_amount,
+        })),
+      }
+
+      return response.ok({
+        customerDetails: customer.serialize(),
+        paymentHistory: payments.map((p) => p.serialize()),
+        activityLogs: activityLogs.map((l) => l.serialize()),
+        hotelStatus,
+        outstandingBalances,
+        lastVisitDetails,
+        upcomingVisitDetails
+      })
+    } catch (error) {
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Customer not found' })
+      }
+      console.error('Error fetching customer profile:', error)
+      return response.internalServerError({
+        message: 'Failed to fetch customer profile',
+        error: error.message,
+      })
+    }
   }
 }
