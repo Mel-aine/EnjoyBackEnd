@@ -594,4 +594,94 @@ async showWithReservations({ params, response }: HttpContext) {
       reservations,
     })
   }
+
+public async getServiceProductsWithDetails({ params, response }: HttpContext) {
+  const { serviceId } = params
+
+  try {
+    const serviceProducts = await ServiceProduct.query()
+      .where('service_id', serviceId)
+      .preload('options')
+      .preload('reservationServiceProducts', (query) => {
+        query
+          .preload('reservation', (reservationQuery) => {
+            reservationQuery.select(['id', 'status', 'depart_date'])
+          })
+          .preload('creator', (creatorQuery) => {
+            creatorQuery.select(['id', 'first_name', 'last_name'])
+          })
+      })
+
+    const detailedProducts = serviceProducts.map((product) => {
+      const options = product.options
+      const reservations = product.reservationServiceProducts
+
+      const reservationData = reservations.map((rsvp) => ({
+        reservation: rsvp.reservation,
+        creator: rsvp.creator,
+        status: rsvp.status,
+      }))
+
+      const checkedInReservation = reservationData.find(
+        (r) => r.reservation.status === 'checked-in' || r.reservation.status === 'checked_in'
+      )
+
+      const guestName = checkedInReservation?.creator
+        ? `${checkedInReservation.creator.first_name || ''} ${checkedInReservation.creator.last_name || ''}`.trim() || null
+        : null
+
+     const reservationsWithDepart = reservationData
+  .filter((r) => r.reservation.depart_date != null)
+  .sort((a, b) => {
+    const dateAString = a.reservation.depart_date
+      ? typeof a.reservation.depart_date === 'string'
+        ? a.reservation.depart_date
+        : a.reservation.depart_date.toString()
+      : ''
+
+    const dateBString = b.reservation.depart_date
+      ? typeof b.reservation.depart_date === 'string'
+        ? b.reservation.depart_date
+        : b.reservation.depart_date.toString()
+      : ''
+
+    const dateA = DateTime.fromISO(dateAString)
+    const dateB = DateTime.fromISO(dateBString)
+
+    return dateB.toMillis() - dateA.toMillis()
+  })
+
+
+      const latestDeparture = reservationsWithDepart[0]
+
+      const nextAvailable = latestDeparture?.reservation.depart_date
+        ? (typeof latestDeparture.reservation.depart_date === 'string'
+            ? latestDeparture.reservation.depart_date
+            : latestDeparture.reservation.depart_date.toString())
+        : null
+
+      const checkOutTime = nextAvailable
+
+      return {
+        ...product.serialize(),
+        maintenanceInfo: product.maintenance,
+        options: options.map((opt) => opt.serialize()),
+        reservations: reservationData,
+        guestName,
+        nextAvailable,
+        checkOutTime,
+        status: product.status || 'available',
+      }
+    })
+
+    return response.ok(detailedProducts)
+  } catch (err) {
+    console.error('Erreur getServiceProductsWithDetails:', err)
+    return response.status(500).json({
+      error: 'Erreur serveur',
+      message: err instanceof Error ? err.message : 'Erreur inconnue'
+    })
+  }
+}
+
 }
