@@ -83,6 +83,8 @@ router
       router.post('/users', usersController.store.bind(usersController))
       router.put('/users/:id', usersController.update.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
+      router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))
+
     })
     //.middleware('auth') // Protège toutes les routes
 
@@ -230,7 +232,7 @@ router
           '/reservations/:id/extendStay',
           reservationsController.extendStay.bind(reservationsController)
         )
-          router.get(
+        router.get(
           '/reservations/:id/cancellation-summary',
           reservationsController.getCancellationSummary.bind(reservationsController)
         )
