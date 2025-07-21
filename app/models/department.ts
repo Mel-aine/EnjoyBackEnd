@@ -17,6 +17,9 @@ export default class Department extends BaseModel {
   @column()
   declare responsible_user_id?: number
 
+  @belongsTo(() => User, { foreignKey: 'responsible_user_id' })
+  declare responsibleUser: BelongsTo<typeof User>
+
   @column()
   declare status: 'active' | 'inactive' | 'suspended'
 

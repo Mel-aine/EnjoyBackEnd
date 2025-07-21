@@ -217,8 +217,7 @@ export default class UsersController extends CrudController<typeof User> {
       const lastVisit = reservations.find(
         (r) =>
           (r.status === 'checked_out' || r.status === 'completed') &&
-          r.depart_date &&
-          r.depart_date < now
+          r.depart_date! < now
       )
       const lastVisitDetails = lastVisit
         ? {
@@ -267,8 +266,37 @@ export default class UsersController extends CrudController<typeof User> {
         (r) => r.remaining_amount && r.remaining_amount > 0 && r.status !== 'cancelled'
       )
 
+      const totalRemainingAmount = unpaidReservations.reduce(
+        (sum, r) => sum + ( parseFloat(`${r.remaining_amount}`) || 0),
+        0
+      )
+
+      let dueDate: string | null = null
+      let description = ''
+
+      if (unpaidReservations.length > 0) {
+        // Find the reservation with the earliest due date
+        const earliestReservation = unpaidReservations.reduce((earliest, current) => {
+          if (!earliest.depart_date) return current
+          if (!current.depart_date) return earliest
+          return current.depart_date < earliest.depart_date ? current : earliest
+        })
+
+        dueDate = earliestReservation.departDate?.toISODate() ?? null
+
+        if (unpaidReservations.length === 1) {
+          const r = unpaidReservations[0]
+          description = `This is the final payment for booking #${r.reservation_number} at ${r.service.name}.`
+        } else {
+          description = `This is the final payment for your flight and hotel bookings. You have ${unpaidReservations.length} outstanding payments.`
+        }
+      }
+
       const outstandingBalances = {
         hasOutstanding: unpaidReservations.length > 0,
+        totalRemainingAmount,
+        dueDate,
+        description,
         details: unpaidReservations.map((r) => ({
           reservationId: r.id,
           reservationNumber: r.reservation_number,
@@ -283,7 +311,8 @@ export default class UsersController extends CrudController<typeof User> {
         hotelStatus,
         outstandingBalances,
         lastVisitDetails,
-        upcomingVisitDetails
+        upcomingVisitDetails,
+        reservations
       })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
