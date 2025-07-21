@@ -168,6 +168,7 @@ router
     router.group(() => {
       router.post('/service_product', serviceProductsController.store.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
+      router.post('/service_product/:id/filter', serviceProductsController.filter.bind(serviceProductsController))
       router.get('/service_product_options', serviceProductsController.getAllWithOptions.bind(serviceProductsController))
       router.get('/service_product_option', serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
       router.get('/service_product/:id', serviceProductsController.show.bind(serviceProductsController))
@@ -178,6 +179,7 @@ router
       router.delete('/service_product/:id', serviceProductsController.destroyed.bind(serviceProductsController))
       router.patch('/service_product/update_status/:id', serviceProductsController.updateStatus.bind(serviceProductsController))
       router.get('/service-products/available', serviceProductsController.findAvailableRooms.bind(serviceProductsController))
+      router.get('/service-products/:serviceId/details', serviceProductsController.getServiceProductsWithDetails.bind(serviceProductsController))
     })
 
     router
@@ -335,6 +337,7 @@ router
 
     router.group(() => {
       router.get('/option', optionsController.list.bind(optionsController))
+      router.get('/option_equipement', optionsController.equipmentFilterOptions.bind(optionsController))
       router.get('/option/:id', optionsController.show.bind(optionsController))
       router.post('/option', optionsController.store.bind(optionsController))
       router.put('/option/:id', optionsController.update.bind(optionsController))
@@ -409,7 +412,7 @@ router
     router.group(() => {
       router.post('/refund', refundsController.store.bind(refundsController))
       router.get('/refund', refundsController.list.bind(refundsController))
-      router.get('/refund/:id', refundsController.show.bind(refundsController))
+      router.get('/refund/:serviceId', refundsController.getRefundByServiceId.bind(refundsController))
       router.put('/refund/:id', refundsController.update.bind(refundsController))
       router.delete('/refund/:id', refundsController.destroy.bind(refundsController))
     })
