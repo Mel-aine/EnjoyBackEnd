@@ -167,7 +167,7 @@ router
     router.group(() => {
       router.post('/service_product', serviceProductsController.store.bind(serviceProductsController))
       router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
-      router.get('/service_product/filter', serviceProductsController.filter.bind(serviceProductsController))
+      router.post('/service_product/:id/filter', serviceProductsController.filter.bind(serviceProductsController))
       router.get('/service_product_options', serviceProductsController.getAllWithOptions.bind(serviceProductsController))
       router.get('/service_product_option', serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController))
       router.get('/service_product/:id', serviceProductsController.show.bind(serviceProductsController))

@@ -684,7 +684,7 @@ public async getServiceProductsWithDetails({ params, response }: HttpContext) {
   }
 }
 
-public async filter({ request, response }: HttpContext) {
+public async filter({ request, response, params }: HttpContext) {
   try {
     const {
       searchText,
@@ -692,38 +692,38 @@ public async filter({ request, response }: HttpContext) {
       status,
       floor,
       equipment = []
-    } = request.qs()
+    } = request.body()
+
+    const service_id = params.id
 
     const query = ServiceProduct.query()
       .preload('availableOptions')
       .preload('productType')
 
-    // Search by room number
-    if (searchText) {
-      query.whereILike('room_number', `%${searchText}%`)
+    if (service_id) {
+      query.where('service_id', service_id)
     }
 
-    // Filter by room type
+    if (searchText) {
+      query.whereRaw('CAST(room_number AS TEXT) ILIKE ?', [`%${searchText}%`])
+    }
+
     if (roomType) {
       query.where('product_type_id', roomType)
     }
 
-    // Filter by floor
     if (floor) {
       query.where('floor', floor)
     }
 
-    // Filter by status
     if (status) {
       query.where('status', status)
     }
 
-    // Filter by equipment
     if (Array.isArray(equipment) && equipment.length > 0) {
       for (const item of equipment) {
         if (!item.label || !item.value) continue
 
-        // Extraire "Air Conditioning" depuis "Air Conditioning: Yes"
         const [optionName] = item.label.split(':').map((s:any) => s.trim())
         const value = item.value
 
@@ -737,10 +737,15 @@ public async filter({ request, response }: HttpContext) {
 
     const rooms = await query
     return response.ok(rooms)
+
   } catch (error) {
-    console.error('Error filtering rooms:', error)
-    return response.status(500).json({ message: 'Server error' })
+    console.error('❌ Error filtering rooms:', error)
+    return response.status(500).json({
+      message: 'Server error',
+      error: error.message
+    })
   }
 }
+
 
 }
