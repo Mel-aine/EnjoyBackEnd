@@ -412,6 +412,7 @@ router
       router.post('/refund', refundsController.store.bind(refundsController))
       router.get('/refund', refundsController.list.bind(refundsController))
       router.get('/refund/:serviceId', refundsController.getRefundByServiceId.bind(refundsController))
+      router.post('/refund/filter/:serviceId', refundsController.filterRefunds.bind(refundsController))
       router.put('/refund/:id', refundsController.update.bind(refundsController))
       router.delete('/refund/:id', refundsController.destroy.bind(refundsController))
     })
