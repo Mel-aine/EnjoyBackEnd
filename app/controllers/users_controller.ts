@@ -282,7 +282,7 @@ export default class UsersController extends CrudController<typeof User> {
           return current.depart_date < earliest.depart_date ? current : earliest
         })
 
-        dueDate = earliestReservation.departDate?.toISODate() ?? null
+        dueDate = earliestReservation.depart_date?.toISODate() ?? null
 
         if (unpaidReservations.length === 1) {
           const r = unpaidReservations[0]

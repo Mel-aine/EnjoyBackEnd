@@ -573,17 +573,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const { params, request, response, auth } = ctx
     const reservationId = params.id
 
-    const validator = vine.compile(
-      vine.object({
-        new_depart_date: vine.date(),
-      })
-    )
+    // const validator = vine.compile(
+    //   vine.object({
+    //     new_depart_date: vine.date(),
+    //   })
+    // )
     const trx = await db.transaction()
     try {
 
-      const payload = await request.validateUsing(validator, {
-        data: request.body(),
-      })
+      // const payload = await request.validateUsing(validator, {
+      //   data: request.body(),
+      // })
       const body = request.body();
       //const newDepartDate = DateTime.fromJSDate(payload.new_depart_date)
       const reservation = await Reservation.query({ client: trx })
@@ -605,8 +605,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const oldReservationData = { ...reservation.serialize() }
       const newDepartDate = reservation.depart_date;
 
-      const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
-      const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
+      // const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
+      // const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
+      const newDepartDateLuxon = newDepartDate ;
+      const arrivedDateLuxon = reservation.arrived_date;
+
       const oldNumberOfNights = reservation.number_of_nights || 0
       const newNumberOfNights = newDepartDateLuxon!.diff(arrivedDateLuxon, 'days').days
       const additionalNights = newNumberOfNights - oldNumberOfNights
@@ -692,7 +695,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Calculate free cancellation deadline
-      const arrivalDate = DateTime.fromJSDate(new Date(reservation.arrived_date))
+      // const arrivalDate = DateTime.fromJSDate(new Date(reservation.arrived_date))
+      const arrivalDate = reservation.arrived_date
       const freeCancellationDeadline = arrivalDate.minus({ [policy.free_cancellation_period_unit]: policy.free_cancellation_periodValue })
 
       const now = DateTime.now()
@@ -808,9 +812,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservation.payment_status = 'refunded'
         }
         await reservation.save()
-        const resServices = await ReservationServiceProduct.query()
-          .where('reservation_id', params.id)
-          .preload('serviceProduct');
+        // const resServices = await ReservationServiceProduct.query()
+        //   .where('reservation_id', params.id)
+        //   .preload('serviceProduct');
         await LoggerService.log({
           actorId: auth.user!.id,
           action: 'CANCEL',
@@ -836,7 +840,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.badRequest({ message: 'Reservation is missing an arrival date.' })
       }
 
-      const hoursUntilCheckIn = DateTime.fromJSDate(new Date(reservation.arrived_date)).diff(now, 'hours').hours
+      // const hoursUntilCheckIn = DateTime.fromJSDate(new Date(reservation.arrived_date)).diff(now, 'hours').hours
+      const hoursUntilCheckIn = reservation.arrived_date.diff(now, 'hours').hours
       const freeCancellationHours =
         policy.free_cancellation_period_unit === 'days'
           ? policy.free_cancellation_periodValue * 24
