@@ -98,4 +98,24 @@ export default class ActivityLogsController {
 
     return response.ok(logs)
   }
+
+  /**show by user */
+
+public async showByUser({ params, response }: HttpContext) {
+  const { createdBy } = params
+
+  if (!createdBy) {
+    return response.badRequest({ message: 'createdBy is a required route parameter.' })
+  }
+
+  const logs = await ActivityLog.query()
+    .where('created_by', createdBy)
+    .preload('user')
+    .orderBy('createdAt', 'desc')
+
+  return response.ok(logs)
+}
+
+
+
 }

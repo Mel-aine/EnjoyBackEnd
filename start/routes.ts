@@ -256,6 +256,7 @@ router
         activityLogsController.showByEntity.bind(activityLogsController)
       )
       router.get('/activity-logs/:id', activityLogsController.show.bind(activityLogsController))
+      router.get('/activity-logs/user/:createdBy', activityLogsController.showByUser.bind(activityLogsController))
       router.put('/activity-logs/:id', activityLogsController.update.bind(activityLogsController))
     })
 
