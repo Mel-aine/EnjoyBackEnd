@@ -250,6 +250,7 @@ router
     router.group(() => {
       router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))
       router.post('/activity-logs', activityLogsController.store.bind(activityLogsController))
+       router.get('/activity-logs/user/:createdBy', activityLogsController.showByUser.bind(activityLogsController))
       // This route must be before /:id to avoid 'by-entity' being treated as an id
       router.get(
         '/activity-logs/by-entity',
