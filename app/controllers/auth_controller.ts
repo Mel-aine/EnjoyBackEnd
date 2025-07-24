@@ -65,18 +65,112 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
-  public async signin(ctx: HttpContext) {
-    const { request, response,} = ctx
-    const { email, password } = request.only(['email', 'password'])
+  // public async signin(ctx: HttpContext) {
+  //   const { request, response,} = ctx
+  //   const { email, password } = request.only(['email', 'password'])
 
-    try {
-      const user = await User.query().where('email', email).preload('role').firstOrFail()
+  //   try {
+  //     const user = await User.query().where('email', email).preload('role').firstOrFail()
 
-      const passwordValid = await hash.verify(user.password, password)
-      if (!passwordValid) {
-        return response.unauthorized({ message: 'Invalid credentials' })
+  //     const passwordValid = await hash.verify(user.password,password)
+  //     console.log('Password from request:', password)
+  //     console.log('Hashed password from DB:', user.password)
+  //     console.log('Password valid:', passwordValid)
+  //     if (!passwordValid) {
+  //       return response.unauthorized({ message: 'Invalid credentials' })
+  //     }
+  //     const isAdmin = user.role?.role_name === 'admin'
+
+  //     let userServices
+
+  //     if (isAdmin) {
+  //       userServices = await user.related('services').query().preload('category').limit(50)
+  //     } else {
+  //       const assignments = await user
+  //         .related('serviceAssignments')
+  //         .query()
+  //         .preload('service', (serviceQuery) => {
+  //           serviceQuery.preload('category')
+  //         })
+
+  //       userServices = assignments.map((a) => a.service)
+  //     }
+
+  //     const token = await User.accessTokens.create(user, ['*'], { name: email })
+
+  //     //  Ajout de detailedPermissions (comme getUserPermissions)
+  //     const assignments = await ServiceUserAssignment.query()
+  //       .where('user_id', user.id)
+  //       .preload('service')
+  //       .preload('roleModel', (roleQuery) => {
+  //         roleQuery.preload('permissions')
+  //       })
+
+  //     const detailedPermissions = assignments.map((assignment) => ({
+  //       service: {
+  //         id: assignment.service?.id,
+  //         name: assignment.service?.name,
+  //       },
+  //       role: {
+  //         name: assignment.roleModel?.role_name,
+  //         description: assignment.roleModel?.description,
+  //       },
+  //       permissions:
+  //         assignment.roleModel?.permissions.map((p) => ({
+  //           id: p.id,
+  //           name: p.name,
+  //           description: p.label,
+  //         })) ?? [],
+  //     }))
+
+  //     return response.ok({
+  //       message: 'Login successful',
+  //       data: {
+  //         user,
+  //         user_token: token,
+  //         userServices,
+  //         permissions: detailedPermissions,
+  //       },
+  //     })
+  //   } catch (error) {
+  //     console.error('Login error:', error)
+  //     return response.badRequest({ message: 'Login failed' })
+  //   }
+  // }
+
+
+
+public async signin(ctx: HttpContext) {
+  const { request, response } = ctx
+  const { email, password } = request.only(['email', 'password'])
+
+  console.log('📥 Reçu email:', email)
+
+  try {
+    const user = await User.query().where('email', email).preload('role').firstOrFail()
+    console.log('👤 Utilisateur trouvé :', user.email)
+    console.log('🔐 Mot de passe reçu :', password)
+    const scrypt = hash.use('scrypt')
+
+    let passwordValid = await scrypt.verify(password, user.password)
+    console.log('🔐 Password valid?', passwordValid)
+
+    if (!passwordValid) {
+      passwordValid = await scrypt.verify(user.password, password)
+      console.log('🔁 Password valid (inversé)?', passwordValid)
+
+      if (passwordValid) {
+        console.log(`🛠️ Fixing password hash for user: ${user.email}`)
+        user.password = await scrypt.make(password)
+        await user.save()
       }
-      const isAdmin = user.role?.role_name === 'admin'
+    }
+
+    if (!passwordValid) {
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+
+   const isAdmin = user.role?.role_name === 'admin'
 
       let userServices
 
@@ -119,8 +213,7 @@ export default class AuthController {
             description: p.label,
           })) ?? [],
       }))
-
-      return response.ok({
+       return response.ok({
         message: 'Login successful',
         data: {
           user,
@@ -129,11 +222,12 @@ export default class AuthController {
           permissions: detailedPermissions,
         },
       })
-    } catch (error) {
-      console.error('Login error:', error)
-      return response.badRequest({ message: 'Login failed' })
-    }
+
+  } catch (error) {
+    console.error('❌ Login error:', error)
+    return response.badRequest({ message: 'Login failed' })
   }
+}
 
   public async update_user({ auth, request, response }: HttpContext) {
     try {

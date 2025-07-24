@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany,beforeSave } from '@adonisjs/lucid/orm'
 import { AccessToken } from '@adonisjs/auth/access_tokens'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
@@ -10,6 +10,8 @@ import Services from '#models/service'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Permission from '#models/permission'
 import Reservation from '#models/reservation'
+
+
 
 const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
   uids: ['email'],
@@ -94,6 +96,14 @@ export default class User extends AuthFinder(BaseModel) {
     pivotColumns: ['role_id'],
   })
   declare permissions: ManyToMany<typeof Permission>
+
+ @beforeSave()
+  static async hashPasswordBeforeSave(user: User) {
+    if (user.$dirty.password) {
+      user.password = await hash.make(user.password)
+    }
+  }
+
 
   static accessTokens = DbAccessTokensProvider.forModel(User, {
     expiresIn: '30 days',

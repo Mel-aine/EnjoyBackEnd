@@ -5,7 +5,7 @@ import CrudController from './crud_controller.js'
 import User from '#models/user'
 import { DateTime } from 'luxon';
 const UserAssigmentService = new CrudService(ServiceUserAssignment)
-import hash from '@adonisjs/core/services/hash'
+// import hash from '@adonisjs/core/services/hash'
 
 
 export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment>{
@@ -56,7 +56,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       user.nationality = nationality ?? null
       user.phone_number = phone_number ?? null
       user.address = address
-      user.password = await hash.make(password)
+      user.password = password
       user.role_id = role_id
       user.status = status
       user.created_by = created_by ?? null

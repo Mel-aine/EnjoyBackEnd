@@ -5,6 +5,7 @@ import Service from '#models/service'
 import type { HttpContext } from '@adonisjs/core/http'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import LoggerService from '#services/logger_service'
+// import hash from '@adonisjs/core/services/hash'
 
 export default class ServicesController extends CrudController<typeof Service> {
   private userService: CrudService<typeof User>
@@ -109,7 +110,6 @@ export default class ServicesController extends CrudController<typeof Service> {
     ctx: ctx,
   })
 }
-
 
 
     const newService = await this.serviceService.create({
