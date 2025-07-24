@@ -7,7 +7,6 @@ import User from '#models/user'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import LoggerService from '#services/logger_service'
 
-
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
   private responseError(message: string, statusCode: number, errors?: any) {
@@ -29,35 +28,33 @@ export default class AuthController {
   }
 
   // Connexion
- async login(ctx: HttpContext) {
-  const { request } = ctx
-  const { email, password } = request.only(['email', 'password'])
+  async login(ctx: HttpContext) {
+    const { request } = ctx
+    const { email, password } = request.only(['email', 'password'])
 
-  try {
-    const user = await User.findBy('email', email)
-    if (!user) return this.responseError('Invalid credentials', 401)
+    try {
+      const user = await User.findBy('email', email)
+      if (!user) return this.responseError('Invalid credentials', 401)
 
-    const login = await hash.verify(user.password, password)
-    if (!login) return this.responseError('Invalid credentials', 401)
+      const login = await hash.verify(password, user.password)
+      if (!login) return this.responseError('Invalid credentials', 401)
 
-    const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
+      const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
 
-    await LoggerService.log({
-      actorId: user.id,
-      action: 'LOGIN',
-      entityType: 'User',
-      entityId: user.id.toString(),
-      description: `Connexion de l'utilisateur ${email}`,
-      ctx: ctx,
-    })
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'LOGIN',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Connexion de l'utilisateur ${email}`,
+        ctx: ctx,
+      })
 
-    return this.response('Login successfully', { user, user_token: token })
-  } catch (error: any) {
-    return this.responseError('Invalid credentials', 400)
+      return this.response('Login successfully', { user, user_token: token })
+    } catch (error: any) {
+      return this.responseError('Invalid credentials', 400)
+    }
   }
-}
-
-
 
   // Récupérer les informations de l'utilisateur
   async user({ auth }: HttpContext) {
@@ -68,14 +65,34 @@ export default class AuthController {
   public async signin(ctx: HttpContext) {
     const { request, response,} = ctx
     const { email } = request.only(['email', 'password'])
+    const { request, response } = ctx
+    const { email, password } = request.only(['email', 'password'])
+
+    console.log('🔍 [AUTH DEBUG] Tentative de connexion pour:', email)
+    console.log('🔍 [AUTH DEBUG] Mot de passe fourni:', password ? '***PRESENTE***' : 'VIDE')
 
     try {
       const user = await User.query().where('email', email).preload('role').firstOrFail()
+      console.log('✅ [AUTH DEBUG] Utilisateur trouvé:', user.email, 'ID:', user.id)
+      console.log(
+        '🔍 [AUTH DEBUG] Hash en base:',
+        user.password ? user.password.substring(0, 20) + '...' : 'VIDE'
+      )
 
       // const passwordValid = await hash.verify(user.password, password)
       // if (!passwordValid) {
       //   return response.unauthorized({ message: 'Invalid credentials' })
       // }
+      const passwordValid = await hash.verify(password, user.password)
+      console.log(
+        '🔍 [AUTH DEBUG] Validation mot de passe:',
+        passwordValid ? 'VALIDE ✅' : 'INVALIDE ❌'
+      )
+
+      if (!passwordValid) {
+        console.log('❌ [AUTH DEBUG] Échec - mot de passe incorrect')
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
       const isAdmin = user.role?.role_name === 'admin'
 
       let userServices
@@ -130,7 +147,11 @@ export default class AuthController {
         },
       })
     } catch (error) {
-      console.error('Login error:', error)
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        console.log('❌ [AUTH DEBUG] Utilisateur non trouvé pour email:', email)
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
+      console.error('❌ [AUTH DEBUG] Erreur login:', error)
       return response.badRequest({ message: 'Login failed' })
     }
   }
@@ -200,24 +221,22 @@ export default class AuthController {
     this.response('Refresh token successfully', { user, user_token: token })
   }
 
+  public async logout(ctx: HttpContext) {
+    const { auth, response } = ctx
+    const user = await auth.authenticate()
+    await User.accessTokens.delete(user, user.currentAccessToken.identifier)
 
- public async logout(ctx: HttpContext) {
-  const { auth, response } = ctx
-  const user = await auth.authenticate()
-  await User.accessTokens.delete(user, user.currentAccessToken.identifier)
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'LOGOUT',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Déconnexion de l'utilisateur ${user.email}`,
+      ctx: ctx,
+    })
 
-  await LoggerService.log({
-    actorId: user.id,
-    action: 'LOGOUT',
-    entityType: 'User',
-    entityId: user.id.toString(),
-    description: `Déconnexion de l'utilisateur ${user.email}`,
-    ctx: ctx
-  })
-
-  return response.ok({ message: 'Logout successfully' })
-}
-
+    return response.ok({ message: 'Logout successfully' })
+  }
 
   async validateEmail({ response, request }: HttpContext) {
     const { email } = request.only(['email'])
@@ -251,7 +270,7 @@ export default class AuthController {
         })
       }
 
-      const passwordValid = await hash.verify(user.password, password)
+      const passwordValid = await hash.verify(password, user.password)
 
       if (!passwordValid) {
         return response.status(401).json({

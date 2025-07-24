@@ -53,38 +53,38 @@ export default class CrudController<T extends typeof BaseModel> {
     }
   }
 
- /**
- * Create a new record with dynamic fields.
- */
-async store(ctx: HttpContext) {
-  const { request, response, auth } = ctx
-  try {
-    const data = request.all()
-    const item = await this.service.create(data)
+  /**
+   * Create a new record with dynamic fields.
+   */
+  async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx
+    try {
+      const data = request.all()
+      const item = await this.service.create(data)
 
-    // Récupération de l'utilisateur connecté
-    const user = auth.user
-    if (user) {
-      await LoggerService.log({
-        actorId: user.id,
-        action: 'CREATE',
-        entityType: this.service.getModelName(),
-        entityId: (item as any).id,
-        description: `${this.service.getModelName()} #${(item as any).id} created by ${user.first_name}.`,
-        changes: LoggerService.extractChanges({}, item.serialize()),
-        ctx,
+      // Récupération de l'utilisateur connecté
+      const user = auth.user
+      if (user) {
+        await LoggerService.log({
+          actorId: user.id,
+          action: 'CREATE',
+          entityType: this.service.getModelName(),
+          entityId: (item as any).id,
+          description: `${this.service.getModelName()} #${(item as any).id} created by ${user.first_name}.`,
+          changes: LoggerService.extractChanges({}, item.serialize()),
+          ctx,
+        })
+      }
+
+      return response.created(item)
+    } catch (error) {
+      console.error('Erreur lors de la création :', error)
+      return response.badRequest({
+        message: 'Error creating record',
+        error: error.message,
       })
     }
-
-    return response.created(item)
-  } catch (error) {
-    console.error('Erreur lors de la création :', error)
-    return response.badRequest({
-      message: 'Error creating record',
-      error: error.message,
-    })
   }
-}
 
   /**
    * Update an existing record dynamically.
@@ -147,7 +147,7 @@ async store(ctx: HttpContext) {
       }
 
       const fields = request.input('fields', ['*'])
-      const categoryIdNum = parseInt(categoryId, 10)
+      const categoryIdNum = Number.parseInt(categoryId, 10)
       if (isNaN(categoryIdNum)) {
         return response.badRequest({ message: 'Invalid categoryId' })
       }
@@ -176,7 +176,7 @@ async store(ctx: HttpContext) {
       }
 
       const fields = request.input('fields', ['*'])
-      const serviceIdNum = parseInt(serviceId, 10)
+      const serviceIdNum = Number.parseInt(serviceId, 10)
       if (isNaN(serviceIdNum)) {
         return response.badRequest({ message: 'Invalid categoryId' })
       }
@@ -204,7 +204,7 @@ async store(ctx: HttpContext) {
       }
 
       const fields = request.input('fields', ['*'])
-      const serviceIdNum = parseInt(serviceProductId, 10)
+      const serviceIdNum = Number.parseInt(serviceProductId, 10)
       if (isNaN(serviceIdNum)) {
         return response.badRequest({ message: 'Invalid serviceProductId' })
       }
@@ -233,7 +233,7 @@ async store(ctx: HttpContext) {
       }
 
       const fields = request.input('fields', ['*'])
-      const serviceIdNum = parseInt(serviceId, 10)
+      const serviceIdNum = Number.parseInt(serviceId, 10)
       if (isNaN(serviceIdNum)) {
         return response.badRequest({ message: 'Invalid categoryId' })
       }
@@ -263,7 +263,7 @@ async store(ctx: HttpContext) {
       }
 
       const fields = request.input('fields', ['*'])
-      const reservationIdNum = parseInt(reservationId, 10)
+      const reservationIdNum = Number.parseInt(reservationId, 10)
       if (isNaN(reservationIdNum)) {
         return response.badRequest({ message: 'Invalid reservationId' })
       }
@@ -288,7 +288,7 @@ async store(ctx: HttpContext) {
 
   //update service Product
   async updateByServiceProductId({ params, request, response }: HttpContext) {
-    const serviceProductId = parseInt(params.service_product_id, 10)
+    const serviceProductId = Number.parseInt(params.service_product_id, 10)
     const optionsPayload = request.input('options')
 
     if (isNaN(serviceProductId)) {
