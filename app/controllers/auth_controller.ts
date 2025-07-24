@@ -79,10 +79,10 @@ export default class AuthController {
         user.password ? user.password.substring(0, 20) + '...' : 'VIDE'
       )
 
-      // const passwordValid = await hash.verify(user.password, password)
-      // if (!passwordValid) {
-      //   return response.unauthorized({ message: 'Invalid credentials' })
-      // }
+      const passwordValid = await hash.verify(user.password, password)
+      if (!passwordValid) {
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
       const passwordValid = await hash.verify(password, user.password)
       console.log(
         '🔍 [AUTH DEBUG] Validation mot de passe:',
