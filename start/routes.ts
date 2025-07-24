@@ -721,8 +721,8 @@ router
       .prefix('cancellation-policies')
   })
   .prefix('/api')
-  .use(
+ /* .use(
     middleware.auth({
       guards: ['api'],
     })
-  )
+  )*/
