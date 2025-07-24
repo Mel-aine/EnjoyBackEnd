@@ -63,8 +63,7 @@ export default class AuthController {
   }
 
   public async signin(ctx: HttpContext) {
-    const { request, response,} = ctx
-    const { email } = request.only(['email', 'password'])
+
     const { request, response } = ctx
     const { email, password } = request.only(['email', 'password'])
 
@@ -79,10 +78,6 @@ export default class AuthController {
         user.password ? user.password.substring(0, 20) + '...' : 'VIDE'
       )
 
-      const passwordValid = await hash.verify(user.password, password)
-      if (!passwordValid) {
-        return response.unauthorized({ message: 'Invalid credentials' })
-      }
       const passwordValid = await hash.verify(password, user.password)
       console.log(
         '🔍 [AUTH DEBUG] Validation mot de passe:',
