@@ -210,7 +210,7 @@ router
       router.get('/users', usersController.list.bind(usersController))
       router.get('/users/:id', usersController.show.bind(usersController))
       //router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-      router.post('/users', usersController.store.bind(usersController))
+      // router.post('/users', usersController.store.bind(usersController))
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
       router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))
@@ -721,8 +721,8 @@ router
       .prefix('cancellation-policies')
   })
   .prefix('/api')
-  .use(
-    middleware.auth({
-      guards: ['api'],
-    })
-  )
+  // .use(
+  //   middleware.auth({
+  //     guards: ['api'],
+  //   })
+  // )

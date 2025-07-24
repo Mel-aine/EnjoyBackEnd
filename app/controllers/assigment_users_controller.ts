@@ -28,7 +28,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       created_by,
       service_id,
       role,
-      department_id,
+      department_id,    
       hire_date,
     } = request.only([
       'first_name',
@@ -49,6 +49,9 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
 
     try {
       // 1. Création utilisateur
+
+ 
+
       const user = new User()
       user.first_name = first_name
       user.last_name = last_name
@@ -56,7 +59,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       user.nationality = nationality ?? null
       user.phone_number = phone_number ?? null
       user.address = address
-      user.password = await hash.make(password)
+      user.password = password
       user.role_id = role_id
       user.status = status
       user.created_by = created_by ?? null

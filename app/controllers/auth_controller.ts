@@ -36,7 +36,7 @@ export default class AuthController {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
 
-      const login = await hash.verify(user.password, password)
+      const login = await hash.verify(password, user.password)
       if (!login) return this.responseError('Invalid credentials', 401)
 
       const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
@@ -72,11 +72,17 @@ export default class AuthController {
     try {
       const user = await User.query().where('email', email).preload('role').firstOrFail()
       console.log('✅ [AUTH DEBUG] Utilisateur trouvé:', user.email, 'ID:', user.id)
-      console.log('🔍 [AUTH DEBUG] Hash en base:', user.password ? user.password.substring(0, 20) + '...' : 'VIDE')
+      console.log(
+        '🔍 [AUTH DEBUG] Hash en base:',
+        user.password ? user.password.substring(0, 20) + '...' : 'VIDE'
+      )
 
-      const passwordValid = await hash.verify(user.password, password)
-      console.log('🔍 [AUTH DEBUG] Validation mot de passe:', passwordValid ? 'VALIDE ✅' : 'INVALIDE ❌')
-      
+      const passwordValid = await hash.verify(password, user.password)
+      console.log(
+        '🔍 [AUTH DEBUG] Validation mot de passe:',
+        passwordValid ? 'VALIDE ✅' : 'INVALIDE ❌'
+      )
+
       if (!passwordValid) {
         console.log('❌ [AUTH DEBUG] Échec - mot de passe incorrect')
         return response.unauthorized({ message: 'Invalid credentials' })
@@ -258,7 +264,7 @@ export default class AuthController {
         })
       }
 
-      const passwordValid = await hash.verify(user.password, password)
+      const passwordValid = await hash.verify(password, user.password)
 
       if (!passwordValid) {
         return response.status(401).json({
