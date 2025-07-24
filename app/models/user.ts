@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, beforeSave } from '@adonisjs/lucid/orm'
 import { AccessToken } from '@adonisjs/auth/access_tokens'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
@@ -104,6 +104,15 @@ export default class User extends AuthFinder(BaseModel) {
   })
 
   currentAccessToken?: AccessToken
+
+  @beforeSave()
+  static async hashPassword(user: User) {
+    if (user.$dirty.password) {
+      console.log('🔐 [HASH DEBUG] Hachage du mot de passe pour:', user.email)
+      user.password = await hash.make(user.password)
+      console.log('✅ [HASH DEBUG] Mot de passe haché avec succès')
+    }
+  }
 
   public async hasPermission(permissionName: string): Promise<boolean> {
   if (!this.role_id) return false
