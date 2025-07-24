@@ -67,7 +67,7 @@ export default class AuthController {
 
   public async signin(ctx: HttpContext) {
     const { request, response,} = ctx
-    const { email, password } = request.only(['email', 'password'])
+    const { email } = request.only(['email', 'password'])
 
     try {
       const user = await User.query().where('email', email).preload('role').firstOrFail()
