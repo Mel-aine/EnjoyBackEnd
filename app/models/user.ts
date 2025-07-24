@@ -54,6 +54,9 @@ export default class User extends AuthFinder(BaseModel) {
   declare status: 'active' | 'inactive' | 'suspended'
 
   @column()
+  declare service_id: string | null
+
+  @column()
   declare created_by: number | null
 
   @column()
@@ -68,6 +71,9 @@ export default class User extends AuthFinder(BaseModel) {
   /** Relation avec le rôle */
   @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
+
+  @belongsTo(() => Services, { foreignKey: 'service_id' })
+  declare service: BelongsTo<typeof Services>
 
   @hasMany(() => Services, {
     foreignKey: 'created_by',
