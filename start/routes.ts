@@ -204,6 +204,13 @@ router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
 })
 router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
+router.group(() => {
+  router.get('/category', categoriesController.list.bind(categoriesController))
+  router.get('/category/:id', categoriesController.show.bind(categoriesController))
+  router.post('/category', categoriesController.store.bind(categoriesController))
+  router.put('/category/:id', categoriesController.update.bind(categoriesController))
+  router.delete('/category/:id', categoriesController.destroy.bind(categoriesController))
+}).prefix('/api')
 router
   .group(() => {
     router.group(() => {
@@ -306,7 +313,7 @@ router
 
     router.group(() => {
       router.post('/services', servicesController.store.bind(servicesController))
-      
+
       router.get(
         '/servicesByCategory/:categoryId',
         servicesController.showByCategorie.bind(servicesController)
@@ -575,13 +582,7 @@ router
       router.delete('/option/:id', optionsController.destroy.bind(optionsController))
     })
 
-    router.group(() => {
-      router.get('/category', categoriesController.list.bind(categoriesController))
-      router.get('/category/:id', categoriesController.show.bind(categoriesController))
-      router.post('/category', categoriesController.store.bind(categoriesController))
-      router.put('/category/:id', categoriesController.update.bind(categoriesController))
-      router.delete('/category/:id', categoriesController.destroy.bind(categoriesController))
-    })
+
 
     router.group(() => {
       router.post('/schedules', schedulesController.create.bind(SchedulesController))
