@@ -48,13 +48,13 @@ export default class User extends AuthFinder(BaseModel) {
   declare password: string
 
   @column()
-  declare role_id: number
-
-  @column()
   declare status: 'active' | 'inactive' | 'suspended'
 
   @column()
   declare service_id: string | null
+
+  @column()
+  declare role_id: number
 
   @column()
   declare created_by: number | null

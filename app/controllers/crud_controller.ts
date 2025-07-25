@@ -16,12 +16,13 @@ export default class CrudController<T extends typeof BaseModel> {
   async list({ request, response }: HttpContext) {
     try {
       const filters = request.input('filters', {})
-      const fields = request.input('fields', ['*'])
+      const rawFields = request.input('fields', [])
+      const fields = rawFields.length === 0 || rawFields.includes('*') ? [] : rawFields
       const sortBy = request.input('sortBy', 'id')
       const order = request.input('order', 'asc') // 'asc' or 'desc'
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 200)
-      console.log('RYAN')
+      console.log('RYAN', fields)
       const data = await this.service.list(filters, fields, sortBy, order, page, perPage)
       console.log('-->data', data[0])
       return response.ok(data)

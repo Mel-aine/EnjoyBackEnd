@@ -1,7 +1,5 @@
 import { BaseModel } from '@adonisjs/lucid/orm'
 
-
-
 export default class CrudService<T extends typeof BaseModel> {
   private model: T
 
@@ -25,7 +23,6 @@ export default class CrudService<T extends typeof BaseModel> {
     order: string,
     page: number,
     perPage: number
-
   ) {
     let query = this.model.query()
     // Apply filters dynamically
