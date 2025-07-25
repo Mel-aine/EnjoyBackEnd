@@ -8,9 +8,7 @@ import { defineConfig } from '@adonisjs/cors'
  */
 const corsConfig = defineConfig({
   enabled: true,
-  origin: [
-    'https://enjoy-admin-one.vercel.app', // domaine autorisé
-  ],
+  origin: ['https://enjoy-admin-one.vercel.app', 'http://localhost:5173', 'http://localhost:5174'],
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   headers: true,
   exposeHeaders: [],
