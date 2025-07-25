@@ -203,7 +203,7 @@ router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsControll
 router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
 })
-
+router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
 router
   .group(() => {
     router.group(() => {
@@ -306,7 +306,7 @@ router
 
     router.group(() => {
       router.post('/services', servicesController.store.bind(servicesController))
-      router.get('/services', servicesController.list.bind(servicesController))
+      
       router.get(
         '/servicesByCategory/:categoryId',
         servicesController.showByCategorie.bind(servicesController)
