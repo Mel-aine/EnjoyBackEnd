@@ -469,11 +469,6 @@ router
           reservationsController.cancelReservation.bind(reservationsController)
         )
       })
-      .use(
-        middleware.auth({
-          guards: ['api'],
-        })
-      )
 
     router.group(() => {
       router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))
@@ -721,8 +716,8 @@ router
       .prefix('cancellation-policies')
   })
   .prefix('/api')
- /* .use(
+  .use(
     middleware.auth({
       guards: ['api'],
     })
-  )*/
+  )

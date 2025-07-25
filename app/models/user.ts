@@ -11,7 +11,7 @@ import ServiceUserAssignment from '#models/service_user_assignment'
 import Permission from '#models/permission'
 import Reservation from '#models/reservation'
 
-const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
+const AuthFinder = withAuthFinder(() => hash.use('argon'), {
   uids: ['email'],
   passwordColumnName: 'password',
 })
@@ -107,9 +107,9 @@ export default class User extends AuthFinder(BaseModel) {
 
   @beforeSave()
   static async hashPassword(user: User) {
-    if (user.$dirty.password) {
+   if (user.$dirty.password) {
       console.log('🔐 [HASH DEBUG] Hachage du mot de passe pour:', user.email)
-      user.password = await hash.make(user.password)
+      user.password = await hash.use('argon').make(user.password)
       console.log('✅ [HASH DEBUG] Mot de passe haché avec succès')
     }
   }

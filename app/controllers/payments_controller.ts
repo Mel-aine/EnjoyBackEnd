@@ -31,8 +31,8 @@ export default class PaymentsController extends CrudController<typeof Payment> {
         notes: data.notes || null,
         transaction_id: data.transaction_id,
         service_id: data.service_id,
-        created_by: data.created_by,
-        last_modified_by: data.last_modified_by,
+        created_by: auth.user!.id,
+        last_modified_by: auth.user!.id,
       };
       logger.info('this is an info message')
       logger.info(JSON.stringify(paymentData))
@@ -42,7 +42,7 @@ export default class PaymentsController extends CrudController<typeof Payment> {
       // Log payment creation
       if (payment.created_by)
         await LoggerService.log({
-          actorId: payment.created_by,
+          actorId: auth.user!.id,
           action: 'CREATE',
           entityType: 'Payment',
           entityId: payment.id,
@@ -68,22 +68,21 @@ export default class PaymentsController extends CrudController<typeof Payment> {
         reservation.paid_amount = parseFloat(`${reservation.paid_amount}`) + parseFloat(`${data.amount_paid}`);
         if (reservation.total_amount && reservation.paid_amount)
           reservation.remaining_amount = reservation.total_amount - reservation.paid_amount;
-        reservation.last_modified_by = payment.created_by
+        reservation.last_modified_by = auth.user!.id
 
 
         logger.info(JSON.stringify(reservation))
 
         await reservation.save()
         // Log reservation update
-        if (payment.created_by)
-          await LoggerService.log({
-            actorId: auth.user!.id,
-            action: 'UPDATE',
-            entityType: 'Reservation',
-            entityId: reservation.id,
-            description: `Reservation #${reservation.id} status updated to '${reservation.status}' (was '${oldReservationStatus}') and payment status to '${reservation.payment_status}' (was '${oldStatus}').`,
-            ctx: ctx,
-          })
+        await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'UPDATE',
+          entityType: 'Reservation',
+          entityId: reservation.id,
+          description: `Reservation #${reservation.id} status updated to '${reservation.status}' (was '${oldReservationStatus}') and payment status to '${reservation.payment_status}' (was '${oldStatus}').`,
+          ctx: ctx,
+        })
       } else {
         return response.status(404).json({ error: 'Reservation not found' });
       }

@@ -32,8 +32,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
   public async createWithUserAndReservation(ctx: HttpContext) {
     console.log(JSON.stringify(ctx.request.body()))
-    const { request, response } = ctx
+    const { request, response, auth } = ctx
     const data = request.body()
+    const trx = await db.transaction()
     try {
       let user = await User.query().where('email', data.email).first()
 
@@ -45,8 +46,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           phone_number: data.phone_number,
           role_id: data.role_id || 4,
           status: 'active',
-          created_by: data.created_by || null,
-          last_modified_by: data.last_modified_by || null,
+          created_by: auth.user?.id,
+          last_modified_by: auth.user?.id,
         })
       }
       const reservation = await this.reservationService.create({
@@ -64,8 +65,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         depart_date: data.depart_date || null,
         reservation_time: data.reservation_time || null,
         comment: data.comment,
-        created_by: user.id,
-        last_modified_by: user.id,
+        created_by: auth.user?.id,
+        last_modified_by: auth.user?.id,
         customer_type: data.customer_type || null,
         group_name: data.group_name || null,
         company_name: data.company_name || null,
@@ -122,16 +123,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Log the activity using our new service
       await LoggerService.log({
-        actorId: user.id,
+        actorId: auth.user?.id!,
         action: 'CREATE',
         entityType: 'Reservation',
         entityId: reservation.id,
         description: `Reservation #${reservation.id} was created for user ${user.first_name}.`,
         ctx: ctx, // Pass the full context
       })
-
+      trx.commit()
       return response.created({ user, reservation })
     } catch (error) {
+      trx.rollback()
       return response.status(500).send({
         message: 'Erreur lors de la création de l’utilisateur ou de la réservation',
         error: error.message,
@@ -607,7 +609,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
       // const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
-      const newDepartDateLuxon = newDepartDate ;
+      const newDepartDateLuxon = newDepartDate;
       const arrivedDateLuxon = reservation.arrived_date;
 
       const oldNumberOfNights = reservation.number_of_nights || 0
