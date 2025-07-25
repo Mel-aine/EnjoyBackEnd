@@ -21,8 +21,9 @@ export default class CrudController<T extends typeof BaseModel> {
       const order = request.input('order', 'asc') // 'asc' or 'desc'
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 200)
-
+      console.log('RYAN')
       const data = await this.service.list(filters, fields, sortBy, order, page, perPage)
+      console.log('-->data', data[0])
       return response.ok(data)
     } catch (error) {
       return response.internalServerError({
