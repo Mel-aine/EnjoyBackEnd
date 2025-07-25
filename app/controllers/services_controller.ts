@@ -76,7 +76,7 @@ export default class ServicesController extends CrudController<typeof Service> {
 
 
   public async createWithUserAndService(ctx: HttpContext) {
-    const { request, response, auth } = ctx
+    const { request, response } = ctx
     const data = request.body()
 
     logger.info('Body' + JSON.stringify(data))

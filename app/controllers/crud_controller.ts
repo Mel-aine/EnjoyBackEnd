@@ -147,8 +147,8 @@ export default class CrudController<T extends typeof BaseModel> {
       }
 
       const fields = request.input('fields', ['*'])
-      const categoryIdNum = parseInt(categoryId, 10)
-      if (isNaN(categoryIdNum)) {
+      const categoryIdNum = Number.parseInt(categoryId, 10)
+      if (Number.isNaN(categoryIdNum)) {
         return response.badRequest({ message: 'Invalid categoryId' })
       }
 
@@ -176,8 +176,8 @@ export default class CrudController<T extends typeof BaseModel> {
       }
 
       const fields = request.input('fields', ['*'])
-      const serviceIdNum = parseInt(serviceId, 10)
-      if (isNaN(serviceIdNum)) {
+      const serviceIdNum = Number.parseInt(serviceId, 10)
+      if (Number.isNaN(serviceIdNum)) {
         return response.badRequest({ message: 'Invalid categoryId' })
       }
 
@@ -204,8 +204,8 @@ export default class CrudController<T extends typeof BaseModel> {
       }
 
       const fields = request.input('fields', ['*'])
-      const serviceIdNum = parseInt(serviceProductId, 10)
-      if (isNaN(serviceIdNum)) {
+      const serviceIdNum = Number.parseInt(serviceProductId, 10)
+      if (Number.isNaN(serviceIdNum)) {
         return response.badRequest({ message: 'Invalid serviceProductId' })
       }
 
@@ -233,8 +233,8 @@ export default class CrudController<T extends typeof BaseModel> {
       }
 
       const fields = request.input('fields', ['*'])
-      const serviceIdNum = parseInt(serviceId, 10)
-      if (isNaN(serviceIdNum)) {
+      const serviceIdNum = Number.parseInt(serviceId, 10)
+      if (Number.isNaN(serviceIdNum)) {
         return response.badRequest({ message: 'Invalid categoryId' })
       }
 
@@ -258,8 +258,8 @@ export default class CrudController<T extends typeof BaseModel> {
       }
 
       const fields = request.input('fields', ['*'])
-      const reservationIdNum = parseInt(reservationId, 10)
-      if (isNaN(reservationIdNum)) {
+      const reservationIdNum = Number.parseInt(reservationId, 10)
+      if (Number.isNaN(reservationIdNum)) {
         return response.badRequest({ message: 'Invalid reservationId' })
       }
 
@@ -283,10 +283,10 @@ export default class CrudController<T extends typeof BaseModel> {
 
   //update service Product
   async updateByServiceProductId({ params, request, response }: HttpContext) {
-    const serviceProductId = parseInt(params.service_product_id, 10)
+    const serviceProductId = Number.parseInt(params.service_product_id, 10)
     const optionsPayload = request.input('options')
 
-    if (isNaN(serviceProductId)) {
+    if (Number.isNaN(serviceProductId)) {
       return response.badRequest({ message: 'Invalid service_product_id' })
     }
 

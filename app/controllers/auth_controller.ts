@@ -4,9 +4,7 @@ import hash from '@adonisjs/core/services/hash'
 import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
-import ServiceUserAssignment from '#models/service_user_assignment'
 import LoggerService from '#services/logger_service'
-import logger from '@adonisjs/core/services/logger'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -66,7 +64,7 @@ export default class AuthController {
   public async signin(ctx: HttpContext) {
 
     const { request, response } = ctx
-    const { email, password } = request.only(['email', 'password'])
+    const { email } = request.only(['email', 'password'])
 
 
     try {

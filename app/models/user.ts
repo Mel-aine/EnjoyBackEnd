@@ -65,6 +65,17 @@ export default class User extends AuthFinder(BaseModel) {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updated_at: DateTime
 
+  // Define accessTokens before the beforeSave hook
+  static accessTokens = DbAccessTokensProvider.forModel(User, {
+    expiresIn: '30 days',
+    prefix: 'ray_',
+    table: 'auth_access_tokens',
+    type: 'auth_token',
+    tokenSecretLength: 40,
+  })
+
+  currentAccessToken?: AccessToken
+
   /** Relation avec le rôle */
   @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
@@ -86,7 +97,6 @@ export default class User extends AuthFinder(BaseModel) {
   @hasMany(() => Reservation, { foreignKey: 'user_id' })
   declare reservations: HasMany<typeof Reservation>
 
-
   @manyToMany(() => Permission, {
     pivotTable: 'role_permissions',
     pivotForeignKey: 'role_id',
@@ -95,60 +105,43 @@ export default class User extends AuthFinder(BaseModel) {
   })
   declare permissions: ManyToMany<typeof Permission>
 
-  static accessTokens = DbAccessTokensProvider.forModel(User, {
-    expiresIn: '30 days',
-    prefix: 'ray_',
-    table: 'auth_access_tokens',
-    type: 'auth_token',
-    tokenSecretLength: 40,
-  })
-
-  currentAccessToken?: AccessToken
-
   @beforeSave()
-  static async hashPassword(user: User) {
-   if (user.$dirty.password) {
-      console.log('🔐 [HASH DEBUG] Hachage du mot de passe pour:', user.email)
-      user.password = await hash.use('argon').make(user.password)
-      console.log('✅ [HASH DEBUG] Mot de passe haché avec succès')
+  static async beforeSaveHook(user: User) {
+    if (user.$dirty.password) {
+      console.log('🔐 [HASH DEBUG] Mot de passe sera haché pour:', user.email)
+      // The withAuthFinder mixin will handle the actual hashing
     }
   }
 
   public async hasPermission(permissionName: string): Promise<boolean> {
-  if (!this.role_id) return false
+    if (!this.role_id) return false
 
-  await this.load('role' as any, (query) => {
-  query.preload('permissions')
-})
+    await this.load('role' as any, (query) => {
+      query.preload('permissions')
+    })
 
-  await this.role.load('permissions')
+    await this.role.load('permissions')
 
-  return this.role.permissions.some((permission) => permission.name === permissionName)
-}
+    return this.role.permissions.some((permission) => permission.name === permissionName)
+  }
 
-public async hasAnyPermission(permissions: string[]): Promise<boolean> {
-  if (!this.role_id) return false
+  public async hasAnyPermission(permissions: string[]): Promise<boolean> {
+    if (!this.role_id) return false
 
-  await this.load('role' as any, (query) => {
-  query.preload('permissions')
-})
+    await this.load('role' as any, (query) => {
+      query.preload('permissions')
+    })
 
-  await this.role.load('permissions')
+    await this.role.load('permissions')
 
-  return permissions.some((permission) =>
-    this.role.permissions.some((p) => p.name === permission)
-  )
-}
+    return permissions.some((permission) =>
+      this.role.permissions.some((p) => p.name === permission)
+    )
+  }
 
+  public async getServiceId(): Promise<number | null> {
+    const assignment = await ServiceUserAssignment.query().where('user_id', this.id).first()
 
-public async getServiceId(): Promise<number | null> {
-  const assignment = await ServiceUserAssignment.query()
-    .where('user_id', this.id)
-    .first()
-
-  return assignment?.service_id ?? null
-}
-
-
-
+    return assignment?.service_id ?? null
+  }
 }
