@@ -606,6 +606,10 @@ router
         '/assigmentUser/:serviceId',
         assigmentUsersController.showByServiceId.bind(assigmentUsersController)
       )
+      router.get(
+        '/services/:serviceId/employees',
+        assigmentUsersController.getEmployeesForService.bind(assigmentUsersController)
+      )
     })
 
     router.group(() => {
