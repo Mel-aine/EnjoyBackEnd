@@ -221,6 +221,10 @@ router
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
       router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))
+      router.get(
+        '/services/:serviceId/clients',
+        usersController.getClientsByService.bind(usersController)
+      )
     })
     //.middleware('auth') // Protège toutes les routes
 

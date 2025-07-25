@@ -8,6 +8,7 @@ import Payment from '#models/payment'
 import Log from '#models/activity_log'
 import LoggerService from '#services/logger_service'
 import { DateTime } from 'luxon'
+import Service from '#models/service'
 
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
@@ -267,7 +268,7 @@ export default class UsersController extends CrudController<typeof User> {
       )
 
       const totalRemainingAmount = unpaidReservations.reduce(
-        (sum, r) => sum + ( parseFloat(`${r.remaining_amount}`) || 0),
+        (sum, r) => sum + (parseFloat(`${r.remaining_amount}`) || 0),
         0
       )
 
@@ -323,6 +324,38 @@ export default class UsersController extends CrudController<typeof User> {
         message: 'Failed to fetch customer profile',
         error: error.message,
       })
+    }
+  }
+  /**
+ * Retrieves all clients for a specific hotel (service).
+ * A client is a user who has made at least one reservation for this hotel.
+ */
+  public async getClientsByService({ params, response }: HttpContext) {
+    try {
+      const { serviceId } = params
+
+      // Optional but recommended: Check if the service exists
+      const service = await Service.find(serviceId)
+      if (!service) {
+        return response.notFound({ message: 'Hotel not found.' })
+      }
+
+      // Get the IDs of users who have reservations for this service
+      const userIds = (await Reservation.query()
+        .where('service_id', serviceId)
+        .distinctOn('user_id').select('user_id')).map((e) => e.user_id)
+
+      if (userIds.length === 0) {
+        return response.ok([])
+      }
+
+      // Retrieve the details of the users
+      const clients = await User.query().whereIn('id', userIds)
+
+      return response.ok(clients)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Server error while fetching clients.' })
     }
   }
 }
