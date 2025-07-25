@@ -53,27 +53,8 @@ export default class CrudService<T extends typeof BaseModel> {
 
   async create(data: any) {
     console.log('respone', data)
-    console.log('model.user', this.model)
     return await this.model.create(data)
   }
-//  async create(data: any, ctx: HttpContext, serviceId : number) {
-//     const item = await this.model.create(data)
-
-//     const instance = item as unknown as ModelWithId
-
-//     await ActionHistoryService.logCrud(
-//       ctx,
-//       'created',
-//       this.getModelName(),
-//       instance.id,
-//       serviceId,
-//       item.toJSON()
-//     )
-
-//     return item
-//   }
-
-
 
   async update(id: number, data: any) {
     const item = await this.model.find(id)

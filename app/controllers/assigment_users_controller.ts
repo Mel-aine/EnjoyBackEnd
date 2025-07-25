@@ -5,8 +5,6 @@ import CrudController from './crud_controller.js'
 import User from '#models/user'
 import { DateTime } from 'luxon';
 const UserAssigmentService = new CrudService(ServiceUserAssignment)
-import hash from '@adonisjs/core/services/hash'
-
 
 export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment>{
     constructor() {

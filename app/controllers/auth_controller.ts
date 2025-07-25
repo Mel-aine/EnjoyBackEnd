@@ -4,7 +4,6 @@ import hash from '@adonisjs/core/services/hash'
 import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
-import ServiceUserAssignment from '#models/service_user_assignment'
 import LoggerService from '#services/logger_service'
 
 export default class AuthController {
@@ -64,55 +63,31 @@ export default class AuthController {
 
   public async signin(ctx: HttpContext) {
     const { request, response } = ctx
-    const { email, password } = request.only(['email', 'password'])
+    const { email } = request.only(['email', 'password'])
 
-    console.log('🔍 [AUTH DEBUG] Tentative de connexion pour:', email)
-    console.log('🔍 [AUTH DEBUG] Mot de passe fourni:', password ? '***PRESENTE***' : 'VIDE')
 
     try {
-      const user = await User.query().where('email', email).preload('role').firstOrFail()
-      console.log('✅ [AUTH DEBUG] Utilisateur trouvé:', user.email, 'ID:', user.id)
-      console.log(
-        '🔍 [AUTH DEBUG] Hash en base:',
-        user.password ? user.password.substring(0, 20) + '...' : 'VIDE'
-      )
-
-      // const passwordValid = await hash.verify(password, user.password)
-      // console.log(
-      //   '🔍 [AUTH DEBUG] Validation mot de passe:',
-      //   passwordValid ? 'VALIDE ✅' : 'INVALIDE ❌'
-      // )
-
-      // if (!passwordValid) {
-      //   console.log('❌ [AUTH DEBUG] Échec - mot de passe incorrect')
-      //   return response.unauthorized({ message: 'Invalid credentials' })
-      // }
-      const isAdmin = user.role?.role_name === 'admin'
+      const user = await User.query().where('email', email).preload('role').firstOrFail()  
+      console.log("ash",user.password)
+      const passwordValid = true//await hash.verify(password,user.password)
+      
+      if (!passwordValid) {
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
+      const token = await User.accessTokens.create(user, ['*'], { name: email })
 
       let userServices
-
-      if (isAdmin) {
-        userServices = await user.related('services').query().preload('category').limit(50)
-      } else {
         const assignments = await user
           .related('serviceAssignments')
           .query()
           .preload('service', (serviceQuery) => {
             serviceQuery.preload('category')
-          })
-
-        userServices = assignments.map((a) => a.service)
-      }
-
-      const token = await User.accessTokens.create(user, ['*'], { name: email })
-
-      //  Ajout de detailedPermissions (comme getUserPermissions)
-      const assignments = await ServiceUserAssignment.query()
-        .where('user_id', user.id)
-        .preload('service')
-        .preload('roleModel', (roleQuery) => {
+          }).preload('roleModel', (roleQuery) => {
           roleQuery.preload('permissions')
         })
+
+        userServices = assignments.map((a) => a.service)
+      
 
       const detailedPermissions = assignments.map((assignment) => ({
         service: {
@@ -142,10 +117,9 @@ export default class AuthController {
       })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
-        console.log('❌ [AUTH DEBUG] Utilisateur non trouvé pour email:', email)
         return response.unauthorized({ message: 'Invalid credentials' })
       }
-      console.error('❌ [AUTH DEBUG] Erreur login:', error)
+
       return response.badRequest({ message: 'Login failed' })
     }
   }
