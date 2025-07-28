@@ -7,70 +7,63 @@ import { DateTime } from 'luxon'
 const UserAssigmentService = new CrudService(ServiceUserAssignment)
 
 export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment> {
+  private userService: CrudService<typeof User>
   constructor() {
     super(UserAssigmentService)
+    this.userService = new CrudService(User)
   }
-  public async createUser({ request, response }: HttpContext) {
-    const {
-      first_name,
-      last_name,
-      email,
-      nationality,
-      phone_number,
-      address,
-      password,
-      role_id,
-      status,
-      created_by,
-      service_id,
-      role,
-      department_id,
-      hire_date,
-    } = request.only([
-      'first_name',
-      'last_name',
-      'email',
-      'nationality',
-      'phone_number',
-      'address',
-      'password',
-      'role_id',
-      'status',
-      'created_by',
-      'service_id',
-      'role',
-      'department_id',
-      'hire_date',
-    ])
+
+  public async createUser(ctx: HttpContext) {
+    const { request, response, auth } = ctx
+    const data = request.body()
 
     try {
+      const serviceId = Number.parseInt(data.service_id, 10)
+      if (Number.isNaN(serviceId)) {
+        return response.badRequest({ message: 'Invalid serviceId' })
+      }
+
       // 1. Vérifier si l'utilisateur existe déjà (par email)
-      let user = await User.query().where('email', email).first()
+      let user = await User.query().where('email', data.email).first()
 
       let isNewUser = false
 
       if (!user) {
-        // 2. Créer l'utilisateur s'il n'existe pas
-        user = new User()
-        user.first_name = first_name
-        user.last_name = last_name
-        user.email = email
-        user.nationality = nationality ?? null
-        user.phone_number = phone_number ?? null
-        user.address = address
-        user.password = password
-        user.role_id = role_id
-        user.status = status
-        user.created_by = created_by ?? null
-
-        await user.save()
-        isNewUser = true
+        user = await this.userService.create({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email,
+          phone_number: data.phone_number,
+          role_id: data.role_id,
+          address: data.address,
+          nationality: data.nationality,
+          status: 'active',
+          created_by: auth.user?.id || null,
+          last_modified_by: auth.user?.id || null,
+          password: data.password,
+          date_of_birth: data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null,
+          place_of_birth: data.place_of_birth,
+          gender: data.gender,
+          city: data.city,
+          country: data.country,
+          emergency_phone: data.emergency_phone,
+          personal_email: data.personal_email,
+          social_security_number: data.social_security_number,
+          national_id_number: data.national_id_number,
+          hire_date: data.hire_date ? DateTime.fromISO(data.hire_date) : null,
+          contract_type: data.contract_type,
+          contract_end_date: data.contract_end_date ? DateTime.fromISO(data.contract_end_date) : null,
+          data_processing_consent: data.data_processing_consent || false,
+          consent_date: data.consent_date ? DateTime.fromISO(data.consent_date) : null,
+        })
+        isNewUser = true;
+        await user.save();
       }
 
       // 3. Vérifier si une assignation existe déjà
       const existingAssignment = await ServiceUserAssignment.query()
         .where('user_id', user.id)
-        .andWhere('service_id', service_id)
+        .andWhere('service_id', serviceId)
         .first()
 
       if (existingAssignment) {
@@ -85,10 +78,10 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       // 4. Créer une assignation si elle n'existe pas encore
       const assignment = new ServiceUserAssignment()
       assignment.user_id = user.id
-      assignment.service_id = service_id
-      assignment.role = role
-      assignment.department_id = department_id
-      assignment.hire_date = hire_date ? DateTime.fromISO(hire_date) : null
+      assignment.service_id = serviceId
+      assignment.role = data.role
+      assignment.department_id = data.department_id
+      assignment.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
 
       await assignment.save()
 

@@ -626,6 +626,7 @@ router
       router.post('/tasks', tasksController.store.bind(tasksController))
       router.get('/tasks/:serviceId', tasksController.showByServiceId.bind(tasksController))
       router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
+      router.get('/tasks_search/filter', tasksController.filter.bind(tasksController))
     })
 
     router.group(() => {
