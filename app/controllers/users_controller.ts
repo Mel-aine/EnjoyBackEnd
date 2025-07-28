@@ -114,12 +114,16 @@ export default class UsersController extends CrudController<typeof User> {
       if (assignment) {
         assignment.service_id = data.service_id
         assignment.role = data.role
+        assignment.department_id = data.department_id
+        assignment.hire_date = data.hire_date
         await assignment.save()
       } else {
         await ServiceUserAssignment.create({
           user_id: user.id,
           service_id: data.service_id,
           role: data.role,
+          department_id: data.department_id || null,
+          hire_date: data.hire_date || null,
         })
       }
 
