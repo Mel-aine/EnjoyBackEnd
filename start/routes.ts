@@ -216,8 +216,6 @@ router
     router.group(() => {
       router.get('/users', usersController.list.bind(usersController))
       router.get('/users/:id', usersController.show.bind(usersController))
-      //router.post('/users', usersController.createWithUserAndRole.bind(usersController))
-      // router.post('/users', usersController.store.bind(usersController))
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
       router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))
@@ -226,7 +224,10 @@ router
         usersController.getClientsByService.bind(usersController)
       )
     })
-    //.middleware('auth') // Protège toutes les routes
+
+    router.group(() => {
+      router.get('/usersbyservice/:id', usersController.getUserByServices.bind(usersController))
+    })
 
     router.group(() => {
       router.get(

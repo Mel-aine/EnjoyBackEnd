@@ -62,7 +62,6 @@ export default class AuthController {
   }
 
   public async signin(ctx: HttpContext) {
-
     const { request, response } = ctx
     const { email } = request.only(['email', 'password'])
 

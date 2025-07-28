@@ -326,6 +326,33 @@ export default class UsersController extends CrudController<typeof User> {
       })
     }
   }
+
+  public async getUserByServices(ctx: HttpContext) {
+    const { params, response } = ctx
+    const serviceId = Number(params.id)
+    if (Number.isNaN(serviceId)) {
+      return response.badRequest({ message: 'Invalid service ID.' })
+    }
+
+    try {
+      // 1. Customer Details
+      const userByServiceList = await ServiceUserAssignment.query()
+        .where('service_id', serviceId)
+        .preload('user')
+      return response.ok({
+        data: JSON.stringify(userByServiceList),
+      })
+    } catch (error) {
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Customer not found' })
+      }
+      console.error('Error fetching customer profile:', error)
+      return response.internalServerError({
+        message: 'Failed to fetch customer profile',
+        error: error.message,
+      })
+    }
+  }
   /**
  * Retrieves all clients for a specific hotel (service).
  * A client is a user who has made at least one reservation for this hotel.
