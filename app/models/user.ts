@@ -48,10 +48,13 @@ export default class User extends AuthFinder(BaseModel) {
   declare password: string
 
   @column()
-  declare role_id: number
+  declare status: 'active' | 'inactive' | 'suspended'
 
   @column()
-  declare status: 'active' | 'inactive' | 'suspended'
+  declare service_id: string | null
+
+  @column()
+  declare role_id: number
 
   @column()
   declare created_by: number | null
@@ -79,6 +82,9 @@ export default class User extends AuthFinder(BaseModel) {
   /** Relation avec le rôle */
   @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
+
+  @belongsTo(() => Services, { foreignKey: 'service_id' })
+  declare service: BelongsTo<typeof Services>
 
   @hasMany(() => Services, {
     foreignKey: 'created_by',
