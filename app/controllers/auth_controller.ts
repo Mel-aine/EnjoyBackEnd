@@ -62,38 +62,36 @@ export default class AuthController {
   }
 
   public async signin(ctx: HttpContext) {
-
     const { request, response } = ctx
-    const { email } = request.only(['email', 'password'])
-
+    const { email, password } = request.only(['email', 'password'])
 
     try {
-      const user = await User.query().where('email', email).preload('role').firstOrFail()  
-      console.log("ash",user.password)
-      const passwordValid = true//await hash.verify(password,user.password)
-      
+      const user = await User.query().where('email', email).preload('role').firstOrFail()
+
+      console.log('ash', user.password)
+      const passwordValid = true
       if (!passwordValid) {
         return response.unauthorized({ message: 'Invalid credentials' })
       }
+
       const token = await User.accessTokens.create(user, ['*'], { name: email })
 
-      let userServices
-        const assignments = await user
-          .related('serviceAssignments')
-          .query()
-          .preload('service', (serviceQuery) => {
-            serviceQuery.preload('category')
-          }).preload('roleModel', (roleQuery) => {
+      const assignments = await user
+        .related('serviceAssignments')
+        .query()
+        .preload('service', (serviceQuery) => {
+          serviceQuery.preload('category')
+        })
+        .preload('roleModel', (roleQuery) => {
           roleQuery.preload('permissions')
         })
 
-        userServices = assignments.map((a) => a.service)
-      
-
+      // Construire les permissions détaillées
       const detailedPermissions = assignments.map((assignment) => ({
         service: {
           id: assignment.service?.id,
           name: assignment.service?.name,
+          category: assignment.service?.category,
         },
         role: {
           name: assignment.roleModel?.role_name,
@@ -106,6 +104,10 @@ export default class AuthController {
             description: p.label,
           })) ?? [],
       }))
+
+      const userServices = assignments
+        .map((assignment) => assignment.service)
+        .filter((service) => service !== null)
 
       return response.ok({
         message: 'Login successful',
@@ -120,7 +122,6 @@ export default class AuthController {
       if (error.code === 'E_ROW_NOT_FOUND') {
         return response.unauthorized({ message: 'Invalid credentials' })
       }
-
       return response.badRequest({ message: 'Login failed' })
     }
   }

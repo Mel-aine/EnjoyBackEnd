@@ -1,18 +1,16 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import ServiceUserAssignment from '#models/service_user_assignment';
+import ServiceUserAssignment from '#models/service_user_assignment'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import User from '#models/user'
-import { DateTime } from 'luxon';
+import { DateTime } from 'luxon'
 const UserAssigmentService = new CrudService(ServiceUserAssignment)
 
-export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment>{
-    constructor() {
+export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment> {
+  constructor() {
     super(UserAssigmentService)
   }
-
   public async createUser({ request, response }: HttpContext) {
-
     const {
       first_name,
       last_name,
@@ -26,7 +24,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       created_by,
       service_id,
       role,
-      department_id,    
+      department_id,
       hire_date,
     } = request.only([
       'first_name',
@@ -46,25 +44,45 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
     ])
 
     try {
-      // 1. Création utilisateur
+      // 1. Vérifier si l'utilisateur existe déjà (par email)
+      let user = await User.query().where('email', email).first()
 
- 
+      let isNewUser = false
 
-      const user = new User()
-      user.first_name = first_name
-      user.last_name = last_name
-      user.email = email
-      user.nationality = nationality ?? null
-      user.phone_number = phone_number ?? null
-      user.address = address
-      user.password = password
-      user.role_id = role_id
-      user.status = status
-      user.created_by = created_by ?? null
+      if (!user) {
+        // 2. Créer l'utilisateur s'il n'existe pas
+        user = new User()
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.nationality = nationality ?? null
+        user.phone_number = phone_number ?? null
+        user.address = address
+        user.password = password
+        user.role_id = role_id
+        user.status = status
+        user.created_by = created_by ?? null
 
-      await user.save()
+        await user.save()
+        isNewUser = true
+      }
 
+      // 3. Vérifier si une assignation existe déjà
+      const existingAssignment = await ServiceUserAssignment.query()
+        .where('user_id', user.id)
+        .andWhere('service_id', service_id)
+        .first()
 
+      if (existingAssignment) {
+        return response.status(200).json({
+          message: 'User already assigned to this service',
+          user,
+          assignment: existingAssignment,
+          note: isNewUser ? 'New user created' : 'Existing user reused',
+        })
+      }
+
+      // 4. Créer une assignation si elle n'existe pas encore
       const assignment = new ServiceUserAssignment()
       assignment.user_id = user.id
       assignment.service_id = service_id
@@ -74,8 +92,10 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
 
       await assignment.save()
 
-      return response.status(201).json({
-        message: 'User and assignment created successfully',
+      return response.status(isNewUser ? 201 : 200).json({
+        message: isNewUser
+          ? 'User and assignment created successfully'
+          : 'Existing user assigned to new service',
         user,
         assignment,
       })
@@ -102,8 +122,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 15)
 
-      const query = ServiceUserAssignment.query()
-        .where('service_id', serviceId)
+      const query = ServiceUserAssignment.query().where('service_id', serviceId)
 
       if (departmentId) {
         query.where('department_id', departmentId)
@@ -117,9 +136,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
 
       if (search) {
         query.whereHas('user', (userQuery) => {
-          userQuery
-            .whereILike('first_name', `%${search}%`)
-            .orWhereILike('last_name', `%${search}%`)
+          userQuery.whereILike('first_name', `%${search}%`).orWhereILike('last_name', `%${search}%`)
         })
       }
 
