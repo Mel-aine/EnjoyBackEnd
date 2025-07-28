@@ -11,6 +11,7 @@ import { DateTime } from 'luxon'
 import Permission from '#models/permission'
 import Service from '#models/service'
 import ActivityLog from '#models/activity_log'
+import logger from '@adonisjs/core/services/logger'
 
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
@@ -20,59 +21,15 @@ export default class UsersController extends CrudController<typeof User> {
     this.userService = new CrudService(User)
   }
 
-  public async createWithUserAndRole(ctx: HttpContext) {
-    const { request, response, auth } = ctx
-    const data = request.body()
 
-    try {
-      const user = await this.userService.create({
-        first_name: data.first_name,
-        last_name: data.last_name,
-        email: data.email,
-        phone_number: data.phone_number,
-        role_id: data.role_id,
-        address: data.address,
-        nationality: data.nationality,
-        status: 'active',
-        created_by: auth.user?.id || null,
-        last_modified_by: auth.user?.id || null,
-        password: data.password,
-      })
-
-      await user.load('role')
-      const roleName = user.role?.role_name || 'Rôle inconnu'
-
-      await ServiceUserAssignment.create({
-        user_id: user.id,
-        service_id: data.service_id,
-        role: data.role,
-        department_id: data.department_id || null,
-        hire_date: data.hire_date || null,
-      })
-
-      await LoggerService.log({
-        actorId: auth.user!.id,
-        action: 'CREATE',
-        entityType: 'User',
-        entityId: user.id.toString(),
-        description: `Création de l'utilisateur ${user.first_name} ${user.last_name} avec le rôle ${roleName}`,
-        ctx,
-      })
-
-      return response.created({ user })
-    } catch (error) {
-      console.error('Error in createWithUser:', error)
-      return response.status(500).send({
-        message: 'Erreur lors de la création',
-        error: error.message,
-      })
-    }
-  }
 
   public async updateUserWithService(ctx: HttpContext) {
+
+    logger.info('uuser')
     const { request, response, params, auth } = ctx
     const data = request.body()
     const userId = params.id
+    logger.info(data)
 
     try {
       const user = await this.userService.findById(userId)
@@ -92,6 +49,20 @@ export default class UsersController extends CrudController<typeof User> {
         address: user.address,
         nationality: user.nationality,
         service_id: await this.getUserServiceId(user.id),
+        date_of_birth: user.date_of_birth,
+        place_of_birth: user.place_of_birth,
+        gender: user.gender,
+        city: user.city,
+        country: user.country,
+        emergency_phone: user.emergency_phone,
+        personal_email: user.personal_email,
+        social_security_number: user.social_security_number,
+        national_id_number: user.national_id_number,
+        hire_date: user.hire_date,
+        contract_type: user.contract_type,
+        contract_end_date: user.contract_end_date,
+        data_processing_consent: user.data_processing_consent,
+        consent_date: user.consent_date
       }
 
       user.first_name = data.first_name
@@ -102,6 +73,22 @@ export default class UsersController extends CrudController<typeof User> {
       user.address = data.address
       user.nationality = data.nationality
       user.last_modified_by = auth.user?.id || null
+      user.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
+      user.date_of_birth = data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null
+      user.place_of_birth = data.place_of_birth
+      user.gender = data.gender
+      user.city = data.city
+      user.country = data.country
+      user.emergency_phone = data.emergency_phone
+      user.personal_email = data.personal_email
+      user.social_security_number = data.social_security_number
+      user.national_id_number = data.national_id_number
+      user.contract_type = data.contract_type
+      user.contract_end_date = data.contract_end_date
+        ? DateTime.fromISO(data.contract_end_date)
+        : null
+      user.data_processing_consent = data.data_processing_consent
+      user.consent_date = data.consent_date ? DateTime.fromISO(data.consent_date) : null
 
       if (data.password) {
         user.password = data.password
@@ -114,6 +101,9 @@ export default class UsersController extends CrudController<typeof User> {
       if (assignment) {
         assignment.service_id = data.service_id
         assignment.role = data.role
+        assignment.department_id = data.department_id;
+        assignment.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
+
         await assignment.save()
       } else {
         await ServiceUserAssignment.create({
@@ -135,6 +125,20 @@ export default class UsersController extends CrudController<typeof User> {
         address: user.address,
         nationality: user.nationality,
         service_id: data.service_id,
+        date_of_birth: user.date_of_birth,
+        place_of_birth: user.place_of_birth,
+        gender: user.gender,
+        city: user.city,
+        country: user.country,
+        emergency_phone: user.emergency_phone,
+        personal_email: user.personal_email,
+        social_security_number: user.social_security_number,
+        national_id_number: user.national_id_number,
+        hire_date: user.hire_date,
+        contract_type: user.contract_type,
+        contract_end_date: user.contract_end_date,
+        data_processing_consent: user.data_processing_consent,
+        consent_date: user.consent_date,
       }
 
       const changes = LoggerService.extractChanges(oldData, newData)
@@ -364,12 +368,12 @@ export default class UsersController extends CrudController<typeof User> {
         })
       }
       // Get activities
-       const activityHistory = await ActivityLog.query()
-              .where((query) => {
-                query.where('user_id', userId)
-              })
-              .orderBy('created_at', 'desc')
-              .limit(100)
+      const activityHistory = await ActivityLog.query()
+        .where((query) => {
+          query.where('user_id', userId)
+        })
+        .orderBy('created_at', 'desc')
+        .limit(100)
       // 4. Structure the response.
       const serializedUser = user.serialize()
 
