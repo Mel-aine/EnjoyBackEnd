@@ -8,7 +8,9 @@ import Payment from '#models/payment'
 import Log from '#models/activity_log'
 import LoggerService from '#services/logger_service'
 import { DateTime } from 'luxon'
+import Permission from '#models/permission'
 import Service from '#models/service'
+import ActivityLog from '#models/activity_log'
 
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
@@ -322,6 +324,74 @@ export default class UsersController extends CrudController<typeof User> {
       console.error('Error fetching customer profile:', error)
       return response.internalServerError({
         message: 'Failed to fetch customer profile',
+        error: error.message,
+      })
+    }
+  }
+
+  public async getUserDetails({ params, response }: HttpContext) {
+    const userId = Number(params.id)
+
+    if (isNaN(userId)) {
+      return response.badRequest({ message: 'Invalid user ID.' })
+    }
+
+    try {
+      // 1. Fetch user and their primary role
+      const user = await User.query().where('id', userId).preload('role').firstOrFail()
+
+      // 2. Fetch all service assignments for the user, with department and service info
+      const assignments = await ServiceUserAssignment.query()
+        .where('user_id', userId)
+        .preload('department')
+        .preload('service')
+
+      // 3. Get all permissions for that user's role across all their assigned services.
+      const serviceIds = assignments.map((a) => a.service_id)
+      let permissions: Permission[] = []
+
+      if (user.role_id) {
+        permissions = await Permission.query().whereHas('rolePermissions', (rpQuery) => {
+          rpQuery.where('role_id', user.role_id).where((q) => {
+            // Permissions for assigned services OR global permissions
+            if (serviceIds.length > 0) {
+              q.whereIn('service_id', serviceIds).orWhereNull('service_id')
+            } else {
+              // If no assignments, only get global permissions
+              q.whereNull('service_id')
+            }
+          })
+        })
+      }
+      // Get activities
+       const activityHistory = await ActivityLog.query()
+              .where((query) => {
+                query.where('user_id', userId)
+              })
+              .orderBy('created_at', 'desc')
+              .limit(100)
+      // 4. Structure the response.
+      const serializedUser = user.serialize()
+
+      let responseData: any = {
+        ...serializedUser,
+        activityLogs: activityHistory.map((a) => a.serialize()),
+        permissions: permissions.map((p) => p.serialize()),
+      }
+
+      if (assignments && assignments.length > 0) {
+        responseData.department = assignments[0].department?.serialize();
+        responseData.hireDate = assignments[0].hire_date?.toISODate() ?? null;
+        responseData.role = assignments[0].role; // This is the specific role/title in the assignment
+      }
+      return response.ok(responseData)
+    } catch (error) {
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'User not found' })
+      }
+      console.error('Error fetching user details:', error)
+      return response.internalServerError({
+        message: 'Failed to fetch user details',
         error: error.message,
       })
     }

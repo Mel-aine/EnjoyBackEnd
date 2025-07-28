@@ -217,6 +217,7 @@ router
       router.get('/users', usersController.list.bind(usersController))
       router.get('/users/:id', usersController.show.bind(usersController))
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
+      router.get('/users/:id/details', usersController.getUserDetails.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
       router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))
       router.get(
@@ -606,6 +607,10 @@ router
       router.get(
         '/assigmentUser/:serviceId',
         assigmentUsersController.showByServiceId.bind(assigmentUsersController)
+      )
+      router.get(
+        '/services/:serviceId/employees',
+        assigmentUsersController.getEmployeesForService.bind(assigmentUsersController)
       )
     })
 
