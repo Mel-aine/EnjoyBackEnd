@@ -8,6 +8,8 @@ export const createAmenityProductValidator = vine.compile(
     status: vine.enum(['active', 'inactive', 'archived']).optional(),
     amenities_category_id: vine.number().positive(),
     service_id: vine.number().positive(),
+    pricing_model: vine.enum(['flat_rate', 'time_based']).optional(),
+    time_unit: vine.enum(['hour', 'day']).optional(),
   })
 )
 
@@ -19,5 +21,7 @@ export const updateAmenityProductValidator = vine.compile(
     status: vine.enum(['active', 'inactive', 'archived']).optional(),
     amenities_category_id: vine.number().positive().optional(),
     service_id: vine.number().positive().optional(),
+    pricing_model: vine.enum(['flat_rate', 'time_based']).optional(),
+    time_unit: vine.enum(['hour', 'day']).optional(),
   })
 )

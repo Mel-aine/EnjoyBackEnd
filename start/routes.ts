@@ -40,6 +40,8 @@ const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 const AmenityProductsController = () => import('#controllers/amenity_products_controller')
 
+const AmenityPaymentsController = () => import('#controllers/amenity_payments_controller')
+const AmenityBookingsController = () => import('#controllers/amenity_bookings_controller')
 const usersController = new UsersController()
 const rolesController = new RolesController()
 const servicesController = new ServicesController()
@@ -608,6 +610,25 @@ router
       router.put('/:id', [AmenityProductsController, 'update'])
       router.delete('/:id', [AmenityProductsController, 'destroy'])
     }).prefix('amenity-products')
+
+    router.resource('amenity-bookings', AmenityBookingsController).apiOnly()
+    router.get(
+      '/reservations/:reservationId/services/:serviceId/amenity-bookings',
+      [AmenityBookingsController, 'getByReservationAndService']
+    )
+    router.get('/amenity-categories/:categoryId/amenity-bookings', [
+      AmenityBookingsController,
+      'getByAmenityCategory',
+    ])
+    router.get('/reservations/:reservationId/unpaid-amenities', [
+      AmenityBookingsController,
+      'getUnpaidByReservation',
+    ])
+    router.post('/reservations/:reservationId/pay-amenities', [
+      AmenityPaymentsController,
+      'payForAmenities',
+    ])
+
     router.group(() => {
       router.post('/schedules', schedulesController.create.bind(SchedulesController))
       router.get('/schedules', schedulesController.lister.bind(SchedulesController))

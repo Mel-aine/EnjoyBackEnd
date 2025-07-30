@@ -21,6 +21,12 @@ export default class AmenityProduct extends BaseModel {
     declare description: string | null
 
     @column()
+    declare pricingModel: 'flat_rate' | 'time_based'
+
+    @column()
+    declare timeUnit: 'hour' | 'day' | null
+
+    @column()
     declare status: 'active' | 'inactive' | 'archived'
 
     @column({ columnName: 'amenities_category_id' })
