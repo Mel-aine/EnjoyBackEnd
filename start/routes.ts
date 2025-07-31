@@ -728,7 +728,14 @@ router
         dashboardController.yearlyReservationTypes.bind(dashboardController)
       )
     })
-
+router
+  .group(() => {
+    router.get('/service/:serviceId/daily-occupancy', [
+      DashboardController,
+      'getDailyOccupancyAndReservations',
+    ])
+  })
+  .prefix('/dashboard')
     //Refund routes
     router.group(() => {
       router.post('/refund', refundsController.store.bind(refundsController))
