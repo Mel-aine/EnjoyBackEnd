@@ -11,6 +11,7 @@ import { DateTime } from 'luxon'
 import Permission from '#models/permission'
 import Service from '#models/service'
 import ActivityLog from '#models/activity_log'
+import EmploymentContract from '#models/employment_contract'
 
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
@@ -332,13 +333,22 @@ export default class UsersController extends CrudController<typeof User> {
   public async getUserDetails({ params, response }: HttpContext) {
     const userId = Number(params.id)
 
-    if (isNaN(userId)) {
+    if (Number.isNaN(userId)) {
       return response.badRequest({ message: 'Invalid user ID.' })
     }
 
     try {
       // 1. Fetch user and their primary role
       const user = await User.query().where('id', userId).preload('role').firstOrFail()
+
+      // Fetch all employment contracts for the user
+      const allContracts = await EmploymentContract.query().where('employee_id', userId)
+
+      // Fetch the most recent employment contract
+      const recentContract = await EmploymentContract.query()
+        .where('employee_id', userId)
+        .orderBy('contract_id', 'desc')
+        .first()
 
       // 2. Fetch all service assignments for the user, with department and service info
       const assignments = await ServiceUserAssignment.query()
@@ -364,12 +374,12 @@ export default class UsersController extends CrudController<typeof User> {
         })
       }
       // Get activities
-       const activityHistory = await ActivityLog.query()
-              .where((query) => {
-                query.where('user_id', userId)
-              })
-              .orderBy('created_at', 'desc')
-              .limit(100)
+      const activityHistory = await ActivityLog.query()
+        .where((query) => {
+          query.where('user_id', userId)
+        })
+        .orderBy('created_at', 'desc')
+        .limit(100)
       // 4. Structure the response.
       const serializedUser = user.serialize()
 
@@ -380,11 +390,13 @@ export default class UsersController extends CrudController<typeof User> {
       }
 
       if (assignments && assignments.length > 0) {
-        responseData.department = assignments[0].department?.serialize();
-        responseData.hireDate = assignments[0].hire_date?.toISODate() ?? null;
-        responseData.role = assignments[0].role; // This is the specific role/title in the assignment
+        responseData.department = assignments[0].department?.serialize()
+        responseData.hireDate = assignments[0].hire_date?.toISODate() ?? null
+        responseData.role = assignments[0].role // This is the specific role/title in the assignment
       }
-      return response.ok(responseData)
+      console.log('-->responseData', responseData)
+
+      return response.ok({ ...responseData, recentContract, allContracts })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
         return response.notFound({ message: 'User not found' })

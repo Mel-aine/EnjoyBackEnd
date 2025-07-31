@@ -30,6 +30,9 @@ export default class User extends AuthFinder(BaseModel) {
   declare email: string
 
   @column()
+  declare is_cdi: boolean
+
+  @column()
   declare nationality: string | null
 
   @column.dateTime()

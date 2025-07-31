@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { BaseModel } from '@adonisjs/lucid/orm'
 
 export default class CrudService<T extends typeof BaseModel> {
@@ -10,6 +11,10 @@ export default class CrudService<T extends typeof BaseModel> {
   // Ajout d un getter getter
   getModelName(): string {
     return this.model.name
+  }
+
+  public getModel(): T {
+    return this.model
   }
 
   /**
@@ -83,8 +88,7 @@ export default class CrudService<T extends typeof BaseModel> {
       .select(...fields)
       .limit(25)
   }
-
-
+  
   async getServiceProductByServiceId(service_id: number, fields: string[]) {
     if (!service_id) {
       throw new Error('service_id is required')

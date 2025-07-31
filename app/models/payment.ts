@@ -70,8 +70,6 @@ export default class Payment extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 
-   @belongsTo(() => Services, { foreignKey: 'service_id' })
-      declare Services: BelongsTo<typeof Services>
-
-
+  @belongsTo(() => Services, { foreignKey: 'service_id' })
+  declare Services: BelongsTo<typeof Services>
 }

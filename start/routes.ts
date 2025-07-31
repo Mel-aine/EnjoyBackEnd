@@ -34,11 +34,15 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
 import DashboardController from '#controllers/dasboard_controller'
+import EmploymentContractsController from '#controllers/employment_contracts_controller'
+import PayrollsController from '#controllers/payrolls_controller'
 // Import dynamique
 const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 
 const usersController = new UsersController()
+const employmentContractController = new EmploymentContractsController()
+const payrollController = new PayrollsController()
 const rolesController = new RolesController()
 const servicesController = new ServicesController()
 const serviceProductsController = new ServiceProductsController()
@@ -78,8 +82,8 @@ router.get('/swagger/json', async ({ response }) => {
         type: 'apiKey',
         name: 'Authorization',
         in: 'header',
-        description: 'Token JWT - Format: Bearer {token}'
-      }
+        description: 'Token JWT - Format: Bearer {token}',
+      },
     },
     paths: {
       '/ping': {
@@ -87,26 +91,28 @@ router.get('/swagger/json', async ({ response }) => {
           summary: 'Test de connectivité',
           responses: {
             200: {
-              description: 'Serveur actif'
-            }
-          }
-        }
+              description: 'Serveur actif',
+            },
+          },
+        },
       },
       '/api/authLogin': {
         post: {
           summary: 'Connexion utilisateur',
           consumes: ['application/json'],
-          parameters: [{
-            in: 'body',
-            name: 'credentials',
-            schema: {
-              type: 'object',
-              properties: {
-                email: { type: 'string' },
-                password: { type: 'string' }
-              }
-            }
-          }],
+          parameters: [
+            {
+              in: 'body',
+              name: 'credentials',
+              schema: {
+                type: 'object',
+                properties: {
+                  email: { type: 'string' },
+                  password: { type: 'string' },
+                },
+              },
+            },
+          ],
           responses: {
             200: { description: 'Connexion réussie' },
             401: { description: 'Identifiants invalides' }
@@ -188,7 +194,7 @@ router.get('/swagger/json', async ({ response }) => {
           }
         }
       }
-    }
+    },
   }
   return response.json(basicSpec)
 })
@@ -204,13 +210,16 @@ router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
 })
 router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
-router.group(() => {
-  router.get('/category', categoriesController.list.bind(categoriesController))
-  router.get('/category/:id', categoriesController.show.bind(categoriesController))
-  router.post('/category', categoriesController.store.bind(categoriesController))
-  router.put('/category/:id', categoriesController.update.bind(categoriesController))
-  router.delete('/category/:id', categoriesController.destroy.bind(categoriesController))
-}).prefix('/api')
+router
+  .group(() => {
+    router.get('/category', categoriesController.list.bind(categoriesController))
+    router.get('/category/:id', categoriesController.show.bind(categoriesController))
+    router.post('/category', categoriesController.store.bind(categoriesController))
+    router.put('/category/:id', categoriesController.update.bind(categoriesController))
+    router.delete('/category/:id', categoriesController.destroy.bind(categoriesController))
+  })
+  .prefix('/api')
+
 router
   .group(() => {
     router.group(() => {
@@ -223,6 +232,43 @@ router
       router.get(
         '/services/:serviceId/clients',
         usersController.getClientsByService.bind(usersController)
+      )
+    })
+
+    router.group(() => {
+      router.get(
+        '/employment_contracts',
+        employmentContractController.getMultiple.bind(employmentContractController)
+      )
+      router.get(
+        '/employment_contracts/:id',
+        employmentContractController.getOne.bind(employmentContractController)
+      )
+      router.post(
+        '/employment_contracts',
+        employmentContractController.save.bind(employmentContractController)
+      )
+      router.put(
+        '/employment_contracts/:id',
+        employmentContractController.update.bind(employmentContractController)
+      )
+      router.put(
+        '/employment_contracts/:id/terminate',
+        employmentContractController.terminate.bind(employmentContractController)
+      )
+    })
+    router.group(() => {
+      router.get('/payroll', payrollController.getMultiple.bind(payrollController))
+      router.get('/payroll/:id', payrollController.getOne.bind(payrollController))
+      router.post('/payroll', payrollController.save.bind(payrollController))
+      router.put('/payroll/:id', payrollController.update.bind(payrollController))
+      router.get(
+        '/payroll/by-employee/:employeeId',
+        payrollController.getPayrollByEmployee.bind(payrollController)
+      )
+      router.get(
+        '/payroll/by-contract/:contractId',
+        payrollController.getPayrollsByContract.bind(payrollController)
       )
     })
 
@@ -420,9 +466,8 @@ router
       )
     })
 
-    router
-      .group(() => {
-        router.get(
+    router.group(() => {
+      router.get(
           '/reservations_by_id/:id',
           reservationsController.show.bind(reservationsController)
         )
@@ -481,7 +526,7 @@ router
           '/reservations/:id/cancel',
           reservationsController.cancelReservation.bind(reservationsController)
         )
-      })
+    })
 
     router.group(() => {
       router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))
@@ -587,8 +632,6 @@ router
       router.put('/option/:id', optionsController.update.bind(optionsController))
       router.delete('/option/:id', optionsController.destroy.bind(optionsController))
     })
-
-
 
     router.group(() => {
       router.post('/schedules', schedulesController.create.bind(SchedulesController))
@@ -707,22 +750,22 @@ router
 
     router
       .group(() => {
-        // Custom route to get all policies for a specific hotel
-        router.get(
-          '/hotel/:hotelId',
-          cancellationPoliciesController.showByHotel.bind(cancellationPoliciesController)
-        )
-        router.get('/:id', cancellationPoliciesController.show.bind(cancellationPoliciesController))
-        router.post('/', cancellationPoliciesController.store.bind(cancellationPoliciesController))
-        router.get('/', cancellationPoliciesController.index.bind(cancellationPoliciesController))
-        router.put(
-          '/:id',
-          cancellationPoliciesController.update.bind(cancellationPoliciesController)
-        )
-        router.delete(
-          '/:id',
-          cancellationPoliciesController.destroy.bind(cancellationPoliciesController)
-        )
+      // Custom route to get all policies for a specific hotel
+      router.get(
+        '/hotel/:hotelId',
+        cancellationPoliciesController.showByHotel.bind(cancellationPoliciesController)
+      )
+      router.get('/:id', cancellationPoliciesController.show.bind(cancellationPoliciesController))
+      router.post('/', cancellationPoliciesController.store.bind(cancellationPoliciesController))
+      router.get('/', cancellationPoliciesController.index.bind(cancellationPoliciesController))
+      router.put(
+        '/:id',
+        cancellationPoliciesController.update.bind(cancellationPoliciesController)
+      )
+      router.delete(
+        '/:id',
+        cancellationPoliciesController.destroy.bind(cancellationPoliciesController)
+      )
       })
       .prefix('cancellation-policies')
   })

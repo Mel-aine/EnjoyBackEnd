@@ -10,7 +10,6 @@ export default class ServiceUserAssignment extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-
   @column()
   declare user_id: number
 
@@ -29,18 +28,17 @@ export default class ServiceUserAssignment extends BaseModel {
   @column()
   public department_id?: number
 
-   @column.dateTime()
+  @column.dateTime()
   declare hire_date: DateTime | null
 
   @belongsTo(() => Department, { foreignKey: 'department_id' })
   declare department: BelongsTo<typeof Department>
 
   @belongsTo(() => User, { foreignKey: 'user_id' })
-    declare user: BelongsTo<typeof User>
+  declare user: BelongsTo<typeof User>
 
-   @belongsTo(() => Service, { foreignKey: 'service_id' })
-   declare service: BelongsTo<typeof Service>
-
+  @belongsTo(() => Service, { foreignKey: 'service_id' })
+  declare service: BelongsTo<typeof Service>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
