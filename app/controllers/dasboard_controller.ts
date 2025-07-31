@@ -1,6 +1,6 @@
 import { RoomAvailabilityService, RoomAnalyticsService, RevenueAnalyticsService } from '#services/dashboard_service'
 import type { HttpContext } from '@adonisjs/core/http'
-// import { HotelAnalyticsService } from '#services/dashboard_servicedp'
+import { HotelAnalyticsDashboardService } from '#services/dasboard_servicepd'
 import { HotelAnalyticsService } from '#services/hotel_analytics_service'
 import { DateTime } from 'luxon'
 export default class DashboardController {
@@ -128,7 +128,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
   const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
   try {
-    const data = await HotelAnalyticsService.getAverageOccupancyRate(serviceId, period)
+    const data = await HotelAnalyticsDashboardService.getAverageOccupancyRate(serviceId, period)
 
     return response.ok({
       success: true,
@@ -142,7 +142,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     const { id } = params
 
     try {
-      const data = await HotelAnalyticsService.getMonthlyOccupancyRates(Number(id))
+      const data = await HotelAnalyticsDashboardService.getMonthlyOccupancyRates(Number(id))
 
       return response.ok({
         success: true,
@@ -160,7 +160,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
       const { serviceId } = params
       const { period = 'monthly' } = params
       
-      const result = await HotelAnalyticsService.getAverageDailyRate(
+      const result = await HotelAnalyticsDashboardService.getAverageDailyRate(
         Number(serviceId),
         period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
       )
@@ -184,7 +184,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
 
-  const data = await HotelAnalyticsService.getNationalityStats(serviceId)
+  const data = await HotelAnalyticsDashboardService.getNationalityStats(serviceId)
 
   return response.ok({ success: true, data })
 }
@@ -194,7 +194,7 @@ public async stayDurationStats({ params, response }: HttpContext) {
   try {
     const { serviceId } = params
 
-    const result = await HotelAnalyticsService.getStayDurationDistribution(Number(serviceId))
+    const result = await HotelAnalyticsDashboardService.getStayDurationDistribution(Number(serviceId))
 
     return response.ok({
       success: true,
@@ -217,7 +217,7 @@ public async stayDurationStats({ params, response }: HttpContext) {
     return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
 
-  const data = await HotelAnalyticsService.getYearlyReservationTypesStats(serviceId, year)
+  const data = await HotelAnalyticsDashboardService.getYearlyReservationTypesStats(serviceId, year)
 
   return response.ok({ success: true, data })
 }

@@ -4,7 +4,7 @@ import ServiceProduct from '#models/service_product'
 
 type PeriodType = 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
-export class HotelAnalyticsService {
+export class HotelAnalyticsDashboardService {
   public static async getAverageOccupancyRate(serviceId: number, period: PeriodType) {
     // Validation du paramètre period
     const validPeriods: PeriodType[] = ['monthly', 'quarterly', 'semester', 'yearly']
