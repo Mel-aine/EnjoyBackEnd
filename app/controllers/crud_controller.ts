@@ -184,11 +184,6 @@ export default class CrudController<T extends typeof BaseModel> {
       }
 
       const items = await this.service.getServiceProductByServiceId(serviceIdNum, fields)
-
-      if (!items || items.length === 0) {
-        return response.notFound({ message: 'Record not found' })
-      }
-
       return response.ok(items)
     } catch (error) {
       return response.internalServerError({

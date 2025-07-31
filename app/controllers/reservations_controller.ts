@@ -115,7 +115,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         for (const product of data.products) {
           const serviceProduct = await ServiceProduct.find(product.service_product_id)
           if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
-            serviceProduct.status = 'booked'
+            serviceProduct.status = 'available'
             await serviceProduct.save()
           }
         }
@@ -330,10 +330,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (!reservationProducts.length) {
         return response.notFound({ message: 'No service product linked to this reservation' });
       }
-      const now = DateTime.now();;
-      if (reservation.check_in_date) {
-        reservation.check_in_date = now;
-      }
+      const now = DateTime.now();
+
+      reservation.check_in_date = now;
+
       for (const link of reservationProducts) {
 
         const serviceProduct = await ServiceProduct.find(link.service_product_id);
@@ -419,6 +419,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const allCheckedOut = res.length === 0;
       if (allCheckedOut) {
         reservation.check_out_date = DateTime.now();
+        reservation.status = ReservationStatus.CHECKED_OUT
         await reservation.save();
         console.log('Reservation status updated to checked-out');
       }
@@ -698,7 +699,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Calculate free cancellation deadline
       // const arrivalDate = DateTime.fromJSDate(new Date(reservation.arrived_date))
-      const arrivalDate = reservation.arrived_date
+     const arrivalDate = reservation.arrived_date
+      if (!arrivalDate.isValid) {
+        return response.badRequest({ message: 'Invalid arrival date format.' })
+      }
       const freeCancellationDeadline = arrivalDate.minus({ [policy.free_cancellation_period_unit]: policy.free_cancellation_periodValue })
 
       const now = DateTime.now()
@@ -902,6 +906,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
         resService.status = ReservationProductStatus.CANCELLED;
         resService.last_modified_by = auth.user!.id;
         await resService.save()
+        const serviceProduct = await ServiceProduct.find(resService.service_product_id);
+          if (serviceProduct) {
+            serviceProduct.status = 'available';
+            serviceProduct.last_modified_by = auth.user!.id;
+            await serviceProduct.save();
+          }
         await LoggerService.log({
           actorId: auth.user!.id,
           action: 'CANCEL',

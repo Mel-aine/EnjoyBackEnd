@@ -46,9 +46,10 @@ export default class Reservation extends BaseModel {
   @column()
   declare created_by: number | null
 
-  @column()
+  @column.dateTime()
   declare arrived_date?: DateTime
-  @column()
+
+  @column.dateTime()
   declare depart_date?: DateTime
 
   @column()

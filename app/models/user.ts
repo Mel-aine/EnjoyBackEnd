@@ -35,6 +35,48 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare nationality: string | null
 
+  @column.date()
+  declare date_of_birth: DateTime | null
+
+  @column()
+  declare place_of_birth: string | null
+
+  @column()
+  declare gender: string | null
+
+  @column()
+  declare city: string | null
+
+  @column()
+  declare country: string | null
+
+  @column()
+  declare emergency_phone: string | null
+
+  @column()
+  declare personal_email: string | null
+
+  @column()
+  declare social_security_number: string | null
+
+  @column()
+  declare national_id_number: string | null
+
+  @column.date()
+  declare hire_date: DateTime | null
+
+  @column()
+  declare contract_type: string | null
+
+  @column.date()
+  declare contract_end_date: DateTime | null
+
+  @column()
+  declare data_processing_consent: boolean
+
+  @column.date()
+  declare consent_date: DateTime | null
+
   @column.dateTime()
   declare last_login: DateTime | null
 

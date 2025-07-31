@@ -1,7 +1,7 @@
 import { RoomAvailabilityService, RoomAnalyticsService, RevenueAnalyticsService } from '#services/dashboard_service'
 import type { HttpContext } from '@adonisjs/core/http'
-// import { HotelAnalyticsService } from '#services/dashboard_servicedp'
-import { HotelAnalyticsService } from '#services/dasboard_servicepd'
+import { HotelAnalyticsDashboardService } from '#services/dasboard_servicepd'
+import { HotelAnalyticsService } from '#services/hotel_analytics_service'
 import { DateTime } from 'luxon'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
@@ -128,7 +128,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
   const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
   try {
-    const data = await HotelAnalyticsService.getAverageOccupancyRate(serviceId, period)
+    const data = await HotelAnalyticsDashboardService.getAverageOccupancyRate(serviceId, period)
 
     return response.ok({
       success: true,
@@ -142,7 +142,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     const { id } = params
 
     try {
-      const data = await HotelAnalyticsService.getMonthlyOccupancyRates(Number(id))
+      const data = await HotelAnalyticsDashboardService.getMonthlyOccupancyRates(Number(id))
 
       return response.ok({
         success: true,
@@ -160,7 +160,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
       const { serviceId } = params
       const { period = 'monthly' } = params
       
-      const result = await HotelAnalyticsService.getAverageDailyRate(
+      const result = await HotelAnalyticsDashboardService.getAverageDailyRate(
         Number(serviceId),
         period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
       )
@@ -184,7 +184,7 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
 
-  const data = await HotelAnalyticsService.getNationalityStats(serviceId)
+  const data = await HotelAnalyticsDashboardService.getNationalityStats(serviceId)
 
   return response.ok({ success: true, data })
 }
@@ -194,7 +194,7 @@ public async stayDurationStats({ params, response }: HttpContext) {
   try {
     const { serviceId } = params
 
-    const result = await HotelAnalyticsService.getStayDurationDistribution(Number(serviceId))
+    const result = await HotelAnalyticsDashboardService.getStayDurationDistribution(Number(serviceId))
 
     return response.ok({
       success: true,
@@ -217,12 +217,43 @@ public async stayDurationStats({ params, response }: HttpContext) {
     return response.badRequest({ success: false, message: 'Service ID invalide' })
   }
 
-  const data = await HotelAnalyticsService.getYearlyReservationTypesStats(serviceId, year)
+  const data = await HotelAnalyticsDashboardService.getYearlyReservationTypesStats(serviceId, year)
 
   return response.ok({ success: true, data })
 }
 
+  public async getDailyOccupancyAndReservations({ params, request, response }: HttpContext) {
+    const { serviceId } = params
+    const { start_date, end_date } = request.qs()
+
+    if (!serviceId) {
+      return response.badRequest({ message: 'serviceId is required.' })
+    }
+    if (!start_date || !end_date) {
+      return response.badRequest({ message: 'start_date and end_date are required.' })
+    }
+
+    try {
+      const startDateDt = DateTime.fromISO(start_date)
+      const endDateDt = DateTime.fromISO(end_date)
+
+      if (!startDateDt.isValid || !endDateDt.isValid) {
+        return response.badRequest({ message: 'Invalid date format.' })
+      }
+
+      const data = await HotelAnalyticsService.getDailyOccupancyAndReservations(
+        Number(serviceId),
+        startDateDt,
+        endDateDt
+      )
+
+      return response.ok(data)
+    } catch (error) {
+      console.error('Error fetching daily occupancy and reservations:', error)
+      return response.internalServerError({
+        message: 'Failed to fetch data.',
+        error: error.message,
+      })
+    }
+  }
 }
-
-
-

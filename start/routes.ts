@@ -33,13 +33,17 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
+const AmenitiesCategoriesController = () => import('#controllers/amenities_categories_controller')
 import DashboardController from '#controllers/dasboard_controller'
 import EmploymentContractsController from '#controllers/employment_contracts_controller'
 import PayrollsController from '#controllers/payrolls_controller'
 // Import dynamique
 const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
+const AmenityProductsController = () => import('#controllers/amenity_products_controller')
 
+const AmenityPaymentsController = () => import('#controllers/amenity_payments_controller')
+const AmenityBookingsController = () => import('#controllers/amenity_bookings_controller')
 const usersController = new UsersController()
 const employmentContractController = new EmploymentContractsController()
 const payrollController = new PayrollsController()
@@ -633,6 +637,43 @@ router
       router.delete('/option/:id', optionsController.destroy.bind(optionsController))
     })
 
+    router
+      .group(() => {
+        router.get('/service/:serviceId', [AmenitiesCategoriesController, 'getByService'])
+        router.get('/:id', [AmenitiesCategoriesController, 'show'])
+        router.post('', [AmenitiesCategoriesController, 'store'])
+        router.put('/:id', [AmenitiesCategoriesController, 'update'])
+        router.delete('/:id', [AmenitiesCategoriesController, 'destroy'])
+      })
+      .prefix('amenities-categories')
+
+    router.group(() => {
+      router.get('/service/:serviceId/category/:categoryId', [AmenityProductsController, 'getByServiceAndCategory'])
+      router.get('/service/:serviceId/search', [AmenityProductsController, 'searchByName'])
+      router.get('/:id', [AmenityProductsController, 'show'])
+      router.post('', [AmenityProductsController, 'store'])
+      router.put('/:id', [AmenityProductsController, 'update'])
+      router.delete('/:id', [AmenityProductsController, 'destroy'])
+    }).prefix('amenity-products')
+
+    router.resource('amenity-bookings', AmenityBookingsController).apiOnly()
+    router.get(
+      '/reservations/:reservationId/services/:serviceId/amenity-bookings',
+      [AmenityBookingsController, 'getByReservationAndService']
+    )
+    router.get('/amenity-categories/:categoryId/amenity-bookings', [
+      AmenityBookingsController,
+      'getByAmenityCategory',
+    ])
+    router.get('/reservations/:reservationId/unpaid-amenities', [
+      AmenityBookingsController,
+      'getUnpaidByReservation',
+    ])
+    router.post('/reservations/:reservationId/pay-amenities', [
+      AmenityPaymentsController,
+      'payForAmenities',
+    ])
+
     router.group(() => {
       router.post('/schedules', schedulesController.create.bind(SchedulesController))
       router.get('/schedules', schedulesController.lister.bind(SchedulesController))
@@ -669,6 +710,7 @@ router
       router.post('/tasks', tasksController.store.bind(tasksController))
       router.get('/tasks/:serviceId', tasksController.showByServiceId.bind(tasksController))
       router.patch('/tasks/:id', tasksController.updateStatus.bind(tasksController))
+      router.get('/tasks_search/filter', tasksController.filter.bind(tasksController))
     })
 
     router.group(() => {
@@ -731,7 +773,14 @@ router
         dashboardController.yearlyReservationTypes.bind(dashboardController)
       )
     })
-
+router
+  .group(() => {
+    router.get('/service/:serviceId/daily-occupancy', [
+      DashboardController,
+      'getDailyOccupancyAndReservations',
+    ])
+  })
+  .prefix('/dashboard')
     //Refund routes
     router.group(() => {
       router.post('/refund', refundsController.store.bind(refundsController))
