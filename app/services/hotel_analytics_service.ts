@@ -52,7 +52,7 @@ export class HotelAnalyticsService {
                 if (reservation.reservationServiceProducts.length > 0) {
                     for (const rsp of reservation.reservationServiceProducts) {
                         if (rsp.service_product_id) {
-                            occupiedRoomIds.add(rsp.serviceProductId)
+                            occupiedRoomIds.add(rsp.service_product_id)
                             isAssignedForToday = true
                         }
                     }
@@ -93,7 +93,7 @@ export class HotelAnalyticsService {
             // Find if there's a booking for this specific room today
             const todaysBooking = reservations
                 .flatMap((r) => r.reservationServiceProducts)
-                .find((rsp) => rsp.serviceProductId === room.id && rsp.start_date <= today && rsp.end_date > today)
+                .find((rsp) => rsp.service_product_id === room.id && rsp.start_date <= today && rsp.end_date > today)
 
             let roomStatus = 'Available'
             if (todaysBooking) {
