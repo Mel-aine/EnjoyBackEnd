@@ -386,12 +386,6 @@ export default class UsersController extends CrudController<typeof User> {
         })
         .orderBy('created_at', 'desc')
         .limit(100)
-      const activityHistory = await ActivityLog.query()
-        .where((query) => {
-          query.where('user_id', userId)
-        })
-        .orderBy('created_at', 'desc')
-        .limit(100)
       // 4. Structure the response.
       const serializedUser = user.serialize()
 
