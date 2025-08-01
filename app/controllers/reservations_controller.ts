@@ -538,11 +538,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
           .where('reservation_id', '!=', reservationId)
           .andWhere((query) => {
             query
+
               .where('start_date', '<', newDepartDate.toISODate()!)
-            //.andWhere('end_date', '>', oldDepartDate.toISODate()!)
+              .andWhere('start_date', '>=', DateTime.now().toISODate()!)
+             // .andWhere('end_date', '>', oldDepartDate.toISODate()!)
           })
           .first()
-
+        logger.info(conflictingReservation)
         if (conflictingReservation) {
           conflicts.push({
             productName: product?.product_name || `ID ${rsp.service_product_id}`,
@@ -610,8 +612,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
       // const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
-      const newDepartDateLuxon = newDepartDate;
-      const arrivedDateLuxon = reservation.arrived_date;
+      const newDepartDateLuxon = DateTime.fromISO(String(newDepartDate));
+      const arrivedDateLuxon = DateTime.fromISO(String(reservation.arrived_date));
 
       const oldNumberOfNights = reservation.number_of_nights || 0
       const newNumberOfNights = newDepartDateLuxon!.diff(arrivedDateLuxon, 'days').days
@@ -699,7 +701,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Calculate free cancellation deadline
       // const arrivalDate = DateTime.fromJSDate(new Date(reservation.arrived_date))
-     const arrivalDate = reservation.arrived_date
+      const arrivalDate = reservation.arrived_date
       if (!arrivalDate.isValid) {
         return response.badRequest({ message: 'Invalid arrival date format.' })
       }
@@ -907,11 +909,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         resService.last_modified_by = auth.user!.id;
         await resService.save()
         const serviceProduct = await ServiceProduct.find(resService.service_product_id);
-          if (serviceProduct) {
-            serviceProduct.status = 'available';
-            serviceProduct.last_modified_by = auth.user!.id;
-            await serviceProduct.save();
-          }
+        if (serviceProduct) {
+          serviceProduct.status = 'available';
+          serviceProduct.last_modified_by = auth.user!.id;
+          await serviceProduct.save();
+        }
         await LoggerService.log({
           actorId: auth.user!.id,
           action: 'CANCEL',
