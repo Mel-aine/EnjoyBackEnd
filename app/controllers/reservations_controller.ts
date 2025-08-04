@@ -112,13 +112,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         await ReservationServiceProduct.createMany(productsPayload)
 
-        for (const product of data.products) {
-          const serviceProduct = await ServiceProduct.find(product.service_product_id)
-          if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
-            serviceProduct.status = 'available'
-            await serviceProduct.save()
-          }
-        }
+        // for (const product of data.products) {
+        //   const serviceProduct = await ServiceProduct.find(product.service_product_id)
+        //   if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
+        //     serviceProduct.status = 'available'
+        //     await serviceProduct.save()
+        //   }
+        // }
       }
 
       // Log the activity using our new service
@@ -608,10 +608,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const oldReservationData = { ...reservation.serialize() }
       const newDepartDate = reservation.depart_date;
 
-      // const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
-      // const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
-      const newDepartDateLuxon = newDepartDate;
-      const arrivedDateLuxon = reservation.arrived_date;
+      const newDepartDateLuxon = DateTime.fromISO(newDepartDate);
+      const arrivedDateLuxon = DateTime.fromJSDate(new Date(reservation.arrived_date));
+      // const newDepartDateLuxon = newDepartDate;
+      // const arrivedDateLuxon = reservation.arrived_date;
 
       const oldNumberOfNights = reservation.number_of_nights || 0
       const newNumberOfNights = newDepartDateLuxon!.diff(arrivedDateLuxon, 'days').days
