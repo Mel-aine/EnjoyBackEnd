@@ -472,64 +472,64 @@ router
 
     router.group(() => {
       router.get(
-          '/reservations_by_id/:id',
-          reservationsController.show.bind(reservationsController)
-        )
-        router.get(
-          '/reservations/:serviceId',
-          reservationsController.GetByServiceId.bind(reservationsController)
-        )
-        router.get(
-          '/reservations/:reservationId/details',
-          reservationsController.getReservationDetails.bind(reservationsController)
-        )
-        // .use(middleware.checkPermission(['bookings_read']))
-        router.post('/reservations', reservationsController.store.bind(reservationsController))
-        router.post(
-          '/reservationswithuser',
-          reservationsController.createWithUserAndReservation.bind(reservationsController)
-        )
-        router.put('/reservations/:id', reservationsController.update.bind(reservationsController))
-        router.put(
-          '/reservations_update/:id',
-          reservationsController.updateReservation.bind(reservationsController)
-        )
-        router.delete(
-          '/reservations/:id',
-          reservationsController.destroy.bind(reservationsController)
-        )
-        router.patch(
-          '/reservations/:id/check-in',
-          reservationsController.checkIn.bind(reservationsController)
-        )
-        router.patch(
-          '/reservations/:id/check-out',
-          reservationsController.checkOut.bind(reservationsController)
-        )
-        router.patch(
-          '/reservations/:id/extend',
-          reservationsController.extendStay.bind(reservationsController)
-        )
-        router.get(
-          '/reservations/service-product/:serviceProductId',
-          reservationsController.showByServiceProductId.bind(reservationsController)
-        )
-        router.patch(
-          '/reservations/:id/checkExtendStay',
-          reservationsController.checkExtendStay.bind(reservationsController)
-        )
-        router.patch(
-          '/reservations/:id/extendStay',
-          reservationsController.extendStay.bind(reservationsController)
-        )
-        router.get(
-          '/reservations/:id/cancellation-summary',
-          reservationsController.getCancellationSummary.bind(reservationsController)
-        )
-        router.post(
-          '/reservations/:id/cancel',
-          reservationsController.cancelReservation.bind(reservationsController)
-        )
+        '/reservations_by_id/:id',
+        reservationsController.show.bind(reservationsController)
+      )
+      router.get(
+        '/reservations/:serviceId',
+        reservationsController.GetByServiceId.bind(reservationsController)
+      )
+      router.get(
+        '/reservations/:reservationId/details',
+        reservationsController.getReservationDetails.bind(reservationsController)
+      )
+      // .use(middleware.checkPermission(['bookings_read']))
+      router.post('/reservations', reservationsController.store.bind(reservationsController))
+      router.post(
+        '/reservationswithuser',
+        reservationsController.createWithUserAndReservation.bind(reservationsController)
+      )
+      router.put('/reservations/:id', reservationsController.update.bind(reservationsController))
+      router.put(
+        '/reservations_update/:id',
+        reservationsController.updateReservation.bind(reservationsController)
+      )
+      router.delete(
+        '/reservations/:id',
+        reservationsController.destroy.bind(reservationsController)
+      )
+      router.patch(
+        '/reservations/:id/check-in',
+        reservationsController.checkIn.bind(reservationsController)
+      )
+      router.patch(
+        '/reservations/:id/check-out',
+        reservationsController.checkOut.bind(reservationsController)
+      )
+      router.patch(
+        '/reservations/:id/extend',
+        reservationsController.extendStay.bind(reservationsController)
+      )
+      router.get(
+        '/reservations/service-product/:serviceProductId',
+        reservationsController.showByServiceProductId.bind(reservationsController)
+      )
+      router.patch(
+        '/reservations/:id/checkExtendStay',
+        reservationsController.checkExtendStay.bind(reservationsController)
+      )
+      router.patch(
+        '/reservations/:id/extendStay',
+        reservationsController.extendStay.bind(reservationsController)
+      )
+      router.get(
+        '/reservations/:id/cancellation-summary',
+        reservationsController.getCancellationSummary.bind(reservationsController)
+      )
+      router.post(
+        '/reservations/:id/cancel',
+        reservationsController.cancelReservation.bind(reservationsController)
+      )
     })
 
     router.group(() => {
@@ -673,6 +673,8 @@ router
       AmenityPaymentsController,
       'payForAmenities',
     ])
+    router.get('/reservations/:id/invoice', [ReservationsController, 'getHotelInvoiceData'])
+
 
     router.group(() => {
       router.post('/schedules', schedulesController.create.bind(SchedulesController))
@@ -773,14 +775,14 @@ router
         dashboardController.yearlyReservationTypes.bind(dashboardController)
       )
     })
-router
-  .group(() => {
-    router.get('/service/:serviceId/daily-occupancy', [
-      DashboardController,
-      'getDailyOccupancyAndReservations',
-    ])
-  })
-  .prefix('/dashboard')
+    router
+      .group(() => {
+        router.get('/service/:serviceId/daily-occupancy', [
+          DashboardController,
+          'getDailyOccupancyAndReservations',
+        ])
+      })
+      .prefix('/dashboard')
     //Refund routes
     router.group(() => {
       router.post('/refund', refundsController.store.bind(refundsController))
@@ -799,22 +801,22 @@ router
 
     router
       .group(() => {
-      // Custom route to get all policies for a specific hotel
-      router.get(
-        '/hotel/:hotelId',
-        cancellationPoliciesController.showByHotel.bind(cancellationPoliciesController)
-      )
-      router.get('/:id', cancellationPoliciesController.show.bind(cancellationPoliciesController))
-      router.post('/', cancellationPoliciesController.store.bind(cancellationPoliciesController))
-      router.get('/', cancellationPoliciesController.index.bind(cancellationPoliciesController))
-      router.put(
-        '/:id',
-        cancellationPoliciesController.update.bind(cancellationPoliciesController)
-      )
-      router.delete(
-        '/:id',
-        cancellationPoliciesController.destroy.bind(cancellationPoliciesController)
-      )
+        // Custom route to get all policies for a specific hotel
+        router.get(
+          '/hotel/:hotelId',
+          cancellationPoliciesController.showByHotel.bind(cancellationPoliciesController)
+        )
+        router.get('/:id', cancellationPoliciesController.show.bind(cancellationPoliciesController))
+        router.post('/', cancellationPoliciesController.store.bind(cancellationPoliciesController))
+        router.get('/', cancellationPoliciesController.index.bind(cancellationPoliciesController))
+        router.put(
+          '/:id',
+          cancellationPoliciesController.update.bind(cancellationPoliciesController)
+        )
+        router.delete(
+          '/:id',
+          cancellationPoliciesController.destroy.bind(cancellationPoliciesController)
+        )
       })
       .prefix('cancellation-policies')
   })

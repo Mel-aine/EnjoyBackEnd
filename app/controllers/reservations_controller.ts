@@ -16,6 +16,7 @@ import Refund from '#models/refund'
 import { ReservationProductStatus } from '../enums.js'
 // import { messages } from '@vinejs/vine/defaults'
 import logger from '@adonisjs/core/services/logger'
+import AmenityBooking from '../models/amenity_booking.js'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -541,7 +542,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
               .where('start_date', '<', newDepartDate.toISODate()!)
               .andWhere('start_date', '>=', DateTime.now().toISODate()!)
-             // .andWhere('end_date', '>', oldDepartDate.toISODate()!)
+            // .andWhere('end_date', '>', oldDepartDate.toISODate()!)
           })
           .first()
         logger.info(conflictingReservation)
@@ -1019,6 +1020,193 @@ export default class ReservationsController extends CrudController<typeof Reserv
       logger.error('Error searching reservations: %o', error)
       return response.internalServerError({
         message: 'An error occurred while searching for reservations.',
+        error: error.message,
+      })
+    }
+  }
+
+  public async getHotelInvoiceData(ctx: HttpContext) {
+    const { params, response, logger } = ctx
+    try {
+      console.log('Reservation ID is required.', params.id)
+      const reservationId = Number.parseInt(params.id, 10)
+      console.log('Reservation ID is required.', reservationId)
+
+      if (!reservationId) {
+        return response.badRequest({ message: 'Reservation ID is required.' })
+      }
+
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('user')
+        .preload('service')
+        .preload('payments')
+        .preload('reservationServiceProducts', (rspQuery) => {
+          rspQuery.preload('serviceProduct', (spQuery) => {
+            spQuery.preload('productType')
+          })
+        })
+
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      const { user, service, payments, reservationServiceProducts } = reservation;
+      const amenityBookings = await AmenityBooking.query().where('reservation_id', reservationId).preload("items", (query) => {
+        query.preload('amenityProduct')
+      })
+
+      // 1. Hotel Data
+      let hotelAddressParts = {
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+      }
+      try {
+        if (service.address_service) {
+          const parsedAddress = JSON.parse(service.address_service)
+          hotelAddressParts.address = parsedAddress.text || ''
+          hotelAddressParts.city = parsedAddress.city || ''
+          hotelAddressParts.state = parsedAddress.state || ''
+          hotelAddressParts.zip = parsedAddress.zip || ''
+        }
+      } catch (e) {
+        // If parsing fails, use the raw string if it's not JSON
+        if (typeof service.address_service === 'string') {
+          hotelAddressParts.address = service.address_service
+        }
+      }
+      const hotel = {
+        name: service.name,
+        address: hotelAddressParts.address,
+        city: hotelAddressParts.city,
+        state: hotelAddressParts.state,
+        zip: hotelAddressParts.zip,
+        phone: service.phone_number_service,
+        email: service.email_service,
+        website: service.website,
+      }
+
+      // 2. Guest Data
+      const guest = {
+        firstName: user.first_name,
+        lastName: user.last_name,
+        address: user.address,
+        city: user.city,
+        state: user.country, // Assuming country is used as state
+        zip: '', // No zip in user model
+        phone: user.phone_number,
+        email: user.email,
+        passportId: user.national_id_number,
+      }
+
+      // 3. Dates & Nights
+      const checkinDate = (reservation.check_in_date ?? reservation.arrived_date)?.toISODate() ?? null
+      const checkinTime =
+        (reservation.check_in_date ?? reservation.arrived_date)?.toISOTime({ suppressSeconds: true, includeOffset: false }) ?? null
+      const checkoutDate = (reservation.check_out_date ?? reservation.depart_date)?.toISODate() ?? null
+      const checkoutTime =
+        (reservation.check_out_date ?? reservation.depart_date)?.toISOTime({ suppressSeconds: true, includeOffset: false }) ?? null
+      const nights = reservation.number_of_nights ?? 0
+
+      // 4. Rooms
+      const rooms = reservationServiceProducts.map((rsp) => {
+        const rate = parseFloat(String(rsp.rate_per_night ?? 0))
+        const total = parseFloat(String(rsp.total_amount ?? 0))
+        return {
+          type: rsp.serviceProduct.productType?.name ?? 'N/A',
+          number: rsp.serviceProduct.product_name,
+          rate: rate,
+          nights: nights,
+          total: total,
+        }
+      })
+
+      // 5. Services (Placeholder for future implementation)
+      const services = amenityBookings.map((booking) => ({
+
+        totalAmount: parseFloat(String(booking.totalAmount ?? 0)),
+        amenityOrderNumber: booking.amenityOrderNumber,
+        items: booking.items.map((item) => ({
+          amenityName: item.amenityProduct.name,
+          quantity: item.quantity,
+          price: item.pricePerUnit,
+          total: parseFloat(String(item.quantity ?? 0)) * parseFloat(String(item.pricePerUnit ?? 0)),
+        }))
+      }))
+
+      // 6. Taxes
+      const taxes: any[] = []
+      if (reservation.tax_amount && reservation.total_amount) {
+        const totalBeforeTax =
+          parseFloat(String(reservation.total_amount)) - parseFloat(String(reservation.tax_amount))
+        const rate =
+          totalBeforeTax > 0
+            ? (parseFloat(String(reservation.tax_amount)) / totalBeforeTax) * 100
+            : 0
+        taxes.push({
+          description: 'VAT',
+          rate: `${rate.toFixed(2)}%`,
+          amount: parseFloat(String(reservation.tax_amount)),
+        })
+      }
+
+      // 7. Payments
+      const paymentDetails = payments.map((p) => {
+        let cardType = null
+        let cardNumber = null
+        if (p.payment_details) {
+          try {
+            const details = JSON.parse(p.payment_details)
+            cardType = details.cardType || null
+            cardNumber = details.cardNumber ? `**** **** **** ${details.cardNumber.slice(-4)}` : null
+          } catch (e) {
+            // ignore if not json
+          }
+        }
+        return {
+          method: p.payment_method,
+          cardType: cardType,
+          cardNumber: cardNumber,
+          transactionId: p.transaction_id,
+          amount: p.amount_paid,
+          description: p.notes,
+          date: p.payment_date,
+        }
+      })
+
+      // 8. Notes
+      const notes = reservation.special_requests || reservation.comment || ''
+
+      const invoiceData = {
+        hotel,
+        guest,
+        checkinDate,
+        checkinTime,
+        checkoutDate,
+        checkoutTime,
+        nights,
+        rooms,
+        services,
+        taxes,
+        payments: paymentDetails,
+        notes,
+        invoiceNumber: reservation.reservation_number, // Using reservation number as invoice number
+        issueDate: DateTime.now().toISODate(),
+        subtotal: parseFloat(String(reservation.total_amount ?? 0)),
+        total: parseFloat(String(reservation.final_amount ?? 0)),
+        amountPaid: parseFloat(String(reservation.paid_amount ?? 0)),
+        balanceDue: parseFloat(String(reservation.remaining_amount ?? 0)),
+      }
+
+      return response.ok(invoiceData)
+    } catch (error) {
+      logger.error('Error fetching invoice data: %o', error)
+      return response.internalServerError({
+        message: 'Failed to fetch invoice data',
         error: error.message,
       })
     }

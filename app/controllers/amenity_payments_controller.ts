@@ -26,6 +26,9 @@ export default class AmenityPaymentsController {
         .whereIn('id', payload.amenity_booking_ids)
         .where('reservation_id', reservationId)
         .where('status', 'pending')
+        .preload('items', (itemQuery) => {
+          itemQuery.preload('amenityProduct')
+        })
 
       // 2. Validate that all requested bookings were found and are pending
       if (amenityBookings.length !== payload.amenity_booking_ids.length) {
@@ -36,7 +39,12 @@ export default class AmenityPaymentsController {
         })
       }
 
-      // 3. Calculate the total amount to be paid
+      // 3. Calculate the total amount to be paid and collect product names
+      const productNames = amenityBookings.flatMap(
+        (booking) => booking.items.map((item) => item.amenityProduct?.name).filter(Boolean) as string[]
+      )
+      const uniqueProductNames = [...new Set(productNames)]
+
       const totalAmountToPay = amenityBookings.reduce(
         (sum, booking) => sum + parseFloat(booking.totalAmount.toString()),
         0
@@ -56,7 +64,7 @@ export default class AmenityPaymentsController {
           payment_method: payload.payment_method,
           status: 'paid', // Assuming direct payment confirmation
           transaction_id: payload.transaction_id,
-          notes: payload.notes || `Payment for amenities: ${payload.amenity_booking_ids.join(', ')}`,
+          notes: payload.notes || `Payment for amenities: ${uniqueProductNames.join(', ')}`,
           service_id: reservation.service_id,
           created_by: user.id,
           last_modified_by: user.id,
@@ -91,4 +99,3 @@ export default class AmenityPaymentsController {
     }
   }
 }
-
