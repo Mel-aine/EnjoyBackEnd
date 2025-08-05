@@ -228,8 +228,10 @@ router
   .group(() => {
     router.group(() => {
       router.get('/users', usersController.list.bind(usersController))
+      router.post('/customers', usersController.storeClient.bind(usersController))
       router.get('/users/:id', usersController.show.bind(usersController))
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
+      router.put('/update_customer/:id', usersController.update.bind(usersController))
       router.get('/users/:id/details', usersController.getUserDetails.bind(usersController))
       router.delete('/users/:id', usersController.destroy.bind(usersController))
       router.get('/users/:id/profile', usersController.getCustomerProfile.bind(usersController))

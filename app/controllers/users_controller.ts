@@ -13,6 +13,7 @@ import Service from '#models/service'
 import ActivityLog from '#models/activity_log'
 import logger from '@adonisjs/core/services/logger'
 import EmploymentContract from '#models/employment_contract'
+import Role from '#models/role'
 
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
@@ -446,31 +447,80 @@ export default class UsersController extends CrudController<typeof User> {
  * A client is a user who has made at least one reservation for this hotel.
  */
   public async getClientsByService({ params, response }: HttpContext) {
-    try {
-      const { serviceId } = params
+  try {
+    const { serviceId } = params
 
-      // Optional but recommended: Check if the service exists
-      const service = await Service.find(serviceId)
-      if (!service) {
-        return response.notFound({ message: 'Hotel not found.' })
-      }
-
-      // Get the IDs of users who have reservations for this service
-      const userIds = (await Reservation.query()
-        .where('service_id', serviceId)
-        .distinctOn('user_id').select('user_id')).map((e) => e.user_id)
-
-      if (userIds.length === 0) {
-        return response.ok([])
-      }
-
-      // Retrieve the details of the users
-      const clients = await User.query().whereIn('id', userIds)
-
-      return response.ok(clients)
-    } catch (error) {
-      console.error(error)
-      return response.internalServerError({ message: 'Server error while fetching clients.' })
+    // Vérifier que le service existe
+    const service = await Service.find(serviceId)
+    if (!service) {
+      return response.notFound({ message: 'Service not found.' })
     }
+
+    // Filtrer tous les utilisateurs ayant le rôle "client" et appartenant à ce service
+    const roleClient = await Role.findByOrFail('role_name', 'customer')
+
+    const clients = await User.query()
+      .where('service_id', serviceId)
+      .andWhere('role_id', roleClient.id)
+
+    return response.ok(clients)
+  } catch (error) {
+    console.error(error)
+    return response.internalServerError({ message: 'Error retrieving clients.' })
   }
+}
+
+public async storeClient({ request, auth, response }: HttpContext) {
+  try {
+    const data = request.only([
+      'gender',
+      'first_name',
+      'last_name',
+      'email',
+      'country',
+      'national_id_number',
+      'address',
+      'phone_number',
+      'special_preferences',
+      'service_id',
+      'date_of_birth',
+    ])
+
+    const { email, service_id } = data
+
+    // Vérifie si un utilisateur avec cet email existe déjà pour ce service
+    const existingUser = await User.query()
+      .where('email', email)
+      .andWhere('service_id', service_id)
+      .first()
+
+    if (existingUser) {
+      return response.conflict({
+        message: 'This email is already in use for this service',
+      })
+    }
+
+    const role = await Role.findByOrFail('role_name', 'customer')
+
+    const currentUser = auth.user!
+
+    const newUser = await User.create({
+      ...data,
+      role_id: role.id,
+      created_by: currentUser.id,
+      last_modified_by: currentUser.id,
+    })
+
+    return response.created(newUser)
+  } catch (error) {
+    console.error('Error creating client:', error)
+    return response.internalServerError({
+      message: 'Error creating client.',
+    })
+  }
+}
+
+
+
+
 }
