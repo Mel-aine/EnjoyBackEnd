@@ -1,6 +1,8 @@
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Role from '#models/role'
 import Service from '#models/service'
+import RolePermission from '#models/role_permission'
+import Permission from '#models/permission'
 
 export default class PermissionService {
   /**
@@ -105,5 +107,32 @@ public static async getPermissions(userId: number, serviceId: number): Promise<s
 
   return role.permissions.map(p => p.name)
 }
+
+ public async assignAllPermissionsToAdminForService(serviceId: number, createdBy: number) {
+    const adminRole = await Role.findBy('role_name', 'admin')
+    if (!adminRole) {
+      throw new Error('Rôle admin introuvable')
+    }
+
+    const allPermissions = await Permission.all()
+
+    for (const permission of allPermissions) {
+      const exists = await RolePermission.query()
+        .where('role_id', adminRole.id)
+        .andWhere('permission_id', permission.id)
+        .andWhere('service_id', serviceId)
+        .first()
+
+      if (!exists) {
+        await RolePermission.create({
+          role_id: adminRole.id,
+          permission_id: permission.id,
+          service_id: serviceId,
+          created_by: createdBy,
+          last_modified_by: createdBy,
+        })
+      }
+    }
+  }
 
 }

@@ -145,6 +145,74 @@ export default class PaymentsController extends CrudController<typeof Payment> {
     }
   }
 
+async getAllPayment(ctx: HttpContext) {
+  const { params, response } = ctx
+  try {
+    const serviceId = params.serviceId
+    if (!serviceId) {
+      return response.status(400).json({ error: 'Service ID is required' })
+    }
+
+    const payments = await Payment.query()
+      .where('service_id', serviceId)
+      .preload('user', (userQuery) => {
+        userQuery.select(['first_name', 'last_name'])
+      })
+      .preload('reservation')
+      .preload('creator', (creatorQuery) => {
+        // Informations sur qui a créé le paiement
+        creatorQuery.select(['id', 'first_name', 'last_name'])
+      })
+      .preload('modifier', (modifierQuery) => {
+        // Informations sur qui a modifié le paiement
+        modifierQuery.select(['id', 'first_name', 'last_name'])
+      })
+      .orderBy('payment_date', 'desc') // Trier par date de paiement décroissante
+
+    // Formater les données pour le frontend
+    const formattedPayments = payments.map(payment => ({
+      id: payment.id,
+      amountPaid: payment.amount_paid,
+      paymentMethod: payment.payment_method,
+      status: payment.status.toLowerCase(),
+      transactionId: payment.transaction_id,
+      notes: payment.notes,
+      paymentDate: payment.payment_date,
+      serviceId: payment.service_id,
+
+      // Informations du client
+      client: {
+        id: payment.user.id,
+        firstName: payment.user.first_name,
+        lastName: payment.user.last_name,
+      },
+
+      // Informations de la réservation (si elle existe)
+      reservation: payment.reservation ? {
+        id: payment.reservation.id,
+      } : null,
+
+      // Informations sur qui a créé/modifié
+      createdBy: payment.creator ? {
+        id: payment.creator.id,
+        fullName: `${payment.creator.first_name} ${payment.creator.last_name}`
+      } : null,
+
+      modifiedBy: payment.modifier ? {
+        id: payment.modifier.id,
+        fullName: `${payment.modifier.first_name} ${payment.modifier.last_name}`
+      } : null,
+
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt
+    }))
+
+    return response.ok(formattedPayments)
+  } catch (error) {
+    console.error('Error fetching payments:', error)
+    return response.status(500).json({ error: 'Failed to fetch payments' })
+  }
+}
 
 
 }

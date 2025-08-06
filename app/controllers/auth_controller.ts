@@ -5,6 +5,7 @@ import { cuid } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
 import LoggerService from '#services/logger_service'
+import RolePermission from '#models/role_permission'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -61,7 +62,7 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
-  public async signin(ctx: HttpContext) {
+   public async signin(ctx: HttpContext) {
     const { request, response } = ctx
     const { email } = request.only(['email', 'password'])
 
@@ -76,38 +77,64 @@ export default class AuthController {
 
       const token = await User.accessTokens.create(user, ['*'], { name: email })
 
-      const assignments = await user
-        .related('serviceAssignments')
-        .query()
-        .preload('service', (serviceQuery) => {
-          serviceQuery.preload('category')
-        })
-        .preload('roleModel', (roleQuery) => {
-          roleQuery.preload('permissions')
-        })
+     const assignments = await user
+      .related('serviceAssignments')
+      .query()
+      .preload('service', (serviceQuery) => {
+        serviceQuery.preload('category')
+      })
+      .preload('roleModel')
 
-      // Construire les permissions détaillées
-      const detailedPermissions = assignments.map((assignment) => ({
-        service: {
-          id: assignment.service?.id,
-          name: assignment.service?.name,
-          category: assignment.service?.category,
-        },
-        role: {
-          name: assignment.roleModel?.role_name,
-          description: assignment.roleModel?.description,
-        },
-        permissions:
-          assignment.roleModel?.permissions.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.label,
-          })) ?? [],
+      // Pour chaque serviceAssignment, charger les permissions spécifiques à (role, service)
+      const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
+        const service = assignment.service
+        const role = assignment.roleModel
+
+        if (!service || !role) {
+          return null
+        }
+
+        const rolePermissions = await RolePermission
+          .query()
+          .where('role_id', role.id)
+          .andWhere('service_id', service.id)
+          .preload('permission')
+
+        const permissions = rolePermissions.map((rp) => ({
+          id: rp.permission.id,
+          name: rp.permission.name,
+          description: rp.permission.label,
+        }))
+
+        return {
+          service: {
+            id: service.id,
+            name: service.name,
+            category: service.category,
+          },
+          role: {
+            name: role.role_name,
+            description: role.description,
+          },
+          permissions,
+        }
       }))
+
+      // Enlever les éventuels nulls (si un assignment est mal formé)
+      const filteredPermissions = detailedPermissions.filter((p) => p !== null)
 
       const userServices = assignments
         .map((assignment) => assignment.service)
         .filter((service) => service !== null)
+
+        await LoggerService.log({
+          actorId: user.id,
+          action: 'LOGIN',
+          entityType: 'User',
+          entityId: user.id.toString(),
+          description: `Connexion de l'utilisateur ${email}`,
+          ctx: ctx,
+        })
 
       return response.ok({
         message: 'Login successful',
@@ -115,13 +142,14 @@ export default class AuthController {
           user,
           user_token: token,
           userServices,
-          permissions: detailedPermissions,
+          permissions: filteredPermissions,
         },
       })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
         return response.unauthorized({ message: 'Invalid credentials' })
       }
+      console.error(error)
       return response.badRequest({ message: 'Login failed' })
     }
   }

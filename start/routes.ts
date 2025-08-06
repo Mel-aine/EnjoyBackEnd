@@ -619,7 +619,7 @@ router
     router.group(() => {
       router.get('/payment', paymentsController.list.bind(paymentsController))
       router.get('/payment/:id', paymentsController.show.bind(paymentsController))
-      router.get('/payments/:serviceId', paymentsController.GetByServiceId.bind(paymentsController))
+      router.get('/payments/:serviceId', paymentsController.getAllPayment.bind(paymentsController))
       router.post('/payment', paymentsController.store.bind(paymentsController))
       router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
       router.put('/payment/:id', paymentsController.update.bind(paymentsController))

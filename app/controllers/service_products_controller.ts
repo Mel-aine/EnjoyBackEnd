@@ -54,6 +54,8 @@ export default class ServiceProductsController extends CrudController<typeof Ser
         .where('product_type_id', roomTypeId)
         .where('status', 'available') // On ne cherche que parmi les chambres marquées comme disponibles
         .whereDoesntHave('reservationServiceProducts', (query) => {
+          //ajouter pour que si la reservation est annulee ,que la chambre pendant cette periode apparaisse dans la liste
+          query.whereNot('status', 'cancelled')
           // Exclure les chambres qui ont une réservation qui chevauche la période demandée.
           // La condition de chevauchement est : (débutRéservation < finDemande) ET (finRéservation > débutDemande)
           query.where('end_date', '>', startDate.toSQLDate()??'').andWhere('start_date', '<', endDate.toSQLDate()??"")

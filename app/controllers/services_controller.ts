@@ -7,6 +7,8 @@ import ServiceUserAssignment from '#models/service_user_assignment'
 import LoggerService from '#services/logger_service'
 import logger from '@adonisjs/core/services/logger'
 import db from '@adonisjs/lucid/services/db'
+import PermissionService from '#services/permission_service'
+
 
 export default class ServicesController extends CrudController<typeof Service> {
   private userService: CrudService<typeof User>
@@ -114,54 +116,65 @@ export default class ServicesController extends CrudController<typeof Service> {
           ctx: ctx,
         })
       }
-      const services = await Service.findBy('id', parseInt(`${data.id}`));
-      let newService;
-      if (services && services.id) {
-        newService = services;
-        newService.name = data.name;
-        newService.description = data.description;
-        newService.email_service = data.email_service;
-        newService.website = data.website;
-        newService.openings = data.openings;
-        newService.price_range = data.price_range;
-        newService.facilities = data.facilities;
-        newService.policies = data.policies;
-        newService.capacity = data.capacity;
-        newService.payment_methods = data.payment_methods;
-        newService.logo = data.logo || null;
-        newService.address_service = data.address_service;
-        newService.phone_number_service = data.phone_number_service || null;
-        newService.average_rating = data.average_rating || null;
-        newService.review_count = data.review_count || null;
-        newService.images = data.images || null;
-        newService.status_service = 'active';
-        newService.created_by = user.id;
-        newService.last_modified_by = user.id;
-      } else {
-        newService = await this.serviceService.create({
-          name: data.name,
-          description: data.description,
-          category_id: data.category_id,
-          email_service: data.email_service,
-          website: data.website,
-          openings: data.openings,
-          price_range: data.price_range,
-          facilities: data.facilities,
-          policies: data.policies,
-          capacity: data.capacity,
-          payment_methods: data.payment_methods,
-          logo: data.logo || null,
-          address_service: data.address_service,
-          phone_number_service: data.phone_number_service || null,
-          average_rating: data.average_rating || null,
-          review_count: data.review_count || null,
-          images: data.images || null,
-          status_service: data.status_service || 'active',
-          created_by: user.id,
-          last_modified_by: data.last_modified_by || null,
 
-        })
-      }
+      let newService
+
+        if (data.id && !isNaN(Number(data.id))) {
+          const existingService = await Service.findBy('id', Number(data.id))
+
+          if (existingService) {
+            newService = existingService
+            newService.name = data.name
+            newService.description = data.description
+            newService.email_service = data.email_service
+            newService.website = data.website
+            newService.openings = data.openings
+            newService.price_range = data.price_range
+            newService.facilities = data.facilities
+            newService.policies = data.policies
+            newService.capacity = data.capacity
+            newService.payment_methods = data.payment_methods
+            newService.logo = data.logo || null
+            newService.address_service = data.address_service
+            newService.phone_number_service = data.phone_number_service || null
+            newService.average_rating = data.average_rating || null
+            newService.review_count = data.review_count || null
+            newService.images = data.images || null
+            newService.status_service = 'active'
+            newService.created_by = user.id
+            newService.last_modified_by = user.id
+          }
+        }
+
+        if (!newService) {
+          // Création d’un nouveau service
+          newService = await this.serviceService.create({
+            name: data.name,
+            description: data.description,
+            category_id: data.category_id,
+            email_service: data.email_service,
+            website: data.website,
+            openings: data.openings,
+            price_range: data.price_range,
+            facilities: data.facilities,
+            policies: data.policies,
+            capacity: data.capacity,
+            payment_methods: data.payment_methods,
+            logo: data.logo || null,
+            address_service: data.address_service,
+            phone_number_service: data.phone_number_service || null,
+            average_rating: data.average_rating || null,
+            review_count: data.review_count || null,
+            images: data.images || null,
+            status_service: data.status_service || 'active',
+            created_by: user.id,
+            last_modified_by: data.last_modified_by || null,
+          })
+
+          const permissionService = new PermissionService()
+          await permissionService.assignAllPermissionsToAdminForService(newService.id, user.id)
+        }
+
 
       await ServiceUserAssignment.create({
         user_id: user.id,

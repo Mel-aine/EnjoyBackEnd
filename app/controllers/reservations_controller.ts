@@ -808,6 +808,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         if (totalPaid > 0) {
           await Refund.create(
             {
+              service_id: reservation.service_id,
               reservation_id: reservation.id,
               refund_amount: totalPaid,
               reason: 'Full refund: No cancellation policy found.',
@@ -818,6 +819,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             },
             { client: trx }
           )
+
           reservation.payment_status = 'refunded'
         }
         await reservation.save()
@@ -888,6 +890,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (refundAmount > 0) {
         await Refund.create(
           {
+            service_id: reservation.service_id,
             reservation_id: reservation.id,
             refund_amount: refundAmount,
             reason: `Cancellation fee applied: ${cancellationFee}.`,
