@@ -1031,12 +1031,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async getHotelInvoiceData(ctx: HttpContext) {
     const { params, response, logger } = ctx
     try {
-      console.log('Reservation ID is required.', params.id)
       const reservationId = Number.parseInt(params.id, 10)
-      console.log('Reservation ID is required.', reservationId)
 
-      if (!reservationId) {
-        return response.badRequest({ message: 'Reservation ID is required.' })
+      if (isNaN(reservationId)) {
+        return response.badRequest({ message: 'Invalid Reservation ID.' })
       }
 
       const reservation = await Reservation.query()
@@ -1049,25 +1047,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
             spQuery.preload('productType')
           })
         })
-
         .first()
 
       if (!reservation) {
         return response.notFound({ message: 'Reservation not found' })
       }
 
-      const { user, service, payments, reservationServiceProducts } = reservation;
-      const amenityBookings = await AmenityBooking.query().where('reservation_id', reservationId).preload("items", (query) => {
-        query.preload('amenityProduct')
-      })
+      const { user, service, payments, reservationServiceProducts } = reservation
+      const amenityBookings = await AmenityBooking.query()
+        .where('reservation_id', reservationId)
+        .preload('items', (query) => {
+          query.preload('amenityProduct')
+        })
 
       // 1. Hotel Data
-      let hotelAddressParts = {
-        address: '',
-        city: '',
-        state: '',
-        zip: '',
-      }
+      let hotelAddressParts = { address: '', city: '', state: '', zip: '' }
       try {
         if (service.address_service) {
           const parsedAddress = JSON.parse(service.address_service)
@@ -1077,7 +1071,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           hotelAddressParts.zip = parsedAddress.zip || ''
         }
       } catch (e) {
-        // If parsing fails, use the raw string if it's not JSON
         if (typeof service.address_service === 'string') {
           hotelAddressParts.address = service.address_service
         }
@@ -1099,8 +1092,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         lastName: user.last_name,
         address: user.address,
         city: user.city,
-        state: user.country, // Assuming country is used as state
-        zip: '', // No zip in user model
+        state: user.country,
+        zip: '',
         phone: user.phone_number,
         email: user.email,
         passportId: user.national_id_number,
@@ -1109,71 +1102,126 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 3. Dates & Nights
       const checkinDate = (reservation.check_in_date ?? reservation.arrived_date)?.toISODate() ?? null
       const checkinTime =
-        (reservation.check_in_date ?? reservation.arrived_date)?.toISOTime({ suppressSeconds: true, includeOffset: false }) ?? null
-      const checkoutDate = (reservation.check_out_date ?? reservation.depart_date)?.toISODate() ?? null
+        (reservation.check_in_date ?? reservation.arrived_date)?.toISOTime({
+          suppressSeconds: true,
+          includeOffset: false,
+        }) ?? null
+      const checkoutDate =
+        (reservation.check_out_date ?? reservation.depart_date)?.toISODate() ?? null
       const checkoutTime =
-        (reservation.check_out_date ?? reservation.depart_date)?.toISOTime({ suppressSeconds: true, includeOffset: false }) ?? null
-      const nights = reservation.number_of_nights ?? 0
+        (reservation.check_out_date ?? reservation.depart_date)?.toISOTime({
+          suppressSeconds: true,
+          includeOffset: false,
+        }) ?? null
 
-      // 4. Rooms
+      const arrival = reservation.arrived_date
+      const departure = reservation.depart_date
+      let nights = 0
+      if (arrival && departure && departure > arrival) {
+        // Use Math.ceil to ensure that even a fraction of a day counts as a full night.
+        nights = Math.ceil(departure.diff(arrival, 'days').days)
+      } else {
+        nights = reservation.number_of_nights ?? 0
+      }
+
+      // 4. Tax Rates from Service
+      const vatHospitalityRate = service.vat_hospitality ?? 0
+      const touristTaxPerNight = service.tourist_tax ?? 0
+      const generalVatRate = service.general_vat ?? 0
+
+      // 5. Rooms and Room Tax Calculation
+      let totalVatHospitality = 0
+      let totalTouristTax = 0
+      let subtotalRoomsBeforeTax = 0
+
       const rooms = reservationServiceProducts.map((rsp) => {
-        const rate = parseFloat(String(rsp.rate_per_night ?? 0))
-        const total = parseFloat(String(rsp.total_amount ?? 0))
+        const ratePerNight = parseFloat(String(rsp.rate_per_night ?? 0))
+        const totalRoomPrice = ratePerNight * nights
+
+        const touristTaxForRoom = touristTaxPerNight * nights
+        totalTouristTax += touristTaxForRoom
+
+        const priceBeforeTouristTax = totalRoomPrice - touristTaxForRoom
+        const basePriceForRoom = priceBeforeTouristTax / (1 + vatHospitalityRate / 100)
+        const vatHospitalityForRoom = priceBeforeTouristTax - basePriceForRoom
+        totalVatHospitality += vatHospitalityForRoom
+
+        subtotalRoomsBeforeTax += basePriceForRoom
+
         return {
           type: rsp.serviceProduct.productType?.name ?? 'N/A',
           number: rsp.serviceProduct.product_name,
-          rate: rate,
+          rate: ratePerNight,
           nights: nights,
-          total: total,
+          total: totalRoomPrice,
         }
       })
 
-      // 5. Services (Placeholder for future implementation)
-      const services = amenityBookings.map((booking) => ({
+      // 6. Services (Amenities) and Service Tax Calculation
+      let totalGeneralVat = 0
+      let subtotalServicesBeforeTax = 0
 
-        totalAmount: parseFloat(String(booking.totalAmount ?? 0)),
-        amenityOrderNumber: booking.amenityOrderNumber,
-        items: booking.items.map((item) => ({
-          amenityName: item.amenityProduct.name,
-          quantity: item.quantity,
-          price: item.pricePerUnit,
-          total: parseFloat(String(item.quantity ?? 0)) * parseFloat(String(item.pricePerUnit ?? 0)),
-        }))
-      }))
+      const servicesForInvoice = amenityBookings.map((booking) => {
+        const bookingTotal = parseFloat(String(booking.totalAmount ?? 0))
+        const basePriceForBooking = bookingTotal / (1 + generalVatRate / 100)
+        const generalVatForBooking = bookingTotal - basePriceForBooking
+        totalGeneralVat += generalVatForBooking
+        subtotalServicesBeforeTax += basePriceForBooking
 
-      // 6. Taxes
-      const taxes: any[] = []
-      if (reservation.tax_amount && reservation.total_amount) {
-        const totalBeforeTax =
-          parseFloat(String(reservation.total_amount)) - parseFloat(String(reservation.tax_amount))
-        const rate =
-          totalBeforeTax > 0
-            ? (parseFloat(String(reservation.tax_amount)) / totalBeforeTax) * 100
-            : 0
+        return {
+          totalAmount: bookingTotal,
+          amenityOrderNumber: booking.amenityOrderNumber,
+          items: booking.items.map((item) => ({
+            amenityName: item.amenityProduct.name,
+            quantity: item.quantity,
+            price: item.pricePerUnit,
+            total:
+              parseFloat(String(item.quantity ?? 0)) * parseFloat(String(item.pricePerUnit ?? 0)),
+          })),
+        }
+      })
+
+      // 7. Consolidate Taxes
+      const taxes = []
+      if (totalVatHospitality > 0) {
         taxes.push({
-          description: 'VAT',
-          rate: `${rate.toFixed(2)}%`,
-          amount: parseFloat(String(reservation.tax_amount)),
+          description: `TVA sur Hébergement (${vatHospitalityRate}%)`,
+          rate: vatHospitalityRate,
+          amount: parseFloat(totalVatHospitality.toFixed(2)),
+        })
+      }
+      if (totalTouristTax > 0) {
+        taxes.push({
+          description: `Taxe de séjour (${touristTaxPerNight} par nuit)`,
+          rate: touristTaxPerNight,
+          amount: parseFloat(totalTouristTax.toFixed(2)),
+        })
+      }
+      if (totalGeneralVat > 0) {
+        taxes.push({
+          description: `TVA sur Services (${generalVatRate}%)`,
+          rate: generalVatRate,
+          amount: parseFloat(totalGeneralVat.toFixed(2)),
         })
       }
 
-      // 7. Payments
+      // 8. Payments
       const paymentDetails = payments.map((p) => {
-        let cardType = null
-        let cardNumber = null
+        let cardType = null,
+          cardNumber = null
         if (p.payment_details) {
           try {
             const details = JSON.parse(p.payment_details)
             cardType = details.cardType || null
             cardNumber = details.cardNumber ? `**** **** **** ${details.cardNumber.slice(-4)}` : null
           } catch (e) {
-            // ignore if not json
+            /* ignore if not json */
           }
         }
         return {
           method: p.payment_method,
-          cardType: cardType,
-          cardNumber: cardNumber,
+          cardType,
+          cardNumber,
           transactionId: p.transaction_id,
           amount: p.amount_paid,
           description: p.notes,
@@ -1181,8 +1229,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       })
 
-      // 8. Notes
+      // 9. Notes
       const notes = reservation.special_requests || reservation.comment || ''
+
+      // 10. Final Invoice Data
+      const subtotal = subtotalRoomsBeforeTax 
 
       const invoiceData = {
         hotel,
@@ -1193,13 +1244,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
         checkoutTime,
         nights,
         rooms,
-        services,
+        services: servicesForInvoice,
         taxes,
         payments: paymentDetails,
         notes,
-        invoiceNumber: reservation.reservation_number, // Using reservation number as invoice number
+        invoiceNumber: reservation.reservation_number,
         issueDate: DateTime.now().toISODate(),
-        subtotal: parseFloat(String(reservation.total_amount ?? 0)),
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        totalTax: parseFloat((totalVatHospitality + totalTouristTax + totalGeneralVat).toFixed(2)),
         total: parseFloat(String(reservation.final_amount ?? 0)),
         amountPaid: parseFloat(String(reservation.paid_amount ?? 0)),
         balanceDue: parseFloat(String(reservation.remaining_amount ?? 0)),
