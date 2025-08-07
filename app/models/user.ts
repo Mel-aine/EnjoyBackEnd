@@ -62,6 +62,10 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare national_id_number: string | null
 
+  @column()
+  declare special_preferences: string | null
+
+
   @column.date()
   declare hire_date: DateTime | null
 
