@@ -124,25 +124,33 @@ export default class ServicesController extends CrudController<typeof Service> {
 
           if (existingService) {
             newService = existingService
-            newService.name = data.name
-            newService.description = data.description
-            newService.email_service = data.email_service
-            newService.website = data.website
-            newService.openings = data.openings
-            newService.price_range = data.price_range
-            newService.facilities = data.facilities
-            newService.policies = data.policies
-            newService.capacity = data.capacity
-            newService.payment_methods = data.payment_methods
-            newService.logo = data.logo || null
-            newService.address_service = data.address_service
-            newService.phone_number_service = data.phone_number_service || null
-            newService.average_rating = data.average_rating || null
-            newService.review_count = data.review_count || null
-            newService.images = data.images || null
-            newService.status_service = 'active'
-            newService.created_by = user.id
-            newService.last_modified_by = user.id
+            newService.merge({
+              name: data.name,
+              description: data.description,
+              email_service: data.email_service,
+              website: data.website,
+              openings: data.openings,
+              price_range: data.price_range,
+              facilities: data.facilities,
+              policies: data.policies,
+              capacity: data.capacity,
+              payment_methods: data.payment_methods,
+              logo: data.logo || null,
+              address_service: data.address_service,
+              phone_number_service: data.phone_number_service || null,
+              average_rating: data.average_rating || null,
+              review_count: data.review_count || null,
+              images: data.images || null,
+              status_service: 'active',
+              last_modified_by: user.id,
+              stars: data.stars || null,
+              checkin_hours: data.checkin_hours || null,
+              checkout_hours: data.checkout_hours || null,
+              vat_hospitality: data.vat_hospitality || null,
+              general_vat: data.general_vat || null,
+              currency: data.currency || null,
+            })
+            await newService.save()
           }
         }
 
@@ -169,6 +177,12 @@ export default class ServicesController extends CrudController<typeof Service> {
             status_service: data.status_service || 'active',
             created_by: user.id,
             last_modified_by: data.last_modified_by || null,
+            stars: data.stars || null,
+            checkin_hours: data.checkin_hours || null,
+            checkout_hours: data.checkout_hours || null,
+            vat_hospitality: data.vat_hospitality || null,
+            general_vat: data.general_vat || null,
+            currency: data.currency || null,
           })
 
           const permissionService = new PermissionService()

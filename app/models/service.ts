@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, beforeSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Category from '#models/category'
@@ -41,6 +41,27 @@ export default class Service extends BaseModel {
 
   @column()
   declare price: string | null
+
+  @column()
+  declare stars: number | null
+
+  @column()
+  declare checkin_hours: string | null
+
+  @column()
+  declare checkout_hours: string | null
+
+  @column()
+  declare vat_hospitality: number | null
+
+  @column()
+  declare general_vat: number | null
+
+  @column()
+  declare tourist_tax: number | null
+
+  @column()
+  declare currency: 'XAF' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CAD' | null
 
   @column()
   declare average_rating: number | null
@@ -139,4 +160,5 @@ export default class Service extends BaseModel {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
+
 }
