@@ -214,6 +214,8 @@ router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
 })
 router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
+router.get('/services/search', servicesController.searchByName.bind(servicesController)).prefix('/api')
+router.post( '/servicesWithUser', servicesController.createWithUserAndService.bind(servicesController)).prefix('/api')
 router
   .group(() => {
     router.get('/category', categoriesController.list.bind(categoriesController))
@@ -374,14 +376,10 @@ router
         '/servicesByCategory/:categoryId',
         servicesController.showByCategorie.bind(servicesController)
       )
-      router.post(
-        '/servicesWithUser',
-        servicesController.createWithUserAndService.bind(servicesController)
-      )
+      
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
-      router.get('/services/search', servicesController.searchByName.bind(servicesController))
       router.get(
         '/services/customer/:serviceId',
         servicesController.customers.bind(servicesController)
