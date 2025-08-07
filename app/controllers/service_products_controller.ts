@@ -52,7 +52,7 @@ export default class ServiceProductsController extends CrudController<typeof Ser
       const availableRooms = await ServiceProduct.query()
         .where('service_id', serviceId)
         .where('product_type_id', roomTypeId)
-        .where('status', 'available') // On ne cherche que parmi les chambres marquées comme disponibles
+        .whereIn('status', ['available','booked','dirty']) // On ne cherche que parmi les chambres marquées comme disponibles
         .whereDoesntHave('reservationServiceProducts', (query) => {
           //ajouter pour que si la reservation est annulee ,que la chambre pendant cette periode apparaisse dans la liste
           query.whereNot('status', 'cancelled')
