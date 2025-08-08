@@ -101,7 +101,7 @@ public async getRevenueStats({ params, request, response }: HttpContext) {
   } catch (error) {
     return response.internalServerError({ success: false, message: error.message })
   }
-} 
+}
 public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
   try {
     const serviceId = parseInt(params.serviceId)
@@ -159,12 +159,12 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
     try {
       const { serviceId } = params
       const { period = 'monthly' } = params
-      
+
       const result = await HotelAnalyticsDashboardService.getAverageDailyRate(
         Number(serviceId),
         period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
       )
-      
+
       return response.ok({
         success: true,
         data: result
@@ -186,6 +186,15 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
 
   const data = await HotelAnalyticsDashboardService.getNationalityStats(serviceId)
 
+  return response.ok({ success: true, data })
+}
+
+public async customerTypeStats({ params, response }: HttpContext) {
+  const serviceId = Number(params.serviceId)
+  if (!serviceId) {
+    return response.badRequest({ success: false, message: 'Service ID invalide' })
+  }
+  const data = await HotelAnalyticsDashboardService.getCustomerTypeStats(serviceId)
   return response.ok({ success: true, data })
 }
 

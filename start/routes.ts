@@ -378,7 +378,7 @@ router
         '/servicesByCategory/:categoryId',
         servicesController.showByCategorie.bind(servicesController)
       )
-      
+
       router.get('/services/:id', servicesController.show.bind(servicesController))
       router.patch('/services/:id', servicesController.update.bind(servicesController))
       router.delete('/services/:id', servicesController.destroy.bind(servicesController))
@@ -769,6 +769,11 @@ router
       router.get(
         '/stay-duration/:serviceId',
         dashboardController.stayDurationStats.bind(dashboardController)
+      )
+      // Endpoint pour les statistque de type de client
+      router.get(
+        '/customer-types/:serviceId',
+        dashboardController.customerTypeStats.bind(dashboardController)
       )
       router.get(
         '/reservation/:serviceId',
