@@ -49,6 +49,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           status: 'active',
           created_by: auth.user?.id,
           last_modified_by: auth.user?.id,
+          service_id:data.service_id
         })
       }
       const reservation = await this.reservationService.create({
