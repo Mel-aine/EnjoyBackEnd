@@ -906,8 +906,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservation.payment_status = 'paid' // Kept as paid since the fee covers the payment
       }
       await reservation.save()
-      const resServices = await ReservationServiceProduct.query({ client: trx })
-        .where('reservation_id', params.id)
+      const resServices = await ReservationServiceProduct.query()
+        .where('reservation_id',reservationId)
       for (const resService of resServices) {
         resService.status = ReservationProductStatus.CANCELLED;
         resService.last_modified_by = auth.user!.id;
@@ -998,7 +998,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         if (startDate && endDate) {
           // A reservation overlaps if its start is before the search's end
           // AND its end is after the search's start.
-          query.where('arrived_date', '<', endDate).andWhere('depart_date', '>', startDate)
+          query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
         }
       }
 

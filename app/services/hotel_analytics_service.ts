@@ -24,8 +24,8 @@ export class HotelAnalyticsService {
         // 2. Get all relevant reservations that overlap with the date range
         const reservations = await Reservation.query()
             .where('service_id', serviceId)
-            .where('depart_date', '>', startDate.toISODate()!)
-            .where('arrived_date', '<', endDate.toISODate()!)
+            .where('depart_date', '>=', startDate.toISODate()!)
+            .where('arrived_date', '<=', endDate.toISODate()!)
             .whereNotIn('status', ['cancelled', 'no-show'])
             .preload('user')
             .preload('reservationServiceProducts', (rspQuery) => {
@@ -77,6 +77,25 @@ export class HotelAnalyticsService {
         // 4. Group reservation details by room type
         const groupedDetails: { [key: string]: any } = {}
         const today = DateTime.now().startOf('day')
+
+        const getReservationStatus = (reservation: Reservation, today: DateTime): string => {
+            if (reservation.status === 'confirmed') {
+                return 'confirmed'
+            } else if (reservation.status === 'request') {
+                return 'request'
+            } else if (reservation.status === 'blocked') {
+                return 'blocked'
+            } else if (reservation.status === 'checkout') {
+                return 'checkout'
+            } else if (reservation.status === 'checked_in') {
+                if (reservation.depart_date?.hasSame(today, 'day')) {
+                    return 'departure'
+                } else {
+                    return 'inhouse'
+                }
+            }
+            return reservation.status
+        }
 
         for (const room of allRooms) {
             const roomType = room.productType?.name || 'Uncategorized'
@@ -144,7 +163,7 @@ export class HotelAnalyticsService {
                             }`.trim(),
                         check_in_date: reservation.arrived_date,
                         check_out_date: reservation.depart_date,
-                        reservation_status: reservation.status,
+                        reservation_status: getReservationStatus(reservation, today),
                         is_checking_in_today: reservation.arrived_date?.hasSame(today, 'day') ?? false,
                         is_checking_out_today: reservation.depart_date?.hasSame(today, 'day') ?? false,
                         assigned_room_number: assignedRoomForType?.roomNumber || null,
