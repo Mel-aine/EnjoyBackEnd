@@ -1,0 +1,574 @@
+import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
+import Room from '#models/room'
+import ReservationRoom from '#models/reservation_room'
+import { createRoomValidator, updateRoomValidator } from '#validators/room'
+
+export default class RoomsController {
+  /**
+   * Display a list of rooms
+   */
+  async index({ request, response }: HttpContext) {
+    try {
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
+      const search = request.input('search')
+      const hotelId = request.input('hotel_id')
+      const roomTypeId = request.input('room_type_id')
+      const floor = request.input('floor')
+      const status = request.input('status')
+      const housekeepingStatus = request.input('housekeeping_status')
+      const maintenanceStatus = request.input('maintenance_status')
+      const smokingAllowed = request.input('smoking_allowed')
+      const petFriendly = request.input('pet_friendly')
+      const accessible = request.input('accessible')
+
+      const query = Room.query()
+
+      if (hotelId) {
+        query.where('hotel_id', hotelId)
+      }
+
+      if (roomTypeId) {
+        query.where('room_type_id', roomTypeId)
+      }
+
+      if (search) {
+        query.where((builder) => {
+          builder
+            .where('room_number', 'ILIKE', `%${search}%`)
+            .orWhere('room_name', 'ILIKE', `%${search}%`)
+            .orWhere('description', 'ILIKE', `%${search}%`)
+        })
+      }
+
+      if (floor) {
+        query.where('floor', floor)
+      }
+
+      if (status) {
+        query.where('status', status)
+      }
+
+      if (housekeepingStatus) {
+        query.where('housekeeping_status', housekeepingStatus)
+      }
+
+      if (maintenanceStatus) {
+        query.where('maintenance_status', maintenanceStatus)
+      }
+
+      if (smokingAllowed !== undefined) {
+        query.where('smoking_allowed', smokingAllowed)
+      }
+
+      if (petFriendly !== undefined) {
+        query.where('pet_friendly', petFriendly)
+      }
+
+      if (accessible !== undefined) {
+        query.where('accessible', accessible)
+      }
+
+      const rooms = await query
+        .preload('hotel')
+        .preload('roomType')
+        .orderBy('floor', 'asc')
+        .orderBy('room_number', 'asc')
+        .paginate(page, limit)
+
+      return response.ok({
+        message: 'Rooms retrieved successfully',
+        data: rooms
+      })
+    } catch (error) {
+      return response.internalServerError({
+        message: 'Failed to retrieve rooms',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Create a new room
+   */
+  async store({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(createRoomValidator)
+      
+      const room = await Room.create({
+        ...payload,
+        createdBy: auth.user?.id
+      })
+
+      await room.load('hotel')
+      await room.load('roomType')
+
+      return response.created({
+        message: 'Room created successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to create room',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Show a specific room
+   */
+  async show({ params, response }: HttpContext) {
+    try {
+      const room = await Room.query()
+        .where('id', params.id)
+        .preload('hotel')
+        .preload('roomType')
+        .preload('reservationRooms')
+        .preload('maintenanceRequests')
+        .firstOrFail()
+
+      return response.ok({
+        message: 'Room retrieved successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.notFound({
+        message: 'Room not found',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update a room
+   */
+  async update({ params, request, response, auth }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const payload = await request.validateUsing(updateRoomValidator)
+
+      room.merge({
+        ...payload,
+        lastModifiedBy: auth.user?.id
+      })
+
+      await room.save()
+      await room.load('hotel')
+      await room.load('roomType')
+
+      return response.ok({
+        message: 'Room updated successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update room',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Delete a room
+   */
+  async destroy({ params, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      
+      // Check if there are any active reservations for this room
+      const activeReservations = await room.related('reservationRooms')
+        .query()
+        .whereIn('status', ['confirmed', 'checked_in'])
+        .count('* as total')
+      
+      if (activeReservations[0].$extras.total > 0) {
+        return response.badRequest({
+          message: 'Cannot delete room with active reservations'
+        })
+      }
+
+      await room.delete()
+
+      return response.ok({
+        message: 'Room deleted successfully'
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to delete room',
+        error: error.message
+      })
+    }
+  }
+  /**
+   * Update room status
+   */
+  async updateStatus({ params, request, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const { status } = request.only(['status'])
+      
+      room.status = status
+      await room.save()
+
+      return response.ok({
+        message: 'Room status updated successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update room status',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update housekeeping status
+   */
+  async updateHousekeepingStatus({ params, request, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const { housekeepingStatus } = request.only(['housekeepingStatus'])
+      
+      room.housekeepingStatus = housekeepingStatus
+      await room.save()
+
+      return response.ok({
+        message: 'Housekeeping status updated successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update housekeeping status',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update maintenance status
+   */
+  async updateMaintenanceStatus({ params, request, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const { maintenanceNotes, nextMaintenanceDate } = request.only(['maintenanceNotes', 'nextMaintenanceDate'])
+      
+      if (maintenanceNotes) {
+        room.maintenanceNotes = maintenanceNotes
+      }
+      if (nextMaintenanceDate) {
+        room.nextMaintenanceDate = DateTime.fromJSDate(new Date(nextMaintenanceDate))
+      }
+      
+      await room.save()
+
+      return response.ok({
+        message: 'Maintenance status updated successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update maintenance status',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get room availability
+   */
+  async availability({ params, request, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const { startDate, endDate } = request.only(['startDate', 'endDate'])
+      
+      // Check if room has any reservations in the given date range
+      const reservations = await room.related('reservationRooms')
+        .query()
+        .where('check_in_date', '<=', endDate)
+        .where('check_out_date', '>=', startDate)
+        .whereIn('status', ['confirmed', 'checked_in'])
+      
+      const isAvailable = reservations.length === 0 && room.status === 'available'
+      
+      return response.ok({
+        message: 'Room availability retrieved successfully',
+        data: {
+          roomId: room.id,
+          roomNumber: room.roomNumber,
+          isAvailable,
+          status: room.status,
+          reservations: reservations.length
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to check room availability',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get room statistics
+   */
+  async stats({ request, response }: HttpContext) {
+    try {
+      const { hotelId } = request.only(['hotelId'])
+      
+      const query = Room.query()
+      if (hotelId) {
+        query.where('hotel_id', hotelId)
+      }
+
+      const totalRooms = await query.clone().count('* as total')
+      const availableRooms = await query.clone().where('status', 'available').count('* as total')
+      const occupiedRooms = await query.clone().where('status', 'occupied').count('* as total')
+      const outOfOrderRooms = await query.clone().where('status', 'out_of_order').count('* as total')
+      const maintenanceRooms = await query.clone().where('status', 'maintenance').count('* as total')
+      const dirtyRooms = await query.clone().where('housekeeping_status', 'dirty').count('* as total')
+      const cleanRooms = await query.clone().where('housekeeping_status', 'clean').count('* as total')
+      const inspectedRooms = await query.clone().where('housekeeping_status', 'inspected').count('* as total')
+
+      const stats = {
+        totalRooms: totalRooms[0].$extras.total,
+        availableRooms: availableRooms[0].$extras.total,
+        occupiedRooms: occupiedRooms[0].$extras.total,
+        outOfOrderRooms: outOfOrderRooms[0].$extras.total,
+        maintenanceRooms: maintenanceRooms[0].$extras.total,
+        dirtyRooms: dirtyRooms[0].$extras.total,
+        cleanRooms: cleanRooms[0].$extras.total,
+        inspectedRooms: inspectedRooms[0].$extras.total,
+        occupancyRate: totalRooms[0].$extras.total > 0 ? 
+          (occupiedRooms[0].$extras.total / totalRooms[0].$extras.total * 100).toFixed(2) : 0
+      }
+
+      return response.ok({
+        message: 'Room statistics retrieved successfully',
+        data: stats
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve statistics',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Show room with reservations
+   */
+  async showWithReservations({ params, response }: HttpContext) {
+    const roomId = params.id
+
+    const room = await Room.query()
+      .where('id', roomId)
+      .preload('roomType')
+      .preload('reservationRooms', (query) => {
+        query.preload('reservation').preload('guest')
+      })
+      .first()
+
+    if (!room) {
+      return response.notFound({ message: 'Chambre non trouvée' })
+    }
+
+    const reservations = room.reservationRooms.map((rr) => {
+      return {
+        id: rr.id,
+        checkIn: rr.checkInDate?.toISODate() ?? rr.checkInDate,
+        checkOut: rr.checkOutDate?.toISODate() ?? rr.checkOutDate,
+        guest: rr.guest ? `${rr.guest.firstName} ${rr.guest.lastName}` : null,
+        status: rr.status ?? 'unknown',
+      }
+    })
+
+    return response.ok({
+      id: room.id,
+      name: room.roomNumber,
+      roomType: room.roomType?.typeName || 'N/A',
+      status: room.status,
+      housekeepingStatus: room.housekeepingStatus,
+      maintenanceStatus: room.condition,
+      reservations,
+    })
+  }
+
+  /**
+   * Get rooms with details including reservations
+   */
+  public async getRoomsWithDetails({ params, response }: HttpContext) {
+    const { hotelId } = params
+
+    try {
+      const rooms = await Room.query()
+        .where('hotel_id', hotelId)
+        .preload('roomType')
+        .preload('reservationRooms', (query) => {
+          query
+             .preload('reservation', (reservationQuery) => {
+               reservationQuery.select(['id', 'status', 'depart_date'])
+             })
+            .preload('guest', (guestQuery) => {
+              guestQuery.select(['id', 'firstName', 'lastName'])
+            })
+        })
+
+      const detailedRooms = rooms.map((room) => {
+        const reservations = room.reservationRooms
+
+        const reservationData = reservations.map((rr) => ({
+          reservation: rr.reservation,
+          guest: rr.guest,
+          status: rr.status,
+        }))
+
+        const checkedInReservation = reservationData.find(
+          (r) => r.reservation.status === 'checked-in' || r.reservation.status === 'checked_in'
+        )
+
+        const guestName = checkedInReservation?.guest
+          ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() || null
+          : null
+
+        const reservationsWithDepart = reservationData
+           .filter((r) => r.reservation.depart_date != null)
+           .sort((a, b) => {
+             const dateAString = a.reservation.depart_date
+               ? typeof a.reservation.depart_date === 'string'
+                 ? a.reservation.depart_date
+                 : a.reservation.depart_date.toString()
+               : ''
+
+             const dateBString = b.reservation.depart_date
+               ? typeof b.reservation.depart_date === 'string'
+                 ? b.reservation.depart_date
+                 : b.reservation.depart_date.toString()
+               : ''
+
+             const dateA = DateTime.fromISO(dateAString)
+             const dateB = DateTime.fromISO(dateBString)
+
+             return dateB.toMillis() - dateA.toMillis()
+           })
+
+         const latestDeparture = reservationsWithDepart[0]
+
+         const nextAvailable = latestDeparture?.reservation.depart_date
+           ? (typeof latestDeparture.reservation.depart_date === 'string'
+               ? latestDeparture.reservation.depart_date
+               : latestDeparture.reservation.depart_date.toString())
+           : null
+
+        const checkOutTime = nextAvailable
+
+        return {
+          ...room.serialize(),
+          roomType: room.roomType?.serialize(),
+          reservations: reservationData,
+          guestName,
+          nextAvailable,
+          checkOutTime,
+          status: room.status || 'available',
+        }
+      })
+
+      return response.ok(detailedRooms)
+    } catch (err) {
+      console.error('Erreur getRoomsWithDetails:', err)
+      return response.status(500).json({
+        error: 'Erreur serveur',
+        message: err instanceof Error ? err.message : 'Erreur inconnue'
+      })
+    }
+  }
+
+  /**
+   * Get recent bookings for a hotel
+   */
+  async getRecentBookings({ params, response }: HttpContext) {
+    const hotelId = params.hotelId
+
+    if (!hotelId) {
+      return response.badRequest({ error: 'Le hotelId est requis.' })
+    }
+
+    try {
+      const reservations = await ReservationRoom
+        .query()
+        .whereHas('room', (query) => {
+          query.where('hotel_id', hotelId)
+        })
+        .preload('reservation', (resQuery) => {
+          resQuery.preload('user')
+        })
+        .preload('room')
+        .preload('guest')
+        .orderBy('checkInDate', 'desc')
+        .limit(10)
+
+      const formatted = reservations.map((res) => {
+        const reservation = res.reservation
+        const user = reservation?.user
+        const guest = res.guest
+        const room = res.room
+
+        return {
+          guest: guest ? `${guest.firstName} ${guest.lastName}` : (user ? `${user.first_name} ${user.last_name}` : 'Inconnu'),
+          email: guest?.email ?? user?.email ?? '',
+          room: room?.roomNumber ?? 'Non spécifié',
+          checkin: res.checkInDate?.toFormat('dd/MM/yyyy') ?? '',
+          checkout: res.checkOutDate?.toFormat('dd/MM/yyyy') ?? '',
+          status: reservation?.status ?? '',
+          amount: reservation?.final_amount ?? 0,
+        }
+      })
+
+      return response.ok(formatted)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Erreur lors de la récupération des réservations.' })
+    }
+  }
+
+  /**
+   * Show reservations by room ID
+   */
+  async showByRoomId({ params, response }: HttpContext) {
+    try {
+      const { roomId } = params
+
+      // Validation du paramètre
+      if (!roomId) {
+        return response.badRequest({ message: 'roomId is required' })
+      }
+
+      const roomIdNum = parseInt(roomId, 10)
+      if (isNaN(roomIdNum)) {
+        return response.badRequest({ message: 'Invalid roomId' })
+      }
+
+      // Récupération des réservations liées à une chambre
+      const items = await ReservationRoom.query()
+        .where('room_id', roomIdNum)
+        .preload('reservation')
+        .preload('room')
+        .preload('guest')
+
+      // Si aucune réservation trouvée
+      if (items.length === 0) {
+        return response.notFound({ message: 'No reservations found for this room' })
+      }
+
+      return response.ok(items)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({
+        message: 'Error fetching reservations for room',
+        error: error.message,
+      })
+    }
+  }
+}

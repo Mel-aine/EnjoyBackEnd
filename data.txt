@@ -1,0 +1,1253 @@
+Hotel Application Database Design (Enhanced with Rate Plan Details)
+This section presents an enhanced proposed database schema for the hotel management application, organized by key modules. It uses a relational model, with tables, columns (fields), data types, and relationships.
+
+Conventions:
+PK: Primary Key
+
+FK: Foreign Key
+
+VARCHAR(n): Variable-length string (n characters max)
+
+INT: Integer
+
+DECIMAL(p, s): Decimal number (p total digits, s after decimal point)
+
+BOOLEAN: True/False
+
+DATETIME: Date and time
+
+DATE: Date
+
+TEXT: Long text
+
+ENUM: Predefined list of values
+
+Note: ENUM values are chosen to be exhaustive for common scenarios in hotel management systems.
+
+UNIQUE per hotel_id: Ensures uniqueness only within the context of a specific hotel (for multi-property systems).
+
+NULLABLE: Field can be empty.
+
+General Audit Fields (Applicable to most transactional tables):
+For enhanced traceability and compliance, it is highly recommended to include these fields in most tables, especially those tracking operations or master data changes:
+
+created_at (DATETIME): Timestamp when the record was created. Useful for tracking data origin and auditing.
+
+created_by_user_id (FK, INT): The user_id of the user who created this record. Essential for accountability.
+
+updated_at (DATETIME): Timestamp when the record was last updated. Useful for tracking data changes.
+
+updated_by_user_id (FK, INT): The user_id of the user who last updated this record. Essential for accountability.
+
+is_deleted (BOOLEAN, default FALSE): Flag for soft-deletion. When true, the record is considered inactive but not physically removed from the database, preserving historical data.
+
+deleted_at (DATETIME, NULLABLE): Timestamp when the record was soft-deleted. Records when the is_deleted flag was set to TRUE.
+
+1. Administration & Property Module (Core)
+This module manages fundamental hotel information and the system's structure.
+
+Table: Hotels
+Represents a hotel within the system (for multi-property solutions).
+
+hotel_id (PK, INT): Unique identifier for each hotel.
+
+hotel_name (VARCHAR(255)): The official name of the hotel.
+
+logo_url (VARCHAR(500), NULLABLE): URL to the hotel's logo image, used for branding on documents and interfaces.
+
+address (VARCHAR(500)): Full physical address of the hotel.
+
+city (VARCHAR(100)): City where the hotel is located.
+
+state_province (VARCHAR(100), NULLABLE): State or province where the hotel is located (if applicable).
+
+zip_postal_code (VARCHAR(20), NULLABLE): Postal code of the hotel's location.
+
+country (VARCHAR(100)): Country where the hotel is located.
+
+phone (VARCHAR(50)): Primary contact phone number for the hotel.
+
+fax (VARCHAR(50), NULLABLE): Fax number of the hotel (if applicable).
+
+email (VARCHAR(255)): Primary contact email for the hotel.
+
+website (VARCHAR(255), NULLABLE): Official website URL of the hotel.
+
+main_currency (VARCHAR(10)): The primary currency used for transactions and reporting in this hotel (e.g., 'USD', 'EUR', 'XAF').
+
+time_zone (VARCHAR(50)): The time zone in which the hotel operates (e.g., 'Africa/Douala', 'America/New_York').
+
+floor_plan_url (VARCHAR(500), NULLABLE): URL to an image or document showing the hotel's floor plans.
+
+system_date_determination_method (ENUM('UseDayClose', 'RealTime'), default 'UseDayClose'): Defines how the system determines the current operating day (e.g., based on Night Audit closure or real-time calendar).
+
+auto_night_audit_time (TIME, NULLABLE): The scheduled time for the automated Night Audit process to run daily.
+
+creation_date (DATETIME): Timestamp when the hotel record was created in the system.
+
+Table: Users
+Manages staff login information and roles.
+
+user_id (PK, INT): Unique identifier for each system user (staff member).
+
+hotel_id (FK, INT): Foreign key linking the user to their specific hotel.
+
+username (VARCHAR(100), UNIQUE): Unique login username for the staff member.
+
+password_hash (VARCHAR(255)): Hashed and salted password for secure authentication.
+
+email (VARCHAR(255), UNIQUE): User's email address, often used for password recovery and notifications.
+
+first_name (VARCHAR(100)): User's first name.
+
+last_name (VARCHAR(100)): User's last name.
+
+role_id (FK, INT): Foreign key linking the user to their assigned Role, defining their permissions.
+
+employee_id (FK, INT, NULLABLE): Foreign key linking the user to their full HR Employee profile, if applicable.
+
+is_active (BOOLEAN): Flag indicating if the user account is currently active and can log in.
+
+last_login (DATETIME, NULLABLE): Timestamp of the user's last successful login.
+
+preferred_language (VARCHAR(10)): The user's preferred language for the system interface (e.g., 'en', 'fr', 'es').
+
+theme_preference (ENUM('Blue', 'Black', 'Silver', 'SystemDefault'), NULLABLE): User's preferred color theme for the UI.
+
+Table: Roles
+Defines predefined roles in the system (Administrator, Front Desk Agent, Housekeeping Staff, etc.).
+
+role_id (PK, INT): Unique identifier for each role.
+
+role_name (VARCHAR(100), UNIQUE): Name of the role (e.g., 'Administrator', 'Front Desk Agent', 'Housekeeping Supervisor').
+
+role_description (TEXT): Detailed description of the responsibilities and scope of the role.
+
+Table: Permissions
+Defines granular permissions (e.g., CAN_CHECK_IN, VIEW_FINANCIAL_REPORTS, EDIT_RATES).
+
+permission_id (PK, INT): Unique identifier for each specific permission.
+
+permission_name (VARCHAR(255), UNIQUE): Unique name of the permission (e.g., 'CREATE_RESERVATION', 'EDIT_GUEST_FOLIO', 'RUN_NIGHT_AUDIT').
+
+permission_description (TEXT): Detailed description of what this permission allows a user to do.
+
+module_category (ENUM('FrontOffice', 'Reservations', 'BillingPayments', 'PricingRevenue', 'HousekeepingMaintenance', 'OnlineDistribution', 'ReportsAnalytics', 'SecurityUser', 'ThirdPartyIntegrations', 'TechnicalUX', 'Administration', 'AccountingFinance', 'HumanResources', 'InventoryPurchasing')): Categorizes the permission by the module it primarily applies to.
+
+Table: RolePermissions
+Junction table for roles and their permissions, defining which permissions each role possesses.
+
+role_id (PK, FK, INT): Foreign key linking to the Roles table. Part of the composite primary key.
+
+permission_id (PK, FK, INT): Foreign key linking to the Permissions table. Part of the composite primary key.
+
+Table: SystemSettings
+For various global system configurations not tied to a specific module.
+
+setting_id (PK, INT): Unique identifier for each system setting.
+
+hotel_id (FK, INT): Foreign key linking the setting to a specific hotel. If NULL, it's a global system setting across all hotels.
+
+setting_key (VARCHAR(100), UNIQUE per hotel_id): Unique key to identify the setting (e.g., 'DEFAULT_CHECKIN_TIME', 'ENABLE_PRE_AUTH', 'VAT_REGISTRATION_NUMBER').
+
+setting_value (TEXT): The value of the setting. Stored as text and parsed based on value_type.
+
+value_type (ENUM('String', 'Boolean', 'Integer', 'Decimal', 'JSON', 'Time', 'Date')): Data type of the setting_value to ensure correct parsing and validation.
+
+description (TEXT): Explanation of what the setting controls.
+
+default_check_in_time (TIME, NULLABLE): The standard time for guest check-ins at the hotel (e.g., '15:00:00').
+
+default_check_out_time (TIME, NULLABLE): The standard time for guest check-outs at the hotel (e.g., '11:00:00').
+
+2. Front Office & Rooms Module
+Management of physical rooms and their status.
+
+Table: RoomTypes
+Defines room categories (Single, Double, Suite, etc.).
+
+room_type_id (PK, INT): Unique identifier for each room type.
+
+hotel_id (FK, INT): Foreign key linking the room type to a specific hotel.
+
+type_name (VARCHAR(100)): Name of the room type (e.g., 'Standard King', 'Deluxe Twin', 'Executive Suite').
+
+adult_capacity (INT): Maximum number of adults allowed in this room type.
+
+child_capacity (INT): Maximum number of children allowed in this room type.
+
+default_price (DECIMAL(10, 2)): A base or default price for this room type, before specific rate plans are applied.
+
+description (TEXT): Detailed description of the room type, including features and layout.
+
+amenities (TEXT): A list or comma-separated string of amenities specific to this room type (e.g., "Air conditioning, Wifi, TV, Mini-bar").
+
+is_smoking_allowed (BOOLEAN): Indicates if smoking is permitted in this room type.
+
+room_type_icon_url (VARCHAR(500), NULLABLE): URL to an icon representing this room type in the UI.
+
+room_size_sqm (DECIMAL(7, 2), NULLABLE): Size of the room type in square meters.
+
+Table: Rooms
+Represents each individual physical room in the hotel.
+
+room_id (PK, INT): Unique identifier for each physical room.
+
+hotel_id (FK, INT): Foreign key linking the room to a specific hotel.
+
+room_number (VARCHAR(20), UNIQUE per hotel_id): The unique identifier for the room (e.g., '101', '205B', 'Suite 3').
+
+room_type_id (FK, INT): Foreign key linking the room to its RoomType.
+
+floor (INT): The floor number where the room is located.
+
+current_status (ENUM('Available', 'Occupied', 'Dirty', 'Cleaned', 'Inspected', 'Maintenance', 'Blocked', 'OnHold', 'VacantClean', 'VacantDirty', 'OccupantClean', 'OccupantDirty')): The current operational status of the room.
+
+maintenance_notes (TEXT, NULLABLE): Any ongoing or recent maintenance notes specific to this room.
+
+last_cleaned_datetime (DATETIME, NULLABLE): Timestamp of the last time the room was cleaned and marked as such.
+
+last_occupied_datetime (DATETIME, NULLABLE): Timestamp of the last time the room was occupied.
+
+is_locked (BOOLEAN, default FALSE): Flag indicating if the electronic door lock for this room is currently in a locked state (for integration purposes).
+
+room_features (TEXT, NULLABLE): Specific features of this individual room that may differentiate it from others of the same type (e.g., "Non-smoking", "Interconnecting", "Ocean View", "Near Elevator").
+
+Table: Guests
+Guest database (CRM), storing information about individual guests.
+
+guest_id (PK, INT): Unique identifier for each guest.
+
+hotel_id (FK, INT): Foreign key linking the guest profile to a specific hotel (though guests can stay at multiple hotels in a chain, their profile might be central).
+
+title (ENUM('Mr', 'Ms', 'Mrs', 'Dr', 'Prof', 'Other'), NULLABLE): Title of the guest (e.g., 'Mr.', 'Dr.').
+
+first_name (VARCHAR(100)): Guest's first name.
+
+last_name (VARCHAR(100)): Guest's last name.
+
+email (VARCHAR(255), NULLABLE): Guest's primary email address.
+
+phone_primary (VARCHAR(50), NULLABLE): Guest's primary phone number.
+
+phone_secondary (VARCHAR(50), NULLABLE): Guest's secondary phone number.
+
+address (VARCHAR(500), NULLABLE): Guest's residential address.
+
+city (VARCHAR(100), NULLABLE): Guest's city of residence.
+
+state_province (VARCHAR(100), NULLABLE): Guest's state or province of residence.
+
+zip_postal_code (VARCHAR(20), NULLABLE): Guest's postal code.
+
+country (VARCHAR(100), NULLABLE): Guest's country of residence.
+
+date_of_birth (DATE, NULLABLE): Guest's date of birth.
+
+id_document_type (ENUM('Passport', 'NationalID', 'DrivingLicense', 'Other'), NULLABLE): Type of identification document provided by the guest.
+
+id_document_number (VARCHAR(100), NULLABLE): Number of the identification document.
+
+id_document_scan_url (VARCHAR(500), NULLABLE): URL to a scanned image of the guest's ID document (for legal compliance).
+
+guest_photo_url (VARCHAR(500), NULLABLE): URL to a photo of the guest.
+
+preferences (TEXT, NULLABLE): Specific preferences or requests noted for the guest (e.g., "Extra pillows, sea view, quiet room, prefers feather-free bedding").
+
+is_blacklisted (BOOLEAN, default FALSE): Flag indicating if the guest is on the hotel's blacklist.
+
+blacklist_reason (TEXT, NULLABLE): Reason for placing the guest on the blacklist.
+
+registration_date (DATETIME): Date when the guest's profile was first created in the system.
+
+last_stay_date (DATE, NULLABLE): Date of the guest's most recent stay at the hotel.
+
+loyalty_member_id (VARCHAR(100), NULLABLE): Identifier for the guest in a loyalty program (internal or external).
+
+3. Reservation Module
+Management of guest reservations and stays.
+
+Table: Reservations
+Details of each main reservation, potentially covering multiple rooms.
+
+reservation_id (PK, INT): Unique identifier for the overall reservation.
+
+hotel_id (FK, INT): Foreign key linking the reservation to a specific hotel.
+
+guest_id (FK, INT): Foreign key linking to the Guests table, identifying the primary guest making the reservation.
+
+primary_room_type_id (FK, INT): Linked to RoomTypes, this indicates the main or initial room type requested for the reservation. Useful even if specific rooms are not yet assigned or if multiple room types are booked (e.g., for reporting).
+
+scheduled_arrival_date (DATE): The planned calendar date of guest arrival.
+
+scheduled_departure_date (DATE): The planned calendar date of guest departure.
+
+actual_arrival_datetime (DATETIME, NULLABLE): The actual date and time when the primary guest checked in.
+
+actual_departure_datetime (DATETIME, NULLABLE): The actual date and time when the primary guest checked out.
+
+reservation_status (ENUM('Confirmed', 'Pending', 'Cancelled', 'No-Show', 'Checked-In', 'Checked-Out', 'Waitlist', 'Modified', 'PartiallyCheckedIn', 'Guaranteed')): Current status of the reservation.
+
+board_basis_type (ENUM('BO', 'BB', 'Half Board', 'Full Board', 'AllInclusive', 'Custom')): The meal plan included with the reservation.
+
+num_adults_total (INT): Total number of adults included in this entire reservation (across all booked rooms).
+
+num_children_total (INT): Total number of children included in this entire reservation (across all booked rooms).
+
+booking_source_id (FK, INT): Foreign key linking to the BookingSources table, indicating where the reservation originated.
+
+rate_plan_id (FK, INT): Foreign key linking to the RatePlans table, indicating the primary rate plan applied to this reservation.
+
+discount_id (FK, INT, NULLABLE): Foreign key linking to the Discounts table, if a reservation-level discount was applied.
+
+total_estimated_revenue (DECIMAL(12, 2)): The estimated total revenue expected from this reservation, including room nights and any estimated additional charges.
+
+special_notes (TEXT, NULLABLE): Any specific requests or important notes related to the entire reservation.
+
+group_id (FK, INT, NULLABLE): Foreign key linking to ReservationGroups if this is part of a group booking. NULL for individual reservations.
+
+reservation_datetime (DATETIME): Timestamp when the reservation was created in the system.
+
+confirmation_code (VARCHAR(50), UNIQUE): Unique confirmation code for the reservation, provided to the guest.
+
+cancellation_reason (TEXT, NULLABLE): Reason for cancellation if the reservation was cancelled.
+
+no_show_reason (TEXT, NULLABLE): Reason if the guest was a no-show.
+
+cancellation_fee_amount (DECIMAL(10, 2), NULLABLE): Amount of cancellation fee applied, if any.
+
+estimated_checkin_time (TIME, NULLABLE): Estimated time of check-in provided by the guest (if specific).
+
+estimated_checkout_time (TIME, NULLABLE): Estimated time of check-out provided by the guest (if specific).
+
+is_guaranteed (BOOLEAN, default FALSE): Flag indicating if the reservation is guaranteed (e.g., by credit card, company payment).
+
+Table: ReservationRooms
+Junction Table: Links a single reservation to multiple specific rooms, handling multi-room bookings. Each entry represents one room included in a reservation.
+
+reservation_room_id (PK, INT): Unique identifier for this specific room assignment within a reservation.
+
+reservation_id (FK, INT): Foreign key linking to the main Reservations table.
+
+room_id (FK, INT, NULLABLE): Foreign key linking to the specific physical Rooms assigned to this part of the reservation. NULL if room not yet assigned or has been de-assigned.
+
+room_type_id_booked (FK, INT): Foreign key linking to RoomTypes (the type of room booked for this specific part of the reservation).
+
+num_adults_in_room (INT): Number of adults assigned to this specific room.
+
+num_children_in_room (INT): Number of children assigned to this specific room.
+
+room_status_at_checkin (ENUM('Checked-In', 'No-Show', 'CancelledRoom')): Status for this specific room within the reservation during check-in processing. CancelledRoom is for cases where one room in a multi-room booking is cancelled.
+
+checkin_datetime_room (DATETIME, NULLABLE): Actual date and time this specific room was checked into.
+
+checkout_datetime_room (DATETIME, NULLABLE): Actual date and time this specific room was checked out from.
+
+room_rate_applied (DECIMAL(10,2), NULLABLE): The specific nightly rate applied to this room instance.
+
+Table: BookingSources
+Defines booking channels (e.g., Online Travel Agencies, Direct Website, Walk-in).
+
+source_id (PK, INT): Unique identifier for each booking source.
+
+hotel_id (FK, INT): Foreign key linking the booking source to a specific hotel.
+
+source_name (VARCHAR(100), UNIQUE per hotel_id): Name of the booking source (e.g., 'Booking.com', 'Expedia', 'Hotel Website', 'Walk-in', 'Phone Call', 'Travel Agent').
+
+is_ota (BOOLEAN): Flag indicating if the source is an Online Travel Agency.
+
+commission_percentage (DECIMAL(5, 2)): The commission percentage applicable to this booking source.
+
+channel_api_key (VARCHAR(255), NULLABLE): API key or other credentials for direct integration with this channel (should be encrypted in storage).
+
+Table: ReservationGroups
+For managing block bookings or reservations for a single group.
+
+group_id (PK, INT): Unique identifier for each reservation group.
+
+hotel_id (FK, INT): Foreign key linking the group to a specific hotel.
+
+group_name (VARCHAR(255)): Name of the group (e.g., 'ABC Corp Conference', 'Smith Wedding').
+
+group_contact_guest_id (FK, INT, NULLABLE): Foreign key to Guests table, identifying a specific guest as the group contact.
+
+group_contact_company_id (FK, INT, NULLABLE): Foreign key to CompanyAccounts table, identifying a company contact for the group.
+
+num_rooms_blocked (INT): Total number of rooms initially blocked or reserved for this group.
+
+total_group_revenue (DECIMAL(12, 2), NULLABLE): The total revenue generated by this group's reservations.
+
+creation_date (DATETIME): Timestamp when the group record was created.
+
+4. Billing and Payments Module
+Manages guest folios and financial transactions.
+
+Table: Folios
+Represents the financial account for each guest stay.
+
+folio_id (PK, INT): Unique identifier for each folio.
+
+reservation_id (FK, INT, UNIQUE): Foreign key linking to the Reservations table, ensuring one primary folio per reservation.
+
+guest_id (FK, INT): Foreign key linking to the Guests table, identifying the guest associated with this folio.
+
+creation_datetime (DATETIME): Timestamp when the folio was created.
+
+folio_status (ENUM('Open', 'Closed', 'Transferred', 'Voided', 'Archived')): Current status of the folio.
+
+current_balance (DECIMAL(10, 2)): The current outstanding balance on the folio.
+
+closing_datetime (DATETIME, NULLABLE): Timestamp when the folio was closed.
+
+billed_to_company_id (FK, INT, NULLABLE): Foreign key to CompanyAccounts if the folio balance is transferred to a company/city ledger. NULL if billed to the guest directly.
+
+is_group_folio (BOOLEAN, default FALSE): Flag indicating if this is a master folio for a group booking, where charges from multiple rooms might be consolidated.
+
+Table: FolioTransactions
+Details each individual charge, payment, refund, or adjustment posted to a folio.
+
+transaction_id (PK, INT): Unique identifier for each folio transaction.
+
+folio_id (FK, INT): Foreign key linking the transaction to a specific Folio.
+
+transaction_datetime (DATETIME): Date and time when the transaction occurred or was posted.
+
+description (VARCHAR(255)): A brief description of the transaction (e.g., 'Room Charge', 'Minibar item - Water', 'Payment by Visa').
+
+amount (DECIMAL(10, 2)): The monetary amount of the transaction.
+
+transaction_type (ENUM('RoomCharge', 'Payment', 'Refund', 'Adjustment', 'Allowance', 'Tax', 'Minibar', 'Laundry', 'Phone', 'RestaurantPOS', 'Spa', 'ConferenceFee', 'CancellationFee', 'NoShowFee', 'OtherService', 'Deposit')): The type of financial transaction.
+
+payment_method_id (FK, INT, NULLABLE): Foreign key to PaymentMethods if the transaction is a payment or refund.
+
+reference_transaction_id (FK, INT, NULLABLE): For Refund transactions, this references the transaction_id of the original Payment transaction being refunded.
+
+user_id (FK, INT): Foreign key to Users, indicating which staff member posted this transaction.
+
+is_voided (BOOLEAN, default FALSE): Flag indicating if the transaction has been voided.
+
+void_reason (TEXT, NULLABLE): Reason for voiding the transaction.
+
+tax_rate_id (FK, INT, NULLABLE): Foreign key to TaxRates, indicating the specific tax rate applied to this transaction.
+
+tax_amount (DECIMAL(10,2), NULLABLE): The calculated tax amount for this transaction.
+
+tax_exempt_id (VARCHAR(50), NULLABLE): If the transaction is tax-exempt, an identifier for the exemption (e.g., government ID, specific certificate number).
+
+is_posted_to_ledger (BOOLEAN, default FALSE): Flag indicating if this transaction has been formally transferred to the GeneralLedger.
+
+gl_entry_id (FK, INT, NULLABLE): Foreign key to the GeneralLedger entry created if is_posted_to_ledger is TRUE.
+
+Table: PaymentMethods
+Defines the various types of payments accepted by the hotel.
+
+payment_method_id (PK, INT): Unique identifier for each payment method.
+
+hotel_id (FK, INT): Foreign key linking the payment method to a specific hotel.
+
+method_name (VARCHAR(100)): Name of the payment method (e.g., 'Cash', 'Visa Credit Card', 'Bank Transfer', 'Mobile Money').
+
+is_credit_card (BOOLEAN): Flag indicating if this payment method is a credit card.
+
+credit_card_type (ENUM('Visa', 'MasterCard', 'Amex', 'Discover', 'JCB', 'Diners Club', 'Other'), NULLABLE): Specific type of credit card, if is_credit_card is TRUE.
+
+is_active (BOOLEAN): Flag indicating if the payment method is currently active and usable.
+
+gateway_integration_config (TEXT, NULLABLE): JSON or XML configuration details for integrating with a payment gateway (sensitive, should be encrypted).
+
+Table: CreditCardPreAuthorizations
+To track credit card pre-authorizations made at check-in or booking.
+
+pre_auth_id (PK, INT): Unique identifier for each pre-authorization.
+
+folio_id (FK, INT): Foreign key linking the pre-authorization to a specific Folio.
+
+card_last_four_digits (VARCHAR(4)): Last four digits of the credit card number for reference.
+
+card_expiry_date (VARCHAR(5)): Expiry date of the credit card in MM/YY format.
+
+authorized_amount (DECIMAL(10, 2)): The amount authorized on the credit card.
+
+authorization_datetime (DATETIME): Timestamp when the pre-authorization was obtained.
+
+expiration_datetime (DATETIME, NULLABLE): The date and time when the pre-authorization expires.
+
+status (ENUM('Authorized', 'Captured', 'Voided', 'Expired', 'Failed', 'Released')): Current status of the pre-authorization.
+
+gateway_reference (VARCHAR(255)): Unique reference ID provided by the payment gateway for this pre-authorization.
+
+transaction_response_code (VARCHAR(50), NULLABLE): Response code from the payment gateway (e.g., 'Approved', 'Declined').
+
+Table: CompanyAccounts (City Ledger)
+Manages corporate and travel agency accounts for direct billing (city ledger).
+
+company_id (PK, INT): Unique identifier for each company account.
+
+hotel_id (FK, INT): Foreign key linking the company account to a specific hotel.
+
+company_name (VARCHAR(255)): Name of the company or travel agency.
+
+contact_person (VARCHAR(100), NULLABLE): Primary contact person at the company.
+
+phone (VARCHAR(50), NULLABLE): Company's primary phone number.
+
+email (VARCHAR(255), NULLABLE): Company's primary email address.
+
+address (VARCHAR(500), NULLABLE): Company's billing address.
+
+credit_limit (DECIMAL(12, 2), NULLABLE): Maximum credit allowed for this company on the city ledger.
+
+payment_terms (ENUM('Net7', 'Net15', 'Net30', 'Net60', 'UponDelivery', 'Custom'), NULLABLE): Standard payment terms agreed with the company.
+
+is_travel_agent (BOOLEAN, default FALSE): Flag indicating if this company is a travel agency.
+
+commission_rate (DECIMAL(5, 2), NULLABLE): Commission rate applicable if is_travel_agent is TRUE.
+
+tax_id_number (VARCHAR(100), NULLABLE): Company's tax identification number.
+
+short_code (VARCHAR(20), UNIQUE per hotel_id, NULLABLE): A short code for quick identification of the company.
+
+is_business_source (BOOLEAN, default FALSE): Flag indicating if this company can also act as a business source for reservations.
+
+exclude_from_city_ledger_posting (BOOLEAN, default FALSE): If true, this company's charges will not automatically be posted to the city ledger from guest folios.
+
+5. Pricing and Revenue Module
+Management of pricing strategies.
+
+Table: RatePlans
+Defines different rate plans (e.g., 'Standard Rate', 'Advance Purchase', 'Corporate Rate').
+
+rate_plan_id (PK, INT): Unique identifier for each rate plan.
+
+hotel_id (FK, INT): Foreign key linking the rate plan to a specific hotel.
+
+plan_name (VARCHAR(100)): Name of the rate plan (e.g., 'Standard Flexible', 'Non-Refundable Promo').
+
+description (TEXT, NULLABLE): Detailed description of the rate plan, including its rules and inclusions (corresponds to "Web description" in the image).
+
+is_promotion (BOOLEAN, default FALSE): Flag indicating if this rate plan is a special promotion.
+
+start_validity_date (DATE, NULLABLE): The date from which this rate plan becomes active.
+
+end_validity_date (DATE, NULLABLE): The date until which this rate plan is active.
+
+booking_window_start_days (INT, NULLABLE): Minimum number of days in advance a booking must be made to qualify for this rate (e.g., 30 for early bird).
+
+booking_window_end_days (INT, NULLABLE): Maximum number of days in advance a booking can be made for this rate (e.g., 7 for last minute).
+
+is_active (BOOLEAN, default TRUE): Flag indicating if the rate plan is currently active.
+
+default_board_basis_type (ENUM('BO', 'BB', 'Half Board', 'Full Board', 'AllInclusive', 'Custom'), NULLABLE): The default meal plan included with this rate plan (corresponds to "Inclusion" dropdown in the image, e.g., "B&B").
+
+rate_plan_type (ENUM('Independent', 'Master', 'Derived', 'RackRate'), default 'Independent'): Classification of the rate plan's relationship to others. 'RackRate' is explicitly added as a type (corresponds to "Create rate plan as" in the image, and implicitly covers "Rack Rate" being a specific type of rate plan).
+
+is_tax_inclusive (BOOLEAN, default FALSE): Indicates if the prices for this rate plan already include taxes (corresponds to "Rates Inclusive Tax" in the image).
+
+sort_key (INT, default 0): A numerical value used for ordering rate plans in display lists (corresponds to "Sort key" in the image).
+
+publish_to_web (BOOLEAN, default TRUE): Flag indicating if this rate plan should be visible on the hotel's direct booking engine (corresponds to "Publish to web" checkbox in the image).
+
+Table: RoomRates
+Specific daily prices for each room type under a rate plan.
+
+room_rate_id (PK, INT): Unique identifier for each daily room rate.
+
+room_type_id (FK, INT): Foreign key linking to RoomTypes.
+
+rate_plan_id (FK, INT): Foreign key linking to RatePlans.
+
+date (DATE): The specific calendar date for which this rate applies.
+
+nightly_price (DECIMAL(10, 2)): The base nightly price for this room type on this date under this rate plan (corresponds to "Rack Rate" if rate_plan_type is 'RackRate', or the primary rate for other plans).
+
+base_adults_included (INT, default 1): The number of adults whose stay is covered by the nightly_price (corresponds to "Base Adult" in the image).
+
+base_children_included (INT, default 0): The number of children whose stay is covered by the nightly_price (corresponds to "Base Child" in the image).
+
+max_adults_for_rate (INT, NULLABLE): The maximum number of adults allowed for this specific rate on this room type (corresponds to "Max Adult" in the image).
+
+max_children_for_rate (INT, NULLABLE): The maximum number of children allowed for this specific rate on this room type (corresponds to "Max Child" in the image).
+
+adult_supplement_price (DECIMAL(10, 2), default 0.00): Additional charge per night for extra adults beyond the base_adults_included (corresponds to "Extra Adult Rate" in the image).
+
+child_supplement_price (DECIMAL(10, 2), default 0.00): Additional charge per night for extra children beyond the base_children_included (corresponds to "Extra Child Rate" in the image).
+
+min_stay (INT, default 1): Minimum number of nights required for a booking on this date (corresponds to "Min Nights" in the image).
+
+max_stay (INT, NULLABLE): Maximum number of nights allowed for a booking on this date.
+
+close_to_arrival (BOOLEAN, default FALSE): Restriction preventing new arrivals on this specific date.
+
+close_to_departure (BOOLEAN, default FALSE): Restriction preventing new departures on this specific date.
+
+is_stop_sell (BOOLEAN, default FALSE): Prevents new bookings for this room type/rate plan on this date (inventory control).
+
+available_rooms_for_rate (INT, NULLABLE): Specific number of rooms allocated for this rate plan on this date (if specific inventory control is needed per rate plan).
+
+Table: Discounts
+Defines various discount promotions or types.
+
+discount_id (PK, INT): Unique identifier for each discount.
+
+hotel_id (FK, INT): Foreign key linking the discount to a specific hotel.
+
+discount_name (VARCHAR(100)): Name of the discount (e.g., 'Summer Sale', 'Loyalty Member Discount', 'Direct Booking Offer').
+
+discount_code (VARCHAR(50), UNIQUE per hotel_id, NULLABLE): Optional code guests can use to apply the discount (e.g., 'SAVE10').
+
+discount_type (ENUM('Percentage', 'FixedAmount', 'Package', 'EarlyBird', 'LastMinute', 'Loyalty', 'Group', 'PromotionCode', 'StayLongerGetDiscount', 'FlashSale', 'Corporate')): How the discount is calculated or triggered.
+
+value (DECIMAL(5, 2)): The value of the discount. If Percentage, it's a percentage (e.g., 10.00 for 10%); if FixedAmount, it's a currency value (e.g., 50.00 for $50 off).
+
+applies_to (ENUM('RoomRate', 'TotalBill', 'SpecificService', 'SelectedRooms', 'PerNight', 'PerPerson', 'FirstNight', 'LastNight', 'RoomTypeSpecific')): What the discount applies to.
+
+service_type_id (FK, INT, NULLABLE): If applies_to is SpecificService, this links to a ServiceTypes table (not explicitly modeled here but would define services like 'Spa', 'Restaurant').
+
+start_validity_date (DATE): Date from which the discount is valid.
+
+end_validity_date (DATE): Date until which the discount is valid.
+
+min_nights_stay (INT, NULLABLE): Minimum nights stay required to qualify for the discount.
+
+max_nights_stay (INT, NULLABLE): Maximum nights stay to qualify for the discount.
+
+min_booking_value (DECIMAL(10, 2), NULLABLE): Minimum total booking value required.
+
+is_active (BOOLEAN, default TRUE): Flag indicating if the discount is currently active and can be applied.
+
+application_conditions (TEXT, NULLABLE): Any additional free-text conditions for applying the discount (e.g., "Requires direct booking, non-refundable").
+
+Table: CompetitorRates
+To track historical and current rates of competitors for revenue management analysis.
+
+competitor_rate_id (PK, INT): Unique identifier for each competitor rate entry.
+
+hotel_id (FK, INT): Foreign key linking the data to a specific hotel (useful for multi-property competitor analysis).
+
+competitor_name (VARCHAR(255)): Name of the competitor hotel.
+
+room_type_description (VARCHAR(255)): Description of the competitor's room type observed.
+
+rate_date (DATE): The date for which the competitor's rate was observed.
+
+observed_rate (DECIMAL(10, 2)): The nightly rate observed for the competitor.
+
+crawl_datetime (DATETIME): Timestamp when the competitor's rate was retrieved (e.g., by a rate shopper tool).
+
+booking_channel_observed (ENUM('CompetitorWebsite', 'Booking.com', 'Expedia', 'Agoda', 'OtherOTA', 'Metasearch')): The platform where the competitor's rate was observed.
+
+Table: RatePlanBookingSources
+New Junction Table: Explicitly links RatePlans to the BookingSources where they are published. This allows granular control over which external channels see which rate plans (corresponds to the checkboxes below "Show this Rate Plan to all sources?" in the image).
+
+rate_plan_id (PK, FK, INT): Foreign key linking to the RatePlans table. Part of the composite primary key.
+
+source_id (PK, FK, INT): Foreign key linking to the BookingSources table. Part of the composite primary key.
+
+is_published (BOOLEAN, default TRUE): Flag to enable/disable this specific rate plan on this specific source.
+
+6. Housekeeping & Maintenance Module
+Tracking cleanliness and technical issues.
+
+Table: CleaningStatuses
+History of room cleaning statuses.
+
+cleaning_status_id (PK, INT): Unique identifier for each cleaning status update.
+
+room_id (FK, INT): Foreign key linking to the Rooms table.
+
+change_datetime (DATETIME): Timestamp when the room's cleaning status was changed.
+
+old_status (ENUM('Dirty', 'Cleaned', 'Inspected')): The status before the change.
+
+new_status (ENUM('Dirty', 'Cleaned', 'Inspected')): The new status after the change.
+
+user_id (FK, INT): Foreign key to Users, indicating which staff member updated the status.
+
+notes (TEXT, NULLABLE): Any additional notes regarding the cleaning status change.
+
+Table: HousekeepingTasks
+Cleaning and other housekeeping tasks.
+
+task_id (PK, INT): Unique identifier for each housekeeping task.
+
+room_id (FK, INT, NULLABLE): Foreign key to Rooms if the task is room-specific. NULL for common area tasks.
+
+common_area_id (FK, INT, NULLABLE): Foreign key to CommonAreas table if exists
+
+task_description (TEXT): Detailed description of the task (e.g., 'Clean room thoroughly', 'Change bed linen', 'Restock mini-bar').
+
+task_status (ENUM('Pending', 'In Progress', 'Completed', 'Cancelled', 'Deferred', 'OnHold', 'Assigned', 'Rejected')): Current status of the task.
+
+priority (ENUM('Low', 'Medium', 'High', 'Urgent')): Priority level of the task.
+
+creation_datetime (DATETIME): Timestamp when the task was created.
+
+due_datetime (DATETIME, NULLABLE): The date and time by which the task should be completed.
+
+completed_datetime (DATETIME, NULLABLE): Timestamp when the task was marked as completed.
+
+assigned_to_user_id (FK, INT, NULLABLE): Foreign key to Users, indicating the staff member assigned to the task.
+
+notes (TEXT, NULLABLE): Any additional notes or comments related to the task.
+
+Table: MaintenanceRequests
+Records and tracks requests for maintenance or repairs.
+
+request_id (PK, INT): Unique identifier for each maintenance request.
+
+room_id (FK, INT, NULLABLE): Foreign key to Rooms if the request is room-specific. NULL if for common areas.
+
+common_area (VARCHAR(255), NULLABLE): Name of the common area where the problem is located (e.g., 'Lobby Bathroom', 'Swimming Pool Deck').
+
+problem_description (TEXT): Detailed description of the problem reported.
+
+request_status (ENUM('Open', 'In Progress', 'Resolved', 'Closed', 'PendingApproval', 'Rejected', 'OnHold', 'Scheduled')): Current status of the maintenance request.
+
+priority (ENUM('Low', 'Medium', 'High', 'Urgent')): Priority level of the request.
+
+open_datetime (DATETIME): Timestamp when the request was opened.
+
+close_datetime (DATETIME, NULLABLE): Timestamp when the request was closed.
+
+reporting_user_id (FK, INT): Foreign key to Users, indicating which staff member reported the problem.
+
+assigned_to_user_id (FK, INT, NULLABLE): Foreign key to Users, identifying the staff member assigned to resolve the request.
+
+resolution_notes (TEXT, NULLABLE): Notes detailing how the problem was resolved.
+
+estimated_cost (DECIMAL(10, 2), NULLABLE): Estimated cost of the repair.
+
+actual_cost (DECIMAL(10, 2), NULLABLE): Actual cost incurred for the repair.
+
+Table: LostAndFoundItems
+Tracking items lost by guests and found by staff.
+
+item_id (PK, INT): Unique identifier for each lost/found item.
+
+hotel_id (FK, INT): Foreign key linking the item to a specific hotel.
+
+description (TEXT): Detailed description of the item found.
+
+item_category (ENUM('Electronics', 'Jewelry', 'Clothing', 'Documents', 'Bags', 'Toiletries', 'Keys', 'Other'), NULLABLE): Category of the item.
+
+found_datetime (DATETIME): Date and time when the item was found.
+
+found_location (VARCHAR(255)): Specific location where the item was found (e.g., 'Room 305', 'Lobby sofa', 'Restaurant').
+
+found_by_user_id (FK, INT, NULLABLE): Foreign key to Users, indicating who found the item.
+
+status (ENUM('Found', 'Claimed', 'Discarded', 'Stored', 'Returned')): Current status of the item.
+
+claimed_datetime (DATETIME, NULLABLE): Timestamp when the item was claimed by its owner.
+
+claiming_guest_id (FK, INT, NULLABLE): Foreign key to Guests, identifying the guest who claimed the item.
+
+return_method (ENUM('Mail', 'InPersonPickup', 'CourierService', 'Other'), NULLABLE): How the item was returned to the owner.
+
+additional_notes (TEXT, NULLABLE): Any additional notes or details about the item or its return.
+
+storage_location (VARCHAR(255), NULLABLE): Physical location where the item is stored (e.g., "HR Safe", "Lost & Found Closet, Shelf 3").
+
+7. Accounting and Financial Module
+In-depth financial management.
+
+Table: GeneralLedger
+The main ledger for all accounting transactions, following double-entry bookkeeping.
+
+entry_id (PK, INT): Unique identifier for each general ledger entry.
+
+hotel_id (FK, INT): Foreign key linking the entry to a specific hotel.
+
+transaction_datetime (DATETIME): Date and time of the accounting transaction.
+
+debit_account_id (FK, INT): Foreign key to ChartOfAccounts, representing the account being debited.
+
+credit_account_id (FK, INT): Foreign key to ChartOfAccounts, representing the account being credited.
+
+amount (DECIMAL(12, 2)): The monetary amount of the transaction.
+
+description (TEXT): A brief description of the ledger entry.
+
+document_reference (VARCHAR(100), NULLABLE): Reference to an external or internal document (e.g., Invoice number, Folio ID, Purchase Order number).
+
+source_type (ENUM('Folio', 'SupplierInvoice', 'BankTransfer', 'Payroll', 'ManualAdjustment', 'PurchaseOrder', 'TaxPayment', 'AssetDepreciation', 'RevenueRecognition')): The origin of the ledger entry.
+
+source_id_reference (VARCHAR(50), NULLABLE): The ID from the source table (e.g., folio_id, supplier_invoice_id).
+
+user_id (FK, INT, NULLABLE): Foreign key to Users, indicating which user created the ledger entry if it was a manual adjustment.
+
+Table: ChartOfAccounts
+The hotel's chart of accounts, a classified list of all financial accounts.
+
+account_id (PK, INT): Unique identifier for each account in the chart of accounts.
+
+hotel_id (FK, INT): Foreign key linking the account to a specific hotel.
+
+account_number (VARCHAR(20), UNIQUE per hotel_id): Unique number for the account (e.g., '1010', '4000', '5010').
+
+account_name (VARCHAR(255)): Name of the account (e.g., 'Cash - Bank', 'Room Revenue', 'Salaries Expense').
+
+account_type (ENUM('Asset', 'Liability', 'Equity', 'Revenue', 'Expense', 'ContraAsset', 'ContraLiability', 'ContraEquity', 'ContraRevenue', 'ContraExpense')): Classification of the account.
+
+parent_account_id (FK, INT, NULLABLE): Foreign key to ChartOfAccounts itself, for hierarchical account structures (e.g., 'Current Assets' is a parent of 'Cash').
+
+is_active (BOOLEAN): Flag indicating if the account is currently active for use.
+
+description (TEXT, NULLABLE): Detailed description of the account's purpose.
+
+Table: SupplierInvoices
+Records invoices received from suppliers, representing accounts payable.
+
+supplier_invoice_id (PK, INT): Unique identifier for each supplier invoice.
+
+hotel_id (FK, INT): Foreign key linking the invoice to a specific hotel.
+
+supplier_id (FK, INT): Foreign key linking to the Suppliers table.
+
+invoice_number (VARCHAR(100), UNIQUE per hotel_id, supplier_id): The unique invoice number provided by the supplier.
+
+invoice_date (DATE): Date of the invoice issued by the supplier.
+
+due_date (DATE): Date by which the invoice is due for payment.
+
+total_amount (DECIMAL(10, 2)): The total amount of the invoice.
+
+amount_paid (DECIMAL(10, 2), default 0.00): The amount currently paid towards this invoice.
+
+payment_status (ENUM('Pending', 'Partial', 'Paid', 'Overdue', 'Disputed', 'Voided')): Current payment status of the invoice.
+
+description (TEXT, NULLABLE): Description of the goods or services on the invoice.
+
+purchase_order_id (FK, INT, NULLABLE): Foreign key to PurchaseOrders if this invoice is related to a specific purchase order.
+
+Table: BankAccounts
+Details of hotel's bank accounts for financial management and reconciliation.
+
+bank_account_id (PK, INT): Unique identifier for each bank account.
+
+hotel_id (FK, INT): Foreign key linking the bank account to a specific hotel.
+
+account_name (VARCHAR(100)): A descriptive name for the bank account (e.g., 'Main Operating Account', 'Payroll Account').
+
+bank_name (VARCHAR(255)): Name of the bank (e.g., 'Bank of America', 'Ecobank').
+
+account_number (VARCHAR(100)): The bank account number.
+
+iban (VARCHAR(50), NULLABLE): International Bank Account Number (if applicable).
+
+swift_bic (VARCHAR(50), NULLABLE): SWIFT/BIC code for international transfers (if applicable).
+
+currency (VARCHAR(10)): The currency of this bank account.
+
+is_active (BOOLEAN): Flag indicating if the bank account is currently active.
+
+Table: BankTransactions
+Records of transactions from bank statements, used for bank reconciliation.
+
+bank_transaction_id (PK, INT): Unique identifier for each bank transaction.
+
+bank_account_id (FK, INT): Foreign key linking the transaction to a specific BankAccount.
+
+transaction_date (DATE): Date the transaction appeared on the bank statement.
+
+transaction_type (ENUM('Deposit', 'Withdrawal', 'Fee', 'Interest', 'TransferIn', 'TransferOut', 'Chargeback')): Type of bank transaction.
+
+amount (DECIMAL(12, 2)): The monetary amount of the bank transaction.
+
+description (TEXT, NULLABLE): Description of the transaction from the bank statement.
+
+is_reconciled (BOOLEAN, default FALSE): Flag indicating if this bank transaction has been reconciled with an entry in the GeneralLedger.
+
+reconciliation_datetime (DATETIME, NULLABLE): Timestamp when the transaction was reconciled.
+
+gl_entry_id (FK, INT, NULLABLE): Foreign key to the corresponding GeneralLedger entry if reconciled.
+
+Table: TaxRates
+Defines various tax types and their applicable rates.
+
+tax_rate_id (PK, INT): Unique identifier for each tax rate.
+
+hotel_id (FK, INT): Foreign key linking the tax rate to a specific hotel.
+
+tax_name (VARCHAR(100)): Name of the tax (e.g., 'VAT', 'City Tax', 'Occupancy Tax', 'Tourism Levy').
+
+rate_percentage (DECIMAL(5, 2)): The percentage rate of the tax (e.g., 10.00 for 10%).
+
+is_active (BOOLEAN, default TRUE): Flag indicating if the tax rate is currently active.
+
+applies_to_room_rate (BOOLEAN, default TRUE): Indicates if this tax applies to room rates.
+
+applies_to_fnb (BOOLEAN, default FALSE): Indicates if this tax applies to Food & Beverage charges.
+
+applies_to_other_services (BOOLEAN, default FALSE): Indicates if this tax applies to other services (e.g., laundry, spa).
+
+effective_date (DATE, NULLABLE): Date from which this tax rate becomes valid.
+
+end_date (DATE, NULLABLE): Date until which this tax rate is valid (if it's temporary or changes).
+
+8. Human Resources (HR) Module
+Management of hotel staff information, schedules, and performance.
+
+Table: Employees
+Detailed information about each hotel employee.
+
+employee_id (PK, INT): Unique identifier for each employee.
+
+user_id (FK, INT, NULLABLE): Foreign key to Users if the employee also has a system login.
+
+hotel_id (FK, INT): Foreign key linking the employee to a specific hotel.
+
+first_name (VARCHAR(100)): Employee's first name.
+
+last_name (VARCHAR(100)): Employee's last name.
+
+middle_name (VARCHAR(100), NULLABLE): Employee's middle name.
+
+gender (ENUM('Male', 'Female', 'Non-Binary', 'Prefer Not to Say', 'Other'), NULLABLE): Employee's gender.
+
+date_of_birth (DATE, NULLABLE): Employee's date of birth.
+
+national_id_number (VARCHAR(100), NULLABLE): Employee's national identification number.
+
+address (VARCHAR(500), NULLABLE): Employee's residential address.
+
+phone_mobile (VARCHAR(50), NULLABLE): Employee's mobile phone number.
+
+phone_home (VARCHAR(50), NULLABLE): Employee's home phone number.
+
+email (VARCHAR(255), NULLABLE): Employee's work or personal email address.
+
+hire_date (DATE): Date when the employee was hired.
+
+termination_date (DATE, NULLABLE): Date when the employee's employment ended.
+
+position (VARCHAR(100)): Employee's job title (e.g., 'Concierge', 'Head Chef', 'General Manager').
+
+department_id (FK, INT): Foreign key linking to the Departments table.
+
+employment_status (ENUM('Active', 'On Leave', 'Terminated', 'Suspended', 'Resigned', 'Retired')): Current employment status.
+
+emergency_contact_name (VARCHAR(255), NULLABLE): Name of the emergency contact.
+
+emergency_contact_phone (VARCHAR(50), NULLABLE): Phone number of the emergency contact.
+
+salary_type (ENUM('Hourly', 'Salaried', 'CommissionBased', 'DailyWage'), NULLABLE): How the employee is compensated.
+
+base_pay_rate (DECIMAL(10, 2), NULLABLE): The base hourly rate or annual salary.
+
+bank_account_details (TEXT, NULLABLE): Employee's bank account details for payroll (sensitive, must be encrypted).
+
+Table: Departments
+Defines various departments within the hotel structure.
+
+department_id (PK, INT): Unique identifier for each department.
+
+hotel_id (FK, INT): Foreign key linking the department to a specific hotel.
+
+department_name (VARCHAR(100), UNIQUE per hotel_id): Name of the department (e.g., 'Front Desk', 'Housekeeping', 'Food & Beverage', 'Sales & Marketing').
+
+head_of_department_user_id (FK, INT, NULLABLE): Foreign key to Users, identifying the user who is the head of this department.
+
+Table: TimeClockEntries
+Tracking employee work hours (clock-in/clock-out).
+
+time_clock_id (PK, INT): Unique identifier for each time clock entry.
+
+employee_id (FK, INT): Foreign key linking to the Employees table.
+
+clock_in_datetime (DATETIME): Timestamp when the employee clocked in.
+
+clock_out_datetime (DATETIME, NULLABLE): Timestamp when the employee clocked out.
+
+break_start_datetime (DATETIME, NULLABLE): Timestamp when a break started.
+
+break_end_datetime (DATETIME, NULLABLE): Timestamp when a break ended.
+
+total_hours_worked (DECIMAL(5, 2), NULLABLE): Calculated total hours worked for the entry.
+
+is_validated (BOOLEAN, default FALSE): Flag indicating if the time entry has been reviewed and approved by a manager.
+
+validated_by_user_id (FK, INT, NULLABLE): Foreign key to Users, indicating who validated the entry.
+
+validation_datetime (DATETIME, NULLABLE): Timestamp when the entry was validated.
+
+Table: EmployeeSchedules
+Daily or weekly shift schedules assigned to employees.
+
+schedule_id (PK, INT): Unique identifier for each schedule entry.
+
+employee_id (FK, INT): Foreign key linking to the Employees table.
+
+schedule_date (DATE): The date for which the schedule applies.
+
+shift_start_time (TIME): The start time of the employee's shift.
+
+shift_end_time (TIME): The end time of the employee's shift.
+
+assigned_task_category (VARCHAR(255), NULLABLE): General category of tasks assigned during this shift (e.g., 'Front Desk Duties', 'Room Cleaning', 'Kitchen Prep').
+
+notes (TEXT, NULLABLE): Any specific notes or instructions for this shift.
+
+is_published (BOOLEAN, default FALSE): Flag indicating if the schedule has been published and is visible to the employee.
+
+swap_request_status (ENUM('None', 'Requested', 'Approved', 'Rejected')): Status of any shift swap request associated with this schedule.
+
+requested_by_employee_id (FK, INT, NULLABLE): Foreign key to Employees, if this shift was part of a swap requested by another employee.
+
+Table: PerformanceReviews
+Records of employee performance evaluations.
+
+review_id (PK, INT): Unique identifier for each performance review.
+
+employee_id (FK, INT): Foreign key linking to the Employees table.
+
+reviewer_user_id (FK, INT): Foreign key to Users, indicating the manager who conducted the review.
+
+review_date (DATE): Date when the review was conducted.
+
+review_period_start (DATE, NULLABLE): Start date of the performance review period.
+
+review_period_end (DATE, NULLABLE): End date of the performance review period.
+
+overall_rating (INT, NULLABLE): An overall rating for the employee's performance (e.g., 1-5 scale).
+
+strengths (TEXT, NULLABLE): Description of the employee's strengths.
+
+areas_for_improvement (TEXT, NULLABLE): Areas where the employee needs to improve.
+
+goals_for_next_period (TEXT, NULLABLE): Performance goals set for the upcoming period.
+
+employee_comments (TEXT, NULLABLE): Comments provided by the employee regarding their own performance.
+
+Table: EmployeeTrainings
+Tracks training courses and certifications completed by employees.
+
+training_id (PK, INT): Unique identifier for each training record.
+
+employee_id (FK, INT): Foreign key linking to the Employees table.
+
+training_name (VARCHAR(255)): Name of the training course or certification.
+
+training_provider (VARCHAR(255), NULLABLE): Organization or individual that provided the training.
+
+completion_date (DATE): Date when the training was completed.
+
+certification_valid_until (DATE, NULLABLE): Expiry date of the certification, if applicable.
+
+training_cost (DECIMAL(10, 2), default 0.00): Cost of the training for the hotel.
+
+notes (TEXT, NULLABLE): Any additional notes about the training.
+
+Table: HRDocuments
+For storing references to employee-related documents (e.g., contracts, warnings).
+
+hr_doc_id (PK, INT): Unique identifier for each HR document record.
+
+employee_id (FK, INT): Foreign key linking to the Employees table.
+
+document_type (ENUM('EmploymentContract', 'WarningLetter', 'Resume', 'Certificate', 'PerformanceReview', 'LeaveRequest', 'OfferLetter', 'TerminationLetter', 'NDA', 'Other'), NULLABLE): Type of the HR document.
+
+document_name (VARCHAR(255)): The name of the document file.
+
+file_url (VARCHAR(500)): URL to the stored document file (e.g., in cloud storage).
+
+upload_datetime (DATETIME): Timestamp when the document was uploaded.
+
+uploaded_by_user_id (FK, INT): Foreign key to Users, indicating who uploaded the document.
+
+9. Inventory and Purchasing Module (Back Office)
+Management of non-room inventories and supplier relationships.
+
+Table: InventoryCategories
+Categorization of items stored in inventory.
+
+category_id (PK, INT): Unique identifier for each inventory category.
+
+hotel_id (FK, INT): Foreign key linking the category to a specific hotel.
+
+category_name (VARCHAR(100), UNIQUE per hotel_id): Name of the category (e.g., 'Food', 'Beverage', 'Cleaning Supplies', 'Office Supplies', 'Guest Amenities').
+
+description (TEXT, NULLABLE): Description of the category.
+
+Table: InventoryItems
+Details of each individual item that can be stocked in inventory.
+
+item_id (PK, INT): Unique identifier for each inventory item.
+
+hotel_id (FK, INT): Foreign key linking the item to a specific hotel.
+
+category_id (FK, INT): Foreign key linking to InventoryCategories.
+
+item_name (VARCHAR(255)): Name of the item (e.g., 'Coffee Beans', 'Toilet Paper', 'Printer Ink').
+
+unit_of_measure (ENUM('unit', 'kg', 'liter', 'box', 'piece', 'gallon', 'pound', 'meter', 'case', 'pack', 'bottle', 'can', 'roll', 'sheet', 'other')): The standard unit used to measure this item.
+
+min_stock_quantity (DECIMAL(10, 2), default 0.00): The minimum quantity of this item that should be kept in stock before reordering is triggered.
+
+average_purchase_price (DECIMAL(10, 2), default 0.00): The calculated average price at which this item has been purchased.
+
+description (TEXT, NULLABLE): Detailed description of the item.
+
+sku (VARCHAR(100), UNIQUE per hotel_id, NULLABLE): Stock Keeping Unit, a unique code for the item.
+
+Table: CurrentStock
+Represents the current quantity of each InventoryItem at a specific location.
+
+stock_id (PK, INT): Unique identifier for each stock record.
+
+item_id (FK, INT): Foreign key linking to InventoryItems.
+
+stock_location (VARCHAR(100)): Specific storage location (e.g., "Main Kitchen Pantry", "Housekeeping Closet Floor 2", "Main Warehouse").
+
+current_quantity (DECIMAL(10, 2)): The current quantity of the item in this location.
+
+last_update_datetime (DATETIME): Timestamp when the stock quantity was last updated.
+
+reorder_triggered (BOOLEAN, default FALSE): Flag if a reorder alert has been triggered for this item/location due to low stock.
+
+Table: Suppliers
+Database of vendors who supply goods and services to the hotel.
+
+supplier_id (PK, INT): Unique identifier for each supplier.
+
+hotel_id (FK, INT): Foreign key linking the supplier to a specific hotel.
+
+supplier_name (VARCHAR(255)): Official name of the supplier company.
+
+contact_person (VARCHAR(100), NULLABLE): Primary contact person at the supplier.
+
+phone (VARCHAR(50), NULLABLE): Supplier's primary phone number.
+
+email (VARCHAR(255), NULLABLE): Supplier's primary email address.
+
+address (VARCHAR(500), NULLABLE): Supplier's business address.
+
+website (VARCHAR(255), NULLABLE): Supplier's website.
+
+payment_terms (ENUM('Net7', 'Net15', 'Net30', 'Net60', 'UponDelivery', 'Custom'), NULLABLE): Standard payment terms with this supplier.
+
+notes (TEXT, NULLABLE): Any specific notes about the supplier or their service.
+
+Table: PurchaseOrders
+History of purchase orders placed with suppliers.
+
+po_id (PK, INT): Unique identifier for each purchase order.
+
+hotel_id (FK, INT): Foreign key linking the purchase order to a specific hotel.
+
+supplier_id (FK, INT): Foreign key linking to Suppliers.
+
+order_datetime (DATETIME): Timestamp when the purchase order was created.
+
+estimated_delivery_date (DATE, NULLABLE): The expected date of delivery.
+
+actual_delivery_date (DATE, NULLABLE): The actual date of delivery.
+
+order_status (ENUM('Pending', 'Ordered', 'PartiallyReceived', 'Received', 'Cancelled', 'Closed', 'Disputed')): Current status of the purchase order.
+
+total_order_amount (DECIMAL(12, 2)): The total monetary amount of the purchase order.
+
+ordering_user_id (FK, INT): Foreign key to Users, indicating which staff member placed the order.
+
+notes (TEXT, NULLABLE): Any additional notes about the purchase order.
+
+Table: PurchaseOrderLines
+Details of individual items included in each purchase order.
+
+po_line_id (PK, INT): Unique identifier for each line item in a purchase order.
+
+po_id (FK, INT): Foreign key linking to PurchaseOrders.
+
+item_id (FK, INT): Foreign key linking to InventoryItems.
+
+ordered_quantity (DECIMAL(10, 2)): The quantity of the item ordered.
+
+negotiated_unit_price (DECIMAL(10, 2)): The agreed-upon unit price for this item on this order.
+
+received_quantity (DECIMAL(10, 2), default 0.00): The quantity of the item that has been received so far.
+
+last_receipt_datetime (DATETIME, NULLABLE): Timestamp of the last partial receipt for this line item.
+
+notes (TEXT, NULLABLE): Any notes specific to this line item.
+
+Table: InventoryAdjustments
+Records changes to inventory outside of normal purchase or usage (e.g., damage, loss, physical count discrepancies).
+
+adjustment_id (PK, INT): Unique identifier for each inventory adjustment.
+
+hotel_id (FK, INT): Foreign key linking the adjustment to a specific hotel.
+
+item_id (FK, INT): Foreign key linking to InventoryItems.
+
+adjustment_type (ENUM('CountAdjustment', 'Wastage', 'Spoilage', 'Theft', 'ReturnToSupplier', 'TransferOut', 'TransferIn', 'Damage', 'Loss')): Type of inventory adjustment.
+
+quantity_adjusted (DECIMAL(10, 2)): The quantity by which the stock was adjusted (positive for increase, negative for decrease).
+
+adjustment_datetime (DATETIME): Timestamp when the adjustment was made.
+
+reason (TEXT, NULLABLE): Detailed reason for the adjustment.
+
+user_id (FK, INT): Foreign key to Users, indicating who performed the adjustment.
+
+Table: DocumentTemplates
+Manages templates for various printable and digital documents generated by the system.
+
+template_id (PK, INT): Unique identifier for each document template.
+
+hotel_id (FK, INT, NULLABLE): Foreign key linking the template to a specific hotel. If NULL, it's a default system template.
+
+template_name (VARCHAR(100), UNIQUE per hotel_id): A descriptive name for the template (e.g., 'Standard Reservation Confirmation', 'Guest Invoice Layout 1').
+
+template_type (ENUM('ReservationConfirmation', 'Invoice', 'Receipt', 'RegistrationCard', 'Report', 'GuestLetter', 'InternalMemo', 'CancellationConfirmation', 'PaymentVoucher', 'KeyCardEnvelope', 'WelcomeLetter', 'DepartureLetter', 'EventContract', 'BanquetOrder', 'LostAndFoundReceipt', 'GroupBookingConfirmation', 'RoomMoveConfirmation', 'LateCheckOutChargeNotice', 'NoShowChargeNotice', 'StaffSchedule', 'PurchaseOrder', 'InventoryAdjustmentReport', 'Other')): The functional category of the document template.
+
+template_content (TEXT): The actual content of the template, typically stored in HTML or Markdown format, with placeholders for dynamic data.
+
+default_subject (VARCHAR(255), NULLABLE): The default subject line for email versions of this template.
+
+is_active (BOOLEAN, default TRUE): Flag indicating if the template is currently active and available for use.
+
+Table: HotelPolicies
+Stores various operational and guest-facing policies of the hotel.
+
+policy_id (PK, INT): Unique identifier for each policy.
+
+hotel_id (FK, INT): Foreign key linking the policy to a specific hotel.
+
+policy_type (ENUM('CancellationPolicy', 'CheckInPolicy', 'CheckOutPolicy', 'SmokingPolicy', 'PetPolicy', 'PaymentPolicy', 'PrivacyPolicy', 'GeneralPolicy', 'ChildPolicy', 'OccupancyPolicy', 'DamagePolicy', 'NoShowPolicy', 'DepositPolicy', 'ForceMajeurePolicy', 'LateCheckOutPolicy', 'EarlyCheckInPolicy', 'GroupPolicy', 'LoyaltyProgramPolicy', 'AccessibilityPolicy', 'EmergencyProcedure')): The category of the policy.
+
+policy_name (VARCHAR(255), UNIQUE per hotel_id, policy_type): A specific name for the policy (e.g., 'Standard Cancellation', 'Non-Refundable Policy').
+
+policy_description (TEXT): The full text of the policy.
+
+is_active (BOOLEAN, default TRUE): Flag indicating if the policy is currently active.
+
+effective_date (DATE, NULLABLE): Date from which the policy becomes effective.
+
+applies_to_rate_plan_id (FK, INT, NULLABLE): Foreign key to RatePlans, if this policy is specifically tied to a particular rate plan (e.g., a "Non-Refundable Policy" linked to a "Non-Refundable Rate Plan").
+
+Key Relationships:
+Hotels is the parent table for almost all other tables, enabling a multi-property architecture where each hotel operates with its own settings, rooms, and data.
+
+Users <-> Roles <-> Permissions: This hierarchy defines granular access control. Users also links to Employees (employee_id) for comprehensive HR profile details if the user is a staff member.
+
+Reservations is the central table for bookings, linked to Guests (primary booker), primary_room_type_id (RoomTypes), BookingSources, RatePlans, Discounts, and ReservationGroups.
+
+Reservations <-> ReservationRooms <-> Rooms: This crucial chain handles multi-room reservations. A Reservations record can have multiple ReservationRooms entries, each linking to a specific Room (once assigned) and capturing details for that individual room within the larger booking. This supports scenarios like "Guest A booked 3 rooms" and allows granular status and billing for each room.
+
+Folios are the financial accounts for guest stays, linked to Reservations and Guests.
+
+FolioTransactions are the detailed entries on a Folio, linked to Folios, PaymentMethods, Users (who made the entry), and TaxRates. The reference_transaction_id specifically enables linking a Refund to its Payment.
+
+Rooms are physical units, linked to RoomTypes.
+
+HousekeepingTasks and MaintenanceRequests are operational tasks linked to Rooms (or common areas) and Users (for assignment and reporting).
+
+Employees are linked to Users (if the employee has a system account) and various HR-related tables (Departments, TimeClockEntries, EmployeeSchedules, PerformanceReviews, EmployeeTrainings, HRDocuments).
+
+PurchaseOrders and PurchaseOrderLines manage the procurement process, linking to Suppliers and InventoryItems. InventoryAdjustments track non-standard stock changes.
+
+Accounting modules (GeneralLedger, SupplierInvoices, BankAccounts, BankTransactions) interact with ChartOfAccounts, Suppliers, Guests (for accounts receivable managed via Folios and CompanyAccounts), and other relevant tables for comprehensive financial tracking and reporting.
+
+DocumentTemplates and HotelPolicies are configuration tables, linked to Hotels to allow hotel-specific customization of documents and policies.
+
+RatePlans <-> RatePlanBookingSources <-> BookingSources: This new chain explicitly defines which RatePlans are published to which BookingSources.

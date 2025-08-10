@@ -9,6 +9,15 @@ export default class Permission extends BaseModel {
   declare id: number
 
   @column()
+  declare permission_name: string
+
+  @column()
+  declare permission_description: string | null
+
+  @column()
+  declare module_category: 'FrontOffice' | 'Reservations' | 'BillingPayments' | 'PricingRevenue' | 'HousekeepingMaintenance' | 'OnlineDistribution' | 'ReportsAnalytics' | 'SecurityUser' | 'ThirdPartyIntegrations' | 'TechnicalUX' | 'Administration' | 'AccountingFinance' | 'HumanResources' | 'InventoryPurchasing' | null
+
+  @column()
   declare name: string
 
   @column()

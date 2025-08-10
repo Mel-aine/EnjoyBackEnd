@@ -10,6 +10,7 @@ import Services from '#models/service'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Permission from '#models/permission'
 import Reservation from '#models/reservation'
+import Hotel from '#models/hotel'
 
 const AuthFinder = withAuthFinder(() => hash.use('argon'), {
   uids: ['email'],
@@ -21,6 +22,15 @@ export default class User extends AuthFinder(BaseModel) {
   declare id: number
 
   @column()
+  declare hotel_id: number
+
+  @column()
+  declare username: string
+
+  @column({ serializeAs: null })
+  declare password_hash: string
+
+  @column()
   declare first_name: string
 
   @column()
@@ -28,6 +38,18 @@ export default class User extends AuthFinder(BaseModel) {
 
   @column()
   declare email: string
+
+  @column()
+  declare employee_id: number | null
+
+  @column()
+  declare is_active: boolean
+
+  @column()
+  declare preferred_language: string | null
+
+  @column()
+  declare theme_preference: 'Blue' | 'Black' | 'Silver' | 'SystemDefault' | null
 
   @column()
   declare is_cdi: boolean
@@ -129,6 +151,9 @@ export default class User extends AuthFinder(BaseModel) {
   currentAccessToken?: AccessToken
 
   /** Relation avec le rôle */
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  declare hotel: BelongsTo<typeof Hotel>
+
   @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
 

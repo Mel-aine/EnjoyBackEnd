@@ -23,6 +23,14 @@ import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
 import CancellationPoliciesController from '#controllers/cancellation_policies_controller'
 import RefundsController from '#controllers/refunds_controller'
+import HotelsController from '#controllers/hotels_controller'
+import GuestsController from '#controllers/guests_controller'
+import RoomTypesController from '#controllers/room_types_controller'
+import RoomsController from '#controllers/rooms_controller'
+import FoliosController from '#controllers/folios_controller'
+import FolioTransactionsController from '#controllers/folio_transactions_controller'
+import PaymentMethodsController from '#controllers/payment_methods_controller'
+import ReservationRoomsController from '#controllers/reservation_rooms_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -71,6 +79,14 @@ const rolePermissionsController = new RolePermissionsController()
 const activityLogsController = new ActivityLogsController()
 const cancellationPoliciesController = new CancellationPoliciesController()
 const refundsController = new RefundsController()
+const hotelsController = new HotelsController()
+const guestsController = new GuestsController()
+const roomTypesController = new RoomTypesController()
+const roomsController = new RoomsController()
+const foliosController = new FoliosController()
+const folioTransactionsController = new FolioTransactionsController()
+const paymentMethodsController = new PaymentMethodsController()
+const reservationRoomsController = new ReservationRoomsController()
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -803,6 +819,164 @@ router
       router.put('/refund/:id', refundsController.update.bind(refundsController))
       router.delete('/refund/:id', refundsController.destroy.bind(refundsController))
     })
+
+    // Hotel Management Routes
+    // Comprehensive hotel management system with CRUD operations and analytics
+    router
+      .group(() => {
+        // Basic CRUD operations for hotels
+        router.get('/', hotelsController.index.bind(hotelsController)) // Get all hotels with pagination and search
+        router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
+        router.get('/:id', hotelsController.show.bind(hotelsController)) // Get specific hotel details
+        router.put('/:id', hotelsController.update.bind(hotelsController)) // Update hotel information
+        router.delete('/:id', hotelsController.destroy.bind(hotelsController)) // Delete hotel
+        
+        // Hotel analytics and statistics
+        router.get('/:id/statistics', hotelsController.stats.bind(hotelsController)) // Get hotel statistics (rooms, occupancy, revenue)
+        
+        // Hotel status management
+        router.patch('/:id/toggle-status', hotelsController.toggleStatus.bind(hotelsController)) // Activate/deactivate hotel
+      })
+      .prefix('hotels')
+
+    // Guest Management Routes
+    // Complete guest profile management with search and analytics
+    router
+      .group(() => {
+        // Basic CRUD operations for guests
+        router.get('/', guestsController.index.bind(guestsController)) // Get all guests with pagination, search, and filtering
+        router.post('/', guestsController.store.bind(guestsController)) // Create a new guest profile
+        router.get('/:id', guestsController.show.bind(guestsController)) // Get specific guest details with reservation history
+        router.put('/:id', guestsController.update.bind(guestsController)) // Update guest information
+        router.delete('/:id', guestsController.destroy.bind(guestsController)) // Delete guest profile
+        
+        // Guest analytics and history
+        router.get('/:id/profile', guestsController.profile.bind(guestsController)) // Get guest profile with stay history
+        
+        // Guest status management
+        router.patch('/:id/update-vip-status', guestsController.updateVipStatus.bind(guestsController)) // Update VIP status
+        router.patch('/:id/toggle-blacklist', guestsController.toggleBlacklist.bind(guestsController)) // Toggle blacklist status
+      })
+      .prefix('guests')
+
+    // Room Type Management Routes
+    // Room type configuration and pricing management
+    router
+      .group(() => {
+        // Basic CRUD operations for room types
+        router.get('/', roomTypesController.index.bind(roomTypesController)) // Get all room types with filtering by hotel
+        router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
+        router.get('/:id', roomTypesController.show.bind(roomTypesController)) // Get specific room type details
+        router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
+        router.delete('/:id', roomTypesController.destroy.bind(roomTypesController)) // Delete room type
+        
+        // Room type analytics
+        router.get('/:id/stats', roomTypesController.stats.bind(roomTypesController)) // Get room type statistics
+        router.get('/:id/availability', roomTypesController.availability.bind(roomTypesController)) // Check availability for date range
+      })
+      .prefix('room-types')
+
+    // Room Management Routes
+    // Individual room management and status tracking
+    router
+      .group(() => {
+        // Basic CRUD operations for rooms
+        router.get('/', roomsController.index.bind(roomsController)) // Get all rooms with filtering and status
+        router.post('/', roomsController.store.bind(roomsController)) // Create a new room
+        router.get('/:id', roomsController.show.bind(roomsController)) // Get specific room details
+        router.put('/:id', roomsController.update.bind(roomsController)) // Update room information
+        router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
+        
+        // Room status management
+        router.patch('/:id/status', roomsController.updateStatus.bind(roomsController)) // Update room status (available, occupied, maintenance, etc.)
+        router.patch('/:id/housekeeping', roomsController.updateHousekeepingStatus.bind(roomsController)) // Update housekeeping status
+        router.patch('/:id/maintenance', roomsController.updateMaintenanceStatus.bind(roomsController)) // Update maintenance status
+        
+        // Room analytics and reports
+        router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
+        router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
+      })
+      .prefix('rooms')
+
+    // Folio Management Routes
+    // Guest billing and financial management
+    router
+      .group(() => {
+        // Basic CRUD operations for folios
+        router.get('/', foliosController.index.bind(foliosController)) // Get all folios with filtering
+        router.post('/', foliosController.store.bind(foliosController)) // Create a new folio
+        router.get('/:id', foliosController.show.bind(foliosController)) // Get specific folio details with transactions
+        router.put('/:id', foliosController.update.bind(foliosController)) // Update folio information
+        router.delete('/:id', foliosController.destroy.bind(foliosController)) // Delete folio
+        
+        // Folio operations
+        router.post('/:id/close', foliosController.close.bind(foliosController)) // Close folio for checkout
+        router.post('/:id/transfer', foliosController.transfer.bind(foliosController)) // Transfer charges between folios
+        
+        // Folio reports
+        router.get('/:id/balance', foliosController.balance.bind(foliosController)) // Get folio balance
+        router.get('/statistics', foliosController.stats.bind(foliosController)) // Get folio statistics
+      })
+      .prefix('folios')
+
+    // Folio Transaction Management Routes
+    // Individual transaction management and tracking
+    router
+      .group(() => {
+        // Basic CRUD operations for folio transactions
+        router.get('/', folioTransactionsController.index.bind(folioTransactionsController)) // Get all transactions with filtering
+        router.post('/', folioTransactionsController.store.bind(folioTransactionsController)) // Create a new transaction
+        router.get('/:id', folioTransactionsController.show.bind(folioTransactionsController)) // Get specific transaction details
+        router.put('/:id', folioTransactionsController.update.bind(folioTransactionsController)) // Update transaction
+        router.delete('/:id', folioTransactionsController.destroy.bind(folioTransactionsController)) // Delete transaction
+        
+        // Transaction operations
+        router.post('/:id/void', folioTransactionsController.void.bind(folioTransactionsController)) // Void a transaction
+        router.post('/:id/refund', folioTransactionsController.refund.bind(folioTransactionsController)) // Refund a transaction
+        
+        // Transaction reports
+        router.get('/statistics', folioTransactionsController.stats.bind(folioTransactionsController)) // Get transaction statistics
+      })
+      .prefix('folio-transactions')
+
+    // Payment Method Management Routes
+    // Payment method configuration and processing
+    router
+      .group(() => {
+        // Basic CRUD operations for payment methods
+        router.get('/', paymentMethodsController.index.bind(paymentMethodsController)) // Get all payment methods
+        router.post('/', paymentMethodsController.store.bind(paymentMethodsController)) // Create a new payment method
+        router.get('/:id', paymentMethodsController.show.bind(paymentMethodsController)) // Get specific payment method details
+        router.put('/:id', paymentMethodsController.update.bind(paymentMethodsController)) // Update payment method
+        router.delete('/:id', paymentMethodsController.destroy.bind(paymentMethodsController)) // Delete payment method
+        
+        // Payment method operations
+        router.patch('/:id/toggle-status', paymentMethodsController.toggleStatus.bind(paymentMethodsController)) // Enable/disable payment method
+        
+        // Payment method analytics
+        router.get('/statistics', paymentMethodsController.stats.bind(paymentMethodsController)) // Get payment method statistics
+      })
+      .prefix('payment-methods')
+
+    // Reservation Room Management Routes
+    // Room assignment and reservation management
+    router
+      .group(() => {
+        // Basic CRUD operations for reservation rooms
+        router.get('/', reservationRoomsController.index.bind(reservationRoomsController)) // Get all reservation rooms
+        router.post('/', reservationRoomsController.store.bind(reservationRoomsController)) // Create a new reservation room assignment
+        router.get('/:id', reservationRoomsController.show.bind(reservationRoomsController)) // Get specific reservation room details
+        router.put('/:id', reservationRoomsController.update.bind(reservationRoomsController)) // Update reservation room
+        router.delete('/:id', reservationRoomsController.destroy.bind(reservationRoomsController)) // Delete reservation room
+        
+        // Room assignment operations
+        router.post('/:id/check-in', reservationRoomsController.checkIn.bind(reservationRoomsController)) // Check in guest to room
+        router.post('/:id/check-out', reservationRoomsController.checkOut.bind(reservationRoomsController)) // Check out guest from room
+        
+        // Room analytics
+        router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
+      })
+      .prefix('reservation-rooms')
 
     router
       .group(() => {

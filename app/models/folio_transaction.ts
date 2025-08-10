@@ -1,0 +1,480 @@
+import { DateTime } from 'luxon'
+import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
+import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import Hotel from './hotel.js'
+import Folio from './folio.js'
+import PaymentMethod from './payment_method.js'
+import User from './user.js'
+
+export default class FolioTransaction extends BaseModel {
+  @column({ isPrimary: true })
+  declare id: number
+
+  @column()
+  declare hotelId: number
+
+  @column()
+  declare folioId: number
+
+  @column()
+  declare transactionNumber: string
+
+  @column()
+  declare transactionType: 'charge' | 'payment' | 'adjustment' | 'tax' | 'discount' | 'refund' | 'transfer' | 'void' | 'correction'
+
+  @column()
+  declare category: 'room' | 'food_beverage' | 'telephone' | 'laundry' | 'minibar' | 'spa' | 'business_center' | 'parking' | 'internet' | 'miscellaneous' | 'package' | 'incidental' | 'tax' | 'service_charge' | 'deposit' | 'payment' | 'adjustment'
+
+  @column()
+  declare subcategory: string
+
+  @column()
+  declare description: string
+
+  @column()
+  declare amount: number
+
+  @column()
+  declare quantity: number
+
+  @column()
+  declare unitPrice: number
+
+  @column()
+  declare taxAmount: number
+
+  @column()
+  declare taxRate: number
+
+  @column()
+  declare serviceChargeAmount: number
+
+  @column()
+  declare serviceChargeRate: number
+
+  @column()
+  declare discountAmount: number
+
+  @column()
+  declare discountRate: number
+
+  @column()
+  declare netAmount: number
+
+  @column()
+  declare grossAmount: number
+
+  @column.dateTime()
+  declare transactionDate: DateTime
+
+  @column.dateTime()
+  declare postingDate: DateTime
+
+  @column.dateTime()
+  declare serviceDate: DateTime
+
+  @column()
+  declare reference: string
+
+  @column()
+  declare externalReference: string
+
+  @column()
+  declare invoiceNumber: string
+
+  @column()
+  declare receiptNumber: string
+
+  @column()
+  declare voucherNumber: string
+
+  @column()
+  declare authorizationCode: string
+
+  @column()
+  declare paymentMethodId: number
+
+  @column()
+  declare paymentReference: string
+
+  @column()
+  declare creditCardLast4: string
+
+  @column()
+  declare creditCardType: string
+
+  @column()
+  declare checkNumber: string
+
+  @column()
+  declare bankReference: string
+
+  @column()
+  declare cashierId: number
+
+  @column()
+  declare terminalId: string
+
+  @column()
+  declare workstationId: string
+
+  @column()
+  declare shiftId: string
+
+  @column()
+  declare departmentCode: string
+
+  @column()
+  declare revenueCenter: string
+
+  @column()
+  declare costCenter: string
+
+  @column()
+  declare accountCode: string
+
+  @column()
+  declare glAccount: string
+
+  @column()
+  declare projectCode: string
+
+  @column()
+  declare budgetCode: string
+
+  @column()
+  declare currencyCode: string
+
+  @column()
+  declare exchangeRate: number
+
+  @column()
+  declare baseCurrencyAmount: number
+
+  @column()
+  declare originalAmount: number
+
+  @column()
+  declare originalCurrency: string
+
+  @column()
+  declare roomNumber: string
+
+  @column()
+  declare guestName: string
+
+  @column()
+  declare guestId: number
+
+  @column()
+  declare reservationId: number
+
+  @column()
+  declare groupId: number
+
+  @column()
+  declare packageId: number
+
+  @column()
+  declare ratePlanId: number
+
+  @column()
+  declare discountId: number
+
+  @column()
+  declare promotionCode: string
+
+  @column()
+  declare loyaltyPoints: number
+
+  @column()
+  declare loyaltyRedemption: boolean
+
+  @column()
+  declare compPoints: number
+
+  @column()
+  declare compReason: string
+
+  @column()
+  declare compAuthorizedBy: number
+
+  @column()
+  declare isVoided: boolean
+
+  @column()
+  declare voidedBy: number
+
+  @column.dateTime()
+  declare voidedAt: DateTime
+
+  @column()
+  declare voidReason: string
+
+  @column()
+  declare originalTransactionId: number
+
+  @column()
+  declare correctionOf: number
+
+  @column()
+  declare correctionReason: string
+
+  @column()
+  declare transferredTo: number
+
+  @column()
+  declare transferredFrom: number
+
+  @column()
+  declare transferReason: string
+
+  @column()
+  declare isRefund: boolean
+
+  @column()
+  declare refundReason: string
+
+  @column()
+  declare refundAuthorizedBy: number
+
+  @column()
+  declare isAdjustment: boolean
+
+  @column()
+  declare adjustmentReason: string
+
+  @column()
+  declare adjustmentAuthorizedBy: number
+
+  @column()
+  declare isManual: boolean
+
+  @column()
+  declare isAutoPosted: boolean
+
+  @column()
+  declare autoPostRule: string
+
+  @column()
+  declare isRecurring: boolean
+
+  @column()
+  declare recurringSchedule: object
+
+  @column()
+  declare nextRecurringDate: DateTime
+
+  @column()
+  declare isTaxable: boolean
+
+  @column()
+  declare taxExempt: boolean
+
+  @column()
+  declare taxExemptReason: string
+
+  @column()
+  declare taxBreakdown: object
+
+  @column()
+  declare isCommissionable: boolean
+
+  @column()
+  declare commissionRate: number
+
+  @column()
+  declare commissionAmount: number
+
+  @column()
+  declare isServiceChargeable: boolean
+
+  @column()
+  declare serviceChargeExempt: boolean
+
+  @column()
+  declare gratuityIncluded: boolean
+
+  @column()
+  declare gratuityAmount: number
+
+  @column()
+  declare tipAmount: number
+
+  @column()
+  declare roundingAdjustment: number
+
+  @column()
+  declare businessDate: DateTime
+
+  @column()
+  declare auditDate: DateTime
+
+  @column()
+  declare fiscalPeriod: string
+
+  @column()
+  declare accountingPeriod: string
+
+  @column()
+  declare revenueDate: DateTime
+
+  @column()
+  declare recognitionDate: DateTime
+
+  @column()
+  declare deferredRevenue: boolean
+
+  @column()
+  declare deferralPeriod: number
+
+  @column()
+  declare notes: string
+
+  @column()
+  declare internalNotes: string
+
+  @column()
+  declare guestNotes: string
+
+  @column()
+  declare printOnBill: boolean
+
+  @column()
+  declare printDescription: string
+
+  @column()
+  declare hideFromGuest: boolean
+
+  @column()
+  declare requiresApproval: boolean
+
+  @column()
+  declare approvedBy: number
+
+  @column.dateTime()
+  declare approvedAt: DateTime
+
+  @column()
+  declare status: 'pending' | 'posted' | 'voided' | 'transferred' | 'disputed' | 'refunded'
+
+  @column()
+  declare createdBy: number
+
+  @column()
+  declare lastModifiedBy: number
+
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+
+  // Relationships
+  @belongsTo(() => Hotel)
+  declare hotel: BelongsTo<typeof Hotel>
+
+  @belongsTo(() => Folio)
+  declare folio: BelongsTo<typeof Folio>
+
+  @belongsTo(() => PaymentMethod)
+  declare paymentMethod: BelongsTo<typeof PaymentMethod>
+
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
+  declare creator: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
+  declare modifier: BelongsTo<typeof User>
+
+  // Computed properties
+  get isCharge() {
+    return this.transactionType === 'charge'
+  }
+
+  get isPayment() {
+    return this.transactionType === 'payment'
+  }
+
+  get isCredit() {
+    return ['payment', 'refund', 'adjustment'].includes(this.transactionType) && this.amount < 0
+  }
+
+  get isDebit() {
+    return ['charge', 'tax'].includes(this.transactionType) && this.amount > 0
+  }
+
+  get absoluteAmount() {
+    return Math.abs(this.amount)
+  }
+
+  get displayAmount() {
+    return this.isCredit ? -this.absoluteAmount : this.absoluteAmount
+  }
+
+  get isPosted() {
+    return this.status === 'posted'
+  }
+
+  get isPending() {
+    return this.status === 'pending'
+  }
+
+  get canBeVoided() {
+    return this.isPosted && !this.isVoided && this.transactionType !== 'void'
+  }
+
+  get canBeRefunded() {
+    return this.isPosted && !this.isVoided && this.isCharge && !this.isRefund
+  }
+
+  get effectiveAmount() {
+    if (this.isVoided) return 0
+    return this.netAmount || this.amount
+  }
+
+  get taxPercentage() {
+    if (this.amount === 0) return 0
+    return (this.taxAmount / this.amount) * 100
+  }
+
+  get serviceChargePercentage() {
+    if (this.amount === 0) return 0
+    return (this.serviceChargeAmount / this.amount) * 100
+  }
+
+  get discountPercentage() {
+    if (this.grossAmount === 0) return 0
+    return (this.discountAmount / this.grossAmount) * 100
+  }
+
+  get displayName() {
+    return `${this.transactionNumber} - ${this.description}`
+  }
+
+  get typeColor() {
+    const colors = {
+      'charge': 'red',
+      'payment': 'green',
+      'adjustment': 'blue',
+      'tax': 'orange',
+      'discount': 'purple',
+      'refund': 'teal',
+      'transfer': 'yellow',
+      'void': 'gray',
+      'correction': 'brown'
+    }
+    return colors[this.transactionType] || 'gray'
+  }
+
+  get statusColor() {
+    const colors = {
+      'pending': 'orange',
+      'posted': 'green',
+      'voided': 'red',
+      'transferred': 'blue',
+      'disputed': 'purple',
+      'refunded': 'teal'
+    }
+    return colors[this.status] || 'gray'
+  }
+}

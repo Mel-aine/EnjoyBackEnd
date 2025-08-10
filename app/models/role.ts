@@ -15,6 +15,9 @@ export default class Role extends BaseModel {
   declare role_name: string
 
   @column()
+  declare role_description: string | null
+
+  @column()
   declare description: string | null
 
   @column()

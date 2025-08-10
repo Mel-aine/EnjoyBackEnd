@@ -1,0 +1,196 @@
+import { DateTime } from 'luxon'
+import { BaseModel, column, hasMany, belongsTo } from '@adonisjs/lucid/orm'
+import type { HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
+import Reservation from './reservation.js'
+import Folio from './folio.js'
+import User from './user.js'
+
+export default class Guest extends BaseModel {
+  @column({ isPrimary: true })
+  declare id: number
+
+  @column()
+  declare guestCode: string
+
+  @column()
+  declare firstName: string
+
+  @column()
+  declare lastName: string
+
+  @column()
+  declare middleName: string
+
+  @column()
+  declare title: string
+
+  @column()
+  declare suffix: string
+
+  @column()
+  declare email: string
+
+  @column()
+  declare phoneNumber: string
+
+  @column()
+  declare mobileNumber: string
+
+  @column()
+  declare alternatePhone: string
+
+  @column.date()
+  declare dateOfBirth: DateTime
+
+  @column()
+  declare gender: string
+
+  @column()
+  declare nationality: string
+
+  @column()
+  declare language: string
+
+  @column()
+  declare idType: string
+
+  @column()
+  declare idNumber: string
+
+  @column.date()
+  declare idExpiryDate: DateTime
+
+  @column()
+  declare passportNumber: string
+
+  @column.date()
+  declare passportExpiryDate: DateTime
+
+  @column()
+  declare address: string
+
+  @column()
+  declare city: string
+
+  @column()
+  declare stateProvince: string
+
+  @column()
+  declare country: string
+
+  @column()
+  declare postalCode: string
+
+  @column()
+  declare company: string
+
+  @column()
+  declare jobTitle: string
+
+  @column()
+  declare emergencyContactName: string
+
+  @column()
+  declare emergencyContactPhone: string
+
+  @column()
+  declare emergencyContactRelation: string
+
+  @column()
+  declare specialRequests: string
+
+  @column()
+  declare dietaryRestrictions: string
+
+  @column()
+  declare accessibility: string
+
+  @column()
+  declare preferences: object
+
+  @column()
+  declare loyaltyNumber: string
+
+  @column()
+  declare loyaltyLevel: string
+
+  @column()
+  declare creditLimit: number
+
+  @column()
+  declare paymentTerms: string
+
+  @column()
+  declare marketingOptIn: boolean
+
+  @column()
+  declare communicationPreferences: object
+
+  @column()
+  declare blacklisted: boolean
+
+  @column()
+  declare blacklistReason: string
+
+  @column()
+  declare vipStatus: boolean
+
+  @column()
+  declare vipLevel: string
+
+  @column()
+  declare notes: string
+
+  @column()
+  declare profileImage: string
+
+  @column.date()
+  declare lastStayDate: DateTime
+
+  @column()
+  declare totalStays: number
+
+  @column()
+  declare totalSpent: number
+
+  @column()
+  declare averageRating: number
+
+  @column()
+  declare status: string
+
+  @column()
+  declare createdBy: number
+
+  @column()
+  declare lastModifiedBy: number
+
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+
+  // Relationships
+  @hasMany(() => Reservation)
+  declare reservations: HasMany<typeof Reservation>
+
+  @hasMany(() => Folio)
+  declare folios: HasMany<typeof Folio>
+
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
+  declare creator: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
+  declare modifier: BelongsTo<typeof User>
+
+  // Computed properties
+  get fullName() {
+    return `${this.firstName} ${this.lastName}`
+  }
+
+  get displayName() {
+    const parts = [this.title, this.firstName, this.lastName, this.suffix].filter(Boolean)
+    return parts.join(' ')
+  }
+}
