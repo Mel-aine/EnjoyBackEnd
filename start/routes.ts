@@ -978,6 +978,26 @@ router
       })
       .prefix('reservation-rooms')
 
+    // Configuration routes
+    router
+      .group(() => {
+        // Amenities routes
+        router
+          .group(() => {
+            router.get('/', [() => import('#controllers/amenities_controller'), 'index'])
+            router.post('/', [() => import('#controllers/amenities_controller'), 'store'])
+            router.get('/:id', [() => import('#controllers/amenities_controller'), 'show'])
+            router.put('/:id', [() => import('#controllers/amenities_controller'), 'update'])
+            router.delete('/:id', [() => import('#controllers/amenities_controller'), 'destroy'])
+            router.post('/:id/restore', [() => import('#controllers/amenities_controller'), 'restore'])
+            router.delete('/:id/force', [() => import('#controllers/amenities_controller'), 'forceDelete'])
+            router.get('/hotel/:hotel_id', [() => import('#controllers/amenities_controller'), 'getByHotel'])
+            router.post('/sort-order', [() => import('#controllers/amenities_controller'), 'updateSortOrder'])
+          })
+          .prefix('amenities')
+      })
+      .prefix('configuration')
+
     router
       .group(() => {
         // Custom route to get all policies for a specific hotel
