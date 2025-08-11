@@ -16,6 +16,10 @@ export default class extends BaseSchema {
       table.string('phone_number', 20).nullable()
       table.string('email', 255).nullable()
       table.string('website', 255).nullable()
+      table.string('floor_plan_url', 500).nullable()
+      table.string('fax', 50).nullable()
+      table.enu('system_date_determination_method',['UseDayClose','RealTime']).defaultTo('UseDayClose')
+      table.string('auto_night_audit_time', 50).nullable()
       table.integer('total_rooms').defaultTo(0)
       table.integer('total_floors').defaultTo(0)
       table.string('currency_code', 3).defaultTo('USD')
@@ -29,13 +33,13 @@ export default class extends BaseSchema {
       table.string('logo_url', 500).nullable()
       table.json('contact_info').nullable()
       table.json('social_media').nullable()
-      
+
       // Audit fields
       table.integer('created_by').unsigned().nullable()
       table.integer('last_modified_by').unsigned().nullable()
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })
-      
+
       // Foreign key constraints
       table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL')
       table.foreign('last_modified_by').references('id').inTable('users').onDelete('SET NULL')

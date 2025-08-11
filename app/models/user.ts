@@ -6,7 +6,6 @@ import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relat
 import hash from '@adonisjs/core/services/hash'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import Role from '#models/role'
-import Services from '#models/service'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Permission from '#models/permission'
 import Reservation from '#models/reservation'
@@ -157,13 +156,10 @@ export default class User extends AuthFinder(BaseModel) {
   @belongsTo(() => Role, { foreignKey: 'role_id' })
   declare role: BelongsTo<typeof Role>
 
-  @belongsTo(() => Services, { foreignKey: 'service_id' })
-  declare service: BelongsTo<typeof Services>
-
-  @hasMany(() => Services, {
+  @hasMany(() => Hotel, {
     foreignKey: 'created_by',
   })
-  declare services: HasMany<typeof Services>
+  declare hotels: HasMany<typeof Hotel>
 
   @hasMany(() => ServiceUserAssignment, { foreignKey: 'user_id' })
   declare serviceAssignments: HasMany<typeof ServiceUserAssignment>

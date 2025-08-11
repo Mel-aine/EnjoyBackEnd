@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import Service from '#models/service'
+import Hotel from '#models/hotel'
 import AmenitiesCategory from './amenities_category.js'
 
 export default class AmenityProduct extends BaseModel {
@@ -32,8 +32,8 @@ export default class AmenityProduct extends BaseModel {
     @column({ columnName: 'amenities_category_id' })
     declare amenitiesCategoryId: number
 
-    @column({ columnName: 'service_id' })
-    declare serviceId: number
+    @column({ columnName: 'hotel_id' })
+    declare hotelId: number
 
     @column({ columnName: 'created_by' })
     declare createdBy: number | null
@@ -53,8 +53,8 @@ export default class AmenityProduct extends BaseModel {
     @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
     declare modifier: BelongsTo<typeof User>
 
-    @belongsTo(() => Service, { foreignKey: 'serviceId' })
-    declare service: BelongsTo<typeof Service>
+    @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
+    declare service: BelongsTo<typeof Hotel>
 
     @belongsTo(() => AmenitiesCategory, {
         foreignKey: 'amenitiesCategoryId',

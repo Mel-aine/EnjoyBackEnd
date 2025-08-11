@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
-import Service from '#models/service'
+import Hotel from '#models/hotel'
 import User from '#models/user'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 
@@ -16,7 +16,7 @@ export default class CancellationPolicy extends BaseModel {
   declare policy_id: number
 
   @column()
-  declare service_id: number
+  declare hotel_id: number
 
   @column()
   declare policy_name: string
@@ -49,8 +49,8 @@ export default class CancellationPolicy extends BaseModel {
   declare createdAt: DateTime
 
   // Relationships
-  @belongsTo(() => Service, { foreignKey: 'service_id' })
-    declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+    declare service: BelongsTo<typeof Hotel>
 
  @belongsTo(() => User, { foreignKey: 'last_modified_by_user_id' })
   declare last_modified_by: BelongsTo<typeof User>

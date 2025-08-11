@@ -13,79 +13,91 @@ export default class Hotel extends BaseModel {
   declare id: number
 
   @column()
-  declare hotelName: string
+  declare hotel_name: string
 
   @column()
-  declare hotelCode: string
+  declare hotel_code: string
 
   @column()
-  declare address: string
+  declare address: string | null
 
   @column()
-  declare city: string
+  declare city: string | null
 
   @column()
-  declare stateProvince: string
+  declare state_province: string | null
 
   @column()
-  declare country: string
+  declare country: string | null
 
   @column()
-  declare postalCode: string
+  declare postal_code: string | null
 
   @column()
-  declare phoneNumber: string
+  declare phone_number: string | null
 
   @column()
-  declare email: string
+  declare email: string | null
 
   @column()
-  declare website: string
+  declare website: string | null
 
   @column()
-  declare totalRooms: number
+  declare total_rooms: number
 
   @column()
-  declare totalFloors: number
+  declare total_floors: number
 
   @column()
-  declare currencyCode: string
+  declare currency_code: string
 
   @column()
   declare timezone: string
 
   @column()
-  declare taxRate: number
+  declare tax_rate: number
 
   @column()
-  declare licenseNumber: string
+  declare license_number: string | null
 
   @column()
   declare status: string
 
   @column()
-  declare amenities: object
+  declare amenities: object | null
 
   @column()
-  declare policies: object
+  declare policies: object | null
 
   @column()
-  declare description: string
+  declare description: string | null
 
   @column()
-  declare logoUrl: string
+  declare logo_url: string | null
 
   @column()
-  declare contactInfo: object
+  declare contact_info: object | null
 
   @column()
-  declare socialMedia: object
+  declare social_media: object | null
 
   @column()
-  declare createdBy: number
+  declare floor_plan_url: string | null
 
   @column()
-  declare lastModifiedBy: number
+  declare fax: string | null
+
+  @column()
+  declare system_date_determination_method : 'UseDayClose' | 'RealTime'
+
+  @column()
+  declare auto_night_audit_time  : string | null
+
+  @column()
+  declare created_by: number | null
+
+  @column()
+  declare last_modified_by: number | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -109,9 +121,9 @@ export default class Hotel extends BaseModel {
   @hasMany(() => Inventory)
   declare inventories: HasMany<typeof Inventory>
 
-  @belongsTo(() => User, { foreignKey: 'createdBy' })
+  @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
+  @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
 }
