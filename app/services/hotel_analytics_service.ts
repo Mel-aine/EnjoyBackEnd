@@ -1,4 +1,4 @@
-import ServiceProduct from '#models/service_product'
+import ServiceProduct from '#models/room'
 import Reservation from '#models/reservation'
 import { DateTime } from 'luxon'
 

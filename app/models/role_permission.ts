@@ -4,7 +4,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Role from '#models/role'
 import Permission from '#models/permission'
 import User from '#models/user'
-import Service from '#models/service'
+import Hotel from '#models/hotel'
 
 export default class RolePermission extends BaseModel {
   @column({ isPrimary: true })
@@ -23,7 +23,7 @@ export default class RolePermission extends BaseModel {
   declare permission_id: number | null
 
   @column()
-  declare service_id: number | null
+  declare hotel_id: number | null
 
   @belongsTo(() => Role, {
     foreignKey: 'role_id',
@@ -35,8 +35,8 @@ export default class RolePermission extends BaseModel {
   })
   declare permission: BelongsTo<typeof Permission>
 
-  @belongsTo(() => Service, { foreignKey: 'service_id' })
-  declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>

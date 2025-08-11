@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import Service from '#models/hotel'
+import Hotel from '#models/hotel'
 import Permission from '#models/permission'
 import RolePermission from '#models/role_permission'
 
@@ -20,7 +20,7 @@ export default class Role extends BaseModel {
   declare description: string | null
 
   @column()
-  declare service_id: number | null
+  declare hotel_id: number | null
 
   @column()
   declare created_by: number | null
@@ -59,8 +59,8 @@ export default class Role extends BaseModel {
   })
   declare permissions: ManyToMany<typeof Permission>
 
-  @belongsTo(() => Service, { foreignKey: 'service_id' })
-  declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  declare hotel: BelongsTo<typeof Hotel>
 
   /**
    * Vérifie si le rôle a une permission donnée

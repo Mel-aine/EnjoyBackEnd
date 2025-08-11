@@ -22,7 +22,7 @@ export default class RolesController extends CrudController<typeof Role> {
 
       const roles = await Role.query()
         .where((query) => {
-          query.whereNull('service_id').andWhere('category_id', service.category_id)
+          query.whereNull('service_id')
         })
         .orWhere((query) => {
           query.where('service_id', serviceId)
@@ -49,7 +49,7 @@ export default class RolesController extends CrudController<typeof Role> {
 
       const roles = await Role.query()
         .where((query) => {
-          query.whereNull('service_id').andWhere('category_id', service.category_id)
+          query.whereNull('service_id')
         })
         .orWhere((query) => {
           query.where('service_id', serviceId)

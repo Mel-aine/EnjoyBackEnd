@@ -2,8 +2,8 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import Service from '#models/service'
-import ServiceProduct from '#models/service_product'
+import Hotel from '#models/hotel'
+import Room from '#models/room'
 
 export default class Task extends BaseModel {
   @column({ isPrimary: true })
@@ -37,10 +37,10 @@ export default class Task extends BaseModel {
   declare status: 'pending' | 'in_progress' | 'todo' | 'cancelled' | 'done'
 
   @column()
-  declare service_id: number | null
+  declare hotel_id: number | null
 
   @column()
-  declare service_product_id: number | null
+  declare room_id: number | null
 
   @column()
   declare last_modified_by: number | null
@@ -62,11 +62,11 @@ export default class Task extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
 
-  @belongsTo(() => Service, { foreignKey: 'service_id' })
-  declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  declare hotel: BelongsTo<typeof Hotel>
 
-  @belongsTo(() => ServiceProduct, { foreignKey: 'service_product_id' })
-  declare serviceProduct: BelongsTo<typeof ServiceProduct>
+  @belongsTo(() => Room, { foreignKey: 'room_id' })
+  declare room: BelongsTo<typeof Room>
 
 
 }

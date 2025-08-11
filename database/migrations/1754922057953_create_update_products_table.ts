@@ -1,17 +1,20 @@
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'services'
+  protected tableName = 'products'
 
-  async up() {
+ async up() {
     this.schema.alterTable(this.tableName, (table) => {
-      table.enum('currency', ['XAF', 'EUR', 'USD', 'GBP', 'CHF', 'CAD']).nullable().after('tourist_tax')
+        table.integer('hotel_id').unsigned().nullable() // <- nullable d'abord
+            .references('id').inTable('hotels')
+            .onDelete('CASCADE')
+
     })
   }
 
   async down() {
     this.schema.alterTable(this.tableName, (table) => {
-      table.dropColumn('currency')
+      table.dropColumn('hotel_id')
     })
   }
 }

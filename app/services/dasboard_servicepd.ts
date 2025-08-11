@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import Reservation from '#models/reservation'
-import ServiceProduct from '#models/service_product'
+import ServiceProduct from '#models/room'
 
 type PeriodType = 'monthly' | 'quarterly' | 'semester' | 'yearly'
 

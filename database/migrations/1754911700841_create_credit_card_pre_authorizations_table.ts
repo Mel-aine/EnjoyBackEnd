@@ -28,8 +28,8 @@ export default class extends BaseSchema {
       ]).notNullable()
       table.string('gateway_reference', 255).notNullable()
       table.string('transaction_response_code', 50).nullable()
-      table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL')
-      table.foreign('last_modified_by').references('id').inTable('users').onDelete('SET NULL')
+      table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
+      table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
 
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })

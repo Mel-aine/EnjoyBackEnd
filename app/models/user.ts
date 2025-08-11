@@ -218,6 +218,6 @@ export default class User extends AuthFinder(BaseModel) {
   public async getServiceId(): Promise<number | null> {
     const assignment = await ServiceUserAssignment.query().where('user_id', this.id).first()
 
-    return assignment?.service_id ?? null
+    return assignment?.hotel_id ?? null
   }
 }

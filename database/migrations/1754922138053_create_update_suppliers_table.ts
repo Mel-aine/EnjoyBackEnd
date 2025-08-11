@@ -1,17 +1,20 @@
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'reservation_service_products'
+  protected tableName = 'suppliers'
 
-  async up() {
+ async up() {
     this.schema.alterTable(this.tableName, (table) => {
-      table.integer('extra_guest').nullable().defaultTo(0)
+        table.integer('hotel_id').unsigned().nullable() // <- nullable d'abord
+            .references('id').inTable('hotels')
+            .onDelete('CASCADE')
+
     })
   }
 
   async down() {
     this.schema.alterTable(this.tableName, (table) => {
-      table.dropColumn('extra_guest')
+      table.dropColumn('hotel_id')
     })
   }
 }

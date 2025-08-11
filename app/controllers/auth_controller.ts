@@ -80,24 +80,22 @@ export default class AuthController {
      const assignments = await user
       .related('serviceAssignments')
       .query()
-      .preload('service', (serviceQuery) => {
-        serviceQuery.preload('category')
-      })
       .preload('roleModel')
+      .preload('hotel')
 
       // Pour chaque serviceAssignment, charger les permissions spécifiques à (role, service)
       const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
-        const service = assignment.service
+        const hotel = assignment.hotel
         const role = assignment.roleModel
 
-        if (!service || !role) {
+        if (!hotel || !role) {
           return null
         }
 
         const rolePermissions = await RolePermission
           .query()
           .where('role_id', role.id)
-          .andWhere('service_id', service.id)
+          .andWhere('hotel_id', hotel.id)
           .preload('permission')
 
         const permissions = rolePermissions.map((rp) => ({
@@ -108,9 +106,9 @@ export default class AuthController {
 
         return {
           service: {
-            id: service.id,
-            name: service.name,
-            category: service.category,
+            id: hotel.id,
+            name: hotel.hotel_name,
+            category: hotel.hotel_code,
           },
           role: {
             name: role.role_name,
@@ -124,7 +122,7 @@ export default class AuthController {
       const filteredPermissions = detailedPermissions.filter((p) => p !== null)
 
       const userServices = assignments
-        .map((assignment) => assignment.service)
+        .map((assignment) => assignment.hotel)
         .filter((service) => service !== null)
 
         await LoggerService.log({

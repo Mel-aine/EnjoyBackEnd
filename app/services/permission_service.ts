@@ -1,6 +1,6 @@
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Role from '#models/role'
-import Service from '#models/service'
+import Service from '#models/hotel'
 import RolePermission from '#models/role_permission'
 import Permission from '#models/permission'
 
@@ -44,7 +44,6 @@ export default class PermissionService {
         .orWhere(subQuery => {
           subQuery
             .whereNull('service_id')
-            .andWhere('category_id', service.category_id)
         })
         .orWhere(subQuery => {
           subQuery
@@ -91,7 +90,6 @@ public static async getPermissions(userId: number, serviceId: number): Promise<s
         .orWhere(subQuery => {
           subQuery
             .whereNull('service_id')
-            .andWhere('category_id', service.category_id)
         })
         .orWhere(subQuery => {
           subQuery
@@ -127,7 +125,7 @@ public static async getPermissions(userId: number, serviceId: number): Promise<s
         await RolePermission.create({
           role_id: adminRole.id,
           permission_id: permission.id,
-          service_id: serviceId,
+          hotel_id: serviceId,
           created_by: createdBy,
           last_modified_by: createdBy,
         })
