@@ -9,7 +9,7 @@ export const createAmenityValidator = vine.compile(
     amenityName: vine.string().trim().minLength(1).maxLength(255),
     amenityType: vine.string().trim().minLength(1).maxLength(100),
     sortKey: vine.number().min(0).optional(),
-    hotelId: vine.number().min(1)
+    status: vine.enum(['Available', 'Unavailable',]).optional(), hotelId: vine.number().min(1)
   })
 )
 
@@ -22,7 +22,7 @@ export const updateAmenityValidator = vine.compile(
     amenityName: vine.string().trim().minLength(1).maxLength(255).optional(),
     amenityType: vine.string().trim().minLength(1).maxLength(100).optional(),
     sortKey: vine.number().min(0).optional(),
-    hotelId: vine.number().min(1).optional()
+    status: vine.enum(['Available', 'Unavailable',]).optional(), hotelId: vine.number().min(1).optional()
   })
 )
 

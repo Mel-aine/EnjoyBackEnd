@@ -82,6 +82,9 @@ export default class Hotel extends BaseModel {
   declare social_media: object | null
 
   @column()
+  declare status_colors: object | null
+
+  @column()
   declare floor_plan_url: string | null
 
   @column()

@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
 import RoomType from '#models/room_type'
 import { createRoomTypeValidator, updateRoomTypeValidator } from '#validators/room_type'
 
@@ -12,10 +13,6 @@ export default class RoomTypesController {
       const limit = request.input('limit', 10)
       const search = request.input('search')
       const hotelId = request.input('hotel_id')
-      const status = request.input('status')
-      const bedType = request.input('bed_type')
-      const smokingAllowed = request.input('smoking_allowed')
-      const petFriendly = request.input('pet_friendly')
 
       const query = RoomType.query()
 
@@ -26,31 +23,16 @@ export default class RoomTypesController {
       if (search) {
         query.where((builder) => {
           builder
-            .where('type_name', 'ILIKE', `%${search}%`)
-            .orWhere('type_code', 'ILIKE', `%${search}%`)
-            .orWhere('description', 'ILIKE', `%${search}%`)
+            .where('room_type_name', 'ILIKE', `%${search}%`)
+            .orWhere('short_code', 'ILIKE', `%${search}%`)
         })
       }
 
-      if (status) {
-        query.where('status', status)
-      }
-
-      if (bedType) {
-        query.where('bed_type', bedType)
-      }
-
-      if (smokingAllowed !== undefined) {
-        query.where('smoking_allowed', smokingAllowed)
-      }
-
-      if (petFriendly !== undefined) {
-        query.where('pet_friendly', petFriendly)
-      }
+      // Add soft delete filter
+      query.where('is_deleted', false)
 
       const roomTypes = await query
         .preload('hotel')
-        .orderBy('sort_order', 'asc')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -75,7 +57,7 @@ export default class RoomTypesController {
       
       const roomType = await RoomType.create({
         ...payload,
-        createdBy: auth.user?.id
+        createdByUserId: auth.user?.id
       })
 
       await roomType.load('hotel')
@@ -126,7 +108,7 @@ export default class RoomTypesController {
 
       roomType.merge({
         ...payload,
-        lastModifiedBy: auth.user?.id
+        updatedByUserId: auth.user?.id
       })
 
       await roomType.save()
@@ -147,7 +129,7 @@ export default class RoomTypesController {
   /**
    * Delete a room type
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
       
@@ -159,7 +141,11 @@ export default class RoomTypesController {
         })
       }
 
-      await roomType.delete()
+      // Soft delete
+      roomType.isDeleted = true
+      roomType.deletedAt = DateTime.now()
+      roomType.updatedByUserId = auth.user?.id!
+      await roomType.save()
 
       return response.ok({
         message: 'Room type deleted successfully'
@@ -261,19 +247,19 @@ export default class RoomTypesController {
   }
 
   /**
-   * Toggle room type status
+   * Toggle room type publish status
    */
   async toggleStatus({ params, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
       
-      roomType.status = roomType.status === 'active' ? 'inactive' : 'active'
-      roomType.lastModifiedBy = auth.user?.id!
+      roomType.publishToWebsite = !roomType.publishToWebsite
+      roomType.updatedByUserId = auth.user?.id!
       
       await roomType.save()
 
       return response.ok({
-        message: `Room type ${roomType.status === 'active' ? 'activated' : 'deactivated'} successfully`,
+        message: `Room type ${roomType.publishToWebsite ? 'published to website' : 'unpublished from website'} successfully`,
         data: roomType
       })
     } catch (error) {
@@ -285,33 +271,28 @@ export default class RoomTypesController {
   }
 
   /**
-   * Update room type sort order
+   * Restore a soft-deleted room type
    */
-  async updateSortOrder({ request, response, auth }: HttpContext) {
+  async restore({ params, response, auth }: HttpContext) {
     try {
-      const { roomTypes } = request.only(['roomTypes'])
+      const roomType = await RoomType.query()
+        .where('id', params.id)
+        .where('is_deleted', true)
+        .firstOrFail()
       
-      if (!Array.isArray(roomTypes)) {
-        return response.badRequest({
-          message: 'Room types array is required'
-        })
-      }
-
-      for (const item of roomTypes) {
-        await RoomType.query()
-          .where('id', item.id)
-          .update({
-            sortOrder: item.sortOrder,
-            lastModifiedBy: auth.user?.id
-          })
-      }
+      roomType.isDeleted = false
+      roomType.deletedAt = null
+      roomType.updatedByUserId = auth.user?.id!
+      
+      await roomType.save()
 
       return response.ok({
-        message: 'Room type sort order updated successfully'
+        message: 'Room type restored successfully',
+        data: roomType
       })
     } catch (error) {
       return response.badRequest({
-        message: 'Failed to update sort order',
+        message: 'Failed to restore room type',
         error: error.message
       })
     }

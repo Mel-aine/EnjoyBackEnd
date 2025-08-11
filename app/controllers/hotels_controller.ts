@@ -74,7 +74,7 @@ export default class HotelsController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createHotelValidator)
-      
+
       // Create hotel data with proper typing
       const hotelData: any = {
         ...payload,
@@ -176,7 +176,7 @@ export default class HotelsController {
   async stats({ params, response }: HttpContext) {
     try {
       const hotel = await Hotel.findOrFail(params.id)
-      
+
       const roomTypes = await hotel.related('roomTypes').query().count('* as total')
       const rooms = await hotel.related('rooms').query().count('* as total')
       const activeRooms = await hotel.related('rooms').query().where('status', 'available').count('* as total')
@@ -195,7 +195,7 @@ export default class HotelsController {
         activeDiscounts: discounts[0].$extras.total,
         totalInventoryItems: inventoryItems[0].$extras.total,
         lowStockItems: lowStockItems[0].$extras.total,
-        occupancyRate: hotel.totalRooms > 0 ? 
+        occupancyRate: hotel.totalRooms > 0 ?
           ((hotel.totalRooms - activeRooms[0].$extras.total) / hotel.totalRooms * 100).toFixed(2) : 0
       }
 
@@ -217,10 +217,10 @@ export default class HotelsController {
   async toggleStatus({ params, response, auth }: HttpContext) {
     try {
       const hotel = await Hotel.findOrFail(params.id)
-      
+
       hotel.status = hotel.status === 'active' ? 'inactive' : 'active'
       hotel.lastModifiedBy = auth.user?.id || 0
-      
+
       await hotel.save()
 
       return response.ok({
@@ -315,7 +315,7 @@ export default class HotelsController {
           created_by: data.created_by || null,
           last_modified_by: data.last_modified_by || null,
         })
-        
+
         await LoggerService.log({
           actorId: user.id,
           action: 'CREATE',
@@ -446,7 +446,7 @@ export default class HotelsController {
           })
           .orderBy('createdAt', 'desc')
       })
-      
+
     const result = customers.map(user => {
       const reservations = user.reservations
       const lastReservation = reservations[0] ?? null
@@ -464,5 +464,53 @@ export default class HotelsController {
     })
 
     return result
+  }
+
+  /**
+   * Update status colors for a hotel
+   */
+  async updateStatusColors(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const statusColors = request.input('status_colors')
+
+      // Validate that status_colors is an object if provided
+      if (statusColors !== null && statusColors !== undefined && typeof statusColors !== 'object') {
+        return response.status(400).json({
+          success: false,
+          message: 'Status colors must be an object or null'
+        })
+      }
+
+      hotel.status_colors = statusColors
+      await hotel.save()
+
+      // Log the activity
+      if (auth.user) {
+        await LoggerService.log(
+          {
+            actorId: auth.user.id,
+            action: 'UPDATE',
+            entityType: 'Hotel',
+            entityId: hotel.id.toString(),
+            description: `Hotel status colors updated: ${hotel.hotel_name}`,
+            ctx: ctx
+          }
+        )
+      }
+
+      return response.json({
+        success: true,
+        message: 'Hotel status colors updated successfully',
+        data: hotel
+      })
+    } catch (error) {
+      logger.error('Error updating hotel status colors:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      })
+    }
   }
 }

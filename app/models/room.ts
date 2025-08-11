@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import RoomType from './room_type.js'
+import BedType from './bed_type.js'
 import ReservationRoom from './reservation_room.js'
 import CleaningStatus from './cleaning_status.js'
 import MaintenanceRequest from './maintenance_request.js'
@@ -46,7 +47,16 @@ export default class Room extends BaseModel {
   declare actualSize: number
 
   @column()
-  declare bedConfiguration: object
+  declare bedTypeId: number
+
+  @column()
+  declare phoneExtension: string
+
+  @column()
+  declare sortKey: number
+
+  @column()
+  declare keyCardAlias: string
 
   @column()
   declare viewType: string
@@ -141,12 +151,21 @@ export default class Room extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
+  @column()
+  declare isDeleted: boolean
+
+  @column.dateTime()
+  declare deletedAt: DateTime
+
   // Relationships
   @belongsTo(() => Hotel)
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => RoomType)
   declare roomType: BelongsTo<typeof RoomType>
+
+  @belongsTo(() => BedType)
+  declare bedType: BelongsTo<typeof BedType>
 
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
@@ -162,6 +181,11 @@ export default class Room extends BaseModel {
 
   @hasMany(() => MaintenanceRequest)
   declare maintenanceRequests: HasMany<typeof MaintenanceRequest>
+
+  // Scopes
+  static active = scope((query) => {
+    query.where('isDeleted', false)
+  })
 
   // Computed properties
   get isAvailable() {

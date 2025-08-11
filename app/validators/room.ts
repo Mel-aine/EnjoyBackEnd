@@ -8,6 +8,10 @@ export const createRoomValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     roomTypeId: vine.number().positive(),
+    bedTypeId: vine.number().positive().optional(),
+    phoneExtension: vine.string().trim().maxLength(20).optional(),
+    sortKey: vine.number().optional(),
+    keyCardAlias: vine.string().trim().maxLength(50).optional(),
     roomNumber: vine.string().trim().minLength(1).maxLength(20),
     floor: vine.number().min(0),
     building: vine.string().trim().maxLength(50).optional(),
@@ -244,7 +248,9 @@ export const createRoomValidator = vine.compile(
     isFeatured: vine.boolean().optional(),
     sortOrder: vine.number().min(0).optional(),
     createdBy: vine.number().positive().optional(),
-    lastModifiedBy: vine.number().positive().optional()
+    lastModifiedBy: vine.number().positive().optional(),
+    isDeleted: vine.boolean().optional(),
+    deletedAt: vine.date().optional()
   })
 )
 
@@ -256,6 +262,10 @@ export const updateRoomValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive().optional(),
     roomTypeId: vine.number().positive().optional(),
+    bedTypeId: vine.number().positive().optional(),
+    phoneExtension: vine.string().trim().maxLength(20).optional(),
+    sortKey: vine.number().optional(),
+    keyCardAlias: vine.string().trim().maxLength(50).optional(),
     roomNumber: vine.string().trim().minLength(1).maxLength(20).optional(),
     floor: vine.number().min(0).optional(),
     building: vine.string().trim().maxLength(50).optional(),
@@ -492,6 +502,8 @@ export const updateRoomValidator = vine.compile(
     isFeatured: vine.boolean().optional(),
     sortOrder: vine.number().min(0).optional(),
     createdBy: vine.number().positive().optional(),
-    lastModifiedBy: vine.number().positive().optional()
+    lastModifiedBy: vine.number().positive().optional(),
+    isDeleted: vine.boolean().optional(),
+    deletedAt: vine.date().optional()
   })
 )

@@ -13,71 +13,57 @@ export default class RoomType extends BaseModel {
   @column()
   declare hotelId: number
 
-  @column()
-  declare typeName: string
+  @column({ columnName: 'short_code' })
+  declare shortCode: string
+
+  @column({ columnName: 'room_type_name' })
+  declare roomTypeName: string
+
+  @column({ columnName: 'base_adult' })
+  declare baseAdult: number
+
+  @column({ columnName: 'base_child' })
+  declare baseChild: number
+
+  @column({ columnName: 'max_adult' })
+  declare maxAdult: number
+
+  @column({ columnName: 'max_child' })
+  declare maxChild: number
+
+  @column({ columnName: 'publish_to_website' })
+  declare publishToWebsite: boolean
+
+  @column({ columnName: 'room_amenities' })
+  declare roomAmenities: object | null
 
   @column()
-  declare typeCode: string
+  declare color: string
 
-  @column()
-  declare description: string
+  @column({ columnName: 'default_web_inventory' })
+  declare defaultWebInventory: number
 
-  @column()
-  declare maxOccupancy: number
-
-  @column()
-  declare baseRate: number
-
-  @column()
-  declare sizeSqm: number
-
-  @column()
-  declare bedCount: number
-
-  @column()
-  declare bedType: string
-
-  @column()
-  declare amenities: object
-
-  @column()
-  declare features: object
-
-  @column()
-  declare viewType: string
-
-  @column()
-  declare smokingAllowed: boolean
-
-  @column()
-  declare petFriendly: boolean
-
-  @column()
-  declare status: string
-
-  @column()
-  declare images: object
-
-  @column()
-  declare cancellationPolicy: string
-
-  @column()
-  declare sortOrder: number
-
-  @column()
-  declare createdBy: number
-
-  @column()
-  declare lastModifiedBy: number
-
+  // Enhanced traceability fields
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+
+  @column({ columnName: 'created_by_user_id' })
+  declare createdByUserId: number | null
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
+  @column({ columnName: 'updated_by_user_id' })
+  declare updatedByUserId: number | null
+
+  @column({ columnName: 'is_deleted' })
+  declare isDeleted: boolean
+
+  @column.dateTime({ columnName: 'deleted_at' })
+  declare deletedAt: DateTime | null
+
   // Relationships
-  @belongsTo(() => Hotel)
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @hasMany(() => Room)
@@ -86,18 +72,53 @@ export default class RoomType extends BaseModel {
   @hasMany(() => RoomRate)
   declare roomRates: HasMany<typeof RoomRate>
 
-  @belongsTo(() => User, { foreignKey: 'createdBy' })
-  declare creator: BelongsTo<typeof User>
+  @belongsTo(() => User, { foreignKey: 'createdByUserId' })
+  declare createdByUser: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
-  declare modifier: BelongsTo<typeof User>
+  @belongsTo(() => User, { foreignKey: 'updatedByUserId' })
+  declare updatedByUser: BelongsTo<typeof User>
+
+  // Query scopes for soft deletion
+  static scopeActive(query: any) {
+    return query.where('is_deleted', false)
+  }
+
+  static scopeWithDeleted(query: any) {
+    return query
+  }
+
+  static scopeOnlyDeleted(query: any) {
+    return query.where('is_deleted', true)
+  }
+
+  // Soft delete method
+  async softDelete() {
+    this.isDeleted = true
+    this.deletedAt = DateTime.now()
+    await this.save()
+  }
+
+  // Restore method
+  async restore() {
+    this.isDeleted = false
+    this.deletedAt = null
+    await this.save()
+  }
 
   // Computed properties
   get isActive() {
-    return this.status === 'active'
+    return !this.isDeleted
   }
 
   get displayName() {
-    return `${this.typeName} (${this.typeCode})`
+    return `${this.roomTypeName} (${this.shortCode})`
+  }
+
+  get totalCapacity() {
+    return this.maxAdult + this.maxChild
+  }
+
+  get baseCapacity() {
+    return this.baseAdult + this.baseChild
   }
 }

@@ -17,6 +17,7 @@ import RefundsController from '#controllers/refunds_controller'
 import HotelsController from '#controllers/hotels_controller'
 import GuestsController from '#controllers/guests_controller'
 import RoomTypesController from '#controllers/room_types_controller'
+import BedTypesController from '#controllers/bed_types_controller'
 import RoomsController from '#controllers/rooms_controller'
 import FoliosController from '#controllers/folios_controller'
 import FolioTransactionsController from '#controllers/folio_transactions_controller'
@@ -63,6 +64,7 @@ const refundsController = new RefundsController()
 const hotelsController = new HotelsController()
 const guestsController = new GuestsController()
 const roomTypesController = new RoomTypesController()
+const bedTypesController = new BedTypesController()
 const roomsController = new RoomsController()
 const foliosController = new FoliosController()
 const folioTransactionsController = new FolioTransactionsController()
@@ -770,6 +772,7 @@ router
 
         // Hotel status management
         router.patch('/:id/toggle-status', hotelsController.toggleStatus.bind(hotelsController)) // Activate/deactivate hotel
+        router.patch('/:id/status-colors', hotelsController.updateStatusColors.bind(hotelsController)) // Update hotel status colors
       })
       .prefix('hotels')
 
@@ -802,13 +805,30 @@ router
         router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
         router.get('/:id', roomTypesController.show.bind(roomTypesController)) // Get specific room type details
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
-        router.delete('/:id', roomTypesController.destroy.bind(roomTypesController)) // Delete room type
+        router.delete('/:id', roomTypesController.destroy.bind(roomTypesController)) // Soft delete room type
+        router.patch('/:id/restore', roomTypesController.restore.bind(roomTypesController)) // Restore soft-deleted room type
+        router.patch('/:id/toggle-status', roomTypesController.toggleStatus.bind(roomTypesController)) // Toggle publish to website status
 
         // Room type analytics
         router.get('/:id/stats', roomTypesController.stats.bind(roomTypesController)) // Get room type statistics
         router.get('/:id/availability', roomTypesController.availability.bind(roomTypesController)) // Check availability for date range
       })
-      .prefix('room-types')
+      .prefix('configuration/room_types')
+
+    // Bed Type Management Routes
+    // Bed type configuration for room types
+    router
+      .group(() => {
+        // Basic CRUD operations for bed types
+        router.get('/', bedTypesController.index.bind(bedTypesController)) // Get all bed types with filtering by hotel
+        router.post('/', bedTypesController.store.bind(bedTypesController)) // Create a new bed type
+        router.get('/:id', bedTypesController.show.bind(bedTypesController)) // Get specific bed type details
+        router.put('/:id', bedTypesController.update.bind(bedTypesController)) // Update bed type information
+        router.delete('/:id', bedTypesController.destroy.bind(bedTypesController)) // Soft delete bed type
+        router.patch('/:id/restore', bedTypesController.restore.bind(bedTypesController)) // Restore soft-deleted bed type
+        router.patch('/:id/toggle-status', bedTypesController.toggleStatus.bind(bedTypesController)) // Toggle bed type status
+      })
+      .prefix('configuration/bed_types')
 
     // Room Management Routes
     // Individual room management and status tracking

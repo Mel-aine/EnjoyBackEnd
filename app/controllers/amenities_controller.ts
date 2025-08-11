@@ -17,13 +17,18 @@ export default class AmenitiesController {
       let query = includeDeleted ? Amenity.scopeWithDeleted() : Amenity.scopeActive()
 
       // Apply filters
-      if (hotelId) {
-        query = query.where('hotel_id', hotelId)
-      }
+    if (hotelId) {
+      query = query.where('hotel_id', hotelId)
+    }
 
-      if (amenityType) {
-        query = query.where('amenity_type', amenityType)
-      }
+    if (amenityType) {
+      query = query.where('amenity_type', amenityType)
+    }
+
+    const status = request.input('status')
+    if (status) {
+      query = query.where('status', status)
+    }
 
       // Include relationships
       query = query.preload('hotel').preload('createdByUser').preload('updatedByUser')
@@ -83,6 +88,7 @@ export default class AmenitiesController {
 
       const amenity = await Amenity.create({
         ...payload,
+        status: payload.status || 'active',
         createdByUserId: user.id,
         updatedByUserId: user.id
       })
@@ -214,11 +220,16 @@ export default class AmenitiesController {
     try {
       const hotelId = params.hotel_id
       const amenityType = request.input('amenity_type')
+      const status = request.input('status')
       
       let query = Amenity.scopeActive().where('hotel_id', hotelId)
       
       if (amenityType) {
         query = query.where('amenity_type', amenityType)
+      }
+      
+      if (status) {
+        query = query.where('status', status)
       }
       
       const amenities = await query

@@ -18,6 +18,9 @@ export default class Amenity extends BaseModel {
   @column({ columnName: 'sort_key' })
   declare sortKey: number
 
+  @column()
+  declare status: string
+
   @column({ columnName: 'hotel_id' })
   declare hotelId: number
 
@@ -42,17 +45,17 @@ export default class Amenity extends BaseModel {
 
   // Relationships
   @belongsTo(() => Hotel, {
-    foreignKey: 'hotel_id',
+    foreignKey: 'hotelId',
   })
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => User, {
-    foreignKey: 'created_by_user_id',
+    foreignKey: 'createdByUserId',
   })
   declare createdByUser: BelongsTo<typeof User>
 
   @belongsTo(() => User, {
-    foreignKey: 'updated_by_user_id',
+    foreignKey: 'updatedByUserId',
   })
   declare updatedByUser: BelongsTo<typeof User>
 
