@@ -1,7 +1,7 @@
-import TypeProduct from '#models/product_type'
+// import TypeProduct from '#models/product_type'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
-import ServiceProduct from '#models/service_product'
+// import ServiceProduct from '#models/service_product'
 
 import type { HttpContext } from '@adonisjs/core/http'
 const typeProductService = new CrudService(TypeProduct)

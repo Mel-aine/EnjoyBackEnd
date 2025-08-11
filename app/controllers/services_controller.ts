@@ -1,7 +1,7 @@
 import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import User from '#models/user'
-import Service from '#models/service'
+import Service from '#models/hotel'
 import type { HttpContext } from '@adonisjs/core/http'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import LoggerService from '#services/logger_service'

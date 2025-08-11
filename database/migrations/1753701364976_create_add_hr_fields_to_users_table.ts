@@ -19,6 +19,15 @@ export default class extends BaseSchema {
       table.date('contract_end_date').nullable()
       table.boolean('data_processing_consent').notNullable().defaultTo(false)
       table.date('consent_date').nullable()
+      table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('SET NULL').nullable()
+      table.text('username')
+      table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
+      table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
+      table.integer('employee_id').nullable()
+      table.boolean('is_active').notNullable()
+      table.string('preferred_language').nullable()
+      table.enum('theme_preference', ['Blue', 'Black', 'Silver', 'SystemDefault']).nullable()
+      table.boolean('is_cdi').notNullable()
     })
   }
 
@@ -38,6 +47,16 @@ export default class extends BaseSchema {
       table.dropColumn('contract_end_date')
       table.dropColumn('data_processing_consent')
       table.dropColumn('consent_date')
+      table.dropColumn('username')
+      table.dropColumn('employee_id')
+      table.dropColumn('is_active')
+      table.dropColumn('preferred_language')
+      table.dropColumn('theme_preference')
+      table.dropColumn('is_cdi')
+      table.dropForeign(['hotel_id'])
+      table.integer('created_by').notNullable().unsigned().alter()
+      table.integer('last_modified_by').notNullable().unsigned().alter()
+
     })
   }
 }

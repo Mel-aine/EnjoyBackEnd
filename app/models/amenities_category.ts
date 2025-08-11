@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import Service from '#models/service'
+import Hotel from '#models/hotel'
 
 export default class AmenitiesCategory extends BaseModel {
   public static table = 'amenities_categories'
@@ -16,8 +16,8 @@ export default class AmenitiesCategory extends BaseModel {
   @column()
   declare description: string | null
 
-  @column({ columnName: 'service_id' })
-  declare serviceId: number
+  @column({ columnName: 'hotel_id' })
+  declare HotelId: number
 
   @column()
   declare status: 'active' | 'inactive' | 'archived'
@@ -46,6 +46,6 @@ export default class AmenitiesCategory extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
-  @belongsTo(() => Service, { foreignKey: 'serviceId' })
-  declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel, { foreignKey: 'HotelId' })
+  declare service: BelongsTo<typeof Hotel>
 }
