@@ -19,6 +19,7 @@ export default class extends BaseSchema {
       table.date('contract_end_date').nullable()
       table.boolean('data_processing_consent').notNullable().defaultTo(false)
       table.date('consent_date').nullable()
+
     })
   }
 
@@ -38,6 +39,8 @@ export default class extends BaseSchema {
       table.dropColumn('contract_end_date')
       table.dropColumn('data_processing_consent')
       table.dropColumn('consent_date')
+
+
     })
   }
 }

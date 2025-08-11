@@ -2,9 +2,8 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import Service from '#models/service'
+import Hotel from '#models/hotel'
 import StockCategory from '#models/stock_category'
-import ProductType from '#models/product_type'
 
 
 export default class Products extends BaseModel {
@@ -21,7 +20,7 @@ export default class Products extends BaseModel {
   declare quantity_available: number
 
   @column()
-  declare service_id: number
+  declare hotel_id: number
 
   @column()
   declare product_type_id?: number
@@ -68,10 +67,7 @@ export default class Products extends BaseModel {
   @belongsTo(() => StockCategory)
   declare category: BelongsTo<typeof StockCategory>
 
-  @belongsTo(() => ProductType)
-  declare productType: BelongsTo<typeof ProductType>
-
-  @belongsTo(() => Service)
-  declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel,{ foreignKey: 'hotel_id' })
+  declare hotel: BelongsTo<typeof Hotel>
 
 }

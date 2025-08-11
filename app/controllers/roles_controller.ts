@@ -1,7 +1,7 @@
 import Role from '#models/role'
 import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
-import Service from '#models/service'
+import Service from '#models/hotel'
 import type { HttpContext } from '@adonisjs/core/http'
 import RolePermission from '#models/role_permission'
 
@@ -22,7 +22,7 @@ export default class RolesController extends CrudController<typeof Role> {
 
       const roles = await Role.query()
         .where((query) => {
-          query.whereNull('service_id').andWhere('category_id', service.category_id)
+          query.whereNull('service_id')
         })
         .orWhere((query) => {
           query.where('service_id', serviceId)
@@ -49,7 +49,7 @@ export default class RolesController extends CrudController<typeof Role> {
 
       const roles = await Role.query()
         .where((query) => {
-          query.whereNull('service_id').andWhere('category_id', service.category_id)
+          query.whereNull('service_id')
         })
         .orWhere((query) => {
           query.where('service_id', serviceId)

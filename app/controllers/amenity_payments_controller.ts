@@ -2,7 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import Reservation from '#models/reservation'
 import AmenityBooking from '#models/amenity_booking'
-import Payment from '#models/payment'
+import Payment from '#models/folio'
 import LoggerService from '#services/logger_service'
 import { payForAmenitiesValidator } from '#validators/amenity_payment_validator'
 

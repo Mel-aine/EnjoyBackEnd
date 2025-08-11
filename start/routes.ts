@@ -1,22 +1,13 @@
 import router from '@adonisjs/core/services/router'
 import UsersController from '#controllers/users_controller'
 import RolesController from '#controllers/roles_controller'
-import ServicesController from '#controllers/services_controller'
-import ServiceProductsController from '#controllers/service_products_controller'
 import ReservationsController from '#controllers/reservations_controller'
-import ReservationServiceProductsController from '#controllers/reservation_service_products_controller'
-import ProductionOptionsController from '#controllers/production_options_controller'
-import PaymentsController from '#controllers/payments_controller'
-import OptionsController from '#controllers/options_controller'
-import CategoriesController from '#controllers/categories_controller'
-import TypeProductsController from '#controllers/type_products_controller'
 import StockCategoriesController from '#controllers/stock_categories_controller'
 import SuppliersController from '#controllers/suppliers_controller'
 import ProductServicesController from '#controllers/product_services_controller'
 import MouvementsController from '#controllers/mouvements_controller'
 import DepartmentsController from '#controllers/departments_controller'
 import ExpensesController from '#controllers/expenses_controller'
-import SchedulesController from '#controllers/schedules_controller'
 import AssigmentUsersController from '#controllers/assigment_users_controller'
 import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
@@ -56,22 +47,12 @@ const usersController = new UsersController()
 const employmentContractController = new EmploymentContractsController()
 const payrollController = new PayrollsController()
 const rolesController = new RolesController()
-const servicesController = new ServicesController()
-const serviceProductsController = new ServiceProductsController()
-const reservationsController = new ReservationsController()
-const reservationServiceProductsController = new ReservationServiceProductsController()
-const productionOptionsController = new ProductionOptionsController()
-const paymentsController = new PaymentsController()
-const optionsController = new OptionsController()
-const categoriesController = new CategoriesController()
-const typeProductsController = new TypeProductsController()
 const stockCategoriesController = new StockCategoriesController()
 const suppliersController = new SuppliersController()
 const productServicesController = new ProductServicesController()
 const mouvementsController = new MouvementsController()
 const departmentsController = new DepartmentsController()
 const expensesController = new ExpensesController()
-const schedulesController = new SchedulesController()
 const assigmentUsersController = new AssigmentUsersController()
 const permissionsController = new PermissionsController()
 const tasksController = new TasksController()
@@ -229,18 +210,10 @@ router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsControll
 router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
 })
-router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
-router.get('/services/search', servicesController.searchByName.bind(servicesController)).prefix('/api')
-router.post( '/servicesWithUser', servicesController.createWithUserAndService.bind(servicesController)).prefix('/api')
-router
-  .group(() => {
-    router.get('/category', categoriesController.list.bind(categoriesController))
-    router.get('/category/:id', categoriesController.show.bind(categoriesController))
-    router.post('/category', categoriesController.store.bind(categoriesController))
-    router.put('/category/:id', categoriesController.update.bind(categoriesController))
-    router.delete('/category/:id', categoriesController.destroy.bind(categoriesController))
-  })
-  .prefix('/api')
+// router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
+// router.get('/services/search', servicesController.searchByName.bind(servicesController)).prefix('/api')
+// router.post( '/servicesWithUser', servicesController.createWithUserAndService.bind(servicesController)).prefix('/api')
+
 
 router
   .group(() => {
@@ -387,166 +360,166 @@ router
       router.delete('/movement/:id', mouvementsController.destroy.bind(mouvementsController))
     })
 
-    router.group(() => {
-      router.post('/services', servicesController.store.bind(servicesController))
+    // router.group(() => {
+    //   router.post('/services', servicesController.store.bind(servicesController))
 
-      router.get(
-        '/servicesByCategory/:categoryId',
-        servicesController.showByCategorie.bind(servicesController)
-      )
+    //   router.get(
+    //     '/servicesByCategory/:categoryId',
+    //     servicesController.showByCategorie.bind(servicesController)
+    //   )
 
-      router.get('/services/:id', servicesController.show.bind(servicesController))
-      router.patch('/services/:id', servicesController.update.bind(servicesController))
-      router.delete('/services/:id', servicesController.destroy.bind(servicesController))
-      router.get(
-        '/services/customer/:serviceId',
-        servicesController.customers.bind(servicesController)
-      )
-      router.get(
-        '/servicesWithServiceProduct',
-        servicesController.getServicesWithProductsAndOptions.bind(servicesController)
-      )
-      router.get(
-        '/services/:id/reservation/search',
-        reservationsController.searchReservations.bind(servicesController)
-      )
-      router.get(
-        '/services/:serviceId/departments/:departmentId/details',
-        departmentsController.getDepartmentDetails.bind(departmentsController)
-      )
-    })
+    //   router.get('/services/:id', servicesController.show.bind(servicesController))
+    //   router.patch('/services/:id', servicesController.update.bind(servicesController))
+    //   router.delete('/services/:id', servicesController.destroy.bind(servicesController))
+    //   router.get(
+    //     '/services/customer/:serviceId',
+    //     servicesController.customers.bind(servicesController)
+    //   )
+    //   router.get(
+    //     '/servicesWithServiceProduct',
+    //     servicesController.getServicesWithProductsAndOptions.bind(servicesController)
+    //   )
+    //   router.get(
+    //     '/services/:id/reservation/search',
+    //     reservationsController.searchReservations.bind(servicesController)
+    //   )
+    //   router.get(
+    //     '/services/:serviceId/departments/:departmentId/details',
+    //     departmentsController.getDepartmentDetails.bind(departmentsController)
+    //   )
+    // })
 
-    router.group(() => {
-      router.post('/product', typeProductsController.store.bind(typeProductsController))
-      router.get(
-        '/product/:serviceId',
-        typeProductsController.GetByServiceId.bind(typeProductsController)
-      )
-      router.get(
-        '/type-products/room-count',
-        typeProductsController.countRoomsByType.bind(typeProductsController)
-      )
-      router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
-      router.delete('/product/:id', typeProductsController.destroyed.bind(typeProductsController))
-    })
+    // router.group(() => {
+    //   router.post('/product', typeProductsController.store.bind(typeProductsController))
+    //   router.get(
+    //     '/product/:serviceId',
+    //     typeProductsController.GetByServiceId.bind(typeProductsController)
+    //   )
+    //   router.get(
+    //     '/type-products/room-count',
+    //     typeProductsController.countRoomsByType.bind(typeProductsController)
+    //   )
+    //   router.put('/product/:id', typeProductsController.update.bind(typeProductsController))
+    //   router.delete('/product/:id', typeProductsController.destroyed.bind(typeProductsController))
+    // })
 
-    router.group(() => {
-      router.post(
-        '/service_product',
-        serviceProductsController.store.bind(serviceProductsController)
-      )
-      router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
-      router.post(
-        '/service_product/:id/filter',
-        serviceProductsController.filter.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_options',
-        serviceProductsController.getAllWithOptions.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_option',
-        serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product/:id',
-        serviceProductsController.show.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_products/:id',
-        serviceProductsController.showWithReservations.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_by_date',
-        serviceProductsController.getAvailable.bind(serviceProductsController)
-      )
-      router.get(
-        '/service_product_by_serviceId/:serviceId',
-        serviceProductsController.showByServiceId.bind(serviceProductsController)
-      )
-      router.put(
-        '/service_product/:id',
-        serviceProductsController.update.bind(serviceProductsController)
-      )
-      router.delete(
-        '/service_product/:id',
-        serviceProductsController.destroyed.bind(serviceProductsController)
-      )
-      router.patch(
-        '/service_product/update_status/:id',
-        serviceProductsController.updateStatus.bind(serviceProductsController)
-      )
-      router.get(
-        '/service-products/available',
-        serviceProductsController.findAvailableRooms.bind(serviceProductsController)
-      )
-      router.get(
-        '/service-products/:serviceId/details',
-        serviceProductsController.getServiceProductsWithDetails.bind(serviceProductsController)
-      )
-    })
+    // router.group(() => {
+    //   router.post(
+    //     '/service_product',
+    //     serviceProductsController.store.bind(serviceProductsController)
+    //   )
+    //   router.get('/service_product', serviceProductsController.list.bind(serviceProductsController))
+    //   router.post(
+    //     '/service_product/:id/filter',
+    //     serviceProductsController.filter.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service_product_options',
+    //     serviceProductsController.getAllWithOptions.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service_product_option',
+    //     serviceProductsController.getServiceProductAllWithOptions.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service_product/:id',
+    //     serviceProductsController.show.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service_products/:id',
+    //     serviceProductsController.showWithReservations.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service_product_by_date',
+    //     serviceProductsController.getAvailable.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service_product_by_serviceId/:serviceId',
+    //     serviceProductsController.showByServiceId.bind(serviceProductsController)
+    //   )
+    //   router.put(
+    //     '/service_product/:id',
+    //     serviceProductsController.update.bind(serviceProductsController)
+    //   )
+    //   router.delete(
+    //     '/service_product/:id',
+    //     serviceProductsController.destroyed.bind(serviceProductsController)
+    //   )
+    //   router.patch(
+    //     '/service_product/update_status/:id',
+    //     serviceProductsController.updateStatus.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service-products/available',
+    //     serviceProductsController.findAvailableRooms.bind(serviceProductsController)
+    //   )
+    //   router.get(
+    //     '/service-products/:serviceId/details',
+    //     serviceProductsController.getServiceProductsWithDetails.bind(serviceProductsController)
+    //   )
+    // })
 
-    router.group(() => {
-      router.get(
-        '/reservations_by_id/:id',
-        reservationsController.show.bind(reservationsController)
-      )
-      router.get(
-        '/reservations/:serviceId',
-        reservationsController.GetByServiceId.bind(reservationsController)
-      )
-      router.get(
-        '/reservations/:reservationId/details',
-        reservationsController.getReservationDetails.bind(reservationsController)
-      )
-      // .use(middleware.checkPermission(['bookings_read']))
-      router.post('/reservations', reservationsController.store.bind(reservationsController))
-      router.post(
-        '/reservationswithuser',
-        reservationsController.createWithUserAndReservation.bind(reservationsController)
-      )
-      router.put('/reservations/:id', reservationsController.update.bind(reservationsController))
-      router.put(
-        '/reservations_update/:id',
-        reservationsController.updateReservation.bind(reservationsController)
-      )
-      router.delete(
-        '/reservations/:id',
-        reservationsController.destroy.bind(reservationsController)
-      )
-      router.patch(
-        '/reservations/:id/check-in',
-        reservationsController.checkIn.bind(reservationsController)
-      )
-      router.patch(
-        '/reservations/:id/check-out',
-        reservationsController.checkOut.bind(reservationsController)
-      )
-      router.patch(
-        '/reservations/:id/extend',
-        reservationsController.extendStay.bind(reservationsController)
-      )
-      router.get(
-        '/reservations/service-product/:serviceProductId',
-        reservationsController.showByServiceProductId.bind(reservationsController)
-      )
-      router.patch(
-        '/reservations/:id/checkExtendStay',
-        reservationsController.checkExtendStay.bind(reservationsController)
-      )
-      router.patch(
-        '/reservations/:id/extendStay',
-        reservationsController.extendStay.bind(reservationsController)
-      )
-      router.get(
-        '/reservations/:id/cancellation-summary',
-        reservationsController.getCancellationSummary.bind(reservationsController)
-      )
-      router.post(
-        '/reservations/:id/cancel',
-        reservationsController.cancelReservation.bind(reservationsController)
-      )
-    })
+    // router.group(() => {
+    //   router.get(
+    //     '/reservations_by_id/:id',
+    //     reservationsController.show.bind(reservationsController)
+    //   )
+    //   router.get(
+    //     '/reservations/:serviceId',
+    //     reservationsController.GetByServiceId.bind(reservationsController)
+    //   )
+    //   router.get(
+    //     '/reservations/:reservationId/details',
+    //     reservationsController.getReservationDetails.bind(reservationsController)
+    //   )
+    //   // .use(middleware.checkPermission(['bookings_read']))
+    //   router.post('/reservations', reservationsController.store.bind(reservationsController))
+    //   router.post(
+    //     '/reservationswithuser',
+    //     reservationsController.createWithUserAndReservation.bind(reservationsController)
+    //   )
+    //   router.put('/reservations/:id', reservationsController.update.bind(reservationsController))
+    //   router.put(
+    //     '/reservations_update/:id',
+    //     reservationsController.updateReservation.bind(reservationsController)
+    //   )
+    //   router.delete(
+    //     '/reservations/:id',
+    //     reservationsController.destroy.bind(reservationsController)
+    //   )
+    //   router.patch(
+    //     '/reservations/:id/check-in',
+    //     reservationsController.checkIn.bind(reservationsController)
+    //   )
+    //   router.patch(
+    //     '/reservations/:id/check-out',
+    //     reservationsController.checkOut.bind(reservationsController)
+    //   )
+    //   router.patch(
+    //     '/reservations/:id/extend',
+    //     reservationsController.extendStay.bind(reservationsController)
+    //   )
+    //   router.get(
+    //     '/reservations/service-product/:serviceProductId',
+    //     reservationsController.showByServiceProductId.bind(reservationsController)
+    //   )
+    //   router.patch(
+    //     '/reservations/:id/checkExtendStay',
+    //     reservationsController.checkExtendStay.bind(reservationsController)
+    //   )
+    //   router.patch(
+    //     '/reservations/:id/extendStay',
+    //     reservationsController.extendStay.bind(reservationsController)
+    //   )
+    //   router.get(
+    //     '/reservations/:id/cancellation-summary',
+    //     reservationsController.getCancellationSummary.bind(reservationsController)
+    //   )
+    //   router.post(
+    //     '/reservations/:id/cancel',
+    //     reservationsController.cancelReservation.bind(reservationsController)
+    //   )
+    // })
 
     router.group(() => {
       router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))
@@ -564,94 +537,55 @@ router
       router.put('/activity-logs/:id', activityLogsController.update.bind(activityLogsController))
     })
 
-    router.group(() => {
-      router.get(
-        '/reservation_service',
-        reservationServiceProductsController.list.bind(reservationServiceProductsController)
-      )
-      router.get(
-        '/reservation_service/:reservationId',
-        reservationServiceProductsController.showByResrvationId.bind(
-          reservationServiceProductsController
-        )
-      )
-      router.get(
-        '/reservation_service_serviceId/:serviceId',
-        reservationServiceProductsController.getRecentBookings.bind(
-          reservationServiceProductsController
-        )
-      )
-      router.get(
-        '/reservation_service/:id',
-        reservationServiceProductsController.show.bind(reservationServiceProductsController)
-      )
-      router.post(
-        '/reservation_service',
-        reservationServiceProductsController.store.bind(reservationServiceProductsController)
-      )
-      router.put(
-        '/reservation_service/:id',
-        reservationServiceProductsController.update.bind(reservationServiceProductsController)
-      )
-      router.delete(
-        '/reservation_service/:id',
-        reservationServiceProductsController.destroy.bind(reservationServiceProductsController)
-      )
-    })
+    // router.group(() => {
+    //   router.get(
+    //     '/reservation_service',
+    //     reservationServiceProductsController.list.bind(reservationServiceProductsController)
+    //   )
+    //   router.get(
+    //     '/reservation_service/:reservationId',
+    //     reservationServiceProductsController.showByResrvationId.bind(
+    //       reservationServiceProductsController
+    //     )
+    //   )
+    //   router.get(
+    //     '/reservation_service_serviceId/:serviceId',
+    //     reservationServiceProductsController.getRecentBookings.bind(
+    //       reservationServiceProductsController
+    //     )
+    //   )
+    //   router.get(
+    //     '/reservation_service/:id',
+    //     reservationServiceProductsController.show.bind(reservationServiceProductsController)
+    //   )
+    //   router.post(
+    //     '/reservation_service',
+    //     reservationServiceProductsController.store.bind(reservationServiceProductsController)
+    //   )
+    //   router.put(
+    //     '/reservation_service/:id',
+    //     reservationServiceProductsController.update.bind(reservationServiceProductsController)
+    //   )
+    //   router.delete(
+    //     '/reservation_service/:id',
+    //     reservationServiceProductsController.destroy.bind(reservationServiceProductsController)
+    //   )
+    // })
 
-    router.group(() => {
-      router.get(
-        '/production_option',
-        productionOptionsController.list.bind(productionOptionsController)
-      )
-      router.get(
-        '/production_option/:id',
-        productionOptionsController.show.bind(productionOptionsController)
-      )
-      router.get(
-        '/production_options/:serviceProductId',
-        productionOptionsController.showByServiceProductId.bind(productionOptionsController)
-      )
-      router.post(
-        '/production_option',
-        productionOptionsController.bulkCreate.bind(productionOptionsController)
-      )
-      router.put(
-        '/product_option/by-service/:service_product_id',
-        productionOptionsController.updateByServiceProductId.bind(productionOptionsController)
-      )
-      router.put(
-        '/production_option/:id',
-        productionOptionsController.update.bind(productionOptionsController)
-      )
-      router.delete(
-        '/production_option/:id',
-        productionOptionsController.destroy.bind(productionOptionsController)
-      )
-    })
 
-    router.group(() => {
-      router.get('/payment', paymentsController.list.bind(paymentsController))
-      router.get('/payment/:id', paymentsController.show.bind(paymentsController))
-      router.get('/payments/:serviceId', paymentsController.getAllPayment.bind(paymentsController))
-      router.post('/payment', paymentsController.store.bind(paymentsController))
-      router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
-      router.put('/payment/:id', paymentsController.update.bind(paymentsController))
-      router.put('/payment/:id/confirm', paymentsController.confirmPayment.bind(paymentsController))
-      router.delete('/payment/:id', paymentsController.destroy.bind(paymentsController))
-    })
 
-    router.group(() => {
-      router.get('/option', optionsController.list.bind(optionsController))
-      router.get(
-        '/option_equipement',
-        optionsController.equipmentFilterOptions.bind(optionsController)
-      )
-      router.get('/option/:id', optionsController.show.bind(optionsController))
-      router.post('/option', optionsController.store.bind(optionsController))
-      router.put('/option/:id', optionsController.update.bind(optionsController))
-      router.delete('/option/:id', optionsController.destroy.bind(optionsController))
-    })
+    // router.group(() => {
+    //   router.get('/payment', paymentsController.list.bind(paymentsController))
+    //   router.get('/payment/:id', paymentsController.show.bind(paymentsController))
+    //   router.get('/payments/:serviceId', paymentsController.getAllPayment.bind(paymentsController))
+    //   router.post('/payment', paymentsController.store.bind(paymentsController))
+    //   router.post('/paymentConfirm', paymentsController.storePayment.bind(paymentsController))
+    //   router.put('/payment/:id', paymentsController.update.bind(paymentsController))
+    //   router.put('/payment/:id/confirm', paymentsController.confirmPayment.bind(paymentsController))
+    //   router.delete('/payment/:id', paymentsController.destroy.bind(paymentsController))
+    // })
+
+
 
     router
       .group(() => {
@@ -692,17 +626,17 @@ router
     router.get('/reservations/:id/invoice', [ReservationsController, 'getHotelInvoiceData'])
 
 
-    router.group(() => {
-      router.post('/schedules', schedulesController.create.bind(SchedulesController))
-      router.get('/schedules', schedulesController.lister.bind(SchedulesController))
-    })
+    // router.group(() => {
+    //   router.post('/schedules', schedulesController.create.bind(SchedulesController))
+    //   router.get('/schedules', schedulesController.lister.bind(SchedulesController))
+    // })
 
-    router.group(() => {
-      router.get(
-        '/services/:serviceId/products/grouped',
-        serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController)
-      )
-    })
+    // router.group(() => {
+    //   router.get(
+    //     '/services/:serviceId/products/grouped',
+    //     serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController)
+    //   )
+    // })
 
     router.group(() => {
       router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
@@ -830,10 +764,10 @@ router
         router.get('/:id', hotelsController.show.bind(hotelsController)) // Get specific hotel details
         router.put('/:id', hotelsController.update.bind(hotelsController)) // Update hotel information
         router.delete('/:id', hotelsController.destroy.bind(hotelsController)) // Delete hotel
-        
+
         // Hotel analytics and statistics
         router.get('/:id/statistics', hotelsController.stats.bind(hotelsController)) // Get hotel statistics (rooms, occupancy, revenue)
-        
+
         // Hotel status management
         router.patch('/:id/toggle-status', hotelsController.toggleStatus.bind(hotelsController)) // Activate/deactivate hotel
       })
@@ -849,10 +783,10 @@ router
         router.get('/:id', guestsController.show.bind(guestsController)) // Get specific guest details with reservation history
         router.put('/:id', guestsController.update.bind(guestsController)) // Update guest information
         router.delete('/:id', guestsController.destroy.bind(guestsController)) // Delete guest profile
-        
+
         // Guest analytics and history
         router.get('/:id/profile', guestsController.profile.bind(guestsController)) // Get guest profile with stay history
-        
+
         // Guest status management
         router.patch('/:id/update-vip-status', guestsController.updateVipStatus.bind(guestsController)) // Update VIP status
         router.patch('/:id/toggle-blacklist', guestsController.toggleBlacklist.bind(guestsController)) // Toggle blacklist status
@@ -869,7 +803,7 @@ router
         router.get('/:id', roomTypesController.show.bind(roomTypesController)) // Get specific room type details
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
         router.delete('/:id', roomTypesController.destroy.bind(roomTypesController)) // Delete room type
-        
+
         // Room type analytics
         router.get('/:id/stats', roomTypesController.stats.bind(roomTypesController)) // Get room type statistics
         router.get('/:id/availability', roomTypesController.availability.bind(roomTypesController)) // Check availability for date range
@@ -886,12 +820,12 @@ router
         router.get('/:id', roomsController.show.bind(roomsController)) // Get specific room details
         router.put('/:id', roomsController.update.bind(roomsController)) // Update room information
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
-        
+
         // Room status management
         router.patch('/:id/status', roomsController.updateStatus.bind(roomsController)) // Update room status (available, occupied, maintenance, etc.)
         router.patch('/:id/housekeeping', roomsController.updateHousekeepingStatus.bind(roomsController)) // Update housekeeping status
         router.patch('/:id/maintenance', roomsController.updateMaintenanceStatus.bind(roomsController)) // Update maintenance status
-        
+
         // Room analytics and reports
         router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
@@ -908,11 +842,11 @@ router
         router.get('/:id', foliosController.show.bind(foliosController)) // Get specific folio details with transactions
         router.put('/:id', foliosController.update.bind(foliosController)) // Update folio information
         router.delete('/:id', foliosController.destroy.bind(foliosController)) // Delete folio
-        
+
         // Folio operations
         router.post('/:id/close', foliosController.close.bind(foliosController)) // Close folio for checkout
         router.post('/:id/transfer', foliosController.transfer.bind(foliosController)) // Transfer charges between folios
-        
+
         // Folio reports
         router.get('/:id/balance', foliosController.balance.bind(foliosController)) // Get folio balance
         router.get('/statistics', foliosController.stats.bind(foliosController)) // Get folio statistics
@@ -929,11 +863,11 @@ router
         router.get('/:id', folioTransactionsController.show.bind(folioTransactionsController)) // Get specific transaction details
         router.put('/:id', folioTransactionsController.update.bind(folioTransactionsController)) // Update transaction
         router.delete('/:id', folioTransactionsController.destroy.bind(folioTransactionsController)) // Delete transaction
-        
+
         // Transaction operations
         router.post('/:id/void', folioTransactionsController.void.bind(folioTransactionsController)) // Void a transaction
         router.post('/:id/refund', folioTransactionsController.refund.bind(folioTransactionsController)) // Refund a transaction
-        
+
         // Transaction reports
         router.get('/statistics', folioTransactionsController.stats.bind(folioTransactionsController)) // Get transaction statistics
       })
@@ -949,10 +883,10 @@ router
         router.get('/:id', paymentMethodsController.show.bind(paymentMethodsController)) // Get specific payment method details
         router.put('/:id', paymentMethodsController.update.bind(paymentMethodsController)) // Update payment method
         router.delete('/:id', paymentMethodsController.destroy.bind(paymentMethodsController)) // Delete payment method
-        
+
         // Payment method operations
         router.patch('/:id/toggle-status', paymentMethodsController.toggleStatus.bind(paymentMethodsController)) // Enable/disable payment method
-        
+
         // Payment method analytics
         router.get('/statistics', paymentMethodsController.stats.bind(paymentMethodsController)) // Get payment method statistics
       })
@@ -968,11 +902,11 @@ router
         router.get('/:id', reservationRoomsController.show.bind(reservationRoomsController)) // Get specific reservation room details
         router.put('/:id', reservationRoomsController.update.bind(reservationRoomsController)) // Update reservation room
         router.delete('/:id', reservationRoomsController.destroy.bind(reservationRoomsController)) // Delete reservation room
-        
+
         // Room assignment operations
         router.post('/:id/check-in', reservationRoomsController.checkIn.bind(reservationRoomsController)) // Check in guest to room
         router.post('/:id/check-out', reservationRoomsController.checkOut.bind(reservationRoomsController)) // Check out guest from room
-        
+
         // Room analytics
         router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
       })

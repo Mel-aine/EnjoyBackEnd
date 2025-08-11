@@ -95,7 +95,7 @@ export default class RoomsController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createRoomValidator)
-      
+
       const room = await Room.create({
         ...payload,
         createdBy: auth.user?.id
@@ -176,13 +176,13 @@ export default class RoomsController {
   async destroy({ params, response }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
-      
+
       // Check if there are any active reservations for this room
       const activeReservations = await room.related('reservationRooms')
         .query()
         .whereIn('status', ['confirmed', 'checked_in'])
         .count('* as total')
-      
+
       if (activeReservations[0].$extras.total > 0) {
         return response.badRequest({
           message: 'Cannot delete room with active reservations'
@@ -208,7 +208,7 @@ export default class RoomsController {
     try {
       const room = await Room.findOrFail(params.id)
       const { status } = request.only(['status'])
-      
+
       room.status = status
       await room.save()
 
@@ -231,7 +231,7 @@ export default class RoomsController {
     try {
       const room = await Room.findOrFail(params.id)
       const { housekeepingStatus } = request.only(['housekeepingStatus'])
-      
+
       room.housekeepingStatus = housekeepingStatus
       await room.save()
 
@@ -254,14 +254,14 @@ export default class RoomsController {
     try {
       const room = await Room.findOrFail(params.id)
       const { maintenanceNotes, nextMaintenanceDate } = request.only(['maintenanceNotes', 'nextMaintenanceDate'])
-      
+
       if (maintenanceNotes) {
         room.maintenanceNotes = maintenanceNotes
       }
       if (nextMaintenanceDate) {
         room.nextMaintenanceDate = DateTime.fromJSDate(new Date(nextMaintenanceDate))
       }
-      
+
       await room.save()
 
       return response.ok({
@@ -283,16 +283,16 @@ export default class RoomsController {
     try {
       const room = await Room.findOrFail(params.id)
       const { startDate, endDate } = request.only(['startDate', 'endDate'])
-      
+
       // Check if room has any reservations in the given date range
       const reservations = await room.related('reservationRooms')
         .query()
         .where('check_in_date', '<=', endDate)
         .where('check_out_date', '>=', startDate)
         .whereIn('status', ['confirmed', 'checked_in'])
-      
+
       const isAvailable = reservations.length === 0 && room.status === 'available'
-      
+
       return response.ok({
         message: 'Room availability retrieved successfully',
         data: {
@@ -317,7 +317,7 @@ export default class RoomsController {
   async stats({ request, response }: HttpContext) {
     try {
       const { hotelId } = request.only(['hotelId'])
-      
+
       const query = Room.query()
       if (hotelId) {
         query.where('hotel_id', hotelId)
@@ -341,7 +341,7 @@ export default class RoomsController {
         dirtyRooms: dirtyRooms[0].$extras.total,
         cleanRooms: cleanRooms[0].$extras.total,
         inspectedRooms: inspectedRooms[0].$extras.total,
-        occupancyRate: totalRooms[0].$extras.total > 0 ? 
+        occupancyRate: totalRooms[0].$extras.total > 0 ?
           (occupiedRooms[0].$extras.total / totalRooms[0].$extras.total * 100).toFixed(2) : 0
       }
 
@@ -571,4 +571,72 @@ export default class RoomsController {
       })
     }
   }
+
+/**
+ *
+ * Filter
+ */
+  public async filter({ request, response, params }: HttpContext) {
+    try {
+      const {
+        searchText,
+        roomType,
+        status,
+        floor,
+        // equipment = []
+      } = request.body()
+
+      const service_id = params.id
+
+      const query = Room.query()
+        // .preload('RoomType')
+
+      if (service_id) {
+        query.where('service_id', service_id)
+      }
+
+      if (searchText) {
+        query.whereRaw('CAST(room_number AS TEXT) ILIKE ?', [`%${searchText}%`])
+      }
+
+      if (roomType) {
+        query.where('product_type_id', roomType)
+      }
+
+      if (floor) {
+        query.where('floor', floor)
+      }
+
+      if (status) {
+        query.where('status', status)
+      }
+
+      // if (Array.isArray(equipment) && equipment.length > 0) {
+      //   for (const item of equipment) {
+      //     if (!item.label || !item.value) continue
+
+      //     const [optionName] = item.label.split(':').map((s:any) => s.trim())
+      //     const value = item.value
+
+      //     query.whereHas('availableOptions', (optionQuery) => {
+      //       optionQuery
+      //         .where('option_name', optionName)
+      //         .wherePivot('value', value)
+      //     })
+      //   }
+      // }
+
+      const rooms = await query
+      return response.ok(rooms)
+
+    } catch (error) {
+      console.error('❌ Error filtering rooms:', error)
+      return response.status(500).json({
+        message: 'Server error',
+        error: error.message
+      })
+    }
+  }
+
+
 }

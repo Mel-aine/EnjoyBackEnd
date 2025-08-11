@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import Service from '#models/service'
+import Hotel from '#models/hotel'
 import User from '#models/user'
 import Role from '#models/role'
 import Department from '#models/department'
@@ -14,7 +14,7 @@ export default class ServiceUserAssignment extends BaseModel {
   declare user_id: number
 
   @column()
-  declare service_id: number
+  declare hotel_id: number
 
   @column()
   declare role: string
@@ -37,8 +37,8 @@ export default class ServiceUserAssignment extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'user_id' })
   declare user: BelongsTo<typeof User>
 
-  @belongsTo(() => Service, { foreignKey: 'service_id' })
-  declare service: BelongsTo<typeof Service>
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  declare hotel: BelongsTo<typeof Hotel>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

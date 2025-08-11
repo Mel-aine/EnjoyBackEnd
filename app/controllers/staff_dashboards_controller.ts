@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import Task from '#models/task'
-import Schedules from '#models/schedules'
+import Schedules from '#models/employee_schedule'
 import ServiceUserAssignment from '#models/service_user_assignment'
 
 export default class StaffDashboardsController {

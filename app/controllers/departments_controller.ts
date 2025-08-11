@@ -4,7 +4,7 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import ServiceUserAssignment from '#models/service_user_assignment'
 import Task from '#models/task'
-import Schedules from '#models/schedules'
+import Schedules from '#models/employee_schedule'
 import ActivityLog from '#models/activity_log'
 const departmentService = new CrudService(Department)
 

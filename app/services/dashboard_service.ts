@@ -1,8 +1,8 @@
-import ServiceProduct from '#models/service_product'
+import ServiceProduct from '#models/room'
 import Reservation from '#models/reservation'
-import Service from '#models/service'
+import Service from '#models/hotel'
 import { DateTime } from 'luxon'
-import Payment from '#models/payment'
+import Payment from '#models/folio_transaction'
 
 export class RoomAvailabilityService {
   public static async getHotelStats(serviceId: number): Promise<{
@@ -16,7 +16,7 @@ export class RoomAvailabilityService {
     revenueGrowthRate: number
   }> {
     const service = await Service.find(serviceId)
-    if (!service || service.category_id !== 14) {
+    if (!service ) {
       throw new Error('Ce service ne correspond pas à un hôtel')
     }
 
@@ -114,7 +114,7 @@ export class RoomAnalyticsService {
     previous: { label: string; occupancyRate: number }[]
   }> {
     const service = await Service.find(serviceId)
-    if (!service || service.category_id !== 14) {
+    if (!service) {
       throw new Error("Ce service n'est pas un hôtel")
     }
 
@@ -308,7 +308,7 @@ export class RevenueAnalyticsService {
     return {
       currentRevenue,
       previousRevenue,
-      growthRate, 
+      growthRate,
       period
     }
   }
@@ -347,15 +347,15 @@ public static async getMonthlyRevenueComparison(serviceId: number) {
       if (p.payment_date) {
         // payment_date est déjà un objet DateTime de Luxon
         const month = p.payment_date.month
-        months[month - 1].totalRevenue += Number(p.amount_paid || 0)
+        months[month - 1].totalRevenue += Number(p.amount || 0)
       }
     }
 
     for (const p of previousYearPayments) {
-      if (p.payment_date) {
+      if (p.transferred_date) {
         // payment_date est déjà un objet DateTime de Luxon
         const month = p.payment_date.month
-        previousMonths[month - 1].totalRevenue += Number(p.amount_paid || 0)
+        previousMonths[month - 1].totalRevenue += Number(p.amount || 0)
       }
     }
 

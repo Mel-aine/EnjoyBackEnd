@@ -84,7 +84,7 @@ export default class ReservationRoomsController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createReservationRoomValidator)
-      
+
       // Create new reservation room instance to avoid type conflicts
       const reservationRoom = new ReservationRoom()
       Object.assign(reservationRoom, payload)
@@ -163,7 +163,7 @@ export default class ReservationRoomsController {
   async destroy({ params, response }: HttpContext) {
     try {
       const reservationRoom = await ReservationRoom.findOrFail(params.id)
-      
+
       // Check if guest is already checked in
       if (reservationRoom.status === 'checked_in') {
         return response.badRequest({
@@ -193,7 +193,7 @@ export default class ReservationRoomsController {
       const { actualCheckInTime, notes, keyCardsIssued, depositAmount } = request.only([
         'actualCheckInTime', 'notes', 'keyCardsIssued', 'depositAmount'
       ])
-      
+
       if (reservationRoom.status === 'checked_in') {
         return response.badRequest({
           message: 'Guest is already checked in'
@@ -207,7 +207,7 @@ export default class ReservationRoomsController {
       reservationRoom.amenitiesProvided = depositAmount || 0
       reservationRoom.checkedInBy = auth.user?.id!
       //reservationRoom.checkedOutBy = auth.user?.id
-      
+
       await reservationRoom.save()
 
       return response.ok({
@@ -231,7 +231,7 @@ export default class ReservationRoomsController {
       const { actualCheckOutTime, notes } = request.only([
         'actualCheckOutTime', 'notes'
       ])
-      
+
       if (reservationRoom.status === 'checked_out') {
         return response.badRequest({
           message: 'Guest is already checked out'
@@ -249,7 +249,7 @@ export default class ReservationRoomsController {
       reservationRoom.guestNotes = notes
       reservationRoom.checkedOutBy = auth.user?.id || 0
       reservationRoom.lastModifiedBy = auth.user?.id || 0
-      
+
       await reservationRoom.save()
 
       return response.ok({
@@ -271,7 +271,7 @@ export default class ReservationRoomsController {
     try {
       const reservationRoom = await ReservationRoom.findOrFail(params.id)
       const { newRoomId, reason } = request.only(['newRoomId', 'reason'])
-      
+
       if (!newRoomId) {
         return response.badRequest({
           message: 'New room ID is required'
@@ -282,7 +282,7 @@ export default class ReservationRoomsController {
       reservationRoom.roomId = newRoomId
       reservationRoom.internalNotes = reason
       reservationRoom.lastModifiedBy = auth.user?.id || 0
-      
+
       await reservationRoom.save()
       await reservationRoom.load('room')
 
@@ -310,7 +310,7 @@ export default class ReservationRoomsController {
     try {
       const reservationRoom = await ReservationRoom.findOrFail(params.id)
       const { preferences } = request.only(['preferences'])
-      
+
       if (!preferences) {
         return response.badRequest({
           message: 'Preferences are required'
@@ -319,7 +319,7 @@ export default class ReservationRoomsController {
 
       reservationRoom.guestPreferences = preferences
       reservationRoom.lastModifiedBy = auth.user?.id || 0
-      
+
       await reservationRoom.save()
 
       return response.ok({
@@ -341,7 +341,7 @@ export default class ReservationRoomsController {
     try {
       const reservationRoom = await ReservationRoom.findOrFail(params.id)
       const { specialRequests } = request.only(['specialRequests'])
-      
+
       if (!specialRequests) {
         return response.badRequest({
           message: 'Special requests are required'
@@ -350,7 +350,7 @@ export default class ReservationRoomsController {
 
       reservationRoom.specialRequests = specialRequests
       reservationRoom.lastModifiedBy = auth.user?.id || 0
-      
+
       await reservationRoom.save()
 
       return response.ok({
@@ -371,12 +371,12 @@ export default class ReservationRoomsController {
   async currentOccupancy({ request, response }: HttpContext) {
     try {
       const { hotelId, roomId, roomTypeId } = request.only(['hotelId', 'roomId', 'roomTypeId'])
-      
+
       const query = ReservationRoom.query()
         .where('check_in_status', 'checked_in')
         .where('check_out_status', '!=', 'checked_out')
         .where('status', 'confirmed')
-      
+
       if (hotelId) {
         query.whereHas('room', (roomQuery) => {
           roomQuery.where('hotel_id', hotelId)
@@ -414,7 +414,7 @@ export default class ReservationRoomsController {
   async arrivals({ request, response }: HttpContext) {
     try {
       const { date, hotelId } = request.only(['date', 'hotelId'])
-      
+
       if (!date) {
         return response.badRequest({
           message: 'Date is required'
@@ -429,7 +429,7 @@ export default class ReservationRoomsController {
         .where('check_in_date', '>=', arrivalDate)
         .where('check_in_date', '<', nextDay)
         .where('status', 'confirmed')
-      
+
       if (hotelId) {
         query.whereHas('room', (roomQuery) => {
           roomQuery.where('hotel_id', hotelId)
@@ -459,7 +459,7 @@ export default class ReservationRoomsController {
   async departures({ request, response }: HttpContext) {
     try {
       const { date, hotelId } = request.only(['date', 'hotelId'])
-      
+
       if (!date) {
         return response.badRequest({
           message: 'Date is required'
@@ -474,7 +474,7 @@ export default class ReservationRoomsController {
         .where('check_out_date', '>=', departureDate)
         .where('check_out_date', '<', nextDay)
         .where('status', 'confirmed')
-      
+
       if (hotelId) {
         query.whereHas('room', (roomQuery) => {
           roomQuery.where('hotel_id', hotelId)
@@ -504,7 +504,7 @@ export default class ReservationRoomsController {
   async stats({ request, response }: HttpContext) {
     try {
       const { hotelId, period } = request.only(['hotelId', 'period'])
-      
+
       const query = ReservationRoom.query()
       if (hotelId) {
         query.whereHas('room', (roomQuery) => {
@@ -516,7 +516,7 @@ export default class ReservationRoomsController {
       if (period) {
         const now = new Date()
         let startDate: Date
-        
+
         switch (period) {
           case 'today':
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -533,7 +533,7 @@ export default class ReservationRoomsController {
           default:
             startDate = new Date(0)
         }
-        
+
         query.where('check_in_date', '>=', startDate)
       }
 
@@ -542,7 +542,7 @@ export default class ReservationRoomsController {
       const checkedOutReservations = await query.clone().where('check_out_status', 'checked_out').count('* as total')
       const noShowReservations = await query.clone().where('check_in_status', 'no_show').count('* as total')
       const cancelledReservations = await query.clone().where('status', 'cancelled').count('* as total')
-      
+
       const averageStayLength = await query.clone()
         .whereNotNull('actual_check_out_time')
         .whereNotNull('actual_check_in_time')
@@ -555,7 +555,7 @@ export default class ReservationRoomsController {
         noShowReservations: noShowReservations[0].$extras.total,
         cancelledReservations: cancelledReservations[0].$extras.total,
         averageStayLength: averageStayLength[0].$extras.avg_nights || 0,
-        occupancyRate: totalReservations[0].$extras.total > 0 ? 
+        occupancyRate: totalReservations[0].$extras.total > 0 ?
           (checkedInReservations[0].$extras.total / totalReservations[0].$extras.total * 100).toFixed(2) : 0
       }
 
@@ -568,6 +568,53 @@ export default class ReservationRoomsController {
         message: 'Failed to retrieve statistics',
         error: error.message
       })
+    }
+  }
+
+  /**
+   * recent booking
+   */
+
+  async getRecentBookings({ params, response }: HttpContext) {
+    const serviceId = params.serviceId
+
+    if (!serviceId) {
+      return response.badRequest({ error: 'Le serviceId est requis.' })
+    }
+
+  try {
+      const reservations = await ReservationRoom
+        .query()
+        .whereHas('room', (query) => {
+          query.where('service_id', serviceId)
+        })
+        .preload('reservation', (resQuery) => {
+          resQuery.preload('user')
+        })
+        .preload('room')
+        .orderBy('start_date', 'desc')
+        .limit(10)
+
+      const formatted = reservations.map((res) => {
+        const reservation = res.reservation
+        const user = reservation?.user
+        // const product = res.room
+
+        return {
+          guest: user ? `${user.first_name} ${user.last_name}` : 'Inconnu',
+          email: user?.email ?? '',
+          // room: product?.product_name ?? 'Non spécifié',
+          // checkin: res.start_date?.toFormat('dd/MM/yyyy') ?? '',
+          // checkout: res.end_date?.toFormat('dd/MM/yyyy') ?? '',
+          status: reservation?.status ?? '',
+          amount: reservation?.final_amount ?? 0,
+        }
+      })
+
+      return response.ok(formatted)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Erreur lors de la récupération des réservations.' })
     }
   }
 }

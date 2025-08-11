@@ -3,8 +3,8 @@ import CrudController from '#controllers/crud_controller'
 import CrudService from '#services/crud_service'
 import User from '#models/user'
 import Reservation, { ReservationStatus } from '#models/reservation'
-import ServiceProduct from '#models/service_product'
-import ReservationServiceProduct from '#models/reservation_service_product'
+import ServiceProduct from '#models/room'
+import ReservationServiceProduct from '#models/reservation_room'
 import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
@@ -1234,7 +1234,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const notes = reservation.special_requests || reservation.comment || ''
 
       // 10. Final Invoice Data
-      const subtotal = subtotalRoomsBeforeTax 
+      const subtotal = subtotalRoomsBeforeTax
 
       const invoiceData = {
         hotel,

@@ -2,9 +2,8 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import Service from '#models/service'
-import ReservationServiceProduct from '#models/reservation_service_product'
-import Payment from '#models/payment'
+import ReservationServiceProduct from '#models/hotel'
+import Payment from '#models/hotel'
 import Hotel from './hotel.js'
 import Guest from './guest.js'
 import RoomType from './room_type.js'
@@ -377,9 +376,6 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'user_id' })
   declare user: BelongsTo<typeof User>
 
-  @belongsTo(() => Service, { foreignKey: 'service_id' })
-  declare service: BelongsTo<typeof Service>
-
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 
@@ -397,7 +393,7 @@ export default class Reservation extends BaseModel {
   declare payments: HasMany<typeof Payment>
 
   // Enhanced relationships
-  @belongsTo(() => Hotel)
+  @belongsTo(() => Hotel,{ foreignKey: 'hotel_id' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => Guest)
