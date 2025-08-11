@@ -1005,3 +1005,6 @@ router
       guards: ['api'],
     })
   )
+
+// Import reports routes
+import './routes/reports.js'
