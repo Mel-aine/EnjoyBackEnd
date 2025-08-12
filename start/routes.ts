@@ -23,6 +23,9 @@ import FoliosController from '#controllers/folios_controller'
 import FolioTransactionsController from '#controllers/folio_transactions_controller'
 import PaymentMethodsController from '#controllers/payment_methods_controller'
 import ReservationRoomsController from '#controllers/reservation_rooms_controller'
+import RoomOwnersController from '#controllers/room_owners_controller'
+import RateTypesController from '#controllers/rate_types_controller'
+import SeasonsController from '#controllers/seasons_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -70,6 +73,9 @@ const foliosController = new FoliosController()
 const folioTransactionsController = new FolioTransactionsController()
 const paymentMethodsController = new PaymentMethodsController()
 const reservationRoomsController = new ReservationRoomsController()
+const roomOwnersController = new RoomOwnersController()
+const rateTypesController = new RateTypesController()
+const seasonsController = new SeasonsController()
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -812,6 +818,9 @@ router
         // Room type analytics
         router.get('/:id/stats', roomTypesController.stats.bind(roomTypesController)) // Get room type statistics
         router.get('/:id/availability', roomTypesController.availability.bind(roomTypesController)) // Check availability for date range
+        
+        // Sort order management
+        router.patch('/sort-order', roomTypesController.updateSortOrder.bind(roomTypesController)) // Update sort order for multiple room types
       })
       .prefix('configuration/room_types')
 
@@ -829,6 +838,40 @@ router
         router.patch('/:id/toggle-status', bedTypesController.toggleStatus.bind(bedTypesController)) // Toggle bed type status
       })
       .prefix('configuration/bed_types')
+
+    // Rate Type Management Routes
+    // Rate type configuration and pricing management
+    router
+      .group(() => {
+        // Basic CRUD operations for rate types
+        router.get('/', rateTypesController.index.bind(rateTypesController)) // Get all rate types with filtering by hotel
+        router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
+        router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
+        router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
+        router.delete('/:id', rateTypesController.destroy.bind(rateTypesController)) // Soft delete rate type
+        router.patch('/:id/restore', rateTypesController.restore.bind(rateTypesController)) // Restore soft-deleted rate type
+
+        // Rate type analytics
+        router.get('/stats', rateTypesController.stats.bind(rateTypesController)) // Get rate type statistics
+      })
+      .prefix('configuration/rate_types')
+
+    // Season Management Routes
+    // Define seasons for rate management based on time periods
+    router
+      .group(() => {
+        // Basic CRUD operations for seasons
+        router.get('/', seasonsController.index.bind(seasonsController)) // Get all seasons with filtering
+        router.post('/', seasonsController.store.bind(seasonsController)) // Create a new season
+        router.get('/:id', seasonsController.show.bind(seasonsController)) // Get specific season details
+        router.put('/:id', seasonsController.update.bind(seasonsController)) // Update season information
+        router.delete('/:id', seasonsController.destroy.bind(seasonsController)) // Soft delete season
+        router.patch('/:id/restore', seasonsController.restore.bind(seasonsController)) // Restore soft-deleted season
+
+        // Season analytics
+        router.get('/stats', seasonsController.stats.bind(seasonsController)) // Get season statistics
+      })
+      .prefix('configuration/seasons')
 
     // Room Management Routes
     // Individual room management and status tracking
@@ -850,7 +893,7 @@ router
         router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
       })
-      .prefix('rooms')
+      .prefix('configuration/rooms')
 
     // Folio Management Routes
     // Guest billing and financial management
@@ -949,6 +992,28 @@ router
             router.post('/sort-order', [() => import('#controllers/amenities_controller'), 'updateSortOrder'])
           })
           .prefix('amenities')
+
+        // Room Owner Management Routes
+        // Complete room owner management for condominiums and apartments
+        router
+          .group(() => {
+            // Basic CRUD operations for room owners
+            router.get('/', roomOwnersController.index.bind(roomOwnersController)) // Get all room owners with pagination, search, and filtering
+            router.post('/', roomOwnersController.store.bind(roomOwnersController)) // Create a new room owner
+            router.get('/:id', roomOwnersController.show.bind(roomOwnersController)) // Get specific room owner details with room assignments
+            router.put('/:id', roomOwnersController.update.bind(roomOwnersController)) // Update room owner information
+            router.delete('/:id', roomOwnersController.destroy.bind(roomOwnersController)) // Soft delete room owner
+            router.patch('/:id/restore', roomOwnersController.restore.bind(roomOwnersController)) // Restore soft-deleted room owner
+
+            // Room assignment operations
+            router.post('/:id/assign-rooms', roomOwnersController.assignRooms.bind(roomOwnersController)) // Assign rooms to room owner
+            router.delete('/:id/unassign-rooms', roomOwnersController.unassignRooms.bind(roomOwnersController)) // Remove room assignments
+            router.get('/available-rooms', roomOwnersController.getAvailableRooms.bind(roomOwnersController)) // Get available rooms for assignment
+
+            // Room owner analytics
+            router.get('/statistics', roomOwnersController.stats.bind(roomOwnersController)) // Get room owner statistics
+          })
+          .prefix('room-owners')
       })
       .prefix('configuration')
 

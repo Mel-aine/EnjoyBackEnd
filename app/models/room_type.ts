@@ -34,14 +34,32 @@ export default class RoomType extends BaseModel {
   @column({ columnName: 'publish_to_website' })
   declare publishToWebsite: boolean
 
-  @column({ columnName: 'room_amenities' })
-  declare roomAmenities: object | null
+  @column({ 
+    columnName: 'room_amenities',
+    serialize: (value: number[] | null) => value,
+    prepare: (value: number[] | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | number[] | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return Array.isArray(value) ? value : null;
+    }
+  })
+  declare roomAmenities: number[] | null
 
   @column()
   declare color: string
 
   @column({ columnName: 'default_web_inventory' })
   declare defaultWebInventory: number
+
+  @column({ columnName: 'sort_order' })
+  declare sortOrder: number
 
   // Enhanced traceability fields
   @column.dateTime({ autoCreate: true })

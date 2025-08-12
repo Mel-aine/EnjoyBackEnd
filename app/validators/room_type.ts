@@ -17,6 +17,7 @@ export const createRoomTypeValidator = vine.compile(
     roomAmenities: vine.array(vine.number().positive()).optional(),
     color: vine.string().trim().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     defaultWebInventory: vine.number().min(0).optional(),
+    sortOrder: vine.number().min(0).optional(),
   })
 )
 
@@ -36,5 +37,19 @@ export const updateRoomTypeValidator = vine.compile(
     roomAmenities: vine.array(vine.number().positive()).optional(),
     color: vine.string().trim().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     defaultWebInventory: vine.number().min(0).optional(),
+    sortOrder: vine.number().min(0).optional(),
   })
+)
+
+/**
+ * Validator to validate the payload when updating
+ * sort order for multiple room types.
+ */
+export const updateSortOrderValidator = vine.compile(
+  vine.array(
+    vine.object({
+      id: vine.number().positive(),
+      sortOrder: vine.number().min(0)
+    })
+  ).minLength(1)
 )

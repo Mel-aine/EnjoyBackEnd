@@ -1,0 +1,318 @@
+import type { HttpContext } from '@adonisjs/core/http'
+import RateType from '#models/rate_type'
+import { createRateTypeValidator, updateRateTypeValidator } from '#validators/rate_type'
+import Database from '@adonisjs/lucid/services/db'
+
+export default class RateTypesController {
+  /**
+   * Display a list of rate types
+   */
+  async index({ request, response }: HttpContext) {
+    try {
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
+      const hotelId = request.input('hotel_id')
+      const search = request.input('search')
+      const includeDeleted = request.input('include_deleted', false)
+
+      const query = RateType.query()
+        .preload('hotel')
+        .preload('roomType')
+        .preload('createdByUser')
+        .preload('updatedByUser')
+
+      // Filter by hotel if provided
+      if (hotelId) {
+        query.where('hotel_id', hotelId)
+      }
+
+      // Search functionality
+      if (search) {
+        query.where((builder) => {
+          builder
+            .whereILike('short_code', `%${search}%`)
+            .orWhereILike('rate_type_name', `%${search}%`)
+        })
+      }
+
+      // Handle soft deletes
+      if (!includeDeleted) {
+        query.where('is_deleted', false)
+      }
+
+      query.orderBy('created_at', 'desc')
+
+      const rateTypes = await query.paginate(page, limit)
+
+      return response.ok({
+        message: 'Rate types retrieved successfully',
+        data: rateTypes
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve rate types',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Create a new rate type
+   */
+  async store({ request, response, auth }: HttpContext) {
+    const trx = await Database.transaction()
+    try {
+      const payload = await request.validateUsing(createRateTypeValidator)
+      const userId = auth.user?.id
+
+      // Check for duplicate short code within the same hotel
+      const existingRateType = await RateType.query()
+        .where('hotel_id', payload.hotelId)
+        .where('short_code', payload.shortCode)
+        .where('is_deleted', false)
+        .first()
+
+      if (existingRateType) {
+        await trx.rollback()
+        return response.conflict({
+          message: 'Rate type with this short code already exists for this hotel'
+        })
+      }
+
+      const rateType = await RateType.create({
+        hotelId: payload.hotelId,
+        shortCode: payload.shortCode,
+        rateTypeName: payload.rateTypeName,
+        nights: payload.nights,
+        maxAdult: payload.maxAdult,
+        minNight: payload.minNight,
+        roomTypeId: payload.roomTypeId,
+        status: payload.status || 'active',
+        createdByUserId: userId!,
+        updatedByUserId: userId!
+      }, { client: trx })
+
+      await rateType.load('hotel')
+      await rateType.load('roomType')
+      await rateType.load('createdByUser')
+
+      await trx.commit()
+
+      return response.created({
+        message: 'Rate type created successfully',
+        data: rateType
+      })
+    } catch (error) {
+      await trx.rollback()
+      return response.badRequest({
+        message: 'Failed to create rate type',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Show a specific rate type
+   */
+  async show({ params, response }: HttpContext) {
+    try {
+      const rateType = await RateType.query()
+        .where('id', params.id)
+        .where('is_deleted', false)
+        .preload('hotel')
+        .preload('roomType')
+        .preload('createdByUser')
+        .preload('updatedByUser')
+        .firstOrFail()
+
+      return response.ok({
+        message: 'Rate type retrieved successfully',
+        data: rateType
+      })
+    } catch (error) {
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Rate type not found' })
+      }
+      return response.badRequest({
+        message: 'Failed to retrieve rate type',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update a rate type
+   */
+  async update({ params, request, response, auth }: HttpContext) {
+    const trx = await Database.transaction()
+    try {
+      const payload = await request.validateUsing(updateRateTypeValidator)
+      const userId = auth.user?.id
+
+      const rateType = await RateType.query()
+        .where('id', params.id)
+        .where('is_deleted', false)
+        .forUpdate()
+        .firstOrFail()
+
+      // Check for duplicate short code if updating short code
+      if (payload.shortCode && payload.shortCode !== rateType.shortCode) {
+        const existingRateType = await RateType.query()
+          .where('hotel_id', payload.hotelId || rateType.hotelId)
+          .where('short_code', payload.shortCode)
+          .where('is_deleted', false)
+          .whereNot('id', params.id)
+          .first()
+
+        if (existingRateType) {
+          await trx.rollback()
+          return response.conflict({
+            message: 'Rate type with this short code already exists for this hotel'
+          })
+        }
+      }
+
+      // Update fields
+      if (payload.hotelId !== undefined) rateType.hotelId = payload.hotelId
+      if (payload.shortCode !== undefined) rateType.shortCode = payload.shortCode
+      if (payload.rateTypeName !== undefined) rateType.rateTypeName = payload.rateTypeName
+      if (payload.nights !== undefined) rateType.nights = payload.nights
+      if (payload.maxAdult !== undefined) rateType.maxAdult = payload.maxAdult
+      if (payload.minNight !== undefined) rateType.minNight = payload.minNight
+      if (payload.roomTypeId !== undefined) rateType.roomTypeId = payload.roomTypeId
+      if (payload.status !== undefined) rateType.status = payload.status
+      
+      rateType.updatedByUserId = userId!
+
+      await rateType.save()
+      await rateType.load('hotel')
+      await rateType.load('roomType')
+      await rateType.load('updatedByUser')
+
+      await trx.commit()
+
+      return response.ok({
+        message: 'Rate type updated successfully',
+        data: rateType
+      })
+    } catch (error) {
+      await trx.rollback()
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Rate type not found' })
+      }
+      return response.badRequest({
+        message: 'Failed to update rate type',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Soft delete a rate type
+   */
+  async destroy({ params, response, auth }: HttpContext) {
+    const trx = await Database.transaction()
+    try {
+      const userId = auth.user?.id
+
+      const rateType = await RateType.query()
+        .where('id', params.id)
+        .where('is_deleted', false)
+        .forUpdate()
+        .firstOrFail()
+
+      rateType.isDeleted = true
+      rateType.updatedByUserId = userId!
+
+      await rateType.save()
+      await trx.commit()
+
+      return response.ok({
+        message: 'Rate type deleted successfully'
+      })
+    } catch (error) {
+      await trx.rollback()
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Rate type not found' })
+      }
+      return response.badRequest({
+        message: 'Failed to delete rate type',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Restore a soft deleted rate type
+   */
+  async restore({ params, response, auth }: HttpContext) {
+    const trx = await Database.transaction()
+    try {
+      const userId = auth.user?.id
+
+      const rateType = await RateType.query()
+        .where('id', params.id)
+        .where('is_deleted', true)
+        .forUpdate()
+        .firstOrFail()
+
+      rateType.isDeleted = false
+      rateType.deletedAt = null
+      rateType.updatedByUserId = userId!
+
+      await rateType.save()
+      await rateType.load('hotel')
+      await rateType.load('roomType')
+
+      await trx.commit()
+
+      return response.ok({
+        message: 'Rate type restored successfully',
+        data: rateType
+      })
+    } catch (error) {
+      await trx.rollback()
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Deleted rate type not found' })
+      }
+      return response.badRequest({
+        message: 'Failed to restore rate type',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get rate types statistics
+   */
+  async stats({ request, response }: HttpContext) {
+    try {
+      const hotelId = request.input('hotel_id')
+
+      const query = RateType.query()
+      if (hotelId) {
+        query.where('hotel_id', hotelId)
+      }
+
+      const [total, active, deleted] = await Promise.all([
+        query.clone().count('* as total'),
+        query.clone().where('is_deleted', false).count('* as total'),
+        query.clone().where('is_deleted', true).count('* as total')
+      ])
+
+      return response.ok({
+        message: 'Rate types statistics retrieved successfully',
+        data: {
+          total: Number(total[0].$extras.total),
+          active: Number(active[0].$extras.total),
+          deleted: Number(deleted[0].$extras.total)
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve rate types statistics',
+        error: error.message
+      })
+    }
+  }
+}

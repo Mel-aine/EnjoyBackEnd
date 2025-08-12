@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import RoomType from '#models/room_type'
-import { createRoomTypeValidator, updateRoomTypeValidator } from '#validators/room_type'
+import { createRoomTypeValidator, updateRoomTypeValidator, updateSortOrderValidator } from '#validators/room_type'
 
 export default class RoomTypesController {
   /**
@@ -33,6 +33,8 @@ export default class RoomTypesController {
 
       const roomTypes = await query
         .preload('hotel')
+        .preload('createdByUser')
+        .preload('updatedByUser')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -293,6 +295,34 @@ export default class RoomTypesController {
     } catch (error) {
       return response.badRequest({
         message: 'Failed to restore room type',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update sort order for multiple room types
+   */
+  async updateSortOrder({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(updateSortOrderValidator)
+      const userId = auth.user?.id
+
+      // Update each room type's sort order
+      for (const roomTypeData of payload) {
+        const roomType = await RoomType.findOrFail(roomTypeData.id)
+        roomType.sortOrder = roomTypeData.sortOrder
+        roomType.updatedByUserId = userId!
+        await roomType.save()
+      }
+
+      return response.ok({
+        message: 'Sort order updated successfully',
+        data: payload
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update sort order',
         error: error.message
       })
     }

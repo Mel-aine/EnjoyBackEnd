@@ -132,7 +132,7 @@ export default class HotelsController {
       // Create update data with proper typing
       const updateData: any = {
         ...payload,
-        lastModifiedBy: auth.user?.id || 0
+        last_modified_by: auth.user?.id || 0
       }
 
       hotel.merge(updateData)
@@ -195,8 +195,8 @@ export default class HotelsController {
         activeDiscounts: discounts[0].$extras.total,
         totalInventoryItems: inventoryItems[0].$extras.total,
         lowStockItems: lowStockItems[0].$extras.total,
-        occupancyRate: hotel.totalRooms > 0 ?
-          ((hotel.totalRooms - activeRooms[0].$extras.total) / hotel.totalRooms * 100).toFixed(2) : 0
+        occupancyRate: hotel.total_rooms > 0 ?
+          ((hotel.total_rooms - activeRooms[0].$extras.total) / hotel.total_rooms * 100).toFixed(2) : 0
       }
 
       return response.ok({
@@ -219,7 +219,7 @@ export default class HotelsController {
       const hotel = await Hotel.findOrFail(params.id)
 
       hotel.status = hotel.status === 'active' ? 'inactive' : 'active'
-      hotel.lastModifiedBy = auth.user?.id || 0
+      hotel.last_modified_by = auth.user?.id || 0
 
       await hotel.save()
 
@@ -349,7 +349,7 @@ export default class HotelsController {
             currencyCode: data.currency,
             timezone: data.timezone,
             taxRate: data.vat_rate,
-            lastModifiedBy: user.id,
+            last_modified_by: user.id,
           })
           await newHotel.save()
         }
@@ -380,7 +380,7 @@ export default class HotelsController {
           serviceTaxRate: data.service_tax_rate,
           status: data.status || 'active',
           createdBy: user.id,
-          lastModifiedBy: data.last_modified_by || null,
+          last_modified_by: data.last_modified_by || null,
         })
 
         const permissionService = new PermissionService()
@@ -509,7 +509,8 @@ export default class HotelsController {
       logger.error('Error updating hotel status colors:', error)
       return response.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Internal server error',
+        error:error
       })
     }
   }
