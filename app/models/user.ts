@@ -20,47 +20,47 @@ export default class User extends AuthFinder(BaseModel) {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare hotel_id: number
+  @column({ columnName: 'hotel_id' })
+  declare hotelId: number
 
   @column()
   declare username: string
 
-  @column({ serializeAs: null })
-  declare password_hash: string
+  @column({ serializeAs: null, columnName: 'password_hash' })
+  declare passwordHash: string
 
-  @column()
-  declare first_name: string
+  @column({ columnName: 'first_name' })
+  declare firstName: string
 
-  @column()
-  declare last_name: string
+  @column({ columnName: 'last_name' })
+  declare lastName: string
 
   @column()
   declare email: string
 
-  @column()
-  declare employee_id: number | null
+  @column({ columnName: 'employee_id' })
+  declare employeeId: number | null
 
-  @column()
-  declare is_active: boolean
+  @column({ columnName: 'is_active' })
+  declare isActive: boolean
 
-  @column()
-  declare preferred_language: string | null
+  @column({ columnName: 'preferred_language' })
+  declare preferredLanguage: string | null
 
-  @column()
-  declare theme_preference: 'Blue' | 'Black' | 'Silver' | 'SystemDefault' | null
+  @column({ columnName: 'theme_preference' })
+  declare themePreference: 'Blue' | 'Black' | 'Silver' | 'SystemDefault' | null
 
-  @column()
-  declare is_cdi: boolean
+  @column({ columnName: 'is_cdi' })
+  declare isCdi: boolean
 
   @column()
   declare nationality: string | null
 
-  @column.date()
-  declare date_of_birth: DateTime | null
+  @column.date({ columnName: 'date_of_birth' })
+  declare dateOfBirth: DateTime | null
 
-  @column()
-  declare place_of_birth: string | null
+  @column({ columnName: 'place_of_birth' })
+  declare placeOfBirth: string | null
 
   @column()
   declare gender: string | null
@@ -71,45 +71,45 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare country: string | null
 
-  @column()
-  declare emergency_phone: string | null
+  @column({ columnName: 'emergency_phone' })
+  declare emergencyPhone: string | null
 
-  @column()
-  declare personal_email: string | null
+  @column({ columnName: 'personal_email' })
+  declare personalEmail: string | null
 
-  @column()
-  declare social_security_number: string | null
+  @column({ columnName: 'social_security_number' })
+  declare socialSecurityNumber: string | null
 
-  @column()
-  declare national_id_number: string | null
+  @column({ columnName: 'national_id_number' })
+  declare nationalIdNumber: string | null
 
-  @column()
-  declare special_preferences: string | null
+  @column({ columnName: 'special_preferences' })
+  declare specialPreferences: string | null
 
 
-  @column.date()
-  declare hire_date: DateTime | null
+  @column.date({ columnName: 'hire_date' })
+  declare hireDate: DateTime | null
 
-  @column()
-  declare contract_type: string | null
+  @column({ columnName: 'contract_type' })
+  declare contractType: string | null
 
-  @column.date()
-  declare contract_end_date: DateTime | null
+  @column.date({ columnName: 'contract_end_date' })
+  declare contractEndDate: DateTime | null
 
-  @column()
-  declare data_processing_consent: boolean
+  @column({ columnName: 'data_processing_consent' })
+  declare dataProcessingConsent: boolean
 
-  @column.date()
-  declare consent_date: DateTime | null
+  @column.date({ columnName: 'consent_date' })
+  declare consentDate: DateTime | null
 
-  @column.dateTime()
-  declare last_login: DateTime | null
+  @column.dateTime({ columnName: 'last_login' })
+  declare lastLogin: DateTime | null
 
-  @column()
-  declare two_factor_enabled: boolean
+  @column({ columnName: 'two_factor_enabled' })
+  declare twoFactorEnabled: boolean
 
-  @column()
-  declare phone_number: string | null
+  @column({ columnName: 'phone_number' })
+  declare phoneNumber: string | null
 
   @column()
   declare address: string
@@ -120,23 +120,23 @@ export default class User extends AuthFinder(BaseModel) {
   @column()
   declare status: 'active' | 'inactive' | 'suspended'
 
-  @column()
-  declare service_id: string | null
+  @column({ columnName: 'service_id' })
+  declare serviceId: string | null
 
-  @column()
-  declare role_id: number
+  @column({ columnName: 'role_id' })
+  declare roleId: number
 
-  @column()
-  declare created_by: number | null
+  @column({ columnName: 'created_by' })
+  declare createdBy: number | null
 
-  @column()
-  declare last_modified_by: number | null
+  @column({ columnName: 'last_modified_by' })
+  declare lastModifiedBy: number | null
 
-  @column.dateTime({ autoCreate: true })
-  declare created_at: DateTime
+  @column.dateTime({ autoCreate: true, columnName: 'created_at' })
+  declare createdAt: DateTime
 
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updated_at: DateTime
+  @column.dateTime({ autoCreate: true, autoUpdate: true, columnName: 'updated_at' })
+  declare updatedAt: DateTime
 
   // Define accessTokens before the beforeSave hook
   static accessTokens = DbAccessTokensProvider.forModel(User, {
@@ -190,7 +190,7 @@ export default class User extends AuthFinder(BaseModel) {
   }
 
   public async hasPermission(permissionName: string): Promise<boolean> {
-    if (!this.role_id) return false
+    if (!this.roleId) return false
 
     await this.load('role' as any, (query) => {
       query.preload('permissions')
@@ -202,7 +202,7 @@ export default class User extends AuthFinder(BaseModel) {
   }
 
   public async hasAnyPermission(permissions: string[]): Promise<boolean> {
-    if (!this.role_id) return false
+    if (!this.roleId) return false
 
     await this.load('role' as any, (query) => {
       query.preload('permissions')

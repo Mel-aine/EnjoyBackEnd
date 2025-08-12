@@ -7,6 +7,7 @@ import PermissionService from '#services/permission_service'
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { createHotelValidator, updateHotelValidator } from '#validators/hotel'
+import CurrenciesController from '#controllers/currencies_controller'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -33,10 +34,10 @@ export default class HotelsController {
       if (search) {
         query.where((builder) => {
           builder
-            .where('hotel_name', 'ILIKE', `%${search}%`)
-            .orWhere('hotel_code', 'ILIKE', `%${search}%`)
-            .orWhere('city', 'ILIKE', `%${search}%`)
-            .orWhere('email', 'ILIKE', `%${search}%`)
+            .whereILike('hotelName', `%${search}%`)
+            .orWhereILike('hotelCode', `%${search}%`)
+            .orWhereILike('city', `%${search}%`)
+            .orWhereILike('email', `%${search}%`)
         })
       }
 
@@ -82,6 +83,17 @@ export default class HotelsController {
       }
 
       const hotel = await Hotel.create(hotelData)
+
+      // Create default XAF currency for the new hotel
+      try {
+        await CurrenciesController.createDefaultCurrency(hotel.id, auth.user?.id)
+      } catch (currencyError) {
+        // Log the error but don't fail the hotel creation
+        logger.error('Failed to create default currency for hotel', {
+          hotelId: hotel.id,
+          error: currencyError.message
+        })
+      }
 
       return response.created({
         message: 'Hotel created successfully',
@@ -132,7 +144,7 @@ export default class HotelsController {
       // Create update data with proper typing
       const updateData: any = {
         ...payload,
-        last_modified_by: auth.user?.id || 0
+        lastModifiedBy: auth.user?.id || 0
       }
 
       hotel.merge(updateData)
@@ -146,6 +158,90 @@ export default class HotelsController {
     } catch (error) {
       return response.badRequest({
         message: 'Failed to update hotel',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel information with all details
+   */
+  async updateHotelInformation({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const payload = request.only([
+        'hotelName',
+        'email',
+        'phoneNumber',
+        'fax',
+        'website',
+        'country',
+        'address',
+        'address2',
+        'city',
+        'stateProvince',
+        'postalCode',
+        'propertyType',
+        'grade',
+        'logoUrl',
+        'registrationNo1',
+        'registrationNo2',
+        'registrationNo3',
+        'cancellationPolicy',
+        'hotelPolicy'
+      ])
+
+      // Create update data with proper typing
+      const updateData: any = {
+        ...payload,
+        lastModifiedBy: auth.user?.id || 0
+      }
+
+      hotel.merge(updateData)
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel information updated successfully',
+        data: hotel
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel information',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel notices
+   */
+  async updateNotices({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { notices } = request.only(['notices'])
+
+      // Validate that notices is an object
+      if (notices && typeof notices !== 'object') {
+        return response.badRequest({
+          message: 'Notices must be a valid JSON object'
+        })
+      }
+
+      // Update hotel notices
+      hotel.notices = notices
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel notices updated successfully',
+        data: {
+          id: hotel.id,
+          notices: hotel.notices
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel notices',
         error: error.message
       })
     }
@@ -195,8 +291,8 @@ export default class HotelsController {
         activeDiscounts: discounts[0].$extras.total,
         totalInventoryItems: inventoryItems[0].$extras.total,
         lowStockItems: lowStockItems[0].$extras.total,
-        occupancyRate: hotel.total_rooms > 0 ?
-          ((hotel.total_rooms - activeRooms[0].$extras.total) / hotel.total_rooms * 100).toFixed(2) : 0
+        occupancyRate: hotel.totalRooms > 0 ?
+          ((hotel.totalRooms - activeRooms[0].$extras.total) / hotel.totalRooms * 100).toFixed(2) : 0
       }
 
       return response.ok({
@@ -219,7 +315,7 @@ export default class HotelsController {
       const hotel = await Hotel.findOrFail(params.id)
 
       hotel.status = hotel.status === 'active' ? 'inactive' : 'active'
-      hotel.last_modified_by = auth.user?.id || 0
+      hotel.lastModifiedBy = auth.user?.id || 0
 
       await hotel.save()
 
@@ -302,18 +398,18 @@ export default class HotelsController {
         user = existingUser
       } else {
         user = await this.userService.create({
-          first_name: data.first_name,
-          last_name: data.last_name,
+          firstName: data.first_name,
+          lastName: data.last_name,
           password: data.password,
           email: data.email,
-          phone_number: data.phone_number,
+          phoneNumber: data.phone_number,
           address: data.address || null,
-          last_login: data.last_login || null,
-          two_factor_enabled: data.two_factor_enabled || null,
-          role_id: data.role_id || 2,
+          lastLogin: data.last_login || null,
+          twoFactorEnabled: data.two_factor_enabled || null,
+          roleId: data.role_id || 2,
           status: 'active',
-          created_by: data.created_by || null,
-          last_modified_by: data.last_modified_by || null,
+          createdBy: data.created_by || null,
+          lastModifiedBy: data.last_modified_by || null,
         })
 
         await LoggerService.log({
@@ -349,7 +445,7 @@ export default class HotelsController {
             currencyCode: data.currency,
             timezone: data.timezone,
             taxRate: data.vat_rate,
-            last_modified_by: user.id,
+            lastModifiedBy: user.id,
           })
           await newHotel.save()
         }
@@ -380,7 +476,7 @@ export default class HotelsController {
           serviceTaxRate: data.service_tax_rate,
           status: data.status || 'active',
           createdBy: user.id,
-          last_modified_by: data.last_modified_by || null,
+          lastModifiedBy: data.last_modified_by || null,
         })
 
         const permissionService = new PermissionService()
@@ -483,7 +579,7 @@ export default class HotelsController {
         })
       }
 
-      hotel.status_colors = statusColors
+      hotel.statusColors = statusColors
       await hotel.save()
 
       // Log the activity
@@ -494,7 +590,7 @@ export default class HotelsController {
             action: 'UPDATE',
             entityType: 'Hotel',
             entityId: hotel.id.toString(),
-            description: `Hotel status colors updated: ${hotel.hotel_name}`,
+            description: `Hotel status colors updated: ${hotel.hotelName}`,
             ctx: ctx
           }
         )

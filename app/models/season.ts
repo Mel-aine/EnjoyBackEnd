@@ -32,6 +32,9 @@ export default class Season extends BaseModel {
   @column.date({ columnName: 'start_date' })
   declare startDate: DateTime
 
+  @column.date({ columnName: 'expire_date' })
+  declare expireDate: DateTime | null
+
   @column()
   declare status: 'active' | 'inactive' | 'draft'
 

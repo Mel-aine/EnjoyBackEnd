@@ -92,6 +92,7 @@ export default class SeasonsController {
         toDay: payload.toDay,
         toMonth: payload.toMonth,
         startDate: DateTime.fromJSDate(payload.startDate),
+        expireDate: payload.expireDate ? DateTime.fromJSDate(payload.expireDate) : null,
         status: payload.status || 'active',
         createdByUserId: userId!,
         updatedByUserId: userId!
@@ -184,6 +185,7 @@ export default class SeasonsController {
       if (payload.toDay !== undefined) season.toDay = payload.toDay
       if (payload.toMonth !== undefined) season.toMonth = payload.toMonth
       if (payload.startDate !== undefined) season.startDate = DateTime.fromJSDate(payload.startDate)
+      if (payload.expireDate !== undefined) season.expireDate = payload.expireDate ? DateTime.fromJSDate(payload.expireDate) : null
       if (payload.status !== undefined) season.status = payload.status
       
       season.updatedByUserId = userId!

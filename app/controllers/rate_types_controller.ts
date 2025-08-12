@@ -83,17 +83,14 @@ export default class RateTypesController {
         hotelId: payload.hotelId,
         shortCode: payload.shortCode,
         rateTypeName: payload.rateTypeName,
-        nights: payload.nights,
-        maxAdult: payload.maxAdult,
-        minNight: payload.minNight,
-        roomTypeId: payload.roomTypeId,
+        isPackage: payload.isPackage || null,
+        roomTypes: payload.roomTypes || null,
         status: payload.status || 'active',
         createdByUserId: userId!,
         updatedByUserId: userId!
       }, { client: trx })
 
       await rateType.load('hotel')
-      await rateType.load('roomType')
       await rateType.load('createdByUser')
 
       await trx.commit()
@@ -120,7 +117,6 @@ export default class RateTypesController {
         .where('id', params.id)
         .where('is_deleted', false)
         .preload('hotel')
-        .preload('roomType')
         .preload('createdByUser')
         .preload('updatedByUser')
         .firstOrFail()
@@ -176,17 +172,14 @@ export default class RateTypesController {
       if (payload.hotelId !== undefined) rateType.hotelId = payload.hotelId
       if (payload.shortCode !== undefined) rateType.shortCode = payload.shortCode
       if (payload.rateTypeName !== undefined) rateType.rateTypeName = payload.rateTypeName
-      if (payload.nights !== undefined) rateType.nights = payload.nights
-      if (payload.maxAdult !== undefined) rateType.maxAdult = payload.maxAdult
-      if (payload.minNight !== undefined) rateType.minNight = payload.minNight
-      if (payload.roomTypeId !== undefined) rateType.roomTypeId = payload.roomTypeId
+      if (payload.isPackage !== undefined) rateType.isPackage = payload.isPackage
+      if (payload.roomTypes !== undefined) rateType.roomTypes = payload.roomTypes
       if (payload.status !== undefined) rateType.status = payload.status
       
       rateType.updatedByUserId = userId!
 
       await rateType.save()
       await rateType.load('hotel')
-      await rateType.load('roomType')
       await rateType.load('updatedByUser')
 
       await trx.commit()

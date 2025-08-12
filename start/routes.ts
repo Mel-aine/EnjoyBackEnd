@@ -15,6 +15,7 @@ import RolePermissionsController from '#controllers/role_permissions_controller'
 import CancellationPoliciesController from '#controllers/cancellation_policies_controller'
 import RefundsController from '#controllers/refunds_controller'
 import HotelsController from '#controllers/hotels_controller'
+import CurrenciesController from '#controllers/currencies_controller'
 import GuestsController from '#controllers/guests_controller'
 import RoomTypesController from '#controllers/room_types_controller'
 import BedTypesController from '#controllers/bed_types_controller'
@@ -22,10 +23,14 @@ import RoomsController from '#controllers/rooms_controller'
 import FoliosController from '#controllers/folios_controller'
 import FolioTransactionsController from '#controllers/folio_transactions_controller'
 import PaymentMethodsController from '#controllers/payment_methods_controller'
+import IdentityTypesController from '#controllers/identity_types_controller'
 import ReservationRoomsController from '#controllers/reservation_rooms_controller'
 import RoomOwnersController from '#controllers/room_owners_controller'
 import RateTypesController from '#controllers/rate_types_controller'
 import SeasonsController from '#controllers/seasons_controller'
+import ReasonsController from '#controllers/reasons_controller'
+import DiscountsController from '#controllers/discounts_controller'
+import TransportationModesController from '#controllers/transportation_modes_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -65,6 +70,7 @@ const activityLogsController = new ActivityLogsController()
 const cancellationPoliciesController = new CancellationPoliciesController()
 const refundsController = new RefundsController()
 const hotelsController = new HotelsController()
+const currenciesController = new CurrenciesController()
 const guestsController = new GuestsController()
 const roomTypesController = new RoomTypesController()
 const bedTypesController = new BedTypesController()
@@ -72,10 +78,14 @@ const roomsController = new RoomsController()
 const foliosController = new FoliosController()
 const folioTransactionsController = new FolioTransactionsController()
 const paymentMethodsController = new PaymentMethodsController()
+const identityTypesController = new IdentityTypesController()
 const reservationRoomsController = new ReservationRoomsController()
 const roomOwnersController = new RoomOwnersController()
 const rateTypesController = new RateTypesController()
 const seasonsController = new SeasonsController()
+const reasonsController = new ReasonsController()
+const discountsController = new DiscountsController()
+const transportationModesController = new TransportationModesController()
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -771,6 +781,8 @@ router
         router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
         router.get('/:id', hotelsController.show.bind(hotelsController)) // Get specific hotel details
         router.put('/:id', hotelsController.update.bind(hotelsController)) // Update hotel information
+        router.put('/:id/information', hotelsController.updateHotelInformation.bind(hotelsController)) // Update complete hotel information
+        router.put('/:id/notices', hotelsController.updateNotices.bind(hotelsController)) // Update hotel notices
         router.delete('/:id', hotelsController.destroy.bind(hotelsController)) // Delete hotel
 
         // Hotel analytics and statistics
@@ -781,6 +793,8 @@ router
         router.patch('/:id/status-colors', hotelsController.updateStatusColors.bind(hotelsController)) // Update hotel status colors
       })
       .prefix('hotels')
+
+
 
     // Guest Management Routes
     // Complete guest profile management with search and analytics
@@ -936,24 +950,7 @@ router
       })
       .prefix('folio-transactions')
 
-    // Payment Method Management Routes
-    // Payment method configuration and processing
-    router
-      .group(() => {
-        // Basic CRUD operations for payment methods
-        router.get('/', paymentMethodsController.index.bind(paymentMethodsController)) // Get all payment methods
-        router.post('/', paymentMethodsController.store.bind(paymentMethodsController)) // Create a new payment method
-        router.get('/:id', paymentMethodsController.show.bind(paymentMethodsController)) // Get specific payment method details
-        router.put('/:id', paymentMethodsController.update.bind(paymentMethodsController)) // Update payment method
-        router.delete('/:id', paymentMethodsController.destroy.bind(paymentMethodsController)) // Delete payment method
 
-        // Payment method operations
-        router.patch('/:id/toggle-status', paymentMethodsController.toggleStatus.bind(paymentMethodsController)) // Enable/disable payment method
-
-        // Payment method analytics
-        router.get('/statistics', paymentMethodsController.stats.bind(paymentMethodsController)) // Get payment method statistics
-      })
-      .prefix('payment-methods')
 
     // Reservation Room Management Routes
     // Room assignment and reservation management
@@ -1011,9 +1008,103 @@ router
             router.get('/available-rooms', roomOwnersController.getAvailableRooms.bind(roomOwnersController)) // Get available rooms for assignment
 
             // Room owner analytics
-            router.get('/statistics', roomOwnersController.stats.bind(roomOwnersController)) // Get room owner statistics
-          })
-          .prefix('room-owners')
+        router.get('/statistics', roomOwnersController.stats.bind(roomOwnersController)) // Get room owner statistics
+      })
+      .prefix('room-owners')
+
+    // Currency Management Routes
+    // Currency configuration and exchange rate management
+    router
+      .group(() => {
+        // Basic CRUD operations for currencies
+        router.get('/', currenciesController.index.bind(currenciesController)) // Get all currencies with filtering by hotel
+        router.post('/', currenciesController.store.bind(currenciesController)) // Create a new currency
+        router.get('/:id', currenciesController.show.bind(currenciesController)) // Get specific currency details
+        router.put('/:id', currenciesController.update.bind(currenciesController)) // Update currency information (only if editable)
+        router.delete('/:id', currenciesController.destroy.bind(currenciesController)) // Soft delete currency (only if editable)
+      })
+       .prefix('currencies')
+
+    // Payment Method Management Routes
+    // Payment method configuration and processing
+    router
+      .group(() => {
+        // Basic CRUD operations for payment methods
+        router.get('/', paymentMethodsController.index.bind(paymentMethodsController)) // Get all payment methods
+        router.post('/', paymentMethodsController.store.bind(paymentMethodsController)) // Create a new payment method
+        router.get('/:id', paymentMethodsController.show.bind(paymentMethodsController)) // Get specific payment method details
+        router.put('/:id', paymentMethodsController.update.bind(paymentMethodsController)) // Update payment method
+        router.delete('/:id', paymentMethodsController.destroy.bind(paymentMethodsController)) // Delete payment method
+
+        // Payment method operations
+        router.patch('/:id/toggle-status', paymentMethodsController.toggleStatus.bind(paymentMethodsController)) // Enable/disable payment method
+
+        // Payment method analytics
+        router.get('/statistics', paymentMethodsController.stats.bind(paymentMethodsController)) // Get payment method statistics
+      })
+      .prefix('payment_methods')
+
+    // Identity Type Management Routes
+    // Identity type configuration for guest identification
+    router
+      .group(() => {
+        // Basic CRUD operations for identity types
+        router.get('/', identityTypesController.index.bind(identityTypesController)) // Get all identity types with filtering by hotel
+        router.post('/', identityTypesController.store.bind(identityTypesController)) // Create a new identity type
+        router.get('/:id', identityTypesController.show.bind(identityTypesController)) // Get specific identity type details
+        router.put('/:id', identityTypesController.update.bind(identityTypesController)) // Update identity type information
+        router.delete('/:id', identityTypesController.destroy.bind(identityTypesController)) // Soft delete identity type
+      })
+      .prefix('identity_types')
+
+    // Reason Management Routes
+    // Reason configuration for various hotel operations
+    router
+      .group(() => {
+        // Basic CRUD operations for reasons
+        router.get('/', reasonsController.index.bind(reasonsController)) // Get all reasons with filtering by hotel and category
+        router.post('/', reasonsController.store.bind(reasonsController)) // Create a new reason
+        router.get('/:id', reasonsController.show.bind(reasonsController)) // Get specific reason details
+        router.put('/:id', reasonsController.update.bind(reasonsController)) // Update reason information
+        router.delete('/:id', reasonsController.destroy.bind(reasonsController)) // Soft delete reason
+
+        // Reason operations
+        router.get('/category/:category', reasonsController.getByCategory.bind(reasonsController)) // Get reasons by category
+        router.get('/categories/list', reasonsController.getCategories.bind(reasonsController)) // Get all available categories
+        router.get('/status/:status', reasonsController.getByStatus.bind(reasonsController)) // Get reasons by status
+      })
+      .prefix('reasons')
+
+    // Discount Management Routes
+    // Discount configuration for hotel pricing
+    router
+      .group(() => {
+        // Basic CRUD operations for discounts
+        router.get('/', discountsController.index.bind(discountsController)) // Get all discounts with filtering by hotel
+        router.post('/', discountsController.store.bind(discountsController)) // Create a new discount
+        router.get('/:id', discountsController.show.bind(discountsController)) // Get specific discount details
+        router.put('/:id', discountsController.update.bind(discountsController)) // Update discount information
+        router.delete('/:id', discountsController.destroy.bind(discountsController)) // Soft delete discount
+
+        // Discount operations
+        router.get('/type/:type', discountsController.getByType.bind(discountsController)) // Get discounts by type
+        router.get('/status/:status', discountsController.getByStatus.bind(discountsController)) // Get discounts by status
+        router.get('/types/list', discountsController.getTypes.bind(discountsController)) // Get all available discount types
+        router.get('/apply-on/list', discountsController.getApplyOnOptions.bind(discountsController)) // Get all apply-on options
+      })
+      .prefix('discounts')
+
+      // Transportation Modes management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for transportation modes
+          router.get('/', transportationModesController.index.bind(transportationModesController)) // Get all transportation modes with filtering by hotel
+          router.post('/', transportationModesController.store.bind(transportationModesController)) // Create a new transportation mode
+          router.get('/:id', transportationModesController.show.bind(transportationModesController)) // Get specific transportation mode details
+          router.put('/:id', transportationModesController.update.bind(transportationModesController)) // Update transportation mode information
+          router.delete('/:id', transportationModesController.destroy.bind(transportationModesController)) // Soft delete transportation mode
+        })
+        .prefix('transportation-modes')
       })
       .prefix('configuration')
 

@@ -381,6 +381,31 @@ export default class PaymentMethod extends BaseModel {
   @column()
   declare notes: string
 
+  // New fields based on requirements
+  @column()
+  declare shortCode: string
+
+  @column()
+  declare type: 'CASH' | 'BANK'
+
+  @column()
+  declare cardProcessing: boolean
+
+  @column()
+  declare surchargeEnabled: boolean
+
+  @column()
+  declare surchargeType: 'amount' | 'percent' | null
+
+  @column()
+  declare surchargeValue: number | null
+
+  @column()
+  declare extraChargeId: number | null
+
+  @column()
+  declare receiptNoSetting: 'auto_general' | 'auto_private' | 'manual'
+
   @column()
   declare createdBy: number
 

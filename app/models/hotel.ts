@@ -7,16 +7,17 @@ import RatePlan from './rate_plan.js'
 import Discount from './discount.js'
 import Inventory from './inventory.js'
 import User from './user.js'
+import Currency from './currency.js'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare hotel_name: string
+  @column({ columnName: 'hotel_name' })
+  declare hotelName: string
 
-  @column()
-  declare hotel_code: string
+  @column({ columnName: 'hotel_code' })
+  declare hotelCode: string
 
   @column()
   declare address: string | null
@@ -24,17 +25,17 @@ export default class Hotel extends BaseModel {
   @column()
   declare city: string | null
 
-  @column()
-  declare state_province: string | null
+  @column({ columnName: 'state_province' })
+  declare stateProvince: string | null
 
   @column()
   declare country: string | null
 
-  @column()
-  declare postal_code: string | null
+  @column({ columnName: 'postal_code' })
+  declare postalCode: string | null
 
-  @column()
-  declare phone_number: string | null
+  @column({ columnName: 'phone_number' })
+  declare phoneNumber: string | null
 
   @column()
   declare email: string | null
@@ -42,23 +43,23 @@ export default class Hotel extends BaseModel {
   @column()
   declare website: string | null
 
-  @column()
-  declare total_rooms: number
+  @column({ columnName: 'total_rooms' })
+  declare totalRooms: number
 
-  @column()
-  declare total_floors: number
+  @column({ columnName: 'total_floors' })
+  declare totalFloors: number
 
-  @column()
-  declare currency_code: string
+  @column({ columnName: 'currency_code' })
+  declare currencyCode: string
 
   @column()
   declare timezone: string
 
-  @column()
-  declare tax_rate: number
+  @column({ columnName: 'tax_rate' })
+  declare taxRate: number
 
-  @column()
-  declare license_number: string | null
+  @column({ columnName: 'license_number' })
+  declare licenseNumber: string | null
 
   @column()
   declare status: string
@@ -72,35 +73,62 @@ export default class Hotel extends BaseModel {
   @column()
   declare description: string | null
 
-  @column()
-  declare logo_url: string | null
+  @column({ columnName: 'logo_url' })
+  declare logoUrl: string | null
 
-  @column()
-  declare contact_info: object | null
+  @column({ columnName: 'contact_info' })
+  declare contactInfo: object | null
 
-  @column()
-  declare social_media: object | null
+  @column({ columnName: 'social_media' })
+  declare socialMedia: object | null
 
-  @column()
-  declare status_colors: object | null
+  @column({ columnName: 'status_colors' })
+  declare statusColors: object | null
 
-  @column()
-  declare floor_plan_url: string | null
+  @column({ columnName: 'floor_plan_url' })
+  declare floorPlanUrl: string | null
 
   @column()
   declare fax: string | null
 
-  @column()
-  declare system_date_determination_method : 'UseDayClose' | 'RealTime'
+  @column({ columnName: 'system_date_determination_method' })
+  declare systemDateDeterminationMethod : 'UseDayClose' | 'RealTime'
+
+  @column({ columnName: 'auto_night_audit_time' })
+  declare autoNightAuditTime  : string | null
+
+  @column({ columnName: 'registration_no_1' })
+  declare registrationNo1: string | null
+
+  @column({ columnName: 'registration_no_2' })
+  declare registrationNo2: string | null
+
+  @column({ columnName: 'registration_no_3' })
+  declare registrationNo3: string | null
+
+  @column({ columnName: 'cancellation_policy' })
+  declare cancellationPolicy: string | null
+
+  @column({ columnName: 'hotel_policy' })
+  declare hotelPolicy: string | null
+
+  @column({ columnName: 'property_type' })
+  declare propertyType: string | null
+
+  @column({ columnName: 'address_2' })
+  declare address2: string | null
 
   @column()
-  declare auto_night_audit_time  : string | null
+  declare grade: number | null
 
   @column()
-  declare created_by: number | null
+  declare notices: object | null
 
-  @column()
-  declare last_modified_by: number | null
+  @column({ columnName: 'created_by' })
+  declare createdBy: number | null
+
+  @column({ columnName: 'last_modified_by' })
+  declare lastModifiedBy: number | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -123,6 +151,9 @@ export default class Hotel extends BaseModel {
 
   @hasMany(() => Inventory)
   declare inventories: HasMany<typeof Inventory>
+
+  @hasMany(() => Currency)
+  declare currencies: HasMany<typeof Currency>
 
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>

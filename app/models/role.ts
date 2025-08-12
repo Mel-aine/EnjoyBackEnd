@@ -10,27 +10,27 @@ export default class Role extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare role_name: string
+  @column({ columnName: 'role_name' })
+  declare roleName: string
 
-  @column()
-  declare role_description: string | null
+  @column({ columnName: 'role_description' })
+  declare roleDescription: string | null
 
   @column()
   declare description: string | null
 
-  @column()
-  declare hotel_id: number | null
+  @column({ columnName: 'hotel_id' })
+  declare hotelId: number | null
 
-  @column()
-  declare created_by: number | null
+  @column({ columnName: 'created_by' })
+  declare createdBy: number | null
 
-  @column()
-  declare category_id: number | null
+  @column({ columnName: 'category_id' })
+  declare categoryId: number | null
 
 
-  @column()
-  declare last_modified_by: number | null
+  @column({ columnName: 'last_modified_by' })
+  declare lastModifiedBy: number | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

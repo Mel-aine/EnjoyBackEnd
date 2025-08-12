@@ -8,11 +8,14 @@ export default class extends BaseSchema {
       table.increments('id').primary()
       table.string('method_name', 100).notNullable()
       table.string('method_code', 20).unique().notNullable()
+      table.string('short_code', 10).notNullable() // Short name of the payment method
       table.enum('method_type', [
         'cash', 'credit_card', 'debit_card', 'bank_transfer', 
         'check', 'digital_wallet', 'cryptocurrency', 'gift_card',
         'corporate_account', 'comp', 'house_account', 'voucher'
       ]).notNullable()
+      table.enum('type', ['CASH', 'BANK']).notNullable() // Payment type: CASH or BANK
+      table.boolean('card_processing').defaultTo(false) // If this is a card payment type
       table.text('description').nullable()
       table.boolean('is_active').defaultTo(true)
       table.boolean('requires_authorization').defaultTo(false)
@@ -32,6 +35,16 @@ export default class extends BaseSchema {
       table.boolean('auto_settle').defaultTo(true)
       table.string('currency_code', 3).defaultTo('USD')
       table.json('accepted_currencies').nullable()
+      
+      // Surcharge Settings
+      table.boolean('surcharge_enabled').defaultTo(false) // Enable surcharge for card transactions
+      table.enum('surcharge_type', ['amount', 'percent']).nullable() // Surcharge calculation type
+      table.decimal('surcharge_value', 10, 4).nullable() // Surcharge value (amount or percentage)
+      table.integer('extra_charge_id').unsigned().nullable() // Reference to extra charge for surcharge
+      
+      // Receipt Number Settings
+      table.enum('receipt_no_setting', ['auto_general', 'auto_private', 'manual']).defaultTo('auto_general') // Receipt number generation type
+      
       table.text('terms_and_conditions').nullable()
       table.integer('sort_order').defaultTo(0)
       table.string('icon_url', 500).nullable()
@@ -48,6 +61,8 @@ export default class extends BaseSchema {
       // Foreign key constraints
       table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL')
       table.foreign('last_modified_by').references('id').inTable('users').onDelete('SET NULL')
+      // Note: extra_charge_id foreign key would reference extra_charges table when it exists
+      // table.foreign('extra_charge_id').references('id').inTable('extra_charges').onDelete('SET NULL')
     })
   }
 
