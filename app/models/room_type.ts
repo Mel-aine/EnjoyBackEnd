@@ -13,6 +13,9 @@ export default class RoomType extends BaseModel {
   @column()
   declare hotelId: number
 
+  @column()
+  declare default_price : number
+
   @column({ columnName: 'short_code' })
   declare shortCode: string
 
@@ -34,7 +37,7 @@ export default class RoomType extends BaseModel {
   @column({ columnName: 'publish_to_website' })
   declare publishToWebsite: boolean
 
-  @column({ 
+  @column({
     columnName: 'room_amenities',
     serialize: (value: number[] | null) => value,
     prepare: (value: number[] | null) => value ? JSON.stringify(value) : null,
