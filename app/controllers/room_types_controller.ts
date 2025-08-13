@@ -56,7 +56,7 @@ export default class RoomTypesController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createRoomTypeValidator)
-      
+
       const roomType = await RoomType.create({
         ...payload,
         createdByUserId: auth.user?.id
@@ -134,7 +134,7 @@ export default class RoomTypesController {
   async destroy({ params, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
-      
+
       // Check if there are any rooms of this type
       const roomsCount = await roomType.related('rooms').query().count('* as total')
       if (roomsCount[0].$extras.total > 0) {
@@ -167,7 +167,7 @@ export default class RoomTypesController {
     try {
       const roomType = await RoomType.findOrFail(params.id)
       const { checkIn, checkOut } = request.only(['checkIn', 'checkOut'])
-      
+
       if (!checkIn || !checkOut) {
         return response.badRequest({
           message: 'Check-in and check-out dates are required'
@@ -207,7 +207,7 @@ export default class RoomTypesController {
   async stats({ params, response }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
-      
+
       const totalRooms = await roomType.related('rooms').query().count('* as total')
       const availableRooms = await roomType.related('rooms')
         .query()
@@ -232,7 +232,7 @@ export default class RoomTypesController {
         occupiedRooms: occupiedRooms[0].$extras.total,
         outOfOrderRooms: outOfOrderRooms[0].$extras.total,
         maintenanceRooms: maintenanceRooms[0].$extras.total,
-        occupancyRate: totalRooms[0].$extras.total > 0 ? 
+        occupancyRate: totalRooms[0].$extras.total > 0 ?
           (occupiedRooms[0].$extras.total / totalRooms[0].$extras.total * 100).toFixed(2) : 0
       }
 
@@ -254,10 +254,10 @@ export default class RoomTypesController {
   async toggleStatus({ params, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
-      
+
       roomType.publishToWebsite = !roomType.publishToWebsite
       roomType.updatedByUserId = auth.user?.id!
-      
+
       await roomType.save()
 
       return response.ok({
@@ -281,11 +281,11 @@ export default class RoomTypesController {
         .where('id', params.id)
         .where('is_deleted', true)
         .firstOrFail()
-      
+
       roomType.isDeleted = false
       roomType.deletedAt = null
       roomType.updatedByUserId = auth.user?.id!
-      
+
       await roomType.save()
 
       return response.ok({
@@ -327,4 +327,49 @@ export default class RoomTypesController {
       })
     }
   }
+
+  /**
+   * Get roomtype for a hotel // Récupérer tous les types de chambres pour un hôtel donné
+   */
+  async showByHotel({ params, request, response }: HttpContext) {
+    try {
+      const hotelId = Number(params.id)
+      console.log('Fetching room types for hotelId:', hotelId)
+
+      if (isNaN(hotelId)) {
+        return response.badRequest({ message: 'Invalid hotelId parameter' })
+      }
+
+      // Récupérer la page et la limite depuis les query params, sinon valeurs par défaut
+      const page = Number(request.input('page', 1))
+      const limit = Number(request.input('limit', 10))
+
+      const roomTypes = await RoomType.query()
+        .where('hotel_id', hotelId)
+        .andWhere('is_deleted', false)
+        .preload('rooms')
+        .preload('roomRates')
+        .paginate(page, limit)
+
+      // Vérifier si aucun résultat
+      if (roomTypes.total === 0) {
+        return response.notFound({
+          message: `No room types found for hotel ID ${hotelId}`
+        })
+      }
+
+      return response.ok({
+        message: 'Room types retrieved successfully',
+        data: roomTypes.toJSON(),
+      })
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({
+        message: 'Error retrieving room types',
+        error: error.message
+      })
+    }
+  }
+
+
 }

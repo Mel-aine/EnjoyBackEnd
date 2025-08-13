@@ -11,10 +11,7 @@ export default class RoomType extends BaseModel {
   declare id: number
 
   @column()
-  declare hotelId: number
-
-  @column()
-  declare default_price : number
+  declare hotel_id: number
 
   @column({ columnName: 'short_code' })
   declare shortCode: string
@@ -84,7 +81,7 @@ export default class RoomType extends BaseModel {
   declare deletedAt: DateTime | null
 
   // Relationships
-  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
+  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @hasMany(() => Room)

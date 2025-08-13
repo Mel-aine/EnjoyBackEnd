@@ -26,7 +26,7 @@ export default class RateType extends BaseModel {
       return value ? JSON.stringify(value) : null
     },
     consume: (value: string | null) => {
-      return value ? JSON.parse(value) : null
+      return value ? value : null
     }
   })
   declare roomTypes: number[] | null

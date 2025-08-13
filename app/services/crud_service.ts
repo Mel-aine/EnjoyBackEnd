@@ -88,7 +88,7 @@ export default class CrudService<T extends typeof BaseModel> {
       .select(...fields)
       .limit(25)
   }
-  
+
   async getServiceProductByServiceId(service_id: number, fields: string[]) {
     if (!service_id) {
       throw new Error('service_id is required')

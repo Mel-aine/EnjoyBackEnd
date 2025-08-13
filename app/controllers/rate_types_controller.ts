@@ -175,7 +175,7 @@ export default class RateTypesController {
       if (payload.isPackage !== undefined) rateType.isPackage = payload.isPackage
       if (payload.roomTypes !== undefined) rateType.roomTypes = payload.roomTypes
       if (payload.status !== undefined) rateType.status = payload.status
-      
+
       rateType.updatedByUserId = userId!
 
       await rateType.save()
@@ -307,5 +307,34 @@ export default class RateTypesController {
         error: error.message
       })
     }
+  }
+
+   /**
+     * Get roomtype for a hotel // Récupérer tous les types de chambres pour un hôtel donné
+   */
+  async showByHotel({ params, response }: HttpContext) {
+      try {
+        const hotelId = Number(params.id)
+        console.log('Fetching room types for hotelId:', hotelId)
+
+        if (isNaN(hotelId)) {
+          return response.badRequest({ message: 'Invalid hotelId parameter' })
+        }
+
+        const rateTypes = await RateType.query()
+          .where('hotel_id', hotelId)
+          .andWhere('is_deleted', false)
+
+        return response.ok({
+          message: 'Rate types retrieved successfully',
+          data: rateTypes
+        })
+      } catch (error) {
+        console.error(error)
+        return response.internalServerError({
+          message: 'Error retrieving rate types',
+          error: error.message
+        })
+      }
   }
 }

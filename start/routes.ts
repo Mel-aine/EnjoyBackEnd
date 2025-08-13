@@ -824,6 +824,7 @@ router
         router.get('/', roomTypesController.index.bind(roomTypesController)) // Get all room types with filtering by hotel
         router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
         router.get('/:id', roomTypesController.show.bind(roomTypesController)) // Get specific room type details
+        router.get('/:id/hotel', roomTypesController.showByHotel.bind(roomTypesController)) // Get room type details for a specific hotel
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
         router.delete('/:id', roomTypesController.destroy.bind(roomTypesController)) // Soft delete room type
         router.patch('/:id/restore', roomTypesController.restore.bind(roomTypesController)) // Restore soft-deleted room type
@@ -832,7 +833,7 @@ router
         // Room type analytics
         router.get('/:id/stats', roomTypesController.stats.bind(roomTypesController)) // Get room type statistics
         router.get('/:id/availability', roomTypesController.availability.bind(roomTypesController)) // Check availability for date range
-        
+
         // Sort order management
         router.patch('/sort-order', roomTypesController.updateSortOrder.bind(roomTypesController)) // Update sort order for multiple room types
       })
@@ -861,6 +862,7 @@ router
         router.get('/', rateTypesController.index.bind(rateTypesController)) // Get all rate types with filtering by hotel
         router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
+         router.get('/:id/hotel', rateTypesController.showByHotel.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
         router.delete('/:id', rateTypesController.destroy.bind(rateTypesController)) // Soft delete rate type
         router.patch('/:id/restore', rateTypesController.restore.bind(rateTypesController)) // Restore soft-deleted rate type
