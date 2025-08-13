@@ -39,6 +39,8 @@ import PreferenceTypesController from '#controllers/preference_types_controller'
 import PreferencesController from '#controllers/preferences_controller'
 import BusinessSourcesController from '#controllers/business_sources_controller'
 import PayoutReasonsController from '#controllers/payout_reasons_controller'
+import ExtraChargesController from '#controllers/extra_charges_controller'
+import TaxRatesController from '#controllers/tax_rates_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -102,6 +104,8 @@ const preferenceTypesController = new PreferenceTypesController()
 const preferencesController = new PreferencesController()
 const businessSourcesController = new BusinessSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
+const extraChargesController = new ExtraChargesController()
+const taxRatesController = new TaxRatesController()
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -1225,6 +1229,35 @@ router
           router.get('/status/:status', payoutReasonsController.getByStatus.bind(payoutReasonsController)) // Get payout reasons by status
         })
         .prefix('payout_reasons')
+
+      // Extra Charges Management Routes
+      // Extra charges configuration for additional services and fees
+      router
+        .group(() => {
+          // Basic CRUD operations for extra charges
+          router.get('/', extraChargesController.index.bind(extraChargesController)) // Get all extra charges with filtering by hotel
+          router.post('/', extraChargesController.store.bind(extraChargesController)) // Create a new extra charge
+          router.get('/:id', extraChargesController.show.bind(extraChargesController)) // Get specific extra charge details
+          router.put('/:id', extraChargesController.update.bind(extraChargesController)) // Update extra charge information
+          router.delete('/:id', extraChargesController.destroy.bind(extraChargesController)) // Soft delete extra charge
+          
+          // Additional routes for extra charges
+          router.get('/hotel/:hotelId', extraChargesController.getByHotel.bind(extraChargesController)) // Get extra charges by hotel
+          router.get('/web-published', extraChargesController.getWebPublished.bind(extraChargesController)) // Get web-published extra charges
+        })
+        .prefix('extra_charges')
+
+      // Tax Rates management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for tax rates
+          router.get('/', taxRatesController.index.bind(taxRatesController)) // Get all tax rates with filtering
+          router.post('/', taxRatesController.store.bind(taxRatesController)) // Create a new tax rate
+          router.get('/:id', taxRatesController.show.bind(taxRatesController)) // Get specific tax rate details
+          router.put('/:id', taxRatesController.update.bind(taxRatesController)) // Update tax rate information
+          router.delete('/:id', taxRatesController.destroy.bind(taxRatesController)) // Delete tax rate
+        })
+        .prefix('taxes')
       })
       .prefix('configuration')
 
