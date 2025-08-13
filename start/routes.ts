@@ -1104,7 +1104,7 @@ router
           router.put('/:id', transportationModesController.update.bind(transportationModesController)) // Update transportation mode information
           router.delete('/:id', transportationModesController.destroy.bind(transportationModesController)) // Soft delete transportation mode
         })
-        .prefix('transportation-modes')
+        .prefix('transportation_modes')
       })
       .prefix('configuration')
 

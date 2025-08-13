@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import TransportationMode from '#models/transportation_mode'
 import { createTransportationModeValidator, updateTransportationModeValidator } from '#validators/transportation_mode'
+import { DateTime } from 'luxon'
 
 export default class TransportationModesController {
   /**
@@ -147,7 +148,7 @@ export default class TransportationModesController {
 
       transportationMode.merge({
         isDeleted: true,
-        deletedAt: new Date(),
+        deletedAt: DateTime.now(),
         updatedByUserId: user.id
       })
 
