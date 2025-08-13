@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import User from './user.js'
+import MarketCode from './market_code.js'
 
 export default class BusinessSource extends BaseModel {
   @column({ isPrimary: true })
@@ -16,6 +17,15 @@ export default class BusinessSource extends BaseModel {
 
   @column()
   declare name: string
+
+  @column()
+  declare marketCodeId: number | null
+
+  @column()
+  declare color: string | null
+
+  @column()
+  declare registrationNumber: string | null
 
   // Audit fields
   @column.dateTime({ autoCreate: true })
@@ -49,4 +59,7 @@ export default class BusinessSource extends BaseModel {
     foreignKey: 'updatedByUserId',
   })
   declare updatedByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => MarketCode)
+  declare marketCode: BelongsTo<typeof MarketCode>
 }

@@ -31,6 +31,14 @@ import SeasonsController from '#controllers/seasons_controller'
 import ReasonsController from '#controllers/reasons_controller'
 import DiscountsController from '#controllers/discounts_controller'
 import TransportationModesController from '#controllers/transportation_modes_controller'
+import TemplateCategoriesController from '#controllers/template_categories_controller'
+import BlackListReasonsController from '#controllers/black_list_reasons_controller'
+import MarketCodesController from '#controllers/market_codes_controller'
+import ReservationTypesController from '#controllers/reservation_types_controller'
+import PreferenceTypesController from '#controllers/preference_types_controller'
+import PreferencesController from '#controllers/preferences_controller'
+import BusinessSourcesController from '#controllers/business_sources_controller'
+import PayoutReasonsController from '#controllers/payout_reasons_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -86,6 +94,14 @@ const seasonsController = new SeasonsController()
 const reasonsController = new ReasonsController()
 const discountsController = new DiscountsController()
 const transportationModesController = new TransportationModesController()
+const templateCategoriesController = new TemplateCategoriesController()
+const blackListReasonsController = new BlackListReasonsController()
+const marketCodesController = new MarketCodesController()
+const reservationTypesController = new ReservationTypesController()
+const preferenceTypesController = new PreferenceTypesController()
+const preferencesController = new PreferencesController()
+const businessSourcesController = new BusinessSourcesController()
+const payoutReasonsController = new PayoutReasonsController()
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -754,6 +770,10 @@ router
           DashboardController,
           'getDailyOccupancyAndReservations',
         ])
+        router.get('/front-office/:serviceId', [
+          DashboardController,
+          'getFrontOfficeDashboard',
+        ])
       })
       .prefix('/dashboard')
     //Refund routes
@@ -1105,6 +1125,106 @@ router
           router.delete('/:id', transportationModesController.destroy.bind(transportationModesController)) // Soft delete transportation mode
         })
         .prefix('transportation_modes')
+
+      // Template Categories management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for template categories
+          router.get('/', templateCategoriesController.index.bind(templateCategoriesController)) // Get all template categories with filtering by hotel
+          router.post('/', templateCategoriesController.store.bind(templateCategoriesController)) // Create a new template category
+          router.get('/:id', templateCategoriesController.show.bind(templateCategoriesController)) // Get specific template category details
+          router.put('/:id', templateCategoriesController.update.bind(templateCategoriesController)) // Update template category information
+          router.delete('/:id', templateCategoriesController.destroy.bind(templateCategoriesController)) // Soft delete template category
+        })
+        .prefix('template_categories')
+
+      // Black List Reasons management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for black list reasons
+          router.get('/', blackListReasonsController.index.bind(blackListReasonsController)) // Get all black list reasons with filtering by hotel and category
+          router.post('/', blackListReasonsController.store.bind(blackListReasonsController)) // Create a new black list reason
+          router.get('/:id', blackListReasonsController.show.bind(blackListReasonsController)) // Get specific black list reason details
+          router.put('/:id', blackListReasonsController.update.bind(blackListReasonsController)) // Update black list reason information
+          router.delete('/:id', blackListReasonsController.destroy.bind(blackListReasonsController)) // Soft delete black list reason
+        })
+        .prefix('black_list_reasons')
+
+      // Market Codes management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for market codes
+          router.get('/', marketCodesController.index.bind(marketCodesController)) // Get all market codes with filtering by hotel
+          router.post('/', marketCodesController.store.bind(marketCodesController)) // Create a new market code
+          router.get('/:id', marketCodesController.show.bind(marketCodesController)) // Get specific market code details
+          router.put('/:id', marketCodesController.update.bind(marketCodesController)) // Update market code information
+          router.delete('/:id', marketCodesController.destroy.bind(marketCodesController)) // Soft delete market code
+        })
+        .prefix('market_codes')
+
+      // Reservation Types management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for reservation types
+          router.get('/', reservationTypesController.index.bind(reservationTypesController)) // Get all reservation types with filtering by hotel
+          router.post('/', reservationTypesController.store.bind(reservationTypesController)) // Create a new reservation type
+          router.get('/:id', reservationTypesController.show.bind(reservationTypesController)) // Get specific reservation type details
+          router.put('/:id', reservationTypesController.update.bind(reservationTypesController)) // Update reservation type information
+          router.delete('/:id', reservationTypesController.destroy.bind(reservationTypesController)) // Soft delete reservation type
+        })
+        .prefix('reservation_types')
+
+      // Preference Types management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for preference types
+          router.get('/', preferenceTypesController.index.bind(preferenceTypesController)) // Get all preference types with filtering by hotel
+          router.post('/', preferenceTypesController.store.bind(preferenceTypesController)) // Create a new preference type
+          router.get('/:id', preferenceTypesController.show.bind(preferenceTypesController)) // Get specific preference type details
+          router.put('/:id', preferenceTypesController.update.bind(preferenceTypesController)) // Update preference type information
+          router.delete('/:id', preferenceTypesController.destroy.bind(preferenceTypesController)) // Soft delete preference type
+        })
+        .prefix('preference_types')
+
+      // Preferences management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for preferences
+          router.get('/', preferencesController.index.bind(preferencesController)) // Get all preferences with filtering by hotel and preference type
+          router.post('/', preferencesController.store.bind(preferencesController)) // Create a new preference
+          router.get('/:id', preferencesController.show.bind(preferencesController)) // Get specific preference details
+          router.put('/:id', preferencesController.update.bind(preferencesController)) // Update preference information
+          router.delete('/:id', preferencesController.destroy.bind(preferencesController)) // Soft delete preference
+        })
+        .prefix('preferences')
+
+      // Business Sources management routes
+      router
+        .group(() => {
+          // Basic CRUD operations for business sources
+          router.get('/', businessSourcesController.index.bind(businessSourcesController)) // Get all business sources with filtering by hotel
+          router.post('/', businessSourcesController.store.bind(businessSourcesController)) // Create a new business source
+          router.get('/:id', businessSourcesController.show.bind(businessSourcesController)) // Get specific business source details
+          router.put('/:id', businessSourcesController.update.bind(businessSourcesController)) // Update business source information
+          router.delete('/:id', businessSourcesController.destroy.bind(businessSourcesController)) // Soft delete business source
+        })
+        .prefix('business_sources')
+
+      // Payout Reason Management Routes
+      // Payout reason configuration for expense tracking
+      router
+        .group(() => {
+          // Basic CRUD operations for payout reasons
+          router.get('/', payoutReasonsController.index.bind(payoutReasonsController)) // Get all payout reasons with filtering by hotel
+          router.post('/', payoutReasonsController.store.bind(payoutReasonsController)) // Create a new payout reason
+          router.get('/:id', payoutReasonsController.show.bind(payoutReasonsController)) // Get specific payout reason details
+          router.put('/:id', payoutReasonsController.update.bind(payoutReasonsController)) // Update payout reason information
+          router.delete('/:id', payoutReasonsController.destroy.bind(payoutReasonsController)) // Soft delete payout reason
+          
+          // Additional routes for payout reasons
+          router.get('/status/:status', payoutReasonsController.getByStatus.bind(payoutReasonsController)) // Get payout reasons by status
+        })
+        .prefix('payout_reasons')
       })
       .prefix('configuration')
 
