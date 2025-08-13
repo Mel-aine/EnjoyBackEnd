@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import PreferenceType from '#models/preference_type'
 import { createPreferenceTypeValidator, updatePreferenceTypeValidator } from '#validators/preference_type'
+import { DateTime } from 'luxon'
 
 export default class PreferenceTypesController {
   /**
@@ -145,7 +146,7 @@ export default class PreferenceTypesController {
 
       preferenceType.merge({
         isDeleted: true,
-        deletedAt: new Date(),
+        deletedAt:  DateTime.now(),
         updatedByUserId: user.id,
       })
 
