@@ -16,7 +16,7 @@ export default class BusinessSourcesController {
 
       const query = BusinessSource.query()
         .where('is_deleted', false)
-        .preload('hotel')
+        .preload('marketCode')
         .preload('createdByUser')
         .preload('updatedByUser')
 
@@ -84,7 +84,7 @@ export default class BusinessSourcesController {
       const businessSource = await BusinessSource.query()
         .where('id', params.id)
         .where('is_deleted', false)
-        .preload('hotel')
+        .preload('marketCode')
         .preload('createdByUser')
         .preload('updatedByUser')
         .firstOrFail()

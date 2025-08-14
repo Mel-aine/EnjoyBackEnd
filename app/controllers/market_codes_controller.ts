@@ -79,7 +79,6 @@ export default class MarketCodesController {
       const marketCode = await MarketCode.query()
         .where('id', params.id)
         .where('is_deleted', false)
-        .preload('hotel')
         .preload('createdByUser')
         .preload('updatedByUser')
         .firstOrFail()

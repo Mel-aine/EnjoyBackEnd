@@ -17,6 +17,12 @@ export default class BlackListReason extends BaseModel {
   @column()
   declare category: string
 
+  @column()
+  declare severity: 'High' | 'Medium' | 'Low'
+
+  @column()
+  declare description: string | null
+
   // Audit fields
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

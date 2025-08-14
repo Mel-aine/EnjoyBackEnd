@@ -43,7 +43,8 @@ export default class RoomsController {
       }
 
       if (floor) {
-        query.where('floor', floor)
+        query.where('floor_number', floor)
+
       }
 
       if (status) {
@@ -73,7 +74,7 @@ export default class RoomsController {
       const rooms = await query
         .preload('hotel')
         .preload('roomType')
-        .orderBy('floor', 'asc')
+        .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
         .paginate(page, limit)
 
@@ -388,7 +389,7 @@ export default class RoomsController {
     return response.ok({
       id: room.id,
       name: room.roomNumber,
-      roomType: room.roomType?.typeName || 'N/A',
+      roomType: room.roomType?.roomTypeName || 'N/A',
       status: room.status,
       housekeepingStatus: room.housekeepingStatus,
       maintenanceStatus: room.condition,
@@ -516,7 +517,7 @@ export default class RoomsController {
         const room = res.room
 
         return {
-          guest: guest ? `${guest.firstName} ${guest.lastName}` : (user ? `${user.first_name} ${user.last_name}` : 'Inconnu'),
+          guest: guest ? `${guest.firstName} ${guest.lastName}` : (user ? `${user.firstName} ${user.lastName}` : 'Inconnu'),
           email: guest?.email ?? user?.email ?? '',
           room: room?.roomNumber ?? 'Non spécifié',
           checkin: res.checkInDate?.toFormat('dd/MM/yyyy') ?? '',

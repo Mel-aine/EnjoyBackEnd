@@ -4,6 +4,9 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import RoomType from './room_type.js'
 import RatePlan from './rate_plan.js'
+import RateType from './rate_type.js'
+import Season from './season.js'
+import BookingSource from './booking_source.js'
 import User from './user.js'
 
 export default class RoomRate extends BaseModel {
@@ -17,19 +20,34 @@ export default class RoomRate extends BaseModel {
   declare roomTypeId: number
 
   @column()
-  declare ratePlanId: number
+  declare rateTypeId: number
+
+  @column()
+  declare seasonId: number | null
+
+  @column()
+  declare sourceId: number | null
+
+  @column()
+  declare ratePlanId: number | null
 
   @column.date()
-  declare rateDate: DateTime
+  declare rateDate: DateTime | null
+
+  @column.date()
+  declare effectiveFrom: DateTime | null
+
+  @column.date()
+  declare effectiveTo: DateTime | null
 
   @column()
   declare baseRate: number
 
   @column()
-  declare adultRate: number
+  declare extraAdultRate: number | null
 
   @column()
-  declare childRate: number
+  declare extraChildRate: number | null
 
   @column()
   declare extraPersonRate: number
@@ -128,13 +146,13 @@ export default class RoomRate extends BaseModel {
   declare revenuePerAvailableRoom: number
 
   @column()
-  declare status: string
+  declare status: string | null
 
   @column()
-  declare createdBy: number
+  declare createdBy: number | null
 
   @column()
-  declare lastModifiedBy: number
+  declare lastModifiedBy: number | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -148,6 +166,15 @@ export default class RoomRate extends BaseModel {
 
   @belongsTo(() => RoomType)
   declare roomType: BelongsTo<typeof RoomType>
+
+  @belongsTo(() => RateType)
+  declare rateType: BelongsTo<typeof RateType>
+
+  @belongsTo(() => Season)
+  declare season: BelongsTo<typeof Season>
+
+  @belongsTo(() => BookingSource, { foreignKey: 'sourceId' })
+  declare source: BelongsTo<typeof BookingSource>
 
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>

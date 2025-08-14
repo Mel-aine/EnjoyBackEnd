@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { DateTime } from 'luxon'
 
 /**
  * Validator to validate the payload when creating
@@ -21,10 +22,10 @@ export const createRoomValidator = vine.compile(
     housekeepingStatus: vine.enum(['clean', 'dirty', 'inspected', 'out_of_order']).optional(),
     maintenanceStatus: vine.enum(['operational', 'maintenance', 'repair', 'renovation']).optional(),
     condition: vine.enum(['excellent', 'good', 'fair', 'poor', 'needs_attention']).optional(),
-    lastCleaned: vine.date().optional(),
-    lastInspected: vine.date().optional(),
-    lastMaintenance: vine.date().optional(),
-    nextMaintenance: vine.date().optional(),
+    lastCleaned: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    lastInspected: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    lastMaintenance: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    nextMaintenance: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     view: vine.enum(['ocean', 'city', 'garden', 'pool', 'mountain', 'courtyard', 'interior']).optional(),
     smokingAllowed: vine.boolean().optional(),
     petFriendly: vine.boolean().optional(),
@@ -52,7 +53,7 @@ export const createRoomValidator = vine.compile(
         itemName: vine.string().trim().maxLength(100),
         quantity: vine.number().min(0),
         condition: vine.enum(['excellent', 'good', 'fair', 'poor', 'missing']),
-        lastChecked: vine.date().optional(),
+        lastChecked: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
         notes: vine.string().trim().maxLength(500).optional()
       })
     ).optional(),
@@ -250,7 +251,7 @@ export const createRoomValidator = vine.compile(
     createdBy: vine.number().positive().optional(),
     lastModifiedBy: vine.number().positive().optional(),
     isDeleted: vine.boolean().optional(),
-    deletedAt: vine.date().optional()
+    deletedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional()
   })
 )
 
@@ -275,10 +276,10 @@ export const updateRoomValidator = vine.compile(
     housekeepingStatus: vine.enum(['clean', 'dirty', 'inspected', 'out_of_order']).optional(),
     maintenanceStatus: vine.enum(['operational', 'maintenance', 'repair', 'renovation']).optional(),
     condition: vine.enum(['excellent', 'good', 'fair', 'poor', 'needs_attention']).optional(),
-    lastCleaned: vine.date().optional(),
-    lastInspected: vine.date().optional(),
-    lastMaintenance: vine.date().optional(),
-    nextMaintenance: vine.date().optional(),
+    lastCleaned: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    lastInspected: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    lastMaintenance: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    nextMaintenance: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     view: vine.enum(['ocean', 'city', 'garden', 'pool', 'mountain', 'courtyard', 'interior']).optional(),
     smokingAllowed: vine.boolean().optional(),
     petFriendly: vine.boolean().optional(),
@@ -306,7 +307,7 @@ export const updateRoomValidator = vine.compile(
         itemName: vine.string().trim().maxLength(100),
         quantity: vine.number().min(0),
         condition: vine.enum(['excellent', 'good', 'fair', 'poor', 'missing']),
-        lastChecked: vine.date().optional(),
+        lastChecked: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
         notes: vine.string().trim().maxLength(500).optional()
       })
     ).optional(),
@@ -504,6 +505,6 @@ export const updateRoomValidator = vine.compile(
     createdBy: vine.number().positive().optional(),
     lastModifiedBy: vine.number().positive().optional(),
     isDeleted: vine.boolean().optional(),
-    deletedAt: vine.date().optional()
+    deletedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional()
   })
 )

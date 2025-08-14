@@ -14,6 +14,15 @@ export default class MarketCode extends BaseModel {
   @column()
   declare name: string
 
+  @column()
+  declare code: string
+
+  @column()
+  declare segment: string
+
+  @column()
+  declare description: string | null
+
   // Audit fields
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
