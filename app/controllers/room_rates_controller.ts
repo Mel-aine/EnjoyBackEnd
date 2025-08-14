@@ -133,8 +133,14 @@ export default class RoomRatesController {
    */
   async show({ params, response }: HttpContext) {
     try {
+      const id = parseInt(params.id)
+      
+      if (isNaN(id)) {
+        return response.badRequest({ message: 'Invalid ID' })
+      }
+      
       const roomRate = await RoomRate.query()
-        .where('id', params.id)
+        .where('id', id)
         .preload('hotel')
         .preload('roomType')
         .preload('rateType')
@@ -165,11 +171,18 @@ export default class RoomRatesController {
   async update({ params, request, response, auth }: HttpContext) {
     const trx = await Database.transaction()
     try {
+      const id = parseInt(params.id)
+      
+      if (isNaN(id)) {
+        await trx.rollback()
+        return response.badRequest({ message: 'Invalid ID' })
+      }
+      
       const payload = await request.validateUsing(updateRoomRateValidator)
       const userId = auth.user?.id
 
       const roomRate = await RoomRate.query()
-        .where('id', params.id)
+        .where('id', id)
         .forUpdate()
         .firstOrFail()
 
@@ -210,7 +223,13 @@ export default class RoomRatesController {
    */
   async destroy({ params, response }: HttpContext) {
     try {
-      const roomRate = await RoomRate.findOrFail(params.id)
+      const id = parseInt(params.id)
+      
+      if (isNaN(id)) {
+        return response.badRequest({ message: 'Invalid ID' })
+      }
+      
+      const roomRate = await RoomRate.findOrFail(id)
       await roomRate.delete()
 
       return response.ok({

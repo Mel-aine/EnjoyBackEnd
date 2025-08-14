@@ -11,10 +11,10 @@ export default class RefundsController extends CrudController<typeof Refund> {
   }
 
   async  getRefundByServiceId ({ params, response }: HttpContext) {
-    const serviceId = params.serviceId
+    const serviceId = parseInt(params.serviceId)
 
-    if (!serviceId) {
-      return response.badRequest({ error: 'serviceId is required.' })
+    if (isNaN(serviceId)) {
+      return response.badRequest({ error: 'Invalid serviceId.' })
     }
 
     try {
@@ -76,10 +76,10 @@ export default class RefundsController extends CrudController<typeof Refund> {
   // filter
 async filterRefunds({ request, response, params }: HttpContext) {
   const { roomType, room, startDate, endDate } = request.all()
-  const serviceId = params.serviceId
+  const serviceId = parseInt(params.serviceId)
 
-  if (!serviceId) {
-    return response.badRequest({ error: 'serviceId is required.' })
+  if (isNaN(serviceId)) {
+    return response.badRequest({ error: 'Invalid serviceId.' })
   }
 
   try {

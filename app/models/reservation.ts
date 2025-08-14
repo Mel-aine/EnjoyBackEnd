@@ -26,7 +26,7 @@ export default class Reservation extends BaseModel {
   declare id: number
 
   @column()
-  declare hotel_id: number
+  declare hotel_id: number | null
 
   @column()
   declare guest_id: number

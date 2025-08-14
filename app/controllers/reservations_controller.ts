@@ -34,270 +34,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
 
-
-  public async createWithUserAndReservation(ctx: HttpContext) {
-    console.log(JSON.stringify(ctx.request.body()))
-    const { request, response, auth } = ctx
-    const data = request.body()
-    const trx = await db.transaction()
+  async showByRoomId({ params, response }: HttpContext) {
     try {
-      let user = await User.query().where('email', data.email).first()
-
-      if (!user) {
-        user = await this.userService.create({
-          first_name: data.first_name,
-          last_name: data.last_name,
-          email: data.email,
-          phone_number: data.phone_number,
-          role_id: data.role_id || 4,
-          status: 'active',
-          created_by: auth.user?.id,
-          last_modified_by: auth.user?.id,
-          service_id:data.service_id
-        })
-      }
-      const reservation = await this.reservationService.create({
-        user_id: user.id,
-        service_id: data.service_id,
-        reservation_type: data.reservation_type || 'Booking via Enjoy',
-        reservation_number: generateReservationNumber(),
-        status: data.status || ReservationStatus.PENDING,
-        total_amount: data.total_amount,
-        guest_count: data.guest_count,
-        number_of_seats: data.number_of_seats || null,
-        special_requests: data.special_requests || null,
-        cancellation_reason: data.cancellation_reason || null,
-        arrived_date: data.arrived_date || null,
-        depart_date: data.depart_date || null,
-        reservation_time: data.reservation_time || null,
-        comment: data.comment,
-        created_by: auth.user?.id,
-        last_modified_by: auth.user?.id,
-        customer_type: data.customer_type || null,
-        group_name: data.group_name || null,
-        company_name: data.company_name || null,
-        payment_status: data.payment_status || 'pending',
-        discount_amount: data.discount_amount || 0,
-        tax_amount: data.tax_amount || 0,
-        final_amount: data.final_amount || data.total_amount,
-        paid_amount: data.paid_amount || 0,
-        booking_source: data.booking_source || null,
-        check_in_date: data.check_in_date || null,
-        check_out_date: data.check_out_date || null,
-        number_of_nights: data.number_of_nights || null,
-        remaining_amount: data.remaining_amount || 0,
-        invoice_available: data.invoice_available || false,
-
-      })
-      if (Array.isArray(data.products) && data.products.length > 0) {
-        const productsPayload = data.products.map((item) => {
-          const numberOfNights = reservation.number_of_nights ?? 0;
-          const extraGuests = parseInt(item.extra_guest, 10) || 0;
-          const extraGuestPrice = reservation.tax_amount || 0;
-          const totalExtraGuestPrice = extraGuestPrice * extraGuests * numberOfNights;
-          return {
-            reservation_id: reservation.id,
-            service_product_id: item.service_product_id,
-            start_date: item.start_date,
-            end_date: item.end_date,
-            created_by: user.id,
-            last_modified_by: user.id,
-            total_adult: parseInt(item.total_adult, 10) || 0,
-            total_children: parseInt(item.total_children, 10) || 0,
-            rate_per_night: item.rate_per_night,
-            taxes: item.taxes,
-            discounts: item.discounts,
-            extra_guest: extraGuests,
-            extra_guest_price: extraGuestPrice,
-            total_extra_guest_price: totalExtraGuestPrice,
-            total_amount: totalExtraGuestPrice + item.rate_per_night * numberOfNights,
-            status: ReservationProductStatus.PENDING
-          };
-        });
-
-
-        await ReservationServiceProduct.createMany(productsPayload)
-
-        for (const product of data.products) {
-          const serviceProduct = await ServiceProduct.find(product.service_product_id)
-          if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
-            serviceProduct.status = 'available'
-            await serviceProduct.save()
-          }
-        }
-      }
-
-      // Log the activity using our new service
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'CREATE',
-        entityType: 'Reservation',
-        entityId: reservation.id,
-        description: `Reservation #${reservation.id} was created for user ${user.firstName}.`,
-        ctx: ctx, // Pass the full context
-      })
-      trx.commit()
-      return response.created({ user, reservation })
-    } catch (error) {
-      trx.rollback()
-      return response.status(500).send({
-        message: 'Erreur lors de la création de l’utilisateur ou de la réservation',
-        error: error.message,
-      })
-    }
-  }
-
-  public async updateReservation(ctx: HttpContext) {
-    const { request, response, params } = ctx
-    const reservationId = params.id
-    const data = request.body()
-
-    try {
-      const existingReservation = await this.reservationService.findById(reservationId)
-      if (!existingReservation) {
-        return response.status(404).send({ message: 'Reservation not found' })
-      }
-
-      const userId = existingReservation.user_id
-      const userUpdatePayload: Partial<User> = {}
-
-      if (data.first_name) userUpdatePayload.first_name = data.first_name
-      if (data.last_name) userUpdatePayload.last_name = data.last_name
-      if (data.email) userUpdatePayload.email = data.email
-      if (data.phone_number) userUpdatePayload.phone_number = data.phone_number
-      if (data.role_id) userUpdatePayload.role_id = data.role_id
-      if (data.last_modified_by) userUpdatePayload.last_modified_by = data.last_modified_by
-
-      if (Object.keys(userUpdatePayload).length > 0) {
-        await this.userService.update(userId, userUpdatePayload)
-      }
-
-      const updatedReservation = await this.reservationService.update(reservationId, {
-        service_id: data.service_id,
-        reservation_type: data.reservation_type,
-        customer_type: data.customer_type,
-        status: data.status,
-        total_amount: data.total_amount,
-        guest_count: data.guest_count,
-        number_of_seats: data.number_of_seats,
-        arrived_date: data.arrived_date,
-        depart_date: data.depart_date,
-        reservation_time: data.reservation_time,
-        group_name: data.group_name,
-        company_name: data.company_name,
-        comment: data.comment,
-        last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
-        payment_status: data.payment_status,
-        discount_amount: data.discount_amount,
-        tax_amount: data.tax_amount,
-        final_amount: data.final_amount,
-        paid_amount: data.paid_amount,
-      })
-
-
-      if (!updatedReservation) {
-        return response.status(500).send({
-          message: 'Échec de la mise à jour de la réservation',
-        })
-      }
-
-      // 🔁 Gestion des produits liés à la réservation
-      if (Array.isArray(data.products)) {
-        // Libérer les anciennes chambres
-        const oldProducts = await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
-
-        for (const product of oldProducts) {
-          await ServiceProduct.query()
-            .where('id', product.service_product_id)
-            .update({ status: 'available' })
-        }
-
-        // Supprimer les anciens liens
-        await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
-          .delete()
-
-        const numberOfNights = updatedReservation.number_of_nights ?? 0
-
-        const productsPayload = data.products.map((item) => {
-          const extraGuests = parseInt(item.extra_guest, 10) || 0
-          const extraGuestPrice = updatedReservation.tax_amount || 0;
-          const totalExtraGuestPrice = extraGuestPrice * extraGuests * numberOfNights
-          return {
-            reservation_id: reservationId,
-            service_product_id: item.service_product_id,
-            start_date: item.start_date,
-            end_date: item.end_date,
-            created_by: data.last_modified_by,
-            last_modified_by: data.last_modified_by,
-            total_adult: parseInt(item.total_adult, 10) || 0,
-            total_children: parseInt(item.total_children, 10) || 0,
-            rate_per_night: item.rate_per_night,
-            taxes: item.taxes,
-            discounts: item.discounts,
-            extra_guest: extraGuests,
-            extra_guest_price: extraGuestPrice,
-            total_extra_guest_price: totalExtraGuestPrice,
-            total_amount: totalExtraGuestPrice + (item.rate_per_night || 0) * numberOfNights
-          }
-        })
-
-        // Créer les nouveaux liens
-        await ReservationServiceProduct.createMany(productsPayload)
-
-        const productIds = data.products.map(p => p.service_product_id)
-
-        await ServiceProduct.query()
-          .whereIn('id', productIds)
-          .update({ status: 'booked' })
-      }
-
-      // ✅ Logging de l'action
-      await LoggerService.log({
-        actorId: data.last_modified_by || existingReservation.last_modified_by,
-        action: 'UPDATE',
-        entityType: 'Reservation',
-        entityId: reservationId,
-        description: `Reservation #${reservationId} was updated.`,
-        ctx: ctx,
-      })
-
-      return response.ok({
-        message: 'Réservation et utilisateur mis à jour avec succès',
-        reservation: updatedReservation,
-      })
-    } catch (error) {
-      console.error('🔴 Erreur lors de la mise à jour de la réservation :', error)
-      return response.status(500).send({
-        message: 'Erreur lors de la mise à jour de la réservation ou de l’utilisateur',
-        error: error.message,
-        stack: error.stack,
-        dataReceived: data
-      })
-    }
-  }
-
-
-  async showByServiceProductId({ params, response }: HttpContext) {
-    try {
-      const { serviceProductId } = params
+      const { roomId } = params
 
       // Validation du paramètre
-      if (!serviceProductId) {
-        return response.badRequest({ message: 'serviceProductId is required' })
+      if (!roomId) {
+        return response.badRequest({ message: 'roomId is required' })
       }
 
-      const serviceIdNum = parseInt(serviceProductId, 10)
-      if (isNaN(serviceIdNum)) {
-        return response.badRequest({ message: 'Invalid serviceProductId' })
+      const roomIdNum = parseInt(roomId, 10)
+      if (isNaN(roomIdNum)) {
+        return response.badRequest({ message: 'Invalid roomId' })
       }
 
       // Récupération des réservations liées à un service product
-      const items = await ReservationServiceProduct.query()
-        .where('service_product_id', serviceIdNum)
+      const items = await ReservationRoom.query()
+        .where('id', roomId)
         .preload('reservation')
-        .preload('serviceProduct')
+        .preload('room')
         .preload('creator')
         .preload('modifier')
 
@@ -318,7 +73,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
   public async checkIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx;
-    const { reservationServiceProducts } = request.body();
+    const { reservationRooms } = request.body();
     try {
       console.log('Check-in started for reservation ID:', params.id);
 
@@ -331,7 +86,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Récupérer la liaison avec les produits
       const reservationProducts = await ReservationServiceProduct.query()
-        .where('reservation_id', reservation.id).andWhereIn('id', reservationServiceProducts);
+        .where('reservation_id', reservation.id).andWhereIn('id', reservationRooms);
 
       if (!reservationProducts.length) {
         return response.notFound({ message: 'No service product linked to this reservation' });
@@ -387,7 +142,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
   public async checkOut(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
-    const { reservationServiceProducts } = request.body();
+    const { reservationRooms } = request.body();
     try {
       console.log('Check-out started for reservation ID:', params.id);
 
@@ -399,7 +154,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       const resServices = await ReservationServiceProduct.query()
-        .where('reservation_id', params.id).andWhereIn('id', reservationServiceProducts)
+        .where('reservation_id', params.id).andWhereIn('id', reservationRooms)
         .preload('serviceProduct');
 
       if (resServices.length === 0) {
@@ -463,15 +218,20 @@ export default class ReservationsController extends CrudController<typeof Reserv
  */
   public async getReservationDetails({ params, response }: HttpContext) {
     try {
-      const reservationId = params.reservationId
+      const reservationId = parseInt(params.reservationId, 10)
+
+      if (isNaN(reservationId)) {
+        return response.badRequest({ message: 'Invalid reservation ID. Must be a valid number.' })
+      }
 
       const reservation = await Reservation.query()
         .where('id', reservationId)
-        .preload('user')
-        .preload('service')
-        .preload('payments')
-        .preload('reservationServiceProducts', (query) => {
-          query.preload('serviceProduct')
+        .whereNotNull('hotel_id')
+        .preload('guest')
+        .preload('folios')
+        .preload('bookingSource')
+        .preload('reservationRooms', (query) => {
+          query.preload('room')
         })
         .first()
 
@@ -516,7 +276,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
-        .preload('reservationServiceProducts')
+        .preload('reservationRooms')
         .first()
 
       if (!reservation) {
@@ -537,7 +297,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // --- Vérification des conflits ---
       const conflicts = []
-      for (const rsp of reservation.reservationServiceProducts) {
+      for (const rsp of reservation.reservationRooms) {
         const product = await ServiceProduct.find(rsp.service_product_id)
         const conflictingReservation = await ReservationServiceProduct.query({ client: trx })
           .where('service_product_id', rsp.service_product_id)
@@ -626,7 +386,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const additionalNights = newNumberOfNights - oldNumberOfNights
       let additionalAmount = 0
       // Mettre à jour les produits de la réservation
-      for (const rsp of reservation.reservationServiceProducts) {
+      for (const rsp of reservation.reservationRooms) {
         const rspInTrx = await ReservationServiceProduct.findOrFail(rsp.id, { client: trx })
 
         const additionalProductCost = parseFloat(`${rspInTrx.rate_per_night!}`) * additionalNights
@@ -670,7 +430,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async getCancellationSummary({ params, response }: HttpContext) {
     try {
       const reservationId = params.id
-      const reservation = await Reservation.query().where('id', reservationId).preload('service').preload('reservationServiceProducts').first()
+      const reservation = await Reservation.query().where('id', reservationId).preload('service').preload('reservationRooms').first()
 
       if (!reservation) {
         return response.notFound({ message: 'Reservation not found' })
@@ -1009,17 +769,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // 4. Filter by roomType (product name)
       if (roomType) {
-        query.whereHas('reservationServiceProducts', (rspQuery) => {
-          rspQuery.whereHas('serviceProduct', (spQuery) => {
-            spQuery.where('product_name', 'like', `%${roomType}%`)
+        query.whereHas('reservationRooms', (rspQuery) => {
+          rspQuery.whereHas('room', (spQuery) => {
+            spQuery.where('room_name', 'like', `%${roomType}%`)
           })
         })
       }
 
       // Preload related data for the response
-      query.andWhere('service_id', params.id).preload('user').preload('service').preload('reservationServiceProducts', (rspQuery) => {
-        rspQuery.preload('serviceProduct')
-      }).orderBy('created_at', 'desc').limit(50)
+      query.andWhere('hotel_id', params.id)
+        .whereNotNull('hotel_id')
+        .preload('user')
+        .preload('guest')
+        .preload('roomType')
+        .preload('bookingSource')
+        .preload('ratePlan')
+        .preload('discount')
+
+
+        //.preload('hotel')
+        .preload('reservationRooms', (rspQuery) => {
+          rspQuery.preload('room')
+        })
+        .orderBy('created_at', 'desc')
+        .limit(50)
 
       const reservations = await query
 
@@ -1283,80 +1056,118 @@ public async saveReservation(ctx: HttpContext) {
   try {
     const data = request.body() as ReservationData
 
-    // Log pour débugger
-    console.log('Received reservation data:', JSON.stringify(data, null, 2))
-
-    // Vérification que les données sont reçues
+    // Input validation
     if (!data) {
       return response.badRequest({
         success: false,
-        error: 'No data received'
+        message: 'No data received'
+      })
+    }
+
+    // Validate required fields
+    if (!data.hotel_id || !data.arrived_date || !data.depart_date || !data.rooms || data.rooms.length === 0) {
+      return response.badRequest({
+        success: false,
+        message: 'Missing required fields: hotel_id, arrived_date, depart_date, or rooms'
+      })
+    }
+
+    // Validate date format and logic
+    const arrivedDate = DateTime.fromISO(data.arrived_date)
+    const departDate = DateTime.fromISO(data.depart_date)
+    
+    if (!arrivedDate.isValid || !departDate.isValid) {
+      return response.badRequest({
+        success: false,
+        message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+      })
+    }
+    
+    if (departDate <= arrivedDate) {
+      return response.badRequest({
+        success: false,
+        message: 'Departure date must be after arrival date'
       })
     }
 
     const trx = await db.transaction()
 
     try {
-      // 1. Validation via service
+      // Calculate number of nights
+      const numberOfNights = Math.ceil(departDate.diff(arrivedDate, 'days').days)
+      
+      // Validate business logic via service
       const validationErrors = ReservationService.validateReservationData(data)
       if (validationErrors.length > 0) {
         await trx.rollback()
         return response.badRequest({
           success: false,
-          error: validationErrors.join(', ')
+          message: validationErrors.join(', ')
         })
       }
 
-      // 2. Gestion de l'invité via service
-      const guest = await ReservationService.createOrFindGuest(data)
+      // Create or find guest
+      const guest = await ReservationService.createOrFindGuest(data, trx)
 
-      // 3. Génération des numéros
+      // Generate reservation numbers
       const confirmationNumber = generateConfirmationNumber()
       const reservationNumber = generateReservationNumber()
 
-      // 4. Calculs invités
-      const totalAdults = data.rooms.reduce((sum: any, room: any) => sum + room.adult_count, 0)
-      const totalChildren = data.rooms.reduce((sum: any, room: any) => sum + room.child_count, 0)
+      // Calculate guest totals
+      const totalAdults = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
+      const totalChildren = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
+      
+      // Validate room availability
+      for (const room of data.rooms) {
+        if (room.room_id) {
+          const existingReservation = await ReservationRoom.query({ client: trx })
+            .where('roomId', room.room_id)
+            .where('status', 'reserved')
+            .where((query) => {
+              query.whereBetween('checkInDate', [arrivedDate.toISODate(), departDate.toISODate()])
+                .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
+            })
+            .first()
+            
+          if (existingReservation) {
+            await trx.rollback()
+            return response.badRequest({
+              success: false,
+              message: `Room ${room.room_id} is not available for the selected dates`
+            })
+          }
+        }
+      }
 
-      // 5. Création de la réservation avec les bons champs
+      // Create reservation
       const reservation = await Reservation.create({
-        hotelId: data.hotel_id,
-        guestId: guest.id,
-        arrived_date: DateTime.fromISO(data.arrived_date),
-        depart_date: DateTime.fromISO(data.depart_date),
-        // estimated_checkin_time: data.arrived_time,
-        // estimated_checkout_time: data.depart_time,
-        checkInTime: data.arrived_time,
-        checkOutTime: data.depart_time,
+        hotel_id: data.hotel_id,
+        user_id: guest.id,
+        arrived_date: arrivedDate,
+        depart_date: departDate,
+        check_in_date: data.arrived_time ? DateTime.fromISO(`${data.arrived_date}T${data.arrived_time}`) : arrivedDate,
+        check_out_date: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.depart_time}`) : departDate,
         status: data.status || ReservationStatus.PENDING,
-        // num_adults_total: totalAdults,
-        // num_children_total: totalChildren,
-        total_amount: data.total_amount,
-        tax_amount: data.tax_amount,
-        final_amount: data.final_amount,
-        // confirmation_code: confirmationNumber,
+        guest_count: totalAdults + totalChildren,
+        total_amount: parseFloat(data.total_amount) || 0,
+        tax_amount: parseFloat(data.tax_amount) || 0,
+        final_amount: parseFloat(data.final_amount) || parseFloat(data.total_amount) || 0,
+        confirmation_number: confirmationNumber,
         reservation_number: reservationNumber,
-        nights: data.number_of_nights,
-        number_of_nights: data.number_of_nights,
-        // total_estimated_revenue: data.total_amount,
-        // roomCharges: data.total_amount,
-        // baseRate: data.rooms[0]?.room_rate || 0,
-        // totalTaxes: data.tax_amount,
-        // netAmount: data.final_amount,
-        paid_amount: data.paid_amount || 0,
-        remaining_amount: data.remaining_amount,
-        // balanceDue: data.remaining_amount,
-        reservation_type: data.reservation_type,
-        booking_source: data.booking_source,
+        number_of_nights: numberOfNights,
+        paid_amount: parseFloat(data.paid_amount) || 0,
+        remaining_amount: parseFloat(data.remaining_amount) || (parseFloat(data.final_amount) - parseFloat(data.paid_amount || '0')),
+        reservation_type: data.reservation_type || 'online',
+        booking_source: data.booking_source || 'direct',
         source_of_business: data.business_source,
-        // reservation_datetime: DateTime.now(),
-        bookingDate: DateTime.now(),
-        payment_status: data.paid_amount && data.paid_amount >= data.final_amount
-          ? 'paid'
-          : data.paid_amount && data.paid_amount > 0
-            ? 'partially_paid'
-            : 'unpaid',
-        created_by: data.created_by,
+        payment_status: (() => {
+          const finalAmount = parseFloat(data.final_amount) || 0
+          const paidAmount = parseFloat(data.paid_amount) || 0
+          if (paidAmount >= finalAmount) return 'paid'
+          if (paidAmount > 0) return 'partially_paid'
+          return 'unpaid'
+        })(),
+        created_by: auth.user?.id || data.created_by
       }, { client: trx })
 
       // 6. Réservations de chambres

@@ -15,7 +15,13 @@ export default class AmenityPaymentsController {
     const trx = await db.transaction()
 
     try {
-      const reservationId = params.reservationId
+      const reservationId = parseInt(params.reservationId)
+      
+      if (isNaN(reservationId)) {
+        await trx.rollback()
+        return response.badRequest({ message: 'Invalid reservationId' })
+      }
+      
       const user = auth.user!
 
       const payload = await request.validateUsing(payForAmenitiesValidator)

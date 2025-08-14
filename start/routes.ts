@@ -108,6 +108,8 @@ const businessSourcesController = new BusinessSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
 const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
+const reservationsController = new ReservationsController()
+
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -419,10 +421,7 @@ router
     //     '/servicesWithServiceProduct',
     //     servicesController.getServicesWithProductsAndOptions.bind(servicesController)
     //   )
-    //   router.get(
-    //     '/services/:id/reservation/search',
-    //     reservationsController.searchReservations.bind(servicesController)
-    //   )
+    //   
     //   router.get(
     //     '/services/:serviceId/departments/:departmentId/details',
     //     departmentsController.getDepartmentDetails.bind(departmentsController)
@@ -1313,6 +1312,17 @@ router
         )
       })
       .prefix('cancellation-policies')
+
+
+      /// hotel router
+      router.get(
+        '/hotels/:id/reservation/search',
+       reservationsController.searchReservations.bind(reservationsController)
+     )
+     router.get(
+        '/reservations/:reservationId/details',
+        reservationsController.getReservationDetails.bind(reservationsController)
+       )
   })
   .prefix('/api')
   .use(
