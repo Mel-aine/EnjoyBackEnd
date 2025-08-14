@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import RoomRate from '#models/room_rate'
 import { createRoomRateValidator, updateRoomRateValidator } from '#validators/room_rate'
 import Database from '@adonisjs/lucid/services/db'
+import { DateTime } from 'luxon'
 
 export default class RoomRatesController {
   /**
@@ -327,4 +328,59 @@ export default class RoomRatesController {
       })
     }
   }
+
+  /**
+   * Récupère le baseRate le plus récent pour un roomType et rateType donnés
+   * @param hotelId - ID de l'hôtel
+   * @param roomTypeId - ID du type de chambre
+   * @param rateTypeId - ID du type de tarif
+   * @param date - Date pour laquelle récupérer le tarif (optionnel, par défaut aujourd'hui)
+   * @returns Le baseRate ou null si non trouvé
+   */
+  async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
+    try {
+      const hotelId = request.input('hotel_id')
+      const roomTypeId = request.input('room_type_id')
+      const rateTypeId = request.input('rate_type_id')
+      const dateInput = request.input('date')
+
+      // Conversion de la date en DateTime Luxon
+      const date = dateInput ? DateTime.fromISO(dateInput) : DateTime.now()
+      const dateStr = date.toSQLDate()
+
+      if (!dateStr) {
+        return response.badRequest({
+          message: 'La date fournie est invalide'
+        })
+      }
+
+      const roomRate = await RoomRate.query()
+        .where('hotel_id', hotelId)
+        .where('room_type_id', roomTypeId)
+        .where('rate_type_id', rateTypeId)
+        .where((query) => {
+          query
+            .whereNull('effective_from')
+            .orWhere('effective_from', '<=', dateStr)
+        })
+        .where((query) => {
+          query
+            .whereNull('effective_to')
+            .orWhere('effective_to', '>=', dateStr)
+        })
+        .orderBy('created_at', 'desc')
+        .first()
+
+      return response.ok({
+        message: 'Base rate récupéré avec succès',
+        baseRate: roomRate?.baseRate || null
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Impossible de récupérer le base rate',
+        error: error.message
+      })
+    }
+  }
+
 }

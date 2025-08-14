@@ -888,7 +888,7 @@ router
         router.get('/', rateTypesController.index.bind(rateTypesController)) // Get all rate types with filtering by hotel
         router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
-         router.get('/:id/hotel', rateTypesController.showByHotel.bind(rateTypesController)) // Get rate type details for a specific hotel
+         router.get('/:id/hotel', rateTypesController.showByRoomTypes.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
         router.delete('/:id', rateTypesController.destroy.bind(rateTypesController)) // Soft delete rate type
         router.patch('/:id/restore', rateTypesController.restore.bind(rateTypesController)) // Restore soft-deleted rate type
@@ -950,6 +950,7 @@ router
 
         // Room rate operations
         router.get('/date-range', roomRatesController.getByDateRange.bind(roomRatesController)) // Get room rates by date range
+        router.get('/base-rate', roomRatesController.getBaseRateByRoomAndRateType.bind(roomRatesController)) // Get base rate
         router.get('/statistics', roomRatesController.stats.bind(roomRatesController)) // Get room rate statistics
       })
       .prefix('configuration/room_rates')
@@ -1255,7 +1256,7 @@ router
           router.get('/:id', payoutReasonsController.show.bind(payoutReasonsController)) // Get specific payout reason details
           router.put('/:id', payoutReasonsController.update.bind(payoutReasonsController)) // Update payout reason information
           router.delete('/:id', payoutReasonsController.destroy.bind(payoutReasonsController)) // Soft delete payout reason
-          
+
           // Additional routes for payout reasons
           router.get('/status/:status', payoutReasonsController.getByStatus.bind(payoutReasonsController)) // Get payout reasons by status
         })
@@ -1271,7 +1272,7 @@ router
           router.get('/:id', extraChargesController.show.bind(extraChargesController)) // Get specific extra charge details
           router.put('/:id', extraChargesController.update.bind(extraChargesController)) // Update extra charge information
           router.delete('/:id', extraChargesController.destroy.bind(extraChargesController)) // Soft delete extra charge
-          
+
           // Additional routes for extra charges
           router.get('/hotel/:hotelId', extraChargesController.getByHotel.bind(extraChargesController)) // Get extra charges by hotel
           router.get('/web-published', extraChargesController.getWebPublished.bind(extraChargesController)) // Get web-published extra charges

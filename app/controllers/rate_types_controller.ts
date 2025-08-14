@@ -184,12 +184,12 @@ export default class RateTypesController {
       rateType.updatedByUserId = userId!
 
       await rateType.save()
-      
+
       // Update room types if provided
       if (payload.roomTypes !== undefined) {
         await rateType.related('roomTypes').sync(payload.roomTypes || [], trx)
       }
-      
+
       await rateType.load('hotel')
       await rateType.load('updatedByUser')
       await rateType.load('roomTypes')
@@ -349,4 +349,36 @@ export default class RateTypesController {
         })
       }
   }
+
+  /**
+   * get rate_type by roomtype
+   */
+
+   async showByRoomTypes({ params, response }: HttpContext) {
+      try {
+        const roomType = Number(params.id)
+        console.log('Fetching room types for roomType:', roomType)
+
+        if (isNaN(roomType)) {
+          return response.badRequest({ message: 'Invalid roomTypeId parameter' })
+        }
+
+        const rateTypes = await RateType.query()
+          .where('room_type_id', roomType)
+
+
+        return response.ok({
+          message: 'Rate types retrieved successfully',
+          data: rateTypes
+        })
+      } catch (error) {
+        console.error(error)
+        return response.internalServerError({
+          message: 'Error retrieving rate types',
+          error: error.message
+        })
+      }
+  }
+
+
 }
