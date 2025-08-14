@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import User from './user.js'
+import RoomType from './room_type.js'
 
 export default class RateType extends BaseModel {
   @column({ isPrimary: true })
@@ -20,16 +21,14 @@ export default class RateType extends BaseModel {
   @column({ columnName: 'is_package' })
   declare isPackage: boolean | null
 
-  @column({
-    columnName: 'room_types',
-    serialize: (value: number[] | null) => {
-      return value ? JSON.stringify(value) : null
-    },
-    consume: (value: string | null) => {
-      return value ? JSON.parse(value) : null
-    }
+  @manyToMany(() => RoomType, {
+    pivotTable: 'rate_type_room_types',
+    localKey: 'id',
+    pivotForeignKey: 'rate_type_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'room_type_id'
   })
-  declare roomTypes: number[] | null
+  declare roomTypes: ManyToMany<typeof RoomType>
 
   @column()
   declare status: 'active' | 'inactive' | 'draft'

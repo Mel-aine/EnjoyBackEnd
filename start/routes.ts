@@ -26,6 +26,7 @@ import PaymentMethodsController from '#controllers/payment_methods_controller'
 import IdentityTypesController from '#controllers/identity_types_controller'
 import ReservationRoomsController from '#controllers/reservation_rooms_controller'
 import RoomOwnersController from '#controllers/room_owners_controller'
+import RoomRatesController from '#controllers/room_rates_controller'
 import RateTypesController from '#controllers/rate_types_controller'
 import SeasonsController from '#controllers/seasons_controller'
 import ReasonsController from '#controllers/reasons_controller'
@@ -91,6 +92,7 @@ const paymentMethodsController = new PaymentMethodsController()
 const identityTypesController = new IdentityTypesController()
 const reservationRoomsController = new ReservationRoomsController()
 const roomOwnersController = new RoomOwnersController()
+const roomRatesController = new RoomRatesController()
 const rateTypesController = new RateTypesController()
 const seasonsController = new SeasonsController()
 const reasonsController = new ReasonsController()
@@ -933,6 +935,23 @@ router
       })
       .prefix('configuration/rooms')
 
+    // Room Rate Management Routes
+    // Room rate configuration and pricing management
+    router
+      .group(() => {
+        // Basic CRUD operations for room rates
+        router.get('/', roomRatesController.index.bind(roomRatesController)) // Get all room rates with filtering
+        router.post('/', roomRatesController.store.bind(roomRatesController)) // Create a new room rate
+        router.get('/:id', roomRatesController.show.bind(roomRatesController)) // Get specific room rate details
+        router.put('/:id', roomRatesController.update.bind(roomRatesController)) // Update room rate information
+        router.delete('/:id', roomRatesController.destroy.bind(roomRatesController)) // Delete room rate
+
+        // Room rate operations
+        router.get('/date-range', roomRatesController.getByDateRange.bind(roomRatesController)) // Get room rates by date range
+        router.get('/statistics', roomRatesController.stats.bind(roomRatesController)) // Get room rate statistics
+      })
+      .prefix('configuration/room_rates')
+
     // Folio Management Routes
     // Guest billing and financial management
     router
@@ -1035,6 +1054,8 @@ router
         router.get('/statistics', roomOwnersController.stats.bind(roomOwnersController)) // Get room owner statistics
       })
       .prefix('room-owners')
+
+
 
     // Currency Management Routes
     // Currency configuration and exchange rate management

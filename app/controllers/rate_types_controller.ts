@@ -17,7 +17,7 @@ export default class RateTypesController {
 
       const query = RateType.query()
         .preload('hotel')
-        .preload('roomType')
+        .preload('roomTypes')
         .preload('createdByUser')
         .preload('updatedByUser')
 
@@ -84,14 +84,19 @@ export default class RateTypesController {
         shortCode: payload.shortCode,
         rateTypeName: payload.rateTypeName,
         isPackage: payload.isPackage || null,
-        roomTypes: payload.roomTypes || null,
         status: payload.status || 'active',
         createdByUserId: userId!,
         updatedByUserId: userId!
       }, { client: trx })
 
+      // Attach room types if provided
+      if (payload.roomTypes && payload.roomTypes.length > 0) {
+        await rateType.related('roomTypes').attach(payload.roomTypes, trx)
+      }
+
       await rateType.load('hotel')
       await rateType.load('createdByUser')
+      await rateType.load('roomTypes')
 
       await trx.commit()
 
@@ -117,6 +122,7 @@ export default class RateTypesController {
         .where('id', params.id)
         .where('is_deleted', false)
         .preload('hotel')
+        .preload('roomTypes')
         .preload('createdByUser')
         .preload('updatedByUser')
         .firstOrFail()
@@ -173,14 +179,20 @@ export default class RateTypesController {
       if (payload.shortCode !== undefined) rateType.shortCode = payload.shortCode
       if (payload.rateTypeName !== undefined) rateType.rateTypeName = payload.rateTypeName
       if (payload.isPackage !== undefined) rateType.isPackage = payload.isPackage
-      if (payload.roomTypes !== undefined) rateType.roomTypes = payload.roomTypes
       if (payload.status !== undefined) rateType.status = payload.status
       
       rateType.updatedByUserId = userId!
 
       await rateType.save()
+      
+      // Update room types if provided
+      if (payload.roomTypes !== undefined) {
+        await rateType.related('roomTypes').sync(payload.roomTypes || [], trx)
+      }
+      
       await rateType.load('hotel')
       await rateType.load('updatedByUser')
+      await rateType.load('roomTypes')
 
       await trx.commit()
 
@@ -255,7 +267,7 @@ export default class RateTypesController {
 
       await rateType.save()
       await rateType.load('hotel')
-      await rateType.load('roomType')
+      await rateType.load('roomTypes')
 
       await trx.commit()
 
