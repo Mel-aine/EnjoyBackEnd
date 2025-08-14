@@ -31,7 +31,7 @@ export default class Guest extends BaseModel {
   declare email: string
 
   @column()
-  declare phoneNumber: string
+  declare phonePrimary: string
 
   @column()
   declare mobileNumber: string
@@ -56,6 +56,9 @@ export default class Guest extends BaseModel {
 
   @column()
   declare idNumber: string
+
+  @column()
+  declare addressLine: string
 
   @column.date()
   declare idExpiryDate: DateTime
@@ -82,7 +85,7 @@ export default class Guest extends BaseModel {
   declare postalCode: string
 
   @column()
-  declare company: string
+  declare companyName: string
 
   @column()
   declare jobTitle: string

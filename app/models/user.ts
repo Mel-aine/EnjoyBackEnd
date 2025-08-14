@@ -150,10 +150,10 @@ export default class User extends AuthFinder(BaseModel) {
   currentAccessToken?: AccessToken
 
   /** Relation avec le rôle */
-  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
-  @belongsTo(() => Role, { foreignKey: 'role_id' })
+  @belongsTo(() => Role, { foreignKey: 'roleId' })
   declare role: BelongsTo<typeof Role>
 
   @hasMany(() => Hotel, {

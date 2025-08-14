@@ -45,7 +45,7 @@ export default class ReservationRoom extends BaseModel {
   declare roomRate: number
 
   @column()
-  declare totalRoomCharge: number
+  declare totalRoomCharges: number
 
   @column()
   declare roomCharges: number
@@ -487,7 +487,7 @@ export default class ReservationRoom extends BaseModel {
   }
 
   get averageRatePerNight() {
-    return this.nights > 0 ? this.totalRoomCharge / this.nights : 0
+    return this.nights > 0 ? this.totalRoomCharges / this.nights : 0
   }
 
   get stayDuration() {
@@ -516,7 +516,7 @@ export default class ReservationRoom extends BaseModel {
   }
 
   get hasPreferences() {
-    return !!(this.bedPreference || this.smokingPreference !== 'no_preference' || 
+    return !!(this.bedPreference || this.smokingPreference !== 'no_preference' ||
              this.floorPreference || this.viewPreference)
   }
 

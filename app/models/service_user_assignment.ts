@@ -21,7 +21,7 @@ export default class ServiceUserAssignment extends BaseModel {
 
   @belongsTo(() => Role, {
     foreignKey: 'role',
-    localKey: 'role_name',
+    localKey: 'roleName',
   })
   declare roleModel: BelongsTo<typeof Role>
 

@@ -6,6 +6,9 @@ import vine from '@vinejs/vine'
 import User from '#models/user'
 import LoggerService from '#services/logger_service'
 import RolePermission from '#models/role_permission'
+import BookingSource from '#models/booking_source'
+import BusinessSource from '#models/business_source'
+import ReservationType from '#models/reservation_type'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -62,95 +65,111 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
-   public async signin(ctx: HttpContext) {
-    const { request, response } = ctx
-    const { email } = request.only(['email', 'password'])
 
-    try {
-      const user = await User.query().where('email', email).preload('role').firstOrFail()
 
-      console.log('ash', user.password)
-      const passwordValid = true
-      if (!passwordValid) {
-        return response.unauthorized({ message: 'Invalid credentials' })
-      }
+public async signin(ctx: HttpContext) {
+  const { request, response } = ctx
+  const { email } = request.only(['email', 'password'])
 
-      const token = await User.accessTokens.create(user, ['*'], { name: email })
+  try {
+    const user = await User.query().where('email', email).preload('role').firstOrFail()
 
-     const assignments = await user
+    const passwordValid = true
+    if (!passwordValid) {
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+
+    const token = await User.accessTokens.create(user, ['*'], { name: email })
+
+    const assignments = await user
       .related('serviceAssignments')
       .query()
       .preload('roleModel')
       .preload('hotel')
 
-      // Pour chaque serviceAssignment, charger les permissions spécifiques à (role, service)
-      const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
-        const hotel = assignment.hotel
-        const role = assignment.roleModel
+    const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
+      const hotel = assignment.hotel
+      const role = assignment.roleModel
 
-        if (!hotel || !role) {
-          return null
-        }
+      if (!hotel || !role) return null
 
-        const rolePermissions = await RolePermission
-          .query()
-          .where('role_id', role.id)
-          .andWhere('hotel_id', hotel.id)
-          .preload('permission')
+      const rolePermissions = await RolePermission
+        .query()
+        .where('role_id', role.id)
+        .andWhere('hotel_id', hotel.id)
+        .preload('permission')
 
-        const permissions = rolePermissions.map((rp) => ({
-          id: rp.permission.id,
-          name: rp.permission.name,
-          description: rp.permission.label,
-        }))
-
-        return {
-          service: {
-            id: hotel.id,
-            name: hotel.hotel_name,
-            category: hotel.hotel_code,
-          },
-          role: {
-            name: role.role_name,
-            description: role.description,
-          },
-          permissions,
-        }
+      const permissions = rolePermissions.map((rp) => ({
+        id: rp.permission.id,
+        name: rp.permission.name,
+        description: rp.permission.label,
       }))
 
-      // Enlever les éventuels nulls (si un assignment est mal formé)
-      const filteredPermissions = detailedPermissions.filter((p) => p !== null)
-
-      const userServices = assignments
-        .map((assignment) => assignment.hotel)
-        .filter((service) => service !== null)
-
-        await LoggerService.log({
-          actorId: user.id,
-          action: 'LOGIN',
-          entityType: 'User',
-          entityId: user.id.toString(),
-          description: `Connexion de l'utilisateur ${email}`,
-          ctx: ctx,
-        })
-
-      return response.ok({
-        message: 'Login successful',
-        data: {
-          user,
-          user_token: token,
-          userServices,
-          permissions: filteredPermissions,
+      return {
+        service: {
+          id: hotel.id,
+          name: hotel.hotel_name,
+          category: hotel.hotel_code,
         },
-      })
-    } catch (error) {
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.unauthorized({ message: 'Invalid credentials' })
+        role: {
+          name: role.role_name,
+          description: role.description,
+        },
+        permissions,
       }
-      console.error(error)
-      return response.badRequest({ message: 'Login failed' })
+    }))
+
+    const filteredPermissions = detailedPermissions.filter((p) => p !== null)
+    const userServices = assignments
+      .map((assignment) => assignment.hotel)
+      .filter((service) => service !== null)
+
+    // 🔹 Récupérer uniquement les IDs des hôtels liés à l'utilisateur
+    const hotelIds = userServices.map(h => h.id)
+
+    // 🔹 Récupération filtrée
+    const bookingSources = await BookingSource.query()
+      .where('isActive', true)
+      .whereIn('id', hotelIds) // si BookingSource est lié à hotelId (à adapter selon ton modèle)
+
+    const businessSources = await BusinessSource.query()
+      .whereIn('hotel_id', hotelIds)
+      .where('isDeleted', false)
+
+    const reservationTypes = await ReservationType.query()
+      .whereIn('hotel_id', hotelIds)
+      .where('isDeleted', false)
+
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Connexion de l'utilisateur ${email}`,
+      ctx: ctx,
+    })
+
+    return response.ok({
+      message: 'Login successful',
+      data: {
+        user,
+        user_token: token,
+        userServices,
+        permissions: filteredPermissions,
+        bookingSources,
+        businessSources,
+        reservationTypes,
+      },
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.unauthorized({ message: 'Invalid credentials' })
     }
+    console.error(error)
+    return response.badRequest({ message: 'Login failed' })
   }
+}
+
 
   public async update_user({ auth, request, response }: HttpContext) {
     try {

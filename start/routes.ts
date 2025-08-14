@@ -974,6 +974,14 @@ router
       })
       .prefix('reservation-rooms')
 
+
+      //Reservation Routes
+    router
+      .group(() => {
+        router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
+      })
+      .prefix('reservation')
+
     // Configuration routes
     router
       .group(() => {

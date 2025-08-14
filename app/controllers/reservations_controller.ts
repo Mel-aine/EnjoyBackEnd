@@ -8,6 +8,7 @@ import ReservationServiceProduct from '#models/reservation_room'
 import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
+import { generateConfirmationNumber } from '../utils/generate_confirmation_number.js'
 import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
@@ -17,6 +18,9 @@ import { ReservationProductStatus } from '../enums.js'
 // import { messages } from '@vinejs/vine/defaults'
 import logger from '@adonisjs/core/services/logger'
 import AmenityBooking from '../models/amenity_booking.js'
+import ReservationRoom from '#models/reservation_room'
+import ReservationService from '#services/reservation_service'
+import type { ReservationData } from '../types/reservationData.js'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -129,7 +133,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CREATE',
         entityType: 'Reservation',
         entityId: reservation.id,
-        description: `Reservation #${reservation.id} was created for user ${user.first_name}.`,
+        description: `Reservation #${reservation.id} was created for user ${user.firstName}.`,
         ctx: ctx, // Pass the full context
       })
       trx.commit()
@@ -1267,4 +1271,151 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
+
+/**
+ * Create reservation
+ */
+
+
+public async saveReservation(ctx: HttpContext) {
+  const { request, auth, response } = ctx
+
+  try {
+    const data = request.body() as ReservationData
+
+    // Log pour débugger
+    console.log('Received reservation data:', JSON.stringify(data, null, 2))
+
+    // Vérification que les données sont reçues
+    if (!data) {
+      return response.badRequest({
+        success: false,
+        error: 'No data received'
+      })
+    }
+
+    const trx = await db.transaction()
+
+    try {
+      // 1. Validation via service
+      const validationErrors = ReservationService.validateReservationData(data)
+      if (validationErrors.length > 0) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          error: validationErrors.join(', ')
+        })
+      }
+
+      // 2. Gestion de l'invité via service
+      const guest = await ReservationService.createOrFindGuest(data)
+
+      // 3. Génération des numéros
+      const confirmationNumber = generateConfirmationNumber()
+      const reservationNumber = generateReservationNumber()
+
+      // 4. Calculs invités
+      const totalAdults = data.rooms.reduce((sum: any, room: any) => sum + room.adult_count, 0)
+      const totalChildren = data.rooms.reduce((sum: any, room: any) => sum + room.child_count, 0)
+
+      // 5. Création de la réservation avec les bons champs
+      const reservation = await Reservation.create({
+        hotelId: data.hotel_id,
+        guestId: guest.id,
+        arrived_date: DateTime.fromISO(data.arrived_date),
+        depart_date: DateTime.fromISO(data.depart_date),
+        // estimated_checkin_time: data.arrived_time,
+        // estimated_checkout_time: data.depart_time,
+        checkInTime: data.arrived_time,
+        checkOutTime: data.depart_time,
+        status: data.status || ReservationStatus.PENDING,
+        // num_adults_total: totalAdults,
+        // num_children_total: totalChildren,
+        total_amount: data.total_amount,
+        tax_amount: data.tax_amount,
+        final_amount: data.final_amount,
+        // confirmation_code: confirmationNumber,
+        reservation_number: reservationNumber,
+        nights: data.number_of_nights,
+        number_of_nights: data.number_of_nights,
+        // total_estimated_revenue: data.total_amount,
+        // roomCharges: data.total_amount,
+        // baseRate: data.rooms[0]?.room_rate || 0,
+        // totalTaxes: data.tax_amount,
+        // netAmount: data.final_amount,
+        paid_amount: data.paid_amount || 0,
+        remaining_amount: data.remaining_amount,
+        // balanceDue: data.remaining_amount,
+        reservation_type: data.reservation_type,
+        booking_source: data.booking_source,
+        source_of_business: data.business_source,
+        // reservation_datetime: DateTime.now(),
+        bookingDate: DateTime.now(),
+        payment_status: data.paid_amount && data.paid_amount >= data.final_amount
+          ? 'paid'
+          : data.paid_amount && data.paid_amount > 0
+            ? 'partially_paid'
+            : 'unpaid',
+        created_by: data.created_by,
+      }, { client: trx })
+
+      // 6. Réservations de chambres
+      for (const room of data.rooms) {
+        await ReservationRoom.create({
+          reservationId: reservation.id,
+          roomTypeId: room.room_type_id,
+          roomId: room.room_id!,
+          // guestId: guest.id,
+          checkInDate: DateTime.fromISO(data.arrived_date),
+          checkOutDate: DateTime.fromISO(data.depart_date),
+          nights: data.number_of_nights,
+          adults: room.adult_count,
+          children: room.child_count,
+          roomRate: room.room_rate,
+          totalRoomCharges: room.room_rate * data.number_of_nights,
+          // taxAmount: room.room_rate * data.number_of_nights * 0.15,
+          // netAmount: room.room_rate * data.number_of_nights * 1.15,
+          status: 'reserved',
+          createdBy: data.created_by,
+        }, { client: trx })
+      }
+
+      // 7. Logging
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'CREATE',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        description: `Reservation #${reservation.id} was created for customer ${guest.firstName}.`,
+        ctx,
+      })
+
+      await trx.commit()
+      return response.created({
+        success: true,
+        reservationId: reservation.id,
+        confirmationNumber,
+        message: 'Reservation created successfully'
+      })
+
+    } catch (error) {
+      await trx.rollback()
+      console.error('Transaction error:', error)
+      throw error
+    }
+
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde de la réservation:', error)
+    return response.internalServerError({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur inconnue lors de la sauvegarde'
+    })
+  }
+}
+
+
+
+
+
+
 }

@@ -22,7 +22,7 @@ export default class extends BaseSchema {
       table.date('passport_expiry').nullable()
       table.string('visa_number', 50).nullable()
       table.date('visa_expiry').nullable()
-      table.text('address_line1').nullable()
+      table.text('address_line').nullable()
       table.text('address_line2').nullable()
       table.string('city', 100).nullable()
       table.string('state_province', 100).nullable()
@@ -46,17 +46,17 @@ export default class extends BaseSchema {
       table.timestamp('last_stay_date').nullable()
       table.integer('total_stays').defaultTo(0)
       table.decimal('total_spent', 12, 2).defaultTo(0)
-      
+
       // Audit fields
       table.integer('created_by').unsigned().nullable()
       table.integer('last_modified_by').unsigned().nullable()
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })
-      
+
       // Foreign key constraints
       table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL')
       table.foreign('last_modified_by').references('id').inTable('users').onDelete('SET NULL')
-      
+
       // Indexes
       table.index(['email'])
       table.index(['phone_primary'])

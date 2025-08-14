@@ -74,6 +74,9 @@ export default class Reservation extends BaseModel {
   declare special_notes: string | null
 
   @column()
+  declare source_of_business: string | null
+
+  @column()
   declare group_id: number | null
 
   @column.dateTime()
