@@ -21,6 +21,7 @@ import AmenityBooking from '../models/amenity_booking.js'
 import ReservationRoom from '#models/reservation_room'
 import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
+import Guest from '#models/guest'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -137,7 +138,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       });
     }
   }
-
 
 
   public async checkOut(ctx: HttpContext) {
@@ -1050,10 +1050,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
  */
 
 
-public async saveReservation(ctx: HttpContext) {
-  const { request, auth, response } = ctx
+  public async saveReservation(ctx: HttpContext) {
+    const { request, auth, response } = ctx
 
-  try {
+    try {
     const data = request.body() as ReservationData
 
     // Input validation
@@ -1225,7 +1225,49 @@ public async saveReservation(ctx: HttpContext) {
 }
 
 
+/**
+   * Get Guest by hotel_id
+   */
+async getGuestsByHotel({ params }: HttpContext) {
+  const hotelId = params.id
+  const guests = await Guest
+    .query()
+    .whereHas('reservations', (reservationQuery) => {
+      reservationQuery.where('hotel_id', hotelId)
+    })
+  return guests
+}
 
+ /**
+ * Get a single reservation with all its related information,
+ * including the user, service product, and payment.
+ *
+ * GET /reservations/:id
+ */
+  public async getReservationDetails({ params, response }: HttpContext) {
+    try {
+      const reservationId = params.reservationId
+
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('user')
+        .preload('hotel')
+        .preload('folios')
+        .preload('reservationRooms', (query) => {
+          query.preload('room')
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      return response.ok(reservation)
+    } catch (error) {
+      console.error('Error fetching reservation details:', error)
+      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
+    }
+  }
 
 
 

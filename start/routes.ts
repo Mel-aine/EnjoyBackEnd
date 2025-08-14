@@ -887,7 +887,7 @@ router
         router.get('/', rateTypesController.index.bind(rateTypesController)) // Get all rate types with filtering by hotel
         router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
-         router.get('/:id/hotel', rateTypesController.showByRoomTypes.bind(rateTypesController)) // Get rate type details for a specific hotel
+         router.get('/:id/hotel', rateTypesController.getByRoomType.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
         router.delete('/:id', rateTypesController.destroy.bind(rateTypesController)) // Soft delete rate type
         router.patch('/:id/restore', rateTypesController.restore.bind(rateTypesController)) // Restore soft-deleted rate type
@@ -943,13 +943,14 @@ router
         // Basic CRUD operations for room rates
         router.get('/', roomRatesController.index.bind(roomRatesController)) // Get all room rates with filtering
         router.post('/', roomRatesController.store.bind(roomRatesController)) // Create a new room rate
+        router.get('/base-rate', roomRatesController.getBaseRateByRoomAndRateType.bind(roomRatesController)) // Get base rate
         router.get('/:id', roomRatesController.show.bind(roomRatesController)) // Get specific room rate details
         router.put('/:id', roomRatesController.update.bind(roomRatesController)) // Update room rate information
         router.delete('/:id', roomRatesController.destroy.bind(roomRatesController)) // Delete room rate
 
         // Room rate operations
         router.get('/date-range', roomRatesController.getByDateRange.bind(roomRatesController)) // Get room rates by date range
-        router.get('/base-rate', roomRatesController.getBaseRateByRoomAndRateType.bind(roomRatesController)) // Get base rate
+
         router.get('/statistics', roomRatesController.stats.bind(roomRatesController)) // Get room rate statistics
       })
       .prefix('configuration/room_rates')
@@ -1022,6 +1023,7 @@ router
     router
       .group(() => {
         router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
+        router.get('/:id/customer',[ReservationsController, 'getGuestsByHotel'])
       })
       .prefix('reservation')
 

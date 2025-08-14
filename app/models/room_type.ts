@@ -1,9 +1,10 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import Room from './room.js'
 import RoomRate from './room_rate.js'
+import RateType from './rate_type.js'
 import User from './user.js'
 
 export default class RoomType extends BaseModel {
@@ -51,6 +52,16 @@ export default class RoomType extends BaseModel {
     }
   })
   declare roomAmenities: number[] | null
+
+  @manyToMany(() => RateType, {
+  pivotTable: 'rate_type_room_types',
+  localKey: 'id',
+  pivotForeignKey: 'room_type_id',
+  relatedKey: 'id',
+  pivotRelatedForeignKey: 'rate_type_id'
+})
+declare rateTypes: ManyToMany<typeof RateType>
+
 
   @column()
   declare color: string

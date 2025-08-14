@@ -69,7 +69,7 @@ export default class GuestsController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createGuestValidator)
-      
+
       // Create guest data with proper date conversions
       const guestData: any = {
         ...payload,
@@ -262,7 +262,7 @@ export default class GuestsController {
   async search({ request, response }: HttpContext) {
     try {
       const { query: searchQuery, type } = request.only(['query', 'type'])
-      
+
       if (!searchQuery) {
         return response.badRequest({
           message: 'Search query is required'
@@ -315,14 +315,14 @@ export default class GuestsController {
     try {
       const guest = await Guest.findOrFail(params.id)
       const { reason } = request.only(['reason'])
-      
+
       guest.blacklisted = !guest.blacklisted
       guest.lastModifiedBy = auth.user?.id || 0
-      
+
       if (guest.blacklisted && reason) {
         guest.notes = `${guest.notes || ''}\n[${new Date().toISOString()}] Blacklisted: ${reason}`
       }
-      
+
       await guest.save()
 
       return response.ok({
@@ -344,10 +344,10 @@ export default class GuestsController {
     try {
       const guest = await Guest.findOrFail(params.id)
       const { vipStatus } = request.only(['vipStatus'])
-      
+
       guest.vipStatus = vipStatus
       guest.lastModifiedBy = auth.user?.id || 0
-      
+
       await guest.save()
 
       return response.ok({
@@ -361,4 +361,9 @@ export default class GuestsController {
       })
     }
   }
+
+
+
+
+
 }

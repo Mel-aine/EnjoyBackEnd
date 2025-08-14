@@ -232,6 +232,9 @@ export default class Reservation extends BaseModel {
   declare baseRate: number
 
   @column()
+  declare roomRate: number
+
+  @column()
   declare roomCharges: number
 
   @column()
@@ -419,6 +422,10 @@ export default class Reservation extends BaseModel {
 
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>
+
+  @hasMany(() => Reservation, { foreignKey: 'guest_id' })
+declare reservations: HasMany<typeof Reservation>
+
 
   // Computed properties
   get totalOccupancy() {

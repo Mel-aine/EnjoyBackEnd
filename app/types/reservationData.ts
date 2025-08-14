@@ -19,7 +19,8 @@ export interface ReservationData {
   booking_source: string
   business_source?: string
   reservation_status?:any
-  status?:any
+  status?:any,
+  room_rate?:any,
 
   // Dates and guests
   arrived_date: string
