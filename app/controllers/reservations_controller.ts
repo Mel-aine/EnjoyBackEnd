@@ -21,6 +21,7 @@ import AmenityBooking from '../models/amenity_booking.js'
 import ReservationRoom from '#models/reservation_room'
 import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
+import Guest from '#models/guest'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -35,286 +36,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
 
-  public async createWithUserAndReservation(ctx: HttpContext) {
-    console.log(JSON.stringify(ctx.request.body()))
-    const { request, response, auth } = ctx
-    const data = request.body()
-    const trx = await db.transaction()
-    try {
-      let user = await User.query().where('email', data.email).first()
 
-      if (!user) {
-        user = await this.userService.create({
-          first_name: data.first_name,
-          last_name: data.last_name,
-          email: data.email,
-          phone_number: data.phone_number,
-          role_id: data.role_id || 4,
-          status: 'active',
-          created_by: auth.user?.id,
-          last_modified_by: auth.user?.id,
-          service_id:data.service_id
-        })
-      }
-      const reservation = await this.reservationService.create({
-        user_id: user.id,
-        service_id: data.service_id,
-        reservation_type: data.reservation_type || 'Booking via Enjoy',
-        reservation_number: generateReservationNumber(),
-        status: data.status || ReservationStatus.PENDING,
-        total_amount: data.total_amount,
-        guest_count: data.guest_count,
-        number_of_seats: data.number_of_seats || null,
-        special_requests: data.special_requests || null,
-        cancellation_reason: data.cancellation_reason || null,
-        arrived_date: data.arrived_date || null,
-        depart_date: data.depart_date || null,
-        reservation_time: data.reservation_time || null,
-        comment: data.comment,
-        created_by: auth.user?.id,
-        last_modified_by: auth.user?.id,
-        customer_type: data.customer_type || null,
-        group_name: data.group_name || null,
-        company_name: data.company_name || null,
-        payment_status: data.payment_status || 'pending',
-        discount_amount: data.discount_amount || 0,
-        tax_amount: data.tax_amount || 0,
-        final_amount: data.final_amount || data.total_amount,
-        paid_amount: data.paid_amount || 0,
-        booking_source: data.booking_source || null,
-        check_in_date: data.check_in_date || null,
-        check_out_date: data.check_out_date || null,
-        number_of_nights: data.number_of_nights || null,
-        remaining_amount: data.remaining_amount || 0,
-        invoice_available: data.invoice_available || false,
-
-      })
-      if (Array.isArray(data.products) && data.products.length > 0) {
-        const productsPayload = data.products.map((item) => {
-          const numberOfNights = reservation.number_of_nights ?? 0;
-          const extraGuests = parseInt(item.extra_guest, 10) || 0;
-          const extraGuestPrice = reservation.tax_amount || 0;
-          const totalExtraGuestPrice = extraGuestPrice * extraGuests * numberOfNights;
-          return {
-            reservation_id: reservation.id,
-            service_product_id: item.service_product_id,
-            start_date: item.start_date,
-            end_date: item.end_date,
-            created_by: user.id,
-            last_modified_by: user.id,
-            total_adult: parseInt(item.total_adult, 10) || 0,
-            total_children: parseInt(item.total_children, 10) || 0,
-            rate_per_night: item.rate_per_night,
-            taxes: item.taxes,
-            discounts: item.discounts,
-            extra_guest: extraGuests,
-            extra_guest_price: extraGuestPrice,
-            total_extra_guest_price: totalExtraGuestPrice,
-            total_amount: totalExtraGuestPrice + item.rate_per_night * numberOfNights,
-            status: ReservationProductStatus.PENDING
-          };
-        });
-
-
-        await ReservationServiceProduct.createMany(productsPayload)
-
-        for (const product of data.products) {
-          const serviceProduct = await ServiceProduct.find(product.service_product_id)
-          if (serviceProduct && serviceProduct.status !== 'occupied' && serviceProduct.status !== 'checked-in') {
-            serviceProduct.status = 'available'
-            await serviceProduct.save()
-          }
-        }
-      }
-
-      // Log the activity using our new service
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'CREATE',
-        entityType: 'Reservation',
-        entityId: reservation.id,
-        description: `Reservation #${reservation.id} was created for user ${user.firstName}.`,
-        ctx: ctx, // Pass the full context
-      })
-      trx.commit()
-      return response.created({ user, reservation })
-    } catch (error) {
-      trx.rollback()
-      return response.status(500).send({
-        message: 'Erreur lors de la création de l’utilisateur ou de la réservation',
-        error: error.message,
-      })
-    }
-  }
-
-  public async updateReservation(ctx: HttpContext) {
-    const { request, response, params } = ctx
-    const reservationId = params.id
-    const data = request.body()
-
-    try {
-      const existingReservation = await this.reservationService.findById(reservationId)
-      if (!existingReservation) {
-        return response.status(404).send({ message: 'Reservation not found' })
-      }
-
-      const userId = existingReservation.user_id
-      const userUpdatePayload: Partial<User> = {}
-
-      if (data.first_name) userUpdatePayload.first_name = data.first_name
-      if (data.last_name) userUpdatePayload.last_name = data.last_name
-      if (data.email) userUpdatePayload.email = data.email
-      if (data.phone_number) userUpdatePayload.phone_number = data.phone_number
-      if (data.role_id) userUpdatePayload.role_id = data.role_id
-      if (data.last_modified_by) userUpdatePayload.last_modified_by = data.last_modified_by
-
-      if (Object.keys(userUpdatePayload).length > 0) {
-        await this.userService.update(userId, userUpdatePayload)
-      }
-
-      const updatedReservation = await this.reservationService.update(reservationId, {
-        service_id: data.service_id,
-        reservation_type: data.reservation_type,
-        customer_type: data.customer_type,
-        status: data.status,
-        total_amount: data.total_amount,
-        guest_count: data.guest_count,
-        number_of_seats: data.number_of_seats,
-        arrived_date: data.arrived_date,
-        depart_date: data.depart_date,
-        reservation_time: data.reservation_time,
-        group_name: data.group_name,
-        company_name: data.company_name,
-        comment: data.comment,
-        last_modified_by: data.last_modified_by || existingReservation.last_modified_by,
-        payment_status: data.payment_status,
-        discount_amount: data.discount_amount,
-        tax_amount: data.tax_amount,
-        final_amount: data.final_amount,
-        paid_amount: data.paid_amount,
-      })
-
-
-      if (!updatedReservation) {
-        return response.status(500).send({
-          message: 'Échec de la mise à jour de la réservation',
-        })
-      }
-
-      // 🔁 Gestion des produits liés à la réservation
-      if (Array.isArray(data.products)) {
-        // Libérer les anciennes chambres
-        const oldProducts = await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
-
-        for (const product of oldProducts) {
-          await ServiceProduct.query()
-            .where('id', product.service_product_id)
-            .update({ status: 'available' })
-        }
-
-        // Supprimer les anciens liens
-        await ReservationServiceProduct.query()
-          .where('reservation_id', reservationId)
-          .delete()
-
-        const numberOfNights = updatedReservation.number_of_nights ?? 0
-
-        const productsPayload = data.products.map((item) => {
-          const extraGuests = parseInt(item.extra_guest, 10) || 0
-          const extraGuestPrice = updatedReservation.tax_amount || 0;
-          const totalExtraGuestPrice = extraGuestPrice * extraGuests * numberOfNights
-          return {
-            reservation_id: reservationId,
-            service_product_id: item.service_product_id,
-            start_date: item.start_date,
-            end_date: item.end_date,
-            created_by: data.last_modified_by,
-            last_modified_by: data.last_modified_by,
-            total_adult: parseInt(item.total_adult, 10) || 0,
-            total_children: parseInt(item.total_children, 10) || 0,
-            rate_per_night: item.rate_per_night,
-            taxes: item.taxes,
-            discounts: item.discounts,
-            extra_guest: extraGuests,
-            extra_guest_price: extraGuestPrice,
-            total_extra_guest_price: totalExtraGuestPrice,
-            total_amount: totalExtraGuestPrice + (item.rate_per_night || 0) * numberOfNights
-          }
-        })
-
-        // Créer les nouveaux liens
-        await ReservationServiceProduct.createMany(productsPayload)
-
-        const productIds = data.products.map(p => p.service_product_id)
-
-        await ServiceProduct.query()
-          .whereIn('id', productIds)
-          .update({ status: 'booked' })
-      }
-
-      // ✅ Logging de l'action
-      await LoggerService.log({
-        actorId: data.last_modified_by || existingReservation.last_modified_by,
-        action: 'UPDATE',
-        entityType: 'Reservation',
-        entityId: reservationId,
-        description: `Reservation #${reservationId} was updated.`,
-        ctx: ctx,
-      })
-
-      return response.ok({
-        message: 'Réservation et utilisateur mis à jour avec succès',
-        reservation: updatedReservation,
-      })
-    } catch (error) {
-      console.error('🔴 Erreur lors de la mise à jour de la réservation :', error)
-      return response.status(500).send({
-        message: 'Erreur lors de la mise à jour de la réservation ou de l’utilisateur',
-        error: error.message,
-        stack: error.stack,
-        dataReceived: data
-      })
-    }
-  }
-
-
-  async showByServiceProductId({ params, response }: HttpContext) {
-    try {
-      const { serviceProductId } = params
-
-      // Validation du paramètre
-      if (!serviceProductId) {
-        return response.badRequest({ message: 'serviceProductId is required' })
-      }
-
-      const serviceIdNum = parseInt(serviceProductId, 10)
-      if (isNaN(serviceIdNum)) {
-        return response.badRequest({ message: 'Invalid serviceProductId' })
-      }
-
-      // Récupération des réservations liées à un service product
-      const items = await ReservationServiceProduct.query()
-        .where('service_product_id', serviceIdNum)
-        .preload('reservation')
-        .preload('serviceProduct')
-        .preload('creator')
-        .preload('modifier')
-
-      // Si aucune réservation trouvée
-      if (items.length === 0) {
-        return response.notFound({ message: 'No reservations found for this service product' })
-      }
-
-      return response.ok(items)
-    } catch (error) {
-      console.error(error)
-      return response.internalServerError({
-        message: 'Error fetching reservations for service product',
-        error: error.message,
-      })
-    }
-  }
 
   public async checkIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx;
@@ -384,7 +106,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
 
-
   public async checkOut(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
     const { reservationServiceProducts } = request.body();
@@ -452,37 +173,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         message: 'Error during check-out',
         error: error.message,
       });
-    }
-  }
-
-  /**
- * Get a single reservation with all its related information,
- * including the user, service product, and payment.
- *
- * GET /reservations/:id
- */
-  public async getReservationDetails({ params, response }: HttpContext) {
-    try {
-      const reservationId = params.reservationId
-
-      const reservation = await Reservation.query()
-        .where('id', reservationId)
-        .preload('user')
-        .preload('service')
-        .preload('payments')
-        .preload('reservationServiceProducts', (query) => {
-          query.preload('serviceProduct')
-        })
-        .first()
-
-      if (!reservation) {
-        return response.notFound({ message: 'Reservation not found' })
-      }
-
-      return response.ok(reservation)
-    } catch (error) {
-      console.error('Error fetching reservation details:', error)
-      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
     }
   }
 
@@ -1277,10 +967,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
  */
 
 
-public async saveReservation(ctx: HttpContext) {
-  const { request, auth, response } = ctx
+  public async saveReservation(ctx: HttpContext) {
+    const { request, auth, response } = ctx
 
-  try {
+    try {
     const data = request.body() as ReservationData
 
     // Log pour débugger
@@ -1318,6 +1008,7 @@ public async saveReservation(ctx: HttpContext) {
       const totalAdults = data.rooms.reduce((sum: any, room: any) => sum + room.adult_count, 0)
       const totalChildren = data.rooms.reduce((sum: any, room: any) => sum + room.child_count, 0)
 
+
       // 5. Création de la réservation avec les bons champs
       const reservation = await Reservation.create({
         hotelId: data.hotel_id,
@@ -1329,12 +1020,13 @@ public async saveReservation(ctx: HttpContext) {
         checkInTime: data.arrived_time,
         checkOutTime: data.depart_time,
         status: data.status || ReservationStatus.PENDING,
-        // num_adults_total: totalAdults,
-        // num_children_total: totalChildren,
+        adults: totalAdults,
+        children: totalChildren,
         total_amount: data.total_amount,
+        roomRate : data.room_rate,
         tax_amount: data.tax_amount,
         final_amount: data.final_amount,
-        // confirmation_code: confirmationNumber,
+        confirmationNumber: confirmationNumber,
         reservation_number: reservationNumber,
         nights: data.number_of_nights,
         number_of_nights: data.number_of_nights,
@@ -1414,7 +1106,49 @@ public async saveReservation(ctx: HttpContext) {
 }
 
 
+/**
+   * Get Guest by hotel_id
+   */
+async getGuestsByHotel({ params }: HttpContext) {
+  const hotelId = params.id
+  const guests = await Guest
+    .query()
+    .whereHas('reservations', (reservationQuery) => {
+      reservationQuery.where('hotel_id', hotelId)
+    })
+  return guests
+}
 
+ /**
+ * Get a single reservation with all its related information,
+ * including the user, service product, and payment.
+ *
+ * GET /reservations/:id
+ */
+  public async getReservationDetails({ params, response }: HttpContext) {
+    try {
+      const reservationId = params.reservationId
+
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('user')
+        .preload('hotel')
+        .preload('folios')
+        .preload('reservationRooms', (query) => {
+          query.preload('room')
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      return response.ok(reservation)
+    } catch (error) {
+      console.error('Error fetching reservation details:', error)
+      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
+    }
+  }
 
 
 

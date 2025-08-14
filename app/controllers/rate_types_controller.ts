@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import RateType from '#models/rate_type'
+import RoomType from '#models/room_type'
 import { createRateTypeValidator, updateRateTypeValidator } from '#validators/rate_type'
 import Database from '@adonisjs/lucid/services/db'
 
@@ -354,31 +355,34 @@ export default class RateTypesController {
    * get rate_type by roomtype
    */
 
-   async showByRoomTypes({ params, response }: HttpContext) {
-      try {
-        const roomType = Number(params.id)
-        console.log('Fetching room types for roomType:', roomType)
+public async getByRoomType({ params, response }: HttpContext) {
+  try {
+    const roomTypeId = Number(params.id)
 
-        if (isNaN(roomType)) {
-          return response.badRequest({ message: 'Invalid roomTypeId parameter' })
-        }
+    const roomType = await RoomType.query()
+      .where('id', roomTypeId)
+      .preload('rateTypes', (query) => {
+        query.where('is_deleted', false)
+      })
+      .first()
 
-        const rateTypes = await RateType.query()
-          .where('room_type_id', roomType)
+    if (!roomType) {
+      return response.status(404).json({ message: 'Room type not found' })
+    }
 
-
-        return response.ok({
-          message: 'Rate types retrieved successfully',
-          data: rateTypes
-        })
-      } catch (error) {
-        console.error(error)
-        return response.internalServerError({
-          message: 'Error retrieving rate types',
-          error: error.message
-        })
+    return response.json({
+      roomType: {
+        id: roomType.id,
+        rateTypes: roomType.rateTypes
       }
+    })
+  } catch (error) {
+    console.error(error)
+    return response.status(500).json({ message: 'Error fetching rate types' })
   }
+}
+
+
 
 
 }

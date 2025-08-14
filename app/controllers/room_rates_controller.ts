@@ -372,6 +372,7 @@ export default class RoomRatesController {
         .first()
 
       return response.ok({
+        id:roomRate?.id,
         message: 'Base rate récupéré avec succès',
         baseRate: roomRate?.baseRate || null
       })
