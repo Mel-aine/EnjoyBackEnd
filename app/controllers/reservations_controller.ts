@@ -1131,8 +1131,7 @@ async getGuestsByHotel({ params }: HttpContext) {
 
       const reservation = await Reservation.query()
         .where('id', reservationId)
-        .preload('user')
-        .preload('hotel')
+        .preload('guest')
         .preload('folios')
         .preload('reservationRooms', (query) => {
           query.preload('room')
