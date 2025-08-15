@@ -144,7 +144,7 @@ export default class FoliosController {
         .preload('hotel')
         .preload('guest')
         .preload('transactions', (query) => {
-          query.orderBy('transaction_date', 'desc')
+          query.orderBy('transactionDate', 'desc')
         })
         .firstOrFail()
 
@@ -333,7 +333,7 @@ export default class FoliosController {
         .preload('hotel')
         .preload('guest')
         .preload('transactions', (query) => {
-          query.orderBy('transaction_date', 'asc')
+          query.orderBy('transactionDate', 'asc')
         })
         .firstOrFail()
 

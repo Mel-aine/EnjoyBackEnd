@@ -13,24 +13,24 @@ export default class FolioTransactionsController {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
-      const folioId = request.input('folio_id')
-      const transactionType = request.input('transaction_type')
+      const hotelId = request.input('hotelId')
+      const folioId = request.input('folioId')
+      const transactionType = request.input('transactionType')
       const category = request.input('category')
       const status = request.input('status')
-      const dateFrom = request.input('date_from')
-      const dateTo = request.input('date_to')
-      const amountFrom = request.input('amount_from')
-      const amountTo = request.input('amount_to')
+      const dateFrom = request.input('dateFrom')
+      const dateTo = request.input('dateTo')
+      const amountFrom = request.input('amountFrom')
+      const amountTo = request.input('amountTo')
 
       const query = FolioTransaction.query()
 
       if (hotelId) {
-        query.where('hotel_id', hotelId)
+        query.where('hotelId', hotelId)
       }
 
       if (folioId) {
-        query.where('folio_id', folioId)
+        query.where('folioId', folioId)
       }
 
       if (search) {
@@ -38,12 +38,12 @@ export default class FolioTransactionsController {
           builder
             .where('transaction_number', 'ILIKE', `%${search}%`)
             .orWhere('description', 'ILIKE', `%${search}%`)
-            .orWhere('reference_number', 'ILIKE', `%${search}%`)
+            .orWhere('reference', 'ILIKE', `%${search}%`)
         })
       }
 
       if (transactionType) {
-        query.where('transaction_type', transactionType)
+        query.where('transactionType', transactionType)
       }
 
       if (category) {
@@ -55,11 +55,11 @@ export default class FolioTransactionsController {
       }
 
       if (dateFrom) {
-        query.where('transaction_date', '>=', new Date(dateFrom))
+        query.where('transactionDate', '>=', new Date(dateFrom))
       }
 
       if (dateTo) {
-        query.where('transaction_date', '<=', new Date(dateTo))
+        query.where('transactionDate', '<=', new Date(dateTo))
       }
 
       if (amountFrom) {
@@ -74,7 +74,7 @@ export default class FolioTransactionsController {
         .preload('hotel')
         .preload('folio')
         .preload('paymentMethod')
-        .orderBy('transaction_date', 'desc')
+        .orderBy('transactionDate', 'desc')
         .paginate(page, limit)
 
       return response.ok({
@@ -98,17 +98,16 @@ export default class FolioTransactionsController {
       
       // Generate transaction number
       const lastTransaction = await FolioTransaction.query()
-        .where('hotel_id', payload.hotel_id)
-        .orderBy('created_at', 'desc')
+        .where('hotelId', payload.HotelId)
+        .orderBy('id', 'desc')
         .first()
-      
-      const transactionNumber = `TXN-${payload.hotel_id}-${String((lastTransaction?.id || 0) + 1).padStart(10, '0')}`
+      const transactionNumber = `TXN-${payload.HotelId}-${String((lastTransaction?.id || 0) + 1).padStart(10, '0')}`
       
       const transaction = await FolioTransaction.create({
-        hotelId: payload.hotel_id,
-        folioId: payload.folio_id,
+        hotelId: payload.HotelId,
+        folioId: payload.FolioId,
         transactionNumber,
-        transactionType: payload.transaction_type,
+        transactionType: payload.TransactionType,
         category: payload.category as 'room' | 'food_beverage' | 'telephone' | 'laundry' | 'minibar' | 'spa' | 'business_center' | 'parking' | 'internet' | 'miscellaneous' | 'package' | 'incidental' | 'tax' | 'service_charge' | 'deposit' | 'payment' | 'adjustment' || 'miscellaneous',
         description: payload.description,
         amount: payload.amount,
@@ -122,7 +121,7 @@ export default class FolioTransactionsController {
         discountRate: 0,
         netAmount: payload.amount,
         grossAmount: payload.amount,
-        transactionDate: payload.transaction_date ? DateTime.fromJSDate(new Date(payload.transaction_date)) : DateTime.now(),
+        transactionDate: payload.TransactionDate ? DateTime.fromJSDate(new Date(payload.TransactionDate)) : DateTime.now(),
         postingDate: payload.posting_date ? DateTime.fromJSDate(new Date(payload.posting_date)) : DateTime.now(),
         serviceDate: DateTime.now(),
         reference: payload.reference || '',
@@ -133,7 +132,7 @@ export default class FolioTransactionsController {
       })
 
       // Update folio totals
-      await this.updateFolioTotals(payload.folio_id)
+      await this.updateFolioTotals(payload.FolioId)
 
       await transaction.load('hotel')
       await transaction.load('folio')
@@ -191,9 +190,9 @@ export default class FolioTransactionsController {
       const payload = await request.validateUsing(updateFolioTransactionValidator)
 
       // Map validator properties to model properties
-      if (payload.hotel_id) transaction.hotelId = payload.hotel_id
-      if (payload.folio_id) transaction.folioId = payload.folio_id
-      if (payload.transaction_type) transaction.transactionType = payload.transaction_type
+      if (payload.HotelId) transaction.hotelId = payload.HotelId
+      if (payload.FolioId) transaction.folioId = payload.FolioId
+      if (payload.TransactionType) transaction.transactionType = payload.TransactionType
       if (payload.category) transaction.category = payload.category as 'room' | 'food_beverage' | 'telephone' | 'laundry' | 'minibar' | 'spa' | 'business_center' | 'parking' | 'internet' | 'miscellaneous' | 'package' | 'incidental' | 'tax' | 'service_charge' | 'deposit' | 'payment' | 'adjustment'
       if (payload.description) transaction.description = payload.description
       if (payload.amount) transaction.amount = payload.amount
@@ -206,7 +205,7 @@ export default class FolioTransactionsController {
       if (payload.reference) transaction.reference = payload.reference
       if (payload.external_reference) transaction.externalReference = payload.external_reference
       if (payload.status) transaction.status = payload.status
-      if (payload.transaction_date) transaction.transactionDate = DateTime.fromJSDate(new Date(payload.transaction_date))
+      if (payload.TransactionDate) transaction.transactionDate = DateTime.fromJSDate(new Date(payload.TransactionDate))
       if (payload.posting_date) transaction.postingDate = DateTime.fromJSDate(new Date(payload.posting_date))
       
       transaction.lastModifiedBy = auth.user?.id || 0
@@ -479,10 +478,10 @@ export default class FolioTransactionsController {
       
       const query = FolioTransaction.query()
       if (hotelId) {
-        query.where('hotel_id', hotelId)
+        query.where('hotelId', hotelId)
       }
       if (folioId) {
-        query.where('folio_id', folioId)
+        query.where('folioId', folioId)
       }
 
       // Apply period filter if provided
@@ -507,19 +506,19 @@ export default class FolioTransactionsController {
             startDate = new Date(0)
         }
         
-        query.where('transaction_date', '>=', startDate)
+        query.where('transactionDate', '>=', startDate)
       }
 
       const totalTransactions = await query.clone().count('* as total')
-      const chargeTransactions = await query.clone().where('transaction_type', 'charge').count('* as total')
-      const paymentTransactions = await query.clone().where('transaction_type', 'payment').count('* as total')
-      const adjustmentTransactions = await query.clone().where('transaction_type', 'adjustment').count('* as total')
-      const voidedTransactions = await query.clone().where('is_voided', true).count('* as total')
-      const refundedTransactions = await query.clone().where('is_refunded', true).count('* as total')
+      const chargeTransactions = await query.clone().where('transactionType', 'charge').count('* as total')
+      const paymentTransactions = await query.clone().where('transactionType', 'payment').count('* as total')
+      const adjustmentTransactions = await query.clone().where('transactionType', 'adjustment').count('* as total')
+      const voidedTransactions = await query.clone().where('isVoided', true).count('* as total')
+      const refundedTransactions = await query.clone().where('isRefunded', true).count('* as total')
       
       const totalAmount = await query.clone().sum('amount as amount')
-      const totalCharges = await query.clone().where('transaction_type', 'charge').sum('amount as amount')
-      const totalPayments = await query.clone().where('transaction_type', 'payment').sum('amount as amount')
+      const totalCharges = await query.clone().where('transactionType', 'charge').sum('amount as amount')
+      const totalPayments = await query.clone().where('transactionType', 'payment').sum('amount as amount')
 
       const stats = {
         totalTransactions: totalTransactions[0].$extras.total,
@@ -552,8 +551,8 @@ export default class FolioTransactionsController {
     const folio = await Folio.findOrFail(folioId)
     
     const transactions = await FolioTransaction.query()
-      .where('folio_id', folioId)
-      .where('is_voided', false)
+      .where('folioId', folioId)
+      .where('isVoided', false)
     
     let totalCharges = 0
     let totalPayments = 0

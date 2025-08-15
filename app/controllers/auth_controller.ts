@@ -9,6 +9,7 @@ import RolePermission from '#models/role_permission'
 import BookingSource from '#models/booking_source'
 import BusinessSource from '#models/business_source'
 import ReservationType from '#models/reservation_type'
+import Currency from '../models/currency.js'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -140,6 +141,11 @@ public async signin(ctx: HttpContext) {
       .whereIn('hotel_id', hotelIds)
       .where('isDeleted', false)
 
+    const currencies = await Currency.query()
+      .whereIn('hotel_id', hotelIds)
+      .where('isDeleted', false)
+
+
     await LoggerService.log({
       actorId: user.id,
       action: 'LOGIN',
@@ -159,6 +165,7 @@ public async signin(ctx: HttpContext) {
         bookingSources,
         businessSources,
         reservationTypes,
+        currencies
       },
     })
   } catch (error) {
