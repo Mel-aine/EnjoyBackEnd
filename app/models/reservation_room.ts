@@ -6,6 +6,7 @@ import RoomType from './room_type.js'
 import User from './user.js'
 import Reservation from './reservation.js'
 import Guest from './guest.js'
+import RoomRate from './room_rate.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -424,6 +425,9 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare upgradedBy: number
 
+  @column()
+  declare roomRateId: number | null
+
   // No-show tracking
   @column()
   declare noShowReason: string
@@ -469,6 +473,9 @@ export default class ReservationRoom extends BaseModel {
   @belongsTo(() => Guest, { foreignKey: 'guestId' })
   declare guest: BelongsTo<typeof Guest>
 
+
+  @belongsTo(() => RoomRate,{ foreignKey : 'roomRateId'})
+  declare roomRates: BelongsTo <typeof RoomRate>
   // Computed properties
   get isCheckedIn() {
     return this.status === 'checked_in'

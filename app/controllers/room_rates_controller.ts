@@ -337,51 +337,123 @@ export default class RoomRatesController {
    * @param date - Date pour laquelle récupérer le tarif (optionnel, par défaut aujourd'hui)
    * @returns Le baseRate ou null si non trouvé
    */
-  async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
-    try {
-      const hotelId = request.input('hotel_id')
-      const roomTypeId = request.input('room_type_id')
-      const rateTypeId = request.input('rate_type_id')
-      const dateInput = request.input('date')
+  // async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
+  //   try {
+  //     const hotelId = request.input('hotel_id')
+  //     const roomTypeId = request.input('room_type_id')
+  //     const rateTypeId = request.input('rate_type_id')
+  //     const dateInput = request.input('date')
 
-      // Conversion de la date en DateTime Luxon
-      const date = dateInput ? DateTime.fromISO(dateInput) : DateTime.now()
-      const dateStr = date.toSQLDate()
+  //     // Conversion de la date en DateTime Luxon
+  //     const date = dateInput ? DateTime.fromISO(dateInput) : DateTime.now()
+  //     const dateStr = date.toSQLDate()
 
-      if (!dateStr) {
-        return response.badRequest({
-          message: 'La date fournie est invalide'
-        })
-      }
+  //     if (!dateStr) {
+  //       return response.badRequest({
+  //         message: 'La date fournie est invalide'
+  //       })
+  //     }
 
-      const roomRate = await RoomRate.query()
-        .where('hotel_id', hotelId)
-        .where('room_type_id', roomTypeId)
-        .where('rate_type_id', rateTypeId)
-        .where((query) => {
-          query
-            .whereNull('effective_from')
-            .orWhere('effective_from', '<=', dateStr)
-        })
-        .where((query) => {
-          query
-            .whereNull('effective_to')
-            .orWhere('effective_to', '>=', dateStr)
-        })
-        .orderBy('created_at', 'desc')
-        .first()
+  //     const roomRate = await RoomRate.query()
+  //       .where('hotel_id', hotelId)
+  //       .where('room_type_id', roomTypeId)
+  //       .where('rate_type_id', rateTypeId)
+  //       .where((query) => {
+  //         query
+  //           .whereNull('effective_from')
+  //           .orWhere('effective_from', '<=', dateStr)
+  //       })
+  //       .where((query) => {
+  //         query
+  //           .whereNull('effective_to')
+  //           .orWhere('effective_to', '>=', dateStr)
+  //       })
+  //       .orderBy('created_at', 'desc')
+  //       .first()
 
-      return response.ok({
-        id:roomRate?.id,
-        message: 'Base rate récupéré avec succès',
-        baseRate: roomRate?.baseRate || null
-      })
-    } catch (error) {
+  //     return response.ok({
+  //       id:roomRate?.id,
+  //       message: 'Base rate récupéré avec succès',
+  //       baseRate: roomRate?.baseRate || null
+  //     })
+  //   } catch (error) {
+  //     return response.badRequest({
+  //       message: 'Impossible de récupérer le base rate',
+  //       error: error.message
+  //     })
+  //   }
+  // }
+async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
+  try {
+    const hotelId = request.input('hotel_id')
+    const roomTypeId = request.input('room_type_id')
+    const rateTypeId = request.input('rate_type_id')
+    const dateInput = request.input('date')
+
+    // Conversion de la date en DateTime Luxon
+    const date = dateInput ? DateTime.fromISO(dateInput) : DateTime.now()
+    const dateStr = date.toSQLDate()
+
+    if (!dateStr) {
       return response.badRequest({
-        message: 'Impossible de récupérer le base rate',
-        error: error.message
+        message: 'La date fournie est invalide'
       })
     }
-  }
 
+    const roomRate = await RoomRate.query()
+      .where('hotel_id', hotelId)
+      .where('room_type_id', roomTypeId)
+      .where('rate_type_id', rateTypeId)
+      .where((query) => {
+        query
+          .whereNull('effective_from')
+          .orWhere('effective_from', '<=', dateStr)
+      })
+      .where((query) => {
+        query
+          .whereNull('effective_to')
+          .orWhere('effective_to', '>=', dateStr)
+      })
+      .orderBy('created_at', 'desc')
+      .first()
+
+    if (!roomRate) {
+      return response.notFound({
+        message: 'Aucun tarif trouvé pour les critères spécifiés'
+      })
+    }
+
+    // Retourner toutes les informations de tarification nécessaires
+    return response.ok({
+      id: roomRate.id,
+      message: 'Tarifs récupérés avec succès',
+      baseRate: roomRate.baseRate || 0,
+      extraAdultRate: roomRate.extraAdultRate || 0,
+      extraChildRate: roomRate.extraChildRate || 0,
+      extraPersonRate: roomRate.extraPersonRate || 0,
+      singleOccupancyRate: roomRate.singleOccupancyRate || 0,
+      doubleOccupancyRate: roomRate.doubleOccupancyRate || 0,
+      tripleOccupancyRate: roomRate.tripleOccupancyRate || 0,
+      weekendRate: roomRate.weekendRate || 0,
+      holidayRate: roomRate.holidayRate || 0,
+      peakSeasonRate: roomRate.peakSeasonRate || 0,
+      offSeasonRate: roomRate.offSeasonRate || 0,
+      minimumNights: roomRate.minimumNights || 1,
+      maximumNights: roomRate.maximumNights || null,
+      isAvailable: roomRate.isAvailable,
+      availableRooms: roomRate.availableRooms || 0,
+      restrictions: roomRate.restrictions || {},
+      bookingRules: roomRate.bookingRules || {},
+      rateDate: dateStr,
+      effectiveFrom: roomRate.effectiveFrom,
+      effectiveTo: roomRate.effectiveTo
+    })
+  } catch (error) {
+    console.error('Erreur lors de la récupération du tarif:', error)
+    return response.badRequest({
+      message: 'Impossible de récupérer les tarifs',
+      error: error.message
+    })
+  }
+}
 }
