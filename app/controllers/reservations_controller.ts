@@ -22,6 +22,7 @@ import ReservationRoom from '#models/reservation_room'
 import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
 import Guest from '#models/guest'
+import { Logger } from '@adonisjs/core/logger'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -1213,7 +1214,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Create or find primary guest
-      const guest = await ReservationService.createOrFindGuest(data)
+      const guest = await ReservationService.createOrFindGuest(data, trx)
 
       // Generate reservation numbers
       const confirmationNumber = generateConfirmationNumber()
@@ -1246,9 +1247,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Create reservation
+      logger.info('Creating reservation with data: %o', guest)
       const reservation = await Reservation.create({
         hotel_id: data.hotel_id,
-        user_id: guest.id,
+        user_id: auth.user?.id || data.created_by,
+        // guest_id: guest.id, // Removed - using reservation_guests pivot table instead
         arrived_date: arrivedDate,
         depart_date: departDate,
         check_in_date: data.arrived_time ? DateTime.fromISO(`${data.arrived_date}T${data.arrived_time}`) : arrivedDate,
@@ -1276,11 +1279,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
         created_by: auth.user?.id || data.created_by
       }, { client: trx })
 
+      // Vérifier que la réservation a bien été créée avec un ID
+      logger.info('Réservation créée avec ID:', reservation.id)
+      if (!reservation.id) {
+        throw new Error('La réservation n\'a pas pu être créée correctement - ID manquant')
+      }
+
       // 6. Process multiple guests for the reservation
       const { primaryGuest, allGuests } = await ReservationService.processReservationGuests(
         reservation.id,
-        data
+        data,
+        trx
       )
+
+      // 6.1. Mettre à jour la réservation avec l'ID du primary guest
+      await reservation.merge({ guest_id: primaryGuest.id }).save({ client: trx })
+      logger.info('Réservation mise à jour avec primary guest ID:', primaryGuest.id)
 
       // 7. Réservations de chambres
       for (const room of data.rooms) {
