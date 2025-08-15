@@ -21,6 +21,9 @@ export default class Folio extends BaseModel {
   declare folioNumber: string
 
   @column()
+  declare folioName: string
+
+  @column()
   declare folioType: 'guest' | 'master' | 'group' | 'house' | 'city_ledger' | 'advance_deposit'
 
   @column()
@@ -213,6 +216,9 @@ export default class Folio extends BaseModel {
   declare guestNotes: string
 
   @column()
+  declare notes: string
+
+  @column()
   declare printCount: number
 
   @column.dateTime()
@@ -297,6 +303,18 @@ export default class Folio extends BaseModel {
   declare businessRegistration: string
 
   @column()
+  declare gstinNo: string
+
+  @column()
+  declare showTariffOnPrint: boolean
+
+  @column()
+  declare postCommissionToTa: boolean
+
+  @column()
+  declare generateInvoiceNumber: boolean
+
+  @column()
   declare accountingPeriod: string
 
   @column()
@@ -307,6 +325,58 @@ export default class Folio extends BaseModel {
 
   @column()
   declare auditTrail: object
+
+  // Missing database fields
+  @column()
+  declare paymentMethod: string | null
+
+  @column()
+  declare referenceNumber: string | null
+
+  @column()
+  declare billingInstructions: string | null
+
+  @column()
+  declare taxId: string | null
+
+  @column()
+  declare autoPostRoomCharges: boolean
+
+  @column()
+  declare autoPostTax: boolean
+
+  @column()
+  declare creditLimitExceeded: boolean
+
+  @column.dateTime()
+  declare lastPostedCharge: DateTime | null
+
+  @column()
+  declare closingNotes: string | null
+
+  @column()
+  declare finalBalance: number | null
+
+  @column()
+  declare printed: boolean
+
+  @column.dateTime()
+  declare printedDate: DateTime | null
+
+  @column()
+  declare printedBy: number | null
+
+  @column()
+  declare emailed: boolean
+
+  @column.dateTime()
+  declare emailedDate: DateTime | null
+
+  @column()
+  declare emailAddress: string | null
+
+  @column()
+  declare paymentHistory: object | null
 
   @column()
   declare createdBy: number

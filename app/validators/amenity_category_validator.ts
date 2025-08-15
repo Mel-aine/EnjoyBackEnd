@@ -27,3 +27,8 @@ export const updateAmenityCategoryValidator = vine.compile(
       .minLength(1).optional()
   })
 )
+
+export default {
+  createAmenityCategoryValidator,
+  updateAmenityCategoryValidator
+}

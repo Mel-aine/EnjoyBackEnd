@@ -4,7 +4,6 @@ import FolioTransaction from '#models/folio_transaction'
 import Guest from '#models/guest'
 import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
-import User from '#models/user'
 import { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import db from '@adonisjs/lucid/services/db'
 
@@ -15,8 +14,13 @@ export interface CreateFolioData {
   groupId?: number
   companyId?: number
   folioType: 'guest' | 'master' | 'group' | 'company' | 'house' | 'city_ledger'
+  folioName?: string
   creditLimit?: number
   notes?: string
+  gstinNo?: string
+  showTariffOnPrint?: boolean
+  postCommissionToTa?: boolean
+  generateInvoiceNumber?: boolean
   createdBy: number
 }
 
@@ -79,6 +83,9 @@ export default class FolioService {
       // Generate unique folio number
       const folioNumber = await this.generateFolioNumber(data.hotelId, trx)
       
+      // Generate folio name if not provided
+      const folioName = data.folioName || `${guest.firstName} ${guest.lastName} - ${data.folioType.toUpperCase()}`
+      
       // Create folio
       const folio = await Folio.create({
         hotelId: data.hotelId,
@@ -87,6 +94,7 @@ export default class FolioService {
         groupId: data.groupId,
         companyId: data.companyId,
         folioNumber,
+        folioName,
         folioType: data.folioType,
         status: 'open',
         settlementStatus: 'pending',
@@ -94,6 +102,10 @@ export default class FolioService {
         openedDate: DateTime.now(),
         creditLimit: data.creditLimit || 0,
         notes: data.notes,
+        gstinNo: data.gstinNo,
+        showTariffOnPrint: data.showTariffOnPrint,
+        postCommissionToTa: data.postCommissionToTa,
+        generateInvoiceNumber: data.generateInvoiceNumber,
         createdBy: data.createdBy,
         lastModifiedBy: data.createdBy,
         openedBy: data.createdBy

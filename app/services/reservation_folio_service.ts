@@ -362,11 +362,34 @@ export default class ReservationFolioService {
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('guests')
+        .preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions', (transactionQuery) => {
+            transactionQuery.where('category', 'room_charge')
+          })
+        })
         .firstOrFail()
 
+      // Find the primary guest's folio
+      const primaryFolio = reservation.folios.find(folio => {
+        // Check if this folio belongs to the primary guest
+        const primaryGuest = reservation.guests.find(guest => guest.$extras.pivot_is_primary)
+        return primaryGuest && folio.guestId === primaryGuest.id
+      }) || reservation.folios[0] // Fallback to first folio if no primary found
+
+      if (!primaryFolio) {
+        throw new Error('No primary folio found for reservation')
+      }
+
       const folios: Folio[] = []
+      const roomChargeTransactions = primaryFolio.transactions || []
 
       for (const guest of reservation.guests) {
+        // Skip if this is the primary guest (they already have the folio)
+        if (guest.$extras.pivot_is_primary) {
+          folios.push(primaryFolio)
+          continue
+        }
+
         const folioData: CreateFolioData = {
           hotelId: reservation.hotelId,
           guestId: guest.id,
@@ -381,9 +404,74 @@ export default class ReservationFolioService {
 
         const folio = await FolioService.createFolio(folioData)
         folios.push(folio)
+
+        // Copy all room charge transactions from primary folio to this guest's folio
+        for (const transaction of roomChargeTransactions) {
+          await FolioService.postTransaction({
+            folioId: folio.id,
+            transactionType: transaction.transactionType,
+            category: transaction.category,
+            description: `${transaction.description} (Copied from primary folio)`,
+            amount: transaction.amount,
+            quantity: transaction.quantity,
+            unitPrice: transaction.unitPrice,
+            taxAmount: transaction.taxAmount,
+            serviceChargeAmount: transaction.serviceChargeAmount,
+            discountAmount: transaction.discountAmount,
+            departmentId: transaction.departmentId,
+            revenueCenterId: transaction.revenueCenterId,
+            costCenterId: transaction.costCenterId,
+            glAccountCode: transaction.glAccountCode,
+            reference: transaction.reference,
+            notes: `Copied from primary guest folio - ${transaction.notes || ''}`,
+            postedBy: createdBy
+          })
+        }
       }
 
       return folios
+    })
+  }
+
+  /**
+   * Create folios for all guests when reservation is confirmed
+   * This method should be called when a reservation status is updated to 'confirmed'
+   */
+  static async createFoliosOnConfirmation(
+    reservationId: number,
+    confirmedBy: number
+  ): Promise<Folio[]> {
+    return await db.transaction(async (trx) => {
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('guests')
+        .firstOrFail()
+
+      // Check if reservation is confirmed
+      if (reservation.status !== 'confirmed') {
+        throw new Error('Reservation must be confirmed to create folios')
+      }
+
+      // Check if folios already exist
+      const existingFolios = await this.getFoliosForReservation(reservationId)
+      if (existingFolios.length > 0) {
+        // If folios exist, create individual folios for all guests
+        return await this.createIndividualFoliosForGuests(reservationId, confirmedBy)
+      }
+
+      // Create primary folio first
+      const primaryFolio = await this.createFolioForReservation({
+        reservationId,
+        folioType: 'guest',
+        notes: `Primary folio for reservation ${reservation.confirmationNumber}`,
+        createdBy: confirmedBy
+      })
+
+      // Post room charges to primary folio
+      await this.postRoomCharges(reservationId, confirmedBy)
+
+      // Create individual folios for all guests (including copying charges)
+      return await this.createIndividualFoliosForGuests(reservationId, confirmedBy)
     })
   }
 

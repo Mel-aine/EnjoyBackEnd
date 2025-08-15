@@ -54,9 +54,14 @@ export const createFolioServiceValidator = vine.compile(
     groupId: vine.number().positive().optional(),
     companyId: vine.number().positive().optional(),
     folioType: vine.enum(['guest', 'master', 'group', 'company']).optional(),
+    folioName: vine.string().optional(),
     creditLimit: vine.number().min(0).optional(),
     notes: vine.string().maxLength(500).optional(),
-    createdBy: vine.number().positive()
+    gstinNo: vine.string().optional(),
+    showTariffOnPrint: vine.boolean().optional(),
+    postCommissionToTa: vine.boolean().optional(),
+    generateInvoiceNumber: vine.boolean().optional(),
+    createdBy: vine.number().positive().optional()
   })
 )
 
@@ -145,6 +150,7 @@ export const createFolioValidator = vine.compile(
     guest_id: vine.number().positive().optional(),
     reservation_id: vine.number().positive().optional(),
     folio_number: vine.string().optional(),
+    folio_name: vine.string().optional(),
     folio_type: vine.enum(['guest', 'master', 'group', 'house', 'city_ledger', 'ar']),
     
     // Status
@@ -326,6 +332,12 @@ export const createFolioValidator = vine.compile(
     tags: vine.string().optional(),
     category: vine.string().optional(),
     subcategory: vine.string().optional(),
+    
+    // New fields
+    gstin_no: vine.string().optional(),
+    show_tariff_on_print: vine.boolean().optional(),
+    post_commission_to_ta: vine.boolean().optional(),
+    generate_invoice_number: vine.boolean().optional(),
   })
 )
 
@@ -336,6 +348,7 @@ export const updateFolioValidator = vine.compile(
     guest_id: vine.number().positive().optional(),
     reservation_id: vine.number().positive().optional(),
     folio_number: vine.string().optional(),
+    folio_name: vine.string().optional(),
     folio_type: vine.enum(['guest', 'master', 'group', 'house', 'city_ledger', 'ar']).optional(),
     
     // Status
@@ -517,5 +530,11 @@ export const updateFolioValidator = vine.compile(
     tags: vine.string().optional(),
     category: vine.string().optional(),
     subcategory: vine.string().optional(),
+    
+    // New fields
+    gstin_no: vine.string().optional(),
+    show_tariff_on_print: vine.boolean().optional(),
+    post_commission_to_ta: vine.boolean().optional(),
+    generate_invoice_number: vine.boolean().optional(),
   })
 )
