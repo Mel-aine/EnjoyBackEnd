@@ -5,6 +5,7 @@ import Hotel from './hotel.js'
 import Guest from './guest.js'
 import FolioTransaction from './folio_transaction.js'
 import User from './user.js'
+import Reservation from './reservation.js'
 
 export default class Folio extends BaseModel {
   @column({ isPrimary: true })
@@ -34,11 +35,23 @@ export default class Folio extends BaseModel {
   @column()
   declare status: 'open' | 'closed' | 'transferred' | 'voided' | 'disputed'
 
+  @column()
+  declare settlementStatus: 'pending' | 'partial' | 'settled' | 'overdue' | 'disputed'
+
+  @column()
+  declare workflowStatus: 'draft' | 'active' | 'review' | 'approved' | 'finalized'
+
   @column.dateTime()
   declare openedDate: DateTime
 
   @column.dateTime()
   declare closedDate: DateTime | null
+
+  @column.dateTime()
+  declare settlementDate: DateTime | null
+
+  @column.dateTime()
+  declare finalizedDate: DateTime | null
 
   @column()
   declare openedBy: number
@@ -320,6 +333,9 @@ export default class Folio extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
+  @belongsTo(() => Reservation)
+  declare reservation: BelongsTo<typeof Reservation>
+
   @hasMany(() => FolioTransaction)
   declare transactions: HasMany<typeof FolioTransaction>
 
@@ -372,6 +388,26 @@ export default class Folio extends BaseModel {
     if (this.isOverdue) return 'overdue'
     if (this.balance > 0) return 'outstanding'
     return 'unknown'
+  }
+
+  get isSettled() {
+    return this.settlementStatus === 'settled'
+  }
+
+  get isPartiallySettled() {
+    return this.settlementStatus === 'partial'
+  }
+
+  get isFinalized() {
+    return this.workflowStatus === 'finalized'
+  }
+
+  get canBeModified() {
+    return this.workflowStatus !== 'finalized' && this.status === 'open'
+  }
+
+  get requiresSettlement() {
+    return this.balance > 0 && this.settlementStatus !== 'settled'
   }
 
   get displayName() {

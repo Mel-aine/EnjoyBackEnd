@@ -108,6 +108,8 @@ const businessSourcesController = new BusinessSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
 const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
+const reservationsController = new ReservationsController()
+
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -419,10 +421,7 @@ router
     //     '/servicesWithServiceProduct',
     //     servicesController.getServicesWithProductsAndOptions.bind(servicesController)
     //   )
-    //   router.get(
-    //     '/services/:id/reservation/search',
-    //     reservationsController.searchReservations.bind(servicesController)
-    //   )
+    //   
     //   router.get(
     //     '/services/:serviceId/departments/:departmentId/details',
     //     departmentsController.getDepartmentDetails.bind(departmentsController)
@@ -969,10 +968,44 @@ router
 
         // Folio operations
         router.post('/:id/close', foliosController.close.bind(foliosController)) // Close folio for checkout
+        router.post('/:id/reopen', foliosController.reopen.bind(foliosController)) // Reopen closed folio
         router.post('/:id/transfer', foliosController.transfer.bind(foliosController)) // Transfer charges between folios
+        
+        // New service-based operations
+        router.post('/transactions', foliosController.postTransaction.bind(foliosController)) // Post transaction to folio
+        router.post('/settle', foliosController.settle.bind(foliosController)) // Settle folio payment
+        router.post('/transfer-charges', foliosController.transferCharges.bind(foliosController)) // Transfer charges between folios
+        router.post('/:id/close-service', foliosController.closeWithService.bind(foliosController)) // Close folio using service
+  router.post('/:id/reopen-service', foliosController.reopenWithService.bind(foliosController)) // Reopen folio using service
+  router.get('/:id/statement-service', foliosController.statementWithService.bind(foliosController)) // Get folio statement using service
+  
+  // Reservation and walk-in folio creation
+  router.post('/reservation', foliosController.createForReservation.bind(foliosController)) // Create folio for reservation
+  router.post('/walk-in', foliosController.createForWalkIn.bind(foliosController)) // Create folio for walk-in guest
+  router.post('/group', foliosController.createForGroup.bind(foliosController)) // Create folios for group reservation
+  router.post('/post-room-charges', foliosController.postRoomCharges.bind(foliosController)) // Auto-post room charges
+  router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
+  router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
+  
+  // Checkout and settlement
+  router.get('/:id/settlement-summary', foliosController.getSettlementSummary.bind(foliosController)) // Get settlement summary
+  router.get('/:id/checkout-summary', foliosController.getCheckoutSummary.bind(foliosController)) // Get checkout summary
+  router.post('/checkout', foliosController.processCheckout.bind(foliosController)) // Process folio checkout
+  router.post('/reservation-checkout', foliosController.processReservationCheckout.bind(foliosController)) // Process reservation checkout
+  router.post('/force-close', foliosController.forceCloseFolio.bind(foliosController)) // Force close folio
+  router.get('/:id/validate-checkout', foliosController.validateCheckout.bind(foliosController)) // Validate checkout eligibility
+
+  // Folio inquiry and review
+  router.get('/:id/guest-view', foliosController.getGuestView.bind(foliosController)) // Get guest folio view (limited)
+  router.get('/:id/staff-view', foliosController.getStaffView.bind(foliosController)) // Get staff folio view (comprehensive)
+  router.get('/search', foliosController.search.bind(foliosController)) // Search folios with filters
+  router.get('/transactions/search', foliosController.searchTransactions.bind(foliosController)) // Search transactions
+  router.get('/:id/timeline', foliosController.getTimeline.bind(foliosController)) // Get folio activity timeline
+  router.get('/statistics-advanced', foliosController.getStatistics.bind(foliosController)) // Get advanced folio statistics
 
         // Folio reports
         router.get('/:id/balance', foliosController.balance.bind(foliosController)) // Get folio balance
+        router.get('/:id/statement', foliosController.statement.bind(foliosController)) // Get folio statement
         router.get('/statistics', foliosController.stats.bind(foliosController)) // Get folio statistics
       })
       .prefix('folios')
@@ -1316,6 +1349,17 @@ router
         )
       })
       .prefix('cancellation-policies')
+
+
+      /// hotel router
+      router.get(
+        '/hotels/:id/reservation/search',
+       reservationsController.searchReservations.bind(reservationsController)
+     )
+     router.get(
+        '/reservations/:reservationId/details',
+        reservationsController.getReservationDetails.bind(reservationsController)
+       )
   })
   .prefix('/api')
   .use(

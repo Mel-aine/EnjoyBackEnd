@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany, belongsTo } from '@adonisjs/lucid/orm'
-import type { HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany, belongsTo, manyToMany, computed } from '@adonisjs/lucid/orm'
+import type { HasMany, BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Reservation from './reservation.js'
+import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
 import User from './user.js'
 
@@ -178,6 +179,19 @@ export default class Guest extends BaseModel {
   @hasMany(() => Reservation)
   declare reservations: HasMany<typeof Reservation>
 
+  @hasMany(() => ReservationGuest)
+  declare reservationGuests: HasMany<typeof ReservationGuest>
+
+  @manyToMany(() => Reservation, {
+    pivotTable: 'reservation_guests',
+    localKey: 'id',
+    pivotForeignKey: 'guest_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'reservation_id',
+    pivotColumns: ['is_primary', 'guest_type', 'room_assignment', 'special_requests', 'dietary_restrictions', 'accessibility', 'emergency_contact', 'emergency_phone', 'notes']
+  })
+  declare reservationsAsGuest: ManyToMany<typeof Reservation>
+
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>
 
@@ -188,10 +202,12 @@ export default class Guest extends BaseModel {
   declare modifier: BelongsTo<typeof User>
 
   // Computed properties
+  @computed()
   get fullName() {
     return `${this.firstName} ${this.lastName}`
   }
 
+  @computed()
   get displayName() {
     const parts = [this.title, this.firstName, this.lastName, this.suffix].filter(Boolean)
     return parts.join(' ')

@@ -448,7 +448,11 @@ export default class UsersController extends CrudController<typeof User> {
  */
   public async getClientsByService({ params, response }: HttpContext) {
   try {
-    const { serviceId } = params
+    const serviceId = parseInt(params.serviceId)
+    
+    if (isNaN(serviceId)) {
+      return response.badRequest({ message: 'Invalid serviceId' })
+    }
 
     // Vérifier que le service existe
     const service = await Service.find(serviceId)

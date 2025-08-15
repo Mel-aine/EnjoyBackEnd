@@ -1,17 +1,18 @@
-import ServiceProduct from '#models/room'
 import Reservation from '#models/reservation'
 import { DateTime } from 'luxon'
+import Room from '#models/room'
 
 export class HotelAnalyticsService {
     public static async getDailyOccupancyAndReservations(
-        serviceId: number,
+        hotelId: number,
         startDate: DateTime,
         endDate: DateTime
     ) {
         // 1. Get all rooms for the service
-        const allRooms = await ServiceProduct.query()
-            .where('service_id', serviceId)
-            .preload('productType')
+        const allRooms = await Room.query()
+            .where('hotel_id', hotelId)
+            .preload('roomType')
+
         const totalRooms = allRooms.length
 
         if (totalRooms === 0) {
@@ -23,14 +24,15 @@ export class HotelAnalyticsService {
 
         // 2. Get all relevant reservations that overlap with the date range
         const reservations = await Reservation.query()
-            .where('service_id', serviceId)
+            .where('hotel_id', hotelId)
+
             .where('depart_date', '>=', startDate.toISODate()!)
             .where('arrived_date', '<=', endDate.toISODate()!)
             .whereNotIn('status', ['cancelled', 'no-show'])
-            .preload('user')
-            .preload('reservationServiceProducts', (rspQuery) => {
-                rspQuery.preload('serviceProduct', (spQuery) => {
-                    spQuery.preload('productType')
+            .preload('guest')
+            .preload('reservationRooms', (rspQuery) => {
+                rspQuery.preload('room', (spQuery) => {
+                    spQuery.preload('roomType')
                 })
             })
 
@@ -49,10 +51,10 @@ export class HotelAnalyticsService {
 
             for (const reservation of activeReservationsForDay) {
                 let isAssignedForToday = false
-                if (reservation.reservationServiceProducts.length > 0) {
-                    for (const rsp of reservation.reservationServiceProducts) {
-                        if (rsp.service_product_id) {
-                            occupiedRoomIds.add(rsp.service_product_id)
+                if (reservation.reservationRooms.length > 0) {
+                    for (const rsp of reservation.reservationRooms) {
+                        if (rsp.id) {
+                            occupiedRoomIds.add(rsp.id)
                             isAssignedForToday = true
                         }
                     }
@@ -65,12 +67,59 @@ export class HotelAnalyticsService {
 
             const occupancyRate = totalRooms > 0 ? (occupiedRoomIds.size / totalRooms) * 100 : 0
 
+            // Calculate room status statistics
+            const roomStatusStats = {
+                all: totalRooms,
+                vacant: 0,
+                occupied: 0,
+                reserved: 0,
+                blocked: 0,
+                dueOut: 0,
+                dirty: 0
+            }
+
+            // Get reservations checking out today
+            const checkingOutToday = reservations.filter(
+                (r) => r.depart_date?.hasSame(currentDate, 'day') && r.status === 'checked_in'
+            )
+
+            // Get reservations arriving today
+            const arrivingToday = reservations.filter(
+                (r) => r.arrived_date?.hasSame(currentDate, 'day') && r.status === 'confirmed'
+            )
+
+            for (const room of allRooms) {
+                const isOccupied = occupiedRoomIds.has(room.id)
+                const isDueOut = checkingOutToday.some(r => 
+                    r.reservationRooms.some(rr => rr.roomId === room.id)
+                )
+                const isReserved = arrivingToday.some(r => 
+                    r.reservationRooms.some(rr => rr.roomId === room.id)
+                )
+                
+                if (isOccupied) {
+                    roomStatusStats.occupied++
+                    if (isDueOut) {
+                        roomStatusStats.dueOut++
+                    }
+                } else if (isReserved) {
+                    roomStatusStats.reserved++
+                } else if (room.status === 'blocked' || room.status === 'out_of_order') {
+                    roomStatusStats.blocked++
+                } else if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
+                    roomStatusStats.dirty++
+                } else {
+                    roomStatusStats.vacant++
+                }
+            }
+
             dailyMetrics.push({
                 date: currentDate.toISODate(),
                 total_available_rooms: totalRooms,
                 occupancy_rate: parseFloat(occupancyRate.toFixed(2)),
                 allocated_rooms: occupiedRoomIds.size,
                 unassigned_reservations: unassignedReservationsCount,
+                room_status_stats: roomStatusStats,
             })
         }
 
@@ -98,7 +147,7 @@ export class HotelAnalyticsService {
         }
 
         for (const room of allRooms) {
-            const roomType = room.productType?.name || 'Uncategorized'
+            const roomType = room.roomType?.roomTypeName || 'Uncategorized'
             if (!groupedDetails[roomType]) {
                 groupedDetails[roomType] = {
                     room_type: roomType,
@@ -111,8 +160,8 @@ export class HotelAnalyticsService {
 
             // Find if there's a booking for this specific room today
             const todaysBooking = reservations
-                .flatMap((r) => r.reservationServiceProducts)
-                .find((rsp) => rsp.service_product_id === room.id && rsp.start_date <= today && rsp.end_date > today)
+                .flatMap((r) => r.reservationRooms)
+                .find((rsp) => rsp.roomId === room.id && rsp.checkInDate <= today && rsp.checkInDate > today)
 
             let roomStatus = 'Available'
             if (todaysBooking) {
@@ -123,10 +172,10 @@ export class HotelAnalyticsService {
             }
 
             groupedDetails[roomType].room_details.push({
-                room_number: room.room_number??room.product_name,
-                room_name: room.product_name,
+                room_number: room.roomNumber??room.displayName,
+                room_name: room.roomNumber,
                 room_type: roomType,
-                capacity: room.capacity,
+                capacity: room.roomType.maxAdult,
                 room_id: room.id,
                 room_status: roomStatus,
             })
@@ -137,12 +186,12 @@ export class HotelAnalyticsService {
             const reservationRoomTypes = new Set<string>()
             const assignedRooms: { roomNumber: string | null; roomType: string }[] = []
 
-            if (reservation.reservationServiceProducts.length > 0) {
-                for (const rsp of reservation.reservationServiceProducts) {
-                    if (rsp.serviceProduct && rsp.serviceProduct.productType) {
-                        const roomType = rsp.serviceProduct.productType.name
+            if (reservation.reservationRooms.length > 0) {
+                for (const rsp of reservation.reservationRooms) {
+                    if (rsp.room && rsp.room.roomType) {
+                        const roomType = rsp.room.roomType.roomTypeName
                         reservationRoomTypes.add(roomType)
-                        assignedRooms.push({ roomNumber: rsp.serviceProduct.room_number??rsp.serviceProduct.product_name, roomType })
+                        assignedRooms.push({ roomNumber: rsp.room.roomNumber, roomType })
                     }
                 }
             }
@@ -159,7 +208,7 @@ export class HotelAnalyticsService {
 
                     groupedDetails[roomType].reservations.push({
                         reservation_id: reservation.id,
-                        guest_name: `${reservation.user?.first_name || ''} ${reservation.user?.last_name || ''
+                        guest_name: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''
                             }`.trim(),
                         check_in_date: reservation.arrived_date,
                         check_out_date: reservation.depart_date,
@@ -184,9 +233,73 @@ export class HotelAnalyticsService {
             }
         }
 
+        // Calculate global room status statistics across all dates
+        const globalRoomStatusStats = {
+            all: totalRooms,
+            vacant: 0,
+            occupied: 0,
+            reserved: 0,
+            blocked: 0,
+            dueOut: 0,
+            dirty: 0
+        }
+
+        // Get all reservations within the date range for global calculations
+        const allActiveReservations = reservations.filter(
+            (r) => r.arrived_date && r.depart_date && 
+                   r.arrived_date <= endDate && r.depart_date >= startDate
+        )
+
+        // Get all occupied room IDs across the entire date range
+        const globalOccupiedRoomIds = new Set<number>()
+        allActiveReservations.forEach(reservation => {
+            reservation.reservationRooms.forEach(rr => {
+                if (rr.roomId) {
+                    globalOccupiedRoomIds.add(rr.roomId)
+                }
+            })
+        })
+
+        // Get reservations checking out within the date range
+        const checkingOutInRange = reservations.filter(
+            (r) => r.depart_date && r.depart_date >= startDate && r.depart_date <= endDate && r.status === 'checked_in'
+        )
+
+        // Get reservations arriving within the date range
+        const arrivingInRange = reservations.filter(
+            (r) => r.arrived_date && r.arrived_date >= startDate && r.arrived_date <= endDate && r.status === 'confirmed'
+        )
+
+        // Calculate global room status for each room
+        for (const room of allRooms) {
+            const isOccupied = globalOccupiedRoomIds.has(room.id)
+            const isDueOut = checkingOutInRange.some(r => 
+                r.reservationRooms.some(rr => rr.roomId === room.id)
+            )
+            const isReserved = arrivingInRange.some(r => 
+                r.reservationRooms.some(rr => rr.roomId === room.id)
+            )
+            
+            if (isOccupied) {
+                globalRoomStatusStats.occupied++
+                if (isDueOut) {
+                    globalRoomStatusStats.dueOut++
+                }
+            } else if (isReserved) {
+                globalRoomStatusStats.reserved++
+            } else if (room.status === 'blocked' || room.status === 'out_of_order') {
+                globalRoomStatusStats.blocked++
+            } else if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
+                globalRoomStatusStats.dirty++
+            } else {
+                globalRoomStatusStats.vacant++
+            }
+        }
+
         return {
             daily_occupancy_metrics: dailyMetrics,
             grouped_reservation_details: Object.values(groupedDetails),
+            global_room_status_stats: globalRoomStatusStats,
         }
     }
 }

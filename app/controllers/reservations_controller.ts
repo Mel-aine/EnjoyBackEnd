@@ -22,6 +22,7 @@ import ReservationRoom from '#models/reservation_room'
 import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
 import Guest from '#models/guest'
+import { Logger } from '@adonisjs/core/logger'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -35,12 +36,46 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
 
+  async showByRoomId({ params, response }: HttpContext) {
+    try {
+      const { roomId } = params
 
+      // Validation du paramètre
+      if (!roomId) {
+        return response.badRequest({ message: 'roomId is required' })
+      }
 
+      const roomIdNum = parseInt(roomId, 10)
+      if (isNaN(roomIdNum)) {
+        return response.badRequest({ message: 'Invalid roomId' })
+      }
+
+      // Récupération des réservations liées à un service product
+      const items = await ReservationRoom.query()
+        .where('id', roomId)
+        .preload('reservation')
+        .preload('room')
+        .preload('creator')
+        .preload('modifier')
+
+      // Si aucune réservation trouvée
+      if (items.length === 0) {
+        return response.notFound({ message: 'No reservations found for this service product' })
+      }
+
+      return response.ok(items)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({
+        message: 'Error fetching reservations for service product',
+        error: error.message,
+      })
+    }
+  }
 
   public async checkIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx;
-    const { reservationServiceProducts } = request.body();
+    const { reservationRooms } = request.body();
     try {
       console.log('Check-in started for reservation ID:', params.id);
 
@@ -53,7 +88,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Récupérer la liaison avec les produits
       const reservationProducts = await ReservationServiceProduct.query()
-        .where('reservation_id', reservation.id).andWhereIn('id', reservationServiceProducts);
+        .where('reservation_id', reservation.id).andWhereIn('id', reservationRooms);
 
       if (!reservationProducts.length) {
         return response.notFound({ message: 'No service product linked to this reservation' });
@@ -108,7 +143,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
   public async checkOut(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
-    const { reservationServiceProducts } = request.body();
+    const { reservationRooms } = request.body();
     try {
       console.log('Check-out started for reservation ID:', params.id);
 
@@ -120,7 +155,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       const resServices = await ReservationServiceProduct.query()
-        .where('reservation_id', params.id).andWhereIn('id', reservationServiceProducts)
+        .where('reservation_id', params.id).andWhereIn('id', reservationRooms)
         .preload('serviceProduct');
 
       if (resServices.length === 0) {
@@ -176,6 +211,42 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+  /**
+ * Get a single reservation with all its related information,
+ * including the user, service product, and payment.
+ *
+ * GET /reservations/:id
+ */
+  public async getReservationDetails({ params, response }: HttpContext) {
+    try {
+      const reservationId = parseInt(params.reservationId, 10)
+
+      if (isNaN(reservationId)) {
+        return response.badRequest({ message: 'Invalid reservation ID. Must be a valid number.' })
+      }
+
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .whereNotNull('hotel_id')
+        .preload('guest')
+        .preload('folios')
+        .preload('bookingSource')
+        .preload('reservationRooms', (query) => {
+          query.preload('room')
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      return response.ok(reservation)
+    } catch (error) {
+      console.error('Error fetching reservation details:', error)
+      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
+    }
+  }
+
 
 
   /**
@@ -206,7 +277,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
-        .preload('reservationServiceProducts')
+        .preload('reservationRooms')
         .first()
 
       if (!reservation) {
@@ -227,7 +298,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // --- Vérification des conflits ---
       const conflicts = []
-      for (const rsp of reservation.reservationServiceProducts) {
+      for (const rsp of reservation.reservationRooms) {
         const product = await ServiceProduct.find(rsp.service_product_id)
         const conflictingReservation = await ReservationServiceProduct.query({ client: trx })
           .where('service_product_id', rsp.service_product_id)
@@ -316,7 +387,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const additionalNights = newNumberOfNights - oldNumberOfNights
       let additionalAmount = 0
       // Mettre à jour les produits de la réservation
-      for (const rsp of reservation.reservationServiceProducts) {
+      for (const rsp of reservation.reservationRooms) {
         const rspInTrx = await ReservationServiceProduct.findOrFail(rsp.id, { client: trx })
 
         const additionalProductCost = parseFloat(`${rspInTrx.rate_per_night!}`) * additionalNights
@@ -360,7 +431,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async getCancellationSummary({ params, response }: HttpContext) {
     try {
       const reservationId = params.id
-      const reservation = await Reservation.query().where('id', reservationId).preload('service').preload('reservationServiceProducts').first()
+      const reservation = await Reservation.query().where('id', reservationId).preload('service').preload('reservationRooms').first()
 
       if (!reservation) {
         return response.notFound({ message: 'Reservation not found' })
@@ -670,12 +741,28 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .where('reservation_number', 'like', `%${searchText}%`)
             .orWhere('group_name', 'like', `%${searchText}%`)
             .orWhere('company_name', 'like', `%${searchText}%`)
-            .orWhereHas('user', (userQuery) => {
+            .orWhere('source_of_business', 'like', `%${searchText}%`)
+            .orWhereHas('guest', (userQuery) => {
               userQuery
-                .where('first_name', 'like', `%${searchText}%`)
+               .where('first_name', 'like', `%${searchText}%`)
                 .orWhere('last_name', 'like', `%${searchText}%`)
                 .orWhere('email', 'like', `%${searchText}%`)
-                .orWhere('phone_number', 'like', `%${searchText}%`)
+                .orWhere('phone_primary', 'like', `%${searchText}%`)
+
+            })
+            .orWhereHas('reservationRooms', (roomQuery) => {
+               roomQuery.whereHas('room', (roomSubQuery) => {
+                 roomSubQuery.where('room_number', 'like', `%${searchText}%`)
+               })
+               .orWhereHas('roomType', (roomTypeQuery) => {
+                 roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
+               })
+             })
+            .orWhereHas('ratePlan', (ratePlanQuery) => {
+              ratePlanQuery.where('plan_name', 'like', `%${searchText}%`)
+            })
+            .orWhereHas('bookingSource', (bookingSourceQuery) => {
+              bookingSourceQuery.where('source_name', 'like', `%${searchText}%`)
             })
         })
       }
@@ -699,21 +786,124 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // 4. Filter by roomType (product name)
       if (roomType) {
-        query.whereHas('reservationServiceProducts', (rspQuery) => {
-          rspQuery.whereHas('serviceProduct', (spQuery) => {
-            spQuery.where('product_name', 'like', `%${roomType}%`)
+        query.whereHas('reservationRooms', (rspQuery) => {
+          rspQuery.whereHas('room', (spQuery) => {
+            spQuery.where('room_name', 'like', `%${roomType}%`)
           })
         })
       }
 
       // Preload related data for the response
-      query.andWhere('service_id', params.id).preload('user').preload('service').preload('reservationServiceProducts', (rspQuery) => {
-        rspQuery.preload('serviceProduct')
-      }).orderBy('created_at', 'desc').limit(50)
+      query.andWhere('hotel_id', params.id)
+        .whereNotNull('hotel_id')
+        .preload('user')
+        .preload('guest')
+        .preload('roomType')
+        .preload('bookingSource')
+        .preload('ratePlan')
+        .preload('discount')
+
+
+        //.preload('hotel')
+        .preload('reservationRooms', (rspQuery) => {
+          rspQuery.preload('room')
+        })
+        .orderBy('created_at', 'desc')
+        .limit(50)
 
       const reservations = await query
 
-      return response.ok(reservations)
+      // Calculate statistics
+      const today = DateTime.now().toISODate()
+      const hotelId = params.id
+
+      // Total reservations count (with same filters)
+      const totalQuery = Reservation.query().where('hotel_id', hotelId).whereNotNull('hotel_id')
+      if (searchText) {
+        totalQuery.where((builder) => {
+          builder
+            .where('reservation_number', 'like', `%${searchText}%`)
+            .orWhere('group_name', 'like', `%${searchText}%`)
+            .orWhere('company_name', 'like', `%${searchText}%`)
+            .orWhere('source_of_business', 'like', `%${searchText}%`)
+            .orWhereHas('guest', (userQuery) => {
+              userQuery
+               .where('first_name', 'like', `%${searchText}%`)
+                .orWhere('last_name', 'like', `%${searchText}%`)
+                .orWhere('email', 'like', `%${searchText}%`)
+                .orWhere('phone_primary', 'like', `%${searchText}%`)
+            })
+            .orWhereHas('reservationRooms', (roomQuery) => {
+               roomQuery.whereHas('room', (roomSubQuery) => {
+                 roomSubQuery.where('room_number', 'like', `%${searchText}%`)
+               })
+               .orWhereHas('roomType', (roomTypeQuery) => {
+                 roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
+               })
+             })
+            .orWhereHas('ratePlan', (ratePlanQuery) => {
+              ratePlanQuery.where('plan_name', 'like', `%${searchText}%`)
+            })
+            .orWhereHas('bookingSource', (bookingSourceQuery) => {
+              bookingSourceQuery.where('source_name', 'like', `%${searchText}%`)
+            })
+        })
+      }
+      if (status) {
+        totalQuery.where('status', status)
+      }
+      if (checkInDate && checkOutDate) {
+        const startDate = DateTime.fromISO(checkInDate).toISODate()
+        const endDate = DateTime.fromISO(checkOutDate).toISODate()
+        if (startDate && endDate) {
+          totalQuery.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+        }
+      }
+      if (roomType) {
+        totalQuery.whereHas('reservationRooms', (rspQuery) => {
+          rspQuery.whereHas('room', (spQuery) => {
+            spQuery.where('room_name', 'like', `%${roomType}%`)
+          })
+        })
+      }
+      const totalReservations = await totalQuery.count('* as total')
+
+      // Arrivals today
+      const arrivalsQuery = Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereNotNull('hotel_id')
+        .where('arrived_date', today)
+        .whereIn('status', ['confirmed', 'checked_in'])
+      const arrivals = await arrivalsQuery.count('* as total')
+
+      // Departures today
+      const departuresQuery = Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereNotNull('hotel_id')
+        .where('depart_date', today)
+        .whereIn('status', ['checked_in', 'checked_out'])
+      const departures = await departuresQuery.count('* as total')
+
+      // In-house (currently checked in)
+      const inHouseQuery = Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereNotNull('hotel_id')
+        .where('status', 'checked_in')
+        .where('arrived_date', '<=', today)
+        .where('depart_date', '>', today)
+      const inHouse = await inHouseQuery.count('* as total')
+
+      const statistics = {
+        totalReservations: totalReservations[0].$extras.total,
+        arrivals: arrivals[0].$extras.total,
+        departures: departures[0].$extras.total,
+        inHouse: inHouse[0].$extras.total
+      }
+
+      return response.ok({
+        reservations,
+        statistics
+      })
     } catch (error) {
       logger.error('Error searching reservations: %o', error)
       return response.internalServerError({
@@ -973,85 +1163,140 @@ export default class ReservationsController extends CrudController<typeof Reserv
     try {
     const data = request.body() as ReservationData
 
-    // Log pour débugger
-    console.log('Received reservation data:', JSON.stringify(data, null, 2))
-
-    // Vérification que les données sont reçues
+    // Input validation
     if (!data) {
       return response.badRequest({
         success: false,
-        error: 'No data received'
+        message: 'No data received'
+      })
+    }
+
+    // Validate required fields
+    if (!data.hotel_id || !data.arrived_date || !data.depart_date || !data.rooms || data.rooms.length === 0) {
+      return response.badRequest({
+        success: false,
+        message: 'Missing required fields: hotel_id, arrived_date, depart_date, or rooms'
+      })
+    }
+
+    // Validate date format and logic
+    const arrivedDate = DateTime.fromISO(data.arrived_date)
+    const departDate = DateTime.fromISO(data.depart_date)
+    
+    if (!arrivedDate.isValid || !departDate.isValid) {
+      return response.badRequest({
+        success: false,
+        message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+      })
+    }
+    
+    if (departDate <= arrivedDate) {
+      return response.badRequest({
+        success: false,
+        message: 'Departure date must be after arrival date'
       })
     }
 
     const trx = await db.transaction()
 
     try {
-      // 1. Validation via service
+      // Calculate number of nights
+      const numberOfNights = Math.ceil(departDate.diff(arrivedDate, 'days').days)
+      
+      // Validate business logic via service
       const validationErrors = ReservationService.validateReservationData(data)
       if (validationErrors.length > 0) {
         await trx.rollback()
         return response.badRequest({
           success: false,
-          error: validationErrors.join(', ')
+          message: validationErrors.join(', ')
         })
       }
 
-      // 2. Gestion de l'invité via service
-      const guest = await ReservationService.createOrFindGuest(data)
+      // Create or find primary guest
+      const guest = await ReservationService.createOrFindGuest(data, trx)
 
-      // 3. Génération des numéros
+      // Generate reservation numbers
       const confirmationNumber = generateConfirmationNumber()
       const reservationNumber = generateReservationNumber()
 
-      // 4. Calculs invités
-      const totalAdults = data.rooms.reduce((sum: any, room: any) => sum + room.adult_count, 0)
-      const totalChildren = data.rooms.reduce((sum: any, room: any) => sum + room.child_count, 0)
+      // Calculate guest totals
+      const totalAdults = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
+      const totalChildren = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
+      
+      // Validate room availability
+      for (const room of data.rooms) {
+        if (room.room_id) {
+          const existingReservation = await ReservationRoom.query({ client: trx })
+            .where('roomId', room.room_id)
+            .where('status', 'reserved')
+            .where((query) => {
+              query.whereBetween('checkInDate', [arrivedDate.toISODate(), departDate.toISODate()])
+                .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
+            })
+            .first()
+            
+          if (existingReservation) {
+            await trx.rollback()
+            return response.badRequest({
+              success: false,
+              message: `Room ${room.room_id} is not available for the selected dates`
+            })
+          }
+        }
+      }
 
-
-      // 5. Création de la réservation avec les bons champs
+      // Create reservation
+      logger.info('Creating reservation with data: %o', guest)
       const reservation = await Reservation.create({
-        hotelId: data.hotel_id,
-        guestId: guest.id,
-        arrived_date: DateTime.fromISO(data.arrived_date),
-        depart_date: DateTime.fromISO(data.depart_date),
-        // estimated_checkin_time: data.arrived_time,
-        // estimated_checkout_time: data.depart_time,
-        checkInTime: data.arrived_time,
-        checkOutTime: data.depart_time,
+        hotel_id: data.hotel_id,
+        user_id: auth.user?.id || data.created_by,
+        // guest_id: guest.id, // Removed - using reservation_guests pivot table instead
+        arrived_date: arrivedDate,
+        depart_date: departDate,
+        check_in_date: data.arrived_time ? DateTime.fromISO(`${data.arrived_date}T${data.arrived_time}`) : arrivedDate,
+        check_out_date: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.depart_time}`) : departDate,
         status: data.status || ReservationStatus.PENDING,
-        adults: totalAdults,
-        children: totalChildren,
-        total_amount: data.total_amount,
-        roomRate : data.room_rate,
-        tax_amount: data.tax_amount,
-        final_amount: data.final_amount,
-        confirmationNumber: confirmationNumber,
+        guest_count: totalAdults + totalChildren,
+        total_amount: parseFloat(data.total_amount) || 0,
+        tax_amount: parseFloat(data.tax_amount) || 0,
+        final_amount: parseFloat(data.final_amount) || parseFloat(data.total_amount) || 0,
+        confirmation_number: confirmationNumber,
         reservation_number: reservationNumber,
-        nights: data.number_of_nights,
-        number_of_nights: data.number_of_nights,
-        // total_estimated_revenue: data.total_amount,
-        // roomCharges: data.total_amount,
-        // baseRate: data.rooms[0]?.room_rate || 0,
-        // totalTaxes: data.tax_amount,
-        // netAmount: data.final_amount,
-        paid_amount: data.paid_amount || 0,
-        remaining_amount: data.remaining_amount,
-        // balanceDue: data.remaining_amount,
-        reservation_type: data.reservation_type,
-        booking_source: data.booking_source,
+        number_of_nights: numberOfNights,
+        paid_amount: parseFloat(data.paid_amount) || 0,
+        remaining_amount: parseFloat(data.remaining_amount) || (parseFloat(data.final_amount) - parseFloat(data.paid_amount || '0')),
+        reservation_type: data.reservation_type || 'online',
+        booking_source: data.booking_source || 'direct',
         source_of_business: data.business_source,
-        // reservation_datetime: DateTime.now(),
-        bookingDate: DateTime.now(),
-        payment_status: data.paid_amount && data.paid_amount >= data.final_amount
-          ? 'paid'
-          : data.paid_amount && data.paid_amount > 0
-            ? 'partially_paid'
-            : 'unpaid',
-        created_by: data.created_by,
+        payment_status: (() => {
+          const finalAmount = parseFloat(data.final_amount) || 0
+          const paidAmount = parseFloat(data.paid_amount) || 0
+          if (paidAmount >= finalAmount) return 'paid'
+          if (paidAmount > 0) return 'partially_paid'
+          return 'unpaid'
+        })(),
+        created_by: auth.user?.id || data.created_by
       }, { client: trx })
 
-      // 6. Réservations de chambres
+      // Vérifier que la réservation a bien été créée avec un ID
+      logger.info('Réservation créée avec ID:', reservation.id)
+      if (!reservation.id) {
+        throw new Error('La réservation n\'a pas pu être créée correctement - ID manquant')
+      }
+
+      // 6. Process multiple guests for the reservation
+      const { primaryGuest, allGuests } = await ReservationService.processReservationGuests(
+        reservation.id,
+        data,
+        trx
+      )
+
+      // 6.1. Mettre à jour la réservation avec l'ID du primary guest
+      await reservation.merge({ guest_id: primaryGuest.id }).save({ client: trx })
+      logger.info('Réservation mise à jour avec primary guest ID:', primaryGuest.id)
+
+      // 7. Réservations de chambres
       for (const room of data.rooms) {
         await ReservationRoom.create({
           reservationId: reservation.id,
@@ -1072,13 +1317,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }, { client: trx })
       }
 
-      // 7. Logging
+      // 8. Logging
+      const guestCount = allGuests.length
+      const guestDescription = guestCount > 1 
+        ? `${primaryGuest.firstName} ${primaryGuest.lastName} and ${guestCount - 1} other guest(s)`
+        : `${primaryGuest.firstName} ${primaryGuest.lastName}`
+      
       await LoggerService.log({
         actorId: auth.user?.id!,
         action: 'CREATE',
         entityType: 'Reservation',
         entityId: reservation.id,
-        description: `Reservation #${reservation.id} was created for customer ${guest.firstName}.`,
+        description: `Reservation #${reservation.id} was created for ${guestDescription} (${guestCount} total guests).`,
         ctx,
       })
 
@@ -1087,7 +1337,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
         success: true,
         reservationId: reservation.id,
         confirmationNumber,
-        message: 'Reservation created successfully'
+        primaryGuest: {
+          id: primaryGuest.id,
+          name: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+          email: primaryGuest.email
+        },
+        totalGuests: allGuests.length,
+        guests: allGuests.map(g => ({
+          id: g.id,
+          name: `${g.firstName} ${g.lastName}`,
+          email: g.email
+        })),
+        message: `Reservation created successfully with ${allGuests.length} guest(s)`
       })
 
     } catch (error) {

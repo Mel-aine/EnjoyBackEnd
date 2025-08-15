@@ -189,11 +189,22 @@ export default class AmenityBookingsController {
   public async getByReservationAndService({ params, response }: HttpContext) {
     try {
       const { reservationId, serviceId } = params
+      
+      const reservationIdNum = parseInt(reservationId)
+      const serviceIdNum = parseInt(serviceId)
+      
+      if (isNaN(reservationIdNum)) {
+        return response.badRequest({ message: 'Invalid reservationId' })
+      }
+      
+      if (isNaN(serviceIdNum)) {
+        return response.badRequest({ message: 'Invalid serviceId' })
+      }
 
       const bookings = await AmenityBooking.query()
-        .where('reservation_id', reservationId)
+        .where('reservation_id', reservationIdNum)
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('service_id', serviceId)
+          reservationQuery.where('service_id', serviceIdNum)
         })
         .preload('items', (query) => query.preload('amenityProduct'))
         .orderBy('createdAt', 'desc')
@@ -244,7 +255,11 @@ export default class AmenityBookingsController {
    */
   public async getUnpaidByReservation({ params, response }: HttpContext) {
     try {
-      const reservationId = params.reservationId
+      const reservationId = parseInt(params.reservationId)
+      
+      if (isNaN(reservationId)) {
+        return response.badRequest({ message: 'Invalid reservationId' })
+      }
 
       // 1. Find the reservation to get the remaining room price
       const reservation = await Reservation.findOrFail(reservationId)

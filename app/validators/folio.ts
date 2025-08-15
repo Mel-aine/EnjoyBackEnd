@@ -1,5 +1,143 @@
 import vine from '@vinejs/vine'
 
+// Validator for posting transactions
+export const postTransactionValidator = vine.compile(
+  vine.object({
+    folioId: vine.number().positive(),
+    transactionType: vine.enum(['charge', 'payment', 'adjustment', 'transfer', 'refund', 'void']),
+    category: vine.string().minLength(1),
+    description: vine.string().minLength(1),
+    amount: vine.number(),
+    quantity: vine.number().positive().optional(),
+    unitPrice: vine.number().optional(),
+    taxAmount: vine.number().min(0).optional(),
+    serviceChargeAmount: vine.number().min(0).optional(),
+    discountAmount: vine.number().min(0).optional(),
+    departmentId: vine.number().positive().optional(),
+    revenueCenterId: vine.number().positive().optional(),
+    costCenterId: vine.number().positive().optional(),
+    glAccountCode: vine.string().optional(),
+    paymentMethodId: vine.number().positive().optional(),
+    reference: vine.string().optional(),
+    notes: vine.string().optional()
+  })
+)
+
+// Validator for folio settlement
+export const settleFolioValidator = vine.compile(
+  vine.object({
+    folioId: vine.number().positive(),
+    paymentMethodId: vine.number().positive(),
+    amount: vine.number().positive(),
+    reference: vine.string().optional(),
+    notes: vine.string().optional()
+  })
+)
+
+// Validator for charge transfers
+export const transferChargesValidator = vine.compile(
+  vine.object({
+    fromFolioId: vine.number().positive(),
+    toFolioId: vine.number().positive(),
+    amount: vine.number().positive(),
+    description: vine.string().minLength(1),
+    reference: vine.string().optional()
+  })
+)
+
+// Validator for creating folio with service
+export const createFolioServiceValidator = vine.compile(
+  vine.object({
+    hotelId: vine.number().positive(),
+    guestId: vine.number().positive(),
+    reservationId: vine.number().positive().optional(),
+    groupId: vine.number().positive().optional(),
+    companyId: vine.number().positive().optional(),
+    folioType: vine.enum(['guest', 'master', 'group', 'company']).optional(),
+    creditLimit: vine.number().min(0).optional(),
+    notes: vine.string().maxLength(500).optional(),
+    createdBy: vine.number().positive()
+  })
+)
+
+export const createReservationFolioValidator = vine.compile(
+  vine.object({
+    reservationId: vine.number().positive(),
+    folioType: vine.enum(['guest', 'master', 'group', 'company']).optional(),
+    creditLimit: vine.number().min(0).optional(),
+    notes: vine.string().maxLength(500).optional(),
+    createdBy: vine.number().positive()
+  })
+)
+
+export const createWalkInFolioValidator = vine.compile(
+  vine.object({
+    hotelId: vine.number().positive(),
+    guestId: vine.number().positive(),
+    folioType: vine.enum(['guest', 'master']).optional(),
+    creditLimit: vine.number().min(0).optional(),
+    notes: vine.string().maxLength(500).optional(),
+    createdBy: vine.number().positive()
+  })
+)
+
+export const createGroupFoliosValidator = vine.compile(
+  vine.object({
+    reservationId: vine.number().positive(),
+    guestIds: vine.array(vine.number().positive()).minLength(1),
+    createdBy: vine.number().positive()
+  })
+)
+
+export const postRoomChargesValidator = vine.compile(
+  vine.object({
+    reservationId: vine.number().positive(),
+    postedBy: vine.number().positive()
+  })
+)
+
+export const postTaxesAndFeesValidator = vine.compile(
+  vine.object({
+    reservationId: vine.number().positive(),
+    postedBy: vine.number().positive()
+  })
+)
+
+export const checkoutValidator = vine.compile(
+  vine.object({
+    folioId: vine.number().positive(),
+    paymentMethodId: vine.number().positive(),
+    paymentAmount: vine.number().min(0).optional(),
+    paymentReference: vine.string().maxLength(100).optional(),
+    notes: vine.string().maxLength(500).optional(),
+    processedBy: vine.number().positive()
+  })
+)
+
+export const reservationCheckoutValidator = vine.compile(
+  vine.object({
+    reservationId: vine.number().positive(),
+    payments: vine.array(
+      vine.object({
+        paymentMethodId: vine.number().positive(),
+        paymentAmount: vine.number().min(0).optional(),
+        paymentReference: vine.string().maxLength(100).optional(),
+        notes: vine.string().maxLength(500).optional()
+      })
+    ).minLength(1),
+    processedBy: vine.number().positive()
+  })
+)
+
+export const forceCloseValidator = vine.compile(
+  vine.object({
+    folioId: vine.number().positive(),
+    reason: vine.string().minLength(10).maxLength(500),
+    authorizedBy: vine.number().positive(),
+    processedBy: vine.number().positive()
+  })
+)
+
 export const createFolioValidator = vine.compile(
   vine.object({
     // Basic Information
