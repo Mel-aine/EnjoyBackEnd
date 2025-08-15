@@ -421,7 +421,7 @@ router
     //     '/servicesWithServiceProduct',
     //     servicesController.getServicesWithProductsAndOptions.bind(servicesController)
     //   )
-    //   
+    //
     //   router.get(
     //     '/services/:serviceId/departments/:departmentId/details',
     //     departmentsController.getDepartmentDetails.bind(departmentsController)
@@ -970,7 +970,7 @@ router
         router.post('/:id/close', foliosController.close.bind(foliosController)) // Close folio for checkout
         router.post('/:id/reopen', foliosController.reopen.bind(foliosController)) // Reopen closed folio
         router.post('/:id/transfer', foliosController.transfer.bind(foliosController)) // Transfer charges between folios
-        
+
         // New service-based operations
         router.post('/transactions', foliosController.postTransaction.bind(foliosController)) // Post transaction to folio
         router.post('/settle', foliosController.settle.bind(foliosController)) // Settle folio payment
@@ -978,7 +978,7 @@ router
         router.post('/:id/close-service', foliosController.closeWithService.bind(foliosController)) // Close folio using service
   router.post('/:id/reopen-service', foliosController.reopenWithService.bind(foliosController)) // Reopen folio using service
   router.get('/:id/statement-service', foliosController.statementWithService.bind(foliosController)) // Get folio statement using service
-  
+
   // Reservation and walk-in folio creation
   router.post('/reservation', foliosController.createForReservation.bind(foliosController)) // Create folio for reservation
   router.post('/walk-in', foliosController.createForWalkIn.bind(foliosController)) // Create folio for walk-in guest
@@ -986,7 +986,7 @@ router
   router.post('/post-room-charges', foliosController.postRoomCharges.bind(foliosController)) // Auto-post room charges
   router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
   router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
-  
+
   // Checkout and settlement
   router.get('/:id/settlement-summary', foliosController.getSettlementSummary.bind(foliosController)) // Get settlement summary
   router.get('/:id/checkout-summary', foliosController.getCheckoutSummary.bind(foliosController)) // Get checkout summary
@@ -1360,6 +1360,15 @@ router
         '/reservations/:reservationId/details',
         reservationsController.getReservationDetails.bind(reservationsController)
        )
+
+       //Payment Method routes
+      router
+      .group(() => {
+        // get payment Method active for Hotel
+         router.get('/:hotelId',[PaymentMethodsController, 'active'])
+      })
+      .prefix('/payment_method')
+
   })
   .prefix('/api')
   .use(

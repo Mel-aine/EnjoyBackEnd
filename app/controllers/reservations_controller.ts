@@ -1182,14 +1182,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Validate date format and logic
     const arrivedDate = DateTime.fromISO(data.arrived_date)
     const departDate = DateTime.fromISO(data.depart_date)
-    
+
     if (!arrivedDate.isValid || !departDate.isValid) {
       return response.badRequest({
         success: false,
         message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
       })
     }
-    
+
     if (departDate <= arrivedDate) {
       return response.badRequest({
         success: false,
@@ -1202,7 +1202,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     try {
       // Calculate number of nights
       const numberOfNights = Math.ceil(departDate.diff(arrivedDate, 'days').days)
-      
+
       // Validate business logic via service
       const validationErrors = ReservationService.validateReservationData(data)
       if (validationErrors.length > 0) {
@@ -1223,7 +1223,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Calculate guest totals
       const totalAdults = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
       const totalChildren = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
-      
+
       // Validate room availability
       for (const room of data.rooms) {
         if (room.room_id) {
@@ -1235,7 +1235,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
             })
             .first()
-            
+
           if (existingReservation) {
             await trx.rollback()
             return response.badRequest({
@@ -1269,13 +1269,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservation_type: data.reservation_type || 'online',
         booking_source: data.booking_source || 'direct',
         source_of_business: data.business_source,
-        payment_status: (() => {
-          const finalAmount = parseFloat(data.final_amount) || 0
-          const paidAmount = parseFloat(data.paid_amount) || 0
-          if (paidAmount >= finalAmount) return 'paid'
-          if (paidAmount > 0) return 'partially_paid'
-          return 'unpaid'
-        })(),
+        payment_status: 'pending',
         created_by: auth.user?.id || data.created_by
       }, { client: trx })
 
@@ -1309,6 +1303,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           adults: room.adult_count,
           children: room.child_count,
           roomRate: room.room_rate,
+          roomRateId : room.room_rate_id,
           totalRoomCharges: room.room_rate * data.number_of_nights,
           // taxAmount: room.room_rate * data.number_of_nights * 0.15,
           // netAmount: room.room_rate * data.number_of_nights * 1.15,
@@ -1319,10 +1314,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // 8. Logging
       const guestCount = allGuests.length
-      const guestDescription = guestCount > 1 
+      const guestDescription = guestCount > 1
         ? `${primaryGuest.firstName} ${primaryGuest.lastName} and ${guestCount - 1} other guest(s)`
         : `${primaryGuest.firstName} ${primaryGuest.lastName}`
-      
+
       await LoggerService.log({
         actorId: auth.user?.id!,
         action: 'CREATE',
