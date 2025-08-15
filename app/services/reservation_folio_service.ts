@@ -83,7 +83,7 @@ export default class ReservationFolioService {
         guestId: primaryGuest.id,
         reservationId: data.reservationId,
         groupId: reservation.groupId,
-        companyId: reservation.companyId,
+       // companyId: reservation.companyId,
         folioType,
         creditLimit: data.creditLimit || 0,
         notes: data.notes || `Auto-created for reservation ${reservation.confirmationNumber}`,
@@ -93,11 +93,11 @@ export default class ReservationFolioService {
       const folio = await FolioService.createFolio(folioData)
       
       // Update reservation with folio reference
-      await reservation.useTransaction(trx).merge({
+     /* await reservation.useTransaction(trx).merge({
         folioId: folio.id,
         lastModifiedBy: data.createdBy
       }).save()
-      
+      */
       return folio
     })
   }

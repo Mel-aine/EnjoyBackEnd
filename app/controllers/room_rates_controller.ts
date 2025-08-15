@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import RoomRate from '#models/room_rate'
+import RoomType from '#models/room_type'
 import { createRoomRateValidator, updateRoomRateValidator } from '#validators/room_rate'
 import Database from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
@@ -106,9 +107,24 @@ export default class RoomRatesController {
         lastModifiedBy: userId!
       }, { client: trx })
 
-      await roomRate.load('hotel')
+      // Load the room type and rate type to establish the relationship
       await roomRate.load('roomType')
       await roomRate.load('rateType')
+      
+      // Add the rate type to the room type's rateTypes relationship if not already present
+      const roomType = roomRate.roomType
+      const rateTypeId = roomRate.rateTypeId
+      
+      // Check if the relationship already exists
+      await roomType.load('rateTypes')
+      const existingRateType = roomType.rateTypes.find(rt => rt.id === rateTypeId)
+      
+      if (!existingRateType) {
+        // Attach the rate type to the room type
+        await roomType.related('rateTypes').attach([rateTypeId], trx)
+      }
+
+      await roomRate.load('hotel')
      // await roomRate.load('season')
      // await roomRate.load('source')
       await roomRate.load('creator')

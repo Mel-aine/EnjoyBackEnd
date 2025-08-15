@@ -26,8 +26,8 @@ export default class FolioTransactionsController {
       const query = FolioTransaction.query()
 
       if (hotelId) {
-        query.where('hotelId', hotelId)
-      }
+      query.where('hotelId', hotelId)
+    }
 
       if (folioId) {
         query.where('folioId', folioId)
@@ -96,43 +96,55 @@ export default class FolioTransactionsController {
     try {
       const payload = await request.validateUsing(createFolioTransactionValidator)
       
+      // Get folio to access hotel information
+      const folio = await Folio.findOrFail(payload.folioId)
+      
       // Generate transaction number
       const lastTransaction = await FolioTransaction.query()
-        .where('hotelId', payload.HotelId)
+        .where('hotelId', folio.hotelId)
         .orderBy('id', 'desc')
         .first()
-      const transactionNumber = `TXN-${payload.HotelId}-${String((lastTransaction?.id || 0) + 1).padStart(10, '0')}`
+      const transactionNumber = `TXN-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(10, '0')}`
+      
+      // Generate transaction code if not provided
+      const transactionCode = payload.transactionCode || `TC-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(6, '0')}`
       
       const transaction = await FolioTransaction.create({
-        hotelId: payload.HotelId,
-        folioId: payload.FolioId,
+        hotelId: folio.hotelId,
+        folioId: payload.folioId,
         transactionNumber,
-        transactionType: payload.TransactionType,
+        transactionCode,
+        transactionType: payload.transactionType,
         category: payload.category as 'room' | 'food_beverage' | 'telephone' | 'laundry' | 'minibar' | 'spa' | 'business_center' | 'parking' | 'internet' | 'miscellaneous' | 'package' | 'incidental' | 'tax' | 'service_charge' | 'deposit' | 'payment' | 'adjustment' || 'miscellaneous',
         description: payload.description,
         amount: payload.amount,
         quantity: payload.quantity || 1,
-        unitPrice: payload.unit_price || payload.amount,
-        taxAmount: payload.tax_amount || 0,
-        taxRate: payload.tax_rate || 0,
+        totalAmount:payload.amount,
+        paymentMethodId: payload.paymentMethodId,
+        //unitPrice: payload.unit_price || payload.amount,
+        //taxAmount: payload.tax_amount || 0,
+       // taxRate: payload.tax_rate || 0,
         serviceChargeAmount: payload.service_charge_amount || 0,
         serviceChargeRate: payload.service_charge_rate || 0,
         discountAmount: 0,
         discountRate: 0,
+        reservationId: payload.reservationId,
         netAmount: payload.amount,
         grossAmount: payload.amount,
         transactionDate: payload.TransactionDate ? DateTime.fromJSDate(new Date(payload.TransactionDate)) : DateTime.now(),
         postingDate: payload.posting_date ? DateTime.fromJSDate(new Date(payload.posting_date)) : DateTime.now(),
         serviceDate: DateTime.now(),
-        reference: payload.reference || '',
-        externalReference: payload.external_reference || '',
+        transactionTime:DateTime.now().toISOTime() ,
+
+        //reference: payload.reference || '',
+        //externalReference: payload.external_reference || '',
         status: payload.status,
         cashierId: auth.user?.id || 0,
         createdBy: auth.user?.id || 0
       })
 
       // Update folio totals
-      await this.updateFolioTotals(payload.FolioId)
+      await this.updateFolioTotals(payload.folioId)
 
       await transaction.load('hotel')
       await transaction.load('folio')
@@ -564,19 +576,19 @@ export default class FolioTransactionsController {
     for (const transaction of transactions) {
       switch (transaction.transactionType) {
         case 'charge':
-          totalCharges += transaction.amount
+          totalCharges += parseFloat(`${transaction.amount??0}`)
           break
         case 'payment':
-          totalPayments += Math.abs(transaction.amount)
+          totalPayments += Math.abs(parseFloat(`${transaction.amount??0}`))
           break
         case 'adjustment':
-          totalAdjustments += transaction.amount
+          totalAdjustments += parseFloat(`${transaction.amount??0}`)
           break
       }
       
-      totalTaxes += transaction.taxAmount || 0
-      totalServiceCharges += transaction.serviceChargeAmount || 0
-      totalDiscounts += transaction.discountAmount || 0
+      totalTaxes += parseFloat(`${transaction.taxAmount??0}`) || 0
+      totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount??0}`) || 0
+      totalDiscounts += parseFloat(`${transaction.discountAmount??0}`) || 0
     }
     
     folio.totalCharges = totalCharges

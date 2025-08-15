@@ -1087,6 +1087,19 @@ router
         router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
         router.get('/:id/customer',[ReservationsController, 'getGuestsByHotel'])//get guest
         router.get('/:reservationId/details',[ReservationsController, 'getReservationDetails'])
+        
+        // Reservation Action Routes
+        router.post('/:reservationId/checkin', [ReservationsController, 'checkIn'])
+        router.post('/:reservationId/payment', [ReservationsController, 'addPayment'])
+        router.put('/:reservationId/amend-stay', [ReservationsController, 'amendStay'])
+        router.post('/:reservationId/room-move', [ReservationsController, 'roomMove'])
+        router.post('/:reservationId/exchange-room', [ReservationsController, 'exchangeRoom'])
+        router.post('/:reservationId/stop-room-move', [ReservationsController, 'stopRoomMove'])
+        router.get('/:reservationId/inclusion-list', [ReservationsController, 'getInclusionList'])
+        router.post('/:reservationId/cancel', [ReservationsController, 'cancelReservation'])
+        router.post('/:reservationId/no-show', [ReservationsController, 'markNoShow'])
+        router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
+        router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
       })
       .prefix('reservation')
 

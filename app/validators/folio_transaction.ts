@@ -5,6 +5,7 @@ export const createFolioTransactionValidator = vine.compile(
     // Basic Information
     hotelId: vine.number().positive(),
     folioId: vine.number().positive(),
+    reservationId: vine.number().positive(),
     transactionNumber: vine.string().optional(),
     
     // Transaction Details

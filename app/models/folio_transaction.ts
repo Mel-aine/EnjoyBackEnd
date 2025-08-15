@@ -20,6 +20,9 @@ export default class FolioTransaction extends BaseModel {
   declare transactionNumber: string
 
   @column()
+  declare transactionCode: string
+
+  @column()
   declare transactionType: 'charge' | 'payment' | 'adjustment' | 'tax' | 'discount' | 'refund' | 'transfer' | 'void' | 'correction'
 
   @column()
@@ -33,6 +36,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column()
   declare amount: number
+
+  @column()
+  declare totalAmount: number
 
   @column()
   declare quantity: number
@@ -66,6 +72,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column.dateTime()
   declare transactionDate: DateTime
+
+  @column()
+  declare transactionTime: string
 
   @column.dateTime()
   declare postingDate: DateTime
