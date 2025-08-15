@@ -72,7 +72,7 @@ export default class PaymentMethodsController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createPaymentMethodValidator)
-      
+
       const paymentMethod = await PaymentMethod.create({
         ...payload,
         createdBy: auth.user?.id || 0
@@ -149,7 +149,7 @@ export default class PaymentMethodsController {
   async destroy({ params, response }: HttpContext) {
     try {
       const paymentMethod = await PaymentMethod.findOrFail(params.id)
-      
+
       // Check if there are any transactions using this payment method
       await paymentMethod.load('transactions')
       const transactionCount = paymentMethod.transactions.length
@@ -178,10 +178,10 @@ export default class PaymentMethodsController {
   async toggleStatus({ params, response, auth }: HttpContext) {
     try {
       const paymentMethod = await PaymentMethod.findOrFail(params.id)
-      
+
       paymentMethod.isActive = !paymentMethod.isActive
       paymentMethod.lastModifiedBy = auth.user?.id || 0
-      
+
       await paymentMethod.save()
 
       return response.ok({
@@ -202,16 +202,16 @@ export default class PaymentMethodsController {
   async setDefault({ params, response, auth }: HttpContext) {
     try {
       const paymentMethod = await PaymentMethod.findOrFail(params.id)
-      
+
       // Remove default from other payment methods in the same hotel
       await PaymentMethod.query()
         .where('hotel_id', paymentMethod.hotelId)
         .where('id', '!=', paymentMethod.id)
         .update({ isDefault: false })
-      
+
       paymentMethod.isDefault = true
       paymentMethod.lastModifiedBy = auth.user?.id || 0
-      
+
       await paymentMethod.save()
 
       return response.ok({
@@ -232,7 +232,7 @@ export default class PaymentMethodsController {
   async updateSortOrder({ request, response, auth }: HttpContext) {
     try {
       const { paymentMethods } = request.only(['paymentMethods'])
-      
+
       if (!Array.isArray(paymentMethods)) {
         return response.badRequest({
           message: 'Payment methods array is required'
@@ -265,7 +265,7 @@ export default class PaymentMethodsController {
   async testConfiguration({ params, response }: HttpContext) {
     try {
       const paymentMethod = await PaymentMethod.findOrFail(params.id)
-      
+
       if (!paymentMethod.requiresProcessing) {
         return response.badRequest({
           message: 'Payment method does not require processing'
@@ -301,7 +301,7 @@ export default class PaymentMethodsController {
   async stats({ request, response }: HttpContext) {
     try {
       const { hotelId, period } = request.only(['hotelId', 'period'])
-      
+
       const query = PaymentMethod.query()
       if (hotelId) {
         query.where('hotel_id', hotelId)
@@ -319,7 +319,7 @@ export default class PaymentMethodsController {
       if (period) {
         const now = new Date()
         let startDate: Date
-        
+
         switch (period) {
           case 'today':
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -375,8 +375,8 @@ export default class PaymentMethodsController {
    */
   async active({ request, response }: HttpContext) {
     try {
-      const { hotelId } = request.only(['hotelId'])
-      
+      const { hotelId } = request.params()
+
       if (!hotelId) {
         return response.badRequest({
           message: 'Hotel ID is required'
@@ -407,7 +407,7 @@ export default class PaymentMethodsController {
   async byType({ request, response }: HttpContext) {
     try {
       const { hotelId, methodType } = request.only(['hotelId', 'methodType'])
-      
+
       if (!hotelId || !methodType) {
         return response.badRequest({
           message: 'Hotel ID and method type are required'
@@ -440,7 +440,7 @@ export default class PaymentMethodsController {
     try {
       const paymentMethod = await PaymentMethod.findOrFail(params.id)
       const { processingConfig } = request.only(['processingConfig'])
-      
+
       if (!processingConfig) {
         return response.badRequest({
           message: 'Processing configuration is required'
@@ -449,7 +449,7 @@ export default class PaymentMethodsController {
 
       paymentMethod.processorConfig = processingConfig
       paymentMethod.lastModifiedBy = auth.user?.id || 0
-      
+
       await paymentMethod.save()
 
       return response.ok({
