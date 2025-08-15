@@ -12,7 +12,7 @@
 //   }
 // }
 import { BaseCommand } from '@adonisjs/core/ace'
-import ReservationServiceProduct from '#models/reservation_service_product'
+import ReservationRoom from '#models/reservation_room'
 import { DateTime } from 'luxon'
 
 export default class AutoReleaseRooms extends BaseCommand {
@@ -26,24 +26,24 @@ export default class AutoReleaseRooms extends BaseCommand {
       const now = DateTime.local().toSQL() // format compatible avec SQL DATETIME
 
       // Recherche les réservations terminées dont la chambre n'est pas encore disponible
-      const expiredReservations = await ReservationServiceProduct.query()
-        .where('end_date', '<', now)
-        .preload('serviceProduct')
+      const expiredReservations = await ReservationRoom.query()
+        .where('checkOutDate', '<', now)
+        .preload('room')
 
       this.logger.info(`Nombre de réservations expirées à traiter : ${expiredReservations.length}`)
 
       for (const reservation of expiredReservations) {
-        if (!reservation.serviceProduct) {
-          // this.logger.warn(`ServiceProduct non trouvé pour réservation ${reservation.id}`)
+        if (!reservation.room) {
+          // this.logger.warn(`Room non trouvé pour réservation ${reservation.id}`)
           continue
         }
 
-        if (reservation.serviceProduct.status !== 'available') {
-          reservation.serviceProduct.status = 'available'
-          await reservation.serviceProduct.save()
-          this.logger.info(`Chambre ${reservation.serviceProduct.id} libérée`)
+        if (reservation.room.status !== 'available') {
+          reservation.room.status = 'available'
+          await reservation.room.save()
+          this.logger.info(`Chambre ${reservation.room.id} libérée`)
         } else {
-          this.logger.info(`Chambre ${reservation.serviceProduct.id} déjà disponible`)
+          this.logger.info(`Chambre ${reservation.room.id} déjà disponible`)
         }
       }
 
