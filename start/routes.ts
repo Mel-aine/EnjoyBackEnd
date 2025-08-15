@@ -1057,7 +1057,8 @@ router
     router
       .group(() => {
         router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
-        router.get('/:id/customer',[ReservationsController, 'getGuestsByHotel'])
+        router.get('/:id/customer',[ReservationsController, 'getGuestsByHotel'])//get guest
+        router.get('/:reservationId/details',[ReservationsController, 'getReservationDetails'])
       })
       .prefix('reservation')
 

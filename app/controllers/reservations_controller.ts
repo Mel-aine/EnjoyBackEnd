@@ -1365,4 +1365,37 @@ async getGuestsByHotel({ params }: HttpContext) {
     })
   return guests
 }
+
+ /**
+ * Get a single reservation with all its related information,
+ * including the user, service product, and payment.
+ *
+ * GET /reservations/:id
+ */
+  public async getReservationDetails({ params, response }: HttpContext) {
+    try {
+      const reservationId = params.reservationId
+
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('guest')
+        .preload('folios')
+        .preload('reservationRooms', (query) => {
+          query.preload('room')
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      return response.ok(reservation)
+    } catch (error) {
+      console.error('Error fetching reservation details:', error)
+      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
+    }
+  }
+
+
+
 }
