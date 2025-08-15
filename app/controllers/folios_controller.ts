@@ -1,7 +1,26 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import Folio from '#models/folio'
-import { createFolioValidator, updateFolioValidator } from '#validators/folio'
+import FolioService from '#services/folio_service'
+import ReservationFolioService from '#services/reservation_folio_service'
+import CheckoutService from '#services/checkout_service'
+import FolioInquiryService from '#services/folio_inquiry_service'
+import { 
+  createFolioValidator, 
+  updateFolioValidator, 
+  postTransactionValidator,
+  settleFolioValidator,
+  transferChargesValidator,
+  createFolioServiceValidator,
+  createReservationFolioValidator,
+  createWalkInFolioValidator,
+  createGroupFoliosValidator,
+  postRoomChargesValidator,
+  postTaxesAndFeesValidator,
+  checkoutValidator,
+  reservationCheckoutValidator,
+  forceCloseValidator
+} from '#validators/folio'
 
 export default class FoliosController {
   /**
@@ -98,36 +117,20 @@ export default class FoliosController {
    * Create a new folio
    */
   async store({ request, response, auth }: HttpContext) {
+    const payload = await request.validateUsing(createFolioServiceValidator)
+    
     try {
-      const payload = await request.validateUsing(createFolioValidator)
-      
-      // Generate folio number
-      const lastFolio = await Folio.query()
-        .where('hotel_id', payload.hotel_id)
-        .orderBy('created_at', 'desc')
-        .first()
-      
-      const folioNumber = `F-${payload.hotel_id}-${String((lastFolio?.id || 0) + 1).padStart(8, '0')}`
-      
-      const folio = await Folio.create({
+      const folio = await FolioService.createFolio({
         ...payload,
-        folioNumber,
-        openedBy: auth.user?.id,
-        createdBy: auth.user?.id
+        createdBy: auth.user!.id
       })
-
-      await folio.load('hotel')
-      await folio.load('guest')
-
+      
       return response.created({
         message: 'Folio created successfully',
         data: folio
       })
     } catch (error) {
-      return response.badRequest({
-        message: 'Failed to create folio',
-        error: error.message
-      })
+      return response.badRequest({ message: error.message })
     }
   }
 
@@ -512,6 +515,508 @@ export default class FoliosController {
     } catch (error) {
       return response.badRequest({
         message: 'Failed to retrieve statistics',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Post a transaction to a folio
+   */
+  async postTransaction({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(postTransactionValidator)
+      
+      const transaction = await FolioService.postTransaction({
+        ...payload,
+        postedBy: auth.user!.id
+      })
+      
+      return response.created({
+        message: 'Transaction posted successfully',
+        data: transaction
+      })
+    } catch (error) {
+      return response.badRequest({ message: error.message })
+    }
+  }
+
+  /**
+   * Settle a folio (process payment)
+   */
+  async settle({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(settleFolioValidator)
+      
+      const result = await FolioService.settleFolio({
+        ...payload,
+        settledBy: auth.user!.id
+      })
+      
+      return response.ok({
+        message: 'Folio settled successfully',
+        data: result
+      })
+    } catch (error) {
+      return response.badRequest({ message: error.message })
+    }
+  }
+
+  /**
+   * Transfer charges between folios
+   */
+  async transferCharges({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(transferChargesValidator)
+      
+      const result = await FolioService.transferCharges({
+        ...payload,
+        transferredBy: auth.user!.id
+      })
+      
+      return response.ok({
+        message: 'Charges transferred successfully',
+        data: result
+      })
+    } catch (error) {
+      return response.badRequest({ message: error.message })
+    }
+  }
+
+  /**
+   * Get folio statement with all transactions
+   */
+  async statementWithService({ params, response }: HttpContext) {
+    try {
+      const folio = await FolioService.getFolioStatement(params.id)
+      
+      return response.ok({
+        message: 'Folio statement retrieved successfully',
+        data: folio
+      })
+    } catch (error) {
+      return response.notFound({ message: 'Folio not found' })
+    }
+  }
+
+  /**
+   * Close a folio using the service
+   */
+  async closeWithService({ params, response, auth }: HttpContext) {
+    try {
+      const folio = await FolioService.closeFolio(params.id, auth.user!.id)
+      
+      return response.ok({
+        message: 'Folio closed successfully',
+        data: folio
+      })
+    } catch (error) {
+      return response.badRequest({ message: error.message })
+    }
+  }
+
+  /**
+   * Reopen a folio using the service
+   */
+  async reopenWithService({ params, response, auth }: HttpContext) {
+    try {
+      const folio = await FolioService.reopenFolio(params.id, auth.user!.id)
+      
+      return response.ok({
+        message: 'Folio reopened successfully',
+        data: folio
+      })
+    } catch (error) {
+      return response.badRequest({ message: error.message })
+    }
+  }
+
+  /**
+   * Create folio for reservation
+   */
+  async createForReservation({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(createReservationFolioValidator)
+      const folio = await ReservationFolioService.createFolioForReservation(payload)
+      
+      return response.created({
+        message: 'Folio created successfully for reservation',
+        data: folio
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to create folio for reservation',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Create folio for walk-in guest
+   */
+  async createForWalkIn({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(createWalkInFolioValidator)
+      const folio = await ReservationFolioService.createFolioForWalkIn(payload)
+      
+      return response.created({
+        message: 'Folio created successfully for walk-in guest',
+        data: folio
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to create folio for walk-in guest',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Create multiple folios for group reservation
+   */
+  async createForGroup({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(createGroupFoliosValidator)
+      const folios = await ReservationFolioService.createFoliosForGroup(
+        payload.reservationId,
+        payload.guestIds,
+        payload.createdBy
+      )
+      
+      return response.created({
+        message: 'Folios created successfully for group reservation',
+        data: folios
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to create folios for group reservation',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Auto-post room charges for reservation
+   */
+  async postRoomCharges({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(postRoomChargesValidator)
+      await ReservationFolioService.postRoomCharges(payload.reservationId, payload.postedBy)
+      
+      return response.ok({
+        message: 'Room charges posted successfully'
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to post room charges',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Auto-post taxes and fees for reservation
+   */
+  async postTaxesAndFees({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(postTaxesAndFeesValidator)
+      await ReservationFolioService.postTaxesAndFees(payload.reservationId, payload.postedBy)
+      
+      return response.ok({
+        message: 'Taxes and fees posted successfully'
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to post taxes and fees',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get all folios for a reservation
+   */
+  async getReservationFolios({ params, response }: HttpContext) {
+    try {
+      const folios = await ReservationFolioService.getFoliosForReservation(params.reservationId)
+      
+      return response.ok({
+        message: 'Reservation folios retrieved successfully',
+        data: folios
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve reservation folios',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get settlement summary for checkout
+   */
+  async getSettlementSummary({ params, response }: HttpContext) {
+    try {
+      const summary = await CheckoutService.getSettlementSummary(params.id)
+      
+      return response.ok({
+        message: 'Settlement summary retrieved successfully',
+        data: summary
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve settlement summary',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get checkout summary
+   */
+  async getCheckoutSummary({ params, response }: HttpContext) {
+    try {
+      const summary = await CheckoutService.getCheckoutSummary(params.id)
+      
+      return response.ok({
+        message: 'Checkout summary retrieved successfully',
+        data: summary
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve checkout summary',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Process checkout for a folio
+   */
+  async processCheckout({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(checkoutValidator)
+      const result = await CheckoutService.processCheckout(payload)
+      
+      return response.ok({
+        message: result.message,
+        data: result
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to process checkout',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Process checkout for entire reservation
+   */
+  async processReservationCheckout({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(reservationCheckoutValidator)
+      const results = await CheckoutService.processReservationCheckout(
+        payload.reservationId,
+        payload.payments,
+        payload.processedBy
+      )
+      
+      return response.ok({
+        message: 'Reservation checkout processed successfully',
+        data: results
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to process reservation checkout',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Force close folio with outstanding balance
+   */
+  async forceCloseFolio({ request, response }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(forceCloseValidator)
+      const folio = await CheckoutService.forceCloseFolio(
+        payload.folioId,
+        payload.reason,
+        payload.authorizedBy,
+        payload.processedBy
+      )
+      
+      return response.ok({
+        message: 'Folio force closed successfully',
+        data: folio
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to force close folio',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Validate checkout eligibility
+   */
+  async validateCheckout({ params, response }: HttpContext) {
+    try {
+      const validation = await CheckoutService.validateCheckoutEligibility(params.id)
+      
+      return response.ok({
+        message: 'Checkout validation completed',
+        data: validation
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to validate checkout eligibility',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get guest folio view (limited information)
+   */
+  async getGuestView({ params, request, response }: HttpContext) {
+    try {
+      const guestId = request.input('guestId')
+      if (!guestId) {
+        return response.badRequest({
+          message: 'Guest ID is required'
+        })
+      }
+      
+      const folioView = await FolioInquiryService.getGuestFolioView(params.id, guestId)
+      
+      return response.ok({
+        message: 'Guest folio view retrieved successfully',
+        data: folioView
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve guest folio view',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get staff folio view (comprehensive information)
+   */
+  async getStaffView({ params, response }: HttpContext) {
+    try {
+      const folioView = await FolioInquiryService.getStaffFolioView(params.id)
+      
+      return response.ok({
+        message: 'Staff folio view retrieved successfully',
+        data: folioView
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve staff folio view',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Search folios with advanced filters
+   */
+  async search({ request, response }: HttpContext) {
+    try {
+      const filters = request.only([
+        'hotelId', 'guestId', 'reservationId', 'folioNumber', 'folioType',
+        'status', 'settlementStatus', 'workflowStatus', 'dateFrom', 'dateTo',
+        'balanceMin', 'balanceMax', 'createdBy', 'hasOutstandingBalance'
+      ])
+      
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 20)
+      
+      const result = await FolioInquiryService.searchFolios(filters, page, limit)
+      
+      return response.ok({
+        message: 'Folios retrieved successfully',
+        data: result.data,
+        pagination: result.pagination
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to search folios',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Search transactions with filters
+   */
+  async searchTransactions({ request, response }: HttpContext) {
+    try {
+      const filters = request.only([
+        'folioId', 'transactionType', 'category', 'dateFrom', 'dateTo',
+        'amountMin', 'amountMax', 'postedBy', 'departmentId', 'isVoided'
+      ])
+      
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 50)
+      
+      const result = await FolioInquiryService.searchTransactions(filters, page, limit)
+      
+      return response.ok({
+        message: 'Transactions retrieved successfully',
+        data: result.data,
+        pagination: result.pagination
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to search transactions',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get folio activity timeline
+   */
+  async getTimeline({ params, response }: HttpContext) {
+    try {
+      const timeline = await FolioInquiryService.getFolioTimeline(params.id)
+      
+      return response.ok({
+        message: 'Folio timeline retrieved successfully',
+        data: timeline
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve folio timeline',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get folio statistics
+   */
+  async getStatistics({ request, response }: HttpContext) {
+    try {
+      const filters = request.only([
+        'hotelId', 'dateFrom', 'dateTo', 'folioType', 'status'
+      ])
+      
+      const statistics = await FolioInquiryService.getFolioStatistics(filters)
+      
+      return response.ok({
+        message: 'Folio statistics retrieved successfully',
+        data: statistics
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve folio statistics',
         error: error.message
       })
     }

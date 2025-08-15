@@ -1,8 +1,9 @@
 // services/reservation_service.ts
 
 import Guest from '#models/guest'
-import type { ReservationData } from '../types/reservationData.js'
+import type { ReservationData, GuestData } from '../types/reservationData.js'
 import {generateGuestCode} from '../utils/generate_guest_code.js'
+import db from '@adonisjs/lucid/services/db'
 
 export default class ReservationService {
   /**
@@ -101,5 +102,141 @@ export default class ReservationService {
     }
 
     return guest
+  }
+
+  /**
+   * Create or find a guest from guest data
+   */
+  public static async createOrFindGuestFromData(guestData: GuestData, createdBy: number): Promise<Guest> {
+    let guest = await Guest.query()
+      .where('email', guestData.email.toLowerCase().trim())
+      .first()
+
+    if (guest) {
+      guest.merge({
+        firstName: guestData.first_name,
+        lastName: guestData.last_name,
+        phonePrimary: guestData.phone_primary,
+        title: guestData.title,
+        companyName: guestData.company_name,
+        addressLine: guestData.address_line,
+        country: guestData.country,
+        stateProvince: guestData.state,
+        city: guestData.city,
+        postalCode: guestData.zipcode,
+      })
+      await guest.save()
+    } else {
+      guest = await Guest.create({
+        firstName: guestData.first_name,
+        lastName: guestData.last_name,
+        email: guestData.email.toLowerCase().trim(),
+        guestCode: generateGuestCode(),
+        phonePrimary: guestData.phone_primary,
+        title: guestData.title,
+        companyName: guestData.company_name,
+        addressLine: guestData.address_line,
+        country: guestData.country,
+        stateProvince: guestData.state,
+        city: guestData.city,
+        postalCode: guestData.zipcode,
+        createdBy: createdBy,
+      })
+    }
+
+    return guest
+  }
+
+  /**
+   * Create multiple guests and associate them with a reservation
+   */
+  public static async createGuestsForReservation(
+    reservationId: number,
+    guestsData: GuestData[],
+    createdBy: number
+  ): Promise<Guest[]> {
+    return await db.transaction(async (trx) => {
+      const guests: Guest[] = []
+      
+      for (const guestData of guestsData) {
+        // Create or find the guest
+        const guest = await this.createOrFindGuestFromData(guestData, createdBy)
+        guests.push(guest)
+        
+        // Associate guest with reservation through pivot table
+        await db.table('reservation_guests').insert({
+          reservation_id: reservationId,
+          guest_id: guest.id,
+          is_primary: guestData.is_primary || false,
+          guest_type: guestData.guest_type || 'adult',
+          room_assignment: guestData.room_assignment,
+          special_requests: guestData.special_requests,
+          dietary_restrictions: guestData.dietary_restrictions,
+          accessibility: guestData.accessibility,
+          emergency_contact: guestData.emergency_contact,
+          emergency_phone: guestData.emergency_phone,
+          notes: guestData.notes,
+          created_by: createdBy,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+      }
+      
+      return guests
+    })
+  }
+
+  /**
+   * Process reservation with multiple guests support
+   */
+  public static async processReservationGuests(
+    reservationId: number,
+    data: ReservationData
+  ): Promise<{ primaryGuest: Guest; allGuests: Guest[] }> {
+    const createdBy = data.created_by
+    
+    // Create primary guest from main reservation data
+    const primaryGuest = await this.createOrFindGuest(data)
+    
+    // If additional guests are provided, create them
+    let allGuests: Guest[] = [primaryGuest]
+    
+    if (data.guests && data.guests.length > 0) {
+      // Ensure primary guest is marked as primary if not explicitly set
+      const primaryGuestData: GuestData = {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        email: data.email,
+        phone_primary: data.phone_primary,
+        title: data.title,
+        company_name: data.company_name,
+        address_line: data.address_line,
+        country: data.country,
+        state: data.state,
+        city: data.city,
+        zipcode: data.zipcode,
+        is_primary: true,
+        guest_type: 'adult'
+      }
+      
+      // Combine primary guest with additional guests
+      const allGuestsData = [primaryGuestData, ...data.guests]
+      
+      // Create all guests and associate with reservation
+      allGuests = await this.createGuestsForReservation(reservationId, allGuestsData, createdBy)
+    } else {
+      // Just associate the primary guest with the reservation
+      await db.table('reservation_guests').insert({
+        reservation_id: reservationId,
+        guest_id: primaryGuest.id,
+        is_primary: true,
+        guest_type: 'adult',
+        created_by: createdBy,
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+    }
+    
+    return { primaryGuest, allGuests }
   }
 }

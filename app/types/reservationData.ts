@@ -1,5 +1,28 @@
+export interface GuestData {
+  first_name: string
+  last_name: string
+  email: string
+  phone_primary?: string
+  title?: string
+  company_name?: string
+  address_line?: string
+  country?: string
+  state?: string
+  city?: string
+  zipcode?: string
+  is_primary?: boolean
+  guest_type?: 'adult' | 'child' | 'infant'
+  room_assignment?: number
+  special_requests?: string
+  dietary_restrictions?: string
+  accessibility?: string
+  emergency_contact?: string
+  emergency_phone?: string
+  notes?: string
+}
+
 export interface ReservationData {
-  // Guest information
+  // Primary guest information (for backward compatibility)
   first_name: string
   last_name: string
   email: string
@@ -12,6 +35,9 @@ export interface ReservationData {
   state?: string
   city?: string
   zipcode?: string
+  
+  // Multiple guests support
+  guests?: GuestData[]
 
   // Reservation details
   hotel_id: number

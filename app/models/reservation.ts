@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
 import Payment from '#models/hotel'
@@ -11,6 +11,7 @@ import BookingSource from './booking_source.js'
 import RatePlan from './rate_plan.js'
 import Discount from './discount.js'
 import ReservationRoom from './reservation_room.js'
+import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
 export enum ReservationStatus {
   PENDING = 'pending',
@@ -422,6 +423,19 @@ export default class Reservation extends BaseModel {
 
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>
+
+  @hasMany(() => ReservationGuest)
+  declare reservationGuests: HasMany<typeof ReservationGuest>
+
+  @manyToMany(() => Guest, {
+    pivotTable: 'reservation_guests',
+    localKey: 'id',
+    pivotForeignKey: 'reservation_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'guest_id',
+    pivotColumns: ['is_primary', 'guest_type', 'room_assignment', 'special_requests', 'dietary_restrictions', 'accessibility', 'emergency_contact', 'emergency_phone', 'notes']
+  })
+  declare guests: ManyToMany<typeof Guest>
 
   @hasMany(() => Reservation, { foreignKey: 'guest_id' })
 declare reservations: HasMany<typeof Reservation>

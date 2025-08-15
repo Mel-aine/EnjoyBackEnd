@@ -1212,8 +1212,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      // Create or find guest
-      const guest = await ReservationService.createOrFindGuest(data, trx)
+      // Create or find primary guest
+      const guest = await ReservationService.createOrFindGuest(data)
 
       // Generate reservation numbers
       const confirmationNumber = generateConfirmationNumber()
@@ -1276,7 +1276,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         created_by: auth.user?.id || data.created_by
       }, { client: trx })
 
-      // 6. Réservations de chambres
+      // 6. Process multiple guests for the reservation
+      const { primaryGuest, allGuests } = await ReservationService.processReservationGuests(
+        reservation.id,
+        data
+      )
+
+      // 7. Réservations de chambres
       for (const room of data.rooms) {
         await ReservationRoom.create({
           reservationId: reservation.id,
@@ -1297,13 +1303,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }, { client: trx })
       }
 
-      // 7. Logging
+      // 8. Logging
+      const guestCount = allGuests.length
+      const guestDescription = guestCount > 1 
+        ? `${primaryGuest.firstName} ${primaryGuest.lastName} and ${guestCount - 1} other guest(s)`
+        : `${primaryGuest.firstName} ${primaryGuest.lastName}`
+      
       await LoggerService.log({
         actorId: auth.user?.id!,
         action: 'CREATE',
         entityType: 'Reservation',
         entityId: reservation.id,
-        description: `Reservation #${reservation.id} was created for customer ${guest.firstName}.`,
+        description: `Reservation #${reservation.id} was created for ${guestDescription} (${guestCount} total guests).`,
         ctx,
       })
 
@@ -1312,7 +1323,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
         success: true,
         reservationId: reservation.id,
         confirmationNumber,
-        message: 'Reservation created successfully'
+        primaryGuest: {
+          id: primaryGuest.id,
+          name: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+          email: primaryGuest.email
+        },
+        totalGuests: allGuests.length,
+        guests: allGuests.map(g => ({
+          id: g.id,
+          name: `${g.firstName} ${g.lastName}`,
+          email: g.email
+        })),
+        message: `Reservation created successfully with ${allGuests.length} guest(s)`
       })
 
     } catch (error) {
