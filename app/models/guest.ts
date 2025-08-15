@@ -5,6 +5,7 @@ import Reservation from './reservation.js'
 import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
 import User from './user.js'
+import Hotel from './hotel.js'
 
 export default class Guest extends BaseModel {
   @column({ isPrimary: true })
@@ -24,6 +25,9 @@ export default class Guest extends BaseModel {
 
   @column()
   declare title: string
+
+  @column()
+  declare hotelId: number
 
   @column()
   declare suffix: string
@@ -200,6 +204,9 @@ export default class Guest extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
+
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
+  declare hotel: BelongsTo<typeof Hotel>
 
   // Computed properties
   @computed()

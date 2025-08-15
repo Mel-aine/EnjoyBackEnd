@@ -72,6 +72,7 @@ export default class ReservationService {
 
     if (guest) {
       guest.merge({
+        hotelId:data.hotel_id,
         firstName: data.first_name,
         lastName: data.last_name,
         phonePrimary: data.phone_primary,
@@ -86,6 +87,7 @@ export default class ReservationService {
       await guest.save({ client: trx })
     } else {
       guest = await Guest.create({
+        hotelId:data.hotel_id,
         firstName: data.first_name,
         lastName: data.last_name,
         email: data.email.toLowerCase().trim(),
@@ -162,13 +164,13 @@ export default class ReservationService {
       .where('id', reservationId)
       .useTransaction(trx)
       .first()
-    
+
     if (!reservationExists) {
       throw new Error(`La réservation avec l'ID ${reservationId} n'existe pas. Impossible d'associer des invités.`)
     }
-    
+
     const guests: Guest[] = []
-    
+
     for (const guestData of guestsData) {
       // Create or find the guest
       const guest = await this.createOrFindGuestFromData(guestData, createdBy, trx)
@@ -195,7 +197,7 @@ export default class ReservationService {
           updated_at: new Date()
         })
     }
-    
+
     return guests
   }
 
@@ -211,28 +213,28 @@ export default class ReservationService {
     if (!reservationId || isNaN(reservationId)) {
       throw new Error(`ID de réservation invalide: ${reservationId}`)
     }
-    
+
     // Vérifier que la transaction est bien passée
     logger.info('Transaction dans processReservationGuests:', !!trx)
-    
+
     // Vérifier que la réservation existe avant de traiter les invités
     const reservationExists = await db.from('reservations')
       .where('id', reservationId)
       .useTransaction(trx)
       .first()
-    
+
     if (!reservationExists) {
       throw new Error(`La réservation avec l'ID ${reservationId} n'existe pas dans processReservationGuests`)
     }
-    
+
     const createdBy = data.created_by
-    
+
     // Create primary guest from main reservation data
     const primaryGuest = await this.createOrFindGuest(data, trx)
-    
+
     // If additional guests are provided, create them
     let allGuests: Guest[] = [primaryGuest]
-    
+
     if (data.guests && data.guests.length > 0) {
       // Ensure primary guest is marked as primary if not explicitly set
       const primaryGuestData: GuestData = {
@@ -250,13 +252,13 @@ export default class ReservationService {
         is_primary: true,
         guest_type: 'adult'
       }
-      
+
       // Combine primary guest with additional guests
       const allGuestsData = [primaryGuestData, ...data.guests]
-      
+
       // Create all guests and associate with reservation
       allGuests = await this.createGuestsForReservation(reservationId, allGuestsData, createdBy, trx)
-      
+
       // S'assurer que primaryGuest est bien l'invité principal
       const primaryGuestFromList = allGuests.find(g => g.email.toLowerCase() === data.email.toLowerCase())
       if (primaryGuestFromList) {
@@ -276,7 +278,7 @@ export default class ReservationService {
           updated_at: new Date()
         })
     }
-    
+
     return { primaryGuest, allGuests }
   }
 }

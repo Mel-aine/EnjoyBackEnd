@@ -234,7 +234,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('guest')
         .preload('guests', (query) => {
           query.pivotColumns([
-            'is_primary', 'guest_type', 'room_assignment', 
+            'is_primary', 'guest_type', 'room_assignment',
             'special_requests', 'dietary_restrictions', 'accessibility',
             'emergency_contact', 'emergency_phone', 'notes'
           ])
@@ -1570,7 +1570,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             reservation.id,
             auth.user?.id!
           )
-          
+
           await LoggerService.log({
             actorId: auth.user?.id!,
             action: 'CREATE_FOLIOS',
@@ -1634,18 +1634,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 }
 
 
-/**
-   * Get Guest by hotel_id
-   */
-async getGuestsByHotel({ params }: HttpContext) {
-  const hotelId = params.id
-  const guests = await Guest
-    .query()
-    .whereHas('reservations', (reservationQuery) => {
-      reservationQuery.where('hotel_id', hotelId)
-    })
-  return guests
-}
+
 
 
   /**
@@ -1666,7 +1655,7 @@ async getGuestsByHotel({ params }: HttpContext) {
 
       // Call the parent update method
       const updateResponse = await super.update({ params, request, response, auth })
-      
+
       // Check if status was changed to 'confirmed'
       if (data.status === 'confirmed' && oldStatus.status !== 'confirmed') {
         try {

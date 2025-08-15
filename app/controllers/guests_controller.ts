@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import Guest from '#models/guest'
 import { createGuestValidator, updateGuestValidator } from '#validators/guest'
+import {generateGuestCode} from '../utils/generate_guest_code.js'
 
 export default class GuestsController {
   /**
@@ -67,54 +68,72 @@ export default class GuestsController {
    * Create a new guest
    */
   async store({ request, response, auth }: HttpContext) {
-    try {
-      const payload = await request.validateUsing(createGuestValidator)
+  try {
+    console.log('Start guest creation process')
 
-      // Create guest data with proper date conversions
-      const guestData: any = {
-        ...payload,
-        createdBy: auth.user?.id || 0
-      }
+    // Validate payload
+    const payload = await request.validateUsing(createGuestValidator)
+    console.log('Payload validated:', payload)
 
-      // Convert Date fields to DateTime
-      if (payload.dateOfBirth) {
-        guestData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
-      }
-      if (payload.passportExpiryDate) {
-        guestData.passportExpiryDate = DateTime.fromJSDate(payload.passportExpiryDate)
-      }
-      if (payload.idExpiryDate) {
-        guestData.idExpiryDate = DateTime.fromJSDate(payload.idExpiryDate)
-      }
-      if (payload.blacklistedAt) {
-        guestData.blacklistedAt = DateTime.fromJSDate(payload.blacklistedAt)
-      }
-      if (payload.lastLoginAt) {
-        guestData.lastLoginAt = DateTime.fromJSDate(payload.lastLoginAt)
-      }
-      if (payload.lastActivityAt) {
-        guestData.lastActivityAt = DateTime.fromJSDate(payload.lastActivityAt)
-      }
-      if (payload.lastStayDate) {
-        guestData.lastStayDate = DateTime.fromJSDate(payload.lastStayDate)
-      }
-      if (payload.nextStayDate) {
-        guestData.nextStayDate = DateTime.fromJSDate(payload.nextStayDate)
-      }
-
-      const guest = await Guest.create(guestData)
-
-      return response.created({
-        message: 'Guest created successfully',
-        data: guest
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Failed to create guest',
-        error: error.message
-      })
+    // Prepare guest data
+    const guestData: any = {
+      ...payload,
+      createdBy: auth.user?.id || 0,
+      guestCode: generateGuestCode()
     }
+    console.log('Initial guest data:', guestData)
+
+    // Convert Date fields to DateTime
+    if (payload.dateOfBirth) {
+      guestData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
+      console.log('Converted dateOfBirth:', guestData.dateOfBirth.toISO())
+    }
+    if (payload.passportExpiryDate) {
+      guestData.passportExpiryDate = DateTime.fromJSDate(payload.passportExpiryDate)
+      console.log('Converted passportExpiryDate:', guestData.passportExpiryDate.toISO())
+    }
+    if (payload.idExpiryDate) {
+      guestData.idExpiryDate = DateTime.fromJSDate(payload.idExpiryDate)
+      console.log('Converted idExpiryDate:', guestData.idExpiryDate.toISO())
+    }
+    if (payload.blacklistedAt) {
+      guestData.blacklistedAt = DateTime.fromJSDate(payload.blacklistedAt)
+      console.log('Converted blacklistedAt:', guestData.blacklistedAt.toISO())
+    }
+    if (payload.lastLoginAt) {
+      guestData.lastLoginAt = DateTime.fromJSDate(payload.lastLoginAt)
+      console.log('Converted lastLoginAt:', guestData.lastLoginAt.toISO())
+    }
+    if (payload.lastActivityAt) {
+      guestData.lastActivityAt = DateTime.fromJSDate(payload.lastActivityAt)
+      console.log('Converted lastActivityAt:', guestData.lastActivityAt.toISO())
+    }
+    if (payload.lastStayDate) {
+      guestData.lastStayDate = DateTime.fromJSDate(payload.lastStayDate)
+      console.log('Converted lastStayDate:', guestData.lastStayDate.toISO())
+    }
+    if (payload.nextStayDate) {
+      guestData.nextStayDate = DateTime.fromJSDate(payload.nextStayDate)
+      console.log('Converted nextStayDate:', guestData.nextStayDate.toISO())
+    }
+
+    // Create guest
+    const guest = await Guest.create(guestData)
+    console.log('Guest created successfully:', guest)
+
+    return response.created({
+      message: 'Guest created successfully',
+      data: guest
+    })
+  } catch (error) {
+    console.error('Error creating guest:', error)
+    return response.badRequest({
+      message: 'Failed to create guest',
+      error: error.message
+    })
   }
+  }
+
 
   /**
    * Show a specific guest
@@ -139,58 +158,76 @@ export default class GuestsController {
     }
   }
 
+   /**
+   * Show by hotel_i a specific guest
+   */
+  async showbyHotelId({ params, response }: HttpContext) {
+    try {
+      const guest = await Guest.query()
+        .where('hotel_id', params.id)
+        .preload('reservations')
+        .preload('folios')
+
+      return response.ok({
+        message: 'Guest retrieved successfully',
+        data: guest
+      })
+    } catch (error) {
+      return response.notFound({
+        message: 'Guest not found',
+        error: error.message
+      })
+    }
+  }
+
   /**
    * Update a guest
    */
+
   async update({ params, request, response, auth }: HttpContext) {
     try {
+
+      console.log('REQUEST BODY:', request.body())
+
       const guest = await Guest.findOrFail(params.id)
-      const payload = await request.validateUsing(updateGuestValidator)
-
-      // Create update data with proper date conversions
-      const updateData: any = {
-        ...payload,
-        lastModifiedBy: auth.user?.id || 0
+      let payload: any
+      try {
+        payload = await request.validateUsing(updateGuestValidator)
+        console.log('VALIDATION PASSED:', payload)
+      } catch (validationError) {
+        console.error('VALIDATION FAILED:', validationError)
+        return response.badRequest({
+          message: 'Validation failed',
+          error: validationError.messages || validationError.message || validationError
+        })
       }
 
-      // Convert Date fields to DateTime
-      if (payload.dateOfBirth) {
-        updateData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
-      }
-      if (payload.passportExpiryDate) {
-        updateData.passportExpiryDate = DateTime.fromJSDate(payload.passportExpiryDate)
-      }
-      if (payload.idExpiryDate) {
-        updateData.idExpiryDate = DateTime.fromJSDate(payload.idExpiryDate)
-      }
-      if (payload.blacklistedAt) {
-        updateData.blacklistedAt = DateTime.fromJSDate(payload.blacklistedAt)
-      }
-      if (payload.lastLoginAt) {
-        updateData.lastLoginAt = DateTime.fromJSDate(payload.lastLoginAt)
-      }
-      if (payload.lastActivityAt) {
-        updateData.lastActivityAt = DateTime.fromJSDate(payload.lastActivityAt)
-      }
-      if (payload.lastStayDate) {
-        updateData.lastStayDate = DateTime.fromJSDate(payload.lastStayDate)
-      }
-      if (payload.nextStayDate) {
-        updateData.nextStayDate = DateTime.fromJSDate(payload.nextStayDate)
-      }
-
+      const updateData: any = { ...payload, lastModifiedBy: auth.user?.id || 0 }
+      const dateFields = [
+        'dateOfBirth', 'passportExpiryDate', 'idExpiryDate', 'blacklistedAt',
+        'lastLoginAt', 'lastActivityAt', 'lastStayDate', 'nextStayDate'
+      ]
+      dateFields.forEach(field => {
+        if (payload[field]) {
+          updateData[field] = DateTime.fromJSDate(payload[field])
+        }
+      })
+      console.log('UPDATE DATA:', updateData)
       guest.merge(updateData)
 
       await guest.save()
+
+      console.log('GUEST UPDATED:', guest)
 
       return response.ok({
         message: 'Guest updated successfully',
         data: guest
       })
     } catch (error) {
+      console.error('UPDATE FAILED:', error)
       return response.badRequest({
         message: 'Failed to update guest',
-        error: error.message
+        error: error.message || error
       })
     }
   }
