@@ -740,12 +740,28 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .where('reservation_number', 'like', `%${searchText}%`)
             .orWhere('group_name', 'like', `%${searchText}%`)
             .orWhere('company_name', 'like', `%${searchText}%`)
-            .orWhereHas('user', (userQuery) => {
+            .orWhere('source_of_business', 'like', `%${searchText}%`)
+            .orWhereHas('guest', (userQuery) => {
               userQuery
-                .where('first_name', 'like', `%${searchText}%`)
+               .where('first_name', 'like', `%${searchText}%`)
                 .orWhere('last_name', 'like', `%${searchText}%`)
                 .orWhere('email', 'like', `%${searchText}%`)
-                .orWhere('phone_number', 'like', `%${searchText}%`)
+                .orWhere('phone_primary', 'like', `%${searchText}%`)
+
+            })
+            .orWhereHas('reservationRooms', (roomQuery) => {
+               roomQuery.whereHas('room', (roomSubQuery) => {
+                 roomSubQuery.where('room_number', 'like', `%${searchText}%`)
+               })
+               .orWhereHas('roomType', (roomTypeQuery) => {
+                 roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
+               })
+             })
+            .orWhereHas('ratePlan', (ratePlanQuery) => {
+              ratePlanQuery.where('plan_name', 'like', `%${searchText}%`)
+            })
+            .orWhereHas('bookingSource', (bookingSourceQuery) => {
+              bookingSourceQuery.where('source_name', 'like', `%${searchText}%`)
             })
         })
       }
@@ -796,7 +812,97 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const reservations = await query
 
-      return response.ok(reservations)
+      // Calculate statistics
+      const today = DateTime.now().toISODate()
+      const hotelId = params.id
+
+      // Total reservations count (with same filters)
+      const totalQuery = Reservation.query().where('hotel_id', hotelId).whereNotNull('hotel_id')
+      if (searchText) {
+        totalQuery.where((builder) => {
+          builder
+            .where('reservation_number', 'like', `%${searchText}%`)
+            .orWhere('group_name', 'like', `%${searchText}%`)
+            .orWhere('company_name', 'like', `%${searchText}%`)
+            .orWhere('source_of_business', 'like', `%${searchText}%`)
+            .orWhereHas('guest', (userQuery) => {
+              userQuery
+               .where('first_name', 'like', `%${searchText}%`)
+                .orWhere('last_name', 'like', `%${searchText}%`)
+                .orWhere('email', 'like', `%${searchText}%`)
+                .orWhere('phone_primary', 'like', `%${searchText}%`)
+            })
+            .orWhereHas('reservationRooms', (roomQuery) => {
+               roomQuery.whereHas('room', (roomSubQuery) => {
+                 roomSubQuery.where('room_number', 'like', `%${searchText}%`)
+               })
+               .orWhereHas('roomType', (roomTypeQuery) => {
+                 roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
+               })
+             })
+            .orWhereHas('ratePlan', (ratePlanQuery) => {
+              ratePlanQuery.where('plan_name', 'like', `%${searchText}%`)
+            })
+            .orWhereHas('bookingSource', (bookingSourceQuery) => {
+              bookingSourceQuery.where('source_name', 'like', `%${searchText}%`)
+            })
+        })
+      }
+      if (status) {
+        totalQuery.where('status', status)
+      }
+      if (checkInDate && checkOutDate) {
+        const startDate = DateTime.fromISO(checkInDate).toISODate()
+        const endDate = DateTime.fromISO(checkOutDate).toISODate()
+        if (startDate && endDate) {
+          totalQuery.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+        }
+      }
+      if (roomType) {
+        totalQuery.whereHas('reservationRooms', (rspQuery) => {
+          rspQuery.whereHas('room', (spQuery) => {
+            spQuery.where('room_name', 'like', `%${roomType}%`)
+          })
+        })
+      }
+      const totalReservations = await totalQuery.count('* as total')
+
+      // Arrivals today
+      const arrivalsQuery = Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereNotNull('hotel_id')
+        .where('arrived_date', today)
+        .whereIn('status', ['confirmed', 'checked_in'])
+      const arrivals = await arrivalsQuery.count('* as total')
+
+      // Departures today
+      const departuresQuery = Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereNotNull('hotel_id')
+        .where('depart_date', today)
+        .whereIn('status', ['checked_in', 'checked_out'])
+      const departures = await departuresQuery.count('* as total')
+
+      // In-house (currently checked in)
+      const inHouseQuery = Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereNotNull('hotel_id')
+        .where('status', 'checked_in')
+        .where('arrived_date', '<=', today)
+        .where('depart_date', '>', today)
+      const inHouse = await inHouseQuery.count('* as total')
+
+      const statistics = {
+        totalReservations: totalReservations[0].$extras.total,
+        arrivals: arrivals[0].$extras.total,
+        departures: departures[0].$extras.total,
+        inHouse: inHouse[0].$extras.total
+      }
+
+      return response.ok({
+        reservations,
+        statistics
+      })
     } catch (error) {
       logger.error('Error searching reservations: %o', error)
       return response.internalServerError({
@@ -1237,38 +1343,4 @@ async getGuestsByHotel({ params }: HttpContext) {
     })
   return guests
 }
-
- /**
- * Get a single reservation with all its related information,
- * including the user, service product, and payment.
- *
- * GET /reservations/:id
- */
-  public async getReservationDetails({ params, response }: HttpContext) {
-    try {
-      const reservationId = params.reservationId
-
-      const reservation = await Reservation.query()
-        .where('id', reservationId)
-        .preload('user')
-        .preload('hotel')
-        .preload('folios')
-        .preload('reservationRooms', (query) => {
-          query.preload('room')
-        })
-        .first()
-
-      if (!reservation) {
-        return response.notFound({ message: 'Reservation not found' })
-      }
-
-      return response.ok(reservation)
-    } catch (error) {
-      console.error('Error fetching reservation details:', error)
-      return response.internalServerError({ message: 'An error occurred while fetching the reservation.' })
-    }
-  }
-
-
-
 }

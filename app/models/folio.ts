@@ -5,6 +5,7 @@ import Hotel from './hotel.js'
 import Guest from './guest.js'
 import FolioTransaction from './folio_transaction.js'
 import User from './user.js'
+import Reservation from './reservation.js'
 
 export default class Folio extends BaseModel {
   @column({ isPrimary: true })
@@ -319,6 +320,9 @@ export default class Folio extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
+
+  @belongsTo(() => Reservation)
+  declare reservation: BelongsTo<typeof Reservation>
 
   @hasMany(() => FolioTransaction)
   declare transactions: HasMany<typeof FolioTransaction>
