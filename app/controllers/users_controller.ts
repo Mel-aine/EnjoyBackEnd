@@ -40,57 +40,57 @@ export default class UsersController extends CrudController<typeof User> {
       }
 
       await user.load('role')
-      const oldRoleName = user.role?.role_name || 'Rôle inconnu'
+      const oldRoleName = user.role?.roleName
 
       const oldData = {
-        first_name: user.first_name,
-        last_name: user.last_name,
+        first_name: user.firstName,
+        last_name: user.lastName,
         email: user.email,
-        phone_number: user.phone_number,
+        phone_number: user.phoneNumber,
         role_name: oldRoleName,
         address: user.address,
         nationality: user.nationality,
         service_id: await this.getUserServiceId(user.id),
-        date_of_birth: user.date_of_birth,
-        place_of_birth: user.place_of_birth,
+        date_of_birth: user.dateOfBirth,
+        place_of_birth: user.placeOfBirth,
         gender: user.gender,
         city: user.city,
         country: user.country,
-        emergency_phone: user.emergency_phone,
-        personal_email: user.personal_email,
-        social_security_number: user.social_security_number,
-        national_id_number: user.national_id_number,
-        hire_date: user.hire_date,
-        contract_type: user.contract_type,
-        contract_end_date: user.contract_end_date,
-        data_processing_consent: user.data_processing_consent,
-        consent_date: user.consent_date
+        emergency_phone: user.emergencyPhone,
+        personal_email: user.personalEmail,
+        social_security_number: user.socialSecurityNumber,
+        national_id_number: user.nationalIdNumber,
+        hire_date: user.hireDate,
+        contract_type: user.contractType,
+        contract_end_date: user.contractEndDate,
+        data_processing_consent: user.dataProcessingConsent,
+        consent_date: user.consentDate
       }
 
-      user.first_name = data.first_name
-      user.last_name = data.last_name
+      user.firstName = data.first_name
+      user.lastName = data.last_name
       user.email = data.email
-      user.phone_number = data.phone_number
-      user.role_id = data.role_id
+      user.phoneNumber = data.phone_number
+      user.roleId = data.role_id
       user.address = data.address
       user.nationality = data.nationality
-      user.last_modified_by = auth.user?.id || null
-      user.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
-      user.date_of_birth = data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null
-      user.place_of_birth = data.place_of_birth
+      user.lastModifiedBy = auth.user?.id || null
+      user.hireDate = data.hire_date ? DateTime.fromISO(data.hire_date) : null
+      user.dateOfBirth = data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null
+      user.placeOfBirth = data.place_of_birth
       user.gender = data.gender
       user.city = data.city
       user.country = data.country
-      user.emergency_phone = data.emergency_phone
-      user.personal_email = data.personal_email
-      user.social_security_number = data.social_security_number
-      user.national_id_number = data.national_id_number
-      user.contract_type = data.contract_type
-      user.contract_end_date = data.contract_end_date
+      user.emergencyPhone = data.emergency_phone
+      user.personalEmail = data.personal_email
+      user.socialSecurityNumber = data.social_security_number
+      user.nationalIdNumber = data.national_id_number
+      user.contractType = data.contract_type
+      user.contractEndDate = data.contract_end_date
         ? DateTime.fromISO(data.contract_end_date)
         : null
-      user.data_processing_consent = data.data_processing_consent
-      user.consent_date = data.consent_date ? DateTime.fromISO(data.consent_date) : null
+      user.dataProcessingConsent = data.data_processing_consent
+      user.consentDate = data.consent_date ? DateTime.fromISO(data.consent_date) : null
 
       if (data.password) {
         user.password = data.password
@@ -101,7 +101,7 @@ export default class UsersController extends CrudController<typeof User> {
       const assignment = await ServiceUserAssignment.query().where('user_id', user.id).first()
 
       if (assignment) {
-        assignment.service_id = data.service_id
+        assignment.hotel_id = data.service_id
         assignment.role = data.role
         assignment.department_id = data.department_id;
         assignment.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
@@ -110,7 +110,7 @@ export default class UsersController extends CrudController<typeof User> {
       } else {
         await ServiceUserAssignment.create({
           user_id: user.id,
-          service_id: data.service_id,
+          hotel_id: data.service_id,
           role: data.role,
           department_id: data.department_id || null,
           hire_date: data.hire_date || null,
@@ -118,31 +118,31 @@ export default class UsersController extends CrudController<typeof User> {
       }
 
       await user.load('role')
-      const newRoleName = user.role?.role_name || 'Rôle inconnu'
+      const newRoleName = user.role?.roleName || 'Rôle inconnu'
 
       const newData = {
-        first_name: user.first_name,
-        last_name: user.last_name,
+        first_name: user.firstName,
+        last_name: user.lastName,
         email: user.email,
-        phone_number: user.phone_number,
+        phone_number: user.phoneNumber,
         role_name: newRoleName,
         address: user.address,
         nationality: user.nationality,
         service_id: data.service_id,
-        date_of_birth: user.date_of_birth,
-        place_of_birth: user.place_of_birth,
+        date_of_birth: user.dateOfBirth,
+        place_of_birth: user.placeOfBirth,
         gender: user.gender,
         city: user.city,
         country: user.country,
-        emergency_phone: user.emergency_phone,
-        personal_email: user.personal_email,
-        social_security_number: user.social_security_number,
-        national_id_number: user.national_id_number,
-        hire_date: user.hire_date,
-        contract_type: user.contract_type,
-        contract_end_date: user.contract_end_date,
-        data_processing_consent: user.data_processing_consent,
-        consent_date: user.consent_date,
+        emergency_phone: user.emergencyPhone,
+        personal_email: user.personalEmail,
+        social_security_number: user.socialSecurityNumber,
+        national_id_number: user.nationalIdNumber,
+        hire_date: user.hireDate,
+        contract_type: user.contractType,
+        contract_end_date: user.contractEndDate,
+        data_processing_consent: user.dataProcessingConsent,
+        consent_date: user.consentDate,
       }
 
       const changes = LoggerService.extractChanges(oldData, newData)
@@ -152,7 +152,7 @@ export default class UsersController extends CrudController<typeof User> {
         action: 'UPDATE',
         entityType: 'User',
         entityId: user.id.toString(),
-        description: `Mise à jour du profil utilisateur ${user.first_name} ${user.last_name}`,
+        description: `Mise à jour du profil utilisateur ${user.firstName} ${user.lastName}`,
         changes,
         ctx,
       })
@@ -169,7 +169,7 @@ export default class UsersController extends CrudController<typeof User> {
 
   private async getUserServiceId(userId: number): Promise<number | null> {
     const assignment = await ServiceUserAssignment.query().where('user_id', userId).first()
-    return assignment?.service_id ?? null
+    return assignment?.hotel_id ?? null
   }
 
   public async getCustomerProfile({ params, response }: HttpContext) {
@@ -188,8 +188,8 @@ export default class UsersController extends CrudController<typeof User> {
       const paymentIds = payments.map((p) => p.id.toString())
 
       // Get all reservations for the user
-      const reservations = await Reservation.query().where('user_id', customerId).preload('service')
-        .orderBy('arrived_date', 'desc')
+      const reservations = await Reservation.query().where('user_id', customerId).preload('hotel')
+        .orderBy('arrivedDate', 'desc')
       const reservationIds = reservations.map((r) => r.id.toString())
 
       // 3. Activity Logs
@@ -219,8 +219,8 @@ export default class UsersController extends CrudController<typeof User> {
       let currentReservationDetails = null;
 
       if (currentReservation) {
-        await currentReservation.load('reservationServiceProducts', (rspQuery) => {
-          rspQuery.preload('serviceProduct')
+        await currentReservation.load('reservationRooms', (rspQuery) => {
+          rspQuery.preload('room')
         })
         currentReservationDetails = currentReservation.serialize()
       }
@@ -228,15 +228,15 @@ export default class UsersController extends CrudController<typeof User> {
       const lastVisit = reservations.find(
         (r) =>
           (r.status === 'checked_out' || r.status === 'completed') &&
-          r.depart_date! < now
+          r.departDate! < now
       )
       const lastVisitDetails = lastVisit
         ? {
           reservationId: lastVisit.id,
-          reservationNumber: lastVisit.reservation_number,
-          serviceName: lastVisit.service.name,
-          checkInDate: lastVisit.arrived_date?.toISODate(),
-          checkOutDate: lastVisit.depart_date?.toISODate(),
+          reservationNumber: lastVisit.reservationNumber,
+          serviceName: lastVisit.hotel.hotelName,
+          checkInDate: lastVisit.arrivedDate?.toISODate(),
+          checkOutDate: lastVisit.departDate?.toISODate(),
         }
         : null;
       // Upcoming visit details (closest confirmed/pending reservation in the future)
@@ -244,18 +244,18 @@ export default class UsersController extends CrudController<typeof User> {
         .filter(
           (r) =>
             (r.status === 'confirmed' || r.status === 'pending') &&
-            r.arrived_date &&
-            r.arrived_date > now
+            r.arrivedDate &&
+            r.arrivedDate > now
         )
-        .sort((a, b) => a.arrived_date!.toMillis() - b.arrived_date!.toMillis())[0]
+        .sort((a, b) => a.arrivedDate!.toMillis() - b.arrivedDate!.toMillis())[0]
 
       const upcomingVisitDetails = upcomingVisit
         ? {
           reservationId: upcomingVisit.id,
-          reservationNumber: upcomingVisit.reservation_number,
-          serviceName: upcomingVisit.service.name,
-          checkInDate: upcomingVisit.arrived_date?.toISODate(),
-          checkOutDate: upcomingVisit.depart_date?.toISODate(),
+          reservationNumber: upcomingVisit.reservationNumber,
+          serviceName: upcomingVisit.hotel.hotelName,
+          checkInDate: upcomingVisit.arrivedDate?.toISODate(),
+          checkOutDate: upcomingVisit.departDate?.toISODate(),
         }
         : null;
 
@@ -274,11 +274,11 @@ export default class UsersController extends CrudController<typeof User> {
 
       // 6. Outstanding Balances
       const unpaidReservations = reservations.filter(
-        (r) => r.remaining_amount && r.remaining_amount > 0 && r.status !== 'cancelled'
+        (r) => r.remainingAmount && r.remainingAmount > 0 && r.status !== 'cancelled'
       )
 
       const totalRemainingAmount = unpaidReservations.reduce(
-        (sum, r) => sum + (parseFloat(`${r.remaining_amount}`) || 0),
+        (sum, r) => sum + (parseFloat(`${r.remainingAmount}`) || 0),
         0
       )
 
@@ -288,16 +288,16 @@ export default class UsersController extends CrudController<typeof User> {
       if (unpaidReservations.length > 0) {
         // Find the reservation with the earliest due date
         const earliestReservation = unpaidReservations.reduce((earliest, current) => {
-          if (!earliest.depart_date) return current
-          if (!current.depart_date) return earliest
-          return current.depart_date < earliest.depart_date ? current : earliest
+          if (!earliest.departDate) return current
+          if (!current.departDate) return earliest
+          return current.departDate < earliest.departDate ? current : earliest
         })
 
-        dueDate = earliestReservation.depart_date?.toISODate() ?? null
+        dueDate = earliestReservation.departDate?.toISODate() ?? null
 
         if (unpaidReservations.length === 1) {
           const r = unpaidReservations[0]
-          description = `This is the final payment for booking #${r.reservation_number} at ${r.service.name}.`
+          description = `This is the final payment for booking #${r.reservationNumber} at ${r.hotel.hotelName}.`
         } else {
           description = `This is the final payment for your flight and hotel bookings. You have ${unpaidReservations.length} outstanding payments.`
         }
@@ -310,8 +310,8 @@ export default class UsersController extends CrudController<typeof User> {
         description,
         details: unpaidReservations.map((r) => ({
           reservationId: r.id,
-          reservationNumber: r.reservation_number,
-          remainingAmount: r.remaining_amount,
+          reservationNumber: r.reservationNumber,
+          remainingAmount: r.remainingAmount,
         })),
       }
 
@@ -361,15 +361,15 @@ export default class UsersController extends CrudController<typeof User> {
       const assignments = await ServiceUserAssignment.query()
         .where('user_id', userId)
         .preload('department')
-        .preload('service')
+        .preload('hotel')
 
       // 3. Get all permissions for that user's role across all their assigned services.
-      const serviceIds = assignments.map((a) => a.service_id)
+      const serviceIds = assignments.map((a) => a.hotel_id)
       let permissions: Permission[] = []
 
-      if (user.role_id) {
+      if (user.roleId) {
         permissions = await Permission.query().whereHas('rolePermissions', (rpQuery) => {
-          rpQuery.where('role_id', user.role_id).where((q) => {
+          rpQuery.where('role_id', user.roleId).where((q) => {
             // Permissions for assigned services OR global permissions
             if (serviceIds.length > 0) {
               q.whereIn('service_id', serviceIds).orWhereNull('service_id')
@@ -510,9 +510,9 @@ public async storeClient({ request, auth, response }: HttpContext) {
 
     const newUser = await User.create({
       ...data,
-      role_id: role.id,
-      created_by: currentUser.id,
-      last_modified_by: currentUser.id,
+      roleId: role.id,
+      createdBy: currentUser.id,
+      lastModifiedBy: currentUser.id,
     })
 
     return response.created(newUser)

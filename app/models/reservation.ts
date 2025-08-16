@@ -26,184 +26,167 @@ export default class Reservation extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare hotel_id: number | null
+  @column({ columnName: 'hotel_id' })
+  declare hotelId: number
 
-  @column()
-  declare guest_id: number
+  @column({ columnName: 'guest_id' })
+  declare guestId: number
 
-  @column()
-  declare primary_room_type_id: number
+  @column({ columnName: 'primary_room_type_id' })
+  declare primaryRoomTypeId: number
 
-  @column.date()
-  declare scheduled_arrival_date: DateTime
+  @column.date({ columnName: 'scheduled_arrival_date' })
+  declare scheduledArrivalDate: DateTime
 
-  @column.date()
-  declare scheduled_departure_date: DateTime
+  @column.date({ columnName: 'scheduled_departure_date' })
+  declare scheduledDepartureDate: DateTime
 
-  @column.dateTime()
-  declare actual_arrival_datetime: DateTime | null
+  @column.dateTime({ columnName: 'actual_arrival_datetime' })
+  declare actualArrivalDatetime: DateTime | null
 
-  @column.dateTime()
-  declare actual_departure_datetime: DateTime | null
+  @column.dateTime({ columnName: 'actual_departure_datetime' })
+  declare actualDepartureDatetime: DateTime | null
 
-  @column()
-  declare reservation_status: 'Confirmed' | 'Pending' | 'Cancelled' | 'No-Show' | 'Checked-In' | 'Checked-Out' | 'Waitlist' | 'Modified' | 'PartiallyCheckedIn' | 'Guaranteed'
+  @column({ columnName: 'reservation_status' })
+  declare reservationStatus: 'Confirmed' | 'Pending' | 'Cancelled' | 'No-Show' | 'Checked-In' | 'Checked-Out' | 'Waitlist' | 'Modified' | 'PartiallyCheckedIn' | 'Guaranteed'
 
   @column()
   declare board_basis_type: 'BO' | 'BB' | 'Half Board' | 'Full Board' | 'AllInclusive' | 'Custom' | null
 
-  @column()
-  declare num_adults_total: number
+  @column({ columnName: 'num_adults_total' })
+  declare numAdultsTotal: number
 
-  @column()
-  declare num_children_total: number
+  @column({ columnName: 'num_children_total' })
+  declare numChildrenTotal: number
 
-  @column()
-  declare booking_source_id: number
+  @column({ columnName: 'booking_source_id' })
+  declare bookingSourceId: number
 
-  @column()
-  declare rate_plan_id: number
+  @column({ columnName: 'rate_plan_id' })
+  declare ratePlanId: number
 
-  @column()
-  declare discount_id: number | null
+  @column({ columnName: 'discount_id' })
+  declare discountId: number | null
 
-  @column()
-  declare total_estimated_revenue: number
+  @column({ columnName: 'total_estimated_revenue' })
+  declare totalEstimatedRevenue: number
 
-  @column()
-  declare special_notes: string | null
+  @column({ columnName: 'special_notes' })
+  declare specialNotes: string | null
 
-  @column()
-  declare source_of_business: string | null
+  @column({ columnName: 'source_of_business' })
+  declare sourceOfBusiness: string | null
 
-  @column()
-  declare group_id: number | null
+  @column({ columnName: 'group_id' })
+  declare groupId: number | null
 
-  @column.dateTime()
-  declare reservation_datetime: DateTime
+  @column.dateTime({ columnName: 'reservation_datetime' })
+  declare reservationDatetime: DateTime
 
-  @column()
-  declare confirmation_code: string
+  @column({ columnName: 'confirmation_code' })
+  declare confirmationCode: string
 
-  @column()
-  declare cancellation_reason: string | null
+  @column({ columnName: 'cancellation_reason' })
+  declare cancellationReason: string | null
 
-  @column()
-  declare no_show_reason: string | null
+  @column({ columnName: 'no_show_reason' })
+  declare noShowReason: string | null
 
-  @column()
-  declare cancellation_fee_amount: number | null
+  @column.dateTime({ columnName: 'no_show_date' })
+  declare noShowDate: DateTime | null
 
-  @column()
-  declare estimated_checkin_time: string | null
+  @column({ columnName: 'cancellation_fee_amount' })
+  declare cancellationFeeAmount: number | null
 
-  @column()
-  declare estimated_checkout_time: string | null
+  @column({ columnName: 'estimated_checkin_time' })
+  declare estimatedCheckinTime: string | null
 
-  @column()
-  declare is_guaranteed: boolean
+  @column({ columnName: 'estimated_checkout_time' })
+  declare estimatedCheckoutTime: string | null
 
-  @column()
-  declare user_id: number
+  @column({ columnName: 'is_guaranteed' })
+  declare isGuaranteed: boolean
 
-  @column()
-  declare service_id: number
+  @column({ columnName: 'user_id' })
+  declare userId: number
 
-  @column()
-  declare reservation_type: string
+  @column({ columnName: 'service_id' })
+  declare serviceId: number | null
 
-  @column()
-  declare reservation_number: string | null
+  @column({ columnName: 'reservation_type' })
+  declare reservationType: string
 
-  @column()
-  declare guest_count: number | null
+  @column({ columnName: 'reservation_number' })
+  declare reservationNumber: string | null
 
-  @column()
-  declare special_requests: string | null
+  @column({ columnName: 'guest_count' })
+  declare guestCount: number | null
 
-  @column()
+  @column({ columnName: 'special_requests' })
+  declare specialRequests: string | null
+
+  @column({ columnName: 'status' })
   declare status: string
 
+  @column({ columnName: 'created_by' })
+  declare createdBy: number | null
 
-  @column()
-  declare created_by: number | null
+  @column.dateTime({ columnName: 'arrived_date' })
+  declare arrivedDate?: DateTime
 
-  @column.dateTime()
-  declare arrived_date?: DateTime
+  @column.dateTime({ columnName: 'depart_date' })
+  declare departDate?: DateTime
 
-  @column.dateTime()
-  declare depart_date?: DateTime
+  @column({ columnName: 'reservation_time' })
+  declare reservationTime?: string
 
-  @column()
-  declare reservation_time?: string
+  @column({ columnName: 'customer_type' })
+  declare customerType: string | null
 
-  @column()
-  declare customer_type: string | null
+  @column({ columnName: 'company_name' })
+  declare companyName: string | null
 
-  @column()
-  declare company_name: string | null
+  @column({ columnName: 'group_name' })
+  declare groupName: string | null
 
-  @column()
-  declare group_name: string | null
+  @column({ columnName: 'number_of_seats' })
+  declare numberOfSeats: number | null
 
-  @column()
-  declare number_of_seats: number | null
 
-  @column()
-  declare booking_source: string | null
+  @column({ columnName: 'check_in_date' })
+  declare checkInDate: DateTime | null
 
-  @column.dateTime()
-  declare check_in_date: DateTime | null
+  @column({ columnName: 'check_out_date' })
+  declare checkOutDate: DateTime | null
 
-  @column.dateTime()
-  declare check_out_date: DateTime | null
+  @column({ columnName: 'number_of_nights' })
+  declare numberOfNights: number | null
 
-  @column()
-  declare number_of_nights: number | null
+  @column({ columnName: 'total_amount' })
+  declare totalAmount?: number
 
-  @column()
-  declare total_amount?: number
+  @column({ columnName: 'discount_amount' })
+  declare discountAmount?: number
 
-  @column()
-  declare discount_amount?: number
+  @column({ columnName: 'tax_amount' })
+  declare taxAmount?: number
 
-  @column()
-  declare tax_amount?: number
+  @column({ columnName: 'final_amount' })
+  declare finalAmount?: number
 
-  @column()
-  declare final_amount?: number
+  @column({ columnName: 'paid_amount' })
+  declare paidAmount?: number
 
-  @column()
-  declare paid_amount?: number
+  @column({ columnName: 'remaining_amount' })
+  declare remainingAmount?: number
 
-  @column()
-  declare remaining_amount: number | null
-
-  @column()
-  declare invoice_available: boolean
+  @column({ columnName: 'invoice_available' })
+  declare invoiceAvailable: boolean
 
   // Enhanced reservation fields
-  @column()
-  declare hotelId: number
-
-  @column()
-  declare guestId: number
 
   @column()
   declare roomTypeId: number
-
-  @column()
-  declare bookingSourceId: number
-
-  @column()
-  declare ratePlanId: number
-
-  @column()
-  declare discountId: number
-
-  @column()
-  declare groupId: number
 
   @column()
   declare confirmationNumber: string
@@ -364,14 +347,23 @@ export default class Reservation extends BaseModel {
   @column()
   declare reviewInvitationSent: boolean
 
-  @column()
-  declare payment_status: 'unpaid' | 'partially_paid' | 'paid' | 'refunded' | 'disputed' | 'pending'
+  @column({ columnName: 'payment_status' })
+  declare paymentStatus: 'unpaid' | 'partially_paid' | 'paid' | 'refunded' | 'disputed' | 'pending'
 
   @column()
   declare comment?: string
 
-  @column()
-  declare last_modified_by: number | null
+  @column({ columnName: 'last_modified_by' })
+  declare lastModifiedBy: number | null
+
+  @column.dateTime({ columnName: 'voided_date' })
+  declare voidedDate: DateTime | null
+
+  @column({ columnName: 'void_reason' })
+  declare voidReason: string | null
+
+  @column({ columnName: 'void_notes' })
+  declare voidNotes: string | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -475,11 +467,11 @@ declare reservations: HasMany<typeof Reservation>
   }
 
   get isFullyPaid() {
-    return this.payment_status === 'paid'
+    return this.paymentStatus === 'paid'
   }
 
   get displayName() {
-    return `${this.confirmationNumber || this.reservation_number} - ${this.guest?.firstName || 'Guest'}`
+    return `${this.confirmationNumber || this.reservationNumber} - ${this.guest?.firstName || 'Guest'}`
   }
 
 }

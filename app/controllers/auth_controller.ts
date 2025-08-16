@@ -109,11 +109,11 @@ public async signin(ctx: HttpContext) {
       return {
         service: {
           id: hotel.id,
-          name: hotel.hotel_name,
-          category: hotel.hotel_code,
+          name: hotel.hotelName,
+          category: hotel.hotelCode,
         },
         role: {
-          name: role.role_name,
+          name: role.roleName,
           description: role.description,
         },
         permissions,

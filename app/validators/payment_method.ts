@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { PaymentMethodType } from '#app/enums'
 
 export const createPaymentMethodValidator = vine.compile(
   vine.object({
@@ -7,7 +8,7 @@ export const createPaymentMethodValidator = vine.compile(
     methodName: vine.string().minLength(1).maxLength(100),
     methodCode: vine.string().minLength(1).maxLength(20),
     shortCode: vine.string().minLength(1).maxLength(10),
-    methodType: vine.enum(['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'voucher', 'comp', 'house_account', 'mobile_payment', 'cryptocurrency', 'gift_card', 'loyalty_points']),
+    methodType: vine.enum(Object.values(PaymentMethodType)),
     type: vine.enum(['CASH', 'BANK']),
     cardProcessing: vine.boolean().optional(),
     
@@ -176,7 +177,7 @@ export const updatePaymentMethodValidator = vine.compile(
     methodName: vine.string().minLength(1).maxLength(100).optional(),
     methodCode: vine.string().minLength(1).maxLength(20).optional(),
     shortCode: vine.string().minLength(1).maxLength(10).optional(),
-    methodType: vine.enum(['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'voucher', 'comp', 'house_account', 'mobile_payment', 'cryptocurrency', 'gift_card', 'loyalty_points']).optional(),
+    methodType: vine.enum(Object.values(PaymentMethodType)).optional(),
     type: vine.enum(['CASH', 'BANK']).optional(),
     cardProcessing: vine.boolean().optional(),
     

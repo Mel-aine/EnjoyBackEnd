@@ -57,17 +57,17 @@ export class HotelAnalyticsDashboardService {
     const [currentReservations, previousReservations] = await Promise.all([
       Reservation.query()
         .where('service_id', serviceId)
-        .whereBetween('arrived_date', [current.toFormat('yyyy-MM-dd'), currentEnd.toFormat('yyyy-MM-dd')]),
+        .whereBetween('arrivedDate', [current.toFormat('yyyy-MM-dd'), currentEnd.toFormat('yyyy-MM-dd')]),
       Reservation.query()
         .where('service_id', serviceId)
-        .whereBetween('arrived_date', [previous.toFormat('yyyy-MM-dd'), previousEnd.toFormat('yyyy-MM-dd')])
+        .whereBetween('arrivedDate', [previous.toFormat('yyyy-MM-dd'), previousEnd.toFormat('yyyy-MM-dd')])
     ])
 
     // Calcul des nuits occupées
     const calculateNights = (reservations: Reservation[], start: DateTime, end: DateTime) => {
       return reservations.reduce((total, res) => {
         // Vérification et conversion des dates
-        if (!res.arrived_date || !res.depart_date) {
+        if (!res.arrivedDate || !res.departDate) {
           return total // Ignorer les réservations sans dates complètes
         }
 
@@ -75,22 +75,22 @@ export class HotelAnalyticsDashboardService {
         let departDate: DateTime
 
         // Conversion sécurisée des dates
-        if (res.arrived_date instanceof Date) {
-          arrivalDate = DateTime.fromJSDate(res.arrived_date)
-        } else if (typeof res.arrived_date === 'string') {
-          arrivalDate = DateTime.fromISO(res.arrived_date)
+        if (res.arrivedDate instanceof Date) {
+          arrivalDate = DateTime.fromJSDate(res.arrivedDate)
+        } else if (typeof res.arrivedDate === 'string') {
+          arrivalDate = DateTime.fromISO(res.arrivedDate)
         } else {
           // Si c'est déjà un DateTime de Luxon
-          arrivalDate = res.arrived_date as DateTime
+          arrivalDate = res.arrivedDate as DateTime
         }
 
-        if (res.depart_date instanceof Date) {
-          departDate = DateTime.fromJSDate(res.depart_date)
-        } else if (typeof res.depart_date === 'string') {
-          departDate = DateTime.fromISO(res.depart_date)
+        if (res.departDate instanceof Date) {
+          departDate = DateTime.fromJSDate(res.departDate)
+        } else if (typeof res.departDate === 'string') {
+          departDate = DateTime.fromISO(res.departDate)
         } else {
           // Si c'est déjà un DateTime de Luxon
-          departDate = res.depart_date as DateTime
+          departDate = res.departDate as DateTime
         }
 
         // Vérification de la validité des dates
@@ -160,18 +160,18 @@ export class HotelAnalyticsDashboardService {
       const reservations = await Reservation
         .query()
         .where('service_id', serviceId)
-        .whereBetween('arrived_date', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
+        .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
 
       const occupiedNights = reservations.reduce((sum, res) => {
-        if (!res.arrived_date || !res.depart_date) return sum
+        if (!res.arrivedDate || !res.departDate) return sum
 
-        const arrived = res.arrived_date instanceof Date
-          ? DateTime.fromJSDate(res.arrived_date)
-          : DateTime.fromISO(res.arrived_date.toString())
+        const arrived = res.arrivedDate instanceof Date
+          ? DateTime.fromJSDate(res.arrivedDate)
+          : DateTime.fromISO(res.arrivedDate.toString())
 
-        const depart = res.depart_date instanceof Date
-          ? DateTime.fromJSDate(res.depart_date)
-          : DateTime.fromISO(res.depart_date.toString())
+        const depart = res.departDate instanceof Date
+          ? DateTime.fromJSDate(res.departDate)
+          : DateTime.fromISO(res.departDate.toString())
 
         const actualStart = arrived < start ? start : arrived
         const actualEnd = depart > end ? end : depart
@@ -232,7 +232,7 @@ public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
     Reservation.query()
       .where('service_id', serviceId)
       .where('status', 'confirmed')
-      .whereBetween('arrived_date', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
+      .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
 
   const [currentReservations, previousReservations] = await Promise.all([
     getReservations(current, currentEnd),
@@ -245,20 +245,20 @@ public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
     let totalNights = 0
 
     for (const res of reservations) {
-      if (!res.arrived_date || !res.depart_date || !res.total_amount) continue
+      if (!res.arrivedDate || !res.departDate || !res.totalAmount) continue
 
       // Normalisation des dates
-      const arrivalDate = res.arrived_date instanceof Date
-        ? DateTime.fromJSDate(res.arrived_date)
-        : typeof res.arrived_date === 'string'
-          ? DateTime.fromISO(res.arrived_date)
-          : res.arrived_date as DateTime
+      const arrivalDate = res.arrivedDate instanceof Date
+        ? DateTime.fromJSDate(res.arrivedDate)
+        : typeof res.arrivedDate === 'string'
+          ? DateTime.fromISO(res.arrivedDate)
+          : res.arrivedDate as DateTime
 
-      const departDate = res.depart_date instanceof Date
-        ? DateTime.fromJSDate(res.depart_date)
-        : typeof res.depart_date === 'string'
-          ? DateTime.fromISO(res.depart_date)
-          : res.depart_date as DateTime
+      const departDate = res.departDate instanceof Date
+        ? DateTime.fromJSDate(res.departDate)
+        : typeof res.departDate === 'string'
+          ? DateTime.fromISO(res.departDate)
+          : res.departDate as DateTime
 
       if (!arrivalDate.isValid || !departDate.isValid) continue
 
@@ -270,8 +270,8 @@ public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
       if (nights > 0) {
         const totalStayNights = departDate.diff(arrivalDate, 'days').days
         const proportionalRevenue = totalStayNights > 0
-          ? (Number(res.total_amount) * nights) / totalStayNights
-          : Number(res.total_amount)
+          ? (Number(res.totalAmount) * nights) / totalStayNights
+          : Number(res.totalAmount)
 
         totalRevenue += proportionalRevenue
         totalNights += nights
@@ -316,50 +316,6 @@ public static async getNationalityStats(serviceId: number): Promise<{ nationalit
   }))
 }
 
-//  public static async getStayDurationDistribution(serviceId: number) {
-//     const reservations = await Reservation
-//       .query()
-//       .where('service_id', serviceId)
-//       .select('arrived_date', 'depart_date')
-
-//     // Compteurs pour chaque catégorie
-//     let oneToTwo = 0
-//     let threeToFive = 0
-//     let sixToTen = 0
-//     let overTen = 0
-//     let total = 0
-
-//     for (const res of reservations) {
-//       if (!(res.arrived_date instanceof Date) || !(res.depart_date instanceof Date)) continue
-
-//       const start = DateTime.fromJSDate(res.arrived_date)
-//       const end = DateTime.fromJSDate(res.depart_date)
-
-//       if (!start.isValid || !end.isValid) continue
-
-//       const nights = end.diff(start, 'days').days
-
-//       if (nights <= 0) continue
-
-//       total++
-
-//       if (nights <= 2) oneToTwo++
-//       else if (nights <= 5) threeToFive++
-//       else if (nights <= 10) sixToTen++
-//       else overTen++
-//     }
-
-//     const toPercentage = (count: number) =>
-//       total > 0 ? Math.round((count / total) * 10000) / 100 : 0
-
-//     return {
-//       '1-2 nuits': toPercentage(oneToTwo),
-//       '3-5 nuits': toPercentage(threeToFive),
-//       '6-10 nuits': toPercentage(sixToTen),
-//       '10+ nuits': toPercentage(overTen)
-//     }
-//   }
-
 public static async getStayDurationDistribution(serviceId: number) {
   const reservations = await Reservation
     .query()
@@ -373,7 +329,7 @@ public static async getStayDurationDistribution(serviceId: number) {
   let total = 0
 
   for (const res of reservations) {
-    const nights = res.number_of_nights
+    const nights = res.numberOfNights
 
     if (typeof nights !== 'number' || nights <= 0) continue
 
@@ -396,19 +352,19 @@ public static async getStayDurationDistribution(serviceId: number) {
   }
 }
 
-public static async getCustomerTypeStats(serviceId: number): Promise<{
+public static async getCustomerTypeStats(hotelId: number): Promise<{
   customerTypes: { type: string, percentage: number }[]
 }> {
 
   const reservations = await Reservation
     .query()
-    .where('service_id', serviceId)
+    .where('hotel_id', hotelId)
 
   const customerTypeMap: Record<string, number> = {}
   let totalCustomerTypes = 0
 
   for (const res of reservations) {
-    const type = res.customer_type || 'Inconnu'
+    const type = res.numberOfNights || 'Inconnu'
     customerTypeMap[type] = (customerTypeMap[type] || 0) + 1
     totalCustomerTypes++
   }
@@ -449,7 +405,7 @@ public static async getCustomerTypeStats(serviceId: number): Promise<{
       .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
       .distinct('reservation_type')
 
-    const types = distinctReservations.map(r => r.reservation_type || 'Inconnu')
+    const types = distinctReservations.map(r => r.reservationType || 'Inconnu')
 
     // Statistiques hebdomadaires (4 semaines)
     const weeks: { label: string, data: { type: string, count: number }[] }[] = []

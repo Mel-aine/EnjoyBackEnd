@@ -2,21 +2,21 @@ import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Role from '#models/role'
 import Permission from '#models/permission'
 import RolePermission from '#models/role_permission'
-import Service from '#models/service'
+import Hotel from '../../app/models/hotel.js'
 
 export default class extends BaseSeeder {
   public async run() {
     const serviceId = 5974
 
     // Vérifier que le service existe
-    const service = await Service.find(serviceId)
+    const service = await Hotel.find(serviceId)
     if (!service) {
       console.error(`❌ Service avec ID ${serviceId} introuvable.`)
       return
     }
 
     // Trouver ou créer le rôle admin
-    const adminRole = await Role.firstOrCreate({ role_name: 'admin' })
+    const adminRole = await Role.firstOrCreate({ roleName: 'admin' })
 
     // Récupérer toutes les permissions existantes
     const allPermissions = await Permission.all()
@@ -33,7 +33,7 @@ export default class extends BaseSeeder {
         await RolePermission.create({
           role_id: adminRole.id,
           permission_id: permission.id,
-          service_id: serviceId,
+          hotel_id: serviceId,
         })
       }
     }

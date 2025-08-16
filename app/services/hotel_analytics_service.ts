@@ -43,7 +43,7 @@ export class HotelAnalyticsService {
 
             const activeReservationsForDay = reservations.filter(
                 (r) =>
-                    r.arrived_date && r.depart_date && r.arrived_date <= currentDate && r.depart_date > currentDate
+                    r.arrivedDate && r.departDate && r.arrivedDate <= currentDate && r.departDate > currentDate
             )
 
             const occupiedRoomIds = new Set<number>()
@@ -80,12 +80,12 @@ export class HotelAnalyticsService {
 
             // Get reservations checking out today
             const checkingOutToday = reservations.filter(
-                (r) => r.depart_date?.hasSame(currentDate, 'day') && r.status === 'checked_in'
+                (r) => r.departDate?.hasSame(currentDate, 'day') && r.status === 'checked_in'
             )
 
             // Get reservations arriving today
             const arrivingToday = reservations.filter(
-                (r) => r.arrived_date?.hasSame(currentDate, 'day') && r.status === 'confirmed'
+                (r) => r.arrivedDate?.hasSame(currentDate, 'day') && r.status === 'confirmed'
             )
 
             for (const room of allRooms) {
@@ -137,7 +137,7 @@ export class HotelAnalyticsService {
             } else if (reservation.status === 'checkout') {
                 return 'checkout'
             } else if (reservation.status === 'checked_in') {
-                if (reservation.depart_date?.hasSame(today, 'day')) {
+                if (reservation.departDate?.hasSame(today, 'day')) {
                     return 'departure'
                 } else {
                     return 'inhouse'
@@ -210,24 +210,24 @@ export class HotelAnalyticsService {
                         reservation_id: reservation.id,
                         guest_name: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''
                             }`.trim(),
-                        check_in_date: reservation.arrived_date,
-                        check_out_date: reservation.depart_date,
+                        check_in_date: reservation.arrivedDate,
+                        check_out_date: reservation.departDate,
                         reservation_status: getReservationStatus(reservation, today),
-                        is_checking_in_today: reservation.arrived_date?.hasSame(today, 'day') ?? false,
-                        is_checking_out_today: reservation.depart_date?.hasSame(today, 'day') ?? false,
+                        is_checking_in_today: reservation.arrivedDate?.hasSame(today, 'day') ?? false,
+                        is_checking_out_today: reservation.departDate?.hasSame(today, 'day') ?? false,
                         assigned_room_number: assignedRoomForType?.roomNumber || null,
-                        total_guests: reservation.guest_count || 0,
-                        special_requests: reservation.special_requests || '',
-                        reservation_number: reservation.reservation_number,
-                        total_amount: reservation.total_amount,
-                        reservation_type: reservation.reservation_type,
-                        customer_type: reservation.customer_type,
-                        company_name: reservation.company_name,
-                        group_name: reservation.group_name,
-                        remaining_amount: reservation.remaining_amount,
-                        booking_source: reservation.booking_source,
-                        total_nights: reservation.number_of_nights,
-                        payment_status: reservation.payment_status,
+                        total_guests: reservation.guestCount || 0,
+                        special_requests: reservation.specialRequests || '',
+                        reservation_number: reservation.reservationNumber,
+                        total_amount: reservation.totalAmount,
+                        reservationType: reservation.reservationType,
+                        customerType: reservation.customerType,
+                        companyName: reservation.companyName,
+                        groupName: reservation.groupName,
+                        remainingAmount: reservation.remainingAmount,
+                        bookingSource: reservation.bookingSource,
+                        totalNights: reservation.numberOfNights,
+                        paymentStatus: reservation.paymentStatus,
                     })
                 }
             }
@@ -246,8 +246,8 @@ export class HotelAnalyticsService {
 
         // Get all reservations within the date range for global calculations
         const allActiveReservations = reservations.filter(
-            (r) => r.arrived_date && r.depart_date && 
-                   r.arrived_date <= endDate && r.depart_date >= startDate
+            (r) => r.arrivedDate && r.departDate && 
+                   r.arrivedDate <= endDate && r.departDate >= startDate
         )
 
         // Get all occupied room IDs across the entire date range
@@ -262,14 +262,13 @@ export class HotelAnalyticsService {
 
         // Get reservations checking out within the date range
         const checkingOutInRange = reservations.filter(
-            (r) => r.depart_date && r.depart_date >= startDate && r.depart_date <= endDate && r.status === 'checked_in'
+            (r) => r.departDate && r.departDate >= startDate && r.departDate <= endDate && r.status === 'checked_in'
         )
 
         // Get reservations arriving within the date range
         const arrivingInRange = reservations.filter(
-            (r) => r.arrived_date && r.arrived_date >= startDate && r.arrived_date <= endDate && r.status === 'confirmed'
+            (r) => r.arrivedDate && r.arrivedDate >= startDate && r.arrivedDate <= endDate && r.status === 'confirmed'
         )
-
         // Calculate global room status for each room
         for (const room of allRooms) {
             const isOccupied = globalOccupiedRoomIds.has(room.id)

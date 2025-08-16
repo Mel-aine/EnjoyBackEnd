@@ -2,8 +2,8 @@ import { DateTime } from 'luxon'
 import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import Reservation from '#models/reservation'
-import Guest from '#models/guest'
 import FolioService from '#services/folio_service'
+import { TransactionType, TransactionCategory } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
 
 export interface CheckoutData {
@@ -49,15 +49,15 @@ export default class CheckoutService {
     const transactions = folio.transactions
     
     const totalCharges = transactions
-      .filter(t => t.transactionType === 'charge')
+      .filter(t => t.transactionType === TransactionType.CHARGE)
       .reduce((sum, t) => sum + t.amount, 0)
     
     const totalPayments = transactions
-      .filter(t => t.transactionType === 'payment')
+      .filter(t => t.transactionType === TransactionType.PAYMENT)
       .reduce((sum, t) => sum + t.amount, 0)
     
     const totalAdjustments = transactions
-      .filter(t => t.transactionType === 'adjustment')
+      .filter(t => t.transactionType === TransactionType.ADJUSTMENT)
       .reduce((sum, t) => sum + t.amount, 0)
     
     const outstandingBalance = totalCharges - totalPayments + totalAdjustments
@@ -106,8 +106,8 @@ export default class CheckoutService {
         // Create payment transaction
         paymentTransaction = await FolioService.postTransaction({
           folioId: data.folioId,
-          transactionType: 'payment',
-          category: 'payment',
+          transactionType: TransactionType.PAYMENT,
+        category: TransactionCategory.PAYMENT,
           description: `Checkout payment`,
           amount: data.paymentAmount,
           quantity: 1,
@@ -124,7 +124,7 @@ export default class CheckoutService {
       
       // If folio is now fully settled, close it
       if (updatedSettlement.isFullySettled) {
-        await FolioService.closeFolio(data.folioId)
+        await FolioService.closeFolio(data.folioId, data.processedBy)
         checkoutCompleted = true
         if (!message) message = 'Checkout completed - folio closed'
       } else if (updatedSettlement.requiresPayment) {
@@ -214,12 +214,11 @@ export default class CheckoutService {
       if (settlement.outstandingBalance !== 0) {
         // Create adjustment to zero out the balance
         const adjustmentAmount = -settlement.outstandingBalance
-        const adjustmentType = settlement.outstandingBalance > 0 ? 'write_off' : 'correction'
         
         await FolioService.postTransaction({
           folioId,
-          transactionType: 'adjustment',
-          category: adjustmentType,
+          transactionType: TransactionType.ADJUSTMENT,
+          category: TransactionCategory.ADJUSTMENT,
           description: `Force closure adjustment - ${reason}`,
           amount: adjustmentAmount,
           quantity: 1,
@@ -231,7 +230,7 @@ export default class CheckoutService {
       }
       
       // Close the folio
-      return await FolioService.closeFolio(folioId)
+      return await FolioService.closeFolio(folioId, processedBy)
     })
   }
   

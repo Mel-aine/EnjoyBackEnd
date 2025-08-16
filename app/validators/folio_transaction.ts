@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { TransactionType, TransactionStatus } from '#app/enums'
 
 export const createFolioTransactionValidator = vine.compile(
   vine.object({
@@ -9,7 +10,7 @@ export const createFolioTransactionValidator = vine.compile(
     transactionNumber: vine.string().optional(),
     
     // Transaction Details
-    transactionType: vine.enum(['charge', 'payment', 'adjustment', 'tax', 'refund', 'transfer']),
+    transactionType: vine.enum(Object.values(TransactionType)),
     transactionCategory: vine.string().optional(),
     transactionCode: vine.string().optional(),
     
@@ -30,7 +31,7 @@ export const createFolioTransactionValidator = vine.compile(
     businessDate: vine.date().optional(),
     
     // Status
-    status: vine.enum(['pending', 'posted', 'voided', 'refunded']),
+    status: vine.enum(Object.values(TransactionStatus)),
     
     // Room Information
     roomId: vine.number().positive().optional(),
@@ -184,7 +185,7 @@ export const updateFolioTransactionValidator = vine.compile(
     transactionNumber: vine.string().optional(),
     
     // Transaction Details
-    transactionType: vine.enum(['charge', 'payment', 'adjustment', 'tax', 'refund', 'transfer']).optional(),
+    transactionType: vine.enum(Object.values(TransactionType)).optional(),
     transactionCategory: vine.string().optional(),
     transactionCode: vine.string().optional(),
     
@@ -205,7 +206,7 @@ export const updateFolioTransactionValidator = vine.compile(
     businessDate: vine.date().optional(),
     
     // Status
-    status: vine.enum(['pending', 'posted', 'voided', 'refunded']).optional(),
+    status: vine.enum(Object.values(TransactionStatus)).optional(),
     
     // Room Information
     roomId: vine.number().positive().optional(),

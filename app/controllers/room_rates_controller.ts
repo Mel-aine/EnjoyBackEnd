@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import RoomRate from '#models/room_rate'
-import RoomType from '#models/room_type'
 import { createRoomRateValidator, updateRoomRateValidator } from '#validators/room_rate'
 import Database from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'

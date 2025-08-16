@@ -1,9 +1,8 @@
-import { DateTime } from 'luxon'
 import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import Guest from '#models/guest'
 import User from '#models/user'
-import db from '@adonisjs/lucid/services/db'
+import { TransactionType, WorkflowStatus } from '#app/enums'
 
 export interface FolioInquiryFilters {
   hotelId?: number
@@ -52,7 +51,7 @@ export interface GuestFolioView {
     date: Date
     description: string
     amount: number
-    type: 'charge' | 'payment' | 'adjustment'
+    type: TransactionType
     category: string
   }[]
   summary: {
@@ -106,9 +105,9 @@ export default class FolioInquiryService {
       .firstOrFail()
     
     // Calculate totals
-    const charges = folio.transactions.filter(t => t.transactionType === 'charge')
-    const payments = folio.transactions.filter(t => t.transactionType === 'payment')
-    const adjustments = folio.transactions.filter(t => t.transactionType === 'adjustment')
+    const charges = folio.transactions.filter(t => t.transactionType === TransactionType.CHARGE)
+    const payments = folio.transactions.filter(t => t.transactionType === TransactionType.PAYMENT)
+    const adjustments = folio.transactions.filter(t => t.transactionType === TransactionType.ADJUSTMENT)
     
     const totalCharges = charges.reduce((sum, t) => sum + t.amount, 0)
     const totalPayments = payments.reduce((sum, t) => sum + t.amount, 0)
@@ -125,18 +124,18 @@ export default class FolioInquiryService {
         folioNumber: folio.folioNumber,
         folioType: folio.folioType,
         status: folio.status,
-        createdAt: folio.createdAt,
+        createdAt: folio.createdAt.toJSDate(),
         totalCharges: folio.totalCharges || 0,
         totalPayments: folio.totalPayments || 0,
         balance: folio.balance || 0,
-        currency: folio.currency || 'USD'
+        currency: folio.currencyCode || 'XAF'
       },
       transactions: folio.transactions.map(t => ({
         id: t.id,
-        date: t.transactionDate,
+        date: t.transactionDate.toJSDate(),
         description: t.description,
         amount: t.amount,
-        type: t.transactionType as 'charge' | 'payment' | 'adjustment',
+        type: t.transactionType as TransactionType,
         category: t.category
       })),
       summary: {
@@ -144,7 +143,7 @@ export default class FolioInquiryService {
         totalPayments,
         totalAdjustments,
         currentBalance,
-        lastActivity
+        lastActivity: lastActivity.toJSDate()
       }
     }
   }
@@ -159,15 +158,15 @@ export default class FolioInquiryService {
       .preload('transactions', (query) => {
         query.orderBy('transactionDate', 'desc')
       })
-      .preload('createdByUser')
-      .preload('lastModifiedByUser')
+      .preload('creator')
+      .preload('modifier')
       .firstOrFail()
     
     // Calculate financial summary
     const activeTransactions = folio.transactions.filter(t => !t.isVoided)
-    const charges = activeTransactions.filter(t => t.transactionType === 'charge')
-    const payments = activeTransactions.filter(t => t.transactionType === 'payment')
-    const adjustments = activeTransactions.filter(t => t.transactionType === 'adjustment')
+    const charges = activeTransactions.filter(t => t.transactionType === TransactionType.CHARGE)
+    const payments = activeTransactions.filter(t => t.transactionType === TransactionType.PAYMENT)
+    const adjustments = activeTransactions.filter(t => t.transactionType === TransactionType.ADJUSTMENT)
     
     const totalCharges = charges.reduce((sum, t) => sum + t.amount, 0)
     const totalPayments = payments.reduce((sum, t) => sum + t.amount, 0)
@@ -188,10 +187,10 @@ export default class FolioInquiryService {
       transactions: folio.transactions,
       guest: folio.guest,
       audit: {
-        createdBy: folio.createdByUser,
-        lastModifiedBy: folio.lastModifiedByUser,
+        createdBy: folio.creator,
+       // lastModifiedBy: folio.lastModifiedBy,
         transactionCount: activeTransactions.length,
-        lastTransactionDate,
+        lastTransactionDate: lastTransactionDate?.toJSDate(),
         voidedTransactions,
         refundedTransactions
       },
@@ -333,14 +332,8 @@ export default class FolioInquiryService {
     }
   }> {
     const query = FolioTransaction.query()
-      .preload('folio', (folioQuery) => {
-        folioQuery.select(['id', 'folioNumber', 'guestId']).preload('guest', (guestQuery) => {
-          guestQuery.select(['id', 'firstName', 'lastName'])
-        })
-      })
-      .preload('postedByUser', (userQuery) => {
-        userQuery.select(['id', 'firstName', 'lastName'])
-      })
+      .preload('folio')
+      .preload('creator' )
     
     // Apply filters
     if (filters.folioId) {
@@ -422,9 +415,9 @@ export default class FolioInquiryService {
     const folio = await Folio.query()
       .where('id', folioId)
       .preload('transactions', (query) => {
-        query.preload('postedByUser').orderBy('transactionDate', 'asc')
+        query.preload('creator').orderBy('transactionDate', 'asc')
       })
-      .preload('createdByUser')
+      .preload('creator')
       .firstOrFail()
     
     const events: any[] = []
@@ -435,7 +428,7 @@ export default class FolioInquiryService {
       type: 'created',
       timestamp: folio.createdAt,
       description: `Folio ${folio.folioNumber} created`,
-      user: `${folio.createdByUser.firstName} ${folio.createdByUser.lastName}`,
+      user: `${folio.creator.firstName} ${folio.creator.lastName}`,
       details: {
         folioType: folio.folioType,
         guestId: folio.guestId
@@ -450,7 +443,7 @@ export default class FolioInquiryService {
         timestamp: transaction.transactionDate,
         description: transaction.description,
         amount: transaction.amount,
-        user: transaction.postedByUser ? `${transaction.postedByUser.firstName} ${transaction.postedByUser.lastName}` : 'System',
+        user: transaction.creator ? `${transaction.creator.firstName} ${transaction.creator.lastName}` : 'System',
         details: {
           transactionType: transaction.transactionType,
           category: transaction.category,
@@ -474,7 +467,7 @@ export default class FolioInquiryService {
     }
     
     // Closure events
-    if (folio.workflowStatus === 'closed' && folio.finalizedDate) {
+    if (folio.workflowStatus === WorkflowStatus.CLOSED && folio.finalizedDate) {
       events.push({
         id: `closure-${folio.id}`,
         type: 'closure',

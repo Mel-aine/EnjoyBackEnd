@@ -368,7 +368,7 @@ export default class HotelsController {
           ...room.serialize(),
           roomType: room.roomType ? {
             id: room.roomType.id,
-            typeName: room.roomType.typeName,
+            typeName: room.roomType.roomTypeName,
           } : null,
         }))
       }))
@@ -550,10 +550,10 @@ export default class HotelsController {
 
       return {
         id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        first_name: user.firstName,
+        last_name: user.lastName,
         email: user.email,
-        phone_number: user.phone_number,
+        phone_number: user.phoneNumber,
         lastReservation,
         countReservations,
       }

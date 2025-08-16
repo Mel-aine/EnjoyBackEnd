@@ -33,7 +33,7 @@ export default class LoggerService {
 
       await ActivityLog.create({
         userId: data.actorId,
-        username: actor?.first_name || 'System',
+        username: actor?.firstName || 'System',
         action: data.action,
         entityType: data.entityType,
         entityId: Number(data.entityId),
@@ -54,7 +54,7 @@ export default class LoggerService {
 
       const logData = {
         userId: data.userId || null,
-        username: actor?.first_name || 'System',
+        username: actor?.firstName || 'System',
         action: data.action,
         entityType: data.resourceType,
         entityId: Number(data.resourceId),

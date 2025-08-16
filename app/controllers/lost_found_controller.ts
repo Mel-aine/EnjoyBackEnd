@@ -1,5 +1,4 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import LostFound from '#models/lost_found'
 import { createLostFoundValidator, updateLostFoundValidator } from '#validators/lost_found'
 import LostFoundService from '#services/lost_found_service'
 
@@ -381,9 +380,7 @@ export default class LostFoundController {
   async getRecentItems({ request, response }: HttpContext) {
     try {
       const limit = request.input('limit', 10)
-      const days = request.input('days', 7)
-
-      const items = await this.lostFoundService.getRecentItems(limit, days)
+      const items = await this.lostFoundService.getRecentItems(limit)
 
       return response.ok({
         success: true,

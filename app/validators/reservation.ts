@@ -69,6 +69,11 @@ export const createReservationValidator = vine.compile(
     cancelled_at: vine.date().optional(),
     cancelled_by: vine.number().positive().optional(),
     
+    // Void Information
+    voided_date: vine.date().optional(),
+    void_reason: vine.string().optional(),
+    void_notes: vine.string().optional(),
+    
     // Special Requests
     special_requests: vine.string().optional(),
     dietary_requirements: vine.string().optional(),
@@ -259,6 +264,11 @@ export const updateReservationValidator = vine.compile(
     cancellation_reason: vine.string().optional(),
     cancelled_at: vine.date().optional(),
     cancelled_by: vine.number().positive().optional(),
+    
+    // Void Information
+    voided_date: vine.date().optional(),
+    void_reason: vine.string().optional(),
+    void_notes: vine.string().optional(),
     
     // Special Requests
     special_requests: vine.string().optional(),

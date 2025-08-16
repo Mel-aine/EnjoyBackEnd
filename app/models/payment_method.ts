@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { PaymentMethodType } from '#app/enums'
 import Hotel from './hotel.js'
 import FolioTransaction from './folio_transaction.js'
 import User from './user.js'
@@ -19,7 +20,7 @@ export default class PaymentMethod extends BaseModel {
   declare methodCode: string
 
   @column()
-  declare methodType: 'cash' | 'credit_card' | 'debit_card' | 'bank_transfer' | 'check' | 'digital_wallet' | 'cryptocurrency' | 'voucher' | 'loyalty_points' | 'comp' | 'house_account' | 'city_ledger' | 'other'
+  declare methodType: PaymentMethodType
 
   @column()
   declare description: string

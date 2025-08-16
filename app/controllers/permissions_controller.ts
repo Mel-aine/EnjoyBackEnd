@@ -23,16 +23,16 @@ export default class PermissionsController extends CrudController<typeof Permiss
 
     const assignments = await ServiceUserAssignment.query()
       .where('user_id', user.id)
-      .preload('service')
+      .preload('hotel')
       .preload('roleModel', (roleQuery) => roleQuery.preload('permissions'))
 
     const detailedPermissions = assignments.map((assignment) => ({
       service: {
-        id: assignment.service?.id,
-        name: assignment.service?.name,
+        id: assignment.hotel?.id,
+        name: assignment.hotel?.hotelName,
       },
       role: {
-        name: assignment.roleModel?.role_name,
+        name: assignment.roleModel?.roleName,
         description: assignment.roleModel?.description,
       },
       permissions: assignment.roleModel?.permissions.map((p) => ({
@@ -94,7 +94,7 @@ export default class PermissionsController extends CrudController<typeof Permiss
 
       if (ctx?.auth.user || userId) {
         const role = await Role.find(roleId)
-        const roleName = role?.role_name || `Rôle #${roleId}`
+        const roleName = role?.roleName || `Rôle #${roleId}`
 
         const changes = {
           permissions: {

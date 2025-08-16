@@ -125,7 +125,7 @@ export default class PaymentMethodsController {
 
       paymentMethod.merge({
         ...payload,
-        lastModifiedBy: auth.user?.id || 0
+        lastModifiedBy: auth.user?.id
       })
 
       await paymentMethod.save()

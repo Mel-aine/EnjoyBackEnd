@@ -3,7 +3,7 @@ import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import Guest from '#models/guest'
 import Reservation from '#models/reservation'
-import Hotel from '#models/hotel'
+import { TransactionType, TransactionCategory, SettlementStatus, TransactionStatus, FolioStatus, WorkflowStatus, type FolioType } from '#app/enums'
 import { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import db from '@adonisjs/lucid/services/db'
 
@@ -13,7 +13,8 @@ export interface CreateFolioData {
   reservationId?: number
   groupId?: number
   companyId?: number
-  folioType: 'guest' | 'master' | 'group' | 'company' | 'house' | 'city_ledger'
+  folioType: FolioType,
+  folioNumber?: string,
   folioName?: string
   creditLimit?: number
   notes?: string
@@ -26,8 +27,8 @@ export interface CreateFolioData {
 
 export interface PostTransactionData {
   folioId: number
-  transactionType: 'charge' | 'payment' | 'adjustment' | 'transfer' | 'refund' | 'void'
-  category: string
+  transactionType: TransactionType
+  category: TransactionCategory,
   description: string
   amount: number
   quantity?: number
@@ -73,7 +74,7 @@ export default class FolioService {
       const guest = await Guest.findOrFail(data.guestId)
       
       // Validate hotel exists
-      const hotel = await Hotel.findOrFail(data.hotelId)
+      //const hotel = await Hotel.findOrFail(data.hotelId)
       
       // Validate reservation if provided
       if (data.reservationId) {
@@ -96,9 +97,9 @@ export default class FolioService {
         folioNumber,
         folioName,
         folioType: data.folioType,
-        status: 'open',
-        settlementStatus: 'pending',
-        workflowStatus: 'active',
+        status: FolioStatus.OPEN,
+        settlementStatus: SettlementStatus.PENDING,
+        workflowStatus: WorkflowStatus.ACTIVE,
         openedDate: DateTime.now(),
         creditLimit: data.creditLimit || 0,
         notes: data.notes,
@@ -146,20 +147,20 @@ export default class FolioService {
         discountAmount: data.discountAmount || 0,
         netAmount: data.amount - (data.discountAmount || 0),
         grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
-        departmentId: data.departmentId,
-        revenueCenterId: data.revenueCenterId,
-        costCenterId: data.costCenterId,
-        glAccountCode: data.glAccountCode,
+        //departmentId: data.departmentId,
+        //revenueCenterId: data.revenueCenterId,
+        //costCenterId: data.costCenterId,
+        //glAccountCode: data.glAccountCode,
         paymentMethodId: data.paymentMethodId,
         reference: data.reference,
         notes: data.notes,
         transactionDate: DateTime.now(),
         businessDate: DateTime.now(),
         auditDate: DateTime.now(),
-        status: 'posted',
+        status: TransactionStatus.POSTED,
         isPosted: true,
-        postedDate: DateTime.now(),
-        postedBy: data.postedBy,
+        //postedDate: DateTime.now(),
+        //postedBy: data.postedBy,
         createdBy: data.postedBy,
         lastModifiedBy: data.postedBy
       }, { client: trx })
@@ -185,8 +186,8 @@ export default class FolioService {
       // Create payment transaction
       const transaction = await this.postTransaction({
         folioId: data.folioId,
-        transactionType: 'payment',
-        category: 'payment',
+        transactionType: TransactionType.PAYMENT,
+        category: TransactionCategory.PAYMENT,
         description: 'Payment received',
         amount: -Math.abs(data.amount), // Negative for payment
         paymentMethodId: data.paymentMethodId,
@@ -197,7 +198,7 @@ export default class FolioService {
       
       // Update folio settlement status
       await folio.useTransaction(trx).merge({
-        settlementStatus: folio.balance <= 0 ? 'settled' : 'partial',
+        settlementStatus: folio.balance <= 0 ? SettlementStatus.SETTLED : SettlementStatus.PARTIAL,
         settlementDate: folio.balance <= 0 ? DateTime.now() : null,
         lastModifiedBy: data.settledBy
       }).save()
@@ -215,7 +216,7 @@ export default class FolioService {
       const toFolio = await Folio.findOrFail(data.toFolioId)
       
       if (!fromFolio.canBeModified || !toFolio.canBeModified) {
-        throw new Error('One or both folios cannot be modified')
+        throw new Error('One or both folios cannot be modified'+trx)
       }
       
       if (fromFolio.balance < data.amount) {
@@ -225,8 +226,8 @@ export default class FolioService {
       // Create transfer-out transaction
       const fromTransaction = await this.postTransaction({
         folioId: data.fromFolioId,
-        transactionType: 'transfer',
-        category: 'transfer_out',
+        transactionType: TransactionType.TRANSFER,
+        category: TransactionCategory.TRANSFER_OUT,
         description: `Transfer to ${toFolio.folioNumber}: ${data.description}`,
         amount: -Math.abs(data.amount), // Negative for transfer out
         reference: data.reference,
@@ -236,8 +237,8 @@ export default class FolioService {
       // Create transfer-in transaction
       const toTransaction = await this.postTransaction({
         folioId: data.toFolioId,
-        transactionType: 'transfer',
-        category: 'transfer_in',
+        transactionType: TransactionType.TRANSFER,
+        category: TransactionCategory.TRANSFER_IN,
         description: `Transfer from ${fromFolio.folioNumber}: ${data.description}`,
         amount: Math.abs(data.amount), // Positive for transfer in
         reference: data.reference,
@@ -260,8 +261,8 @@ export default class FolioService {
       }
       
       await folio.useTransaction(trx).merge({
-        status: 'closed',
-        workflowStatus: 'finalized',
+        status: FolioStatus.CLOSED,
+        workflowStatus: WorkflowStatus.FINALIZED,
         closedDate: DateTime.now(),
         finalizedDate: DateTime.now(),
         closedBy,
@@ -283,8 +284,8 @@ export default class FolioService {
     }
     
     await folio.merge({
-      status: 'open',
-      workflowStatus: 'active',
+      status: FolioStatus.OPEN,
+      workflowStatus: WorkflowStatus.ACTIVE,
       closedDate: null,
       finalizedDate: null,
       closedBy: null,
@@ -359,7 +360,7 @@ export default class FolioService {
   private static async updateFolioTotals(folioId: number, trx?: TransactionClientContract): Promise<void> {
     const transactions = await FolioTransaction.query({ client: trx })
       .where('folioId', folioId)
-      .where('status', '!=', 'voided')
+      .where('status', '!=', TransactionStatus.VOIDED)
     
     let totalCharges = 0
     let totalPayments = 0
@@ -369,11 +370,11 @@ export default class FolioService {
     let totalDiscounts = 0
     
     for (const transaction of transactions) {
-      if (transaction.transactionType === 'charge') {
+      if (transaction.transactionType === TransactionType.CHARGE) {
         totalCharges += transaction.amount
-      } else if (transaction.transactionType === 'payment') {
+      } else if (transaction.transactionType === TransactionType.PAYMENT) {
         totalPayments += Math.abs(transaction.amount)
-      } else if (transaction.transactionType === 'adjustment') {
+      } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
         totalAdjustments += transaction.amount
       }
       

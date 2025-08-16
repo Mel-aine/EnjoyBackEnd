@@ -129,10 +129,6 @@ export default class ExtraChargesController {
     }
   }
 
-  /**
-   * Show form for editing the extra charge
-   */
-  public async edit({ params }: HttpContext) {}
 
   /**
    * Handle form submission for the edit action

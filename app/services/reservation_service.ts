@@ -84,7 +84,7 @@ export default class ReservationService {
         city: data.city,
         postalCode: data.zipcode,
       })
-      await guest.save({ client: trx })
+      await guest.useTransaction(trx).save()
     } else {
       guest = await Guest.create({
         hotelId:data.hotel_id,
@@ -128,7 +128,7 @@ export default class ReservationService {
         city: guestData.city,
         postalCode: guestData.zipcode,
       })
-      await guest.save({ client: trx })
+      await guest.useTransaction(trx).save()
     } else {
       guest = await Guest.create({
         firstName: guestData.first_name,
@@ -230,7 +230,7 @@ export default class ReservationService {
     const createdBy = data.created_by
 
     // Create primary guest from main reservation data
-    const primaryGuest = await this.createOrFindGuest(data, trx)
+    let primaryGuest = await this.createOrFindGuest(data, trx)
 
     // If additional guests are provided, create them
     let allGuests: Guest[] = [primaryGuest]

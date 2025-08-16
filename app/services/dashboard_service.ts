@@ -223,10 +223,10 @@ export class RoomAnalyticsService {
     let validCount = 0
 
     for (const res of reservations) {
-      if (!(res.arrived_date instanceof Date) || !(res.depart_date instanceof Date)) continue
+      if (!(res.arrivedDate instanceof Date) || !(res.departDate instanceof Date)) continue
 
-      const start = DateTime.fromJSDate(res.arrived_date)
-      const end = DateTime.fromJSDate(res.depart_date)
+      const start = DateTime.fromJSDate(res.arrivedDate)
+      const end = DateTime.fromJSDate(res.departDate)
 
       if (!start.isValid || !end.isValid) continue
 
@@ -244,127 +244,6 @@ export class RoomAnalyticsService {
     }
   }
 
-
-export class RevenueAnalyticsService {
-  public static async getRevenueByPeriod(serviceId: number, period: 'monthly' | 'quarterly' | 'semester' | 'yearly') {
-    const now = DateTime.now()
-    let currentStart: DateTime
-    let previousStart: DateTime
-    let previousEnd: DateTime
-
-    switch (period) {
-      case 'monthly':
-        currentStart = now.startOf('month')
-        previousStart = currentStart.minus({ months: 1 })
-        previousEnd = currentStart
-        break
-
-      case 'quarterly':
-        const quarter = Math.floor((now.month - 1) / 3) + 1
-        currentStart = DateTime.fromObject({ year: now.year, month: (quarter - 1) * 3 + 1 }).startOf('month')
-        previousStart = currentStart.minus({ months: 3 })
-        previousEnd = currentStart
-        break
-
-      case 'semester':
-        currentStart = now.month <= 6
-          ? DateTime.fromObject({ year: now.year, month: 1 })
-          : DateTime.fromObject({ year: now.year, month: 7 })
-
-        previousStart = currentStart.minus({ months: 6 })
-        previousEnd = currentStart
-        break
-
-      case 'yearly':
-        currentStart = now.startOf('year')
-        previousStart = currentStart.minus({ years: 1 })
-        previousEnd = currentStart
-        break
-
-      default:
-        throw new Error('Période invalide')
-    }
-
-    const currentEnd = now.plus({ days: 1 }).startOf('day')
-    const currentRevenueResult = await Payment
-      .query()
-      .where('service_id', serviceId)
-      .whereBetween('payment_date', [currentStart.toSQL()!, currentEnd.toSQL()!])
-      .sum('amount_paid as total')
-
-    const previousRevenueResult = await Payment
-      .query()
-      .where('service_id', serviceId)
-      .whereBetween('payment_date', [previousStart.toSQL()!, previousEnd.toSQL()!])
-      .sum('amount_paid as total')
-
-    const currentRevenue = Number(currentRevenueResult[0].$extras.total || 0)
-    const previousRevenue = Number(previousRevenueResult[0].$extras.total || 0)
-
-    const growthRate = previousRevenue > 0
-      ? Math.round(((currentRevenue - previousRevenue) / previousRevenue) * 10000) / 100
-      : 0
-
-    return {
-      currentRevenue,
-      previousRevenue,
-      growthRate,
-      period
-    }
-  }
-public static async getMonthlyRevenueComparison(serviceId: number) {
-    const now = DateTime.now()
-    const currentYear = now.year
-    const previousYear = currentYear - 1
-
-    // Initialisation de structure de réponse vide pour 12 mois
-    const months = Array.from({ length: 12 }, (_, i) => ({
-      month: DateTime.fromObject({ month: i + 1 }).toFormat('MMM'),
-      totalRevenue: 0
-    }))
-
-    const previousMonths = Array.from({ length: 12 }, (_, i) => ({
-      month: DateTime.fromObject({ month: i + 1 }).toFormat('MMM'),
-      totalRevenue: 0
-    }))
-
-    // Requête Lucid pour l'année en cours - SANS exec()
-    const currentYearPayments = await Payment
-      .query()
-      .where('service_id', serviceId)
-      .whereRaw('EXTRACT(YEAR FROM payment_date) = ?', [currentYear])
-
-    // Requête Lucid pour l'année précédente - SANS exec()
-    const previousYearPayments = await Payment
-      .query()
-      .where('service_id', serviceId)
-      .whereRaw('EXTRACT(YEAR FROM payment_date) = ?', [previousYear])
-
-
-
-    // Regroupement côté JS par mois
-    for (const p of currentYearPayments) {
-      if (p.payment_date) {
-        // payment_date est déjà un objet DateTime de Luxon
-        const month = p.payment_date.month
-        months[month - 1].totalRevenue += Number(p.amount || 0)
-      }
-    }
-
-    for (const p of previousYearPayments) {
-      if (p.transferred_date) {
-        // payment_date est déjà un objet DateTime de Luxon
-        const month = p.payment_date.month
-        previousMonths[month - 1].totalRevenue += Number(p.amount || 0)
-      }
-    }
-
-    return {
-      currentYear: months,
-      previousYear: previousMonths
-    }
-  }
-}
 
 
 

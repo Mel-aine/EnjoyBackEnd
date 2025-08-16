@@ -1,11 +1,13 @@
 import vine from '@vinejs/vine'
+import { FolioType, FolioStatus, TransactionType, TransactionCategory } from '#app/enums'
+
 
 // Validator for posting transactions
 export const postTransactionValidator = vine.compile(
   vine.object({
     folioId: vine.number().positive(),
-    transactionType: vine.enum(['charge', 'payment', 'adjustment', 'transfer', 'refund', 'void']),
-    category: vine.string().minLength(1),
+    transactionType: vine.enum(Object.values(TransactionType)),
+    category: vine.enum(Object.values(TransactionCategory)),
     description: vine.string().minLength(1),
     amount: vine.number(),
     quantity: vine.number().positive().optional(),
@@ -53,7 +55,7 @@ export const createFolioServiceValidator = vine.compile(
     reservationId: vine.number().positive().optional(),
     groupId: vine.number().positive().optional(),
     companyId: vine.number().positive().optional(),
-    folioType: vine.enum(['guest', 'master', 'group', 'company']).optional(),
+    folioType: vine.enum(Object.values(FolioType)),
     folioName: vine.string().optional(),
     creditLimit: vine.number().min(0).optional(),
     notes: vine.string().maxLength(500).optional(),
@@ -68,7 +70,7 @@ export const createFolioServiceValidator = vine.compile(
 export const createReservationFolioValidator = vine.compile(
   vine.object({
     reservationId: vine.number().positive(),
-    folioType: vine.enum(['guest', 'master', 'group', 'company']).optional(),
+    folioType: vine.enum([FolioType.GUEST, FolioType.MASTER, FolioType.GROUP]).optional(),
     creditLimit: vine.number().min(0).optional(),
     notes: vine.string().maxLength(500).optional(),
     createdBy: vine.number().positive()
@@ -79,7 +81,7 @@ export const createWalkInFolioValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     guestId: vine.number().positive(),
-    folioType: vine.enum(['guest', 'master']).optional(),
+    folioType: vine.enum([FolioType.GUEST, FolioType.MASTER]).optional(),
     creditLimit: vine.number().min(0).optional(),
     notes: vine.string().maxLength(500).optional(),
     createdBy: vine.number().positive()
@@ -127,7 +129,8 @@ export const reservationCheckoutValidator = vine.compile(
         paymentMethodId: vine.number().positive(),
         paymentAmount: vine.number().min(0).optional(),
         paymentReference: vine.string().maxLength(100).optional(),
-        notes: vine.string().maxLength(500).optional()
+        notes: vine.string().maxLength(500).optional(),
+        processedBy: vine.number().positive()
       })
     ).minLength(1),
     processedBy: vine.number().positive()
@@ -151,10 +154,10 @@ export const createFolioValidator = vine.compile(
     reservation_id: vine.number().positive().optional(),
     folio_number: vine.string().optional(),
     folio_name: vine.string().optional(),
-    folio_type: vine.enum(['guest', 'master', 'group', 'house', 'city_ledger', 'ar']),
+    folio_type: vine.enum(Object.values(FolioType)),
     
     // Status
-    status: vine.enum(['open', 'closed', 'transferred', 'voided', 'disputed']),
+    status: vine.enum(Object.values(FolioStatus)),
     
     // Dates
     folio_date: vine.date(),
@@ -349,10 +352,10 @@ export const updateFolioValidator = vine.compile(
     reservation_id: vine.number().positive().optional(),
     folio_number: vine.string().optional(),
     folio_name: vine.string().optional(),
-    folio_type: vine.enum(['guest', 'master', 'group', 'house', 'city_ledger', 'ar']).optional(),
+    folio_type: vine.enum(Object.values(FolioType)).optional(),
     
     // Status
-    status: vine.enum(['open', 'closed', 'transferred', 'voided', 'disputed']).optional(),
+    status: vine.enum(Object.values(FolioStatus)).optional(),
     
     // Dates
     folio_date: vine.date().optional(),

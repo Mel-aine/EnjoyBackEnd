@@ -42,7 +42,7 @@ export interface ReservationData {
   // Reservation details
   hotel_id: number
   reservation_type: string
-  booking_source: string
+  booking_source?: number
   business_source?: string
   reservation_status?:any
   status?:any,

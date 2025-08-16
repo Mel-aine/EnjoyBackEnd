@@ -1,10 +1,11 @@
 import { DateTime } from 'luxon'
 import Reservation from '#models/reservation'
 import Room from '#models/room'
-import Payment from '#models/payment'
 import ActivityLog from '#models/activity_log'
 import Task from '#models/task'
 import Expense from '#models/expense'
+import FolioTransaction from '#models/folio_transaction'
+import { TransactionStatus, TransactionType } from '#app/enums'
 import Database from '@adonisjs/lucid/services/db'
 
 export interface ReportFilters {
@@ -61,20 +62,21 @@ export class ReservationReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
       guestEmail: reservation.guest?.email,
-      guestPhone: reservation.guest?.phoneNumber,
-      arrivalDate: reservation.scheduled_arrival_date?.toFormat('dd/MM/yyyy'),
-      departureDate: reservation.scheduled_departure_date?.toFormat('dd/MM/yyyy'),
-      nights: reservation.scheduled_departure_date?.diff(reservation.scheduled_arrival_date, 'days').days,
-      roomType: reservation.roomType?.typeName,
-      adults: reservation.num_adults_total,
-      children: reservation.num_children_total,
-      estimatedRevenue: reservation.total_estimated_revenue,
-      specialRequests: reservation.special_notes,
-      status: reservation.reservation_status,
-      estimatedCheckinTime: reservation.estimated_checkin_time
+      guestPhone: reservation.guest?.phonePrimary,
+      arrivalDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
+      departureDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
+      nights: reservation.numberOfNights??reservation.nights,
+      roomType: reservation.roomType?.id,
+      adults: reservation.numAdultsTotal,
+      children: reservation.numChildrenTotal,
+      estimatedRevenue: reservation.totalEstimatedRevenue,
+      specialRequests: reservation.specialNotes,
+      status: reservation.reservationStatus,
+      estimatedCheckinTime: reservation.estimatedCheckinTime,
+      estimatedCheckoutTime: reservation.estimatedCheckoutTime,
     }))
 
     return {
@@ -118,16 +120,16 @@ export class ReservationReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
       guestEmail: reservation.guest?.email,
-      departureDate: reservation.scheduled_departure_date?.toFormat('dd/MM/yyyy'),
-      actualDepartureDate: reservation.actual_departure_datetime?.toFormat('dd/MM/yyyy HH:mm'),
-      roomType: reservation.roomType?.typeName,
+      departureDate: reservation.scheduledDepartureDate?.toFormat('dd/MM/yyyy'),
+      actualDepartureDate: reservation.actualDepartureDatetime?.toFormat('dd/MM/yyyy HH:mm'),
+      roomType: reservation.roomType?.roomTypeName,
       roomNumbers: reservation.reservationRooms?.map(rr => rr.room?.roomNumber).join(', '),
-      totalAmount: reservation.total_estimated_revenue,
-      status: reservation.reservation_status,
-      estimatedCheckoutTime: reservation.estimated_checkout_time
+      totalAmount: reservation.totalEstimatedRevenue,
+      status: reservation.reservationStatus,
+      estimatedCheckoutTime: reservation.estimatedCheckoutTime
     }))
 
     return {
@@ -169,17 +171,18 @@ export class ReservationReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
-      arrivalDate: reservation.scheduled_arrival_date?.toFormat('dd/MM/yyyy'),
-      departureDate: reservation.scheduled_departure_date?.toFormat('dd/MM/yyyy'),
-      roomType: reservation.roomType?.typeName,
-      adults: reservation.num_adults_total,
-      children: reservation.num_children_total,
+      arrivalDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
+      departureDate: reservation.scheduledDepartureDate?.toFormat('dd/MM/yyyy'),
+      nights: reservation.numberOfNights??reservation.nights,
+      adults: reservation.numAdultsTotal,
+      children: reservation.numChildrenTotal,
+      roomType: reservation.roomType?.roomTypeName,
       bookingSource: reservation.bookingSource?.sourceName,
       ratePlan: reservation.ratePlan?.planName,
-      totalAmount: reservation.total_estimated_revenue,
-      reservationDate: reservation.reservation_datetime?.toFormat('dd/MM/yyyy HH:mm')
+      totalAmount: reservation.totalEstimatedRevenue,
+      reservationDate: reservation.reservationDatetime?.toFormat('dd/MM/yyyy HH:mm')
     }))
 
     return {
@@ -218,15 +221,15 @@ export class ReservationReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
-      originalArrivalDate: reservation.scheduled_arrival_date?.toFormat('dd/MM/yyyy'),
-      originalDepartureDate: reservation.scheduled_departure_date?.toFormat('dd/MM/yyyy'),
-      roomType: reservation.roomType?.typeName,
+      originalArrivalDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
+      originalDepartureDate: reservation.scheduledDepartureDate?.toFormat('dd/MM/yyyy'),
+      roomType: reservation.roomType?.roomTypeName,
       cancellationDate: reservation.updatedAt?.toFormat('dd/MM/yyyy HH:mm'),
-      cancellationReason: reservation.cancellation_reason,
-      cancellationFee: reservation.cancellation_fee_amount,
-      originalAmount: reservation.total_estimated_revenue
+      cancellationReason: reservation.cancellationReason,
+      cancellationFee: reservation.cancellationFeeAmount,
+      originalAmount: reservation.totalEstimatedRevenue
     }))
 
     return {
@@ -266,14 +269,14 @@ export class ReservationReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
-      guestPhone: reservation.guest?.phoneNumber,
-      arrivalDate: reservation.scheduled_arrival_date?.toFormat('dd/MM/yyyy'),
-      roomType: reservation.roomType?.typeName,
-      noShowReason: reservation.no_show_reason,
-      lostRevenue: reservation.total_estimated_revenue,
-      isGuaranteed: reservation.is_guaranteed
+      guestPhone: reservation.guest?.phonePrimary,
+      arrivalDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
+      roomType: reservation.roomType?.roomTypeName,
+      noShowReason: reservation.noShowReason,
+      lostRevenue: reservation.totalEstimatedRevenue,
+      isGuaranteed: reservation.isGuaranteed
     }))
 
     return {
@@ -356,18 +359,18 @@ export class FrontOfficeReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
       guestEmail: reservation.guest?.email,
-      guestPhone: reservation.guest?.phoneNumber,
+      guestPhone: reservation.guest?.phonePrimary,
       roomNumbers: reservation.reservationRooms?.map(rr => rr.room?.roomNumber).join(', '),
-      roomType: reservation.roomType?.typeName,
-      checkinDate: reservation.actual_arrival_datetime?.toFormat('dd/MM/yyyy HH:mm'),
-      scheduledDeparture: reservation.scheduled_departure_date?.toFormat('dd/MM/yyyy'),
-      adults: reservation.num_adults_total,
-      children: reservation.num_children_total,
-      nights: reservation.scheduled_departure_date?.diff(reservation.scheduled_arrival_date, 'days').days,
-      totalAmount: reservation.total_estimated_revenue
+      roomType: reservation.roomType?.roomTypeName,
+      checkinDate: reservation.actualArrivalDatetime?.toFormat('dd/MM/yyyy HH:mm'),
+      scheduledDeparture: reservation.scheduledDepartureDate?.toFormat('dd/MM/yyyy'),
+      adults: reservation.numAdultsTotal,
+      children: reservation.numChildrenTotal,
+      nights: reservation.scheduledDepartureDate?.diff(reservation.scheduledArrivalDate, 'days').days,
+      totalAmount: reservation.totalEstimatedRevenue
     }))
 
     return {
@@ -410,14 +413,14 @@ export class FrontOfficeReportsService {
     const totalRecords = reservations.length
 
     const data = reservations.map(reservation => ({
-      reservationNumber: reservation.confirmation_code,
+      reservationNumber: reservation.reservationNumber,
       guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
       roomNumbers: reservation.reservationRooms?.map(rr => rr.room?.roomNumber).join(', '),
-      roomType: reservation.roomType?.typeName,
-      checkinDate: reservation.actual_arrival_datetime?.toFormat('dd/MM/yyyy HH:mm'),
-      checkoutDate: reservation.actual_departure_datetime?.toFormat('dd/MM/yyyy HH:mm'),
-      totalNights: reservation.actual_departure_datetime && reservation.actual_arrival_datetime ? reservation.actual_departure_datetime.diff(reservation.actual_arrival_datetime, 'days').days : null,
-      totalAmount: reservation.total_estimated_revenue
+      roomType: reservation.roomType?.roomTypeName,
+      checkinDate: reservation.actualArrivalDatetime?.toFormat('dd/MM/yyyy HH:mm'),
+      checkoutDate: reservation.actualDepartureDatetime?.toFormat('dd/MM/yyyy HH:mm'),
+      totalNights: reservation.actualDepartureDatetime && reservation.actualArrivalDatetime ? reservation.actualDepartureDatetime.diff(reservation.actualArrivalDatetime, 'days').days : null,
+      totalAmount: reservation.totalEstimatedRevenue
     }))
 
     return {
@@ -469,7 +472,7 @@ export class FrontOfficeReportsService {
     const data = rooms.map(room => ({
       roomNumber: room.roomNumber,
       roomName: room.description,
-      roomType: room.roomType?.typeName,
+      roomType: room.roomType?.id,
       floor: room.floorNumber,
       maxOccupancy: room.maxOccupancy,
       status: room.status,
@@ -521,7 +524,7 @@ export class FrontOfficeReportsService {
       const latestCleaning = room.cleaningStatuses?.[0]
       return {
         roomNumber: room.roomNumber,
-        roomType: room.roomType?.typeName,
+        roomType: room.roomType?.id,
         floor: room.floorNumber,
         roomStatus: room.status,
         housekeepingStatus: room.housekeepingStatus,
@@ -578,7 +581,7 @@ export class FrontOfficeReportsService {
       description: task.description,
       priority: task.priority,
       status: task.status,
-      assignedTo: task.assignedUser ? `${task.assignedUser.first_name} ${task.assignedUser.last_name}` : null,
+      assignedTo: task.assignedUser ? `${task.assignedUser.firstName} ${task.assignedUser.lastName}` : null,
       createdBy: null,
       dueDate: task.due_date?.toFormat('dd/MM/yyyy HH:mm'),
       createdAt: task.createdAt?.toFormat('dd/MM/yyyy HH:mm'),
@@ -699,25 +702,26 @@ export class BackOfficeReportsService {
     const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
     const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
 
-    const query = Payment.query()
-      .preload('paymentMethod')
-
-      .preload('reservation', (reservationQuery) => {
-        reservationQuery.preload('guest')
+    const query = FolioTransaction.query()
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('guest')
+        })
       })
-      .whereBetween('payment_date', [startDate.toString(), endDate.toString()])
-      .orderBy('payment_date', 'desc')
+      .where('transaction_type', TransactionType.PAYMENT)
+      .whereBetween('transaction_date', [startDate.toString(), endDate.toString()])
+      .orderBy('transaction_date', 'desc')
 
     if (filters.hotelId) {
-      query.whereHas('reservation', (reservationQuery) => {
-        if (filters.hotelId) {
-          reservationQuery.where('hotel_id', filters.hotelId)
-        }
+      query.whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', filters.hotelId!)
+        })
       })
     }
 
     if (filters.userId) {
-      query.where('processed_by', filters.userId)
+      query.where('created_by', filters.userId)
     }
 
     const payments = await query
@@ -725,14 +729,14 @@ export class BackOfficeReportsService {
 
     const data = payments.map(payment => ({
       paymentId: payment.id,
-      paymentDate: payment.payment_date?.toFormat('dd/MM/yyyy HH:mm'),
+      paymentDate: payment.transactionDate?.toFormat('dd/MM/yyyy HH:mm'),
       amount: payment.amount,
-      paymentMethod: payment.paymentMethod?.methodName,
-      guestName: payment.reservation?.guest ? `${payment.reservation.guest.firstName} ${payment.reservation.guest.lastName}` : null,
-      reservationNumber: payment.reservation?.confirmation_code,
-      processedBy: null,
-      status: payment.payment_status,
-      transactionReference: payment.transaction_id
+      paymentMethod: payment.description, // Using description as payment method info
+      guestName: payment.folio?.reservation?.guest ? `${payment.folio.reservation.guest.firstName} ${payment.folio.reservation.guest.lastName}` : null,
+      reservationNumber: payment.folio?.reservation?.confirmationCode,
+      processedBy: payment.createdBy,
+      status: payment.status,
+      transactionReference: payment.reference
     }))
 
     return {
@@ -744,8 +748,8 @@ export class BackOfficeReportsService {
       summary: {
         totalTransactions: totalRecords,
         totalAmount: data.reduce((sum, item) => sum + (item.amount || 0), 0),
-        successfulPayments: data.filter(payment => payment.status === 'Completed').length,
-        failedPayments: data.filter(payment => payment.status === 'Failed').length
+        successfulPayments: data.filter(payment => payment.status === TransactionStatus.COMPLETED).length,
+        failedPayments: data.filter(payment => payment.status === TransactionStatus.FAILED).length
       }
     }
   }
@@ -774,7 +778,7 @@ export class AuditReportsService {
     const data = activities.map(activity => ({
       activityId: activity.id,
       timestamp: activity.createdAt?.toFormat('dd/MM/yyyy HH:mm:ss'),
-      user: activity.user ? `${activity.user.first_name} ${activity.user.last_name}` : null,
+      user: activity.user ? `${activity.user.firstName} ${activity.user.lastName}` : null,
       action: activity.action,
       description: activity.description,
       ipAddress: activity.ipAddress,

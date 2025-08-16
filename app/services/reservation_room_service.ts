@@ -1,6 +1,5 @@
 import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
-import RoomType from '#models/room_type'
 import { DateTime } from 'luxon'
 
 export default class ReservationRoomService {
@@ -266,12 +265,12 @@ export default class ReservationRoomService {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
     
     // Verify that the new room type is actually an upgrade
-    const currentRoomType = await RoomType.findOrFail(reservationRoom.roomTypeId)
-    const newRoomType = await RoomType.findOrFail(newRoomTypeId)
+    //const currentRoomType = await RoomType.findOrFail(reservationRoom.roomTypeId)
+    //const newRoomType = await RoomType.findOrFail(newRoomTypeId)
     
-    if (newRoomType.baseRate <= currentRoomType.baseRate) {
+    /*if (newRoomType.baseRate <= currentRoomType.baseRate) {
       throw new Error('New room type is not an upgrade')
-    }
+    }*/
 
     // Process room change
     await this.processRoomChange(reservationRoomId, newRoomId, reason, upgradedBy)

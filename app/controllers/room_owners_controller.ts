@@ -4,7 +4,6 @@ import Room from '#models/room'
 import User from '#models/user'
 import { createRoomOwnerValidator, updateRoomOwnerValidator, assignRoomsValidator } from '#validators/room_owner'
 import db from '@adonisjs/lucid/services/db'
-import { DateTime } from 'luxon'
 
 export default class RoomOwnersController {
   /**
@@ -238,11 +237,10 @@ export default class RoomOwnersController {
   /**
    * Assign rooms to a room owner
    */
-  async assignRooms({ params, request, response, auth }: HttpContext) {
+  async assignRooms({ params, request, response }: HttpContext) {
     const trx = await db.transaction()
     try {
       const payload = await request.validateUsing(assignRoomsValidator)
-      const user = auth.user!
 
       const roomOwner = await RoomOwner.findOrFail(params.id, { client: trx })
 

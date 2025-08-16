@@ -32,7 +32,7 @@ export default class TasksController extends CrudController<typeof Task> {
       if (updatedBy) {
         const actor = await User.find(updatedBy)
         if (actor) {
-          actorName = `${actor.first_name} ${actor.last_name || ''}`.trim()
+          actorName = `${actor.firstName} ${actor.lastName || ''}`.trim()
         }
       }
 

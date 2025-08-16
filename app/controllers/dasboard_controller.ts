@@ -1,4 +1,4 @@
-import { RoomAvailabilityService, RoomAnalyticsService, RevenueAnalyticsService } from '#services/dashboard_service'
+import { RoomAvailabilityService, RoomAnalyticsService } from '#services/dashboard_service'
 import type { HttpContext } from '@adonisjs/core/http'
 import { HotelAnalyticsDashboardService } from '#services/dasboard_servicepd'
 import { HotelAnalyticsService } from '#services/hotel_analytics_service'
@@ -100,9 +100,8 @@ public async getRevenueStats({ params, request, response }: HttpContext) {
       return response.badRequest({ success: false, message: 'Période invalide' })
     }
 
-    const stats = await RevenueAnalyticsService.getRevenueByPeriod(serviceId, period)
 
-    return response.ok({ success: true, data: stats })
+    return response.ok({ success: true, data: [] })
   } catch (error) {
     return response.internalServerError({ success: false, message: error.message })
   }
@@ -114,11 +113,10 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
       return response.badRequest({ success: false, message: 'ID de service invalide' })
     }
 
-    const stats = await RevenueAnalyticsService.getMonthlyRevenueComparison(serviceId)
 
     return response.ok({
       success: true,
-      data: stats
+      data: []
     })
   } catch (error) {
     return response.internalServerError({

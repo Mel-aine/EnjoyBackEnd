@@ -1,13 +1,13 @@
-import { DateTime } from 'luxon'
 import Folio from '#models/folio'
 import Reservation from '#models/reservation'
 import Guest from '#models/guest'
 import FolioService, { CreateFolioData } from '#services/folio_service'
+import { FolioType, TransactionCategory, TransactionType } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
 
 export interface ReservationFolioData {
   reservationId: number
-  folioType?: 'guest' | 'master' | 'group' | 'company'
+  folioType?: FolioType
   creditLimit?: number
   notes?: string
   createdBy: number
@@ -16,7 +16,7 @@ export interface ReservationFolioData {
 export interface WalkInFolioData {
   hotelId: number
   guestId: number
-  folioType?: 'guest' | 'master'
+  folioType?: FolioType
   creditLimit?: number
   notes?: string
   createdBy: number
@@ -62,7 +62,7 @@ export default class ReservationFolioService {
       
       // If still no guest, try to get the guest from the guest_id column
       if (!primaryGuest && reservation.guestId) {
-        primaryGuest = await Guest.find(reservation.guestId)
+        primaryGuest = await Guest.findOrFail(reservation.guestId)
       }
       
       if (!primaryGuest) {
@@ -70,19 +70,22 @@ export default class ReservationFolioService {
       }
       
       // Determine folio type based on reservation
-      let folioType = data.folioType || 'guest'
+      let folioType = data.folioType || FolioType.GUEST
       if (reservation.groupId) {
-        folioType = 'group'
-      } else if (reservation.companyId) {
-        folioType = 'company'
+        folioType = FolioType.GROUP
       }
+      /* 
+      TODO Manage Company Id
+      else if (reservation.companyId) {
+        folioType = 'company'
+      }*/
       
       // Create folio using the main service
       const folioData: CreateFolioData = {
         hotelId: reservation.hotelId,
         guestId: primaryGuest.id,
         reservationId: data.reservationId,
-        groupId: reservation.groupId,
+        groupId: reservation.groupId??undefined,
        // companyId: reservation.companyId,
         folioType,
         creditLimit: data.creditLimit || 0,
@@ -109,7 +112,7 @@ export default class ReservationFolioService {
     const folioData: CreateFolioData = {
       hotelId: data.hotelId,
       guestId: data.guestId,
-      folioType: data.folioType || 'guest',
+      folioType: data.folioType!,
       creditLimit: data.creditLimit || 0,
       notes: data.notes || 'Walk-in guest folio',
       createdBy: data.createdBy
@@ -137,7 +140,7 @@ export default class ReservationFolioService {
       // Create master folio for the group
       const masterFolio = await this.createFolioForReservation({
         reservationId,
-        folioType: 'master',
+        folioType: FolioType.MASTER,
         notes: `Master folio for group reservation ${reservation.confirmationNumber}`,
         createdBy
       })
@@ -151,8 +154,8 @@ export default class ReservationFolioService {
           hotelId: reservation.hotelId,
           guestId,
           reservationId,
-          groupId: reservation.groupId,
-          folioType: 'guest',
+          groupId: reservation.groupId??undefined,
+          folioType: FolioType.GUEST,
           notes: `Guest folio for group reservation ${reservation.confirmationNumber}`,
           createdBy
         }
@@ -174,8 +177,8 @@ export default class ReservationFolioService {
       .preload('folios')
       .preload('guests')
       .preload('reservationRooms', (query) => {
-        query.preload('room').preload('roomRate')
-      })
+        query.preload('room')
+      })//.preload('roomRate')
       .firstOrFail()
     
     if (!reservation.folios || reservation.folios.length === 0) {
@@ -183,23 +186,24 @@ export default class ReservationFolioService {
     }
     
     // Calculate stay duration
-    const checkIn = DateTime.fromJSDate(reservation.checkInDate)
-    const checkOut = DateTime.fromJSDate(reservation.checkOutDate)
+    const checkIn =reservation.checkInDate!; 
+    const checkOut = reservation.checkOutDate!
     const nights = checkOut.diff(checkIn, 'days').days
     
     // Post room charges for each room
     for (const reservationRoom of reservation.reservationRooms) {
-      const roomRate = reservationRoom.roomRate
-      const totalAmount = roomRate.rate * nights
-      
+      const roomRate = reservationRoom.roomRates
+      const totalAmount = roomRate.baseRate * nights
+      const extraChildAmount = parseFloat(`${roomRate.extraChildRate??0}`) * nights
+      const extraAdultAmount = parseFloat(`${roomRate.extraAdultRate??0}`) * nights
       await FolioService.postTransaction({
-        folioId: reservation.folio.id,
-        transactionType: 'charge',
-        category: 'room_charge',
+        folioId: reservation.folios[0].id,
+        transactionType: TransactionType.CHARGE,
+        category: TransactionCategory.ROOM,
         description: `Room ${reservationRoom.room.roomNumber} - ${nights} nights`,
-        amount: totalAmount,
+        amount: totalAmount+extraChildAmount+extraAdultAmount,
         quantity: nights,
-        unitPrice: roomRate.rate,
+        unitPrice: roomRate.baseRate,
         departmentId: 1, // Rooms department
         revenueCenterId: 1, // Room revenue
         glAccountCode: '4100', // Room revenue account
@@ -222,22 +226,22 @@ export default class ReservationFolioService {
       .firstOrFail()
     
     if (!reservation.folios || reservation.folios.length === 0) {
-      throw new Error('No folio found for this reservation')
+      throw new Error('No folio found for this reservation'+postedBy)
     }
     
     // Get the primary folio (first one or master folio)
-    const primaryFolio = reservation.folios.find(f => f.folioType === 'master') || reservation.folios[0]
+    //const primaryFolio = reservation.folios.find(f => f.folioType === 'master') || reservation.folios[0]
     
     // Calculate stay duration
-    const checkIn = DateTime.fromJSDate(reservation.checkInDate)
-    const checkOut = DateTime.fromJSDate(reservation.checkOutDate)
-    const nights = checkOut.diff(checkIn, 'days').days
+    //const checkIn =reservation.checkInDate!; 
+    //const checkOut = reservation.checkOutDate!
+    //const nights = checkOut.diff(checkIn, 'days').days
     
     // Calculate total number of guests from the many-to-many relationship
-    const totalGuests = reservation.guests.length || reservation.numberOfGuests || 1
-    
+    //const totalGuests = reservation.guests.length || reservation.adults || 1
+    // TODO cityTaxes
     // Post city tax if applicable
-    if (reservation.hotel.cityTaxRate && reservation.hotel.cityTaxRate > 0) {
+    /*if (reservation.hotel.cityTaxRate && reservation.hotel.cityTaxRate > 0) {
       const cityTaxAmount = reservation.hotel.cityTaxRate * nights * totalGuests
       
       await FolioService.postTransaction({
@@ -276,7 +280,7 @@ export default class ReservationFolioService {
         notes: `Auto-posted service charge for reservation ${reservation.confirmationNumber}`,
         postedBy
       })
-    }
+    }*/
   }
   
   /**
@@ -320,7 +324,7 @@ export default class ReservationFolioService {
 
       // Add the guest to the reservation
       await db.table('reservation_guests').insert({
-        reservation_id: data.reservationId,
+        reservation_id: reservation.id,
         guest_id: data.guestId,
         is_primary: data.isPrimary || false,
         guest_type: data.guestType || 'adult',
@@ -394,9 +398,9 @@ export default class ReservationFolioService {
           hotelId: reservation.hotelId,
           guestId: guest.id,
           reservationId,
-          groupId: reservation.groupId,
-          companyId: reservation.companyId,
-          folioType: 'guest',
+          groupId: reservation.groupId??undefined,
+         // companyId: reservation.companyId,
+          folioType: FolioType.GUEST,
           creditLimit: 0,
           notes: `Individual folio for ${guest.firstName} ${guest.lastName} - Reservation ${reservation.confirmationNumber}`,
           createdBy
@@ -408,8 +412,8 @@ export default class ReservationFolioService {
         // Copy all room charge transactions from primary folio to this guest's folio
         for (const transaction of roomChargeTransactions) {
           await FolioService.postTransaction({
-            folioId: folio.id,
-            transactionType: transaction.transactionType,
+          folioId: folio.id,
+          transactionType: transaction.transactionType,
             category: transaction.category,
             description: `${transaction.description} (Copied from primary folio)`,
             amount: transaction.amount,
@@ -418,11 +422,11 @@ export default class ReservationFolioService {
             taxAmount: transaction.taxAmount,
             serviceChargeAmount: transaction.serviceChargeAmount,
             discountAmount: transaction.discountAmount,
-            departmentId: transaction.departmentId,
-            revenueCenterId: transaction.revenueCenterId,
-            costCenterId: transaction.costCenterId,
-            glAccountCode: transaction.glAccountCode,
-            reference: transaction.reference,
+            //departmentCode: transaction.department,
+            //revenueCenterCode: transaction.revenueCenter,
+            //costCenterCode: transaction.costCenter,
+            //glAccountCode: transaction.glAccount,
+            //reference: transaction.reference,
             notes: `Copied from primary guest folio - ${transaction.notes || ''}`,
             postedBy: createdBy
           })
@@ -460,9 +464,9 @@ export default class ReservationFolioService {
       }
 
       // Create primary folio first
-      const primaryFolio = await this.createFolioForReservation({
+      await this.createFolioForReservation({
         reservationId,
-        folioType: 'guest',
+        folioType: FolioType.GUEST,
         notes: `Primary folio for reservation ${reservation.confirmationNumber}`,
         createdBy: confirmedBy
       })
