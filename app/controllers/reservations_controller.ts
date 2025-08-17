@@ -1201,7 +1201,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Preload related data for the response
       query.andWhere('hotel_id', params.id)
         .whereNotNull('hotel_id')
-        .preload('user')
         .preload('guest')
         .preload('roomType')
         .preload('bookingSource')
