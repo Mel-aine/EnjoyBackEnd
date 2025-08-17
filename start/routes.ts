@@ -12,7 +12,6 @@ import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
 import CancellationPoliciesController from '#controllers/cancellation_policies_controller'
-import RefundsController from '#controllers/refunds_controller'
 import HotelsController from '#controllers/hotels_controller'
 import CurrenciesController from '#controllers/currencies_controller'
 import GuestsController from '#controllers/guests_controller'
@@ -74,7 +73,6 @@ const tasksController = new TasksController()
 const rolePermissionsController = new RolePermissionsController()
 const activityLogsController = new ActivityLogsController()
 const cancellationPoliciesController = new CancellationPoliciesController()
-const refundsController = new RefundsController()
 const hotelsController = new HotelsController()
 const currenciesController = new CurrenciesController()
 const guestsController = new GuestsController()
@@ -542,21 +540,6 @@ router
         ])
       })
       .prefix('/dashboard')
-    //Refund routes
-    router.group(() => {
-      router.post('/refund', refundsController.store.bind(refundsController))
-      router.get('/refund', refundsController.list.bind(refundsController))
-      router.get(
-        '/refund/:serviceId',
-        refundsController.getRefundByServiceId.bind(refundsController)
-      )
-      router.post(
-        '/refund/filter/:serviceId',
-        refundsController.filterRefunds.bind(refundsController)
-      )
-      router.put('/refund/:id', refundsController.update.bind(refundsController))
-      router.delete('/refund/:id', refundsController.destroy.bind(refundsController))
-    })
 
     // Hotel Management Routes
     // Comprehensive hotel management system with CRUD operations and analytics
