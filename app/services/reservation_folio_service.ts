@@ -46,7 +46,7 @@ export default class ReservationFolioService {
       // Get reservation details
       const reservation = await Reservation.query({ client: trx })
         .where('id', data.reservationId)
-        .preload('hotel')
+        //.preload('hotel')
         .preload('guests', (query) => {
           query.pivotColumns(['is_primary'])
         })
@@ -178,6 +178,7 @@ export default class ReservationFolioService {
       .preload('guests')
       .preload('reservationRooms', (query) => {
         query.preload('room')
+        query.preload('roomRates')
       })//.preload('roomRate')
       .firstOrFail()
     
@@ -185,10 +186,8 @@ export default class ReservationFolioService {
       throw new Error('No folio found for this reservation')
     }
     
-    // Calculate stay duration
-    const checkIn =reservation.checkInDate!; 
-    const checkOut = reservation.checkOutDate!
-    const nights = checkOut.diff(checkIn, 'days').days
+  
+    const nights = reservation.nights??reservation.nights
     
     // Post room charges for each room
     for (const reservationRoom of reservation.reservationRooms) {

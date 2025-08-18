@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
+import Room from '#models/room'
 
 export default class TaxRate extends BaseModel {
   @column({ isPrimary: true, columnName: 'tax_rate_id' })
@@ -79,4 +80,13 @@ export default class TaxRate extends BaseModel {
 
   @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
+
+  @manyToMany(() => Room, {
+    pivotTable: 'room_tax_rates',
+    localKey: 'taxRateId',
+    pivotForeignKey: 'tax_rate_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'room_id'
+  })
+  declare rooms: ManyToMany<typeof Room>
 }

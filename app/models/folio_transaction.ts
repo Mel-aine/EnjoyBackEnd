@@ -218,6 +218,9 @@ export default class FolioTransaction extends BaseModel {
   @column.dateTime()
   declare voidedAt: DateTime
 
+  @column.dateTime()
+  declare voidedDate: DateTime | null
+
   @column()
   declare voidReason: string
 

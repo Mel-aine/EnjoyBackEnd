@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
-import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, scope } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import RoomType from './room_type.js'
 import BedType from './bed_type.js'
@@ -8,6 +8,7 @@ import ReservationRoom from './reservation_room.js'
 import CleaningStatus from './cleaning_status.js'
 import MaintenanceRequest from './maintenance_request.js'
 import User from './user.js'
+import TaxRate from './tax_rate.js'
 
 export default class Room extends BaseModel {
   @column({ isPrimary: true })
@@ -157,6 +158,11 @@ export default class Room extends BaseModel {
   @column.dateTime()
   declare deletedAt: DateTime
 
+  @column({ columnName: 'short_code' })
+  declare shortCode: string | null
+
+
+
   // Relationships
   @belongsTo(() => Hotel)
   declare hotel: BelongsTo<typeof Hotel>
@@ -181,6 +187,15 @@ export default class Room extends BaseModel {
 
   @hasMany(() => MaintenanceRequest)
   declare maintenanceRequests: HasMany<typeof MaintenanceRequest>
+
+  @manyToMany(() => TaxRate, {
+    pivotTable: 'room_tax_rates',
+    localKey: 'id',
+    pivotForeignKey: 'room_id',
+    relatedKey: 'taxRateId',
+    pivotRelatedForeignKey: 'tax_rate_id'
+  })
+  declare taxRates: ManyToMany<typeof TaxRate>
 
   // Scopes
   static active = scope((query) => {

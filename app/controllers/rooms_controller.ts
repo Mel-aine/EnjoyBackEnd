@@ -74,6 +74,10 @@ export default class RoomsController {
       const rooms = await query
         .preload('hotel')
         .preload('roomType')
+        .preload('bedType')
+        .preload('modifier')
+        .preload('taxRates')
+        .preload('creator')
         .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
         .paginate(page, limit)
@@ -96,14 +100,21 @@ export default class RoomsController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createRoomValidator)
+      const { taxRateIds, ...roomData } = payload
 
       const room = await Room.create({
-        ...payload,
+        ...roomData,
         createdBy: auth.user?.id
       })
 
+      // Attach tax rates if provided
+      if (taxRateIds && taxRateIds.length > 0) {
+        await room.related('taxRates').attach(taxRateIds)
+      }
+
       await room.load('hotel')
       await room.load('roomType')
+      await room.load('taxRates')
 
       return response.created({
         message: 'Room created successfully',
@@ -126,6 +137,7 @@ export default class RoomsController {
         .where('id', params.id)
         .preload('hotel')
         .preload('roomType')
+        .preload('taxRates')
         .preload('reservationRooms')
         .preload('maintenanceRequests')
         .firstOrFail()
@@ -149,15 +161,27 @@ export default class RoomsController {
     try {
       const room = await Room.findOrFail(params.id)
       const payload = await request.validateUsing(updateRoomValidator)
+      const { taxRateIds, ...roomData } = payload
 
       room.merge({
-        ...payload,
+        ...roomData,
         lastModifiedBy: auth.user?.id
       })
 
       await room.save()
+
+      // Update tax rates if provided
+      if (taxRateIds !== undefined) {
+        if (taxRateIds.length > 0) {
+          await room.related('taxRates').sync(taxRateIds)
+        } else {
+          await room.related('taxRates').detach()
+        }
+      }
+
       await room.load('hotel')
       await room.load('roomType')
+      await room.load('taxRates')
 
       return response.ok({
         message: 'Room updated successfully',

@@ -100,7 +100,9 @@ export enum TransactionStatus {
   WRITE_OFF = 'write_off',
   CORRECTION = 'correction',
   COMPLETED = 'completed',
-  FAILED = 'failed'
+  FAILED = 'failed',
+  CANCELLED = 'cancelled'
+
 }
 
 export enum PaymentMethodType {

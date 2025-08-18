@@ -14,7 +14,7 @@ import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import CancellationPolicy from '#models/cancellation_policy'
 import Refund from '#models/refund'
-import { FolioStatus, FolioType, ReservationProductStatus, SettlementStatus, TransactionCategory, TransactionType, WorkflowStatus } from '#app/enums'
+import { FolioStatus, FolioType, ReservationProductStatus, SettlementStatus, TransactionCategory, TransactionStatus, TransactionType, WorkflowStatus } from '#app/enums'
 // import { messages } from '@vinejs/vine/defaults'
 import logger from '@adonisjs/core/services/logger'
 import ReservationService from '#services/reservation_service'
@@ -76,7 +76,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async checkIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx;
     const { reservationRooms, actualCheckInTime, notes
-     } = request.body();
+    } = request.body();
     logger.info('Check-in request received:');
 
     const trx = await db.transaction();
@@ -427,8 +427,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('bookingSource')
         .preload('reservationRooms', (query) => {
           query.preload('room')
-            .preload('roomRates')
-
+            .preload('roomRates', (queryRoom) => {
+              queryRoom.preload('rateType')
+            })
             .preload('roomType')
         })
         .first()
@@ -440,12 +441,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Calculate balance summary from folio transactions
       const balanceSummary = this.calculateBalanceSummary(reservation.folios)
 
+      // Calculate average daily rate
+      const avgDailyRate = this.calculateAvgDailyRate(reservation)
+
       // Determine available actions based on reservation status
       const availableActions = this.getAvailableActions(reservation)
 
       const result = {
         ...reservation.toJSON(),
         balanceSummary,
+        avgDailyRate,
         availableActions
       }
 
@@ -519,14 +524,43 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   /**
+   * Calculate average daily rate from reservation room rates
+   */
+  private calculateAvgDailyRate(reservation: any) {
+    if (!reservation.reservationRooms || reservation.reservationRooms.length === 0) {
+      return 0
+    }
+
+    let totalRoomCharges = 0
+    let totalNights = 0
+
+    reservation.reservationRooms.forEach((reservationRoom: any) => {
+      if (reservationRoom.roomRates && reservationRoom.roomRates.length > 0) {
+        reservationRoom.roomRates.forEach((roomRate: any) => {
+          const rateAmount = parseFloat(roomRate.rate) || 0
+          totalRoomCharges += rateAmount
+          totalNights += 1
+        })
+      }
+    })
+
+    if (totalNights === 0) {
+      return 0
+    }
+
+    return parseFloat((totalRoomCharges / totalNights).toFixed(2))
+  }
+
+  /**
    * Get available actions based on reservation status
    */
   private getAvailableActions(reservation: any) {
     const actions = []
     const status = reservation.status?.toLowerCase() || reservation.reservation_status?.toLowerCase()
     const currentDate = new Date()
-    const arrivalDate = new Date(reservation.scheduled_arrival_date || reservation.check_in_date)
-    const departureDate = new Date(reservation.scheduled_departure_date || reservation.check_out_date)
+    const arrivalDate = new Date(reservation.arrivalDate || reservation.checkInDate)
+
+    const departureDate = new Date(reservation.departureDate || reservation.checkOutDate)
 
     // Check-in: Available for confirmed reservations on or after arrival date
     if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate >= arrivalDate) {
@@ -652,11 +686,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
     return actions
   }
 
-/**
- * Verify if user can extend stay in the hotel
- * @param {HttpContext} ctx - Le contexte HTTP
- * @body {{ new_depart_date: string }} - New Depart Date au format ISO (YYYY-MM-DD).
- */
+  /**
+   * Verify if user can extend stay in the hotel
+   * @param {HttpContext} ctx - Le contexte HTTP
+   * @body {{ new_depart_date: string }} - New Depart Date au format ISO (YYYY-MM-DD).
+   */
   public async checkExtendStay(ctx: HttpContext) {
     const { params, request, response } = ctx
     const reservationId = params.id
@@ -934,8 +968,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
    */
   public async cancelReservation(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
-    const reservationId = params.id
-    const { reason = 'Cancelled by user' } = request.body()
+    const reservationId = params.reservationId
+    const { reason, cancellationFee } = request.body()
 
     const trx = await db.transaction()
 
@@ -943,7 +977,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 1. Find the reservation and its related data
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
-        .preload('hotel')
+        .preload('folios', (query) => {
+          query.preload('transactions')
+        })
         .first()
 
       if (!reservation) {
@@ -963,119 +999,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      // 3. Find the applicable cancellation policy
-      const policy = await CancellationPolicy.query({ client: trx })
-        .where('hotel_id', reservation.hotelId)
-        .orderBy('created_at', 'desc')
-        .first()
-
-      // Handle case where no policy is defined (default to full refund)
-      if (!policy) {
-        reservation.status = ReservationStatus.CANCELLED
-        reservation.cancellationReason = reason
-        reservation.lastModifiedBy = auth.user!.id
-
-        const totalPaid = reservation.paidAmount || 0
-        if (totalPaid > 0) {
-          await Refund.create(
-            {
-              hotel_id: reservation.hotelId,
-              reservation_id: reservation.id,
-              refund_amount: totalPaid,
-              reason: 'Full refund: No cancellation policy found.',
-              status: 'processed',
-              refund_date: DateTime.now(),
-              refund_method: 'automatic',
-              processed_by_user_id: auth.user!.id,
-            },
-            { client: trx }
-          )
-
-          reservation.paymentStatus = 'refunded'
-        }
-        await reservation.save()
-        // const resServices = await ReservationRoom.query()
-        //   .where('reservation_id', params.id)
-        //   .preload('room');
-        await LoggerService.log({
-          actorId: auth.user!.id,
-          action: 'CANCEL',
-          entityType: 'Reservation',
-          entityId: reservation.id,
-          description: `Reservation #${reservation.id} cancelled. No policy found, full refund processed.`,
-          ctx: ctx,
-        })
-
-        await trx.commit()
-        return response.ok({
-          message:
-            'Reservation cancelled successfully. No policy was found, a full refund has been issued.',
-        })
-      }
-
-      // 4. Calculate cancellation fee based on policy
-      let cancellationFee = 0
-      const now = DateTime.now()
-
-      if (!reservation.arrivedDate) {
-        await trx.rollback()
-        return response.badRequest({ message: 'Reservation is missing an arrival date.' })
-      }
-
-      // const hoursUntilCheckIn = DateTime.fromJSDate(new Date(reservation.arrivedDate)).diff(now, 'hours').hours
-      const hoursUntilCheckIn = reservation.arrivedDate.diff(now, 'hours').hours
-      const freeCancellationHours =
-        policy.free_cancellation_period_unit === 'days'
-          ? policy.free_cancellation_periodValue * 24
-          : policy.free_cancellation_periodValue
-
-      if (hoursUntilCheckIn < freeCancellationHours) {
-        switch (policy.cancellation_fee_type) {
-          case 'fixed':
-            cancellationFee = policy.cancellation_fee_value || 0
-            break
-          case 'percentage':
-            cancellationFee = (reservation.finalAmount || 0) * ((policy.cancellation_fee_value || 0) / 100)
-            break
-          case 'first_night':
-            const reservationProducts = await ReservationRoom.query({ client: trx }).where(
-              'reservation_id',
-              reservation.id
-            )
-            cancellationFee = reservationProducts.reduce(
-              (total, p) => total + (p.netAmount || 0),
-              0
-            )
-            break
-        }
-      }
-
-      // 5. Calculate refund and update reservation
-      const totalPaid = reservation.paidAmount || 0
-      const refundAmount = Math.max(0, totalPaid - cancellationFee)
-
       reservation.status = ReservationStatus.CANCELLED
       reservation.cancellationReason = reason
       reservation.lastModifiedBy = auth.user!.id
-
-      if (refundAmount > 0) {
-        await Refund.create(
-          {
-            hotel_id: reservation.hotelId,
-            reservation_id: reservation.id,
-            refund_amount: refundAmount,
-            reason: `Cancellation fee applied: ${cancellationFee}.`,
-            status: 'processed',
-            refund_date: DateTime.now(),
-            refund_method: 'automatic',
-            processed_by_user_id: auth.user!.id,
-          },
-          { client: trx }
-        )
-        reservation.paymentStatus = 'refunded'
-      } else if (totalPaid > 0) {
-        reservation.paymentStatus = 'paid' // Kept as paid since the fee covers the payment
-      }
+      reservation.cancellationDate = DateTime.now()
+      //reservation.cancellationFeeAmount = cancellationFee;
       await reservation.save()
       const resServices = await ReservationRoom.query({ client: trx })
         .where('reservation_id', reservationId)
@@ -1099,22 +1027,56 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
+      // 5. Close all related folios and mark transactions as cancelled
+      let foliosClosed = 0
+      let transactionsCancelled = 0
+      
+      if (reservation.folios && reservation.folios.length > 0) {
+        for (const folio of reservation.folios) {
+          // Only close open folios
+          if (folio.status === FolioStatus.OPEN) {
+            folio.status = FolioStatus.CLOSED
+            folio.workflowStatus = WorkflowStatus.FINALIZED
+            folio.closedDate = DateTime.now()
+           // folio.finalizedDate = DateTime.now()
+            folio.closedBy = auth.user!.id
+            folio.lastModifiedBy = auth.user!.id
+            await folio.save()
+            foliosClosed++
+
+            // Mark all related transactions as cancelled
+            if (folio.transactions && folio.transactions.length > 0) {
+              for (const transaction of folio.transactions) {
+                if (transaction.status!=TransactionStatus.CANCELLED) {
+                  transaction.status = TransactionStatus.CANCELLED
+                  transaction.lastModifiedBy = auth.user!.id
+                  await transaction.save()
+                  transactionsCancelled++
+                }
+              }
+            }
+          }
+        }
+      }
+
       // 6. Log and commit
       await LoggerService.log({
         actorId: auth.user!.id,
         action: 'CANCEL',
         entityType: 'Reservation',
         entityId: reservation.id,
-        description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. Refund: ${refundAmount}.`,
+        description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. `,
         ctx: ctx,
       })
 
       await trx.commit()
 
       return response.ok({
-        message: `Reservation cancelled. Fee: ${cancellationFee}. Refund issued: ${refundAmount}.`,
+        message: `Reservation cancelled. Fee: ${cancellationFee}`,
         cancellationFee: cancellationFee,
-        refundAmount: refundAmount,
+        refundAmount: cancellationFee,
+        foliosClosed,
+        transactionsCancelled,
       })
     } catch (error) {
       await trx.rollback()
@@ -1438,19 +1400,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
           checkOutDate: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.depart_time}`) : departDate,
           status: data.status || ReservationStatus.PENDING,
           guestCount: totalAdults + totalChildren,
-          totalAmount: parseFloat(`${data.total_amount??0}`) , 
-          taxAmount: parseFloat(`${data.tax_amount??0}`)  ,
-          finalAmount: parseFloat(`${data.final_amount??0}`) ,
+          totalAmount: parseFloat(`${data.total_amount ?? 0}`),
+          taxAmount: parseFloat(`${data.tax_amount ?? 0}`),
+          finalAmount: parseFloat(`${data.final_amount ?? 0}`),
           confirmationNumber: confirmationNumber,
           reservationNumber: reservationNumber,
           numberOfNights: numberOfNights,
-          paidAmount: parseFloat(`${data.paid_amount??0}`) ,
-          remainingAmount: parseFloat(`${data.remaining_amount??0}`) ,
+          paidAmount: parseFloat(`${data.paid_amount ?? 0}`),
+          remainingAmount: parseFloat(`${data.remaining_amount ?? 0}`),
           reservationType: data.reservation_type,
           bookingSourceId: data.booking_source,
           sourceOfBusiness: data.business_source,
-          paymentStatus: 'pending', 
-          createdBy: auth.user?.id 
+          paymentStatus: 'pending',
+          createdBy: auth.user?.id
         }, { client: trx })
 
         // Vérifier que la réservation a bien été créée avec un ID
@@ -1506,32 +1468,26 @@ export default class ReservationsController extends CrudController<typeof Reserv
           description: `Reservation #${reservation.id} was created for ${guestDescription} (${guestCount} total guests).`,
           ctx,
         })
-
+        await trx.commit()
         // 9. Create folios if reservation is confirmed
         let folios: any[] = []
         if (reservation.status === 'confirmed') {
-          try {
-            folios = await ReservationFolioService.createFoliosOnConfirmation(
-              reservation.id,
-              auth.user?.id!
-            )
+          folios = await ReservationFolioService.createFoliosOnConfirmation(
+            reservation.id,
+            auth.user?.id!
+          )
 
-            await LoggerService.log({
-              actorId: auth.user?.id!,
-              action: 'CREATE_FOLIOS',
-              entityType: 'Reservation',
-              entityId: reservation.id,
-              description: `Created ${folios.length} folio(s) with room charges for confirmed reservation #${reservation.id}.`,
-              ctx,
-            })
-          } catch (folioError) {
-            logger.info('errre', folioError)
-            console.error('Error creating folios for new confirmed reservation:', folioError)
-            // Don't fail the reservation creation if folio creation fails
-          }
+          await LoggerService.log({
+            actorId: auth.user?.id!,
+            action: 'CREATE_FOLIOS',
+            entityType: 'Reservation',
+            entityId: reservation.id,
+            description: `Created ${folios.length} folio(s) with room charges for confirmed reservation #${reservation.id}.`,
+            ctx,
+          })
         }
 
-        await trx.commit()
+
         const responseData: any = {
           success: true,
           reservationId: reservation.id,
@@ -1704,7 +1660,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationId: reservation.id,
           folioNumber: `F-${reservation.reservationNumber}-${Date.now()}`,
           folioName: `Folio for ${reservation.reservationNumber}`,
-          folioType: FolioType.GUEST ,
+          folioType: FolioType.GUEST,
           status: FolioStatus.OPEN,
           settlementStatus: SettlementStatus.PENDING,
           workflowStatus: WorkflowStatus.ACTIVE,
@@ -1853,7 +1809,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Check if reservation can be amended
       const allowedStatuses = ['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in']
-      if (!allowedStatuses.includes(reservation.reservationStatus.toLowerCase())) {
+      if (!allowedStatuses.includes(reservation.status.toLowerCase())) {
         await trx.rollback()
         return response.badRequest({
           message: `Cannot amend reservation with status: ${reservation.reservationStatus}`
@@ -1862,8 +1818,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Store original values for audit trail
       const originalData = {
-        arrivalDate: reservation.scheduledArrivalDate,
-        departureDate: reservation.scheduledDepartureDate,
+        arrivalDate: reservation.arrivedDate,
+        departureDate: reservation.departDate,
         roomTypeId: reservation.primaryRoomTypeId,
         numAdults: reservation.numAdultsTotal,
         numChildren: reservation.numChildrenTotal,
@@ -1872,21 +1828,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Validate new dates if provided
       if (newArrivalDate || newDepartureDate) {
-        const arrivalDate = newArrivalDate ? DateTime.fromISO(newArrivalDate) : reservation.scheduledArrivalDate
-        const departureDate = newDepartureDate ? DateTime.fromISO(newDepartureDate) : reservation.scheduledDepartureDate
+        const arrivalDate = newArrivalDate ? DateTime.fromISO(newArrivalDate) : reservation.arrivedDate
+        const departureDate = newDepartureDate ? DateTime.fromISO(newDepartureDate) : reservation.departDate
 
-        if (arrivalDate >= departureDate) {
+        if (arrivalDate && departureDate && arrivalDate >= departureDate) {
           await trx.rollback()
           return response.badRequest({ message: 'Arrival date must be before departure date' })
         }
 
         // Check if dates are in the past (except for checked-in reservations)
-        if (!['checked-in', 'checked_in'].includes(reservation.reservationStatus.toLowerCase())) {
-          if (arrivalDate < DateTime.now().startOf('day')) {
+      /*  if (!['checked-in', 'checked_in'].includes(reservation.reservationStatus.toLowerCase())) {
+          if (arrivalDate && arrivalDate < DateTime.now().startOf('day')) {
             await trx.rollback()
             return response.badRequest({ message: 'Cannot set arrival date in the past' })
           }
-        }
+        }*/
       }
 
       // Validate new room type if provided
@@ -1908,10 +1864,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       if (newArrivalDate) {
-        updateData.scheduledArrivalDate = DateTime.fromISO(newArrivalDate)
+        updateData.arrivedDate = DateTime.fromISO(newArrivalDate)
       }
       if (newDepartureDate) {
-        updateData.scheduledDepartureDate = DateTime.fromISO(newDepartureDate)
+        updateData.departDate = DateTime.fromISO(newDepartureDate)
       }
       if (newRoomTypeId) {
         updateData.primaryRoomTypeId = newRoomTypeId
@@ -1925,6 +1881,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (newSpecialNotes !== undefined) {
         updateData.specialNotes = newSpecialNotes
       }
+      if (reservation.arrivedDate && reservation.departDate) {
+        updateData.numberOfNights = Math.ceil(reservation.departDate.diff(reservation.arrivedDate, 'days').days)
+        updateData.nights = Math.ceil(reservation.departDate.diff(reservation.arrivedDate, 'days').days)
+      }
 
       await reservation.merge(updateData).useTransaction(trx).save()
 
@@ -1934,7 +1894,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           await reservationRoom.merge({
             roomTypeId: newRoomTypeId,
             lastModifiedBy: auth.user?.id || 1
-          }).useTransaction(trx).save()   
+          }).useTransaction(trx).save()
         }
       }
 
@@ -2056,7 +2016,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Check if new room is available for the reservation dates
       const moveDate = effectiveDate ? DateTime.fromISO(effectiveDate) : DateTime.now()
-      const checkOutDate = reservation.scheduledDepartureDate
+      const checkOutDate = reservation.departDate
 
       const conflictingReservation = await ReservationRoom.query({ client: trx })
         .where('room_id', newRoomId)
@@ -2113,7 +2073,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         roomId: newRoomId,
         roomTypeId: newRoom.roomTypeId,
         checkInDate: moveDate,
-        checkOutDate: reservation.scheduledDepartureDate,
+        checkOutDate: reservation.departDate,
         status: reservation.reservationStatus.toLowerCase() === 'checked-in' || reservation.reservationStatus.toLowerCase() === 'checked_in' ? 'checked_in' : 'reserved',
         rateAmount: currentReservationRoom.rateAmount, // Keep same rate
         totalAmount: currentReservationRoom.totalAmount,
@@ -2289,12 +2249,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         // Validate date compatibility
         const reservation1Dates = {
-          checkIn: reservation.scheduledArrivalDate,
-          checkOut: reservation.scheduledDepartureDate
+          checkIn: reservation.arrivedDate,
+          checkOut: reservation.departDate
         }
         const reservation2Dates = {
-          checkIn: targetReservation.scheduledArrivalDate,
-          checkOut: targetReservation.scheduledDepartureDate
+          checkIn: targetReservation.arrivedDate,
+          checkOut: targetReservation.departDate
         }
 
         // Check for date overlap - rooms can only be swapped if dates don't conflict
@@ -2400,16 +2360,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
           .where('id', '!=', currentReservationRoom.id) // Exclude current reservation
           .where((query) => {
             query.where((subQuery) => {
-              subQuery.where('check_in_date', '<=', reservation.scheduledArrivalDate.toISODate()!)
-                .where('check_out_date', '>', reservation.scheduledArrivalDate.toISODate()!)
+              subQuery.where('check_in_date', '<=', reservation.arrivedDate.toISODate()!)
+                .where('check_out_date', '>', reservation.arrivedDate.toISODate()!)
             })
               .orWhere((subQuery) => {
-                subQuery.where('check_in_date', '<', reservation.scheduledDepartureDate.toISODate()!)
-                  .where('check_out_date', '>=', reservation.scheduledDepartureDate.toISODate()!)
+                subQuery.where('check_in_date', '<', reservation.departDate.toISODate()!)
+                  .where('check_out_date', '>=', reservation.departDate.toISODate()!)
               })
               .orWhere((subQuery) => {
-                subQuery.where('check_in_date', '>=', reservation.scheduledArrivalDate.toISODate()!)
-                  .where('check_out_date', '<=', reservation.scheduledDepartureDate.toISODate()!)
+                subQuery.where('check_in_date', '>=', reservation.arrivedDate.toISODate()!)
+                  .where('check_out_date', '<=', reservation.departDate.toISODate()!)
               })
           })
           .first()
@@ -2551,7 +2511,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Check if the move is recent enough to be stopped (within reasonable timeframe)
-      const moveTime =activeRoom.createdAt
+      const moveTime = activeRoom.createdAt
       const now = DateTime.now()
       const hoursSinceMove = now.diff(moveTime, 'hours').hours
 
@@ -2862,7 +2822,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     try {
       const { reservationId } = params
-      const { reason, notes } = request.body()
+      const { reason } = request.body()
 
       // Validate required fields
       if (!reason) {
@@ -2870,10 +2830,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.badRequest({ message: 'Void reason is required' })
       }
 
-      // Get reservation with related data
+      // Get reservation with related data including folios
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms')
+        .preload('folios')
         .first()
 
       if (!reservation) {
@@ -2893,12 +2854,42 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Store original status for audit
       const originalStatus = reservation.status
 
+      // Handle folio changes - void all related folios
+      let foliosVoided = 0
+      if (reservation.folios && reservation.folios.length > 0) {
+        for (const folio of reservation.folios) {
+          // Only void open folios
+          if (folio.status === 'open') {
+            await folio.useTransaction(trx).merge({
+              status: FolioStatus.VOIDED,
+              workflowStatus: WorkflowStatus.CLOSED,
+             // voidedDate: DateTime.now(),
+             // voidReason: `Reservation voided: ${reason}`,
+              lastModifiedBy: auth.user?.id
+            }).save()
+            
+            // Void all transactions in the folio
+            await FolioTransaction.query({ client: trx })
+              .where('folioId', folio.id)
+              .where('status', '!=', 'voided')
+              .update({
+                status: TransactionStatus.VOIDED,
+                voidedDate: DateTime.now(),
+                voidReason: `Reservation voided: ${reason}`,
+                lastModifiedBy: auth.user?.id,
+                updatedAt: DateTime.now()
+              })
+            
+            foliosVoided++
+          }
+        }
+      }
+
       // Update reservation status to voided
       await reservation.useTransaction(trx).merge({
-        status: 'voided' as ReservationStatus,
+        status: ReservationStatus.VOIDED,
         voidedDate: DateTime.now(),
         voidReason: reason,
-        voidNotes: notes || null,
         lastModifiedBy: auth.user?.id
       }).save()
 
@@ -2907,27 +2898,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('reservationId', reservationId)
         .update({
           status: 'voided',
+          voided_date: DateTime.now(),
+          void_reason: reason,
           lastModifiedBy: auth.user?.id,
           updatedAt: DateTime.now()
         })
 
       // Create audit log
-   /*   await LoggerService.log({
-        userId: auth.user?.id,
-        action: 'reservation_voided',
-        entityType: 'reservation',
-        entityId: reservationId,
-        details: {
-          originalStatus,
-          newStatus: 'voided',
-          reason,
-          notes,
-          voidedDate: DateTime.now().toISO(),
-          roomsAffected: reservation.reservationRooms.length
-        },
-        ipAddress: request.ip(),
-        userAgent: request.header('user-agent')
-      })*/
+      /*   await LoggerService.log({
+           userId: auth.user?.id,
+           action: 'reservation_voided',
+           entityType: 'reservation',
+           entityId: reservationId,
+           details: {
+             originalStatus,
+             newStatus: 'voided',
+             reason,
+             notes,
+             voidedDate: DateTime.now().toISO(),
+             roomsAffected: reservation.reservationRooms.length,
+             foliosVoided
+           },
+           ipAddress: request.ip(),
+           userAgent: request.header('user-agent')
+         })*/
 
       await trx.commit()
 
@@ -2938,8 +2932,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           originalStatus,
           voidedDate: DateTime.now().toISO(),
           reason,
-          notes,
-          roomsAffected: reservation.reservationRooms.length
+          roomsAffected: reservation.reservationRooms.length,
+          foliosVoided
         }
       })
 
@@ -3025,26 +3019,26 @@ export default class ReservationsController extends CrudController<typeof Reserv
         assignedDate: roomAssignment.createdAt
       }
 
-      
+
 
       // Create audit log
-   /*   await LoggerService.log({
-        action: 'room_unassigned',
-        entityType: 'reservation_room',
-        entityId: roomAssignment.id,
-        details: {
-          reservationId,
-          roomId,
-          originalStatus: originalRoomData.status,
-          newStatus: 'unassigned',
-          reason,
-          notes,
-          unassignedDate: DateTime.now().toISO(),
-          remainingActiveRooms: activeRoomCount - 1
-        },
-        ipAddress: request.ip(),
-        userAgent: request.header('user-agent')
-      })*/
+      /*   await LoggerService.log({
+           action: 'room_unassigned',
+           entityType: 'reservation_room',
+           entityId: roomAssignment.id,
+           details: {
+             reservationId,
+             roomId,
+             originalStatus: originalRoomData.status,
+             newStatus: 'unassigned',
+             reason,
+             notes,
+             unassignedDate: DateTime.now().toISO(),
+             remainingActiveRooms: activeRoomCount - 1
+           },
+           ipAddress: request.ip(),
+           userAgent: request.header('user-agent')
+         })*/
 
       await trx.commit()
 

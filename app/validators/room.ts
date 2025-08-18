@@ -14,7 +14,6 @@ export const createRoomValidator = vine.compile(
     sortKey: vine.number().optional(),
     keyCardAlias: vine.string().trim().maxLength(50).optional(),
     roomNumber: vine.string().trim().minLength(1).maxLength(20),
-    floor: vine.number().min(0),
     building: vine.string().trim().maxLength(50).optional(),
     wing: vine.string().trim().maxLength(50).optional(),
     section: vine.string().trim().maxLength(50).optional(),
@@ -251,7 +250,9 @@ export const createRoomValidator = vine.compile(
     createdBy: vine.number().positive().optional(),
     lastModifiedBy: vine.number().positive().optional(),
     isDeleted: vine.boolean().optional(),
-    deletedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional()
+    deletedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    shortCode: vine.string().trim().maxLength(50).optional(),
+    taxRateIds: vine.array(vine.number().positive()).optional()
   })
 )
 
@@ -268,7 +269,6 @@ export const updateRoomValidator = vine.compile(
     sortKey: vine.number().optional(),
     keyCardAlias: vine.string().trim().maxLength(50).optional(),
     roomNumber: vine.string().trim().minLength(1).maxLength(20).optional(),
-    floor: vine.number().min(0).optional(),
     building: vine.string().trim().maxLength(50).optional(),
     wing: vine.string().trim().maxLength(50).optional(),
     section: vine.string().trim().maxLength(50).optional(),
@@ -505,6 +505,8 @@ export const updateRoomValidator = vine.compile(
     createdBy: vine.number().positive().optional(),
     lastModifiedBy: vine.number().positive().optional(),
     isDeleted: vine.boolean().optional(),
-    deletedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional()
+    deletedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
+    shortCode: vine.string().trim().maxLength(50).optional(),
+    taxRateIds: vine.array(vine.number().positive()).optional()
   })
 )

@@ -385,6 +385,12 @@ export default class Folio extends BaseModel {
   @column()
   declare lastModifiedBy: number
 
+  @column.dateTime()
+  declare voidedDate: DateTime | null
+
+  @column()
+  declare voidReason: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

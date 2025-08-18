@@ -64,7 +64,7 @@ export default class ReservationRoom extends BaseModel {
   declare netAmount: number
 
   @column()
-  declare status: 'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
+  declare status: 'voided' | 'moved_out' | 'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
 
   @column()
   declare bedPreference: string
@@ -487,13 +487,13 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare packageRate: boolean
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'voided_date' })
   declare voidedDate: DateTime | null
 
-  @column()
+  @column({ columnName: 'void_reason' })
   declare voidReason: string | null
 
-  @column()
+  @column({ columnName: 'void_notes' })
   declare voidNotes: string | null
 
   @column()
@@ -595,8 +595,8 @@ export default class ReservationRoom extends BaseModel {
   declare guest: BelongsTo<typeof Guest>
 
 
-  @belongsTo(() => RoomRate,{ foreignKey : 'roomRateId'})
-  declare roomRates: BelongsTo <typeof RoomRate>
+  @belongsTo(() => RoomRate, { foreignKey: 'roomRateId' })
+  declare roomRates: BelongsTo<typeof RoomRate>
   // Computed properties
   get isCheckedIn() {
     return this.status === 'checked_in'
@@ -645,7 +645,7 @@ export default class ReservationRoom extends BaseModel {
 
   get hasPreferences() {
     return !!(this.bedPreference || this.smokingPreference !== 'no_preference' ||
-             this.floorPreference || this.viewPreference)
+      this.floorPreference || this.viewPreference)
   }
 
   get isVip() {
@@ -669,7 +669,8 @@ export default class ReservationRoom extends BaseModel {
       'cancelled': 'orange',
       'blocked': 'purple',
       "moved_out": 'yellow',
-      "moved_in": 'cyan'
+      "moved_in": 'cyan',
+      "voided": "black"
     }
     return colors[this.status] || 'gray'
   }
