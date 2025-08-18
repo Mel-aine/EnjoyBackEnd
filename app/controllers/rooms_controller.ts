@@ -401,90 +401,88 @@ export default class RoomsController {
    * Get rooms with details including reservations
    */
   public async getRoomsWithDetails({ params, response }: HttpContext) {
-    const { hotelId } = params
+  const { hotelId } = params
 
-    try {
-      const rooms = await Room.query()
-        .where('hotel_id', hotelId)
-        .preload('roomType')
-        .preload('reservationRooms', (query) => {
-          query
-             .preload('reservation', (reservationQuery) => {
-               reservationQuery.select(['id', 'status', 'departDate'])
-             })
+  try {
+    const rooms = await Room.query()
+      .where('hotel_id', hotelId)
+      .preload('roomType')
+      .preload('reservationRooms', (query) => {
+        query.preload('reservation', (reservationQuery) => {
+          reservationQuery
+            .select(['id', 'status', 'departDate', 'guestId'])
             .preload('guest', (guestQuery) => {
               guestQuery.select(['id', 'firstName', 'lastName'])
             })
         })
+      })
 
-      const detailedRooms = rooms.map((room) => {
-        const reservations = room.reservationRooms
+    const detailedRooms = rooms.map((room) => {
+      const reservations = room.reservationRooms
 
-        const reservationData = reservations.map((rr) => ({
-          reservation: rr.reservation,
-          guest: rr.guest,
-          status: rr.status,
-        }))
 
-        const checkedInReservation = reservationData.find(
-          (r) => r.reservation.status === 'checked-in' || r.reservation.status === 'checked_in'
+      const reservationData = reservations.map((rr) => ({
+        reservation: rr.reservation,
+        guest: rr.reservation?.guest ?? null,
+        status: rr.reservation?.status ?? null,
+      }))
+
+
+      const checkedInReservation = reservationData.find(
+        (r) =>
+          r.reservation?.status === 'checked-in' ||
+          r.reservation?.status === 'checked_in'
+      )
+
+      const guestName = checkedInReservation?.guest
+        ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() || null
+        : null
+
+
+     const reservationsWithDepart = reservationData
+      .filter((r) => r.reservation?.departDate != null)
+      .sort((a, b) => {
+        const dateA = DateTime.fromISO(
+          a.reservation?.departDate?.toString() || ''
         )
-
-        const guestName = checkedInReservation?.guest
-          ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() || null
-          : null
-
-        const reservationsWithDepart = reservationData
-           .filter((r) => r.reservation.departDate != null)
-           .sort((a, b) => {
-             const dateAString = a.reservation.departDate
-               ? typeof a.reservation.departDate === 'string'
-                 ? a.reservation.departDate
-                 : a.reservation.departDate.toString()
-               : ''
-
-             const dateBString = b.reservation.departDate
-               ? typeof b.reservation.departDate === 'string'
-                 ? b.reservation.departDate
-                 : b.reservation.departDate.toString()
-               : ''
-
-             const dateA = DateTime.fromISO(dateAString)
-             const dateB = DateTime.fromISO(dateBString)
-
-             return dateB.toMillis() - dateA.toMillis()
-           })
-
-         const latestDeparture = reservationsWithDepart[0]
-
-         const nextAvailable = latestDeparture?.reservation.departDate
-           ? (typeof latestDeparture.reservation.departDate === 'string'
-               ? latestDeparture.reservation.departDate
-               : latestDeparture.reservation.departDate.toString())
-           : null
-
-        const checkOutTime = nextAvailable
-
-        return {
-          ...room.serialize(),
-          roomType: room.roomType?.serialize(),
-          reservations: reservationData,
-          guestName,
-          nextAvailable,
-          checkOutTime,
-          status: room.status || 'available',
-        }
+        const dateB = DateTime.fromISO(
+          b.reservation?.departDate?.toString() || ''
+        )
+        return dateB.toMillis() - dateA.toMillis()
       })
 
-      return response.ok(detailedRooms)
-    } catch (err) {
-      console.error('Erreur getRoomsWithDetails:', err)
-      return response.status(500).json({
-        error: 'Erreur serveur',
-        message: err instanceof Error ? err.message : 'Erreur inconnue'
-      })
-    }
+
+      const latestDeparture = reservationsWithDepart[0]
+
+      const nextAvailable = latestDeparture?.reservation?.departDate
+        ? (typeof latestDeparture.reservation.departDate === 'string'
+            ? latestDeparture.reservation.departDate
+            : latestDeparture.reservation.departDate.toString())
+        : null
+
+      const checkOutTime = nextAvailable
+
+      return {
+        ...room.serialize(),
+        roomType: room.roomType?.serialize(),
+        reservations: reservationData,
+        guestName,
+        nextAvailable,
+        checkOutTime,
+        status: room.status || 'available',
+      }
+    })
+
+    return response.ok(detailedRooms)
+  } catch (err) {
+    console.error('Erreur getRoomsWithDetails:', err)
+    return response.status(500).json({
+      error: 'Erreur serveur',
+      message: err instanceof Error ? err.message : 'Erreur inconnue',
+    })
   }
+}
+
 
   /**
    * Get recent bookings for a hotel

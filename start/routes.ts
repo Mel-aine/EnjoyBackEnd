@@ -669,6 +669,7 @@ router
         router.get('/:id', roomsController.show.bind(roomsController)) // Get specific room details
         router.put('/:id', roomsController.update.bind(roomsController)) // Update room information
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
+        router.get('/:hotelId/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
 
         // Room status management
         router.patch('/:id/status', roomsController.updateStatus.bind(roomsController)) // Update room status (available, occupied, maintenance, etc.)

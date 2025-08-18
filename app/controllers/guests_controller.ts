@@ -268,14 +268,14 @@ export default class GuestsController {
 
       const totalReservations = await guest.related('reservations').query().count('* as total')
       const totalSpent = await guest.related('folios').query().sum('total_charges as total')
-      const averageRating = await guest.related('reservations').query().avg('satisfaction_rating as avg')
+      // const averageRating = await guest.related('reservations').query().avg('satisfaction_rating as avg')
 
       const profile = {
         guest,
         statistics: {
           totalReservations: totalReservations[0].$extras.total,
           totalSpent: totalSpent[0].$extras.total || 0,
-          averageRating: averageRating[0].$extras.avg || 0,
+          // averageRating: averageRating[0].$extras.avg || 0,
           lastStayDate: guest.lastStayDate,
           loyaltyStatus: guest.vipStatus ? 'VIP' : 'Regular'
         }
