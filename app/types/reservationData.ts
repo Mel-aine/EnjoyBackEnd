@@ -35,7 +35,7 @@ export interface ReservationData {
   state?: string
   city?: string
   zipcode?: string
-  
+
   // Multiple guests support
   guests?: GuestData[]
 
@@ -63,6 +63,7 @@ export interface ReservationData {
     room_rate: number
     adult_count: number
     child_count: number
+    room_rate_id:number
   }>
 
   // Financial

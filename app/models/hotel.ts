@@ -8,6 +8,7 @@ import Discount from './discount.js'
 import Inventory from './inventory.js'
 import User from './user.js'
 import Currency from './currency.js'
+import PaymentMethod from './payment_method.js'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
@@ -160,4 +161,8 @@ export default class Hotel extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @hasMany(() => PaymentMethod)
+  declare paymentMethods: HasMany<typeof PaymentMethod>
+
 }
