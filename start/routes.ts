@@ -572,6 +572,7 @@ router
         // Basic CRUD operations for guests
         router.get('/', guestsController.index.bind(guestsController)) // Get all guests with pagination, search, and filtering
         router.post('/', guestsController.store.bind(guestsController)) // Create a new guest profile
+        router.get('/:id/customer',[GuestsController, 'showbyHotelId'])//get guest
         router.get('/:id', guestsController.show.bind(guestsController)) // Get specific guest details with reservation history
         router.put('/:id', guestsController.update.bind(guestsController)) // Update guest information
         router.delete('/:id', guestsController.destroy.bind(guestsController)) // Delete guest profile
@@ -828,7 +829,7 @@ router
       .group(() => {
         router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
         router.get('/:reservationId/details',[ReservationsController, 'getReservationDetails'])
-        
+
         // Reservation Action Routes
         router.post('/:reservationId/checkin', [ReservationsController, 'checkIn'])
         router.post('/:reservationId/payment', [ReservationsController, 'addPayment'])
