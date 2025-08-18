@@ -65,10 +65,38 @@ export default class Hotel extends BaseModel {
   @column()
   declare status: string
 
-  @column()
+  @column({
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
   declare amenities: object | null
 
-  @column()
+  @column({
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
   declare policies: object | null
 
   @column()
@@ -77,13 +105,58 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'logo_url' })
   declare logoUrl: string | null
 
-  @column({ columnName: 'contact_info' })
+  @column({
+    columnName: 'contact_info',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
   declare contactInfo: object | null
 
-  @column({ columnName: 'social_media' })
+  @column({
+    columnName: 'social_media',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
   declare socialMedia: object | null
 
-  @column({ columnName: 'status_colors' })
+  @column({
+    columnName: 'status_colors',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
   declare statusColors: object | null
 
   @column({ columnName: 'floor_plan_url' })
@@ -122,7 +195,21 @@ export default class Hotel extends BaseModel {
   @column()
   declare grade: number | null
 
-  @column()
+  @column({
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
   declare notices: object | null
 
   @column({ columnName: 'created_by' })

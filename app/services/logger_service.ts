@@ -16,6 +16,16 @@ interface LogData {
   ctx: HttpContext
 }
 
+interface LogActivityData {
+  userId?: number
+  action: string
+  resourceType: string
+  resourceId: number | string
+  details?: any
+  ipAddress?: string
+  userAgent?: string
+}
+
 export default class LoggerService {
   public static async log(data: LogData) {
     try {
@@ -23,7 +33,7 @@ export default class LoggerService {
 
       await ActivityLog.create({
         userId: data.actorId,
-        username: actor?.first_name || 'System',
+        username: actor?.firstName || 'System',
         action: data.action,
         entityType: data.entityType,
         entityId: Number(data.entityId),
@@ -33,6 +43,33 @@ export default class LoggerService {
         ipAddress: data.ctx.request.ip(),
         userAgent: data.ctx.request.header('user-agent'),
       })
+    } catch (error) {
+      console.error('🔴 Failed to create activity log:', error)
+    }
+  }
+
+  public static async logActivity(data: LogActivityData, trx?: any) {
+    try {
+      const actor = data.userId ? await User.find(data.userId) : null
+
+      const logData = {
+        userId: data.userId || null,
+        username: actor?.firstName || 'System',
+        action: data.action,
+        entityType: data.resourceType,
+        entityId: Number(data.resourceId),
+        description: JSON.stringify(data.details) || null,
+        changes: data.details ?? null,
+        createdBy: data.userId || null,
+        ipAddress: data.ipAddress || null,
+        userAgent: data.userAgent || null,
+      }
+
+      if (trx) {
+        await ActivityLog.create(logData, { client: trx })
+      } else {
+        await ActivityLog.create(logData)
+      }
     } catch (error) {
       console.error('🔴 Failed to create activity log:', error)
     }

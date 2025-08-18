@@ -8,10 +8,10 @@ export default class PermissionService {
   /**
    * Vérifie si un utilisateur a une permission dans un service donné
    */
- public static async hasPermission(userId: number, serviceId: number, permissionSlug: string): Promise<boolean> {
+ public static async hasPermission(userId: number, hotelId: number, permissionSlug: string): Promise<boolean> {
   console.log('[PermissionService] ➤ Vérification de permission :', {
     userId,
-    serviceId,
+    hotelId,
     permissionSlug
   })
 
@@ -19,7 +19,7 @@ export default class PermissionService {
   const assignment = await ServiceUserAssignment
     .query()
     .where('user_id', userId)
-    .andWhere('service_id', serviceId)
+    .andWhere('service_id', hotelId)
     .first()
 
   if (!assignment) {
@@ -28,7 +28,7 @@ export default class PermissionService {
   }
 
   // 2. Récupère le service pour connaître sa category_id
-  const service = await Service.find(serviceId)
+  const service = await Service.find(hotelId)
   if (!service) {
     console.log('[PermissionService] ❌ Service introuvable')
     return false
@@ -40,7 +40,7 @@ export default class PermissionService {
     .where('role_name', assignment.role)
     .andWhere(query => {
       query
-        .where('service_id', serviceId)
+        .where('service_id', hotelId)
         .orWhere(subQuery => {
           subQuery
             .whereNull('service_id')
@@ -63,22 +63,22 @@ export default class PermissionService {
   // Étape 3 : vérifier si la permission demandée est dans la liste du rôle
   const hasPerm = role.permissions.some(p => p.name === permissionSlug)
 
-  console.log(`[PermissionService] Résultat : ${hasPerm ? '✅ autorisé' : '❌ refusé'} — Rôle: ${role.role_name}, Permissions:`, role.permissions.map(p => p.name))
+  console.log(`[PermissionService] Résultat : ${hasPerm ? '✅ autorisé' : '❌ refusé'} — Rôle: ${role.roleName}, Permissions:`, role.permissions.map(p => p.name))
 
   return hasPerm
 }
 
 // Retourne un tableau de slugs de permissions de l'utilisateur sur un service donné
-public static async getPermissions(userId: number, serviceId: number): Promise<string[]> {
+public static async getPermissions(userId: number, hotelId: number): Promise<string[]> {
   const assignment = await ServiceUserAssignment
     .query()
     .where('user_id', userId)
-    .andWhere('service_id', serviceId)
+    .andWhere('service_id', hotelId)
     .first()
 
   if (!assignment) return []
 
-  const service = await Service.find(serviceId)
+  const service = await Service.find(hotelId)
   if (!service) return []
 
   const role = await Role
@@ -86,7 +86,7 @@ public static async getPermissions(userId: number, serviceId: number): Promise<s
     .where('role_name', assignment.role)
     .andWhere(query => {
       query
-        .where('service_id', serviceId)
+        .where('service_id', hotelId)
         .orWhere(subQuery => {
           subQuery
             .whereNull('service_id')
@@ -106,7 +106,7 @@ public static async getPermissions(userId: number, serviceId: number): Promise<s
   return role.permissions.map(p => p.name)
 }
 
- public async assignAllPermissionsToAdminForService(serviceId: number, createdBy: number) {
+ public async assignAllPermissionsToAdminForService(hotelId: number, createdBy: number) {
     const adminRole = await Role.findBy('role_name', 'admin')
     if (!adminRole) {
       throw new Error('Rôle admin introuvable')
@@ -118,14 +118,14 @@ public static async getPermissions(userId: number, serviceId: number): Promise<s
       const exists = await RolePermission.query()
         .where('role_id', adminRole.id)
         .andWhere('permission_id', permission.id)
-        .andWhere('service_id', serviceId)
+        .andWhere('service_id', hotelId)
         .first()
 
       if (!exists) {
         await RolePermission.create({
           role_id: adminRole.id,
           permission_id: permission.id,
-          hotel_id: serviceId,
+          hotel_id: hotelId,
           created_by: createdBy,
           last_modified_by: createdBy,
         })

@@ -85,6 +85,8 @@ export const createReservationRoomValidator = vine.compile(
     guestServiceNotes: vine.string().maxLength(1000).optional(),
     billingNotes: vine.string().maxLength(1000).optional(),
     internalNotes: vine.string().maxLength(1000).optional(),
+    notes: vine.string().maxLength(1000).optional(),
+    rateAmount: vine.number().min(0).optional(),
     roomChangeReason: vine.string().maxLength(500).optional(),
     roomChangedAt: vine.date().optional(),
     roomChangedBy: vine.number().positive().optional(),
@@ -146,9 +148,14 @@ export const createReservationRoomValidator = vine.compile(
     laundryServiceIncluded: vine.boolean().optional(),
     turndownServiceIncluded: vine.boolean().optional(),
     dailyHousekeepingIncluded: vine.boolean().optional(),
+    actualCheckInTime: vine.date().optional(),
+    actualCheckOutTime: vine.date().optional(),
     checkedInBy: vine.number().positive().optional(),
     checkedOutBy: vine.number().positive().optional(),
-    lastModifiedBy: vine.number().positive().optional()
+    lastModifiedBy: vine.number().positive().optional(),
+    voidedDate: vine.date().optional(),
+    voidReason: vine.string().maxLength(500).optional(),
+    voidNotes: vine.string().maxLength(1000).optional()
   })
 )
 
@@ -239,6 +246,8 @@ export const updateReservationRoomValidator = vine.compile(
     guestServiceNotes: vine.string().maxLength(1000).optional(),
     billingNotes: vine.string().maxLength(1000).optional(),
     internalNotes: vine.string().maxLength(1000).optional(),
+    notes: vine.string().maxLength(1000).optional(),
+    rateAmount: vine.number().min(0).optional(),
     roomChangeReason: vine.string().maxLength(500).optional(),
     roomChangedAt: vine.date().optional(),
     roomChangedBy: vine.number().positive().optional(),
@@ -302,6 +311,9 @@ export const updateReservationRoomValidator = vine.compile(
     dailyHousekeepingIncluded: vine.boolean().optional(),
     checkedInBy: vine.number().positive().optional(),
     checkedOutBy: vine.number().positive().optional(),
-    lastModifiedBy: vine.number().positive().optional()
+    lastModifiedBy: vine.number().positive().optional(),
+    voidedDate: vine.date().optional(),
+    voidReason: vine.string().maxLength(500).optional(),
+    voidNotes: vine.string().maxLength(1000).optional()
   })
 )

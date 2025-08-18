@@ -45,7 +45,7 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
         department_id: data.department_id ?? null,
         user: data.user ?? null,
         notes: data.notes ?? null,
-        service_id: data.service_id ?? null,
+        hotel_id: data.service_id ?? null,
         created_by: data.created_by ?? null,
         last_modified_by: data.last_modified_by?? null,
       })
@@ -87,7 +87,7 @@ export default class MouvementsController extends CrudController<typeof Mouvemen
           notes: mouvement.notes,
           created_by: mouvement.created_by,
           last_modified_by: mouvement.last_modified_by,
-          service_id: mouvement.service_id,
+          hotel_id: mouvement.hotel_id,
         })
         
       }

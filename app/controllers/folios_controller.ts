@@ -21,6 +21,7 @@ import {
   reservationCheckoutValidator,
   forceCloseValidator
 } from '#validators/folio'
+import { FolioStatus } from '../enums.js'
 
 export default class FoliosController {
   /**
@@ -144,7 +145,7 @@ export default class FoliosController {
         .preload('hotel')
         .preload('guest')
         .preload('transactions', (query) => {
-          query.orderBy('transaction_date', 'desc')
+          query.orderBy('transactionDate', 'desc')
         })
         .firstOrFail()
 
@@ -237,7 +238,7 @@ export default class FoliosController {
         })
       }
 
-      folio.status = 'closed'
+      folio.status = FolioStatus.CLOSED
       folio.closedDate = DateTime.now()
       folio.closedBy = auth.user?.id || 0
       folio.internalNotes = notes
@@ -271,7 +272,7 @@ export default class FoliosController {
         })
       }
 
-      folio.status = 'open'
+      folio.status = FolioStatus.OPEN
       folio.closedDate = null
       folio.closedBy = null
       folio.internalNotes = reason
@@ -333,7 +334,7 @@ export default class FoliosController {
         .preload('hotel')
         .preload('guest')
         .preload('transactions', (query) => {
-          query.orderBy('transaction_date', 'asc')
+          query.orderBy('transactionDate', 'asc')
         })
         .firstOrFail()
 

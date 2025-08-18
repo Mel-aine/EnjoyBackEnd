@@ -1,16 +1,43 @@
+import type { HttpContext } from '@adonisjs/core/http'
 
+export default class ProductServicesController {
+  /**
+   * Display a list of resource
+   */
+  async index({}: HttpContext) {
+    // TODO: Implement index method
+    return { message: 'ProductServices index method' }
+  }
 
-import ProductService from '#models/products';
-import CrudService from '#services/crud_service'
-import CrudController from './crud_controller.js'
+  /**
+   * Display the specified resource
+   */
+  async show({ params }: HttpContext) {
+    // TODO: Implement show method
+    return { message: `ProductServices show method for ID: ${params.id}` }
+  }
 
-// // import type { HttpContext } from '@adonisjs/core/http'
- const productService = new CrudService(ProductService)
+  /**
+   * Handle form submission for the create action
+   */
+  async store({ request }: HttpContext) {
+    // TODO: Implement store method
+    return { message: 'ProductServices store method', data: request.all() }
+  }
 
+  /**
+   * Handle form submission for the edit action
+   */
+  async update({ params, request }: HttpContext) {
+    // TODO: Implement update method
+    return { message: `ProductServices update method for ID: ${params.id}`, data: request.all() }
+  }
 
-
-export default class ProductServicesController extends CrudController<typeof ProductService> {
-  constructor() {
-    super(productService)
+  /**
+   * Delete record
+   */
+  async destroy({ params }: HttpContext) {
+    // TODO: Implement destroy method
+    return { message: `ProductServices destroy method for ID: ${params.id}` }
   }
 }

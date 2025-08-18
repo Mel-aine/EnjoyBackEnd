@@ -11,8 +11,8 @@ export default class RoomType extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare hotel_id: number
+  @column({ columnName: 'hotel_id' })
+  declare hotelId: number
 
   @column({ columnName: 'short_code' })
   declare shortCode: string
@@ -92,7 +92,7 @@ declare rateTypes: ManyToMany<typeof RateType>
   declare deletedAt: DateTime | null
 
   // Relationships
-  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @hasMany(() => Room)

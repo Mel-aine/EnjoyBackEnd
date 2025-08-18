@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
 import Hotel from './hotel.js'
 import Folio from './folio.js'
 import PaymentMethod from './payment_method.js'
@@ -20,10 +21,13 @@ export default class FolioTransaction extends BaseModel {
   declare transactionNumber: string
 
   @column()
-  declare transactionType: 'charge' | 'payment' | 'adjustment' | 'tax' | 'discount' | 'refund' | 'transfer' | 'void' | 'correction'
+  declare transactionCode: string
 
   @column()
-  declare category: 'room' | 'food_beverage' | 'telephone' | 'laundry' | 'minibar' | 'spa' | 'business_center' | 'parking' | 'internet' | 'miscellaneous' | 'package' | 'incidental' | 'tax' | 'service_charge' | 'deposit' | 'payment' | 'adjustment'
+  declare transactionType: TransactionType
+
+  @column()
+  declare category: TransactionCategory
 
   @column()
   declare subcategory: string
@@ -33,6 +37,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column()
   declare amount: number
+
+  @column()
+  declare totalAmount: number
 
   @column()
   declare quantity: number
@@ -66,6 +73,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column.dateTime()
   declare transactionDate: DateTime
+
+  @column()
+  declare transactionTime: string
 
   @column.dateTime()
   declare postingDate: DateTime
@@ -356,7 +366,7 @@ export default class FolioTransaction extends BaseModel {
   declare approvedAt: DateTime
 
   @column()
-  declare status: 'pending' | 'posted' | 'voided' | 'transferred' | 'disputed' | 'refunded'
+  declare status: TransactionStatus
 
   @column()
   declare createdBy: number
@@ -388,19 +398,19 @@ export default class FolioTransaction extends BaseModel {
 
   // Computed properties
   get isCharge() {
-    return this.transactionType === 'charge'
+    return this.transactionType === TransactionType.CHARGE
   }
 
   get isPayment() {
-    return this.transactionType === 'payment'
+    return this.transactionType === TransactionType.PAYMENT
   }
 
   get isCredit() {
-    return ['payment', 'refund', 'adjustment'].includes(this.transactionType) && this.amount < 0
+    return [TransactionType.PAYMENT, TransactionType.REFUND, TransactionType.ADJUSTMENT].includes(this.transactionType) && this.amount < 0
   }
 
   get isDebit() {
-    return ['charge', 'tax'].includes(this.transactionType) && this.amount > 0
+    return [TransactionType.CHARGE, TransactionType.TAX].includes(this.transactionType) && this.amount > 0
   }
 
   get absoluteAmount() {
@@ -412,11 +422,11 @@ export default class FolioTransaction extends BaseModel {
   }
 
   get isPosted() {
-    return this.status === 'posted'
+    return this.status === TransactionStatus.POSTED
   }
 
   get isPending() {
-    return this.status === 'pending'
+    return this.status === TransactionStatus.PENDING
   }
 
   get canBeVoided() {
@@ -453,9 +463,9 @@ export default class FolioTransaction extends BaseModel {
 
   get typeColor() {
     const colors = {
-      'charge': 'red',
-      'payment': 'green',
-      'adjustment': 'blue',
+      [TransactionType.CHARGE]: 'red',
+      [TransactionType.PAYMENT]: 'green',
+      [TransactionType.ADJUSTMENT]: 'blue',
       'tax': 'orange',
       'discount': 'purple',
       'refund': 'teal',
@@ -467,14 +477,16 @@ export default class FolioTransaction extends BaseModel {
   }
 
   get statusColor() {
-    const colors = {
-      'pending': 'orange',
-      'posted': 'green',
-      'voided': 'red',
-      'transferred': 'blue',
-      'disputed': 'purple',
-      'refunded': 'teal'
+    const colors: any = {
+      [TransactionStatus.PENDING]: 'orange',
+      [TransactionStatus.POSTED]: 'green',
+      [TransactionStatus.VOIDED]: 'red',
+      [TransactionStatus.TRANSFERRED]: 'blue',
+      [TransactionStatus.DISPUTED]: 'purple',
+      [TransactionStatus.REFUNDED]: 'teal',
+      [TransactionStatus.WRITE_OFF]: 'brown',
     }
     return colors[this.status] || 'gray'
+
   }
 }

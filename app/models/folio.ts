@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus } from '#app/enums'
 import Hotel from './hotel.js'
 import Guest from './guest.js'
 import FolioTransaction from './folio_transaction.js'
@@ -24,7 +25,7 @@ export default class Folio extends BaseModel {
   declare folioName: string
 
   @column()
-  declare folioType: 'guest' | 'master' | 'group' | 'house' | 'city_ledger' | 'advance_deposit'
+  declare folioType: FolioType
 
   @column()
   declare reservationId: number
@@ -36,13 +37,13 @@ export default class Folio extends BaseModel {
   declare companyId: number
 
   @column()
-  declare status: 'open' | 'closed' | 'transferred' | 'voided' | 'disputed'
+  declare status: FolioStatus
 
   @column()
-  declare settlementStatus: 'pending' | 'partial' | 'settled' | 'overdue' | 'disputed'
+  declare settlementStatus: SettlementStatus
 
   @column()
-  declare workflowStatus: 'draft' | 'active' | 'review' | 'approved' | 'finalized'
+  declare workflowStatus: WorkflowStatus
 
   @column.dateTime()
   declare openedDate: DateTime

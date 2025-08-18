@@ -601,13 +601,13 @@ export default class ReservationRoomsController {
         // const product = res.room
 
         return {
-          guest: user ? `${user.first_name} ${user.last_name}` : 'Inconnu',
+          guest: user ? `${user.firstName} ${user.lastName}` : 'Inconnu',
           email: user?.email ?? '',
           // room: product?.product_name ?? 'Non spécifié',
           // checkin: res.start_date?.toFormat('dd/MM/yyyy') ?? '',
           // checkout: res.end_date?.toFormat('dd/MM/yyyy') ?? '',
           status: reservation?.status ?? '',
-          amount: reservation?.final_amount ?? 0,
+          amount: reservation?.finalAmount ?? 0,
         }
       })
 

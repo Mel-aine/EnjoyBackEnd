@@ -410,7 +410,7 @@ export default class RoomsController {
         .preload('reservationRooms', (query) => {
           query
              .preload('reservation', (reservationQuery) => {
-               reservationQuery.select(['id', 'status', 'depart_date'])
+               reservationQuery.select(['id', 'status', 'departDate'])
              })
             .preload('guest', (guestQuery) => {
               guestQuery.select(['id', 'firstName', 'lastName'])
@@ -435,18 +435,18 @@ export default class RoomsController {
           : null
 
         const reservationsWithDepart = reservationData
-           .filter((r) => r.reservation.depart_date != null)
+           .filter((r) => r.reservation.departDate != null)
            .sort((a, b) => {
-             const dateAString = a.reservation.depart_date
-               ? typeof a.reservation.depart_date === 'string'
-                 ? a.reservation.depart_date
-                 : a.reservation.depart_date.toString()
+             const dateAString = a.reservation.departDate
+               ? typeof a.reservation.departDate === 'string'
+                 ? a.reservation.departDate
+                 : a.reservation.departDate.toString()
                : ''
 
-             const dateBString = b.reservation.depart_date
-               ? typeof b.reservation.depart_date === 'string'
-                 ? b.reservation.depart_date
-                 : b.reservation.depart_date.toString()
+             const dateBString = b.reservation.departDate
+               ? typeof b.reservation.departDate === 'string'
+                 ? b.reservation.departDate
+                 : b.reservation.departDate.toString()
                : ''
 
              const dateA = DateTime.fromISO(dateAString)
@@ -457,10 +457,10 @@ export default class RoomsController {
 
          const latestDeparture = reservationsWithDepart[0]
 
-         const nextAvailable = latestDeparture?.reservation.depart_date
-           ? (typeof latestDeparture.reservation.depart_date === 'string'
-               ? latestDeparture.reservation.depart_date
-               : latestDeparture.reservation.depart_date.toString())
+         const nextAvailable = latestDeparture?.reservation.departDate
+           ? (typeof latestDeparture.reservation.departDate === 'string'
+               ? latestDeparture.reservation.departDate
+               : latestDeparture.reservation.departDate.toString())
            : null
 
         const checkOutTime = nextAvailable
@@ -523,7 +523,7 @@ export default class RoomsController {
           checkin: res.checkInDate?.toFormat('dd/MM/yyyy') ?? '',
           checkout: res.checkOutDate?.toFormat('dd/MM/yyyy') ?? '',
           status: reservation?.status ?? '',
-          amount: reservation?.final_amount ?? 0,
+          amount: reservation?.finalAmount ?? 0,
         }
       })
 

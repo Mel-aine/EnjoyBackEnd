@@ -3,6 +3,7 @@ import RateType from '#models/rate_type'
 import RoomType from '#models/room_type'
 import { createRateTypeValidator, updateRateTypeValidator } from '#validators/rate_type'
 import Database from '@adonisjs/lucid/services/db'
+import RoomRate from '../models/room_rate.js'
 
 export default class RateTypesController {
   /**
@@ -358,6 +359,11 @@ export default class RateTypesController {
 public async getByRoomType({ params, response }: HttpContext) {
   try {
     const roomTypeId = Number(params.id)
+    const roomRate = await RoomRate.query()
+      .where('room_type_id', roomTypeId)
+      .preload('rateType')
+ const ratesType = roomRate.map((item) => item.rateType)
+
 
     const roomType = await RoomType.query()
       .where('id', roomTypeId)
@@ -366,14 +372,14 @@ public async getByRoomType({ params, response }: HttpContext) {
       })
       .first()
 
-    if (!roomType) {
+    if (!roomType && !ratesType) {
       return response.status(404).json({ message: 'Room type not found' })
     }
 
     return response.json({
       roomType: {
-        id: roomType.id,
-        rateTypes: roomType.rateTypes
+        id: roomType?.id,
+        rateTypes: roomType?.rateTypes.concat(ratesType)
       }
     })
   } catch (error) {

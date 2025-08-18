@@ -17,7 +17,7 @@ interface PaginationOptions {
 }
 
 interface MarkAsFoundData {
-  foundOn?: string | DateTime
+  foundOn?: string
   foundLocation?: string
   whoFound?: string
   currentLocation?: string
@@ -64,10 +64,8 @@ export default class LostFoundService {
         currentPage: result.currentPage,
         lastPage: result.lastPage,
         firstPage: result.firstPage,
-        firstPageUrl: result.firstPageUrl,
-        lastPageUrl: result.lastPageUrl,
-        nextPageUrl: result.nextPageUrl,
-        previousPageUrl: result.previousPageUrl,
+        nextPageUrl: result.getNextPageUrl(),
+        previousPageUrl: result.getPreviousPageUrl(),
       },
     }
   }
@@ -173,10 +171,8 @@ export default class LostFoundService {
         currentPage: result.currentPage,
         lastPage: result.lastPage,
         firstPage: result.firstPage,
-        firstPageUrl: result.firstPageUrl,
-        lastPageUrl: result.lastPageUrl,
-        nextPageUrl: result.nextPageUrl,
-        previousPageUrl: result.previousPageUrl,
+        nextPageUrl: result.getNextPageUrl(),
+        previousPageUrl: result.getPreviousPageUrl(),
       },
     }
   }
@@ -201,10 +197,8 @@ export default class LostFoundService {
         currentPage: result.currentPage,
         lastPage: result.lastPage,
         firstPage: result.firstPage,
-        firstPageUrl: result.firstPageUrl,
-        lastPageUrl: result.lastPageUrl,
-        nextPageUrl: result.nextPageUrl,
-        previousPageUrl: result.previousPageUrl,
+        nextPageUrl: result.getNextPageUrl(),
+        previousPageUrl: result.getPreviousPageUrl(),
       },
     }
   }
@@ -220,12 +214,6 @@ export default class LostFoundService {
 
     // Convert foundOn to DateTime if it's a string
     let foundOn = data.foundOn
-    if (foundOn && typeof foundOn === 'string') {
-      foundOn = DateTime.fromISO(foundOn)
-    } else if (!foundOn) {
-      foundOn = DateTime.now()
-    }
-
     lostFoundItem.merge({
       foundOn,
       foundLocation: data.foundLocation || lostFoundItem.foundLocation,
@@ -312,10 +300,8 @@ export default class LostFoundService {
         currentPage: result.currentPage,
         lastPage: result.lastPage,
         firstPage: result.firstPage,
-        firstPageUrl: result.firstPageUrl,
-        lastPageUrl: result.lastPageUrl,
-        nextPageUrl: result.nextPageUrl,
-        previousPageUrl: result.previousPageUrl,
+        nextPageUrl: result.getNextPageUrl(),
+        previousPageUrl: result.getPreviousPageUrl(),
       },
     }
   }

@@ -3,7 +3,7 @@ import Currency from '#models/currency'
 import vine from '@vinejs/vine'
 
 export default class CurrenciesController {
-  public async index({ request, response, auth }: HttpContext) {
+  public async index({ request, response }: HttpContext) {
     try {
       const { hotelId } = request.qs()
       

@@ -64,7 +64,7 @@ export default class ReservationRoom extends BaseModel {
   declare netAmount: number
 
   @column()
-  declare status: 'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
+  declare status: 'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
 
   @column()
   declare bedPreference: string
@@ -98,6 +98,15 @@ export default class ReservationRoom extends BaseModel {
 
   @column()
   declare housekeepingNotes: string
+
+  @column()
+  declare notes: string | null
+
+  @column()
+  declare rateAmount: number | null
+
+  @column()
+  declare totalAmount: number | null
 
   @column.dateTime()
   declare actualCheckInTime: DateTime
@@ -240,6 +249,106 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare temperatureSettings: object
 
+  // Meal inclusions
+  @column()
+  declare breakfastIncluded: boolean
+
+  @column()
+  declare lunchIncluded: boolean
+
+  @column()
+  declare dinnerIncluded: boolean
+
+  @column()
+  declare drinksIncluded: boolean
+
+  // Technology services
+  @column()
+  declare wifiIncluded: boolean
+
+  @column()
+  declare digitalKey: boolean
+
+  @column()
+  declare mobileCheckIn: boolean
+
+  // Transportation services
+  @column()
+  declare parkingIncluded: boolean
+
+  @column()
+  declare airportTransferIncluded: boolean
+
+  // Facility access
+  @column()
+  declare spaAccessIncluded: boolean
+
+  @column()
+  declare gymAccessIncluded: boolean
+
+  @column()
+  declare poolAccessIncluded: boolean
+
+  @column()
+  declare businessCenterIncluded: boolean
+
+  // Hotel services
+  @column()
+  declare conciergeServiceIncluded: boolean
+
+  @column()
+  declare roomServiceIncluded: boolean
+
+  @column()
+  declare laundryServiceIncluded: boolean
+
+  @column()
+  declare turndownServiceIncluded: boolean
+
+  @column()
+  declare dailyHousekeepingIncluded: boolean
+
+  // Guest amenities
+  @column()
+  declare welcomeGift: boolean
+
+  @column()
+  declare roomDecoration: boolean
+
+  // Special amenities
+  @column()
+  declare champagne: boolean
+
+  @column()
+  declare flowers: boolean
+
+  @column()
+  declare chocolates: boolean
+
+  @column()
+  declare fruitBasket: boolean
+
+  // Check-in/out options
+  @column()
+  declare expressCheckOut: boolean
+
+  // Room configurations
+  @column()
+  declare extraBed: boolean
+
+  @column()
+  declare crib: boolean
+
+  @column()
+  declare rollawayBed: boolean
+
+  @column()
+  declare connectingRooms: boolean
+
+  // Package options
+  @column()
+  declare packageInclusions: boolean
+
   @column()
   declare lightingPreferences: object
 
@@ -374,6 +483,18 @@ export default class ReservationRoom extends BaseModel {
 
   @column()
   declare followUpSurvey: boolean
+
+  @column()
+  declare packageRate: boolean
+
+  @column.dateTime()
+  declare voidedDate: DateTime | null
+
+  @column()
+  declare voidReason: string | null
+
+  @column()
+  declare voidNotes: string | null
 
   @column()
   declare upsellOpportunities: object
@@ -546,7 +667,9 @@ export default class ReservationRoom extends BaseModel {
       'checked_out': 'gray',
       'no_show': 'red',
       'cancelled': 'orange',
-      'blocked': 'purple'
+      'blocked': 'purple',
+      "moved_out": 'yellow',
+      "moved_in": 'cyan'
     }
     return colors[this.status] || 'gray'
   }

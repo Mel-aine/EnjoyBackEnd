@@ -6,10 +6,11 @@ import vine from '@vinejs/vine'
  */
 export const createGuestValidator = vine.compile(
   vine.object({
+    hotelId:vine.number().min(0).optional(),
     firstName: vine.string().trim().minLength(1).maxLength(100),
     lastName: vine.string().trim().minLength(1).maxLength(100),
     middleName: vine.string().trim().maxLength(100).optional(),
-    title: vine.enum(['mr', 'mrs', 'ms', 'dr', 'prof', 'sir', 'madam']).optional(),
+    title: vine.enum(['Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Sir', 'Madam']).optional(),
     gender: vine.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
     dateOfBirth: vine.date().optional(),
     nationality: vine.string().trim().maxLength(100).optional(),
@@ -131,7 +132,7 @@ export const updateGuestValidator = vine.compile(
     firstName: vine.string().trim().minLength(1).maxLength(100).optional(),
     lastName: vine.string().trim().minLength(1).maxLength(100).optional(),
     middleName: vine.string().trim().maxLength(100).optional(),
-    title: vine.enum(['mr', 'mrs', 'ms', 'dr', 'prof', 'sir', 'madam']).optional(),
+    title: vine.enum(['Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Sir', 'Madam']).optional(),
     gender: vine.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
     dateOfBirth: vine.date().optional(),
     nationality: vine.string().trim().maxLength(100).optional(),
