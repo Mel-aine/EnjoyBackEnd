@@ -42,6 +42,7 @@ import BusinessSourcesController from '#controllers/business_sources_controller'
 import PayoutReasonsController from '#controllers/payout_reasons_controller'
 import ExtraChargesController from '#controllers/extra_charges_controller'
 import TaxRatesController from '#controllers/tax_rates_controller'
+import LostFoundController from '#controllers/lost_found_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -108,6 +109,7 @@ const businessSourcesController = new BusinessSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
 const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
+const lostFoundController = new LostFoundController()
 const reservationsController = new ReservationsController()
 
 router.get('/swagger', async () => {
@@ -1051,6 +1053,32 @@ router
         router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
       })
       .prefix('reservation-rooms')
+
+    // Lost and Found Management Routes
+    // Lost and found items management
+    router
+      .group(() => {
+        // Basic CRUD operations for lost and found items
+        router.get('/', lostFoundController.index.bind(lostFoundController)) // Get all lost and found items with filtering
+        router.post('/', lostFoundController.store.bind(lostFoundController)) // Create a new lost and found item
+        router.get('/:id', lostFoundController.show.bind(lostFoundController)) // Get specific lost and found item details
+        router.put('/:id', lostFoundController.update.bind(lostFoundController)) // Update lost and found item
+        router.delete('/:id', lostFoundController.destroy.bind(lostFoundController)) // Delete lost and found item
+
+        // Status management operations
+        router.post('/:id/mark-found', lostFoundController.markAsFound.bind(lostFoundController)) // Mark item as found
+        router.post('/:id/mark-returned', lostFoundController.markAsReturned.bind(lostFoundController)) // Mark item as returned
+
+        // Filtering and search operations
+        router.get('/status/:status', lostFoundController.getByStatus.bind(lostFoundController)) // Get items by status
+        router.get('/room/:roomId', lostFoundController.getByRoom.bind(lostFoundController)) // Get items by room
+        router.get('/search/complainant', lostFoundController.searchByComplainant.bind(lostFoundController)) // Search by complainant
+
+        // Statistics and reports
+        router.get('/statistics', lostFoundController.getStatistics.bind(lostFoundController)) // Get lost and found statistics
+        router.get('/recent', lostFoundController.getRecentItems.bind(lostFoundController)) // Get recent items
+      })
+      .prefix('lost-found')
 
 
       //Reservation Routes

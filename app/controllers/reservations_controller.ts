@@ -22,7 +22,7 @@ import ReservationRoom from '#models/reservation_room'
 import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
 import Guest from '#models/guest'
-import { Logger } from '@adonisjs/core/logger'
+import ReservationFolioService from '#services/reservation_folio_service'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -229,6 +229,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('id', reservationId)
         .whereNotNull('hotel_id')
         .preload('guest')
+        .preload('guests', (query) => {
+          query.pivotColumns([
+            'is_primary', 'guest_type', 'room_assignment', 
+            'special_requests', 'dietary_restrictions', 'accessibility',
+            'emergency_contact', 'emergency_phone', 'notes'
+          ])
+        })
         .preload('folios')
         .preload('bookingSource')
         .preload('reservationRooms', (query) => {
@@ -1332,8 +1339,31 @@ export default class ReservationsController extends CrudController<typeof Reserv
         ctx,
       })
 
+      // 9. Create folios if reservation is confirmed
+      let folios: any[] = []
+      if (reservation.status === 'confirmed') {
+        try {
+          folios = await ReservationFolioService.createFoliosOnConfirmation(
+            reservation.id,
+            auth.user?.id!
+          )
+          
+          await LoggerService.log({
+            actorId: auth.user?.id!,
+            action: 'CREATE_FOLIOS',
+            entityType: 'Reservation',
+            entityId: reservation.id,
+            description: `Created ${folios.length} folio(s) with room charges for confirmed reservation #${reservation.id}.`,
+            ctx,
+          })
+        } catch (folioError) {
+          console.error('Error creating folios for new confirmed reservation:', folioError)
+          // Don't fail the reservation creation if folio creation fails
+        }
+      }
+
       await trx.commit()
-      return response.created({
+      const responseData: any = {
         success: true,
         reservationId: reservation.id,
         confirmationNumber,
@@ -1349,7 +1379,20 @@ export default class ReservationsController extends CrudController<typeof Reserv
           email: g.email
         })),
         message: `Reservation created successfully with ${allGuests.length} guest(s)`
-      })
+      }
+
+      // Add folio information if folios were created
+      if (folios.length > 0) {
+        responseData.folios = folios.map(folio => ({
+          id: folio.id,
+          folioNumber: folio.folioNumber,
+          guestId: folio.guestId,
+          folioType: folio.folioType
+        }))
+        responseData.message += ` and ${folios.length} folio(s) with room charges`
+      }
+
+      return response.created(responseData)
 
     } catch (error) {
       await trx.rollback()
@@ -1393,6 +1436,13 @@ async getGuestsByHotel({ params }: HttpContext) {
       const reservation = await Reservation.query()
         .where('id', reservationId)
         .preload('guest')
+        .preload('guests', (query) => {
+          query.pivotColumns([
+            'is_primary', 'guest_type', 'room_assignment', 
+            'special_requests', 'dietary_restrictions', 'accessibility',
+            'emergency_contact', 'emergency_phone', 'notes'
+          ])
+        })
         .preload('folios')
         .preload('reservationRooms', (query) => {
           query.preload('room')
@@ -1410,6 +1460,75 @@ async getGuestsByHotel({ params }: HttpContext) {
     }
   }
 
+  /**
+   * Override the update method to handle reservation confirmation and folio creation
+   */
+  public async update({ params, request, response, auth }: HttpContext) {
+    try {
+      const reservationId = params.id
+      const data = request.all()
+      const oldStatus = await Reservation.query()
+        .where('id', reservationId)
+        .select('status')
+        .first()
+
+      if (!oldStatus) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      // Call the parent update method
+      const updateResponse = await super.update({ params, request, response, auth })
+      
+      // Check if status was changed to 'confirmed'
+      if (data.status === 'confirmed' && oldStatus.status !== 'confirmed') {
+        try {
+          // Create folios for all guests with room charges
+          const folios = await ReservationFolioService.createFoliosOnConfirmation(
+            reservationId,
+            auth.user!.id
+          )
+
+          // Log the folio creation
+          await LoggerService.log({
+            actorId: auth.user!.id,
+            action: 'CONFIRM_RESERVATION',
+            entityType: 'Reservation',
+            entityId: reservationId,
+            description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
+            ctx: { params, request, response, auth },
+          })
+
+          // Return success response with folio information
+          return response.ok({
+            message: 'Reservation confirmed successfully',
+            reservation: updateResponse,
+            folios: folios.map(folio => ({
+              id: folio.id,
+              folioNumber: folio.folioNumber,
+              guestId: folio.guestId,
+              folioType: folio.folioType
+            }))
+          })
+        } catch (folioError) {
+          console.error('Error creating folios on confirmation:', folioError)
+          // Return the update response even if folio creation fails
+          return response.ok({
+            message: 'Reservation confirmed but folio creation failed',
+            reservation: updateResponse,
+            error: folioError.message
+          })
+        }
+      }
+
+      return updateResponse
+    } catch (error) {
+      console.error('Error updating reservation:', error)
+      return response.internalServerError({
+        message: 'Error updating reservation',
+        error: error.message
+      })
+    }
+  }
 
 
 }
