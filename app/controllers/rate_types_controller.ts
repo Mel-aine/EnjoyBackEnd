@@ -359,12 +359,20 @@ export default class RateTypesController {
 public async getByRoomType({ params, response }: HttpContext) {
   try {
     const roomTypeId = Number(params.id)
-    const roomRate = await RoomRate.query()
+
+    // Vérifier que l'ID est valide
+    if (isNaN(roomTypeId)) {
+      return response.status(400).json({ message: 'Invalid room type ID' })
+    }
+
+    // Récupération des RoomRate avec leurs RateType
+    const roomRates = await RoomRate.query()
       .where('room_type_id', roomTypeId)
       .preload('rateType')
- const ratesType = roomRate.map((item) => item.rateType)
 
+    const ratesType = roomRates.map((item) => item.rateType)
 
+    // Récupération du RoomType avec ses RateTypes (non supprimés)
     const roomType = await RoomType.query()
       .where('id', roomTypeId)
       .preload('rateTypes', (query) => {
@@ -372,14 +380,21 @@ public async getByRoomType({ params, response }: HttpContext) {
       })
       .first()
 
-    if (!roomType && !ratesType) {
+    if (!roomType) {
       return response.status(404).json({ message: 'Room type not found' })
     }
 
+    // Fusionner et supprimer les doublons par ID
+    const mergedRateTypes = [
+      ...new Map(
+        [...roomType.rateTypes, ...ratesType].map((rt) => [rt.id, rt])
+      ).values()
+    ]
+
     return response.json({
       roomType: {
-        id: roomType?.id,
-        rateTypes: roomType?.rateTypes.concat(ratesType)
+        id: roomType.id,
+        rateTypes: mergedRateTypes
       }
     })
   } catch (error) {
@@ -387,6 +402,7 @@ public async getByRoomType({ params, response }: HttpContext) {
     return response.status(500).json({ message: 'Error fetching rate types' })
   }
 }
+
 
 
 
