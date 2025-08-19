@@ -357,6 +357,18 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'last_modified_by' })
   declare lastModifiedBy: number | null
 
+  @column({ columnName: 'checked_in_by' })
+  declare checkedInBy: number | null
+
+  @column({ columnName: 'checked_out_by' })
+  declare checkedOutBy: number | null
+
+  @column({ columnName: 'reserved_by' })
+  declare reservedBy: number | null
+
+  @column({ columnName: 'voided_by' })
+  declare voidedBy: number | null
+
   @column.dateTime({ columnName: 'voided_date' })
   declare voidedDate: DateTime | null
 
@@ -381,6 +393,18 @@ export default class Reservation extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'checked_in_by' })
+  declare checkedInByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'checked_out_by' })
+  declare checkedOutByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'reserved_by' })
+  declare reservedByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'voided_by' })
+  declare voidedByUser: BelongsTo<typeof User>
 
   @hasMany(() => ReservationServiceProduct, {
     foreignKey: 'reservation_id',

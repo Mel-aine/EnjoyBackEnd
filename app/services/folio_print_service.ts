@@ -1,0 +1,393 @@
+import { DateTime } from 'luxon'
+import Folio from '#models/folio'
+import Reservation from '#models/reservation'
+import Hotel from '#models/hotel'
+import Guest from '#models/guest'
+import FolioTransaction from '#models/folio_transaction'
+import Currency from '#models/currency'
+import User from '#models/user'
+import TaxRate from '#models/tax_rate'
+import { TransactionCategory } from '../enums.js'
+
+export interface FolioPrintData {
+  hotel: {
+    id: number
+    name: string
+    address: string
+    city: string
+    state: string
+    country: string
+    postalCode: string
+    phone: string
+    email: string
+    website: string
+    logo?: string
+  }
+  reservation: {
+    id: number
+    confirmationCode: string
+    guestName: string
+    checkInDate: DateTime
+    checkOutDate: DateTime
+    numberOfNights: number
+    roomType: string
+    adults: number
+    children: number
+    status: string
+    checkedInBy?: string
+    checkedOutBy?: string
+    reservedBy?: string,
+    guest:Guest,
+    roomCharge:number
+  }
+  folio: {
+    id: number
+    folioNumber: string
+    folioName: string
+    status: string
+    openedDate: DateTime
+    closedDate?: DateTime
+    currencyCode: string
+    exchangeRate: number
+  }
+  transactions: Array<{
+    id: number
+    transactionNumber: string
+    date: DateTime
+    description: string
+    category: string
+    amount: number
+    taxAmount: number
+    serviceChargeAmount: number
+    discountAmount: number
+    netAmount: number
+    status: string
+  }>
+  totals: {
+    grandTotal: number
+    totalTax: number
+    totalPaid: number
+    balance: number
+    totalCharges: number
+    totalPayments: number
+    totalAdjustments: number
+    totalDiscounts: number
+    totalServiceCharges: number
+  }
+  taxRates: Array<{
+    id: number
+    name: string
+    shortName: string
+    percentage: number | null
+    amount: number | null
+    postingType: string
+    appliesToRoomRate: boolean
+    appliesToFnb: boolean
+    appliesToOtherServices: boolean
+  }>
+  billingAddress: {
+    name?: string
+    address?: string
+    city?: string
+    state?: string
+    country?: string
+    postalCode?: string
+    phone?: string
+    email?: string
+    taxId?: string
+  }
+  currency: {
+    code: string
+    symbol: string
+    name: string
+  }
+  printInfo: {
+    printedDate: DateTime
+    printedBy: string
+    printCount: number
+  }
+}
+
+export class FolioPrintService {
+  /**
+   * Generate folio print data with complete invoice details
+   * @param folioId - The folio ID to print
+   * @param reservationId - The reservation ID
+   * @param currencyId - The currency ID for display
+   * @returns Complete folio print data
+   */
+  public async generateFolioPrintData(
+    folioId: number,
+    reservationId: number,
+    currencyId?: number
+  ): Promise<FolioPrintData> {
+    // Load folio with all relationships
+    const folio = await Folio.query()
+      .where('id', folioId)
+      .preload('hotel')
+      .preload('guest')
+      .preload('reservation', (reservationQuery) => {
+        reservationQuery
+         // .preload('hotel')
+          .preload('guest')
+          .preload('roomType')
+          .preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room', (roomSubQuery) => {
+              roomSubQuery.preload('taxRates')
+            }).preload('roomType')
+          })
+          //.preload('creator')
+          //.preload('checkedOutByUser')
+        //  .preload('reservedByUser')
+      })
+      .preload('transactions', (transactionQuery) => {
+        transactionQuery
+          .where('isVoided', false)
+          .preload('paymentMethod')
+          .orderBy('transactionDate', 'asc')
+          .orderBy('createdAt', 'asc')
+      })
+      .firstOrFail()
+
+
+
+    // Load reservation separately if needed
+    const reservation = await Reservation.query()
+      .where('id', reservationId)
+      //.preload('hotel')
+      .preload('guest')
+      .preload('roomType')
+      //.preload('checkedInByUser')
+      //.preload('checkedOutByUser')
+     // .preload('reservedByUser')
+      .firstOrFail()
+
+    // Load currency information
+    let currency = {
+      code: folio.currencyCode || 'USD',
+      symbol: '$',
+      name: 'US Dollar'
+    }
+
+    if (currencyId) {
+      const currencyModel = await Currency.find(currencyId)
+      if (currencyModel) {
+        currency = {
+          code: currencyModel.currencyCode,
+          symbol: currencyModel.sign,
+          name: currencyModel.name
+        }
+      }
+    }
+
+    // Collect tax rates from rooms
+    const taxRates = this.collectTaxRatesFromRooms(reservation)
+
+    // Calculate totals with room-specific tax rates
+    const totals = this.calculateTotals(folio, folio.transactions, taxRates)
+
+    // Prepare hotel information
+    const hotel = {
+      id: folio.hotel.id,
+      name: folio.hotel.hotelName,
+      address: folio.hotel.address || '',
+      city: folio.hotel.city || '',
+      state: folio.hotel.stateProvince || '',
+      country: folio.hotel.country || '',
+      postalCode: folio.hotel.postalCode || '',
+      phone: folio.hotel.phoneNumber || '',
+      email: folio.hotel.email || '',
+      website: folio.hotel.website || '',
+      logo: folio.hotel.logoUrl || undefined,
+      registrationNumber:folio.hotel.registrationNo1,
+      rcNumber:folio.hotel.registrationNo2
+    }
+
+    // Prepare reservation information
+    const reservationData = {
+      guest:reservation.guest,
+      id: reservation.id,
+      confirmationCode: reservation.confirmationCode,
+      guestName: reservation.guest?.firstName + ' ' + reservation.guest?.lastName || 'Guest',
+      checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
+      checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
+      numberOfNights: reservation.numberOfNights || 1,
+      roomType: reservation.roomType?.roomTypeName || 'Standard Room',
+      adults: reservation.adults || reservation.numAdultsTotal || 1,
+      children: reservation.children || reservation.numChildrenTotal || 0,
+      status: reservation.status || reservation.reservationStatus,
+      checkedInBy: reservation.checkedInByUser?.firstName + ' ' + reservation.checkedInByUser?.lastName,
+      checkedOutBy: reservation.checkedOutByUser?.firstName + ' ' + reservation.checkedOutByUser?.lastName,
+      reservedBy: reservation.reservedByUser?.firstName + ' ' + reservation.reservedByUser?.lastName
+    }
+
+    // Prepare folio information
+    const folioData = {
+      id: folio.id,
+      folioNumber: folio.folioNumber,
+      folioName: folio.folioName,
+      status: folio.status,
+      openedDate: folio.openedDate,
+      closedDate: folio.closedDate || undefined,
+      currencyCode: folio.currencyCode,
+      exchangeRate: folio.exchangeRate || 1
+    }
+
+    // Prepare transactions
+    const transactions = folio.transactions.map(transaction => ({
+      id: transaction.id,
+      transactionNumber: transaction.transactionNumber,
+      date: transaction.transactionDate,
+      description: transaction.description,
+      category: transaction.category,
+      amount: transaction.amount,
+      taxAmount: transaction.taxAmount || 0,
+      serviceChargeAmount: transaction.serviceChargeAmount || 0,
+      discountAmount: transaction.discountAmount || 0,
+      netAmount: transaction.netAmount || transaction.amount,
+      status: transaction.status
+    }))
+
+    // Prepare billing address
+    const billingAddress = {
+      name: folio.guest?.firstName + ' ' + folio.guest?.lastName || undefined,
+      address: (folio.billingAddress as any)?.address || folio.guest?.address || undefined,
+      city: (folio.billingAddress as any)?.city || folio.guest?.city || undefined,
+      state: (folio.billingAddress as any)?.state || folio.guest?.displayName || undefined,
+      country: (folio.billingAddress as any)?.country || folio.guest?.country || undefined,
+      postalCode: (folio.billingAddress as any)?.postalCode || folio.guest?.postalCode || undefined,
+      phone: (folio.billingAddress as any)?.phone || folio.guest?.phonePrimary || undefined,
+      email: (folio.billingAddress as any)?.email || folio.guest?.email || undefined,
+    }
+
+    // Prepare print information
+    const printInfo = {
+      printedDate: DateTime.now(),
+      printedBy: 'System', // This should be set to current user
+      printCount: (folio.printCount || 0) + 1
+    }
+
+    // Update folio print count
+    await folio.merge({
+      printCount: printInfo.printCount,
+      lastPrintDate: printInfo.printedDate
+    }).save()
+
+    return {
+      hotel,
+      reservation: reservationData,
+      folio: folioData,
+      transactions,
+      totals,
+      taxRates,
+      billingAddress,
+      currency,
+      printInfo
+    }
+  }
+
+  /**
+   * Calculate all totals for the folio
+   */
+  private collectTaxRatesFromRooms(reservation: Reservation) {
+    const taxRatesMap = new Map()
+    
+    // Collect unique tax rates from all rooms in the reservation
+    reservation.reservationRooms?.forEach(reservationRoom => {
+      reservationRoom.room?.taxRates?.forEach(taxRate => {
+        if (taxRate.isActive && !taxRatesMap.has(taxRate.taxRateId)) {
+          taxRatesMap.set(taxRate.taxRateId, {
+            id: taxRate.taxRateId,
+            name: taxRate.taxName,
+            shortName: taxRate.shortName,
+            percentage: taxRate.percentage,
+            amount: taxRate.amount,
+            postingType: taxRate.postingType,
+            appliesToRoomRate: taxRate.appliesToRoomRate,
+            appliesToFnb: taxRate.appliesToFnb,
+            appliesToOtherServices: taxRate.appliesToOtherServices
+          })
+        }
+      })
+    })
+    
+    return Array.from(taxRatesMap.values())
+  }
+
+  private calculateTaxForTransaction(transaction: FolioTransaction, taxRates: any[]): number {
+    let totalTax = 0
+    
+    // Apply applicable tax rates based on transaction category
+    taxRates.forEach(taxRate => {
+      let shouldApplyTax = false
+      
+      // Determine if tax should be applied based on transaction category
+      if (transaction.category === 'room' && taxRate.appliesToRoomRate) {
+        shouldApplyTax = true
+      } else if (transaction.category === TransactionCategory.SERVICE_CHARGE && taxRate.appliesToFnb) {
+        shouldApplyTax = true
+      } else if (transaction.category !== 'room' && transaction.category !== TransactionCategory.SERVICE_CHARGE && taxRate.appliesToOtherServices) {
+        shouldApplyTax = true
+      }
+      
+      if (shouldApplyTax) {
+        if (taxRate.postingType === 'flat_percentage' && taxRate.percentage) {
+          totalTax += (transaction.amount * taxRate.percentage) / 100
+        } else if (taxRate.postingType === 'flat_amount' && taxRate.amount) {
+          totalTax += taxRate.amount
+        }
+      }
+    })
+    
+    return totalTax
+  }
+
+  private calculateTotals(folio: Folio, transactions: FolioTransaction[], taxRates: any[]) {
+    let totalCharges = 0
+    let totalPayments = 0
+    let totalTax = 0
+    let totalServiceCharges = 0
+    let totalDiscounts = 0
+    let totalAdjustments = 0
+
+    transactions.forEach(transaction => {
+      if (transaction.transactionType === 'charge') {
+        totalCharges += transaction.amount
+        
+        // Calculate tax based on room tax rates if not already calculated
+        if (!transaction.taxAmount && taxRates.length > 0) {
+          const calculatedTax = this.calculateTaxForTransaction(transaction, taxRates)
+          totalTax += calculatedTax
+        } else {
+          totalTax += transaction.taxAmount || 0
+        }
+      } else if (transaction.transactionType === 'payment') {
+        totalPayments += Math.abs(transaction.amount)
+      } else if (transaction.transactionType === 'adjustment') {
+        totalAdjustments += transaction.amount
+      } else {
+        totalTax += transaction.taxAmount || 0
+      }
+
+      totalServiceCharges += transaction.serviceChargeAmount || 0
+      totalDiscounts += transaction.discountAmount || 0
+    })
+
+    const grandTotal = totalCharges + totalTax + totalServiceCharges - totalDiscounts
+    const balance = grandTotal - totalPayments - totalAdjustments
+
+    return {
+      grandTotal,
+      totalTax,
+      totalPaid: totalPayments,
+      balance,
+      totalCharges,
+      totalPayments,
+      totalAdjustments,
+      totalDiscounts,
+      totalServiceCharges
+    }
+  }
+}
+
+export default new FolioPrintService()

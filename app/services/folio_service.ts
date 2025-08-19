@@ -340,23 +340,20 @@ export default class FolioService {
   /**
    * Generate unique transaction number
    */
-  private static async generateTransactionNumber(hotelId: number, trx?: TransactionClientContract): Promise<string> {
+  private static async generateTransactionNumber(hotelId: number, trx?: TransactionClientContract, next?:number): Promise<number> {
     const query = FolioTransaction.query({ client: trx })
       .where('hotelId', hotelId)
-      .orderBy('id', 'desc')
+      .orderBy('transactionNumber', 'desc')
       .first()
     
     const lastTransaction = await query
     let nextNumber = 1
     
     if (lastTransaction && lastTransaction.transactionNumber) {
-      const match = lastTransaction.transactionNumber.match(/T-(\d+)-(\d+)$/)
-      if (match) {
-        nextNumber = parseInt(match[2]) + 1
-      }
+      nextNumber = lastTransaction.transactionNumber + 1 +(next??0)
     }
     
-    return `T-${hotelId}-${nextNumber.toString().padStart(8, '0')}`
+    return nextNumber
   }
   
   /**

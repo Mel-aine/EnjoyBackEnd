@@ -219,10 +219,10 @@ export default class Folio extends BaseModel {
   @column()
   declare notes: string
 
-  @column()
+  @column({ columnName: 'print_count' })
   declare printCount: number
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'last_print_date' })
   declare lastPrintDate: DateTime
 
   @column()

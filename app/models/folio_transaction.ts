@@ -18,7 +18,7 @@ export default class FolioTransaction extends BaseModel {
   declare folioId: number
 
   @column()
-  declare transactionNumber: string
+  declare transactionNumber: number
 
   @column()
   declare transactionCode: string

@@ -168,6 +168,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Update reservation status and check-in date
       reservation.status = ReservationStatus.CHECKED_IN;
       reservation.checkInDate = now;
+      reservation.checkedInBy = auth.user!.id;
       reservation.lastModifiedBy = auth.user!.id;
       await reservation.useTransaction(trx).save();;
 
@@ -336,6 +337,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (allRoomsCheckedOut) {
         reservation.checkOutDate = checkOutDateTime
         reservation.status = ReservationStatus.CHECKED_OUT
+        reservation.checkedOutBy = auth.user!.id
         await reservation.useTransaction(trx).save()
       }
 
@@ -1001,6 +1003,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       reservation.status = ReservationStatus.CANCELLED
       reservation.cancellationReason = reason
+      reservation.cancelledBy = auth.user!.id
       reservation.lastModifiedBy = auth.user!.id
       reservation.cancellationDate = DateTime.now()
       //reservation.cancellationFeeAmount = cancellationFee;
@@ -1412,6 +1415,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           bookingSourceId: data.booking_source,
           sourceOfBusiness: data.business_source,
           paymentStatus: 'pending',
+          reservedBy: auth.user?.id,
           createdBy: auth.user?.id
         }, { client: trx })
 
@@ -2890,6 +2894,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         status: ReservationStatus.VOIDED,
         voidedDate: DateTime.now(),
         voidReason: reason,
+        voidedBy: auth.user?.id,
         lastModifiedBy: auth.user?.id
       }).save()
 
@@ -3060,6 +3065,181 @@ export default class ReservationsController extends CrudController<typeof Reserv
       logger.error('Error unassigning room:', error)
       return response.badRequest({
         message: 'Failed to unassign room',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get detailed room charges breakdown for a reservation
+   * Returns stay details, room info, rate type, pax, charges, discounts, taxes, adjustments, and net amount
+   */
+  public async getRoomCharges({ params, response }: HttpContext) {
+    try {
+      const { reservationId } = params
+
+      // Validate reservation ID
+      if (!reservationId || isNaN(Number(reservationId))) {
+        return response.badRequest({ message: 'Valid reservation ID is required' })
+      }
+
+      // Find reservation with all related data
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('reservationRooms', (query) => {
+          query
+            .preload('room')
+            .preload('roomType')
+            .preload('roomRates',(query)=>{
+              query.preload('rateType')
+            })
+        })
+        .preload('ratePlan')
+        .preload('guest')
+        .preload('folios', (query) => {
+          query.where('status', '!=', FolioStatus.VOIDED)
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      // Get all room charge transactions from folios related to this reservation
+      const roomChargeTransactions = await FolioTransaction.query()
+        .where('reservationId', reservationId)
+        .where('category', TransactionCategory.ROOM)
+        .where('transactionType', TransactionType.CHARGE)
+        .where('status', '!=', TransactionStatus.VOIDED)
+        .orderBy('transactionDate', 'asc')
+
+      // Build room charges breakdown - one row per folio transaction
+      const roomChargesTable = []
+      
+      for (const reservationRoom of reservation.reservationRooms) {
+        const stayDuration = reservationRoom.nights || 1
+        const totalAdults = reservationRoom.adults || 0
+        const totalChildren = reservationRoom.children || 0
+        
+        // Get room charge transactions for this specific room
+        const roomTransactions = roomChargeTransactions.filter(transaction => 
+          transaction.roomNumber === reservationRoom.room?.roomNumber ||
+          transaction.description?.includes(reservationRoom.room?.roomNumber || '')
+        )
+        
+        // Create a row for each folio transaction
+        if (roomTransactions.length > 0) {
+          roomTransactions.forEach(transaction => {
+            const adjustmentAmount = 0 // Adjustments are typically separate transactions
+            const netAmount = parseFloat(`${transaction.amount??0}`) -parseFloat(`${transaction.discountAmount??0}`) + 
+            parseFloat(`${transaction.taxAmount??0}`) + parseFloat(`${transaction.serviceChargeAmount??0}`)            
+            roomChargesTable.push({
+              transactionId: transaction.id,
+              transactionNumber: transaction.transactionNumber,
+              transactionDate: transaction.transactionDate?.toISODate(),
+              stay: {
+                checkInDate: reservationRoom.checkInDate?.toISODate(),
+                checkOutDate: reservationRoom.checkOutDate?.toISODate(),
+                nights: stayDuration
+              },
+              room: {
+                roomNumber: reservationRoom.room?.roomNumber || transaction.roomNumber,
+                roomType: reservationRoom.roomType?.roomTypeName,
+                roomId: reservationRoom.room?.id
+              },
+              rateType: {
+                ratePlanName: reservationRoom.roomRates?.rateType?.rateTypeName,
+                ratePlanCode: reservation.ratePlan?.planCode,
+                rateAmount: reservationRoom.rateAmount || (transaction.unitPrice || 0)
+              },
+              pax: `${totalAdults}/${totalChildren}`, // Format: Adult/Child
+              charge: transaction.amount || 0,
+              discount: transaction.discountAmount || 0,
+              tax: transaction.taxAmount || 0,
+              adjustment: adjustmentAmount,
+              netAmount: netAmount,
+              description: transaction.description
+            })
+          })
+        } else {
+          // Fallback: create one row from reservation room data if no transactions found
+          const baseRoomRate = reservationRoom.roomRate || 0
+          const roomCharges = reservationRoom.roomCharges || (baseRoomRate * stayDuration)
+          const discountAmount = reservationRoom.discountAmount || 0
+          const taxAmount = reservationRoom.taxAmount || 0
+          const serviceChargeAmount = reservationRoom.serviceChargeAmount || 0
+          const adjustments = (
+            (reservationRoom.earlyCheckInFee || 0) +
+            (reservationRoom.lateCheckOutFee || 0) +
+            (reservationRoom.otherCharges || 0)
+          )
+          const netAmount = roomCharges - discountAmount + taxAmount + serviceChargeAmount + adjustments
+          
+          roomChargesTable.push({
+            transactionId: null,
+            transactionNumber: 'N/A',
+            transactionDate: null,
+            stay: {
+              checkInDate: reservationRoom.checkInDate?.toISODate(),
+              checkOutDate: reservationRoom.checkOutDate?.toISODate(),
+              nights: stayDuration
+            },
+            room: {
+              roomNumber: reservationRoom.room?.roomNumber,
+              roomType: reservationRoom.roomType?.roomTypeName,
+              roomId: reservationRoom.room?.id
+            },
+            rateType: {
+              ratePlanName: reservation.ratePlan?.planName,
+              ratePlanCode: reservation.ratePlan?.planCode,
+              rateAmount: reservationRoom.rateAmount || baseRoomRate
+            },
+            pax: `${totalAdults}/${totalChildren}`,
+            charge: roomCharges,
+            discount: discountAmount,
+            tax: taxAmount + serviceChargeAmount,
+            adjustment: adjustments,
+            netAmount: netAmount,
+            description: 'Room Charge (from reservation data)'
+          })
+        }
+      }
+
+      // Calculate summary totals
+      const totalCharges = roomChargesTable.reduce((sum, row) => sum + row.charge, 0)
+      const totalDiscounts = roomChargesTable.reduce((sum, row) => sum + row.discount, 0)
+      const totalTax = roomChargesTable.reduce((sum, row) => sum + row.tax, 0)
+      const totalAdjustments = roomChargesTable.reduce((sum, row) => sum + row.adjustment, 0)
+      const totalNetAmount = roomChargesTable.reduce((sum, row) => sum + row.netAmount, 0)
+
+      return response.ok({
+        success: true,
+        data: {
+          reservationId: reservation.id,
+          reservationNumber: reservation.reservationNumber,
+          guestName: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''}`.trim(),
+          checkInDate: reservation.arrivedDate?.toISODate(),
+          checkOutDate: reservation.departDate?.toISODate(),
+          totalNights: reservation.nights,
+          roomChargesTable: roomChargesTable,
+          summary: {
+            totalTransactions: roomChargesTable.length,
+            totalRooms: reservation.reservationRooms.length,
+            totalCharges: totalCharges,
+            totalDiscounts: totalDiscounts,
+            totalTax: totalTax,
+            totalAdjustments: totalAdjustments,
+            totalNetAmount: totalNetAmount
+          }
+        },
+        message: 'Room charges table retrieved successfully'
+      })
+
+    } catch (error) {
+      logger.error('Error fetching room charges:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to fetch room charges',
         error: error.message
       })
     }

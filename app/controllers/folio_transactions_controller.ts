@@ -103,9 +103,9 @@ export default class FolioTransactionsController {
       // Generate transaction number
       const lastTransaction = await FolioTransaction.query()
         .where('hotelId', folio.hotelId)
-        .orderBy('id', 'desc')
+        .orderBy('transactionNumber', 'desc')
         .first()
-      const transactionNumber = `TXN-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(10, '0')}`
+      const transactionNumber = (lastTransaction?.transactionNumber || 0) + 1
 
       // Generate transaction code if not provided
       const transactionCode = payload.transactionCode || `TC-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(6, '0')}`
