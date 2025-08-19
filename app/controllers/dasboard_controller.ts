@@ -291,86 +291,86 @@ public async stayDurationStats({ params, response }: HttpContext) {
 
       // Arrival Statistics
       const arrivalPending = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('check_in_date', today.toSQLDate())
         .where('status', 'confirmed')
         .count('* as total')
 
       const arrivalCheckedIn = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('check_in_date', today.toSQLDate())
         .where('status', 'checked_in')
         .count('* as total')
 
       // Departure Statistics
       const departurePending = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('check_out_date', today.toSQLDate())
         .where('status', 'checked_in')
         .count('* as total')
 
       const departureCheckedOut = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('check_out_date', today.toSQLDate())
         .where('status', 'checked_out')
         .count('* as total')
 
       // Guest In House Statistics
       const guestInHouseAdult = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'checked_in')
         .sum('adults as total')
 
       const guestInHouseChild = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'checked_in')
         .sum('children as total')
 
       // Room Status Statistics
       const roomStatusVacant = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'available')
-        .where('availability', true)
+        // .where('availability', true)
         .count('* as total')
 
       const roomStatusSold = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'occupied')
         .count('* as total')
 
       const roomStatusDayUse = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'day_use')
         .count('* as total')
 
       const roomStatusComplimentary = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'complimentary')
         .count('* as total')
 
       const roomStatusBlocked = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'blocked')
         .count('* as total')
 
       // Housekeeping Status
       const housekeepingClean = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('housekeeping_status', 'clean')
         .count('* as total')
 
       const housekeepingInspected = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('housekeeping_status', 'inspected')
         .count('* as total')
 
       const housekeepingDirty = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('housekeeping_status', 'dirty')
         .count('* as total')
 
       const housekeepingBlocked = await Room.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('housekeeping_status', 'blocked')
         .count('* as total')
 
@@ -382,26 +382,26 @@ public async stayDurationStats({ params, response }: HttpContext) {
         .count('* as total')
 
       const bookingInquiry = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'inquiry')
         .count('* as total')
 
       const paymentFailed = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('payment_status', 'failed')
         .count('* as total')
 
       const overbooking = await Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .where('status', 'overbooked')
         .count('* as total')
 
       const guestPortal = await Guest.query()
         .whereHas('reservations', (query) => {
-          query.where('service_id', serviceId)
+          query.where('hotel_id', serviceId)
             .where('status', 'checked_in')
         })
-        .where('portal_access_requested', true)
+        // .where('portal_access_requested', true)
         .count('* as total')
 
       const guestMessage = await ActivityLog.query()
@@ -458,7 +458,13 @@ public async stayDurationStats({ params, response }: HttpContext) {
             sold: Number(roomStatusSold[0].$extras.total || '0'),
             dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
             complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
-            blocked: Number(roomStatusBlocked[0].$extras.total || '0')
+            blocked: Number(roomStatusBlocked[0].$extras.total || '0'),
+            total:
+                Number(roomStatusVacant[0].$extras.total || '0') +
+                Number(roomStatusSold[0].$extras.total || '0') +
+                Number(roomStatusDayUse[0].$extras.total || '0') +
+                Number(roomStatusComplimentary[0].$extras.total || '0') +
+                Number(roomStatusBlocked[0].$extras.total || '0')
           },
           housekeepingStatus: {
             clean: Number(housekeepingClean[0].$extras.total || '0'),
