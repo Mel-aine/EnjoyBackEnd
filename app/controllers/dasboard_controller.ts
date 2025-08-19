@@ -429,7 +429,8 @@ public async stayDurationStats({ params, response }: HttpContext) {
 
       // Recent Activity Feed
       const recentActivities = await ActivityLog.query()
-        .where('entity_type', 'guest')
+        // .where('hotel_id', serviceId)
+        .where('username', 'Hotel')
         .whereRaw('DATE(created_at) = ?', [today.toSQLDate()])
         .orderBy('created_at', 'desc')
         .limit(10)
