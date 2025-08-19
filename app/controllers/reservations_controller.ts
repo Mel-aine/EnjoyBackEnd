@@ -521,6 +521,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
       outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
+      totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes).toFixed(2)),
       balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
     }
   }
@@ -1415,8 +1416,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
           bookingSourceId: data.booking_source,
           sourceOfBusiness: data.business_source,
           paymentStatus: 'pending',
+          taxExempt:data.tax_exempt,
           reservedBy: auth.user?.id,
-          createdBy: auth.user?.id
+          createdBy: auth.user?.id,
+          
         }, { client: trx })
 
         // Vérifier que la réservation a bien été créée avec un ID
@@ -1451,8 +1454,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             roomRate: room.room_rate,
             roomRateId: room.room_rate_id,
             totalRoomCharges: room.room_rate * data.number_of_nights,
-            // taxAmount: room.room_rate * data.number_of_nights * 0.15,
-            // netAmount: room.room_rate * data.number_of_nights * 1.15,
+            taxAmount : room.taxes,
+            totalTaxesAmount: room.taxes * data.number_of_nights,
+            netAmount : room.room_rate * data.number_of_nights + (room.taxes * data.number_of_nights),
             status: 'reserved',
             createdBy: data.created_by,
           }, { client: trx })
@@ -3153,11 +3157,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 rateAmount: reservationRoom.rateAmount || (transaction.unitPrice || 0)
               },
               pax: `${totalAdults}/${totalChildren}`, // Format: Adult/Child
-              charge: transaction.amount || 0,
-              discount: transaction.discountAmount || 0,
-              tax: transaction.taxAmount || 0,
-              adjustment: adjustmentAmount,
-              netAmount: netAmount,
+              charge: Number(transaction.amount || 0),
+              discount: Number(transaction.discountAmount || 0),
+              tax: Number(transaction.taxAmount || 0),
+              adjustment: Number(adjustmentAmount || 0),
+              netAmount: Number(netAmount || 0),
               description: transaction.description
             })
           })
@@ -3195,22 +3199,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
               rateAmount: reservationRoom.rateAmount || baseRoomRate
             },
             pax: `${totalAdults}/${totalChildren}`,
-            charge: roomCharges,
-            discount: discountAmount,
-            tax: taxAmount + serviceChargeAmount,
-            adjustment: adjustments,
-            netAmount: netAmount,
+            charge: Number(roomCharges || 0),
+            discount: Number(discountAmount || 0),
+            tax: Number((taxAmount + serviceChargeAmount) || 0),
+            adjustment: Number(adjustments || 0),
+            netAmount: Number(netAmount || 0),
             description: 'Room Charge (from reservation data)'
           })
         }
       }
 
       // Calculate summary totals
-      const totalCharges = roomChargesTable.reduce((sum, row) => sum + row.charge, 0)
-      const totalDiscounts = roomChargesTable.reduce((sum, row) => sum + row.discount, 0)
-      const totalTax = roomChargesTable.reduce((sum, row) => sum + row.tax, 0)
-      const totalAdjustments = roomChargesTable.reduce((sum, row) => sum + row.adjustment, 0)
-      const totalNetAmount = roomChargesTable.reduce((sum, row) => sum + row.netAmount, 0)
+      const totalCharges = roomChargesTable.reduce((sum, row) => sum + Number(row.charge || 0), 0)
+      const totalDiscounts = roomChargesTable.reduce((sum, row) => sum + Number(row.discount || 0), 0)
+      const totalTax = roomChargesTable.reduce((sum, row) => sum + Number(row.tax || 0), 0)
+      const totalAdjustments = roomChargesTable.reduce((sum, row) => sum + Number(row.adjustment || 0), 0)
+      const totalNetAmount = roomChargesTable.reduce((sum, row) => sum + Number(row.netAmount || 0), 0)
 
       return response.ok({
         success: true,

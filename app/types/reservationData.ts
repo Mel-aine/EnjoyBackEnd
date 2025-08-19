@@ -63,7 +63,8 @@ export interface ReservationData {
     room_rate: number
     adult_count: number
     child_count: number
-    room_rate_id:number
+    room_rate_id:number,
+    taxes:number
   }>
 
   // Financial

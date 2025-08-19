@@ -378,6 +378,12 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'void_notes' })
   declare voidNotes: string | null
 
+  @column({ columnName: 'tax_exempt' })
+  declare taxExempt: boolean
+
+  @column({ columnName: 'tax_exempt_reason' })
+  declare taxExemptReason: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
