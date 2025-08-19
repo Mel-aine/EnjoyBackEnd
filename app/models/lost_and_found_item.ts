@@ -17,7 +17,7 @@ export default class LostAndFoundItem extends BaseModel {
   declare description: string
 
   @column()
-  declare item_category:  'Electronics' | 'Jewelry' | 'Clothing' | 'Documents' | 'Bags' | 'Toiletries' | 'Keys' | 'Other' | null
+  declare item_category:'Electronics' | 'Jewelry' | 'Clothing' | 'Documents' | 'Bags' | 'Toiletries' | 'Keys' | 'Other' | null
 
   @column.dateTime()
   declare found_datetime: DateTime

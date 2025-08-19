@@ -8,7 +8,7 @@ export const createFolioTransactionValidator = vine.compile(
     folioId: vine.number().positive(),
     reservationId: vine.number().positive(),
     transactionNumber: vine.string().optional(),
-    
+
     // Transaction Details
     transactionType: vine.enum(Object.values(TransactionType)),
     transactionCategory: vine.string().optional(),
