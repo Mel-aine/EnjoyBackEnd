@@ -55,6 +55,9 @@ export default class ReservationRoom extends BaseModel {
   declare taxAmount: number
 
   @column()
+  declare totalTaxesAmount: number
+
+  @column()
   declare serviceChargeAmount: number
 
   @column()

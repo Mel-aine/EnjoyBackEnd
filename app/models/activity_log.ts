@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
+import Hotel from '#models/hotel'
 
 export default class ActivityLog extends BaseModel {
   public static table = 'activity_logs'
@@ -26,6 +27,9 @@ export default class ActivityLog extends BaseModel {
 
   @column()
   declare description: string | null
+
+  @column({ columnName: 'hotel_id' })
+  declare HotelId: number
 
   @column()
   declare changes: Record<string, any> | null
@@ -55,4 +59,7 @@ export default class ActivityLog extends BaseModel {
     foreignKey: 'createdBy',
   })
   declare creator: BelongsTo<typeof User>
+
+   @belongsTo(() => Hotel, { foreignKey: 'HotelId' })
+    declare hotel: BelongsTo<typeof Hotel>
 }

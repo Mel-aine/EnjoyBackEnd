@@ -43,6 +43,7 @@ export interface PostTransactionData {
   paymentMethodId?: number
   reference?: string
   notes?: string
+  transactionDate?: DateTime
   postedBy: number
 }
 
@@ -159,7 +160,7 @@ export default class FolioService {
         paymentMethodId: data.paymentMethodId,
         //reference: data.reference,
         //descriptions: data.notes,
-        transactionDate: DateTime.now(),
+        transactionDate: data.transactionDate || DateTime.now(),
         //businessDate: DateTime.now(),
        // auditDate: DateTime.now(),
         status: TransactionStatus.POSTED,
@@ -201,12 +202,26 @@ export default class FolioService {
         postedBy: data.settledBy
       })
       
+      // Refresh folio to get updated balance after payment
+      await folio.refresh()
+      
       // Update folio settlement status
-      await folio.useTransaction(trx).merge({
+      const updateData: any = {
         settlementStatus: folio.balance <= 0 ? SettlementStatus.SETTLED : SettlementStatus.PARTIAL,
         settlementDate: folio.balance <= 0 ? DateTime.now() : null,
         lastModifiedBy: data.settledBy
-      }).save()
+      }
+      
+      // Auto-close folio if balance is zero
+      if (folio.balance <= 0) {
+        updateData.status = FolioStatus.CLOSED
+        updateData.workflowStatus = WorkflowStatus.FINALIZED
+        updateData.closedDate = DateTime.now()
+        updateData.finalizedDate = DateTime.now()
+        updateData.closedBy = data.settledBy
+      }
+      
+      await folio.useTransaction(trx).merge(updateData).save()
       
       return { folio, transaction }
     })
@@ -373,16 +388,16 @@ export default class FolioService {
     
     for (const transaction of transactions) {
       if (transaction.transactionType === TransactionType.CHARGE) {
-        totalCharges += transaction.amount
+        totalCharges += parseFloat(`${transaction.amount}`) || 0
       } else if (transaction.transactionType === TransactionType.PAYMENT) {
-        totalPayments += Math.abs(transaction.amount)
+        totalPayments += Math.abs(parseFloat(`${transaction.amount}`) || 0)
       } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
-        totalAdjustments += transaction.amount
+        totalAdjustments += parseFloat(`${transaction.amount}`) || 0
       }
       
-      totalTaxes += transaction.taxAmount || 0
-      totalServiceCharges += transaction.serviceChargeAmount || 0
-      totalDiscounts += transaction.discountAmount || 0
+      totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
+      totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
+      totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
     }
     
     const balance = totalCharges + totalAdjustments - totalPayments

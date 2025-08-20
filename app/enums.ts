@@ -11,6 +11,8 @@ export enum ReservationStatus {
   CHECKED_IN = 'checked-in',
   CHECKED_OUT = 'checked-out',
   CANCELLED = 'cancelled',
+  NOSHOW='no_show',
+  VOIDED='voided'
 }
 
 export enum RoomStatus {
@@ -87,7 +89,8 @@ export enum TransactionCategory {
   SERVICE_CHARGE = 'service_charge',
   DEPOSIT = 'deposit',
   PAYMENT = 'payment',
-  ADJUSTMENT = 'adjustment'
+  ADJUSTMENT = 'adjustment',
+  NO_SHOW_FEE='no_show_fee'
 }
 
 export enum TransactionStatus {

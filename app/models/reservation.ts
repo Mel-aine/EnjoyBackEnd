@@ -96,6 +96,12 @@ export default class Reservation extends BaseModel {
   @column.dateTime({ columnName: 'no_show_date' })
   declare noShowDate: DateTime | null
 
+  @column({ columnName: 'no_show_fees' })
+  declare noShowFees: number | null
+
+  @column({ columnName: 'mark_no_show_by' })
+  declare markNoShowBy: number | null
+
   @column({ columnName: 'cancellation_fee_amount' })
   declare cancellationFeeAmount: number | null
 
@@ -378,6 +384,12 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'void_notes' })
   declare voidNotes: string | null
 
+  @column({ columnName: 'tax_exempt' })
+  declare taxExempt: boolean
+
+  @column({ columnName: 'tax_exempt_reason' })
+  declare taxExemptReason: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -405,6 +417,9 @@ export default class Reservation extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'voided_by' })
   declare voidedByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'mark_no_show_by' })
+  declare markNoShowByUser: BelongsTo<typeof User>
 
   @hasMany(() => ReservationServiceProduct, {
     foreignKey: 'reservation_id',

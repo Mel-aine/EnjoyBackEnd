@@ -668,10 +668,13 @@ router
         // Basic CRUD operations for rooms
         router.get('/', roomsController.index.bind(roomsController)) // Get all rooms with filtering and status
         router.post('/', roomsController.store.bind(roomsController)) // Create a new room
+        router.post('/bulk-update', roomsController.bulkUpdate.bind(roomsController))
         router.get('/:id', roomsController.show.bind(roomsController)) // Get specific room details
         router.put('/:id', roomsController.update.bind(roomsController)) // Update room information
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
         router.get('/:hotelId/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
+        router.get('/houseview/:hotelId', roomsController.getHouseStatus.bind(roomsController))
+
 
         // Room status management
         router.patch('/:id/status', roomsController.updateStatus.bind(roomsController)) // Update room status (available, occupied, maintenance, etc.)
@@ -755,8 +758,8 @@ router
         router.get('/:id/balance', foliosController.balance.bind(foliosController)) // Get folio balance
         router.get('/:id/statement', foliosController.statement.bind(foliosController)) // Get folio statement
         router.get('/statistics', foliosController.stats.bind(foliosController)) // Get folio statistics
-      
-      
+
+
       })
       .prefix('folios')
 

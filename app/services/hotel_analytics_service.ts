@@ -28,7 +28,7 @@ export class HotelAnalyticsService {
 
             .where('depart_date', '>=', startDate.toISODate()!)
             .where('arrived_date', '<=', endDate.toISODate()!)
-            .whereNotIn('status', ['cancelled', 'no-show'])
+            .whereNotIn('status', ['cancelled', 'no-show','no_show','voided'])
             .preload('guest')
             .preload('reservationRooms', (rspQuery) => {
                 rspQuery.preload('room', (spQuery) => {

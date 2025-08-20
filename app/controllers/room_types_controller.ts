@@ -347,7 +347,9 @@ export default class RoomTypesController {
       const roomTypes = await RoomType.query()
         .where('hotel_id', hotelId)
         .andWhere('is_deleted', false)
-        .preload('rooms')
+        .preload('rooms',(query)=>{
+          query.preload('taxRates')
+        })
         .preload('roomRates')
         .paginate(page, limit)
 

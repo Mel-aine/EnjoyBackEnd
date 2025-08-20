@@ -20,6 +20,7 @@ import logger from '@adonisjs/core/services/logger'
 import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
 import ReservationFolioService from '#services/reservation_folio_service'
+import FolioService from '#services/folio_service'
 import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import PaymentMethod from '#models/payment_method'
@@ -521,6 +522,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
       outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
+      totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes).toFixed(2)),
       balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
     }
   }
@@ -1415,8 +1417,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
           bookingSourceId: data.booking_source,
           sourceOfBusiness: data.business_source,
           paymentStatus: 'pending',
+          taxExempt:data.tax_exempt,
           reservedBy: auth.user?.id,
-          createdBy: auth.user?.id
+          createdBy: auth.user?.id,
+          
         }, { client: trx })
 
         // Vérifier que la réservation a bien été créée avec un ID
@@ -1451,8 +1455,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             roomRate: room.room_rate,
             roomRateId: room.room_rate_id,
             totalRoomCharges: room.room_rate * data.number_of_nights,
-            // taxAmount: room.room_rate * data.number_of_nights * 0.15,
-            // netAmount: room.room_rate * data.number_of_nights * 1.15,
+            taxAmount : room.taxes,
+            totalTaxesAmount: room.taxes * data.number_of_nights,
+            netAmount : room.room_rate * data.number_of_nights + (room.taxes * data.number_of_nights),
             status: 'reserved',
             createdBy: data.created_by,
           }, { client: trx })
@@ -2476,7 +2481,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     try {
       const { reservationId } = params
-      const { reason, notes } = request.only(['reason', 'notes'])
+      const { reason, notes, noShowFees } = request.only(['reason', 'notes', 'noShowFees'])
 
       // Validate reservation ID
       if (!reservationId) {
@@ -2726,7 +2731,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     try {
       const { reservationId } = params
-      const { reason, notes } = request.only(['reason', 'notes'])
+      const { reason, notes,noShowFees } = request.only(['reason', 'notes','noShowFees'])
 
       // Validate reservation ID
       if (!reservationId) {
@@ -2770,11 +2775,96 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Update reservation status to no-show
       await reservation.useTransaction(trx).merge({
-        status: 'no_show' as ReservationStatus,
+        status: ReservationStatus.NOSHOW,
         noShowDate: now,
         noShowReason: reason || 'Guest did not arrive',
+        noShowFees: noShowFees??0,
+        markNoShowBy: auth.user?.id,
         lastModifiedBy: auth.user?.id
       }).save()
+
+      // Get all folios for this reservation
+      const folios = await Folio.query({ client: trx })
+        .where('reservationId', reservationId)
+        .where('status', '!=', 'voided')
+
+      // Process each folio
+      for (const folio of folios) {
+        // Post no-show fees if applicable
+        if (noShowFees && noShowFees > 0) {
+          await FolioService.postTransaction({
+            folioId: folio.id,
+            transactionType: TransactionType.CHARGE,
+            category: TransactionCategory.NO_SHOW_FEE,
+            description: `No-show fee - ${reason || 'Guest did not arrive'}`,
+            amount: noShowFees,
+            quantity: 1,
+            unitPrice: noShowFees,
+            reference: `NOSHOW-${reservation.reservationNumber}`,
+            notes: `No-show fee applied on ${now.toISODate()}`,
+            postedBy: auth.user?.id
+          })
+        }
+
+        // Void all existing transactions in the folio
+        const activeTransactions = await FolioTransaction.query({ client: trx })
+          .where('folioId', folio.id)
+          .where('status', '!=', 'voided')
+          //.where('isVoided', false)
+
+        for (const transaction of activeTransactions) {
+          // Create void transaction
+          await FolioService.postTransaction({
+            folioId: folio.id,
+            transactionType: TransactionType.VOID,
+            category: TransactionCategory.VOID,
+            description: `Void: ${transaction.description} (No-show)`,
+            amount: -transaction.amount, // Negative to reverse the original
+            quantity: 1,
+            unitPrice: -transaction.amount,
+            reference: `VOID-${transaction.transactionNumber}`,
+            notes: `Voided due to no-show: ${reason || 'Guest did not arrive'}`,
+            postedBy: auth.user?.id
+          })
+
+          // Mark original transaction as voided
+          await transaction.useTransaction(trx).merge({
+            //isVoided: true,
+            voidedDate: now,
+            voidReason: 'No-show reservation',
+            voidedBy: auth.user?.id
+          }).save()
+        }
+
+        // Balance the folio - ensure zero balance after voiding and fees
+        await folio.useTransaction(trx).refresh()
+        const currentBalance = folio.balance
+        
+        if (Math.abs(currentBalance) > 0.01) {
+          // Create balancing adjustment
+          const adjustmentAmount = -currentBalance
+          await FolioService.postTransaction({
+            folioId: folio.id,
+            transactionType: TransactionType.ADJUSTMENT,
+            category: TransactionCategory.BALANCING_ADJUSTMENT,
+            description: `Balancing adjustment - No-show processing`,
+            amount: adjustmentAmount,
+            quantity: 1,
+            unitPrice: adjustmentAmount,
+            reference: `BAL-${reservation.reservationNumber}`,
+            notes: `Balancing adjustment to zero balance after no-show processing`,
+            postedBy: auth.user?.id
+          })
+        }
+
+        // Update folio status to voided
+        await folio.useTransaction(trx).merge({
+          status: FolioStatus.VOIDED,
+          voidedDate: now,
+          voidReason: `No-show reservation: ${reason || 'Guest did not arrive'}`,
+          lastModifiedBy: auth.user?.id
+        }).save()
+      }
 
       // Update all associated reservation rooms to no-show status
       await ReservationRoom.query({ client: trx })
@@ -2797,6 +2887,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reason: reason || 'Guest did not arrive',
           notes,
           noShowDate: now.toISO(),
+          noShowFees: noShowFees || null,
+          markNoShowBy: auth.user?.id,
           reservationNumber: reservation.reservationNumber
         },
         ipAddress: request.ip(),
@@ -2812,7 +2904,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationNumber: reservation.reservationNumber,
           status: 'no_show',
           noShowDate: now.toISO(),
-          reason: reason || 'Guest did not arrive'
+          reason: reason || 'Guest did not arrive',
+          noShowFees: noShowFees || null,
+          markNoShowBy: auth.user?.id
         }
       })
     } catch (error) {
@@ -3153,11 +3247,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 rateAmount: reservationRoom.rateAmount || (transaction.unitPrice || 0)
               },
               pax: `${totalAdults}/${totalChildren}`, // Format: Adult/Child
-              charge: transaction.amount || 0,
-              discount: transaction.discountAmount || 0,
-              tax: transaction.taxAmount || 0,
-              adjustment: adjustmentAmount,
-              netAmount: netAmount,
+              charge: Number(transaction.amount || 0),
+              discount: Number(transaction.discountAmount || 0),
+              tax: Number(transaction.taxAmount || 0),
+              adjustment: Number(adjustmentAmount || 0),
+              netAmount: Number(netAmount || 0),
               description: transaction.description
             })
           })
@@ -3195,22 +3289,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
               rateAmount: reservationRoom.rateAmount || baseRoomRate
             },
             pax: `${totalAdults}/${totalChildren}`,
-            charge: roomCharges,
-            discount: discountAmount,
-            tax: taxAmount + serviceChargeAmount,
-            adjustment: adjustments,
-            netAmount: netAmount,
+            charge: Number(roomCharges || 0),
+            discount: Number(discountAmount || 0),
+            tax: Number((taxAmount + serviceChargeAmount) || 0),
+            adjustment: Number(adjustments || 0),
+            netAmount: Number(netAmount || 0),
             description: 'Room Charge (from reservation data)'
           })
         }
       }
 
       // Calculate summary totals
-      const totalCharges = roomChargesTable.reduce((sum, row) => sum + row.charge, 0)
-      const totalDiscounts = roomChargesTable.reduce((sum, row) => sum + row.discount, 0)
-      const totalTax = roomChargesTable.reduce((sum, row) => sum + row.tax, 0)
-      const totalAdjustments = roomChargesTable.reduce((sum, row) => sum + row.adjustment, 0)
-      const totalNetAmount = roomChargesTable.reduce((sum, row) => sum + row.netAmount, 0)
+      const totalCharges = roomChargesTable.reduce((sum, row) => sum + Number(row.charge || 0), 0)
+      const totalDiscounts = roomChargesTable.reduce((sum, row) => sum + Number(row.discount || 0), 0)
+      const totalTax = roomChargesTable.reduce((sum, row) => sum + Number(row.tax || 0), 0)
+      const totalAdjustments = roomChargesTable.reduce((sum, row) => sum + Number(row.adjustment || 0), 0)
+      const totalNetAmount = roomChargesTable.reduce((sum, row) => sum + Number(row.netAmount || 0), 0)
 
       return response.ok({
         success: true,
