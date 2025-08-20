@@ -767,6 +767,7 @@ router
         // Generate folio print data with tax invoices
         router.post('/print-data', folioPrintController.printFolio.bind(folioPrintController)) // Generate folio print data
         router.post('/print-pdf', folioPrintController.printFolioPdf.bind(folioPrintController)) // Generate folio PDF (future implementation)
+        router.post('/print_confirm_booking-pdf', folioPrintController.printBookingPdf.bind(folioPrintController)) // Generate invoice PDF
       })
       .prefix('folio-print')
 

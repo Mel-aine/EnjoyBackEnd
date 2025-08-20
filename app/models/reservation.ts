@@ -417,7 +417,7 @@ export default class Reservation extends BaseModel {
   declare payments: HasMany<typeof Payment>
 
   // Enhanced relationships
-  @belongsTo(() => Hotel,{ foreignKey: 'hotel_id' })
+  @belongsTo(() => Hotel,{ foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => Guest)
