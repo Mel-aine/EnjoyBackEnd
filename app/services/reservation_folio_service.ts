@@ -196,17 +196,16 @@ export default class ReservationFolioService {
       // Create one transaction per night for each room
       const roomRate = reservationRoom.roomRates
       const roomType = reservationRoom.room.roomType
-      
       // Calculate extra charges only if occupancy exceeds room type base capacity
-      const extraAdults = Math.max(0, reservationRoom.adults - (roomType?.baseAdult ?? 0))
-      const extraChildren = Math.max(0, reservationRoom.children - (roomType?.baseChild ?? 0))
+      //const extraAdults = Math.max(0, reservationRoom.adults - (roomType?.baseAdult ?? 0))
+      //const extraChildren = Math.max(0, reservationRoom.children - (roomType?.baseChild ?? 0))
       
-      const dailyExtraChildAmount = extraChildren * parseFloat(`${roomRate.extraChildRate ?? 0}`)
-      const dailyExtraAdultAmount = extraAdults * parseFloat(`${roomRate.extraAdultRate ?? 0}`)
+      //const dailyExtraChildAmount = extraChildren * parseFloat(`${roomRate.extraChildRate ?? 0}`)
+      //const dailyExtraAdultAmount = extraAdults * parseFloat(`${roomRate.extraAdultRate ?? 0}`)
       
       // Post one transaction for each night
       for (let night = 1; night <= nights; night++) {
-        const baseAmount = parseFloat(`${roomRate.baseRate}`)
+        const baseAmount = parseFloat(`${reservationRoom.roomRate}`)
         const totalDailyAmount = baseAmount + dailyExtraChildAmount + dailyExtraAdultAmount
         
         // Calculate daily tax amount from reservation room's total taxes amount
