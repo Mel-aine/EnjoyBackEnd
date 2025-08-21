@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import FolioPrintService from '#services/folio_print_service'
+import BookingPrintService from '#services/booking_print_service'
 import vine from '@vinejs/vine'
 
 export default class FolioPrintController {
@@ -70,16 +71,49 @@ export default class FolioPrintController {
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
       const pdfBuffer = await PdfGenerationService.generateFolioPdf(folioPrintData)
 
+
       // Set response headers for PDF download
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="folio-${folioPrintData.folio.folioNumber}.pdf"`)
       response.header('Content-Length', pdfBuffer.length.toString())
 
-      return response.send(pdfBuffer)
+      return response.send(bookingPdf)
     } catch (error) {
       return response.status(500).json({
         success: false,
         message: 'Failed to generate folio PDF',
+        error: error.message
+      })
+    }
+  }
+  async printBookingPdf({ request, response }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const currencyId = request.input('currencyId')
+
+      if (!reservationId) {
+        return response.status(400).json({
+          success: false,
+          message: 'reservationId is required'
+        })
+      }
+
+      // ⚠️ CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
+      const folioPrintData = await FolioPrintService.generateBookingPrintData(reservationId)
+
+      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
+      const bookingPdf = await PdfGenerationService.generateBookingPdf(folioPrintData)
+
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.confirmationCode}.pdf"`)
+      response.header('Content-Length', bookingPdf.length.toString())
+
+      return response.send(bookingPdf)
+    } catch (error) {
+      console.error('Error generating booking PDF:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to generate booking PDF',
         error: error.message
       })
     }

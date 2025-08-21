@@ -67,6 +67,57 @@ export default class PdfGenerationService {
   }
 
   /**
+   * Generate PDF from booking confirmation data
+   */
+  static async generateBookingPdf(
+    folioPrintData: FolioPrintData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    try {
+      // Default PDF options
+      const defaultOptions = {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
+        },
+        displayHeaderFooter: false,
+        printBackground: true,
+        ...options
+      }
+
+      // Generate HTML content
+      const htmlContent = this.generateBookingHtmlTemplate(folioPrintData)
+
+      // PDF generation options for html-pdf-node
+      const pdfOptions = {
+        format: defaultOptions.format,
+        orientation: defaultOptions.orientation,
+        border: {
+          top: defaultOptions.margin.top,
+          right: defaultOptions.margin.right,
+          bottom: defaultOptions.margin.bottom,
+          left: defaultOptions.margin.left
+        },
+        type: 'pdf',
+        quality: '75',
+        renderDelay: 500,
+        zoomFactor: 1
+      }
+
+      const file = { content: htmlContent }
+      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      
+      return pdfBuffer
+    } catch (error) {
+      throw new Error(`Failed to generate booking PDF: ${error.message}`)
+    }
+  }
+
+  /**
    * Generate HTML template from folio print data
    */
   private static generateHtmlTemplate(data: FolioPrintData): string {
@@ -444,6 +495,363 @@ export default class PdfGenerationService {
   }
 
   /**
+   * Generate HTML template for booking confirmation
+   */
+  private static generateBookingHtmlTemplate(data: FolioPrintData): string {
+    const {
+      hotel,
+      reservation,
+      totals,
+      currency,
+      billingAddress
+    } = data
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmation - ${reservation.confirmationCode}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            background: white;
+            padding: 20px;
+        }
+        
+        .print-page {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .border-classic {
+            border: 2px solid #333;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .justify-between {
+            justify-content: space-between;
+        }
+        
+        .items-start {
+            align-items: flex-start;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .p-4 {
+            padding: 16px;
+        }
+        
+        .p-3 {
+            padding: 12px;
+        }
+        
+        .mb-4 {
+            margin-bottom: 16px;
+        }
+        
+        .mb-2 {
+            margin-bottom: 8px;
+        }
+        
+        .mt-2 {
+            margin-top: 8px;
+        }
+        
+        .mt-4 {
+            margin-top: 16px;
+        }
+        
+        .mt-6 {
+            margin-top: 24px;
+        }
+        
+        .text-sm {
+            font-size: 14px;
+        }
+        
+        .text-lg {
+            font-size: 18px;
+        }
+        
+        .text-xl {
+            font-size: 20px;
+        }
+        
+        .font-bold {
+            font-weight: bold;
+        }
+        
+        .bg-gray-200 {
+            background-color: #edf2f7;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        
+        th, td {
+            padding: 4px 8px;
+            border: 1px solid #cbd5e0;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #edf2f7;
+        }
+        
+        .border-2 {
+            border-width: 2px;
+        }
+        
+        .border-black {
+            border-color: #000;
+        }
+        
+        .border-t {
+            border-top: 1px solid #000;
+        }
+        
+        .list-disc {
+            list-style-type: disc;
+        }
+        
+        .pl-5 {
+            padding-left: 20px;
+        }
+        
+        u {
+            text-decoration: underline;
+        }
+        
+        em {
+            font-style: italic;
+        }
+        
+        .grid {
+            display: grid;
+        }
+        
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .gap-2 {
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="print-page p-4">
+        <!-- Main Header Box -->
+        <div class="border-classic">
+            <div class="flex justify-between">
+                <div>
+                    <h1 class="text-lg font-bold mb-2">CONFIRM BOOKING</h1>
+                    <div class="mb-2">
+                        <strong>BOOKING REFERENCE NO</strong><br>
+                        <span class="text-xl font-bold">: ${reservation.confirmationCode}</span>
+                    </div>
+                    <div class="text-sm">
+                        Kindly print this confirmation and have it<br>
+                        ready upon check-in at the Hotel
+                    </div>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-lg font-bold">${hotel.name}</h2>
+                    <div class="text-sm mt-2">
+                        ${hotel.address}<br>
+                        ${hotel.city}, ${hotel.country}<br>
+                        <u>${hotel.email}</u><br>
+                        Phone : ${hotel.phone}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guest Information -->
+        <div class="mb-4">
+            <p class="text-sm">Dear ${reservation.guestName},</p>
+            <p class="text-sm mt-2">
+                Thank you for choosing ${hotel.name} for your stay. We are pleased to inform you that your
+                reservation request is CONFIRMED and your reservation details are as follows.
+            </p>
+        </div>
+
+        <!-- Booking Details -->
+        <div class="mb-4">
+            <h3 class="font-bold mb-2">Booking Details</h3>
+            <div class="text-sm grid grid-cols-2 gap-2">
+                <div>Booking Date : ${this.formatDate(data.printInfo.printedDate.toString())}</div>
+                <div>Check In Date : ${this.formatDate(reservation.checkInDate.toString())}</div>
+                <div>Check Out Date : ${this.formatDate(reservation.checkOutDate.toString())}</div>
+                <div>Nights : ${reservation.numberOfNights}</div>
+                <div>Arrival Time : ${reservation.actualArrivalDatetime}</div>
+                <div>Special Request : </div>
+            </div>
+        </div>
+
+        <!-- Your Details -->
+        <div class="mb-4">
+            <h3 class="font-bold mb-2">Your Details</h3>
+            <div class="text-sm">
+                ${reservation.guestName}<br>
+                Email ID : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
+                Phone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
+            </div>
+        </div>
+
+        <!-- Room Details -->
+        <div class="mb-4">
+            <h3 class="font-bold mb-2">Room Details</h3>
+            <table>
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th>Room Type</th>
+                        <th>Guest(s)</th>
+                        <th>No of rooms</th>
+                        <th>Package if any</th>
+                        <th>Promotion if any</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${reservation.roomType}</td>
+                        <td>${reservation.adults} Adults, ${reservation.children} Children</td>
+                        <td>1</td>
+                        <td>Standard Rate</td>
+                        <td>${this.formatAmount(reservation.roomCharge)} ${currency.code}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Rates Details -->
+        <div class="mb-4">
+            <h3 class="font-bold mb-2">Rates Details</h3>
+            <table>
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th>Details</th>
+                        <th class="text-right">Rates (${currency.code})</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Total Room Charges</td>
+                        <td class="text-right">${this.formatAmount(totals.totalCharges)}</td>
+                    </tr>
+                    <tr>
+                        <td>Room Charges Tax</td>
+                        <td class="text-right">${this.formatAmount(totals.totalTax)}</td>
+                    </tr>
+                    <tr>
+                        <td>Service Charges</td>
+                        <td class="text-right">${this.formatAmount(totals.totalServiceCharges)}</td>
+                    </tr>
+                    <tr>
+                        <td>Extra Charges Including Discounts and Tax</td>
+                        <td class="text-right">-${this.formatAmount(totals.totalDiscounts)}</td>
+                    </tr>
+                    <tr>
+                        <td>Round off</td>
+                        <td class="text-right">-${this.formatAmount(totals.totalDiscounts)}</td>
+                    </tr>
+                    <tr class="font-bold">
+                        <td>Grand Total</td>
+                        <td class="text-right">${this.formatAmount(totals.grandTotal)}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Paid</td>
+                        <td class="text-right">${this.formatAmount(totals.totalPaid)}</td>
+                    </tr>
+                    <tr class="font-bold">
+                        <td>Amount due at time of check in</td>
+                        <td class="text-right">${this.formatAmount(totals.balance)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Booking Amount Box -->
+        <div class="flex justify-between items-start mb-4">
+            <div class="border-2 border-black p-3">
+                <div class="text-center font-bold">
+                    BOOKING AMOUNT<br>
+                    ${currency.code} ${this.formatAmount(totals.grandTotal)} ${currency.code}
+                </div>
+            </div>
+            <div class="text-right text-sm">
+                <strong>Booked & Payable By</strong><br>
+                ${reservation.guestName}
+            </div>
+        </div>
+
+        <!-- Conditions & Policies -->
+        <div class="mb-4">
+            <h3 class="font-bold mb-2 bg-gray-200 p-3">Conditions & Policies</h3>
+            
+            <div class="text-sm mt-4">
+                <h4 class="font-bold mb-2">Cancellation Policy</h4>
+                <p class="mb-2">
+                    Free cancellation up to 48 hours before check-in. After that, 1 night will be charged.
+                </p>
+
+                <div class="mt-2">
+                    <h4 class="font-bold mb-2">Additional Terms</h4>
+                    <ul class="list-disc pl-5">
+                        <li>Early check-in and late check-out subject to availability</li>
+                        <li>Credit card required at check-in for incidentals</li>
+                        <li>Pets are not allowed</li>
+                        <li>Check-in time: 2:00 PM, Check-out time: 12:00 PM</li>
+                    </ul>
+                </div>
+
+                <div class="mt-4 font-bold text-center">
+                    <em>This email has been sent from an automated system - please do not reply to it.</em>
+                </div>
+
+                <div class="mt-6 mb-4 pt-4 border-t">
+                    <strong>**** FOR ANY FURTHER QUERY ****</strong><br>
+                    Contact us by Email Id ${hotel.email}<br>
+                    Phone NO : ${hotel.phone}<br>
+                    ${hotel.address}, ${hotel.city}, ${hotel.country}
+                </div>
+                <div class="border-t"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  }
+
+  /**
    * Convert number to words (simplified implementation)
    */
   private static numberToWords(amount: number): string {
@@ -489,5 +897,31 @@ export default class PdfGenerationService {
     }
     
     return result.trim()
+  }
+
+  /**
+   * Format date to DD/MM/YYYY
+   */
+  private static formatDate(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  }
+
+  /**
+   * Format amount with 2 decimal places
+   */
+  private static formatAmount(amount: number): string {
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
   }
 }

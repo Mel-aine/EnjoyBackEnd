@@ -39,8 +39,9 @@ export interface FolioPrintData {
     reservedBy?: string,
     guest:Guest,
     roomCharge:number
+    actualArrivalDatetime?: DateTime
   }
-  folio: {
+  folio?: {
     id: number
     folioNumber: string
     folioName: string
@@ -50,7 +51,7 @@ export interface FolioPrintData {
     currencyCode: string
     exchangeRate: number
   }
-  transactions: Array<{
+  transactions?: Array<{
     id: number
     transactionNumber: string
     date: DateTime
@@ -285,6 +286,176 @@ export class FolioPrintService {
       printInfo
     }
   }
+  /**
+   * Generate booking confirmation print data (without folio or currency)
+   * @param reservationId - The reservation ID
+   * @returns Booking confirmation print data
+   */
+  public async generateBookingPrintData(
+    reservationId: number
+  ): Promise<Omit<FolioPrintData, 'folio' | 'transactions'>> {
+    // Load reservation with necessary relationships
+    const reservation = await Reservation.query()
+      .where('id', reservationId)
+      .preload('hotel')
+      .preload('guest')
+      .preload('roomType')
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('room', (roomSubQuery) => {
+          roomSubQuery.preload('taxRates')
+        }).preload('roomType')
+      })
+      // .preload('checkedInByUser')
+      // .preload('checkedOutByUser')
+      // .preload('reservedByUser')
+      .firstOrFail()
+
+    if (!reservation.hotel) {
+      throw new Error('Hotel not found for this reservation')
+    }
+
+    // Collect tax rates from rooms
+    const taxRates = this.collectTaxRatesFromRooms(reservation)
+
+    // Calculate estimated totals for booking
+    const totals = this.calculateBookingTotals(reservation, taxRates)
+
+    // Prepare hotel information - EN CAMELCASE
+    const hotelData = {
+      id: reservation.hotel.id,
+      name: reservation.hotel.hotelName, // Vérifiez si cette propriété existe
+      address: reservation.hotel.address || '',
+      city: reservation.hotel.city || '',
+      state: reservation.hotel.stateProvince || '',
+      country: reservation.hotel.country || '',
+      postalCode: reservation.hotel.postalCode || '',
+      phone: reservation.hotel.phoneNumber || '',
+      email: reservation.hotel.email || '',
+      website: reservation.hotel.website || '',
+      logo: reservation.hotel.logoUrl || undefined,
+      registrationNumber: reservation.hotel.registrationNo1,
+      rcNumber: reservation.hotel.registrationNo2
+    }
+
+    // Prepare reservation information - EN CAMELCASE
+    const reservationData = {
+      guest: reservation.guest,
+      id: reservation.id,
+      confirmationCode: reservation.confirmationCode || reservation.confirmationNumber,
+      guestName: reservation.guest ? 
+        `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim() : 
+        'Guest',
+      checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
+      checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
+      numberOfNights: reservation.numberOfNights || reservation.nights || 1,
+      roomType: reservation.roomType?.roomTypeName || 'Standard Room',
+      adults: reservation.adults || reservation.numAdultsTotal || 1,
+      children: reservation.children || reservation.numChildrenTotal || 0,
+      status: reservation.status || reservation.reservationStatus,
+      checkedInBy: reservation.checkedInByUser ? 
+        `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : undefined,
+      checkedOutBy: reservation.checkedOutByUser ? 
+        `${reservation.checkedOutByUser.firstName} ${reservation.checkedOutByUser.lastName}` : undefined,
+      reservedBy: reservation.reservedByUser ? 
+        `${reservation.reservedByUser.firstName} ${reservation.reservedByUser.lastName}` : undefined,
+      roomCharge: reservation.roomRate || reservation.baseRate || 0,
+      // Ajout des propriétés camelCase supplémentaires
+      totalAmount: reservation.totalAmount,
+      discountAmount: reservation.discountAmount,
+      taxAmount: reservation.taxAmount,
+      finalAmount: reservation.finalAmount,
+      paidAmount: reservation.paidAmount,
+      remainingAmount: reservation.remainingAmount,
+      paymentStatus: reservation.paymentStatus,
+      reservationNumber: reservation.reservationNumber,
+      specialRequests: reservation.specialRequests,
+      customerType: reservation.customerType,
+      companyName: reservation.companyName,
+      groupName: reservation.groupName
+    }
+
+    // Prepare billing address from guest - EN CAMELCASE
+    const billingAddress = {
+      name: reservation.guest ? 
+        `${reservation.guest.firstName} ${reservation.guest.lastName}` : undefined,
+      address: reservation.guest?.address || undefined,
+      city: reservation.guest?.city || undefined,
+      state: reservation.guest?.stateProvince || undefined,
+      country: reservation.guest?.country || undefined,
+      postalCode: reservation.guest?.postalCode || undefined,
+      phone: reservation.guest?.phonePrimary || undefined,
+      email: reservation.guest?.email || undefined,
+      taxId: reservation.guest?.taxId || undefined
+    }
+
+    const currency = {
+      code: reservation.hotel.currencyCode || 'USD',
+      symbol: reservation.hotel.currencySymbol || '$',
+      name: reservation.hotel.currencyName || 'US Dollar'
+    }
+
+
+
+    // Prepare print information
+    const printInfo = {
+      printedDate: DateTime.now(),
+      printedBy: 'System',
+      printCount: 1
+    }
+
+    return {
+      hotel: hotelData,
+      reservation: reservationData,
+      totals,
+      taxRates,
+      billingAddress,
+      currency,
+      printInfo
+    }
+  }
+/**
+ * Calculate estimated totals for booking confirmation
+ */
+  private calculateBookingTotals(reservation: Reservation, taxRates: any[]) {
+    const roomCharge = reservation.roomRate || reservation.baseRate || 0
+    const numberOfNights = reservation.numberOfNights || 1
+    
+    // Calculate base charges
+    const totalCharges = roomCharge * numberOfNights
+    
+    // Calculate estimated taxes
+    let totalTax = 0
+    taxRates.forEach(taxRate => {
+      if (taxRate.appliesToRoomRate) {
+        if (taxRate.postingType === 'flat_percentage' && taxRate.percentage) {
+          totalTax += (totalCharges * taxRate.percentage) / 100
+        } else if (taxRate.postingType === 'flat_amount' && taxRate.amount) {
+          totalTax += taxRate.amount * numberOfNights
+        }
+      }
+    })
+    
+    // For booking confirmation, assume no payments or adjustments yet
+    const totalPayments = 0
+    const totalAdjustments = 0
+    const totalDiscounts = 0
+    const totalServiceCharges = 0
+    
+    const grandTotal = totalCharges + totalTax + totalServiceCharges - totalDiscounts
+    const balance = grandTotal - totalPayments - totalAdjustments
+
+    return {
+      grandTotal,
+      totalTax,
+      totalPaid: totalPayments,
+      balance,
+      totalCharges,
+      totalPayments,
+      totalAdjustments,
+      totalDiscounts,
+      totalServiceCharges
+    }
+  }
 
   /**
    * Calculate all totals for the folio
@@ -294,7 +465,7 @@ export class FolioPrintService {
     
     // Collect unique tax rates from all rooms in the reservation
     reservation.reservationRooms?.forEach(reservationRoom => {
-      reservationRoom.room?.taxRates?.forEach(taxRate => {
+      reservationRoom.room?.taxRates?.forEach(taxRate => {  
         if (taxRate.isActive && !taxRatesMap.has(taxRate.taxRateId)) {
           taxRatesMap.set(taxRate.taxRateId, {
             id: taxRate.taxRateId,
