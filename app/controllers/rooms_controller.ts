@@ -751,9 +751,9 @@ export default class RoomsController {
   /**
    * Détermine la section d'une chambre basée sur l'étage et le type
    */
-  private getRoomSection(roomTypeName: string): string {
-    if (roomTypeName.toLowerCase().includes('suite')) {
-      return 'Suites'
+ private getRoomSection(roomTypeName: string): string {
+    if (!roomTypeName) {
+      return 'Unknown'
     }
     return roomTypeName
   }
@@ -952,6 +952,8 @@ export default class RoomsController {
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
   }
-}
+  }
+
+
 
 }
