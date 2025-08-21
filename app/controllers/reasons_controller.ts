@@ -10,7 +10,7 @@ export default class ReasonsController {
   async index({ request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
-      const limit = request.input('limit', 10)
+      const limit = request.input('limit', 100)
       const hotelId = request.input('hotel_id')
       const category = request.input('category')
       const search = request.input('search')

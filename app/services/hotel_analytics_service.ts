@@ -34,7 +34,7 @@ export class HotelAnalyticsService {
                 rspQuery.preload('room', (spQuery) => {
                     spQuery.preload('roomType')
                 })
-            })
+            }).preload('bookingSource')
 
         // 3. Calculate daily occupancy metrics
         const dailyMetrics = []
@@ -208,8 +208,7 @@ export class HotelAnalyticsService {
 
                     groupedDetails[roomType].reservations.push({
                         reservation_id: reservation.id,
-                        guest_name: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''
-                            }`.trim(),
+                        guest_name: `${reservation.guest.displayName}`.trim(),
                         check_in_date: reservation.arrivedDate,
                         check_out_date: reservation.departDate,
                         reservation_status: getReservationStatus(reservation, today),

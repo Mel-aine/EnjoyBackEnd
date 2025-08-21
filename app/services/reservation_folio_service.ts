@@ -206,7 +206,7 @@ export default class ReservationFolioService {
       // Post one transaction for each night
       for (let night = 1; night <= nights; night++) {
         const baseAmount = parseFloat(`${reservationRoom.roomRate}`)
-        const totalDailyAmount = baseAmount + dailyExtraChildAmount + dailyExtraAdultAmount
+        const totalDailyAmount = baseAmount; // + dailyExtraChildAmount + dailyExtraAdultAmount
         
         // Calculate daily tax amount from reservation room's total taxes amount
         const dailyTaxAmount = reservationRoom.totalTaxesAmount ? 
