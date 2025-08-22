@@ -228,51 +228,8 @@ export default class RoomsController {
       })
     }
   }
-  /**
-   * Update room status
-   */
-  async updateStatus({ params, request, response }: HttpContext) {
-    try {
-      const room = await Room.findOrFail(params.id)
-      const { status } = request.only(['status'])
 
-      room.status = status
-      await room.save()
 
-      return response.ok({
-        message: 'Room status updated successfully',
-        data: room
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Failed to update room status',
-        error: error.message
-      })
-    }
-  }
-
-  /**
-   * Update housekeeping status
-   */
-  async updateHousekeepingStatus({ params, request, response }: HttpContext) {
-    try {
-      const room = await Room.findOrFail(params.id)
-      const { housekeepingStatus } = request.only(['housekeepingStatus'])
-
-      room.housekeepingStatus = housekeepingStatus
-      await room.save()
-
-      return response.ok({
-        message: 'Housekeeping status updated successfully',
-        data: room
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Failed to update housekeeping status',
-        error: error.message
-      })
-    }
-  }
 
   /**
    * Update maintenance status
@@ -426,7 +383,7 @@ export default class RoomsController {
   /**
    * Get rooms with details including reservations
    */
-  public async getRoomsWithDetails({ params, response }: HttpContext) {
+ public async getRoomsWithDetails({ params, response }: HttpContext) {
   const { hotelId } = params
 
   try {
@@ -436,7 +393,8 @@ export default class RoomsController {
       .preload('reservationRooms', (query) => {
         query.preload('reservation', (reservationQuery) => {
           reservationQuery
-            .select(['id', 'status', 'departDate', 'guestId'])
+            // 1. AJOUT: Inclure 'checkinDate' dans la sélection
+            .select(['id', 'status', 'departDate', 'guestId', 'checkInDate'])
             .preload('guest', (guestQuery) => {
               guestQuery.select(['id', 'firstName', 'lastName'])
             })
@@ -446,13 +404,11 @@ export default class RoomsController {
     const detailedRooms = rooms.map((room) => {
       const reservations = room.reservationRooms
 
-
       const reservationData = reservations.map((rr) => ({
         reservation: rr.reservation,
         guest: rr.reservation?.guest ?? null,
         status: rr.reservation?.status ?? null,
       }))
-
 
       const checkedInReservation = reservationData.find(
         (r) =>
@@ -464,19 +420,24 @@ export default class RoomsController {
         ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() || null
         : null
 
+      const checkInTime = checkedInReservation?.reservation?.checkInDate
+        ? (typeof checkedInReservation.reservation.checkInDate === 'string'
+            ? checkedInReservation.reservation.checkInDate
+            : checkedInReservation.reservation.checkInDate.toString())
+        : null
 
-     const reservationsWithDepart = reservationData
-      .filter((r) => r.reservation?.departDate != null)
-      .sort((a, b) => {
-        const dateA = DateTime.fromISO(
-          a.reservation?.departDate?.toString() || ''
-        )
-        const dateB = DateTime.fromISO(
-          b.reservation?.departDate?.toString() || ''
-        )
-        return dateB.toMillis() - dateA.toMillis()
-      })
-
+      const reservationsWithDepart = reservationData
+        .filter((r) => r.reservation?.departDate != null)
+        .sort((a, b) => {
+          const dateA = DateTime.fromISO(
+            a.reservation?.departDate?.toString() || ''
+          )
+          const dateB = DateTime.fromISO(
+            b.reservation?.departDate?.toString() || ''
+          )
+          // Tri descendant pour avoir la date de départ la plus récente en premier
+          return dateB.toMillis() - dateA.toMillis()
+        })
 
       const latestDeparture = reservationsWithDepart[0]
 
@@ -495,6 +456,8 @@ export default class RoomsController {
         guestName,
         nextAvailable,
         checkOutTime,
+
+        checkInTime,
         status: room.status || 'available',
       }
     })
@@ -664,10 +627,9 @@ export default class RoomsController {
   }
 
   /**
-   * get housekeeping status by hotel Id
+   * Get housekeeping status by hotel Id - WITH BUSINESS LOGIC
    */
-
-   async getHouseStatus ({ params, request, response }: HttpContext) {
+  async getHouseStatus({ params, request, response }: HttpContext) {
     try {
       const { hotelId } = params
       const { room_type_filter } = request.qs()
@@ -678,6 +640,9 @@ export default class RoomsController {
         .where('is_deleted', false)
         .preload('roomType')
         .preload('bedType')
+        // .preload('assignedHousekeeper', (housekeeperQuery) => {
+        //   housekeeperQuery.select('id', 'first_name', 'last_name')
+        // })
         .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
 
@@ -688,19 +653,28 @@ export default class RoomsController {
 
       const rooms = await query
 
-      // Transformation des données pour le frontend room.floorNumber,
-      const transformedRooms = rooms.map(room => ({
-        id: room.id.toString(),
-        name: room.roomNumber,
-        beds: room.maxOccupancy || 0,
-        isChecked: false,
-        section: this.getRoomSection(room.roomType?.roomTypeName || ''),
-        roomType: room.roomType?.roomTypeName || 'Unknown',
-        status: this.getOccupancyStatus(room.status),
-        housekeepingStatus: this.getHousekeepingStatus(room.housekeepingStatus),
-        tag: this.getRoomTag(room),
-        statusType: this.getStatusType(room.housekeepingStatus, room.status)
-      }))
+      // Transformation des données avec logique métier
+      const transformedRooms = rooms.map(room => {
+        const actualHousekeepingStatus = this.getHousekeepingStatusFromRoomStatus(
+          room.status,
+          room.housekeepingStatus
+        )
+
+        return {
+          id: room.id.toString(),
+          name: room.roomNumber,
+          beds: room.maxOccupancy || 0,
+          isChecked: false,
+          section: this.getRoomSection(room.roomType?.roomTypeName || ''),
+          roomType: room.roomType?.roomTypeName || 'Unknown',
+          status: room.status,
+          housekeepingStatus: actualHousekeepingStatus,
+          tag: this.getRoomTag(room),
+          statusType: this.getStatusType(actualHousekeepingStatus, room.status),
+        //   assignedHousekeeper: room.assignedHousekeeper ?
+        //     `${room.assignedHousekeeper.firstName} ${room.assignedHousekeeper.lastName}` : ''
+         }
+      })
 
       // Récupération des types de chambres pour les filtres
       const roomTypes = await RoomType.query()
@@ -735,7 +709,6 @@ export default class RoomsController {
         housekeepingStatusOptions: [
           { value: 'clean', label: 'Clean' },
           { value: 'dirty', label: 'Dirty' },
-          { value: 'inspected', label: 'Inspected' },
           { value: 'out_of_order', label: 'Out Of Order' }
         ]
       })
@@ -749,62 +722,262 @@ export default class RoomsController {
   }
 
   /**
+   * Bulk Update - WITH BUSINESS LOGIC RESTRICTIONS
+   */
+  async bulkUpdate({ request, response }: HttpContext) {
+    try {
+      const {
+        room_ids,
+        operation,
+
+        housekeeper_id,
+        user_id
+      } = request.only([
+        'room_ids',
+        'operation',
+        'housekeeping_status',
+        'room_status',
+        'housekeeper_id',
+        'user_id'
+      ])
+
+      // Validation des données d'entrée
+      if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
+        return response.badRequest({
+          message: 'Room IDs are required and must be an array'
+        })
+      }
+
+      if (!operation) {
+        return response.badRequest({
+          message: 'Operation is required'
+        })
+      }
+
+      // Récupérer les chambres pour validation
+      const roomsToUpdate = await Room.query().whereIn('id', room_ids)
+
+      if (roomsToUpdate.length !== room_ids.length) {
+        return response.badRequest({
+          message: 'Some room IDs do not exist'
+        })
+      }
+
+      // Validation selon l'opération et la logique métier
+      switch (operation) {
+        case 'set_clean_status':
+          // Vérifier que toutes les chambres sont dirty
+          const invalidRoomsForCleaning = roomsToUpdate.filter(room =>
+            !(room.status === 'dirty' && room.housekeepingStatus === 'dirty')
+          )
+          if (invalidRoomsForCleaning.length > 0) {
+            return response.badRequest({
+              message: 'Can only set clean status on dirty available rooms'
+            })
+          }
+          break
+
+        case 'assign_housekeeper':
+          // Vérifier que toutes les chambres sont dirty
+          const invalidRoomsForAssignment = roomsToUpdate.filter(room =>
+            !(room.status === 'dirty' && room.housekeepingStatus === 'dirty')
+          )
+          if (invalidRoomsForAssignment.length > 0) {
+            return response.badRequest({
+              message: 'Can only assign housekeepers to dirty available rooms'
+            })
+          }
+          if (!housekeeper_id) {
+            return response.badRequest({
+              message: 'Housekeeper ID is required for assign_housekeeper operation'
+            })
+          }
+          break
+
+        default:
+          return response.badRequest({
+            message: 'Invalid operation. Supported operations: set_clean_status, assign_housekeeper'
+          })
+      }
+
+      // Préparer les données de mise à jour
+      const updateData: any = {
+        last_modified_by: user_id,
+        updated_at: DateTime.now()
+      }
+
+      // Traitement selon le type d'opération
+      switch (operation) {
+        case 'set_clean_status':
+          updateData.housekeeping_status = 'clean'
+          updateData.status = 'available'
+          break
+
+        case 'assign_housekeeper':
+          updateData.assigned_housekeeper_id = housekeeper_id
+          break
+      }
+
+      // Effectuer la mise à jour en lot
+      const updatedCount = await Room.query()
+        .whereIn('id', room_ids)
+        .update(updateData)
+
+      // Log de l'activité pour audit
+      console.log(`Bulk update: ${operation} applied to ${updatedCount} rooms by user ${user_id}`, {
+        room_ids,
+        operation,
+        updateData,
+        timestamp: new Date().toISOString()
+      })
+
+      return response.ok({
+        message: `Successfully updated ${updatedCount} rooms`,
+        updated_count: updatedCount,
+        operation: operation,
+        affected_rooms: room_ids
+      })
+
+    } catch (error) {
+      console.error('Error in bulk update:', error)
+
+      return response.internalServerError({
+        message: 'Error updating rooms. Please try again later.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      })
+    }
+  }
+
+
+  /**
+   * Update room status - WITH BUSINESS LOGIC
+   */
+  async updateStatus({ params, request, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const { status } = request.only(['status'])
+
+      room.status = status
+
+      // Apply business logic for housekeeping status
+      room.housekeepingStatus = this.getHousekeepingStatusFromRoomStatus(status, room.housekeepingStatus)
+
+      await room.save()
+
+      return response.ok({
+        message: 'Room status updated successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update room status',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update housekeeping status - WITH RESTRICTIONS
+   */
+  async updateHousekeepingStatus({ params, request, response }: HttpContext) {
+    try {
+      const room = await Room.findOrFail(params.id)
+      const { housekeepingStatus, housekeeperId } = request.only(['housekeepingStatus', 'housekeeperId'])
+
+      // Business logic: Only allow certain transitions
+      if (!this.canUpdateHousekeepingStatus(room, housekeepingStatus)) {
+        return response.badRequest({
+          message: 'Invalid housekeeping status transition. Can only clean dirty rooms.'
+        })
+      }
+
+      room.housekeepingStatus = housekeepingStatus
+
+      // if (housekeeperId) {
+      //   room.assignedHousekeeperId = housekeeperId
+      // }
+
+      await room.save()
+
+      return response.ok({
+        message: 'Housekeeping status updated successfully',
+        data: room
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update housekeeping status',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * PRIVATE HELPER METHODS - BUSINESS LOGIC
+   */
+
+  /**
+   * Détermine le statut de ménage basé sur le statut de la chambre
+   */
+  private getHousekeepingStatusFromRoomStatus(roomStatus: string, currentHousekeepingStatus: string): string {
+    switch (roomStatus?.toLowerCase()) {
+      case 'occupied':
+        return 'No Status' // Chambre occupée = pas de statut de ménage
+      case 'available':
+        // Si disponible, garde le statut actuel ou met dirty par défaut
+        return currentHousekeepingStatus || 'Dirty'
+      case 'out_of_order':
+      case 'maintenance':
+        return 'Out Of Order'
+      default:
+        return currentHousekeepingStatus || 'No Status'
+    }
+  }
+
+  /**
+   * Vérifie si on peut changer le statut de ménage
+   */
+  private canUpdateHousekeepingStatus(room: any, newStatus: string): boolean {
+    // Ne peut changer que de dirty à clean pour les chambres disponibles
+    if (room.status === 'available' && room.housekeepingStatus === 'dirty' && newStatus === 'clean') {
+      return true
+    }
+
+    // Peut mettre dirty si disponible
+    if (room.status === 'available' && newStatus === 'dirty') {
+      return true
+    }
+
+    return false
+  }
+
+  /**
    * Détermine la section d'une chambre basée sur l'étage et le type
    */
   private getRoomSection(roomTypeName: string): string {
-    if (roomTypeName.toLowerCase().includes('suite')) {
-      return 'Suites'
+    if (!roomTypeName) {
+      return 'Unknown'
     }
     return roomTypeName
   }
 
   /**
-   * Convertit le statut d'occupation de la base vers le frontend
-   */
-  private getOccupancyStatus(dbStatus: string): string {
-    switch (dbStatus?.toLowerCase()) {
-      case 'available':
-        return 'Available'
-      case 'occupied':
-        return 'Occupied'
-      case 'out_of_order':
-        return 'Out Of Order'
-      case 'maintenance':
-        return 'Maintenance'
-      default:
-        return 'Available'
-    }
-  }
-
-  /**
-   * Convertit le statut de ménage de la base vers le frontend
-   */
-  private getHousekeepingStatus(dbStatus: string): string {
-    switch (dbStatus?.toLowerCase()) {
-      case 'clean':
-        return 'Clean'
-      case 'dirty':
-        return 'Dirty'
-      case 'inspected':
-        return 'Inspected'
-      case 'out_of_order':
-        return 'Out Of Order'
-      default:
-        return 'No Status'
-    }
-  }
-
-  /**
    * Génère un tag pour la chambre (initiales du housekeeper ou autre)
    */
-  private getRoomTag(room: Room): string {
-    // Vous pouvez personnaliser cette logique selon vos besoins
+  private getRoomTag(room: any): string {
+    if (room.assignedHousekeeper) {
+      const firstName = room.assignedHousekeeper.firstName || ''
+      const lastName = room.assignedHousekeeper.lastName || ''
+      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+    }
+
     if (room.status === 'out_of_order') {
       return 'OOO'
     }
+
     if (room.housekeepingStatus === 'dirty') {
       return 'CLN'
     }
+
     return ''
   }
 
@@ -812,16 +985,19 @@ export default class RoomsController {
    * Détermine le type de statut pour la couleur
    */
   private getStatusType(housekeepingStatus: string, occupancyStatus: string): 'red' | 'green' | 'gray' | 'yellow' {
+    if (occupancyStatus?.toLowerCase() === 'occupied') {
+      return 'red'
+    }
+
     if (occupancyStatus?.toLowerCase() === 'out_of_order') {
       return 'gray'
     }
 
     switch (housekeepingStatus?.toLowerCase()) {
       case 'clean':
-      case 'inspected':
         return 'green'
       case 'dirty':
-        return 'red'
+        return 'yellow'
       case 'out_of_order':
         return 'gray'
       default:
@@ -829,129 +1005,6 @@ export default class RoomsController {
     }
   }
 
-  /**
-   * BulkUpdate
-   */
 
-  async bulkUpdate({ request, response }: HttpContext) {
-  try {
-    const {
-      room_ids,
-      operation,
-      housekeeping_status,
-      housekeeper_id,
-      user_id
-    } = request.only([
-      'room_ids',
-      'operation',
-      'housekeeping_status',
-      'housekeeper_id',
-      'user_id'
-    ])
-
-    // Validation des données d'entrée
-    if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
-      return response.badRequest({
-        message: 'Room IDs are required and must be an array'
-      })
-    }
-
-    if (!operation) {
-      return response.badRequest({
-        message: 'Operation is required'
-      })
-    }
-
-    // Préparer les données de mise à jour
-    const updateData: any = {
-      last_modified_by: user_id,
-      updated_at: DateTime.now()
-    }
-
-    // Traitement selon le type d'opération
-    switch (operation) {
-      case 'set_status':
-        if (!housekeeping_status) {
-          return response.badRequest({
-            message: 'Housekeeping status is required for set_status operation'
-          })
-        }
-        updateData.housekeeping_status = housekeeping_status
-        break
-
-      case 'assign_housekeeper':
-        if (!housekeeper_id) {
-          return response.badRequest({
-            message: 'Housekeeper ID is required for assign_housekeeper operation'
-          })
-        }
-        // Assumant qu'il y a un champ pour le housekeeper assigné
-        updateData.assigned_housekeeper_id = housekeeper_id
-        // Ou utilisez un autre champ comme 'tag' si c'est votre structure
-        // updateData.tag = housekeeper_id
-        break
-
-      case 'clear_status':
-        updateData.housekeeping_status = 'No Status'
-        break
-
-      case 'unassign_housekeeper':
-        updateData.assigned_housekeeper_id = null
-        // Ou updateData.tag = '' si vous utilisez le champ tag
-        break
-
-      default:
-        return response.badRequest({
-          message: 'Invalid operation. Supported operations: set_status, assign_housekeeper, clear_status, unassign_housekeeper'
-        })
-    }
-
-    // Vérifier que les chambres existent
-    const existingRooms = await Room.query()
-      .whereIn('id', room_ids)
-      .select('id')
-
-    if (existingRooms.length !== room_ids.length) {
-      return response.badRequest({
-        message: 'Some room IDs do not exist'
-      })
-    }
-
-    // Effectuer la mise à jour en lot
-    const updatedCount = await Room.query()
-      .whereIn('id', room_ids)
-      .update(updateData)
-
-    // Log de l'activité pour audit
-    console.log(`Bulk update: ${operation} applied to ${updatedCount} rooms by user ${user_id}`, {
-      room_ids,
-      operation,
-      updateData,
-      timestamp: new Date().toISOString()
-    })
-
-    return response.ok({
-      message: `Successfully updated ${updatedCount} rooms`,
-      updated_count: updatedCount,
-      operation: operation,
-      affected_rooms: room_ids
-    })
-
-  } catch (error) {
-    console.error('Error in bulk update:', error)
-
-    // Log détaillé de l'erreur
-    console.error('Bulk update error details:', {
-      error: error.message,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    })
-
-    return response.internalServerError({
-      message: 'Error updating rooms. Please try again later.',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    })
-  }
-}
 
 }

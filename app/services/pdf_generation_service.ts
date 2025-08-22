@@ -405,8 +405,8 @@ export default class PdfGenerationService {
                         <td>${transaction.transactionDate}</td>
                         <td>${transaction.reference || ''}</td>
                         <td class="font-bold">${transaction.description}</td>
-                        <td class="text-right">${transaction.amount > 0 ? transaction.amount.toLocaleString() : ''}</td>
-                        <td class="text-right">${transaction.amount < 0 ? Math.abs(transaction.amount).toLocaleString() : ''}</td>
+                        <td class="text-right">${transaction.amount > 0 ? transaction.amount.toLocaleString() : '0'}</td>
+                        <td class="text-right">${transaction.amount < 0 ? Math.abs(transaction.amount).toLocaleString() : '0'}</td>
                         <td class="text-right">${transaction.runningBalance?.toLocaleString() || ''}</td>
                     </tr>
                     `).join('')}
@@ -850,7 +850,505 @@ export default class PdfGenerationService {
 </html>
     `
   }
+/**
+ * Generate PDF using the Suita Hotel template
+ */
+static async generateSuitaHotelPdf(
+  folioPrintData: FolioPrintData,
+  options: PdfOptions = {}
+): Promise<Buffer> {
+  try {
+    // Default PDF options
+    const defaultOptions = {
+      format: 'A4',
+      orientation: 'portrait',
+      margin: {
+        top: '10mm',
+        right: '10mm',
+        bottom: '10mm',
+        left: '10mm'
+      },
+      displayHeaderFooter: false,
+      printBackground: true,
+      ...options
+    }
 
+    // Generate HTML content
+    const htmlContent = this.generateHotelHtmlTemplate(folioPrintData)
+
+    // PDF generation options for html-pdf-node
+    const pdfOptions = {
+      format: defaultOptions.format,
+      orientation: defaultOptions.orientation,
+      border: {
+        top: defaultOptions.margin.top,
+        right: defaultOptions.margin.right,
+        bottom: defaultOptions.margin.bottom,
+        left: defaultOptions.margin.left
+      },
+      type: 'pdf',
+      quality: '75',
+      renderDelay: 500,
+      zoomFactor: 1
+    }
+
+    const file = { content: htmlContent }
+    const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+    
+    return pdfBuffer
+  } catch (error) {
+    throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
+  }
+}
+
+/**
+ * Generate HTML template for Suita Hotel
+ */
+    private static generateHotelHtmlTemplate(data: FolioPrintData): string {
+    const {
+        hotel,
+        reservation,
+        folio,
+        transactions,
+        totals,
+        currency,
+    } = data
+
+    // Convert amount to words
+    const amountInWords = this.numberToWords(totals.grandTotal)
+
+    return `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tax Invoice - ${hotel.name}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: serif;
+                font-size: 14px;
+                background-color: #f5f5f5;
+                padding: 20px;
+            }
+
+            .invoice-container {
+                max-width: 800px;
+                margin: 0 auto;
+                background-color: white;
+                border: 2px solid black;
+            }
+
+            .header {
+                text-align: center;
+                padding: 16px;
+                border-bottom: 2px solid black;
+            }
+
+            .header-content {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+            }
+
+            .header-left {
+                flex: 1;
+            }
+
+            .header-center {
+                flex: 2;
+            }
+
+            .header-right {
+                flex: 1;
+                text-align: right;
+                font-size: 12px;
+            }
+
+            .hotel-name {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 8px;
+            }
+
+            .hotel-info {
+                font-size: 12px;
+                line-height: 1.4;
+            }
+
+            .tax-invoice-title {
+                text-align: center;
+                padding: 16px 0;
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            .invoice-details {
+                padding: 8px;
+                border-bottom: 2px solid black;
+            }
+
+            .invoice-details-table {
+                width: 100%;
+                font-size: 11px;
+            }
+
+            .invoice-details-table td {
+                padding: 4px;
+                vertical-align: top;
+            }
+
+            .label {
+                font-weight: 600;
+            }
+
+            .guest-details-table, .stay-details-table, .charges-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 11px;
+            }
+
+            .guest-details-table {
+                border-bottom: 2px solid black;
+            }
+
+            .guest-details-table th, .guest-details-table td {
+                border-right: 2px solid black;
+                padding: 8px;
+                text-align: left;
+            }
+
+            .guest-details-table th:last-child, .guest-details-table td:last-child {
+                border-right: none;
+            }
+
+            .guest-details-table th {
+                border-bottom: 2px solid black;
+                font-weight: 600;
+            }
+
+            .stay-details-table {
+                border-bottom: 2px solid black;
+            }
+
+            .stay-details-table th, .stay-details-table td {
+                border-right: 2px solid black;
+                padding: 8px;
+            }
+
+            .stay-details-table td:last-child, .stay-details-table th:last-child {
+                border-right: none;
+            }
+
+            .stay-details-table tr {
+                border-bottom: 2px solid black;
+            }
+
+            .charges-table {
+                border-bottom: 2px solid black;
+            }
+
+            .charges-table th, .charges-table td {
+                padding: 8px;
+            }
+
+            .charges-table th {
+                border-right: 2px solid black;
+                border-bottom: 2px solid black;
+                font-weight: 600;
+            }
+
+            .charges-table th:last-child {
+                border-right: none;
+            }
+
+            .charges-table .text-right {
+                text-align: right;
+            }
+
+            .totals-section {
+                padding: 8px;
+                border-bottom: 2px solid black;
+                text-align: center;
+                font-size: 11px;
+            }
+
+            .totals-section .label {
+                font-weight: 600;
+            }
+
+            .bill-to-section {
+                padding: 8px;
+                font-size: 11px;
+            }
+
+            .guest-signature {
+                text-align: right;
+                margin-top: 16px;
+            }
+
+            .remark-section {
+                padding: 8px;
+                font-size: 11px;
+            }
+
+            .footer {
+                text-align: center;
+                padding: 16px;
+                font-size: 11px;
+            }
+
+            .folio-notice {
+                text-align: left;
+                font-size: 11px;
+                padding: 8px 16px;
+                line-height: 1.2;
+            }
+
+            .verification-info {
+                padding: 4px 16px;
+                font-size: 11px;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+            }
+
+            /* Responsive styles */
+            @media (max-width: 768px) {
+                body {
+                    padding: 10px;
+                }
+
+                .hotel-name {
+                    font-size: 16px;
+                }
+
+                .header-content {
+                    flex-direction: column;
+                    text-align: center;
+                }
+
+                .header-right {
+                    text-align: center;
+                    margin-bottom: 16px;
+                }
+
+                .invoice-details-table {
+                    font-size: 10px;
+                }
+
+                .invoice-details-table td {
+                    display: block;
+                    width: 100%;
+                    margin-bottom: 8px;
+                }
+
+                .guest-details-table, .stay-details-table, .charges-table {
+                    font-size: 10px;
+                }
+
+                .verification-info {
+                    grid-template-columns: 1fr;
+                    gap: 8px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="invoice-container">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-content">
+                    <div class="header-left"></div>
+                    <div class="header-center">
+                        <h1 class="hotel-name">${hotel.name}</h1>
+                        <div class="hotel-info">
+                            <p>${hotel.address}</p>
+                            <p>Phone: ${hotel.phone}, Email: ${hotel.email}</p>
+                            <p>URL: ${hotel.website || 'N/A'}</p>
+                        </div>
+                        <div class="tax-invoice-title">Tax Invoice</div>
+                    </div>
+                    <div class="header-right">
+                        <p>Mon#${hotel.registrationNumber || 'N/A'}</p>
+                        <p>Rc ${hotel.rcNumber || 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Details -->
+            <div class="invoice-details">
+                <table class="invoice-details-table">
+                    <tr>
+                        <td style="width: 33%;">
+                            <div><span class="label">Folio No./Rcv No.</span> <span style="margin-left: 32px;">${folio.folioNumber} / ${folio.folioNumber || 'N/A'}</span></div>
+                            <div><span class="label">Guest Name</span> <span style="margin-left: 32px;">${reservation.guest?.displayName || 'N/A'}</span></div>
+                            <div><span class="label">Company Name</span> <span style="margin-left: 24px;">${reservation.guest?.companyName || 'N/A'}</span></div>
+                        </td>
+                        <td style="width: 33%; text-align: center;">
+                            <div><span class="label">Invoice No.</span> <span style="margin-left: 8px;">${folio.folioNumber || 'N/A'}</span></div>
+                        </td>
+                        <td style="width: 33%; text-align: right;">
+                            <div><span class="label">Date:</span> <span style="margin-left: 8px;">${new Date().toLocaleString('en-GB')}</span></div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Guest Details Table -->
+            <table class="guest-details-table">
+                <thead>
+                    <tr>
+                        <th>Nationality</th>
+                        <th>No of Pax</th>
+                        <th>Adult Child</th>
+                        <th>G.R. Card No</th>
+                        <th>Room No</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${reservation.guest?.nationality || ''}</td>
+                        <td>${reservation.adults + reservation.children || 1}</td>
+                        <td>${reservation.adults || 1}Adult & ${reservation.children || 0}Child</td>
+                        <td>${reservation.guest?.guestCode || 'N/A'}</td>
+                        <td>${reservation.rooms?.map(r => r.roomNumber).join(', ') || 'N/A'}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Stay Details Table -->
+            <table class="stay-details-table">
+                <tr>
+                    <th>Date of Arrival</th>
+                    <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
+                    <th>Date of Departure</th>
+                    <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td>
+                </tr>
+                <tr>
+                    <th>Time Of Arrival</th>
+                    <td>${this.formatTimeShort(reservation.checkInDate)}</td>
+                    <th>Time of Departure</th>
+                    <td>${this.formatTimeShort(reservation.checkOutDate)}</td>
+                </tr>
+                <tr>
+                    <th>Tariff</th>
+                    <td>${totals.roomCharges?.toLocaleString() || '0'}</td>
+                    <th>Rate Type</th>
+                    <td>${reservation.rateType || 'N/A'}</td>
+                </tr>
+            </table>
+
+            <!-- Charges Table -->
+            <table class="charges-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Ref No.</th>
+                        <th>Particular</th>
+                        <th class="text-right">Charges</th>
+                        <th class="text-right">Payment</th>
+                        <th class="text-right">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${transactions?.map((transaction, index) => `
+                    <tr>
+                        <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
+                        <td>${transaction.transactionNumber || ''}</td>
+                        <td><strong>${transaction.description}</strong></td>
+<td class="text-right">${(transaction.amount || 0) > 0 ? this.formatAmount(transaction.amount) : '0'}</td>
+<td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
+                        <td class="text-right">${this.formatAmount(transaction.netAmount)}</td>
+                    </tr>
+                    `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
+                </tbody>
+            </table>
+
+            <!-- Totals Section -->
+            <div class="totals-section">
+                <div style="margin-bottom: 4px;">
+                    <span class="label">Grand Total</span>
+                    <span style="margin-left: 32px;">${totals.grandTotal?.toLocaleString() || '0'}</span>
+                    <span style="margin-left: 32px;">-${totals.totalPaid?.toLocaleString() || '0'}</span>
+                </div>
+                <div>
+                    <span class="label">Tax</span>
+                    <span style="margin-left: 64px;">${totals.totalTax?.toLocaleString() || '0'}</span>
+                </div>
+            </div>
+
+            <!-- Amount in words section -->
+            <div class="p-0 overflow-x-auto">
+                <table class="w-full text-xxs md:text-xs border-black border-collapse">
+                    <tr>
+                        <td class="border-r-2 border-b-2 border-black font-semibold w-1/3 align-top p-1 md:p-2">
+                            This Folio is in ${currency.code}
+                        </td>
+                        <td class="border-r-2 border-b-2 border-black w-1/3 align-top p-1 md:p-2">
+                            ${amountInWords}
+                        </td>
+                        <td class="border-b-2 border-black w-1/3 align-top p-1 md:p-2 font-semibold">Total Paid</td>
+                        <td class="border-b-2 border-black w-1/6 align-top p-1 md:p-2 text-right">${totals.totalPaid.toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td class="border-black p-1 md:p-2"></td>
+                        <td class="border-r-2 border-black p-1 md:p-2"></td>
+                        <td class="border-b-2 border-black font-semibold p-1 md:p-2">Balance</td>
+                        <td class="border-b-2 border-black p-1 md:p-2 text-right">${totals.balance.toLocaleString()}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Bill To Section -->
+            <div class="bill-to-section">
+                <div style="margin-bottom: 8px;">
+                    <span class="label">Bill To</span>
+                    <span style="margin-left: 48px;">${reservation.guest?.displayName || 'N/A'}</span>
+                </div>
+                <div>
+                    <span class="label">Address</span>
+                    <span style="margin-left: 40px;">${reservation.guest?.address || reservation.guest?.country || 'N/A'}</span>
+                </div>
+                <div class="guest-signature">
+                    <span>( Guest Signature )</span>
+                </div>
+            </div>
+
+            <!-- Remark Section -->
+            <div class="remark-section">
+                <span class="label">Remark</span>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>Thank you for your stay with us. Please visit us again.</p>
+            </div>
+
+            <!-- Folio Notice -->
+            <div class="folio-notice">
+                <p>Folio NOTICE</p>
+                <p>Folio NOTICE</p>
+            </div>
+
+            <!-- Verification Info -->
+            <div class="verification-info">
+                <div><span class="label">Reserved By:</span> ${reservation.reservedBy || 'N/A'}</div>
+                <div><span class="label">Checked In By:</span> ${reservation.checkedInBy || 'N/A'}</div>
+                <div><span class="label">Checked Out By:</span> ${reservation.checkedOutBy || 'N/A'}</div>
+            </div>
+        </div>
+    </body>
+    </html>
+        `
+    }
   /**
    * Convert number to words (simplified implementation)
    */
@@ -924,4 +1422,23 @@ export default class PdfGenerationService {
       maximumFractionDigits: 2
     })
   }
+  /** 
+   * Format time to HH'h'mm
+   */
+    private static formatTimeShort(dateValue: any): string {
+    if (!dateValue) return 'N/A';
+    
+    try {
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return 'N/A';
+        
+        return date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+        }).replace(':', 'h'); // Optionnel: remplace ":" par "h" (14h30 au lieu de 14:30)
+    } catch (error) {
+        return 'N/A';
+    }
+}
 }
