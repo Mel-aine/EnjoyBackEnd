@@ -383,7 +383,7 @@ export default class RoomsController {
   /**
    * Get rooms with details including reservations
    */
-  public async getRoomsWithDetails({ params, response }: HttpContext) {
+ public async getRoomsWithDetails({ params, response }: HttpContext) {
   const { hotelId } = params
 
   try {
@@ -393,7 +393,8 @@ export default class RoomsController {
       .preload('reservationRooms', (query) => {
         query.preload('reservation', (reservationQuery) => {
           reservationQuery
-            .select(['id', 'status', 'departDate', 'guestId'])
+            // 1. AJOUT: Inclure 'checkinDate' dans la sélection
+            .select(['id', 'status', 'departDate', 'guestId', 'checkInDate'])
             .preload('guest', (guestQuery) => {
               guestQuery.select(['id', 'firstName', 'lastName'])
             })
@@ -403,13 +404,11 @@ export default class RoomsController {
     const detailedRooms = rooms.map((room) => {
       const reservations = room.reservationRooms
 
-
       const reservationData = reservations.map((rr) => ({
         reservation: rr.reservation,
         guest: rr.reservation?.guest ?? null,
         status: rr.reservation?.status ?? null,
       }))
-
 
       const checkedInReservation = reservationData.find(
         (r) =>
@@ -421,19 +420,24 @@ export default class RoomsController {
         ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() || null
         : null
 
+      const checkInTime = checkedInReservation?.reservation?.checkInDate
+        ? (typeof checkedInReservation.reservation.checkInDate === 'string'
+            ? checkedInReservation.reservation.checkInDate
+            : checkedInReservation.reservation.checkInDate.toString())
+        : null
 
-     const reservationsWithDepart = reservationData
-      .filter((r) => r.reservation?.departDate != null)
-      .sort((a, b) => {
-        const dateA = DateTime.fromISO(
-          a.reservation?.departDate?.toString() || ''
-        )
-        const dateB = DateTime.fromISO(
-          b.reservation?.departDate?.toString() || ''
-        )
-        return dateB.toMillis() - dateA.toMillis()
-      })
-
+      const reservationsWithDepart = reservationData
+        .filter((r) => r.reservation?.departDate != null)
+        .sort((a, b) => {
+          const dateA = DateTime.fromISO(
+            a.reservation?.departDate?.toString() || ''
+          )
+          const dateB = DateTime.fromISO(
+            b.reservation?.departDate?.toString() || ''
+          )
+          // Tri descendant pour avoir la date de départ la plus récente en premier
+          return dateB.toMillis() - dateA.toMillis()
+        })
 
       const latestDeparture = reservationsWithDepart[0]
 
@@ -452,6 +456,8 @@ export default class RoomsController {
         guestName,
         nextAvailable,
         checkOutTime,
+
+        checkInTime,
         status: room.status || 'available',
       }
     })
