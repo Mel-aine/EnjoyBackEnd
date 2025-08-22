@@ -42,6 +42,7 @@ import PayoutReasonsController from '#controllers/payout_reasons_controller'
 import ExtraChargesController from '#controllers/extra_charges_controller'
 import TaxRatesController from '#controllers/tax_rates_controller'
 import LostFoundController from '#controllers/lost_found_controller'
+import RoomBlocksController from '#controllers/room_blocks_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -105,6 +106,7 @@ const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
 const lostFoundController = new LostFoundController()
 const reservationsController = new ReservationsController()
+const roomBlocksController = new RoomBlocksController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -863,6 +865,8 @@ router
         router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
+        router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
+
       })
       .prefix('reservation')
 
@@ -966,6 +970,7 @@ router
 
             // Reason operations
             router.get('/category/:category', reasonsController.getByCategory.bind(reasonsController)) // Get reasons by category
+            router.get('/:hotelId/:category', reasonsController.getReasonsByHotelAndCategory.bind(reasonsController)) // Get reasons by category
             router.get('/categories/list', reasonsController.getCategories.bind(reasonsController)) // Get all available categories
             router.get('/status/:status', reasonsController.getByStatus.bind(reasonsController)) // Get reasons by status
           })
@@ -1172,6 +1177,18 @@ router
         router.get('/:hotelId', [PaymentMethodsController, 'active'])
       })
       .prefix('/payment_method')
+
+      // Room Blocks Routes
+    router
+      .group(() => {
+        // Basic CRUD operations for room blocks
+        router.get('/', roomBlocksController.index.bind(roomBlocksController)) // Get all room blocks with filtering
+        router.get('/:hotelId', roomBlocksController.getByHotelId.bind(roomBlocksController)) // Get all room blocks with filtering
+        router.post('/', roomBlocksController.store.bind(roomBlocksController)) // Create a new room block
+        router.put('/:id', roomBlocksController.update.bind(roomBlocksController)) // Update room block information
+        router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
+      })
+      .prefix('room-blocks')
 
   })
   .prefix('/api')

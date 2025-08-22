@@ -10,7 +10,7 @@ export default class ReasonsController {
   async index({ request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
-      const limit = request.input('limit', 10)
+      const limit = request.input('limit', 100)
       const hotelId = request.input('hotel_id')
       const category = request.input('category')
       const search = request.input('search')
@@ -156,6 +156,35 @@ export default class ReasonsController {
       return response.ok(reasons)
     } catch (error) {
       return response.badRequest({ message: 'Failed to fetch reasons by category', error: error.message })
+    }
+  }
+
+  /**
+   * Get all reasons by hotel and category
+   */
+   public async getReasonsByHotelAndCategory({ params, response }: HttpContext) {
+    try {
+       const hotelId = params.hotelId
+        const category = decodeURIComponent(params.category);
+
+      console.log('hotelId:', hotelId, 'category:', category)
+
+      if (!hotelId || !category) {
+        return response.badRequest({
+          message: 'hotelId et category sont requis',
+        })
+      }
+
+      const reasons = await Reason.query()
+        .where('hotel_id', hotelId)
+        .andWhere('category', category)
+        .andWhere('is_deleted', false)
+        .orderBy('reason_name', 'asc')
+
+      return response.ok(reasons)
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({ message: 'Failed to fetch reasons by category' })
     }
   }
 

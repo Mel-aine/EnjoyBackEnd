@@ -217,7 +217,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     try {
       // Validate input parameters
-      if (!params.id) {
+      if (!params.reservationId) {
         await trx.rollback()
         return response.badRequest({
           success: false,
@@ -237,7 +237,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Fetch reservation with transaction
       const reservation = await Reservation.query({ client: trx })
-        .where('id', params.id)
+        .where('id', params.reservationId)
         .preload('folios', (folioQuery) => {
           folioQuery.preload('transactions')
         })
@@ -274,7 +274,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Fetch reservation rooms with transaction
       const reservationRoomRecords = await ReservationRoom.query({ client: trx })
         .whereIn('id', reservationRooms)
-        .where('reservationId', params.id)
+        .where('reservationId', params.reservationId)
         .preload('room')
 
       if (reservationRoomRecords.length === 0) {
@@ -309,8 +309,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const reservationRoom of reservationRoomRecords) {
         // Update reservation room status
         reservationRoom.status = 'checked_out'
-        reservationRoom.actualCheckOutTime = checkOutDateTime
-        reservationRoom.checkedOutBy = auth.user!.id
+        //reservationRoom.actualCheckOutTime = checkOutDateTime
+        //reservationRoom.checkedOutBy = auth.user!.id
 
         if (notes) {
           reservationRoom.guestNotes = notes
@@ -322,6 +322,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Update associated room status to dirty
         if (reservationRoom.room) {
           reservationRoom.room.status = 'dirty'
+          reservationRoom.room.housekeepingStatus = 'dirty'
           await reservationRoom.room.useTransaction(trx).save()
           updatedRooms.push(reservationRoom.room.id)
         }
@@ -329,7 +330,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Check if all reservation rooms are checked out
       const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
-        .where('reservationId', params.id)
+        .where('reservationId', params.reservationId)
         .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
 
       const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
@@ -338,7 +339,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (allRoomsCheckedOut) {
         reservation.checkOutDate = checkOutDateTime
         reservation.status = ReservationStatus.CHECKED_OUT
-        reservation.checkedOutBy = auth.user!.id
+        //reservation.checkedOutBy = auth.user!.id
         await reservation.useTransaction(trx).save()
       }
 
@@ -372,10 +373,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             id: room.id,
             roomId: room.roomId,
             status: room.status,
-            actualCheckOutTime: room.actualCheckOutTime,
-            checkedOutBy: room.checkedOutBy,
-            finalBillAmount: room.finalBillAmount,
-            depositRefund: room.depositRefund
+           // actualCheckOutTime: room.actualCheckOutTime,
+            //checkedOutBy: room.checkedOutBy,
+            //finalBillAmount: room.finalBillAmount,
+            //depositRefund: room.depositRefund
           })),
           updatedRooms,
           balanceSummary
@@ -384,7 +385,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     } catch (error) {
       await trx.rollback()
       logger.error('Error during reservation check-out:', {
-        reservationId: params.id,
+        reservationId: params.reservationId,
         reservationRooms,
         error: error.message,
         stack: error.stack
@@ -576,7 +577,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         route: `/reservations/${reservation.id}/check-in`
       })
     }
-
+// Checkout : Available during stay (checked-in status)
+    if (['checked-in', 'checked_in'].includes(status)) {
+      actions.push({
+        action: 'room_move',
+        label: 'Room Move',
+        description: 'Move guest to a different room',
+        available: true,
+        route: `/reservations/${reservation.id}/room-move`
+      })
+    }
     // Add Payment: Available for all active reservations
     if (!['cancelled', 'no-show', 'voided'].includes(status)) {
       actions.push({
@@ -1035,7 +1045,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 5. Close all related folios and mark transactions as cancelled
       let foliosClosed = 0
       let transactionsCancelled = 0
-      
+
       if (reservation.folios && reservation.folios.length > 0) {
         for (const folio of reservation.folios) {
           // Only close open folios
@@ -1405,6 +1415,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           checkOutDate: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.depart_time}`) : departDate,
           status: data.status || ReservationStatus.PENDING,
           guestCount: totalAdults + totalChildren,
+          adults:totalAdults,
+          children:totalChildren,
           totalAmount: parseFloat(`${data.total_amount ?? 0}`),
           taxAmount: parseFloat(`${data.tax_amount ?? 0}`),
           finalAmount: parseFloat(`${data.final_amount ?? 0}`),
@@ -1420,7 +1432,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           taxExempt:data.tax_exempt,
           reservedBy: auth.user?.id,
           createdBy: auth.user?.id,
-          
+
         }, { client: trx })
 
         // Vérifier que la réservation a bien été créée avec un ID
@@ -2839,7 +2851,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Balance the folio - ensure zero balance after voiding and fees
         await folio.useTransaction(trx).refresh()
         const currentBalance = folio.balance
-        
+
         if (Math.abs(currentBalance) > 0.01) {
           // Create balancing adjustment
           const adjustmentAmount = -currentBalance
@@ -2965,7 +2977,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
              // voidReason: `Reservation voided: ${reason}`,
               lastModifiedBy: auth.user?.id
             }).save()
-            
+
             // Void all transactions in the folio
             await FolioTransaction.query({ client: trx })
               .where('folioId', folio.id)
@@ -2977,7 +2989,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 lastModifiedBy: auth.user?.id,
                 updatedAt: DateTime.now()
               })
-            
+
             foliosVoided++
           }
         }
@@ -3209,24 +3221,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Build room charges breakdown - one row per folio transaction
       const roomChargesTable = []
-      
+
       for (const reservationRoom of reservation.reservationRooms) {
         const stayDuration = reservationRoom.nights || 1
         const totalAdults = reservationRoom.adults || 0
         const totalChildren = reservationRoom.children || 0
-        
+
         // Get room charge transactions for this specific room
-        const roomTransactions = roomChargeTransactions.filter(transaction => 
+        const roomTransactions = roomChargeTransactions.filter(transaction =>
           transaction.roomNumber === reservationRoom.room?.roomNumber ||
           transaction.description?.includes(reservationRoom.room?.roomNumber || '')
         )
-        
+
         // Create a row for each folio transaction
         if (roomTransactions.length > 0) {
           roomTransactions.forEach(transaction => {
             const adjustmentAmount = 0 // Adjustments are typically separate transactions
-            const netAmount = parseFloat(`${transaction.amount??0}`) -parseFloat(`${transaction.discountAmount??0}`) + 
-            parseFloat(`${transaction.taxAmount??0}`) + parseFloat(`${transaction.serviceChargeAmount??0}`)            
+            const netAmount = parseFloat(`${transaction.amount??0}`) -parseFloat(`${transaction.discountAmount??0}`) +
+            parseFloat(`${transaction.taxAmount??0}`) + parseFloat(`${transaction.serviceChargeAmount??0}`)
             roomChargesTable.push({
               transactionId: transaction.id,
               transactionNumber: transaction.transactionNumber,
@@ -3268,7 +3280,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             (reservationRoom.otherCharges || 0)
           )
           const netAmount = roomCharges - discountAmount + taxAmount + serviceChargeAmount + adjustments
-          
+
           roomChargesTable.push({
             transactionId: null,
             transactionNumber: 'N/A',
