@@ -22,6 +22,8 @@ export interface FolioPrintData {
     email: string
     website: string
     logo?: string
+    rcNumber?: string
+    registrationNumber?: string
   }
   reservation: {
     id: number
@@ -41,7 +43,7 @@ export interface FolioPrintData {
     roomCharge:number
     actualArrivalDatetime?: DateTime
   }
-  folio?: {
+  folio: {
     id: number
     folioNumber: string
     folioName: string
@@ -51,7 +53,7 @@ export interface FolioPrintData {
     currencyCode: string
     exchangeRate: number
   }
-  transactions?: Array<{
+  transactions: Array<{
     id: number
     transactionNumber: string
     date: DateTime
@@ -413,6 +415,167 @@ export class FolioPrintService {
       printInfo
     }
   }
+
+  /**
+ * Generate folio print data for Suita Hotel template
+ * This method only requires reservationId as it focuses on booking confirmation
+ */
+  public async generateHotelFolioPrintData(
+    reservationId: number
+  ): Promise<Omit<FolioPrintData, 'folio' | 'transactions'>> {
+    try {
+      // Load reservation with necessary relationships
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('hotel')
+        .preload('guest')
+        .preload('roomType')
+        .preload('reservationRooms', (roomQuery) => {
+          roomQuery
+            .preload('room', (roomSubQuery) => {
+              roomSubQuery.preload('taxRates')
+            }).preload('roomType')
+        })
+        // .preload('checkedInByUser')
+        // .preload('checkedOutByUser')
+        // .preload('reservedByUser')
+        .firstOrFail()
+
+            // Charger le folio associé à cette réservation
+      const folio = await Folio.query()
+          .where('reservationId', reservationId)
+          .preload('transactions', (transactionQuery) => {
+            transactionQuery
+              .where('isVoided', false)
+              .orderBy('transactionDate', 'asc')
+              .orderBy('createdAt', 'asc')
+          })
+          .first()
+        
+        if (!folio) {
+          throw new Error('No folio found for this reservation')
+        }
+        
+
+      if (!reservation.hotel) {
+        throw new Error('Hotel not found for this reservation')
+      }
+
+      // Collect tax rates from rooms
+      const taxRates = this.collectTaxRatesFromRooms(reservation)
+
+      // Calculate estimated totals for booking
+      const totals = this.calculateBookingTotals(reservation, taxRates)
+
+      // Prepare hotel information
+      const hotel = {
+        id: reservation.hotel.id,
+        name: reservation.hotel.hotelName,
+        address: reservation.hotel.address || '',
+        city: reservation.hotel.city || '',
+        state: reservation.hotel.stateProvince || '',
+        country: reservation.hotel.country || '',
+        postalCode: reservation.hotel.postalCode || '',
+        phone: reservation.hotel.phoneNumber || '',
+        email: reservation.hotel.email || '',
+        website: reservation.hotel.website || '',
+        logo: reservation.hotel.logoUrl || undefined,
+        registrationNumber: reservation.hotel.registrationNo1,
+        rcNumber: reservation.hotel.registrationNo2
+      }
+      const transactions = folio.transactions.map(transaction => ({
+        id: transaction.id,
+        transactionNumber: transaction.transactionNumber,
+        date: transaction.transactionDate,
+        description: transaction.description,
+        category: transaction.category,
+        amount: transaction.amount,
+        taxAmount: transaction.taxAmount || 0,
+        serviceChargeAmount: transaction.serviceChargeAmount || 0,
+        discountAmount: transaction.discountAmount || 0,
+        netAmount: transaction.netAmount || transaction.amount,
+        status: transaction.status
+      }))
+      // Prepare reservation information
+      const reservationData = {
+        guest: reservation.guest,
+        id: reservation.id,
+        confirmationCode: reservation.confirmationCode,
+        guestName: reservation.guest ? 
+          `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim() : 
+          'Guest',
+        checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
+        checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
+        numberOfNights: reservation.numberOfNights || 1,
+        roomType: reservation.roomType?.roomTypeName || 'Standard Room',
+        adults: reservation.adults || 1,
+        children: reservation.children || 0,
+        status: reservation.status || 'Confirmed',
+        checkedInBy: reservation.checkedInByUser ? 
+          `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : undefined,
+        checkedOutBy: reservation.checkedOutByUser ? 
+          `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : undefined,
+        reservedBy: reservation.reservedByUser ? 
+          `${reservation.reservedByUser.firstName} ${reservation.reservedByUser.lastName}` : undefined,
+        roomCharge: reservation.roomRate || 0,
+        actualArrivalDatetime: reservation.actualArrivalDatetime
+      }
+
+          // Prepare folio information
+      const folioData = {
+        id: folio.id,
+        folioNumber: folio.folioNumber,
+        folioName: folio.folioName,
+        status: folio.status,
+        openedDate: folio.openedDate,
+        closedDate: folio.closedDate || undefined,
+        currencyCode: folio.currencyCode,
+        exchangeRate: folio.exchangeRate || 1
+      }
+
+      // Prepare billing address from guest
+      const billingAddress = {
+        name: reservation.guest ? 
+          `${reservation.guest.firstName} ${reservation.guest.lastName}` : undefined,
+        address: reservation.guest?.address || undefined,
+        city: reservation.guest?.city || undefined,
+        state: reservation.guest?.stateProvince || undefined,
+        country: reservation.guest?.country || undefined,
+        postalCode: reservation.guest?.postalCode || undefined,
+        phone: reservation.guest?.phonePrimary || undefined,
+        email: reservation.guest?.email || undefined,
+        taxId: reservation.guest?.taxId || undefined
+      }
+
+      // Prepare currency information
+      const currency = {
+        code: reservation.hotel.currencyCode || 'XAF',
+        symbol: reservation.hotel.currencySymbol || 'FCFA',
+        name: reservation.hotel.currencyName || 'Central African CFA Franc'
+      }
+
+      // Prepare print information
+      const printInfo = {
+        printedDate: DateTime.now(),
+        printedBy: 'System',
+        printCount: 1
+      }
+
+      return {
+        hotel,
+        reservation: reservationData,
+        folio: folioData,
+        transactions,
+        totals,
+        taxRates,
+        billingAddress,
+        currency,
+        printInfo
+      }
+    } catch (error) {
+      throw new Error(`Failed to generate Suita Hotel print data: ${error.message}`)
+    }
+  }
 /**
  * Calculate estimated totals for booking confirmation
  */
@@ -462,7 +625,7 @@ export class FolioPrintService {
    */
   private collectTaxRatesFromRooms(reservation: Reservation) {
     const taxRatesMap = new Map()
-    
+
     // Collect unique tax rates from all rooms in the reservation
     reservation.reservationRooms?.forEach(reservationRoom => {
       reservationRoom.room?.taxRates?.forEach(taxRate => {  
