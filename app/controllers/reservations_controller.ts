@@ -217,7 +217,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     try {
       // Validate input parameters
-      if (!params.id) {
+      if (!params.reservationId) {
         await trx.rollback()
         return response.badRequest({
           success: false,
@@ -237,7 +237,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Fetch reservation with transaction
       const reservation = await Reservation.query({ client: trx })
-        .where('id', params.id)
+        .where('id', params.reservationId)
         .preload('folios', (folioQuery) => {
           folioQuery.preload('transactions')
         })
@@ -274,7 +274,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Fetch reservation rooms with transaction
       const reservationRoomRecords = await ReservationRoom.query({ client: trx })
         .whereIn('id', reservationRooms)
-        .where('reservationId', params.id)
+        .where('reservationId', params.reservationId)
         .preload('room')
 
       if (reservationRoomRecords.length === 0) {
@@ -309,8 +309,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const reservationRoom of reservationRoomRecords) {
         // Update reservation room status
         reservationRoom.status = 'checked_out'
-        reservationRoom.actualCheckOutTime = checkOutDateTime
-        reservationRoom.checkedOutBy = auth.user!.id
+        //reservationRoom.actualCheckOutTime = checkOutDateTime
+        //reservationRoom.checkedOutBy = auth.user!.id
 
         if (notes) {
           reservationRoom.guestNotes = notes
@@ -329,7 +329,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Check if all reservation rooms are checked out
       const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
-        .where('reservationId', params.id)
+        .where('reservationId', params.reservationId)
         .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
 
       const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
@@ -338,7 +338,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (allRoomsCheckedOut) {
         reservation.checkOutDate = checkOutDateTime
         reservation.status = ReservationStatus.CHECKED_OUT
-        reservation.checkedOutBy = auth.user!.id
+        //reservation.checkedOutBy = auth.user!.id
         await reservation.useTransaction(trx).save()
       }
 
@@ -372,10 +372,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             id: room.id,
             roomId: room.roomId,
             status: room.status,
-            actualCheckOutTime: room.actualCheckOutTime,
-            checkedOutBy: room.checkedOutBy,
-            finalBillAmount: room.finalBillAmount,
-            depositRefund: room.depositRefund
+           // actualCheckOutTime: room.actualCheckOutTime,
+            //checkedOutBy: room.checkedOutBy,
+            //finalBillAmount: room.finalBillAmount,
+            //depositRefund: room.depositRefund
           })),
           updatedRooms,
           balanceSummary
@@ -384,7 +384,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     } catch (error) {
       await trx.rollback()
       logger.error('Error during reservation check-out:', {
-        reservationId: params.id,
+        reservationId: params.reservationId,
         reservationRooms,
         error: error.message,
         stack: error.stack
@@ -576,7 +576,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         route: `/reservations/${reservation.id}/check-in`
       })
     }
-
+// Checkout : Available during stay (checked-in status)
+    if (['checked-in', 'checked_in'].includes(status)) {
+      actions.push({
+        action: 'room_move',
+        label: 'Room Move',
+        description: 'Move guest to a different room',
+        available: true,
+        route: `/reservations/${reservation.id}/room-move`
+      })
+    }
     // Add Payment: Available for all active reservations
     if (!['cancelled', 'no-show', 'voided'].includes(status)) {
       actions.push({
@@ -1405,6 +1414,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           checkOutDate: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.depart_time}`) : departDate,
           status: data.status || ReservationStatus.PENDING,
           guestCount: totalAdults + totalChildren,
+          adults:totalAdults,
+          children:totalChildren,
           totalAmount: parseFloat(`${data.total_amount ?? 0}`),
           taxAmount: parseFloat(`${data.tax_amount ?? 0}`),
           finalAmount: parseFloat(`${data.final_amount ?? 0}`),

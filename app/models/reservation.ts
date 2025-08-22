@@ -21,6 +21,8 @@ export enum ReservationStatus {
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
   VOIDED = 'voided',
+  NOSHOW = 'no_show',
+
 }
 
 export default class Reservation extends BaseModel {
