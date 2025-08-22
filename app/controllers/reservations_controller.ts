@@ -322,6 +322,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Update associated room status to dirty
         if (reservationRoom.room) {
           reservationRoom.room.status = 'dirty'
+          reservationRoom.room.housekeepingStatus = 'dirty'
           await reservationRoom.room.useTransaction(trx).save()
           updatedRooms.push(reservationRoom.room.id)
         }
@@ -1044,7 +1045,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 5. Close all related folios and mark transactions as cancelled
       let foliosClosed = 0
       let transactionsCancelled = 0
-      
+
       if (reservation.folios && reservation.folios.length > 0) {
         for (const folio of reservation.folios) {
           // Only close open folios
@@ -1431,7 +1432,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           taxExempt:data.tax_exempt,
           reservedBy: auth.user?.id,
           createdBy: auth.user?.id,
-          
+
         }, { client: trx })
 
         // Vérifier que la réservation a bien été créée avec un ID
@@ -2850,7 +2851,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Balance the folio - ensure zero balance after voiding and fees
         await folio.useTransaction(trx).refresh()
         const currentBalance = folio.balance
-        
+
         if (Math.abs(currentBalance) > 0.01) {
           // Create balancing adjustment
           const adjustmentAmount = -currentBalance
@@ -2976,7 +2977,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
              // voidReason: `Reservation voided: ${reason}`,
               lastModifiedBy: auth.user?.id
             }).save()
-            
+
             // Void all transactions in the folio
             await FolioTransaction.query({ client: trx })
               .where('folioId', folio.id)
@@ -2988,7 +2989,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 lastModifiedBy: auth.user?.id,
                 updatedAt: DateTime.now()
               })
-            
+
             foliosVoided++
           }
         }
@@ -3220,24 +3221,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Build room charges breakdown - one row per folio transaction
       const roomChargesTable = []
-      
+
       for (const reservationRoom of reservation.reservationRooms) {
         const stayDuration = reservationRoom.nights || 1
         const totalAdults = reservationRoom.adults || 0
         const totalChildren = reservationRoom.children || 0
-        
+
         // Get room charge transactions for this specific room
-        const roomTransactions = roomChargeTransactions.filter(transaction => 
+        const roomTransactions = roomChargeTransactions.filter(transaction =>
           transaction.roomNumber === reservationRoom.room?.roomNumber ||
           transaction.description?.includes(reservationRoom.room?.roomNumber || '')
         )
-        
+
         // Create a row for each folio transaction
         if (roomTransactions.length > 0) {
           roomTransactions.forEach(transaction => {
             const adjustmentAmount = 0 // Adjustments are typically separate transactions
-            const netAmount = parseFloat(`${transaction.amount??0}`) -parseFloat(`${transaction.discountAmount??0}`) + 
-            parseFloat(`${transaction.taxAmount??0}`) + parseFloat(`${transaction.serviceChargeAmount??0}`)            
+            const netAmount = parseFloat(`${transaction.amount??0}`) -parseFloat(`${transaction.discountAmount??0}`) +
+            parseFloat(`${transaction.taxAmount??0}`) + parseFloat(`${transaction.serviceChargeAmount??0}`)
             roomChargesTable.push({
               transactionId: transaction.id,
               transactionNumber: transaction.transactionNumber,
@@ -3279,7 +3280,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             (reservationRoom.otherCharges || 0)
           )
           const netAmount = roomCharges - discountAmount + taxAmount + serviceChargeAmount + adjustments
-          
+
           roomChargesTable.push({
             transactionId: null,
             transactionNumber: 'N/A',
