@@ -1087,6 +1087,22 @@ router
           })
           .prefix('business_sources')
 
+        // Company Accounts management routes
+        router
+          .group(() => {
+            // Basic CRUD operations for company accounts
+            router.get('/', [() => import('#controllers/company_accounts_controller'), 'index']) // Get all company accounts with filtering
+            router.post('/', [() => import('#controllers/company_accounts_controller'), 'store']) // Create a new company account
+            router.get('/:id', [() => import('#controllers/company_accounts_controller'), 'show']) // Get specific company account details
+            router.put('/:id', [() => import('#controllers/company_accounts_controller'), 'update']) // Update company account information
+            router.delete('/:id', [() => import('#controllers/company_accounts_controller'), 'destroy']) // Delete company account
+            
+            // Additional company account operations
+            router.get('/hotel/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getByHotel']) // Get company accounts by hotel
+            router.get('/active', [() => import('#controllers/company_accounts_controller'), 'getActive']) // Get active company accounts
+          })
+          .prefix('company_accounts')
+
         // Payout Reason Management Routes
         // Payout reason configuration for expense tracking
         router

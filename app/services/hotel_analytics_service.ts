@@ -151,6 +151,7 @@ export class HotelAnalyticsService {
             if (!groupedDetails[roomType]) {
                 groupedDetails[roomType] = {
                     room_type: roomType,
+                    room_type_id:room.roomType?.id,
                     total_rooms_of_type: 0,
                     room_details: [],
                     reservations: [],
@@ -178,6 +179,8 @@ export class HotelAnalyticsService {
                 capacity: room.roomType.maxAdult,
                 room_id: room.id,
                 room_status: roomStatus,
+                room_housekeeping_status: room.housekeepingStatus,
+                is_smoking:room.smokingAllowed
             })
         }
 

@@ -143,6 +143,54 @@ export default class RateTypesController {
       })
     }
   }
+/***
+ * get Rates by hotel id with room rates
+ * @param {*} params 
+ * @returns 
+ */
+async getRatesByHotelId({ params, response }: HttpContext) {
+  try {
+    const rateTypes = await RateType.query()
+      .where('hotel_id', params.hotelId)
+      .where('is_deleted', false)
+      .preload('roomTypes', (roomTypesQuery) => {
+        roomTypesQuery.preload('roomRates')
+      })
+      let res:any =[]
+    // Filter room rates to match the rate type after preloading
+    for (const rateType of rateTypes) {
+
+      let rate = {
+        rateTypeName:rateType.rateTypeName,
+        rateTypeId:rateType.id,
+        roomTypes: [] as any[]
+
+      }
+      for (const roomType of rateType.roomTypes) {
+        const rates= roomType.roomRates.filter(rate => rate.rateTypeId === rateType.id)
+        let roomT = {
+          roomTypeName: roomType.roomTypeName,
+          roomTypeId:roomType.id,
+          roomRate: (rates && rates.length>0)?rates[0].baseRate:null
+        }
+        rate.roomTypes.push(roomT)
+      }
+      res.push(rate)
+    }
+    return response.ok({
+      message: 'Rate types retrieved successfully',
+      data: res
+    })
+  } catch (error) {
+    return response.badRequest({
+      message: 'Failed to retrieve rate types',
+      error: error.message
+    })
+  }
+}
+
+
+
 
   /**
    * Update a rate type

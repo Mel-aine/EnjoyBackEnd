@@ -46,7 +46,7 @@ export default class CompanyAccount extends BaseModel {
   declare website: string | null
 
   @column()
-  declare billing_address_line1: string | null
+  declare billing_address_line: string | null
 
   @column()
   declare billing_address_line2: string | null
@@ -65,6 +65,9 @@ export default class CompanyAccount extends BaseModel {
 
   @column()
   declare tax_id: string | null
+
+  @column()
+  declare registration_number: string | null
 
   @column()
   declare credit_limit: number | null
@@ -104,6 +107,12 @@ export default class CompanyAccount extends BaseModel {
 
   @column()
   declare notes: string | null
+
+  @column()
+  declare add_to_business_source: boolean
+
+  @column()
+  declare do_not_count_as_city_ledger: boolean
 
   @column()
   declare created_by: number
