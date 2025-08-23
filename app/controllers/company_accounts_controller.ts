@@ -1,8 +1,5 @@
 import { HttpContext } from '@adonisjs/core/http'
 import CompanyAccount from '#models/company_account'
-import BusinessSource from '#models/business_source'
-import PaymentMethod from '#models/payment_method'
-import { PaymentMethodType } from '#app/enums'
 import LoggerService from '#services/logger_service'
 import CompanyAccountService from '#services/company_account_service'
 import { createCompanyAccountValidator } from '../validators/company_account.js'
@@ -43,38 +40,39 @@ export default class CompanyAccountsController {
   /**
    * Create a new company account
    */
-  async store( ctx: HttpContext) {
-   const  { request, response, auth } = ctx
+  async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx
     try {
-        const payload = await request.validateUsing(createCompanyAccountValidator)
+      const payload = await request.validateUsing(createCompanyAccountValidator)
       const data = payload
       const user = auth.user
 
       // Create the company account
       const companyAccount = await CompanyAccount.create({
-        company_name: data.company_name,
-        company_code: data.company_code,
-        account_type: data.account_type,
-        contact_person_name: data.contact_person_name,
-        contact_person_title: data.contact_person_title,
-        primary_email: data.primary_email,
-        secondary_email: data.secondary_email,
-        primary_phone: data.primary_phone,
-        billing_address_line: data.billing_address_line,
-        //billing_address_line2: data.billing_address_line2,
-        billing_city: data.billing_city,
-        billing_state_province: data.billing_state_province,
-        billing_postal_code: data.billing_postal_code,
+        companyName: data.company_name,
+        companyCode: data.company_code,
+        accountType: data.account_type,
+        contactPersonName: data.contact_person_name,
+        contactPersonTitle: data.contact_person_title,
+        primaryEmail: data.primary_email,
+        secondaryEmail: data.secondary_email,
+        primaryPhone: data.primary_phone,
+        billingAddressLine: data.billing_address_line,
+        //billingAddressLine2: data.billing_address_line2,
+        billingCity: data.billing_city,
+        billingStateProvince: data.billing_state_province,
+        billingPostalCode: data.billing_postal_code,
         notes: data.notes,
-        registration_number: data.registration_number,
-        add_to_business_source: data.add_to_business_source,
-        do_not_count_as_city_ledger: data.do_not_count_as_city_ledger,
-        last_modified_by: user?.id,
-        created_by:user?.id,
-        credit_limit:data.credit_limit,
-        current_balance:data.current_balance,
-        preferred_currency:data.preferred_currency,
-        hotel_id:data.hotel_id
+        registrationNumber: data.registration_number,
+        addToBusinessSource: data.add_to_business_source,
+        doNotCountAsCityLedger: data.do_not_count_as_city_ledger,
+        lastModifiedBy: user?.id,
+        createdBy: user?.id,
+        creditLimit: data.credit_limit,
+        currentBalance: data.current_balance,
+        preferredCurrency: data.preferred_currency,
+        hotelId: data.hotel_id,
+
       })
 
       // Log the activity
@@ -84,10 +82,20 @@ export default class CompanyAccountsController {
           action: 'CREATE',
           entityType: 'CompanyAccount',
           entityId: companyAccount.id,
-          description: `Company Account #${companyAccount.id} (${companyAccount.company_name}) created by ${user.firstName}.`,
+          description: `Company Account #${companyAccount.companyCode} (${companyAccount.companyName}) created by ${user.firstName}.`,
           changes: LoggerService.extractChanges({}, companyAccount.serialize()),
-          ctx:ctx,
+          ctx: ctx,
         })
+      }
+
+      // If addToBusinessSource is true, create a business source
+      if (companyAccount.addToBusinessSource === true) {
+        await this.service.createBusinessSource(companyAccount, data)
+      }
+
+      // If not marked as doNotCountAsCityLedger, create a city ledger payment method
+      if (companyAccount.doNotCountAsCityLedger !== true) {
+        await this.service.createCityLedgerPaymentMethod(companyAccount)
       }
 
       return response.created({
@@ -134,16 +142,40 @@ export default class CompanyAccountsController {
   /**
    * Update a company account
    */
-  async update( ctx: HttpContext) {
-    const  { request, response, auth,params } = ctx
+  async update(ctx: HttpContext) {
+    const { request, response, auth, params } = ctx
     try {
       const data = request.all()
       const user = auth.user
 
       // Add audit fields
-      data.last_modified_by = user?.id
+      data.last_modified_by = user?.id;
+      const payload = {
+        companyName: data.company_name,
+        companyCode: data.company_code,
+        accountType: data.account_type,
+        contactPersonName: data.contact_person_name,
+        contactPersonTitle: data.contact_person_title,
+        primaryEmail: data.primary_email,
+        secondaryEmail: data.secondary_email,
+        primaryPhone: data.primary_phone,
+        billingAddressLine: data.billing_address_line,
+        //billingAddressLine2: data.billing_address_line2,
+        billingCity: data.billing_city,
+        billingStateProvince: data.billing_state_province,
+        billingPostalCode: data.billing_postal_code,
+        notes: data.notes,
+        registrationNumber: data.registration_number,
+        addToBusinessSource: data.add_to_business_source,
+        doNotCountAsCityLedger: data.do_not_count_as_city_ledger,
+        lastModifiedBy: user?.id,
+        creditLimit: data.credit_limit,
+        currentBalance: data.current_balance,
+        preferredCurrency: data.preferred_currency,
+        hotelId: data.hotel_id,
+      }
 
-      const companyAccount = await this.service.update(params.id, data)
+      const companyAccount = await this.service.update(params.id, payload)
 
       if (!companyAccount) {
         return response.notFound({
@@ -159,7 +191,7 @@ export default class CompanyAccountsController {
           action: 'UPDATE',
           entityType: 'CompanyAccount',
           entityId: companyAccount.id,
-          description: `Company Account #${companyAccount.id} (${companyAccount.company_name}) updated by ${user.firstName}.`,
+          description: `Company Account #${companyAccount.companyCode} (${companyAccount.companyName}) updated by ${user.firstName}.`,
           changes: LoggerService.extractChanges({}, companyAccount.serialize()),
           ctx: ctx,
         })
@@ -183,7 +215,7 @@ export default class CompanyAccountsController {
    * Delete a company account (soft delete)
    */
   async destroy(ctx: HttpContext) {
-    const  { params, response, auth } =ctx;
+    const { params, response, auth } = ctx;
     try {
       const user = auth.user
       const result = await this.service.delete(params.id)

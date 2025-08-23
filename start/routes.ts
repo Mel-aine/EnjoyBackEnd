@@ -1107,6 +1107,15 @@ router
           })
           .prefix('company_accounts')
 
+        // Audit Trail Routes
+        router
+          .group(() => {
+            router.get('/', [() => import('#controllers/audit_trail_controller'), 'getAuditTrail']) // Get audit trail with filtering
+            router.get('/export', [() => import('#controllers/audit_trail_controller'), 'exportAuditTrail']) // Export audit trail data
+            router.get('/entity/:entityType/:entityId', [() => import('#controllers/audit_trail_controller'), 'getEntityAuditTrail']) // Get audit trail for specific entity
+          })
+          .prefix('audit-trail')
+
         // Payout Reason Management Routes
         // Payout reason configuration for expense tracking
         router

@@ -9,116 +9,116 @@ export default class CompanyAccount extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare hotel_id: number
+  @column({ columnName: 'hotel_id' })
+  declare hotelId: number
 
-  @column()
-  declare company_name: string
+  @column({ columnName: 'company_name' })
+  declare companyName: string
 
-  @column()
-  declare company_code: string | null
+  @column({ columnName: 'company_code' })
+  declare companyCode: string | null
 
-  @column()
-  declare account_type: 'Corporate' | 'TravelAgency' | 'Government' | 'Airline' | 'Other'
+  @column({ columnName: 'account_type' })
+  declare accountType: 'Corporate' | 'TravelAgency' | 'Government' | 'Airline' | 'Other'
 
-  @column()
-  declare contact_person_name: string | null
+  @column({ columnName: 'contact_person_name' })
+  declare contactPersonName: string | null
 
-  @column()
-  declare contact_person_title: string | null
+  @column({ columnName: 'contact_person_title' })
+  declare contactPersonTitle: string | null
 
-  @column()
-  declare primary_email: string | null
+  @column({ columnName: 'primary_email' })
+  declare primaryEmail: string | null
 
-  @column()
-  declare secondary_email: string | null
+  @column({ columnName: 'secondary_email' })
+  declare secondaryEmail: string | null
 
-  @column()
-  declare primary_phone: string | null
+  @column({ columnName: 'primary_phone' })
+  declare primaryPhone: string | null
 
-  @column()
-  declare secondary_phone: string | null
+  @column({ columnName: 'secondary_phone' })
+  declare secondaryPhone: string | null
 
-  @column()
-  declare fax_number: string | null
+  @column({ columnName: 'fax_number' })
+  declare faxNumber: string | null
 
-  @column()
+  @column({ columnName: 'website' })
   declare website: string | null
 
-  @column()
-  declare billing_address_line: string | null
+  @column({ columnName: 'billing_address_line' })
+  declare billingAddressLine: string | null
 
-  @column()
-  declare billing_address_line2: string | null
+  @column({ columnName: 'billing_address_line2' })
+  declare billingAddressLine2: string | null
 
-  @column()
-  declare billing_city: string | null
+  @column({ columnName: 'billing_city' })
+  declare billingCity: string | null
 
-  @column()
-  declare billing_state_province: string | null
+  @column({ columnName: 'billing_state_province' })
+  declare billingStateProvince: string | null
 
-  @column()
-  declare billing_postal_code: string | null
+  @column({ columnName: 'billing_postal_code' })
+  declare billingPostalCode: string | null
 
-  @column()
-  declare billing_country: string | null
+  @column({ columnName: 'billing_country' })
+  declare billingCountry: string | null
 
-  @column()
-  declare tax_id: string | null
+  @column({ columnName: 'tax_id' })
+  declare taxId: string | null
 
-  @column()
-  declare registration_number: string | null
+  @column({ columnName: 'registration_number' })
+  declare registrationNumber: string | null
 
-  @column()
-  declare credit_limit: number | null
+  @column({ columnName: 'credit_limit' })
+  declare creditLimit: number | null
 
-  @column()
-  declare current_balance: number
+  @column({ columnName: 'current_balance' })
+  declare currentBalance: number
 
-  @column()
-  declare payment_terms: string | null
+  @column({ columnName: 'payment_terms' })
+  declare paymentTerms: string | null
 
-  @column()
-  declare discount_percentage: number | null
+  @column({ columnName: 'discount_percentage' })
+  declare discountPercentage: number | null
 
-  @column()
-  declare commission_percentage: number | null
+  @column({ columnName: 'commission_percentage' })
+  declare commissionPercentage: number | null
 
-  @column()
-  declare account_status: 'Active' | 'Inactive' | 'Suspended' | 'Closed'
+  @column({ columnName: 'account_status' })
+  declare accountStatus: 'Active' | 'Inactive' | 'Suspended' | 'Closed'
 
-  @column()
-  declare credit_status: 'Good' | 'Warning' | 'Hold' | 'Blocked'
+  @column({ columnName: 'credit_status' })
+  declare creditStatus: 'Good' | 'Warning' | 'Hold' | 'Blocked'
 
-  @column.dateTime()
-  declare last_activity_date: DateTime | null
+  @column.dateTime({columnName:'last_activity_date'})
+  declare lastActivityDate: DateTime | null
 
-  @column()
-  declare preferred_currency: string | null
+  @column({ columnName: 'preferred_currency' })
+  declare preferredCurrency: string | null
 
-  @column()
-  declare billing_cycle: 'Weekly' | 'BiWeekly' | 'Monthly' | 'Quarterly' | 'Custom' | null
+  @column({ columnName: 'billing_cycle' })
+  declare billingCycle: 'Weekly' | 'BiWeekly' | 'Monthly' | 'Quarterly' | 'Custom' | null
 
-  @column()
-  declare auto_billing_enabled: boolean
+  @column({ columnName: 'auto_billing_enabled' })
+  declare autoBillingEnabled: boolean
 
-  @column()
-  declare special_instructions: string | null
+  @column({ columnName: 'special_instructions' })
+  declare specialInstructions: string | null
 
   @column()
   declare notes: string | null
 
-  @column()
-  declare add_to_business_source: boolean
+  @column({columnName:'add_to_business_source'})
+  declare addToBusinessSource: boolean
 
-  @column()
-  declare do_not_count_as_city_ledger: boolean
+  @column({columnName:'do_not_count_as_city_ledger'})
+  declare doNotCountAsCityLedger: boolean
 
-  @column()
-  declare created_by: number
+  @column({ columnName: 'created_by' })
+  declare createdBy: number
 
-  @column()
-  declare last_modified_by: number | null
+  @column({ columnName: 'last_modified_by' })
+  declare lastModifiedBy: number | null
 
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
@@ -141,25 +141,25 @@ export default class CompanyAccount extends BaseModel {
 
   // Computed properties
   get displayName() {
-    return this.company_name
+    return this.companyName
   }
 
   get isActive() {
-    return this.account_status === 'Active'
+    return this.accountStatus === 'Active'
   }
 
   get hasGoodCredit() {
-    return this.credit_status === 'Good'
+    return this.creditStatus === 'Good'
   }
 
   get isCreditLimitExceeded() {
-    if (!this.credit_limit) return false
-    return this.current_balance > this.credit_limit
+    if (!this.creditLimit) return false
+    return this.currentBalance > this.creditLimit
   }
 
   get availableCredit() {
-    if (!this.credit_limit) return null
-    return Math.max(0, this.credit_limit - this.current_balance)
+    if (!this.creditLimit) return null
+    return Math.max(0, this.creditLimit - this.currentBalance)
   }
 
   get canMakeReservations() {

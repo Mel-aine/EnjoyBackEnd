@@ -1,7 +1,8 @@
 import CompanyAccount from '#models/company_account'
 import BusinessSource from '#models/business_source'
 import PaymentMethod from '#models/payment_method'
-import { PaymentMethodType } from '#app/enums'
+import Folio from '#models/folio'
+import { PaymentMethodType, FolioStatus } from '#app/enums'
 
 export default class CompanyAccountService {
   /**
@@ -34,12 +35,40 @@ export default class CompanyAccountService {
    * Get a company account by ID
    */
   async getById(id: number) {
-    return await CompanyAccount.query()
+    const companyAccount = await CompanyAccount.query()
       .where('id', id)
       .preload('hotel')
       .preload('creator')
       .preload('modifier')
       .first()
+
+    if (companyAccount) {
+      // Calculate the balance based on folios
+      const balance = await this.calculateFolioBalance(companyAccount.id)
+      
+      // Add the calculated balance to the company account object
+      companyAccount.$extras.calculatedBalance = balance
+    }
+
+    return companyAccount
+  }
+
+  /**
+   * Calculate the balance for a company account based on related folios
+   */
+  async calculateFolioBalance(companyId: number) {
+    // Get all folios related to this company account
+    const folios = await Folio.query()
+      .where('companyId', companyId)
+      .where('status', FolioStatus.OPEN) // Only consider open folios
+
+    // Calculate the total balance
+    let totalBalance = 0
+    for (const folio of folios) {
+      totalBalance += folio.balance || 0
+    }
+
+    return totalBalance
   }
 
   /**
@@ -49,13 +78,13 @@ export default class CompanyAccountService {
     // Create the company account
     const companyAccount = await CompanyAccount.create(data)
 
-    // If add_to_business_source is true, create a business source
-    if (companyAccount.add_to_business_source === true) {
+    // If addToBusinessSource is true, create a business source
+    if (companyAccount.addToBusinessSource === true) {
       await this.createBusinessSource(companyAccount, data)
     }
 
-    // If not marked as do_not_count_as_city_ledger, create a city ledger payment method
-    if (companyAccount.do_not_count_as_city_ledger !== true) {
+    // If not marked as doNotCountAsCityLedger, create a city ledger payment method
+    if (companyAccount.doNotCountAsCityLedger !== true) {
       await this.createCityLedgerPaymentMethod(companyAccount)
     }
 
@@ -74,11 +103,11 @@ export default class CompanyAccountService {
     await companyAccount.save()
 
     // Handle business source creation if requested
-    if (companyAccount.add_to_business_source === true) {
+    if (companyAccount.addToBusinessSource === true) {
       // Check if business source already exists for this company
       const existingBusinessSource = await BusinessSource.query()
-        .where('hotelId', companyAccount.hotel_id)
-        .where('name', companyAccount.company_name)
+        .where('hotelId', companyAccount.hotelId)
+        .where('name', companyAccount.companyName)
         .first()
 
       if (!existingBusinessSource) {
@@ -87,18 +116,18 @@ export default class CompanyAccountService {
     }
 
     // Handle city ledger payment method
-    if (companyAccount.do_not_count_as_city_ledger === true) {
+    if (companyAccount.doNotCountAsCityLedger === true) {
       // Disable any existing city ledger payment method for this company
       await PaymentMethod.query()
-        .where('hotelId', companyAccount.hotel_id)
-        .where('name', `City Ledger - ${companyAccount.company_name}`)
+        .where('hotelId', companyAccount.hotelId)
+        .where('name', `City Ledger - ${companyAccount.companyCode}`)
         .where('methodType', PaymentMethodType.CITY_LEDGER)
         .update({ isActive: false })
-    } else if (companyAccount.do_not_count_as_city_ledger === false) {
+    } else if (companyAccount.doNotCountAsCityLedger === false) {
       // Check if payment method exists and reactivate or create
       const existingPaymentMethod = await PaymentMethod.query()
-        .where('hotelId', companyAccount.hotel_id)
-        .where('name', `City Ledger - ${companyAccount.company_name}`)
+        .where('hotelId', companyAccount.hotelId)
+        .where('name', `City Ledger - ${companyAccount.companyName}`)
         .where('methodType', PaymentMethodType.CITY_LEDGER)
         .first()
 
@@ -122,7 +151,7 @@ export default class CompanyAccountService {
     if (!companyAccount) return null
 
     // Soft delete by updating fields
-    companyAccount.account_status = 'Closed'
+    companyAccount.accountStatus = 'Closed'
     companyAccount.delete()
     await companyAccount.save()
 
@@ -135,7 +164,7 @@ export default class CompanyAccountService {
   async getByHotelId(hotelId: number) {
     return await CompanyAccount.query()
       .where('hotel_id', hotelId)
-      .andWhere('account_status', 'Closed')
+      .andWhereNot('account_status', 'Closed')
       .orderBy('company_name', 'asc')
   }
 
@@ -156,17 +185,17 @@ export default class CompanyAccountService {
   /**
    * Create a business source from company account data
    */
-  private async createBusinessSource(companyAccount: CompanyAccount, data: any) {
+  public async createBusinessSource(companyAccount: CompanyAccount, data: any) {
     // Create a short code from the company name
-    const shortCode = this.generateShortCode(companyAccount.company_name)
+    const shortCode = this.generateShortCode(companyAccount.companyName)
 
     await BusinessSource.create({
-      hotelId: companyAccount.hotel_id,
-      name: companyAccount.company_name,
+      hotelId: companyAccount.hotelId,
+      name: companyAccount.companyName,
       shortCode,
       registrationNumber: data.registrationNumber || null,
-      createdByUserId: companyAccount.created_by,
-      updatedByUserId: companyAccount.created_by,
+      createdByUserId: companyAccount.createdBy,
+      updatedByUserId: companyAccount.createdBy,
       isDeleted: false
     })
   }
@@ -174,23 +203,23 @@ export default class CompanyAccountService {
   /**
    * Create a city ledger payment method for the company account
    */
-  private async createCityLedgerPaymentMethod(companyAccount: CompanyAccount) {
+  public async createCityLedgerPaymentMethod(companyAccount: CompanyAccount) {
     await PaymentMethod.create({
-      hotelId: companyAccount.hotel_id,
-      methodName: `City Ledger - ${companyAccount.company_name}`,
-      methodCode: this.generateShortCode(`CL-${companyAccount.company_name}`),
+      hotelId: companyAccount.hotelId,
+      methodName: `City Ledger - ${companyAccount.companyName}`,
+      methodCode: this.generateShortCode(`CL-${companyAccount.companyName}`),
       methodType: PaymentMethodType.CITY_LEDGER,
       isActive: true,
-      description: `City ledger payment method for ${companyAccount.company_name}`,
-      createdBy: companyAccount.created_by,
-      lastModifiedBy: companyAccount.created_by
+      description: `City ledger payment method for ${companyAccount.companyName}`,
+      createdBy: companyAccount.createdBy,
+      lastModifiedBy: companyAccount.createdBy
     })
   }
 
   /**
    * Generate a short code from a name
    */
-  private generateShortCode(name: string): string {
+  public generateShortCode(name: string): string {
     // Remove special characters and spaces, convert to uppercase
     const cleanName = name.replace(/[^a-zA-Z0-9]/g, '')
 
