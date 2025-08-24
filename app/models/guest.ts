@@ -72,7 +72,7 @@ export default class Guest extends BaseModel {
   declare passportNumber: string
 
   @column.date()
-  declare passportExpiryDate: DateTime
+  declare passportExpiry: DateTime
 
   @column()
   declare address: string
@@ -141,7 +141,7 @@ export default class Guest extends BaseModel {
   declare blacklistReason: string
 
   @column()
-  declare vipStatus: boolean
+  declare vipStatus: string
 
   @column()
   declare vipLevel: string
@@ -168,6 +168,30 @@ export default class Guest extends BaseModel {
   declare status: string
 
   @column()
+  declare guestType: string
+
+  @column()
+  declare fax: string
+
+  @column()
+  declare registrationNumber: string
+
+  @column()
+  declare visaNumber: string
+
+  @column()
+  declare issuingCountry: string
+
+  @column()
+  declare issuingCity: string
+
+  @column()
+  declare idPhoto: string
+
+  @column()
+  declare profilePhoto: string
+
+  @column()
   declare createdBy: number
 
   @column()
@@ -192,7 +216,17 @@ export default class Guest extends BaseModel {
     pivotForeignKey: 'guest_id',
     relatedKey: 'id',
     pivotRelatedForeignKey: 'reservation_id',
-    pivotColumns: ['is_primary', 'guest_type', 'room_assignment', 'special_requests', 'dietary_restrictions', 'accessibility', 'emergency_contact', 'emergency_phone', 'notes']
+    pivotColumns: [
+      'is_primary',
+      'guest_type',
+      'room_assignment',
+      'special_requests',
+      'dietary_restrictions',
+      'accessibility',
+      'emergency_contact',
+      'emergency_phone',
+      'notes',
+    ],
   })
   declare reservationsAsGuest: ManyToMany<typeof Reservation>
 
