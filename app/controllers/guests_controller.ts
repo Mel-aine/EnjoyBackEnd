@@ -207,11 +207,12 @@ export default class GuestsController {
         'nextStayDate',
       ]
 
-      for (const field of dateFields) {
-        if (payload[field]) {
-          updateData[field] = DateTime.fromISO(payload[field] as string)
-        }
+       for (const field of dateFields) {
+      const value = payload[field]
+      if (value) {
+        updateData[field] = DateTime.fromJSDate(value as Date)
       }
+    }
 
       guest.merge(updateData)
       await guest.save()
@@ -240,17 +241,17 @@ export default class GuestsController {
       // 2. La vérification clé : On cherche s'il existe AU MOINS UNE réservation "en cours".
       // Une réservation "en cours" peut être définie par son statut.
       // C'est la méthode la plus fiable.
-      const activeStatuses = ['confirmed', 'checked_in', 'pending'] 
+      const activeStatuses = ['confirmed', 'checked_in', 'pending']
 
       const activeReservation = await guest
-        .related('reservations') 
+        .related('reservations')
         .query()
-        .whereIn('status', activeStatuses) 
+        .whereIn('status', activeStatuses)
         .first() // On s'arrête dès qu'on en trouve une, c'est plus performant.
       if (activeReservation) {
         return response.conflict({
           message: 'Cannot delete this guest as they have active or upcoming reservations.',
-          blockingReservationId: activeReservation.id 
+          blockingReservationId: activeReservation.id
         })
       }
 
@@ -275,28 +276,55 @@ export default class GuestsController {
   /**
    * Get guest profile with stay history
    */
-  async profile({ params, response }: HttpContext) {
+
+   async profile({ params, response }: HttpContext) {
     try {
       const guest = await Guest.query()
         .where('id', params.id)
-        .preload('reservations', (query) => {
-          query.orderBy('created_at', 'desc').limit(10)
+        .preload('reservations', (reservationQuery) => {
+
+          reservationQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room')
+            roomQuery.preload('roomType')
+            // On ne prend que les statuts pertinents pour ne pas surcharger
+            roomQuery.whereIn('status', ['reserved', 'checked_in'])
+          })
         })
         .preload('folios', (query) => {
           query.orderBy('created_at', 'desc').limit(5)
         })
         .firstOrFail()
 
+      // --- Logique pour trouver le statut actuel et à venir ---
+
+      // Aplatir toutes les `reservationRooms` de toutes les `reservations` en une seule liste
+      const allStays = guest.reservations.flatMap(res => res.reservationRooms)
+
+      // Trouver le séjour actif (statut 'checked_in')
+      const activeStay = allStays.find(stay => stay.status === 'checked_in') || null
+
+      // Trouver le prochain séjour à venir (statut 'reserved' et pas encore commencé)
+      const upcomingStay = allStays
+        .filter(stay => stay.status === 'reserved' && stay.checkInDate > DateTime.now())
+        .sort((a, b) => a.checkInDate.toMillis() - b.checkInDate.toMillis())[0] || null
+
+      // Construire l'objet de retour final
+      const profileData = {
+        ...guest.serialize(),
+        activeStay: activeStay ? activeStay.serialize() : null,
+        upcomingStay: upcomingStay ? upcomingStay.serialize() : null,
+
+      };
+
+      // Les statistiques peuvent être calculées comme avant si besoin
       const totalReservations = await guest.related('reservations').query().count('* as total')
       const totalSpent = await guest.related('folios').query().sum('total_charges as total')
-      // const averageRating = await guest.related('reservations').query().avg('satisfaction_rating as avg')
 
       const profile = {
-        guest,
+        guest: profileData,
         statistics: {
           totalReservations: totalReservations[0].$extras.total,
           totalSpent: totalSpent[0].$extras.total || 0,
-          // averageRating: averageRating[0].$extras.avg || 0,
           lastStayDate: guest.lastStayDate,
           loyaltyStatus: guest.vipStatus ? 'VIP' : 'Regular',
         },
@@ -307,6 +335,7 @@ export default class GuestsController {
         data: profile,
       })
     } catch (error) {
+      console.error(error)
       return response.notFound({
         message: 'Guest not found',
         error: error.message,

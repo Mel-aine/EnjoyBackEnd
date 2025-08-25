@@ -7,6 +7,7 @@ import Folio from './folio.js'
 import User from './user.js'
 import Hotel from './hotel.js'
 
+
 export default class Guest extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
@@ -230,6 +231,8 @@ export default class Guest extends BaseModel {
   })
   declare reservationsAsGuest: ManyToMany<typeof Reservation>
 
+
+
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>
 
@@ -253,4 +256,27 @@ export default class Guest extends BaseModel {
     const parts = [this.title, this.firstName, this.lastName, this.suffix].filter(Boolean)
     return parts.join(' ')
   }
+
+   public static setPreferences(value: unknown): object | null {
+    // Si la valeur est une chaîne non vide
+    if (typeof value === 'string' && value.length > 0) {
+      try {
+        // On essaie de la parser.
+        return JSON.parse(value)
+      } catch (e) {
+
+        console.error('Failed to parse preferences JSON string:', value, e)
+        return null
+      }
+    }
+
+
+    if (typeof value === 'object' && value !== null) {
+      return value
+    }
+
+    return null
+  }
+
+
 }

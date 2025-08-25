@@ -65,6 +65,7 @@ export const createGuestValidator = vine.compile(
       .enum(['ocean', 'city', 'garden', 'pool', 'mountain', 'courtyard', 'no_preference'])
       .optional(),
     specialRequests: vine.string().trim().maxLength(1000).optional(),
+    preferences: vine.string().trim().maxLength(1000).optional(),
     loyaltyPrograms: vine
       .array(
         vine.object({
@@ -201,6 +202,7 @@ export const updateGuestValidator = vine.compile(
     education: vine.enum(['high_school', 'bachelor', 'master', 'phd', 'other']).optional(),
     language: vine.string().trim().maxLength(50).optional(),
     preferredLanguage: vine.string().trim().maxLength(50).optional(),
+    preferences: vine.string().trim().maxLength(1000).optional(),
     religion: vine.string().trim().maxLength(100).optional(),
     dietaryRestrictions: vine.string().trim().maxLength(500).optional(),
     allergies: vine.string().trim().maxLength(500).optional(),
