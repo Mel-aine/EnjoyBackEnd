@@ -156,7 +156,7 @@ export default class FolioService {
       let particular = 'Miscellaneous Transaction'
       
       switch (data.category) {
-        case TransactionCategory.ROOM_CHARGE:
+        case TransactionCategory.ROOM:
           particular = 'Room Charge'
           break
         case TransactionCategory.FOOD_BEVERAGE:
