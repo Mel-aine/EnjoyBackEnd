@@ -279,4 +279,5 @@ export default class Guest extends BaseModel {
   }
 
 
-}
+
+  }

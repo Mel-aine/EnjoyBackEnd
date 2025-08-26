@@ -34,6 +34,9 @@ export default class ActivityLog extends BaseModel {
   @column()
   declare changes: Record<string, any> | null
 
+  @column()
+  declare meta: Record<string, any> | null
+
   @column({ columnName: 'ip_address' })
   declare ipAddress: string | null
 

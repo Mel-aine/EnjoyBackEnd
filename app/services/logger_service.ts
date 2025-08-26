@@ -14,6 +14,7 @@ interface LogData {
   description?: string
   changes?: ChangeLog
   ctx: HttpContext
+  meta?:Record<string,any>
 }
 
 interface LogActivityData {
@@ -38,7 +39,8 @@ export default class LoggerService {
         entityType: data.entityType,
         entityId: Number(data.entityId),
         description: data.description,
-        changes: data.changes ?? null, 
+        changes: data.changes ?? null,
+        meta: data.meta ?? null,
         createdBy: data.actorId,
         ipAddress: data.ctx.request.ip(),
         userAgent: data.ctx.request.header('user-agent'),
