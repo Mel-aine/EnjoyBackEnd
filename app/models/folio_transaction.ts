@@ -36,6 +36,9 @@ export default class FolioTransaction extends BaseModel {
   declare description: string
 
   @column()
+  declare particular: string
+
+  @column()
   declare amount: number
 
   @column()
@@ -205,6 +208,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column()
   declare compReason: string
+
+  @column()
+  declare complementary: boolean
 
   @column()
   declare compAuthorizedBy: number

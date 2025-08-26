@@ -724,7 +724,8 @@ router
         router.post('/:id/reopen', foliosController.reopen.bind(foliosController)) // Reopen closed folio
         router.post('/:id/transfer', foliosController.transfer.bind(foliosController)) // Transfer charges between folios
         router.post('/split', foliosController.split.bind(foliosController)) // Split folio by transferring transactions
-router.post('/split-by-type', foliosController.splitByType.bind(foliosController)) // Split folio by transaction types
+        router.post('/split-by-type', foliosController.splitByType.bind(foliosController)) // Split folio by transaction types
+        router.post('/cut', foliosController.cut.bind(foliosController)) // Cut folio by creating new folio and transferring transactions by type
 
         // New service-based operations
         router.post('/transactions', foliosController.postTransaction.bind(foliosController)) // Post transaction to folio
@@ -740,6 +741,8 @@ router.post('/split-by-type', foliosController.splitByType.bind(foliosController
         router.post('/group', foliosController.createForGroup.bind(foliosController)) // Create folios for group reservation
         router.post('/post-room-charges', foliosController.postRoomCharges.bind(foliosController)) // Auto-post room charges
         router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
+        router.post('/room-charge/add', foliosController.addRoomCharge.bind(foliosController)) // Add room charge to folio
+        router.post('/adjustment/add', foliosController.addAdjustment.bind(foliosController)) // Add folio adjustment
         router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
 
         // Checkout and settlement
@@ -753,7 +756,7 @@ router.post('/split-by-type', foliosController.splitByType.bind(foliosController
         // Folio inquiry and review
         router.get('/:id/guest-view', foliosController.getGuestView.bind(foliosController)) // Get guest folio view (limited)
         router.get('/:id/staff-view', foliosController.getStaffView.bind(foliosController)) // Get staff folio view (comprehensive)
-        router.get('/search', foliosController.search.bind(foliosController)) // Search folios with filters
+        router.get('/search/details', foliosController.search.bind(foliosController)) // Search folios with filters
         router.get('/comprehensive/search', foliosController.comprehensiveSearch.bind(foliosController)) // Comprehensive folio search with text search
         router.get('/transactions/search', foliosController.searchTransactions.bind(foliosController)) // Search transactions
         router.get('/:id/timeline', foliosController.getTimeline.bind(foliosController)) // Get folio activity timeline
@@ -1103,7 +1106,7 @@ router.post('/split-by-type', foliosController.splitByType.bind(foliosController
             router.get('/:id', [() => import('#controllers/company_accounts_controller'), 'show']) // Get specific company account details
             router.put('/:id', [() => import('#controllers/company_accounts_controller'), 'update']) // Update company account information
             router.delete('/:id', [() => import('#controllers/company_accounts_controller'), 'destroy']) // Delete company account
-            
+
             // Additional company account operations
             router.get('/hotel/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getByHotel']) // Get company accounts by hotel
             router.get('/active', [() => import('#controllers/company_accounts_controller'), 'getActive']) // Get active company accounts
@@ -1197,7 +1200,7 @@ router.post('/split-by-type', foliosController.splitByType.bind(foliosController
       })
       .prefix('/payment_method')
 
-      // Room Blocks Routes
+    // Room Blocks Routes
     router
       .group(() => {
         // Basic CRUD operations for room blocks

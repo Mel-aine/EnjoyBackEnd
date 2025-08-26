@@ -16,7 +16,7 @@ export default class Folio extends BaseModel {
   declare hotelId: number
 
   @column()
-  declare guestId: number
+  declare guestId: number | null
 
   @column()
   declare folioNumber: string
@@ -28,13 +28,13 @@ export default class Folio extends BaseModel {
   declare folioType: FolioType
 
   @column()
-  declare reservationId: number
+  declare reservationId: number | null
 
   @column()
-  declare groupId: number
+  declare groupId: number | null
 
   @column()
-  declare companyId: number
+  declare companyId: number | null
 
   @column()
   declare status: FolioStatus
@@ -401,7 +401,9 @@ export default class Folio extends BaseModel {
   @belongsTo(() => Hotel)
   declare hotel: BelongsTo<typeof Hotel>
 
-  @belongsTo(() => Guest)
+  @belongsTo(() => Guest, {
+    foreignKey: 'guestId',
+  })
   declare guest: BelongsTo<typeof Guest>
 
   @belongsTo(() => User, { foreignKey: 'createdBy' })
@@ -410,7 +412,9 @@ export default class Folio extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
-  @belongsTo(() => Reservation)
+  @belongsTo(() => Reservation, {
+    foreignKey: 'reservationId',
+  })
   declare reservation: BelongsTo<typeof Reservation>
 
   @hasMany(() => FolioTransaction)

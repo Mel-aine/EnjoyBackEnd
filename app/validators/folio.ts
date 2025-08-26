@@ -70,6 +70,32 @@ export const splitFolioByTypeValidator = vine.compile(
   })
 )
 
+// Validator for folio cut operation
+export const cutFolioValidator = vine.compile(
+  vine.object({
+    hotelId: vine.number().positive(),
+    folioId: vine.number().positive(),
+    roomCharges: vine.boolean().optional(),
+    Payment: vine.boolean().optional(),
+    extractCharges: vine.boolean().optional(),
+    notes: vine.string().optional()
+  })
+)
+
+// Validator for adding room charges
+export const addRoomChargeValidator = vine.compile(
+  vine.object({
+    amount: vine.number().min(0),
+    description: vine.string().minLength(1).maxLength(255).optional(),
+    date: vine.date(),
+    taxInclusive: vine.boolean(),
+    folioId: vine.number().positive(),
+    complementary: vine.boolean(),
+    discountId: vine.number().positive().optional(),
+    chargeSubtype: vine.enum(['cancellation_revenue', 'day_user_charge', 'late_checkout_charge', 'no_show_revenue', 'room_charge'])
+  })
+)
+
 // Validator for creating folio with service
 export const createFolioServiceValidator = vine.compile(
   vine.object({

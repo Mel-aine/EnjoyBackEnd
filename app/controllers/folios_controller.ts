@@ -13,6 +13,8 @@ import {
   transferChargesValidator,
   splitFolioValidator,
   splitFolioByTypeValidator,
+  cutFolioValidator,
+  addRoomChargeValidator,
   createFolioServiceValidator,
   createReservationFolioValidator,
   createWalkInFolioValidator,
@@ -23,6 +25,7 @@ import {
   reservationCheckoutValidator,
   forceCloseValidator
 } from '#validators/folio'
+import { addFolioAdjustmentValidator } from '#validators/folio_adjustment'
 import { FolioStatus } from '../enums.js'
 
 export default class FoliosController {
@@ -1207,4 +1210,115 @@ export default class FoliosController {
        })
      }
    }
+
+  /**
+   * Add room charge to folio
+   */
+  async addRoomCharge({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(addRoomChargeValidator)
+
+      const transaction = await FolioService.addRoomChargeMethod({
+        ...payload,
+        postedBy: auth.user!.id
+      })
+
+      return response.created({
+        message: 'Room charge added successfully',
+        data: {
+          id: transaction.id,
+          transactionNumber: transaction.transactionNumber,
+          description: transaction.description,
+          amount: transaction.amount,
+          chargeSubtype: transaction.subcategory,
+          complementary: transaction.complementary,
+          transactionDate: transaction.transactionDate,
+          folioId: transaction.folioId
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to add room charge',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Add folio adjustment
+   */
+  async addAdjustment({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(addFolioAdjustmentValidator)
+
+      const transaction = await FolioService.addFolioAdjustment({
+        ...payload,
+        postedBy: auth.user!.id
+      })
+
+      return response.created({
+        message: 'Folio adjustment added successfully',
+        data: {
+          id: transaction.id,
+          transactionNumber: transaction.transactionNumber,
+          description: transaction.description,
+          particular: transaction.particular,
+          amount: transaction.amount,
+          type: payload.type,
+          category: transaction.category,
+          transactionDate: transaction.transactionDate,
+          folioId: transaction.folioId
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to add folio adjustment',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Cut folio by creating a new folio and transferring transactions based on type flags
+   */
+  async cut({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(cutFolioValidator)
+
+      const result = await FolioService.cutFolio({
+        ...payload,
+        cutBy: auth.user!.id
+      })
+
+      return response.ok({
+        message: 'Folio cut completed successfully',
+        data: {
+          originalFolio: {
+            id: result.originalFolio.id,
+            folioNumber: result.originalFolio.folioNumber,
+            folioName: result.originalFolio.folioName,
+            balance: result.originalFolio.balance
+          },
+          newFolio: {
+            id: result.newFolio.id,
+            folioNumber: result.newFolio.folioNumber,
+            folioName: result.newFolio.folioName,
+            balance: result.newFolio.balance
+          },
+          transferredTransactions: result.transferredTransactions.map(t => ({
+            id: t.id,
+            description: t.description,
+            amount: t.amount,
+            transactionType: t.transactionType,
+            category: t.category
+          }))
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to cut folio',
+        error: error.message
+      })
+    }
+  }
 }

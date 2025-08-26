@@ -238,12 +238,15 @@ export default class FolioInquiryService {
     }
   }> {
     const query = Folio.query()
+      /*.whereNotNull('guestId')
+      .where('guestId','!==',undefined)
+      .andWhereNotNull('reservationId')
       .preload('guest', (guestQuery) => {
         guestQuery.select(['id', 'firstName', 'lastName', 'email'])
       })
       .preload('reservation', (resQuery) => {
         resQuery.select(['id', 'confirmationNumber', 'checkInDate', 'checkOutDate'])
-      })
+      })*/
     
     // Apply filters
     if (filters.hotelId) {
