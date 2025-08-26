@@ -110,13 +110,95 @@ export default class FolioTransactionsController {
       // Generate transaction code if not provided
       const transactionCode = payload.transactionCode || `TC-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(6, '0')}`
 
+      // Map category to particular description
+      const category = payload.category as TransactionCategory || TransactionCategory.MISCELLANEOUS
+      let particular = 'Miscellaneous Transaction'
+      
+      switch (category) {
+        case TransactionCategory.ROOM_CHARGE:
+          particular = 'Room Charge'
+          break
+        case TransactionCategory.FOOD_BEVERAGE:
+          particular = 'Food & Beverage'
+          break
+        case TransactionCategory.TELEPHONE:
+          particular = 'Telephone Charge'
+          break
+        case TransactionCategory.LAUNDRY:
+          particular = 'Laundry Service'
+          break
+        case TransactionCategory.MINIBAR:
+          particular = 'Minibar Charge'
+          break
+        case TransactionCategory.SPA:
+          particular = 'Spa Service'
+          break
+        case TransactionCategory.BUSINESS_CENTER:
+          particular = 'Business Center'
+          break
+        case TransactionCategory.PARKING:
+          particular = 'Parking Fee'
+          break
+        case TransactionCategory.INTERNET:
+          particular = 'Internet Service'
+          break
+        case TransactionCategory.PAYMENT:
+          particular = 'Payment Received'
+          break
+        case TransactionCategory.ADJUSTMENT:
+          particular = 'Folio Adjustment'
+          break
+        case TransactionCategory.TAX:
+          particular = 'Tax Charge'
+          break
+        case TransactionCategory.SERVICE_CHARGE:
+          particular = 'Service Charge'
+          break
+        case TransactionCategory.CANCELLATION_FEE:
+          particular = 'Cancellation Fee'
+          break
+        case TransactionCategory.NO_SHOW_FEE:
+          particular = 'No Show Fee'
+          break
+        case TransactionCategory.EARLY_DEPARTURE_FEE:
+          particular = 'Early Departure Fee'
+          break
+        case TransactionCategory.LATE_CHECKOUT_FEE:
+          particular = 'Late Checkout Fee'
+          break
+        case TransactionCategory.EXTRA_BED:
+          particular = 'Extra Bed Charge'
+          break
+        case TransactionCategory.CITY_TAX:
+          particular = 'City Tax'
+          break
+        case TransactionCategory.RESORT_FEE:
+          particular = 'Resort Fee'
+          break
+        case TransactionCategory.TRANSFER_IN:
+          particular = 'Transfer In'
+          break
+        case TransactionCategory.TRANSFER_OUT:
+          particular = 'Transfer Out'
+          break
+        case TransactionCategory.VOID:
+          particular = 'Void Transaction'
+          break
+        case TransactionCategory.REFUND:
+          particular = 'Refund'
+          break
+        default:
+          particular = 'Miscellaneous Charge'
+      }
+
       const transaction = await FolioTransaction.create({
         hotelId: folio.hotelId,
         folioId: payload.folioId,
         transactionNumber,
         transactionCode,
         transactionType: payload.transactionType,
-        category: payload.category as TransactionCategory || TransactionCategory.MISCELLANEOUS,
+        category: category,
+        particular: particular,
         description: payload.description,
         amount: payload.amount,
         quantity: payload.quantity || 1,
@@ -206,7 +288,86 @@ export default class FolioTransactionsController {
       if (payload.hotelId) transaction.hotelId = payload.hotelId
       if (payload.folioId) transaction.folioId = payload.folioId
       if (payload.transactionType) transaction.transactionType = payload.transactionType
-      if (payload.category) transaction.category = payload.category as TransactionCategory
+      if (payload.category) {
+        transaction.category = payload.category as TransactionCategory
+        // Update particular field when category changes
+        switch (payload.category as TransactionCategory) {
+          case TransactionCategory.ROOM_CHARGE:
+            transaction.particular = 'Room Charge'
+            break
+          case TransactionCategory.FOOD_BEVERAGE:
+            transaction.particular = 'Food & Beverage'
+            break
+          case TransactionCategory.TELEPHONE:
+            transaction.particular = 'Telephone Charge'
+            break
+          case TransactionCategory.LAUNDRY:
+            transaction.particular = 'Laundry Service'
+            break
+          case TransactionCategory.MINIBAR:
+            transaction.particular = 'Minibar Charge'
+            break
+          case TransactionCategory.SPA:
+            transaction.particular = 'Spa Service'
+            break
+          case TransactionCategory.BUSINESS_CENTER:
+            transaction.particular = 'Business Center'
+            break
+          case TransactionCategory.PARKING:
+            transaction.particular = 'Parking Fee'
+            break
+          case TransactionCategory.INTERNET:
+            transaction.particular = 'Internet Service'
+            break
+          case TransactionCategory.PAYMENT:
+            transaction.particular = 'Payment Received'
+            break
+          case TransactionCategory.ADJUSTMENT:
+            transaction.particular = 'Folio Adjustment'
+            break
+          case TransactionCategory.TAX:
+            transaction.particular = 'Tax Charge'
+            break
+          case TransactionCategory.SERVICE_CHARGE:
+            transaction.particular = 'Service Charge'
+            break
+          case TransactionCategory.CANCELLATION_FEE:
+            transaction.particular = 'Cancellation Fee'
+            break
+          case TransactionCategory.NO_SHOW_FEE:
+            transaction.particular = 'No Show Fee'
+            break
+          case TransactionCategory.EARLY_DEPARTURE_FEE:
+            transaction.particular = 'Early Departure Fee'
+            break
+          case TransactionCategory.LATE_CHECKOUT_FEE:
+            transaction.particular = 'Late Checkout Fee'
+            break
+          case TransactionCategory.EXTRA_BED:
+            transaction.particular = 'Extra Bed Charge'
+            break
+          case TransactionCategory.CITY_TAX:
+            transaction.particular = 'City Tax'
+            break
+          case TransactionCategory.RESORT_FEE:
+            transaction.particular = 'Resort Fee'
+            break
+          case TransactionCategory.TRANSFER_IN:
+            transaction.particular = 'Transfer In'
+            break
+          case TransactionCategory.TRANSFER_OUT:
+            transaction.particular = 'Transfer Out'
+            break
+          case TransactionCategory.VOID:
+            transaction.particular = 'Void Transaction'
+            break
+          case TransactionCategory.REFUND:
+            transaction.particular = 'Refund'
+            break
+          default:
+            transaction.particular = 'Miscellaneous Charge'
+        }
+      }
       if (payload.description) transaction.description = payload.description
       if (payload.amount) transaction.amount = payload.amount
       if (payload.quantity) transaction.quantity = payload.quantity
@@ -372,6 +533,73 @@ export default class FolioTransactionsController {
         })
       }
 
+      // Map category to particular description for refund
+      let particular = 'Refund'
+      switch (transaction.category) {
+        case TransactionCategory.ROOM_CHARGE:
+          particular = 'Room Charge Refund'
+          break
+        case TransactionCategory.FOOD_BEVERAGE:
+          particular = 'Food & Beverage Refund'
+          break
+        case TransactionCategory.TELEPHONE:
+          particular = 'Telephone Charge Refund'
+          break
+        case TransactionCategory.LAUNDRY:
+          particular = 'Laundry Service Refund'
+          break
+        case TransactionCategory.MINIBAR:
+          particular = 'Minibar Charge Refund'
+          break
+        case TransactionCategory.SPA:
+          particular = 'Spa Service Refund'
+          break
+        case TransactionCategory.BUSINESS_CENTER:
+          particular = 'Business Center Refund'
+          break
+        case TransactionCategory.PARKING:
+          particular = 'Parking Fee Refund'
+          break
+        case TransactionCategory.INTERNET:
+          particular = 'Internet Service Refund'
+          break
+        case TransactionCategory.PAYMENT:
+          particular = 'Payment Refund'
+          break
+        case TransactionCategory.ADJUSTMENT:
+          particular = 'Adjustment Refund'
+          break
+        case TransactionCategory.TAX:
+          particular = 'Tax Refund'
+          break
+        case TransactionCategory.SERVICE_CHARGE:
+          particular = 'Service Charge Refund'
+          break
+        case TransactionCategory.CANCELLATION_FEE:
+          particular = 'Cancellation Fee Refund'
+          break
+        case TransactionCategory.NO_SHOW_FEE:
+          particular = 'No Show Fee Refund'
+          break
+        case TransactionCategory.EARLY_DEPARTURE_FEE:
+          particular = 'Early Departure Fee Refund'
+          break
+        case TransactionCategory.LATE_CHECKOUT_FEE:
+          particular = 'Late Checkout Fee Refund'
+          break
+        case TransactionCategory.EXTRA_BED:
+          particular = 'Extra Bed Charge Refund'
+          break
+        case TransactionCategory.CITY_TAX:
+          particular = 'City Tax Refund'
+          break
+        case TransactionCategory.RESORT_FEE:
+          particular = 'Resort Fee Refund'
+          break
+        default:
+          particular = 'Miscellaneous Refund'
+      }
+
       // Create refund transaction
       const refundTransaction = await FolioTransaction.create({
         hotelId: transaction.hotelId,
@@ -379,6 +607,7 @@ export default class FolioTransactionsController {
         transactionNumber: `REF-${transaction.transactionNumber}`,
         transactionType: TransactionType.REFUND,
         category: transaction.category,
+        particular: particular,
         description: `Refund: ${transaction.description}`,
         amount: -refundAmount,
         originalTransactionId: transaction.id,
@@ -428,6 +657,68 @@ export default class FolioTransactionsController {
 
       const originalFolioId = transaction.folioId
 
+      // Map category to particular description for transfer
+      let transferOutParticular = 'Transfer Out'
+      let transferInParticular = 'Transfer In'
+      
+      switch (transaction.category) {
+        case TransactionCategory.ROOM_CHARGE:
+          transferOutParticular = 'Room Charge Transfer Out'
+          transferInParticular = 'Room Charge Transfer In'
+          break
+        case TransactionCategory.FOOD_BEVERAGE:
+          transferOutParticular = 'Food & Beverage Transfer Out'
+          transferInParticular = 'Food & Beverage Transfer In'
+          break
+        case TransactionCategory.TELEPHONE:
+          transferOutParticular = 'Telephone Charge Transfer Out'
+          transferInParticular = 'Telephone Charge Transfer In'
+          break
+        case TransactionCategory.LAUNDRY:
+          transferOutParticular = 'Laundry Service Transfer Out'
+          transferInParticular = 'Laundry Service Transfer In'
+          break
+        case TransactionCategory.MINIBAR:
+          transferOutParticular = 'Minibar Charge Transfer Out'
+          transferInParticular = 'Minibar Charge Transfer In'
+          break
+        case TransactionCategory.SPA:
+          transferOutParticular = 'Spa Service Transfer Out'
+          transferInParticular = 'Spa Service Transfer In'
+          break
+        case TransactionCategory.BUSINESS_CENTER:
+          transferOutParticular = 'Business Center Transfer Out'
+          transferInParticular = 'Business Center Transfer In'
+          break
+        case TransactionCategory.PARKING:
+          transferOutParticular = 'Parking Fee Transfer Out'
+          transferInParticular = 'Parking Fee Transfer In'
+          break
+        case TransactionCategory.INTERNET:
+          transferOutParticular = 'Internet Service Transfer Out'
+          transferInParticular = 'Internet Service Transfer In'
+          break
+        case TransactionCategory.PAYMENT:
+          transferOutParticular = 'Payment Transfer Out'
+          transferInParticular = 'Payment Transfer In'
+          break
+        case TransactionCategory.ADJUSTMENT:
+          transferOutParticular = 'Adjustment Transfer Out'
+          transferInParticular = 'Adjustment Transfer In'
+          break
+        case TransactionCategory.TAX:
+          transferOutParticular = 'Tax Transfer Out'
+          transferInParticular = 'Tax Transfer In'
+          break
+        case TransactionCategory.SERVICE_CHARGE:
+          transferOutParticular = 'Service Charge Transfer Out'
+          transferInParticular = 'Service Charge Transfer In'
+          break
+        default:
+          transferOutParticular = 'Miscellaneous Transfer Out'
+          transferInParticular = 'Miscellaneous Transfer In'
+      }
+
       // Create transfer-out transaction in original folio
       await FolioTransaction.create({
         hotelId: transaction.hotelId,
@@ -435,6 +726,7 @@ export default class FolioTransactionsController {
         transactionNumber: `TRF-OUT-${transaction.transactionNumber}`,
         transactionType: TransactionType.TRANSFER,
         category: transaction.category,
+        particular: transferOutParticular,
         description: `Transfer out: ${transaction.description}`,
         amount: -transaction.amount,
         transferredTo: targetFolioId,
@@ -451,6 +743,7 @@ export default class FolioTransactionsController {
         transactionNumber: `TRF-IN-${transaction.transactionNumber}`,
         transactionType: TransactionType.TRANSFER,
         category: transaction.category,
+        particular: transferInParticular,
         description: `Transfer in: ${transaction.description}`,
         amount: transaction.amount,
         transferredFrom: originalFolioId,

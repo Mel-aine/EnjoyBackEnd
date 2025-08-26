@@ -1714,6 +1714,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         transactionCode: paymentMethod.methodCode,
         transactionType: TransactionType.PAYMENT,
         category: TransactionCategory.PAYMENT,
+        particular: 'Payment Received',
         subcategory: paymentMethod.methodType,
         description: description || `Payment via ${paymentMethod.methodName}`,
         amount: -Math.abs(amount), // Negative for payments

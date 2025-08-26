@@ -152,6 +152,86 @@ export default class FolioService {
       // Generate transaction number
       const transactionNumber = await this.generateTransactionNumber(folio.hotelId, trx)
 
+      // Map category to particular description
+      let particular = 'Miscellaneous Transaction'
+      
+      switch (data.category) {
+        case TransactionCategory.ROOM_CHARGE:
+          particular = 'Room Charge'
+          break
+        case TransactionCategory.FOOD_BEVERAGE:
+          particular = 'Food & Beverage'
+          break
+        case TransactionCategory.TELEPHONE:
+          particular = 'Telephone Charge'
+          break
+        case TransactionCategory.LAUNDRY:
+          particular = 'Laundry Service'
+          break
+        case TransactionCategory.MINIBAR:
+          particular = 'Minibar Charge'
+          break
+        case TransactionCategory.SPA:
+          particular = 'Spa Service'
+          break
+        case TransactionCategory.BUSINESS_CENTER:
+          particular = 'Business Center'
+          break
+        case TransactionCategory.PARKING:
+          particular = 'Parking Fee'
+          break
+        case TransactionCategory.INTERNET:
+          particular = 'Internet Service'
+          break
+        case TransactionCategory.PAYMENT:
+          particular = 'Payment Received'
+          break
+        case TransactionCategory.ADJUSTMENT:
+          particular = 'Folio Adjustment'
+          break
+        case TransactionCategory.TAX:
+          particular = 'Tax Charge'
+          break
+        case TransactionCategory.SERVICE_CHARGE:
+          particular = 'Service Charge'
+          break
+        case TransactionCategory.CANCELLATION_FEE:
+          particular = 'Cancellation Fee'
+          break
+        case TransactionCategory.NO_SHOW_FEE:
+          particular = 'No Show Fee'
+          break
+        case TransactionCategory.EARLY_DEPARTURE_FEE:
+          particular = 'Early Departure Fee'
+          break
+        case TransactionCategory.LATE_CHECKOUT_FEE:
+          particular = 'Late Checkout Fee'
+          break
+        case TransactionCategory.EXTRA_BED:
+          particular = 'Extra Bed Charge'
+          break
+        case TransactionCategory.CITY_TAX:
+          particular = 'City Tax'
+          break
+        case TransactionCategory.RESORT_FEE:
+          particular = 'Resort Fee'
+          break
+        case TransactionCategory.TRANSFER_IN:
+          particular = 'Transfer In'
+          break
+        case TransactionCategory.TRANSFER_OUT:
+          particular = 'Transfer Out'
+          break
+        case TransactionCategory.VOID:
+          particular = 'Void Transaction'
+          break
+        case TransactionCategory.REFUND:
+          particular = 'Refund'
+          break
+        default:
+          particular = 'Miscellaneous Charge'
+      }
+
       // Create transaction
       const transaction = await FolioTransaction.create({
         hotelId: folio.hotelId,
@@ -160,6 +240,7 @@ export default class FolioService {
         transactionNumber,
         transactionType: data.transactionType,
         category: data.category,
+        particular: particular,
         description: data.description,
         amount: data.amount,
         totalAmount: data.amount,
