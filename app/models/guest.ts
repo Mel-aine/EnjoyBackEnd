@@ -7,6 +7,7 @@ import Folio from './folio.js'
 import User from './user.js'
 import Hotel from './hotel.js'
 
+
 export default class Guest extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
@@ -72,7 +73,7 @@ export default class Guest extends BaseModel {
   declare passportNumber: string
 
   @column.date()
-  declare passportExpiryDate: DateTime
+  declare passportExpiry: DateTime
 
   @column()
   declare address: string
@@ -141,7 +142,7 @@ export default class Guest extends BaseModel {
   declare blacklistReason: string
 
   @column()
-  declare vipStatus: boolean
+  declare vipStatus: string
 
   @column()
   declare vipLevel: string
@@ -168,6 +169,30 @@ export default class Guest extends BaseModel {
   declare status: string
 
   @column()
+  declare guestType: string
+
+  @column()
+  declare fax: string
+
+  @column()
+  declare registrationNumber: string
+
+  @column()
+  declare visaNumber: string
+
+  @column()
+  declare issuingCountry: string
+
+  @column()
+  declare issuingCity: string
+
+  @column()
+  declare idPhoto: string
+
+  @column()
+  declare profilePhoto: string
+
+  @column()
   declare createdBy: number
 
   @column()
@@ -192,9 +217,21 @@ export default class Guest extends BaseModel {
     pivotForeignKey: 'guest_id',
     relatedKey: 'id',
     pivotRelatedForeignKey: 'reservation_id',
-    pivotColumns: ['is_primary', 'guest_type', 'room_assignment', 'special_requests', 'dietary_restrictions', 'accessibility', 'emergency_contact', 'emergency_phone', 'notes']
+    pivotColumns: [
+      'is_primary',
+      'guest_type',
+      'room_assignment',
+      'special_requests',
+      'dietary_restrictions',
+      'accessibility',
+      'emergency_contact',
+      'emergency_phone',
+      'notes',
+    ],
   })
   declare reservationsAsGuest: ManyToMany<typeof Reservation>
+
+
 
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>
@@ -219,4 +256,27 @@ export default class Guest extends BaseModel {
     const parts = [this.title, this.firstName, this.lastName, this.suffix].filter(Boolean)
     return parts.join(' ')
   }
+
+   public static setPreferences(value: unknown): object | null {
+    // Si la valeur est une chaîne non vide
+    if (typeof value === 'string' && value.length > 0) {
+      try {
+        // On essaie de la parser.
+        return JSON.parse(value)
+      } catch (e) {
+
+        console.error('Failed to parse preferences JSON string:', value, e)
+        return null
+      }
+    }
+
+
+    if (typeof value === 'object' && value !== null) {
+      return value
+    }
+
+    return null
+  }
+
+
 }

@@ -63,7 +63,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       // 3. Vérifier si une assignation existe déjà
       const existingAssignment = await ServiceUserAssignment.query()
         .where('user_id', user.id)
-        .andWhere('service_id', serviceId)
+        .andWhere('hotel_id', serviceId)
         .first()
 
       if (existingAssignment) {

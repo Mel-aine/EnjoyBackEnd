@@ -2,7 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import Guest from '#models/guest'
 import { createGuestValidator, updateGuestValidator } from '#validators/guest'
-import {generateGuestCode} from '../utils/generate_guest_code.js'
+import { generateGuestCode } from '../utils/generate_guest_code.js'
 
 export default class GuestsController {
   /**
@@ -48,18 +48,16 @@ export default class GuestsController {
         query.where('blacklisted', blacklisted)
       }
 
-      const guests = await query
-        .orderBy('created_at', 'desc')
-        .paginate(page, limit)
+      const guests = await query.orderBy('created_at', 'desc').paginate(page, limit)
 
       return response.ok({
         message: 'Guests retrieved successfully',
-        data: guests
+        data: guests,
       })
     } catch (error) {
       return response.internalServerError({
         message: 'Failed to retrieve guests',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -68,72 +66,75 @@ export default class GuestsController {
    * Create a new guest
    */
   async store({ request, response, auth }: HttpContext) {
-  try {
-    console.log('Start guest creation process')
+    try {
+      console.log('Start guest creation process')
 
-    // Validate payload
-    const payload = await request.validateUsing(createGuestValidator)
-    console.log('Payload validated:', payload)
+      // Validate payload
+      const payload = await request.validateUsing(createGuestValidator)
+      console.log('Payload validated:', payload)
 
-    // Prepare guest data
-    const guestData: any = {
-      ...payload,
-      createdBy: auth.user?.id || 0,
-      guestCode: generateGuestCode()
-    }
-    console.log('Initial guest data:', guestData)
+      // Prepare guest data
+      const guestData: any = {
+        ...payload,
+        createdBy: auth.user?.id || 0,
+        guestCode: generateGuestCode(),
+      }
+      console.log('Initial guest data:', guestData)
 
-    // Convert Date fields to DateTime
-    if (payload.dateOfBirth) {
-      guestData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
-      console.log('Converted dateOfBirth:', guestData.dateOfBirth.toISO())
-    }
-    if (payload.passportExpiryDate) {
-      guestData.passportExpiryDate = DateTime.fromJSDate(payload.passportExpiryDate)
-      console.log('Converted passportExpiryDate:', guestData.passportExpiryDate.toISO())
-    }
-    if (payload.idExpiryDate) {
-      guestData.idExpiryDate = DateTime.fromJSDate(payload.idExpiryDate)
-      console.log('Converted idExpiryDate:', guestData.idExpiryDate.toISO())
-    }
-    if (payload.blacklistedAt) {
-      guestData.blacklistedAt = DateTime.fromJSDate(payload.blacklistedAt)
-      console.log('Converted blacklistedAt:', guestData.blacklistedAt.toISO())
-    }
-    if (payload.lastLoginAt) {
-      guestData.lastLoginAt = DateTime.fromJSDate(payload.lastLoginAt)
-      console.log('Converted lastLoginAt:', guestData.lastLoginAt.toISO())
-    }
-    if (payload.lastActivityAt) {
-      guestData.lastActivityAt = DateTime.fromJSDate(payload.lastActivityAt)
-      console.log('Converted lastActivityAt:', guestData.lastActivityAt.toISO())
-    }
-    if (payload.lastStayDate) {
-      guestData.lastStayDate = DateTime.fromJSDate(payload.lastStayDate)
-      console.log('Converted lastStayDate:', guestData.lastStayDate.toISO())
-    }
-    if (payload.nextStayDate) {
-      guestData.nextStayDate = DateTime.fromJSDate(payload.nextStayDate)
-      console.log('Converted nextStayDate:', guestData.nextStayDate.toISO())
-    }
+      // Convert Date fields to DateTime
+      if (payload.dateOfBirth) {
+        guestData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
+        console.log('Converted dateOfBirth:', guestData.dateOfBirth.toISO())
+      }
+      if (payload.passportExpiry) {
+        guestData.passportExpiry = DateTime.fromJSDate(payload.passportExpiry)
+        console.log('Converted passportExpiry:', guestData.passportExpiry.toISO())
+      }
+      if (payload.visaExpiry) {
+        guestData.visaExpiry = DateTime.fromJSDate(payload.visaExpiry)
+        console.log('Converted visaExpiry:', guestData.visaExpiry.toISO())
+      }
+      if (payload.idExpiryDate) {
+        guestData.idExpiryDate = DateTime.fromJSDate(payload.idExpiryDate)
+        console.log('Converted idExpiryDate:', guestData.idExpiryDate.toISO())
+      }
+      if (payload.blacklistedAt) {
+        guestData.blacklistedAt = DateTime.fromJSDate(payload.blacklistedAt)
+        console.log('Converted blacklistedAt:', guestData.blacklistedAt.toISO())
+      }
+      if (payload.lastLoginAt) {
+        guestData.lastLoginAt = DateTime.fromJSDate(payload.lastLoginAt)
+        console.log('Converted lastLoginAt:', guestData.lastLoginAt.toISO())
+      }
+      if (payload.lastActivityAt) {
+        guestData.lastActivityAt = DateTime.fromJSDate(payload.lastActivityAt)
+        console.log('Converted lastActivityAt:', guestData.lastActivityAt.toISO())
+      }
+      if (payload.lastStayDate) {
+        guestData.lastStayDate = DateTime.fromJSDate(payload.lastStayDate)
+        console.log('Converted lastStayDate:', guestData.lastStayDate.toISO())
+      }
+      if (payload.nextStayDate) {
+        guestData.nextStayDate = DateTime.fromJSDate(payload.nextStayDate)
+        console.log('Converted nextStayDate:', guestData.nextStayDate.toISO())
+      }
 
-    // Create guest
-    const guest = await Guest.create(guestData)
-    console.log('Guest created successfully:', guest)
+      // Create guest
+      const guest = await Guest.create(guestData)
+      console.log('Guest created successfully:', guest)
 
-    return response.created({
-      message: 'Guest created successfully',
-      data: guest
-    })
-  } catch (error) {
-    console.error('Error creating guest:', error)
-    return response.badRequest({
-      message: 'Failed to create guest',
-      error: error.message
-    })
+      return response.created({
+        message: 'Guest created successfully',
+        data: guest,
+      })
+    } catch (error) {
+      console.error('Error creating guest:', error)
+      return response.badRequest({
+        message: 'Failed to create guest',
+        error: error.message,
+      })
+    }
   }
-  }
-
 
   /**
    * Show a specific guest
@@ -148,17 +149,17 @@ export default class GuestsController {
 
       return response.ok({
         message: 'Guest retrieved successfully',
-        data: guest
+        data: guest,
       })
     } catch (error) {
       return response.notFound({
         message: 'Guest not found',
-        error: error.message
+        error: error.message,
       })
     }
   }
 
-   /**
+  /**
    * Show by hotel_i a specific guest
    */
   async showbyHotelId({ params, response }: HttpContext) {
@@ -170,12 +171,12 @@ export default class GuestsController {
 
       return response.ok({
         message: 'Guest retrieved successfully',
-        data: guest
+        data: guest,
       })
     } catch (error) {
       return response.notFound({
         message: 'Guest not found',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -186,67 +187,88 @@ export default class GuestsController {
 
   async update({ params, request, response, auth }: HttpContext) {
     try {
-
-      console.log('REQUEST BODY:', request.body())
-
       const guest = await Guest.findOrFail(params.id)
-      let payload: any
-      try {
-        payload = await request.validateUsing(updateGuestValidator)
-        console.log('VALIDATION PASSED:', payload)
-      } catch (validationError) {
-        console.error('VALIDATION FAILED:', validationError)
-        return response.badRequest({
-          message: 'Validation failed',
-          error: validationError.messages || validationError.message || validationError
-        })
-      }
+      const payload = await request.validateUsing(updateGuestValidator)
+
+      // Infer the type of the validated payload
+      type PayloadType = typeof payload
 
       const updateData: any = { ...payload, lastModifiedBy: auth.user?.id || 0 }
-      const dateFields = [
-        'dateOfBirth', 'passportExpiryDate', 'idExpiryDate', 'blacklistedAt',
-        'lastLoginAt', 'lastActivityAt', 'lastStayDate', 'nextStayDate'
+
+      const dateFields: (keyof PayloadType)[] = [
+        'dateOfBirth',
+        'passportExpiry',
+        'visaExpiry',
+        'idExpiryDate',
+        'blacklistedAt',
+        'lastLoginAt',
+        'lastActivityAt',
+        'lastStayDate',
+        'nextStayDate',
       ]
-      dateFields.forEach(field => {
-        if (payload[field]) {
-          updateData[field] = DateTime.fromJSDate(payload[field])
-        }
-      })
-      console.log('UPDATE DATA:', updateData)
+
+       for (const field of dateFields) {
+      const value = payload[field]
+      if (value) {
+        updateData[field] = DateTime.fromJSDate(value as Date)
+      }
+    }
+
       guest.merge(updateData)
-
       await guest.save()
-
-      console.log('GUEST UPDATED:', guest)
 
       return response.ok({
         message: 'Guest updated successfully',
-        data: guest
+        data: guest,
       })
     } catch (error) {
       console.error('UPDATE FAILED:', error)
       return response.badRequest({
         message: 'Failed to update guest',
-        error: error.message || error
+        error: error.message || error,
       })
     }
   }
 
   /**
-   * Delete a guest
+   * Delete a guest only if they have no active or upcoming reservations.
    */
   async destroy({ params, response }: HttpContext) {
     try {
+      // 1. On trouve le client. Si non trouvé, `findOrFail` lève une erreur 404.
       const guest = await Guest.findOrFail(params.id)
+
+      // 2. La vérification clé : On cherche s'il existe AU MOINS UNE réservation "en cours".
+      // Une réservation "en cours" peut être définie par son statut.
+      // C'est la méthode la plus fiable.
+      const activeStatuses = ['confirmed', 'checked_in', 'pending']
+
+      const activeReservation = await guest
+        .related('reservations')
+        .query()
+        .whereIn('status', activeStatuses)
+        .first() // On s'arrête dès qu'on en trouve une, c'est plus performant.
+      if (activeReservation) {
+        return response.conflict({
+          message: 'Cannot delete this guest as they have active or upcoming reservations.',
+          blockingReservationId: activeReservation.id
+        })
+      }
+
+      //  Si aucune réservation active n'a été trouvée, on peut supprimer le client en toute sécurité.
       await guest.delete()
 
       return response.ok({
-        message: 'Guest deleted successfully'
+        message: 'Guest deleted successfully',
       })
     } catch (error) {
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Guest not found' })
+      }
+
       return response.badRequest({
         message: 'Failed to delete guest',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -254,41 +276,69 @@ export default class GuestsController {
   /**
    * Get guest profile with stay history
    */
-  async profile({ params, response }: HttpContext) {
+
+   async profile({ params, response }: HttpContext) {
     try {
       const guest = await Guest.query()
         .where('id', params.id)
-        .preload('reservations', (query) => {
-          query.orderBy('created_at', 'desc').limit(10)
+        .preload('reservations', (reservationQuery) => {
+
+          reservationQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room')
+            roomQuery.preload('roomType')
+            // On ne prend que les statuts pertinents pour ne pas surcharger
+            roomQuery.whereIn('status', ['reserved', 'checked_in'])
+          })
         })
         .preload('folios', (query) => {
           query.orderBy('created_at', 'desc').limit(5)
         })
         .firstOrFail()
 
+      // --- Logique pour trouver le statut actuel et à venir ---
+
+      // Aplatir toutes les `reservationRooms` de toutes les `reservations` en une seule liste
+      const allStays = guest.reservations.flatMap(res => res.reservationRooms)
+
+      // Trouver le séjour actif (statut 'checked_in')
+      const activeStay = allStays.find(stay => stay.status === 'checked_in') || null
+
+      // Trouver le prochain séjour à venir (statut 'reserved' et pas encore commencé)
+      const upcomingStay = allStays
+        .filter(stay => stay.status === 'reserved' && stay.checkInDate > DateTime.now())
+        .sort((a, b) => a.checkInDate.toMillis() - b.checkInDate.toMillis())[0] || null
+
+      // Construire l'objet de retour final
+      const profileData = {
+        ...guest.serialize(),
+        activeStay: activeStay ? activeStay.serialize() : null,
+        upcomingStay: upcomingStay ? upcomingStay.serialize() : null,
+
+      };
+
+      // Les statistiques peuvent être calculées comme avant si besoin
       const totalReservations = await guest.related('reservations').query().count('* as total')
       const totalSpent = await guest.related('folios').query().sum('total_charges as total')
-      // const averageRating = await guest.related('reservations').query().avg('satisfaction_rating as avg')
 
       const profile = {
-        guest,
+        guest: profileData,
         statistics: {
           totalReservations: totalReservations[0].$extras.total,
           totalSpent: totalSpent[0].$extras.total || 0,
-          // averageRating: averageRating[0].$extras.avg || 0,
           lastStayDate: guest.lastStayDate,
-          loyaltyStatus: guest.vipStatus ? 'VIP' : 'Regular'
-        }
+          loyaltyStatus: guest.vipStatus ? 'VIP' : 'Regular',
+        },
       }
 
       return response.ok({
         message: 'Guest profile retrieved successfully',
-        data: profile
+        data: profile,
       })
     } catch (error) {
+      console.error(error)
       return response.notFound({
         message: 'Guest not found',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -302,7 +352,7 @@ export default class GuestsController {
 
       if (!searchQuery) {
         return response.badRequest({
-          message: 'Search query is required'
+          message: 'Search query is required',
         })
       }
 
@@ -335,12 +385,12 @@ export default class GuestsController {
 
       return response.ok({
         message: 'Search results retrieved successfully',
-        data: guests
+        data: guests,
       })
     } catch (error) {
       return response.internalServerError({
         message: 'Search failed',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -364,12 +414,12 @@ export default class GuestsController {
 
       return response.ok({
         message: `Guest ${guest.blacklisted ? 'blacklisted' : 'removed from blacklist'} successfully`,
-        data: guest
+        data: guest,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to toggle blacklist status',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -389,18 +439,13 @@ export default class GuestsController {
 
       return response.ok({
         message: 'Guest VIP status updated successfully',
-        data: guest
+        data: guest,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to update VIP status',
-        error: error.message
+        error: error.message,
       })
     }
   }
-
-
-
-
-
 }
