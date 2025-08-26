@@ -121,6 +121,5 @@ export enum PaymentMethodType {
   COMP = 'comp',
   HOUSE_ACCOUNT = 'house_account',
   CITY_LEDGER = 'city_ledger',
-  MOBILE_PAYMENT = 'mobile_payment',
   OTHER = 'other'
 }

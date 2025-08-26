@@ -11,6 +11,8 @@ import {
   postTransactionValidator,
   settleFolioValidator,
   transferChargesValidator,
+  splitFolioValidator,
+  splitFolioByTypeValidator,
   createFolioServiceValidator,
   createReservationFolioValidator,
   createWalkInFolioValidator,
@@ -410,6 +412,47 @@ export default class FoliosController {
     } catch (error) {
       return response.badRequest({
         message: 'Failed to transfer charges',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Split folio by transferring specified transactions
+   */
+  async split({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(splitFolioValidator)
+
+      const result = await FolioService.splitFolio({
+        ...payload,
+        splitBy: auth.user!.id
+      })
+
+      return response.ok({
+        message: 'Folio split completed successfully',
+        data: {
+          sourceFolio: {
+            id: result.sourceFolio.id,
+            folioNumber: result.sourceFolio.folioNumber,
+            balance: result.sourceFolio.balance
+          },
+          destinationFolio: {
+            id: result.destinationFolio.id,
+            folioNumber: result.destinationFolio.folioNumber,
+            balance: result.destinationFolio.balance
+          },
+          transferredTransactions: result.transferredTransactions.map(t => ({
+            id: t.id,
+            description: t.description,
+            amount: t.amount,
+            transactionType: t.transactionType
+          }))
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to split folio',
         error: error.message
       })
     }
@@ -954,6 +997,105 @@ export default class FoliosController {
   }
 
   /**
+   * Comprehensive folio search with text search across multiple fields
+   */
+  async comprehensiveSearch({ request, response }: HttpContext) {
+    try {
+      // Validate required parameters
+      const searchText = request.input('searchText')
+      const inhouse = request.input('inhouse')
+      const reservation = request.input('reservation')
+      const hotelId = request.input('hotelId')
+      
+      // Validate hotelId is provided
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'Hotel ID is required for folio search',
+          error: 'Missing required parameter: hotelId'
+        })
+      }
+
+      // Parse boolean parameters
+      let inhouseFilter: boolean | undefined
+      let reservationFilter: boolean | undefined
+
+      if (inhouse !== undefined && inhouse !== null && inhouse !== '') {
+        if (inhouse === 'true' || inhouse === true) {
+          inhouseFilter = true
+        } else if (inhouse === 'false' || inhouse === false) {
+          inhouseFilter = false
+        } else {
+          return response.badRequest({
+            message: 'Invalid inhouse parameter. Must be true or false',
+            error: 'Invalid parameter value'
+          })
+        }
+      }
+
+      if (reservation !== undefined && reservation !== null && reservation !== '') {
+        if (reservation === 'true' || reservation === true) {
+          reservationFilter = true
+        } else if (reservation === 'false' || reservation === false) {
+          reservationFilter = false
+        } else {
+          return response.badRequest({
+            message: 'Invalid reservation parameter. Must be true or false',
+            error: 'Invalid parameter value'
+          })
+        }
+      }
+
+      // Build filters object
+      const filters = {
+        searchText: searchText || undefined,
+        inhouse: inhouseFilter,
+        reservation: reservationFilter,
+        hotelId: parseInt(hotelId),
+        dateFrom: request.input('dateFrom') ? new Date(request.input('dateFrom')) : undefined,
+        dateTo: request.input('dateTo') ? new Date(request.input('dateTo')) : undefined,
+        folioType: request.input('folioType') || undefined,
+        status: request.input('status') || undefined
+      }
+
+      // Validate hotelId is a valid number
+      if (isNaN(filters.hotelId)) {
+        return response.badRequest({
+          message: 'Invalid hotel ID. Must be a valid number',
+          error: 'Invalid parameter value'
+        })
+      }
+
+      // Get pagination parameters
+      const page = Math.max(1, parseInt(request.input('page', '1')))
+      const limit = Math.min(100, Math.max(1, parseInt(request.input('limit', '20'))))
+      
+      // Perform search
+      const result = await FolioInquiryService.comprehensiveFolioSearch(filters, page, limit)
+      
+      return response.ok({
+        message: 'Folio search completed successfully',
+        data: result.data,
+        pagination: result.pagination,
+        searchCriteria: {
+          searchText: filters.searchText,
+          inhouse: filters.inhouse,
+          reservation: filters.reservation,
+          hotelId: filters.hotelId,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          folioType: filters.folioType,
+          status: filters.status
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to perform comprehensive folio search',
+        error: error.message
+      })
+    }
+  }
+
+  /**
    * Search transactions with filters
    */
   async searchTransactions({ request, response }: HttpContext) {
@@ -1022,4 +1164,47 @@ export default class FoliosController {
       })
     }
   }
+
+  /**
+    * Split folio by transaction type
+    */
+   async splitByType({ request, response, auth }: HttpContext) {
+     try {
+       const payload = await request.validateUsing(splitFolioByTypeValidator)
+ 
+       const result = await FolioService.splitFolioByType({
+         ...payload,
+         splitBy: auth.user!.id
+       })
+ 
+       return response.ok({
+         message: 'Folio split by type completed successfully',
+         data: {
+           originalFolio: {
+             id: result.originalFolio.id,
+             folioNumber: result.originalFolio.folioNumber,
+             balance: result.originalFolio.balance
+           },
+           newFolios: result.newFolios.map(folio => ({
+             id: folio.id,
+             folioNumber: folio.folioNumber,
+             folioName: folio.folioName,
+             balance: folio.balance
+           })),
+           transferredTransactions: result.transferredTransactions.map(t => ({
+             id: t.id,
+             description: t.description,
+             amount: t.amount,
+             transactionType: t.transactionType,
+             category: t.category
+           }))
+         }
+       })
+     } catch (error) {
+       return response.badRequest({
+         message: 'Failed to split folio by type',
+         error: error.message
+       })
+     }
+   }
 }

@@ -1,8 +1,7 @@
 import CompanyAccount from '#models/company_account'
 import BusinessSource from '#models/business_source'
 import PaymentMethod from '#models/payment_method'
-import Folio from '#models/folio'
-import { PaymentMethodType, FolioStatus } from '#app/enums'
+import { PaymentMethodType } from '#app/enums'
 
 export default class CompanyAccountService {
   /**
@@ -35,40 +34,12 @@ export default class CompanyAccountService {
    * Get a company account by ID
    */
   async getById(id: number) {
-    const companyAccount = await CompanyAccount.query()
+    return await CompanyAccount.query()
       .where('id', id)
       .preload('hotel')
       .preload('creator')
       .preload('modifier')
       .first()
-
-    if (companyAccount) {
-      // Calculate the balance based on folios
-      const balance = await this.calculateFolioBalance(companyAccount.id)
-      
-      // Add the calculated balance to the company account object
-      companyAccount.$extras.calculatedBalance = balance
-    }
-
-    return companyAccount
-  }
-
-  /**
-   * Calculate the balance for a company account based on related folios
-   */
-  async calculateFolioBalance(companyId: number) {
-    // Get all folios related to this company account
-    const folios = await Folio.query()
-      .where('companyId', companyId)
-      .where('status', FolioStatus.OPEN) // Only consider open folios
-
-    // Calculate the total balance
-    let totalBalance = 0
-    for (const folio of folios) {
-      totalBalance += folio.balance || 0
-    }
-
-    return totalBalance
   }
 
   /**

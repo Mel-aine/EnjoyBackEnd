@@ -723,6 +723,8 @@ router
         router.post('/:id/close', foliosController.close.bind(foliosController)) // Close folio for checkout
         router.post('/:id/reopen', foliosController.reopen.bind(foliosController)) // Reopen closed folio
         router.post('/:id/transfer', foliosController.transfer.bind(foliosController)) // Transfer charges between folios
+        router.post('/split', foliosController.split.bind(foliosController)) // Split folio by transferring transactions
+router.post('/split-by-type', foliosController.splitByType.bind(foliosController)) // Split folio by transaction types
 
         // New service-based operations
         router.post('/transactions', foliosController.postTransaction.bind(foliosController)) // Post transaction to folio
@@ -752,6 +754,7 @@ router
         router.get('/:id/guest-view', foliosController.getGuestView.bind(foliosController)) // Get guest folio view (limited)
         router.get('/:id/staff-view', foliosController.getStaffView.bind(foliosController)) // Get staff folio view (comprehensive)
         router.get('/search', foliosController.search.bind(foliosController)) // Search folios with filters
+        router.get('/comprehensive/search', foliosController.comprehensiveSearch.bind(foliosController)) // Comprehensive folio search with text search
         router.get('/transactions/search', foliosController.searchTransactions.bind(foliosController)) // Search transactions
         router.get('/:id/timeline', foliosController.getTimeline.bind(foliosController)) // Get folio activity timeline
         router.get('/statistics-advanced', foliosController.getStatistics.bind(foliosController)) // Get advanced folio statistics
@@ -1106,15 +1109,6 @@ router
             router.get('/active', [() => import('#controllers/company_accounts_controller'), 'getActive']) // Get active company accounts
           })
           .prefix('company_accounts')
-
-        // Audit Trail Routes
-        router
-          .group(() => {
-            router.get('/', [() => import('#controllers/audit_trail_controller'), 'getAuditTrail']) // Get audit trail with filtering
-            router.get('/export', [() => import('#controllers/audit_trail_controller'), 'exportAuditTrail']) // Export audit trail data
-            router.get('/entity/:entityType/:entityId', [() => import('#controllers/audit_trail_controller'), 'getEntityAuditTrail']) // Get audit trail for specific entity
-          })
-          .prefix('audit-trail')
 
         // Payout Reason Management Routes
         // Payout reason configuration for expense tracking

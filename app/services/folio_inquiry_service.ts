@@ -2,6 +2,8 @@ import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import Guest from '#models/guest'
 import User from '#models/user'
+import Reservation from '#models/reservation'
+import Room from '#models/room'
 import { TransactionType, WorkflowStatus } from '#app/enums'
 
 export interface FolioInquiryFilters {
@@ -19,6 +21,17 @@ export interface FolioInquiryFilters {
   balanceMax?: number
   createdBy?: number
   hasOutstandingBalance?: boolean
+}
+
+export interface ComprehensiveFolioSearchFilters {
+  searchText?: string
+  inhouse?: boolean
+  reservation?: boolean
+  hotelId?: number
+  dateFrom?: Date
+  dateTo?: Date
+  folioType?: string
+  status?: string
 }
 
 export interface TransactionInquiryFilters {
@@ -311,6 +324,154 @@ export default class FolioInquiryService {
         limit,
         total: totalCount,
         totalPages: Math.ceil(totalCount / limit)
+      }
+    }
+  }
+
+  /**
+   * Comprehensive folio search with text search across multiple fields
+   */
+  static async comprehensiveFolioSearch(
+    filters: ComprehensiveFolioSearchFilters,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{
+    data: any[]
+    pagination: {
+      currentPage:number,
+      lastPage: number,
+      perPage:number,
+      limit: number
+      total: number
+      totalPages: number,
+      hasMorePages:boolean
+    }
+  }> {
+    const query = Folio.query()
+      .preload('guest', (guestQuery) => {
+        guestQuery.select(['id', 'firstName', 'lastName', 'email',])
+      })
+      .preload('reservation', (resQuery) => {
+        resQuery
+          .select(['id', 'confirmationNumber', 'checkInDate','arrivedDate','departDate', 'checkOutDate', 'reservationStatus'])
+          .preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room', (r) => {
+              r.select(['id', 'roomNumber', 'floorNumber'])
+            })
+          })
+      })
+
+    // Apply hotel filter
+    if (filters.hotelId) {
+      query.where('hotel_id', filters.hotelId)
+    }
+
+    // Apply date filters
+    if (filters.dateFrom) {
+      query.where('createdAt', '>=', filters.dateFrom)
+    }
+
+    if (filters.dateTo) {
+      query.where('createdAt', '<=', filters.dateTo)
+    }
+
+    // Apply folio type filter
+    if (filters.folioType) {
+      query.where('folioType', filters.folioType)
+    }
+
+    // Apply status filter
+    if (filters.status) {
+      query.where('status', filters.status)
+    }
+
+    // Apply inhouse filter (guests currently checked in)
+    if (filters.inhouse === true) {
+      query.whereHas('reservation', (resQuery) => {
+        resQuery.where('reservationStatus', 'Checked-In')
+      })
+    } else if (filters.inhouse === false) {
+      query.whereHas('reservation', (resQuery) => {
+        resQuery.whereNot('reservationStatus', 'Checked-In')
+      })
+    }
+
+    // Apply reservation filter (confirmed reservations only)
+    if (filters.reservation === true) {
+      query.whereHas('reservation', (resQuery) => {
+        resQuery.where('reservationStatus', 'Confirmed')
+      })
+    } else if (filters.reservation === false) {
+      query.whereHas('reservation', (resQuery) => {
+        resQuery.whereNot('reservationStatus', 'Confirmed')
+      })
+    }
+
+    // Apply comprehensive text search
+    if (filters.searchText && filters.searchText.trim()) {
+      const searchTerm = filters.searchText.trim()
+      
+      query.where((builder) => {
+        // Search in folio fields
+        builder
+          .where('folioNumber', 'ILIKE', `%${searchTerm}%`)
+          .orWhere('folioName', 'ILIKE', `%${searchTerm}%`)
+          
+        // Search in guest name
+        builder.orWhereHas('guest', (guestQuery) => {
+          guestQuery
+            .where('firstName', 'ILIKE', `%${searchTerm}%`)
+            .orWhere('lastName', 'ILIKE', `%${searchTerm}%`)
+            .orWhere('email', 'ILIKE', `%${searchTerm}%`)
+            .orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", [`%${searchTerm}%`])
+        })
+        
+        // Search in room numbers through reservation
+        builder.orWhereHas('reservation', (resQuery) => {
+          resQuery
+            .where('confirmationNumber', 'ILIKE', `%${searchTerm}%`)
+            .orWhereHas('reservationRooms', (roomQuery) => {
+              roomQuery.whereHas('room', (r) => {
+                r.where('roomNumber', 'ILIKE', `%${searchTerm}%`)
+              })
+            })
+        })
+      })
+    }
+
+    // Execute query with pagination
+    const result = await query
+      .orderBy('createdAt', 'desc')
+      .paginate(page, limit)
+
+    // Transform data to return only specific fields
+    const transformedData = result.all().map(folio => {
+      const reservation = folio.reservation
+      const room = reservation?.reservationRooms?.[0]?.room
+      const guest = folio.guest
+      
+      return {
+        id:folio.id,
+        folioNumber: folio.folioNumber,
+        roomNumber: room?.roomNumber || null,
+        guest: guest ? `${guest.displayName}`.trim() : null,
+        billingContact: guest ? `${guest.displayName}`.trim() : null,
+        arrivedDate: reservation?.arrivedDate || reservation?.scheduledArrivalDate || null,
+        departureDate: reservation?.departDate || reservation?.scheduledDepartureDate || null,
+        balance: folio.balance || 0
+      }
+    })
+
+    return {
+      data: transformedData,
+      pagination: {
+        currentPage: result.currentPage,
+        perPage: result.perPage,
+        total: result.total,
+        lastPage: result.lastPage,
+        hasMorePages: result.hasMorePages,
+        limit:limit,
+        totalPages:result.total
       }
     }
   }

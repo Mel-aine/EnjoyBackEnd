@@ -96,7 +96,7 @@ export default class AuditTrailController {
       const options = {
         hotelId: Number(hotelId),
         entityType,
-        entityIds: [numericEntityId],
+        entityIds: [Number(entityId)],
         sortBy: 'createdAt',
         order: 'desc' as 'desc'
       }

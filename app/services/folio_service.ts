@@ -65,6 +65,14 @@ export interface TransferData {
   transferredBy: number
 }
 
+export interface SplitFolioData {
+  sourceFolioId: number
+  destinationFolioId: number
+  transactionsToMove: number[]
+  splitBy: number
+  notes?: string
+}
+
 export default class FolioService {
   /**
    * Create a new folio for a guest
@@ -316,18 +324,268 @@ export default class FolioService {
   }
   
   /**
-   * Get folio statement with all transactions
+   * Get folio statement with transactions and room information
    */
   static async getFolioStatement(folioId: number): Promise<Folio> {
     return await Folio.query()
       .where('id', folioId)
-      .preload('hotel')
       .preload('guest')
-      .preload('reservation')
-      .preload('transactions', (query) => {
-        query.orderBy('transactionDate', 'asc')
+      .preload('reservation', (reservationQuery) => {
+        reservationQuery.preload('reservationRooms', (roomQuery) => {
+          roomQuery.preload('room')
+        })
+      })
+      .preload('transactions', (transactionQuery) => {
+        transactionQuery
+          .orderBy('transactionDate', 'asc')
+          .preload('paymentMethod')
       })
       .firstOrFail()
+  }
+  
+  /**
+   * Split a folio by transferring specified transactions from source to destination folio
+   */
+  static async splitFolio(data: SplitFolioData): Promise<{ sourceFolio: Folio, destinationFolio: Folio, transferredTransactions: FolioTransaction[] }> {
+    return await db.transaction(async (trx) => {
+      // Validate both folios exist
+      const sourceFolio = await Folio.query({ client: trx })
+        .where('id', data.sourceFolioId)
+        .first()
+      
+      if (!sourceFolio) {
+        throw new Error(`Source folio with ID ${data.sourceFolioId} not found`)
+      }
+
+      const destinationFolio = await Folio.query({ client: trx })
+        .where('id', data.destinationFolioId)
+        .first()
+      
+      if (!destinationFolio) {
+        throw new Error(`Destination folio with ID ${data.destinationFolioId} not found`)
+      }
+
+      // Validate both folios belong to the same hotel
+      if (sourceFolio.hotelId !== destinationFolio.hotelId) {
+        throw new Error('Source and destination folios must belong to the same hotel')
+      }
+
+      // Validate source folio is not closed
+      if (sourceFolio.status === FolioStatus.CLOSED) {
+        throw new Error('Cannot split transactions from a closed folio')
+      }
+
+      // Validate destination folio is not closed
+      if (destinationFolio.status === FolioStatus.CLOSED) {
+        throw new Error('Cannot split transactions to a closed folio')
+      }
+
+      // Validate transactions exist and belong to source folio
+      const transactionsToMove = await FolioTransaction.query({ client: trx })
+        .whereIn('id', data.transactionsToMove)
+        .where('folioId', data.sourceFolioId)
+        .where('status', '!=', TransactionStatus.VOIDED)
+      
+      if (transactionsToMove.length !== data.transactionsToMove.length) {
+        const foundIds = transactionsToMove.map(t => t.id)
+        const missingIds = data.transactionsToMove.filter(id => !foundIds.includes(id))
+        throw new Error(`Transactions with IDs [${missingIds.join(', ')}] not found in source folio or are voided`)
+      }
+
+      // Validate transactions can be moved (not settled, not voided)
+      const unmovableTransactions = transactionsToMove.filter(t => 
+        t.status === TransactionStatus.SETTLED || 
+        t.status === TransactionStatus.VOIDED
+      )
+      
+      if (unmovableTransactions.length > 0) {
+        const unmovableIds = unmovableTransactions.map(t => t.id)
+        throw new Error(`Transactions with IDs [${unmovableIds.join(', ')}] cannot be moved (settled or voided)`)
+      }
+
+      // Transfer transactions to destination folio
+      await FolioTransaction.query({ client: trx })
+        .whereIn('id', data.transactionsToMove)
+        .update({
+          folioId: data.destinationFolioId,
+          lastModifiedBy: data.splitBy,
+          updatedAt: DateTime.now(),
+          notes: data.notes ? `Split from folio ${sourceFolio.folioNumber}: ${data.notes}` : `Split from folio ${sourceFolio.folioNumber}`
+        })
+
+      // Update folio totals for both folios
+      await this.updateFolioTotals(data.sourceFolioId, trx)
+      await this.updateFolioTotals(data.destinationFolioId, trx)
+
+      // Reload folios with updated totals
+      const updatedSourceFolio = await Folio.query({ client: trx })
+        .where('id', data.sourceFolioId)
+        .firstOrFail()
+      
+      const updatedDestinationFolio = await Folio.query({ client: trx })
+        .where('id', data.destinationFolioId)
+        .firstOrFail()
+
+      return {
+        sourceFolio: updatedSourceFolio,
+        destinationFolio: updatedDestinationFolio,
+        transferredTransactions: transactionsToMove
+      }
+    })
+  }
+  
+  /**
+   * Split a folio by transaction types (room charges, payments, extract charges)
+   */
+  static async splitFolioByType(data: {
+    hotelId: number
+    folioId: number
+    roomCharges?: boolean
+    payment?: boolean
+    extractCharges?: boolean
+    notes?: string
+    splitBy: number
+  }): Promise<{
+    originalFolio: Folio
+    newFolios: Folio[]
+    transferredTransactions: FolioTransaction[]
+  }> {
+    return await db.transaction(async (trx) => {
+      // Validate original folio exists
+      const originalFolio = await Folio.query({ client: trx })
+        .where('id', data.folioId)
+        .first()
+      
+      if (!originalFolio) {
+        throw new Error(`Folio with ID ${data.folioId} not found`)
+      }
+      
+      // Ensure folio belongs to the specified hotel
+      if (originalFolio.hotelId !== data.hotelId) {
+        throw new Error('Folio does not belong to the specified hotel')
+      }
+
+      // Ensure folio is not closed
+      if (originalFolio.status === FolioStatus.CLOSED) {
+        throw new Error('Cannot split a closed folio')
+      }
+
+      const newFolios: Folio[] = []
+      const allTransferredTransactions: FolioTransaction[] = []
+
+      // Handle room charges
+      if (data.roomCharges) {
+        const roomChargeTransactions = await FolioTransaction.query({ client: trx })
+          .where('folioId', data.folioId)
+          .where('status', '!=', TransactionStatus.VOIDED)
+          .whereIn('category', [TransactionCategory.ROOM])
+
+        if (roomChargeTransactions.length > 0) {
+          const newFolio = await this.createFolio({
+            hotelId: data.hotelId,
+            guestId: originalFolio.guestId,
+            reservationId: originalFolio.reservationId,
+            folioType: originalFolio.folioType,
+            folioName: `${originalFolio.folioName || 'Split'} - Room Charges`,
+            notes: data.notes || 'Split from original folio - Room charges',
+            createdBy: data.splitBy
+          })
+
+          // Transfer room charge transactions
+          await FolioTransaction.query({ client: trx })
+            .whereIn('id', roomChargeTransactions.map(t => t.id))
+            .update({
+              folioId: newFolio.id,
+              lastModifiedBy: data.splitBy,
+              updatedAt: DateTime.now()
+            })
+
+          newFolios.push(newFolio)
+          allTransferredTransactions.push(...roomChargeTransactions)
+        }
+      }
+
+      // Handle payments
+      if (data.payment) {
+        const paymentTransactions = await FolioTransaction.query({ client: trx })
+          .where('folioId', data.folioId)
+          .where('status', '!=', TransactionStatus.VOIDED)
+          .where('transactionType', TransactionType.PAYMENT)
+
+        if (paymentTransactions.length > 0) {
+          const newFolio = await this.createFolio({
+            hotelId: data.hotelId,
+            guestId: originalFolio.guestId,
+            reservationId: originalFolio.reservationId,
+            folioType: originalFolio.folioType,
+            folioName: `${originalFolio.folioName || 'Split'} - Payments`,
+            notes: data.notes || 'Split from original folio - Payments',
+            createdBy: data.splitBy
+          })
+
+          // Transfer payment transactions
+          await FolioTransaction.query({ client: trx })
+            .whereIn('id', paymentTransactions.map(t => t.id))
+            .update({
+              folioId: newFolio.id,
+              lastModifiedBy: data.splitBy,
+              updatedAt: DateTime.now()
+            })
+
+          newFolios.push(newFolio)
+          allTransferredTransactions.push(...paymentTransactions)
+        }
+      }
+
+      // Handle extract charges
+      if (data.extractCharges) {
+        const extractChargeTransactions = await FolioTransaction.query({ client: trx })
+          .where('folioId', data.folioId)
+          .where('status', '!=', TransactionStatus.VOIDED)
+          .whereIn('category', [TransactionCategory.FOOD_BEVERAGE, TransactionCategory.SPA, TransactionCategory.LAUNDRY, TransactionCategory.MINIBAR, TransactionCategory.MISCELLANEOUS])
+
+        if (extractChargeTransactions.length > 0) {
+          const newFolio = await this.createFolio({
+            hotelId: data.hotelId,
+            guestId: originalFolio.guestId,
+            reservationId: originalFolio.reservationId,
+            folioType: originalFolio.folioType,
+            folioName: `${originalFolio.folioName || 'Split'} - Extract Charges`,
+            notes: data.notes || 'Split from original folio - Extract charges',
+            createdBy: data.splitBy
+          })
+
+          // Transfer extract charge transactions
+          await FolioTransaction.query({ client: trx })
+            .whereIn('id', extractChargeTransactions.map(t => t.id))
+            .update({
+              folioId: newFolio.id,
+              lastModifiedBy: data.splitBy,
+              updatedAt: DateTime.now()
+            })
+
+          newFolios.push(newFolio)
+          allTransferredTransactions.push(...extractChargeTransactions)
+        }
+      }
+
+      // Update folio totals for all affected folios
+      await this.updateFolioTotals(data.folioId, trx)
+      for (const folio of newFolios) {
+        await this.updateFolioTotals(folio.id, trx)
+      }
+
+      // Reload original folio with updated totals
+      const updatedOriginalFolio = await Folio.query({ client: trx })
+        .where('id', data.folioId)
+        .firstOrFail()
+
+      return {
+        originalFolio: updatedOriginalFolio,
+        newFolios,
+        transferredTransactions: allTransferredTransactions
+      }
+    })
   }
   
   /**

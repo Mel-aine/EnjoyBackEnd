@@ -47,6 +47,29 @@ export const transferChargesValidator = vine.compile(
   })
 )
 
+// Validator for folio split by transaction IDs
+export const splitFolioValidator = vine.compile(
+  vine.object({
+    sourceFolioId: vine.number().positive(),
+    destinationFolioId: vine.number().positive(),
+    transactionsToMove: vine.array(vine.number().positive()).minLength(1),
+    splitBy: vine.string().optional(),
+    notes: vine.string().optional()
+  })
+)
+
+// Validator for folio split by transaction types
+export const splitFolioByTypeValidator = vine.compile(
+  vine.object({
+    hotelId: vine.number().positive(),
+    folioId: vine.number().positive(),
+    roomCharges: vine.boolean().optional(),
+    payment: vine.boolean().optional(),
+    extractCharges: vine.boolean().optional(),
+    notes: vine.string().optional()
+  })
+)
+
 // Validator for creating folio with service
 export const createFolioServiceValidator = vine.compile(
   vine.object({
