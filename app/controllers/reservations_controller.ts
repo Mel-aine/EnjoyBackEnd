@@ -179,6 +179,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CHECK_IN',
         entityType: 'Reservation',
         entityId: reservation.id,
+        hotelId : reservation.hotelId,
         description: `Reservation #${reservation.reservationNumber} checked in. Rooms: ${checkedInRooms.map(r => r.roomNumber).join(', ')}`,
         ctx: ctx,
       });
@@ -189,6 +190,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           actorId: auth.user!.id,
           action: 'CHECK_IN',
           entityType: 'Guest',
+          hotelId : reservation.hotelId,
           entityId: reservation.guestId,
           description: `Checked in from hotel for reservation #${reservation.reservationNumber}.`,
           meta: {
@@ -377,6 +379,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CHECK_OUT',
         entityType: 'Reservation',
         entityId: reservation.id,
+        hotelId : reservation.hotelId,
         description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
         ctx: ctx,
       })
@@ -388,6 +391,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'CHECK_OUT',
           entityType: 'Guest',
           entityId: reservation.guestId,
+          hotelId : reservation.hotelId,
           description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
           meta: {
             reservationId: reservation.id,
@@ -910,6 +914,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'UPDATE',
         entityType: 'Reservation',
         entityId: reservationId,
+        hotelId : reservation.hotelId,
+        description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
+        changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
+        ctx,
+      })
+      //guest log
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'Guest',
+        entityId: reservation.guestId,
+        hotelId : reservation.hotelId,
         description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
         ctx,
@@ -1079,6 +1095,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'CANCEL',
           entityType: 'ReservationRoom',
           entityId: resService.id,
+          hotelId : reservation.hotelId,
           description: `Reservation #${resService.id} cancelled.`,
           ctx: ctx,
         })
@@ -1086,8 +1103,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           await LoggerService.log({
           actorId: auth.user!.id,
           action: 'CANCEL',
-          entityType: 'Reservation',
-          entityId: reservation.id,
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId : reservation.hotelId,
           description: `Reservation #${reservation.reservationNumber} was cancelled. Reason: ${reason || 'N/A'}.`,
           meta: {
             reason: reason,
@@ -1137,9 +1155,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CANCEL',
         entityType: 'Reservation',
         entityId: reservation.id,
+        hotelId : reservation.hotelId,
         description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. `,
         ctx: ctx,
       })
+      //log for guest
+        await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'CANCEL_RESERVATION',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId : reservation.hotelId,
+          description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. `,
+          ctx: ctx,
+
+          })
 
       await trx.commit()
 
@@ -1543,6 +1573,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'CREATE',
           entityType: 'Reservation',
           entityId: reservation.id,
+          hotelId : reservation.hotelId,
           description: `Reservation #${reservation.id} was created for ${guestDescription} (${guestCount} total guests).`,
           ctx,
         })
@@ -1551,6 +1582,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'RESERVATION_CREATED',
           entityType: 'Guest',
           entityId: guest.id,
+          hotelId : reservation.hotelId,
           description: `A new reservation #${reservation.reservationNumber} was created.`,
           meta: {
             reservationId: reservation.id,
@@ -1578,6 +1610,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CREATE_FOLIOS',
             entityType: 'Reservation',
             entityId: reservation.id,
+            hotelId : reservation.hotelId,
             description: `Created ${folios.length} folio(s) with room charges for confirmed reservation #${reservation.id}.`,
             ctx,
           })
@@ -1587,6 +1620,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'FOLIOS_CREATED',
             entityType: 'Guest',
             entityId: guest.id,
+            hotelId : reservation.hotelId,
             description: `${folios.length} folio(s) were created for reservation #${reservation.reservationNumber}.`,
             meta: {
               reservationId: reservation.id,
@@ -1666,6 +1700,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Call the parent update method
       const updateResponse = await super.update(ctx)
+      const reservation = await Reservation.findOrFail(reservationId)
 
       // Check if status was changed to 'confirmed'
       if (data.status === 'confirmed' && oldStatus.status !== 'confirmed') {
@@ -1682,6 +1717,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CONFIRM_RESERVATION',
             entityType: 'Reservation',
             entityId: reservationId,
+            hotelId : reservation.hotelId,
+            description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
+            ctx,
+          })
+          //for guest
+          await LoggerService.log({
+            actorId: auth.user!.id,
+            action: 'CONFIRM_RESERVATION',
+            entityType: 'Guest',
+            entityId: reservation.guestId,
+            hotelId : reservation.hotelId,
             description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
             ctx,
           })
@@ -1719,7 +1765,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   // Reservation Action Methods
-  public async addPayment({ params, request, response, auth }: HttpContext) {
+  public async addPayment(ctx : HttpContext ){
+    const { params, request, response, auth } = ctx
     const trx = await db.transaction()
     try {
       const reservationId = params.reservationId
@@ -1861,6 +1908,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       await trx.commit()
+      //log for guest
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'ADD_PAYMENT',
+        entityType: 'Guest',
+        entityId: reservation.guestId,
+        hotelId: reservation.hotelId,
+        description: `Payment of ${amount} ${currencyCode} added to reservation #${reservation.reservationNumber} via ${paymentMethod.methodName}.`,
+        meta: {
+          paymentId: transaction.id,
+          transactionNumber: transaction.transactionNumber,
+          method: paymentMethod.methodName,
+          amount: amount,
+          currency: currencyCode,
+        },
+        ctx
+      })
+
 
       return response.ok({
         message: 'Payment added successfully',

@@ -1,5 +1,8 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import ActivityLog from '#models/activity_log'
+import Guest from '#models/guest'
+import { DateTime } from 'luxon'
+
 
 export default class ActivityLogsController {
   /**
@@ -112,5 +115,72 @@ export default class ActivityLogsController {
     .orderBy('createdAt', 'desc')
 
   return response.ok(logs)
+  }
+
+   /**
+   * Récupère le journal d'audit pour un invité spécifique.
+   */
+
+  public async getActivityLogs({ request, response, params }: HttpContext) {
+  const hotelId = params.hotelId
+  const guestId = params.guestId
+
+  // sécurité : le guest doit appartenir à l'hôtel
+  await Guest.query()
+    .where('hotel_id', hotelId)
+    .andWhere('id', guestId)
+    .firstOrFail()
+
+  const page   = request.input('page', 1)
+  const limit  = request.input('limit', 15)
+  const action = request.input('action') as string | undefined
+  const date   = request.input('date') as string | undefined
+  const userId = request.input('userId') as number | undefined
+
+  const query = ActivityLog.query()
+    .where('hotel_id', hotelId)
+    .where('entity_type', 'Guest')
+    .where('entity_id', guestId)
+    .preload('user', (q) => q.select(['id', 'firstName', 'lastName']))
+    .orderBy('created_at', 'desc')
+
+  if (action) {
+    query.where('action', action.toUpperCase())
+  }
+  if (date) {
+    const start = DateTime.fromISO(date).startOf('day').toSQL()
+    const end   = DateTime.fromISO(date).endOf('day').toSQL()
+
+    if (start && end) {
+      query.whereBetween('created_at', [start, end])
+    }
+  }
+
+  if (userId) {
+    query.where('user_id', userId)
+  }
+
+  const logs = await query.paginate(page, limit)
+
+  const formattedLogs = logs.toJSON().data.map((log) => ({
+    id: log.id,
+    action: log.action,
+    description: log.description,
+    changes: log.changes || {},
+    meta: log.meta || {},
+    timestamp: log.createdAt.toISO(),
+    userId: log.user?.id,
+    userName: [log.user?.firstName, log.user?.lastName].filter(Boolean).join(' ') || null,
+    ipAddress: log.ipAddress || null,
+    userAgent: log.userAgent || null,
+    entityId: log.entityId,
+    entityType: log.entityType,
+  }))
+
+  return response.ok({
+    meta: logs.toJSON().meta,
+    data: formattedLogs,
+  })
 }
+
 }

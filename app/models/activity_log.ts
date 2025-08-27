@@ -29,7 +29,7 @@ export default class ActivityLog extends BaseModel {
   declare description: string | null
 
   @column({ columnName: 'hotel_id' })
-  declare HotelId: number
+  declare hotelId: number | null
 
   @column()
   declare changes: Record<string, any> | null
@@ -63,6 +63,6 @@ export default class ActivityLog extends BaseModel {
   })
   declare creator: BelongsTo<typeof User>
 
-   @belongsTo(() => Hotel, { foreignKey: 'HotelId' })
+   @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
     declare hotel: BelongsTo<typeof Hotel>
 }

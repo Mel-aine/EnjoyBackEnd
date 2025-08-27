@@ -410,6 +410,9 @@ router
         '/activity-logs/user/:createdBy',
         activityLogsController.showByUser.bind(activityLogsController)
       )
+
+      router.get('/activity-log/:hotelId/guests/:guestId/activity-logs', activityLogsController.getActivityLogs.bind(activityLogsController))
+
       // This route must be before /:id to avoid 'by-entity' being treated as an id
       router.get(
         '/activity-logs/by-entity',
@@ -1103,7 +1106,7 @@ router.post('/split-by-type', foliosController.splitByType.bind(foliosController
             router.get('/:id', [() => import('#controllers/company_accounts_controller'), 'show']) // Get specific company account details
             router.put('/:id', [() => import('#controllers/company_accounts_controller'), 'update']) // Update company account information
             router.delete('/:id', [() => import('#controllers/company_accounts_controller'), 'destroy']) // Delete company account
-            
+
             // Additional company account operations
             router.get('/hotel/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getByHotel']) // Get company accounts by hotel
             router.get('/active', [() => import('#controllers/company_accounts_controller'), 'getActive']) // Get active company accounts

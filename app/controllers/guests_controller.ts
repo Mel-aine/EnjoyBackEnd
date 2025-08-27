@@ -227,9 +227,14 @@ export default class GuestsController {
 
   async update( ctx : HttpContext) {
     const { params, request, response, auth } = ctx
+
+    console.log("auth",auth.user)
     try {
 
-      const guest = await Guest.findOrFail(params.id)
+      const guest = await Guest.query()
+      .where('id', params.id)
+      .preload('hotel')
+      .firstOrFail()
        const oldData = guest.toJSON()
       const payload = await request.validateUsing(updateGuestValidator)
 
@@ -266,7 +271,8 @@ export default class GuestsController {
         action: 'UPDATE',
         entityType: 'Guest',
         entityId: guest.id,
-        description: `Le profil du client "${guest.fullName}" a été mis à jour.`,
+        hotelId:guest.hotelId,
+        description: `The profile for guest "${guest.fullName}" has been updated.`,
         changes: changes,
         ctx
       })
@@ -288,12 +294,12 @@ export default class GuestsController {
   /**
    * Delete a guest only if they have no active or upcoming reservations.
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy(ctx : HttpContext){
+    const { params, response, auth } = ctx
     try {
-      // 1. On trouve le client. Si non trouvé, `findOrFail` lève une erreur 404.
+      //  On trouve le client. Si non trouvé, `findOrFail` lève une erreur 404.
       const guest = await Guest.findOrFail(params.id)
 
-      // 2. La vérification clé : On cherche s'il existe AU MOINS UNE réservation "en cours".
       // Une réservation "en cours" peut être définie par son statut.
       // C'est la méthode la plus fiable.
       const activeStatuses = ['confirmed', 'checked_in', 'pending']
@@ -312,6 +318,17 @@ export default class GuestsController {
 
       //  Si aucune réservation active n'a été trouvée, on peut supprimer le client en toute sécurité.
       await guest.delete()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'DELETE',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: guest.hotelId,
+        description: `The guest profile "${guest.fullName}" has been deleted.`,
+        changes: {},
+        ctx
+      })
 
       return response.ok({
         message: 'Guest deleted successfully',
@@ -457,7 +474,8 @@ export default class GuestsController {
   /**
    * Toggle guest blacklist status
    */
-  async toggleBlacklist({ params, request, response, auth }: HttpContext) {
+  async toggleBlacklist( ctx : HttpContext) {
+    const { params, request, response, auth } = ctx
     try {
       const guest = await Guest.findOrFail(params.id)
       const { reason } = request.only(['reason'])
@@ -470,6 +488,20 @@ export default class GuestsController {
       }
 
       await guest.save()
+      await LoggerService.log({
+      actorId: auth.user?.id!,
+      action: guest.blacklisted ? 'BLACKLIST' : 'UNBLACKLIST',
+      entityType: 'Guest',
+      entityId: guest.id,
+      hotelId: guest.hotelId,
+      description: `The guest "${guest.fullName}" has been ${guest.blacklisted ? 'added to blacklist' : 'removed from blacklist'}.`,
+      meta: {
+        blacklisted: guest.blacklisted,
+        reason: guest.blacklisted ? reason : null,
+      },
+      ctx
+    })
+
 
       return response.ok({
         message: `Guest ${guest.blacklisted ? 'blacklisted' : 'removed from blacklist'} successfully`,
