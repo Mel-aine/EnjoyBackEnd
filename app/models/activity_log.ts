@@ -29,10 +29,13 @@ export default class ActivityLog extends BaseModel {
   declare description: string | null
 
   @column({ columnName: 'hotel_id' })
-  declare HotelId: number
+  declare hotelId: number | null
 
   @column()
   declare changes: Record<string, any> | null
+
+  @column()
+  declare meta: Record<string, any> | null
 
   @column({ columnName: 'ip_address' })
   declare ipAddress: string | null
@@ -60,6 +63,6 @@ export default class ActivityLog extends BaseModel {
   })
   declare creator: BelongsTo<typeof User>
 
-   @belongsTo(() => Hotel, { foreignKey: 'HotelId' })
+   @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
     declare hotel: BelongsTo<typeof Hotel>
 }

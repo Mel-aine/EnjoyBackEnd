@@ -179,9 +179,28 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CHECK_IN',
         entityType: 'Reservation',
         entityId: reservation.id,
+        hotelId : reservation.hotelId,
         description: `Reservation #${reservation.reservationNumber} checked in. Rooms: ${checkedInRooms.map(r => r.roomNumber).join(', ')}`,
         ctx: ctx,
       });
+
+      //for guest
+      if (reservation.guestId) {
+        await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'CHECK_IN',
+          entityType: 'Guest',
+          hotelId : reservation.hotelId,
+          entityId: reservation.guestId,
+          description: `Checked in from hotel for reservation #${reservation.reservationNumber}.`,
+          meta: {
+            reservationId: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            rooms: reservationRooms
+          },
+          ctx: ctx,
+        });
+      }
 
       await trx.commit();
 
@@ -212,6 +231,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async checkOut(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
     const { reservationRooms, actualCheckOutTime, notes } = request.body();
+
+    if (!auth.user) {
+      return response.unauthorized({
+        success: false,
+        message: 'Authentication required',
+        errors: ['User is not authenticated']
+      })
+    }
 
     const trx = await db.transaction()
 
@@ -348,13 +375,32 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Log the check-out activity
       await LoggerService.log({
-        actorId: auth.user!.id,
+        actorId: auth.user.id,
         action: 'CHECK_OUT',
         entityType: 'Reservation',
         entityId: reservation.id,
+        hotelId : reservation.hotelId,
         description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
         ctx: ctx,
       })
+
+      //log for Guest
+      if (reservation.guestId) {
+        await LoggerService.log({
+          actorId: auth.user.id,
+          action: 'CHECK_OUT',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId : reservation.hotelId,
+          description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
+          meta: {
+            reservationId: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            rooms: reservationRooms
+          },
+          ctx: ctx,
+        });
+      }
 
       await trx.commit()
 
@@ -868,6 +914,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'UPDATE',
         entityType: 'Reservation',
         entityId: reservationId,
+        hotelId : reservation.hotelId,
+        description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
+        changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
+        ctx,
+      })
+      //guest log
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'Guest',
+        entityId: reservation.guestId,
+        hotelId : reservation.hotelId,
         description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
         ctx,
@@ -1037,9 +1095,26 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'CANCEL',
           entityType: 'ReservationRoom',
           entityId: resService.id,
+          hotelId : reservation.hotelId,
           description: `Reservation #${resService.id} cancelled.`,
           ctx: ctx,
         })
+         //for guest
+          await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'CANCEL',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId : reservation.hotelId,
+          description: `Reservation #${reservation.reservationNumber} was cancelled. Reason: ${reason || 'N/A'}.`,
+          meta: {
+            reason: reason,
+            cancellationFee: cancellationFee
+          },
+          ctx: ctx,
+
+          })
+
       }
 
       // 5. Close all related folios and mark transactions as cancelled
@@ -1080,9 +1155,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CANCEL',
         entityType: 'Reservation',
         entityId: reservation.id,
+        hotelId : reservation.hotelId,
         description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. `,
         ctx: ctx,
       })
+      //log for guest
+        await LoggerService.log({
+          actorId: auth.user!.id,
+          action: 'CANCEL_RESERVATION',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId : reservation.hotelId,
+          description: `Reservation #${reservation.id} cancelled. Fee: ${cancellationFee}. `,
+          ctx: ctx,
+
+          })
 
       await trx.commit()
 
@@ -1486,9 +1573,29 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'CREATE',
           entityType: 'Reservation',
           entityId: reservation.id,
+          hotelId : reservation.hotelId,
           description: `Reservation #${reservation.id} was created for ${guestDescription} (${guestCount} total guests).`,
           ctx,
         })
+         await LoggerService.log({
+          actorId: auth.user?.id!,
+          action: 'RESERVATION_CREATED',
+          entityType: 'Guest',
+          entityId: guest.id,
+          hotelId : reservation.hotelId,
+          description: `A new reservation #${reservation.reservationNumber} was created.`,
+          meta: {
+            reservationId: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            dates: {
+              arrival: reservation.arrivedDate?.toISODate(),
+              departure: reservation.departDate?.toISODate(),
+            },
+          },
+          ctx,
+
+        });
+
         await trx.commit()
         // 9. Create folios if reservation is confirmed
         let folios: any[] = []
@@ -1503,9 +1610,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CREATE_FOLIOS',
             entityType: 'Reservation',
             entityId: reservation.id,
+            hotelId : reservation.hotelId,
             description: `Created ${folios.length} folio(s) with room charges for confirmed reservation #${reservation.id}.`,
             ctx,
           })
+
+          await LoggerService.log({
+            actorId: auth.user?.id!,
+            action: 'FOLIOS_CREATED',
+            entityType: 'Guest',
+            entityId: guest.id,
+            hotelId : reservation.hotelId,
+            description: `${folios.length} folio(s) were created for reservation #${reservation.reservationNumber}.`,
+            meta: {
+              reservationId: reservation.id,
+              folioIds: folios.map(f => f.id),
+            },
+            ctx,
+           });
         }
 
 
@@ -1578,6 +1700,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Call the parent update method
       const updateResponse = await super.update(ctx)
+      const reservation = await Reservation.findOrFail(reservationId)
 
       // Check if status was changed to 'confirmed'
       if (data.status === 'confirmed' && oldStatus.status !== 'confirmed') {
@@ -1594,6 +1717,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CONFIRM_RESERVATION',
             entityType: 'Reservation',
             entityId: reservationId,
+            hotelId : reservation.hotelId,
+            description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
+            ctx,
+          })
+          //for guest
+          await LoggerService.log({
+            actorId: auth.user!.id,
+            action: 'CONFIRM_RESERVATION',
+            entityType: 'Guest',
+            entityId: reservation.guestId,
+            hotelId : reservation.hotelId,
             description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
             ctx,
           })
@@ -1631,7 +1765,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   // Reservation Action Methods
-  public async addPayment({ params, request, response, auth }: HttpContext) {
+  public async addPayment(ctx : HttpContext ){
+    const { params, request, response, auth } = ctx
     const trx = await db.transaction()
     try {
       const reservationId = params.reservationId
@@ -1774,6 +1909,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       await trx.commit()
+      //log for guest
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'ADD_PAYMENT',
+        entityType: 'Guest',
+        entityId: reservation.guestId,
+        hotelId: reservation.hotelId,
+        description: `Payment of ${amount} ${currencyCode} added to reservation #${reservation.reservationNumber} via ${paymentMethod.methodName}.`,
+        meta: {
+          paymentId: transaction.id,
+          transactionNumber: transaction.transactionNumber,
+          method: paymentMethod.methodName,
+          amount: amount,
+          currency: currencyCode,
+        },
+        ctx
+      })
+
 
       return response.ok({
         message: 'Payment added successfully',
