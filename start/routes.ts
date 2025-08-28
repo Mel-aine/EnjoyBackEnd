@@ -43,6 +43,8 @@ import ExtraChargesController from '#controllers/extra_charges_controller'
 import TaxRatesController from '#controllers/tax_rates_controller'
 import LostFoundController from '#controllers/lost_found_controller'
 import RoomBlocksController from '#controllers/room_blocks_controller'
+import VipStatusController from '#controllers/vip_status_controller'
+import IncidentalInvoiceController from '#controllers/incidental_invoice_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -107,6 +109,8 @@ const taxRatesController = new TaxRatesController()
 const lostFoundController = new LostFoundController()
 const reservationsController = new ReservationsController()
 const roomBlocksController = new RoomBlocksController()
+const vipStatusController = new VipStatusController()
+const incidentalInvoiceController = new IncidentalInvoiceController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -1041,6 +1045,19 @@ router
           })
           .prefix('black_list_reasons')
 
+        // VIP Status Management Routes
+        // VIP status configuration for guest classification
+        router
+          .group(() => {
+            // Basic CRUD operations for VIP statuses
+            router.get('/', vipStatusController.index.bind(vipStatusController)) // Get all VIP statuses with filtering by hotel
+            router.post('/', vipStatusController.store.bind(vipStatusController)) // Create a new VIP status
+            router.get('/:id', vipStatusController.show.bind(vipStatusController)) // Get specific VIP status details
+            router.put('/:id', vipStatusController.update.bind(vipStatusController)) // Update VIP status information
+            router.delete('/:id', vipStatusController.destroy.bind(vipStatusController)) // Delete VIP status
+          })
+          .prefix('vip_statuses')
+
         // Market Codes management routes
         router
           .group(() => {
@@ -1114,6 +1131,7 @@ router
             // Additional company account operations
             router.get('/hotel/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getByHotel']) // Get company accounts by hotel
             router.get('/active', [() => import('#controllers/company_accounts_controller'), 'getActive']) // Get active company accounts
+            router.get('/city_ledger/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getCityLedger']) // Get city ledger accounts for hotel (doNotCountAsCityLedger = false)
           })
           .prefix('company_accounts')
 
@@ -1161,6 +1179,20 @@ router
             router.delete('/:id', taxRatesController.destroy.bind(taxRatesController)) // Delete tax rate
           })
           .prefix('taxes')
+
+        // Incidental Invoice Management Routes
+        // Incidental invoice creation and management for extra charges
+        router
+          .group(() => {
+            // Basic CRUD operations for incidental invoices
+            router.get('/', incidentalInvoiceController.index.bind(incidentalInvoiceController)) // Get all incidental invoices with search and filtering
+            router.post('/', incidentalInvoiceController.create.bind(incidentalInvoiceController)) // Create a new incidental invoice
+            router.get('/statistics', incidentalInvoiceController.getStatistics.bind(incidentalInvoiceController)) // Get invoice statistics
+            router.get('/:id', incidentalInvoiceController.show.bind(incidentalInvoiceController)) // Get specific incidental invoice details
+            router.get('/invoice/:invoiceNumber', incidentalInvoiceController.getByInvoiceNumber.bind(incidentalInvoiceController)) // Get invoice by invoice number
+            router.post('/:id/void', incidentalInvoiceController.void.bind(incidentalInvoiceController)) // Void an incidental invoice
+          })
+          .prefix('incidental_invoices')
       })
       .prefix('configuration')
 

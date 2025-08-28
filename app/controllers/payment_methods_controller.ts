@@ -385,7 +385,7 @@ export default class PaymentMethodsController {
 
       const activeMethods = await PaymentMethod.query()
         .where('hotel_id', hotelId)
-        .where('is_active', true)
+       // .where('is_active', true)
         .orderBy('sort_order', 'asc')
         .orderBy('method_name', 'asc')
 

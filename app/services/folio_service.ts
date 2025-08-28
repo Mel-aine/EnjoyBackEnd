@@ -169,7 +169,7 @@ export default class FolioService {
           particular = 'Laundry Service'
           break
         case TransactionCategory.MINIBAR:
-          particular = 'Minibar Charge'
+          particular = 'Minibar Charge' 
           break
         case TransactionCategory.SPA:
           particular = 'Spa Service'

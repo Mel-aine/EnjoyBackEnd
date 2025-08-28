@@ -1073,7 +1073,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       reservation.status = ReservationStatus.CANCELLED
       reservation.cancellationReason = reason
-      reservation.cancelledBy = auth.user!.id
+     // reservation.cancelledBy = auth.user!.id
       reservation.lastModifiedBy = auth.user!.id
       reservation.cancellationDate = DateTime.now()
       //reservation.cancellationFeeAmount = cancellationFee;
@@ -2202,12 +2202,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
               .where('check_out_date', '>', moveDate.toISODate()!)
           })
             .orWhere((subQuery) => {
-              subQuery.where('check_in_date', '<', checkOutDate.toISODate()!)
-                .where('check_out_date', '>=', checkOutDate.toISODate()!)
+              subQuery.where('check_in_date', '<', checkOutDate?.toISODate()!)
+                .where('check_out_date', '>=', checkOutDate?.toISODate()!)
             })
             .orWhere((subQuery) => {
-              subQuery.where('check_in_date', '>=', moveDate.toISODate()!)
-                .where('check_out_date', '<=', checkOutDate.toISODate()!)
+              subQuery.where('check_in_date', '>=', moveDate?.toISODate()!)
+                .where('check_out_date', '<=', checkOutDate?.toISODate()!)
             })
         })
         .first()
@@ -2535,16 +2535,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
           .where('id', '!=', currentReservationRoom.id) // Exclude current reservation
           .where((query) => {
             query.where((subQuery) => {
-              subQuery.where('check_in_date', '<=', reservation.arrivedDate.toISODate()!)
-                .where('check_out_date', '>', reservation.arrivedDate.toISODate()!)
+              subQuery.where('check_in_date', '<=', reservation.arrivedDate?.toISODate()!)
+                .where('check_out_date', '>', reservation.arrivedDate?.toISODate()!)
             })
               .orWhere((subQuery) => {
-                subQuery.where('check_in_date', '<', reservation.departDate.toISODate()!)
-                  .where('check_out_date', '>=', reservation.departDate.toISODate()!)
+                subQuery.where('check_in_date', '<', reservation.departDate?.toISODate()!)
+                  .where('check_out_date', '>=', reservation.departDate?.toISODate()!)
               })
               .orWhere((subQuery) => {
-                subQuery.where('check_in_date', '>=', reservation.arrivedDate.toISODate()!)
-                  .where('check_out_date', '<=', reservation.departDate.toISODate()!)
+                subQuery.where('check_in_date', '>=', reservation.arrivedDate?.toISODate()!)
+                  .where('check_out_date', '<=', reservation.departDate?.toISODate()!)
               })
           })
           .first()
@@ -2968,7 +2968,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             unitPrice: noShowFees,
             reference: `NOSHOW-${reservation.reservationNumber}`,
             notes: `No-show fee applied on ${now.toISODate()}`,
-            postedBy: auth.user?.id
+            postedBy: auth.user?.id!
           })
         }
 
@@ -2990,7 +2990,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             unitPrice: -transaction.amount,
             reference: `VOID-${transaction.transactionNumber}`,
             notes: `Voided due to no-show: ${reason || 'Guest did not arrive'}`,
-            postedBy: auth.user?.id
+            postedBy: auth.user?.id!
           })
 
           // Mark original transaction as voided
@@ -3012,14 +3012,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
           await FolioService.postTransaction({
             folioId: folio.id,
             transactionType: TransactionType.ADJUSTMENT,
-            category: TransactionCategory.BALANCING_ADJUSTMENT,
+            category: TransactionCategory.ADJUSTMENT,
             description: `Balancing adjustment - No-show processing`,
             amount: adjustmentAmount,
             quantity: 1,
             unitPrice: adjustmentAmount,
             reference: `BAL-${reservation.reservationNumber}`,
             notes: `Balancing adjustment to zero balance after no-show processing`,
-            postedBy: auth.user?.id
+            postedBy: auth.user?.id!
           })
         }
 

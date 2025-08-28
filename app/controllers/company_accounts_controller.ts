@@ -294,4 +294,26 @@ export default class CompanyAccountsController {
       })
     }
   }
+
+  /**
+   * Get city ledger accounts for a hotel (doNotCountAsCityLedger = false)
+   */
+  async getCityLedger({ params, response }: HttpContext) {
+    try {
+      const hotelId = params.hotelId
+      const cityLedgerAccounts = await this.service.getCityLedgerAccounts(hotelId)
+
+      return response.ok({
+        success: true,
+        data: cityLedgerAccounts,
+        message: 'City ledger accounts retrieved successfully'
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: 'Error fetching city ledger accounts',
+        error: error.message,
+      })
+    }
+  }
 }

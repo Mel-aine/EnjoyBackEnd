@@ -115,7 +115,7 @@ export default class FolioTransactionsController {
       let particular = 'Miscellaneous Transaction'
       
       switch (category) {
-        case TransactionCategory.ROOM_CHARGE:
+        case TransactionCategory.ROOM:
           particular = 'Room Charge'
           break
         case TransactionCategory.FOOD_BEVERAGE:
@@ -292,7 +292,7 @@ export default class FolioTransactionsController {
         transaction.category = payload.category as TransactionCategory
         // Update particular field when category changes
         switch (payload.category as TransactionCategory) {
-          case TransactionCategory.ROOM_CHARGE:
+          case TransactionCategory.ROOM:
             transaction.particular = 'Room Charge'
             break
           case TransactionCategory.FOOD_BEVERAGE:
@@ -536,7 +536,7 @@ export default class FolioTransactionsController {
       // Map category to particular description for refund
       let particular = 'Refund'
       switch (transaction.category) {
-        case TransactionCategory.ROOM_CHARGE:
+        case TransactionCategory.ROOM:
           particular = 'Room Charge Refund'
           break
         case TransactionCategory.FOOD_BEVERAGE:
@@ -662,7 +662,7 @@ export default class FolioTransactionsController {
       let transferInParticular = 'Transfer In'
       
       switch (transaction.category) {
-        case TransactionCategory.ROOM_CHARGE:
+        case TransactionCategory.ROOM:
           transferOutParticular = 'Room Charge Transfer Out'
           transferInParticular = 'Room Charge Transfer In'
           break

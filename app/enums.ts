@@ -30,7 +30,8 @@ export enum FolioType {
   GROUP = 'group',
   HOUSE = 'house',
   CITY_LEDGER = 'city_ledger',
-  ADVANCE_DEPOSIT = 'advance_deposit'
+  ADVANCE_DEPOSIT = 'advance_deposit',
+  VOICE_INCIDENTAL='voice_incidental'
 }
 
 export enum FolioStatus {
@@ -90,7 +91,15 @@ export enum TransactionCategory {
   DEPOSIT = 'deposit',
   PAYMENT = 'payment',
   ADJUSTMENT = 'adjustment',
-  NO_SHOW_FEE = 'no_show_fee'
+  NO_SHOW_FEE = 'no_show_fee',
+  CANCELLATION_FEE = 'cancellation_fee',
+  EARLY_DEPARTURE_FEE = 'early_departure_fee',
+  LATE_CHECKOUT_FEE = 'late_checkout_fee',
+  EXTRA_BED = 'extra_bed',
+  CITY_TAX = 'city_tax',
+  RESORT_FEE = 'resort_fee',
+  VOID = 'void',
+  REFUND = 'refund'
 }
 
 export enum TransactionStatus {

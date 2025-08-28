@@ -154,6 +154,17 @@ export default class CompanyAccountService {
   }
 
   /**
+   * Get city ledger accounts for a hotel (doNotCountAsCityLedger = false)
+   */
+  async getCityLedgerAccounts(hotelId: number) {
+    return await CompanyAccount.query()
+      .where('hotel_id', hotelId)
+      .where('do_not_count_as_city_ledger', false)
+      .andWhereNot('account_status', 'Closed')
+      .orderBy('company_name', 'asc')
+  }
+
+  /**
    * Create a business source from company account data
    */
   public async createBusinessSource(companyAccount: CompanyAccount, data: any) {
