@@ -3,8 +3,35 @@ import { DateTime } from 'luxon'
 import Guest from '#models/guest'
 import { createGuestValidator, updateGuestValidator } from '#validators/guest'
 import { generateGuestCode } from '../utils/generate_guest_code.js'
+import LoggerService from '#services/logger_service'
+
+type ChangeLog = {
+  [key: string]: { old: any; new: any }
+}
+
 
 export default class GuestsController {
+
+  /**
+   * Méthode utilitaire privée pour générer le journal des modifications.
+   *
+   */
+  private generateChangeLog(oldData: Record<string, any>, newData: Record<string, any>): ChangeLog {
+    const changes: ChangeLog = {}
+
+    // On s'assure de ne comparer que les clés présentes dans les nouvelles données validées
+    for (const key of Object.keys(newData)) {
+      const oldValue = oldData[key]
+      const newValue = newData[key]
+
+      // On compare aussi les cas où une valeur était null/undefined et devient une chaîne vide, etc.
+      if (oldValue !== newValue) {
+        changes[key] = { old: oldValue, new: newValue }
+      }
+    }
+
+    return changes
+  }
   /**
    * Display a list of guests
    */
@@ -17,8 +44,16 @@ export default class GuestsController {
       const vipStatus = request.input('vip_status')
       const nationality = request.input('nationality')
       const blacklisted = request.input('blacklisted')
+      const guestType = request.input('guest_type')
+      const hotelId = request.input('hotel_id')
 
       const query = Guest.query()
+
+        if (hotelId) {
+          query.where('hotelId', hotelId);
+        } else {
+          return response.badRequest({ message: 'hotelId is required' });
+        }
 
       if (search) {
         query.where((builder) => {
@@ -26,9 +61,10 @@ export default class GuestsController {
             .where('first_name', 'ILIKE', `%${search}%`)
             .orWhere('last_name', 'ILIKE', `%${search}%`)
             .orWhere('email', 'ILIKE', `%${search}%`)
-            .orWhere('phone_number', 'ILIKE', `%${search}%`)
+            .orWhere('phone_primary', 'ILIKE', `%${search}%`)
             .orWhere('guest_code', 'ILIKE', `%${search}%`)
-            .orWhere('loyalty_number', 'ILIKE', `%${search}%`)
+            // .orWhere('loyalty_number', 'ILIKE', `%${search}%`)
+
         })
       }
 
@@ -46,6 +82,10 @@ export default class GuestsController {
 
       if (blacklisted !== undefined) {
         query.where('blacklisted', blacklisted)
+      }
+
+      if (guestType) {
+        query.where('guest_type', guestType)
       }
 
       const guests = await query.orderBy('created_at', 'desc').paginate(page, limit)
@@ -185,9 +225,17 @@ export default class GuestsController {
    * Update a guest
    */
 
-  async update({ params, request, response, auth }: HttpContext) {
+  async update( ctx : HttpContext) {
+    const { params, request, response, auth } = ctx
+
+    console.log("auth",auth.user)
     try {
-      const guest = await Guest.findOrFail(params.id)
+
+      const guest = await Guest.query()
+      .where('id', params.id)
+      .preload('hotel')
+      .firstOrFail()
+       const oldData = guest.toJSON()
       const payload = await request.validateUsing(updateGuestValidator)
 
       // Infer the type of the validated payload
@@ -216,6 +264,19 @@ export default class GuestsController {
 
       guest.merge(updateData)
       await guest.save()
+      const changes = this.generateChangeLog(oldData, payload)
+       if (Object.keys(changes).length > 0) {
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'UPDATE',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId:guest.hotelId,
+        description: `The profile for guest "${guest.fullName}" has been updated.`,
+        changes: changes,
+        ctx
+      })
+    }
 
       return response.ok({
         message: 'Guest updated successfully',
@@ -233,12 +294,12 @@ export default class GuestsController {
   /**
    * Delete a guest only if they have no active or upcoming reservations.
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy(ctx : HttpContext){
+    const { params, response, auth } = ctx
     try {
-      // 1. On trouve le client. Si non trouvé, `findOrFail` lève une erreur 404.
+      //  On trouve le client. Si non trouvé, `findOrFail` lève une erreur 404.
       const guest = await Guest.findOrFail(params.id)
 
-      // 2. La vérification clé : On cherche s'il existe AU MOINS UNE réservation "en cours".
       // Une réservation "en cours" peut être définie par son statut.
       // C'est la méthode la plus fiable.
       const activeStatuses = ['confirmed', 'checked_in', 'pending']
@@ -257,6 +318,17 @@ export default class GuestsController {
 
       //  Si aucune réservation active n'a été trouvée, on peut supprimer le client en toute sécurité.
       await guest.delete()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'DELETE',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: guest.hotelId,
+        description: `The guest profile "${guest.fullName}" has been deleted.`,
+        changes: {},
+        ctx
+      })
 
       return response.ok({
         message: 'Guest deleted successfully',
@@ -287,7 +359,7 @@ export default class GuestsController {
             roomQuery.preload('room')
             roomQuery.preload('roomType')
             // On ne prend que les statuts pertinents pour ne pas surcharger
-            roomQuery.whereIn('status', ['reserved', 'checked_in'])
+            roomQuery.whereIn('status', ['reserved', 'checked_in','confirmed'])
           })
         })
         .preload('folios', (query) => {
@@ -301,17 +373,21 @@ export default class GuestsController {
       const allStays = guest.reservations.flatMap(res => res.reservationRooms)
 
       // Trouver le séjour actif (statut 'checked_in')
-      const activeStay = allStays.find(stay => stay.status === 'checked_in') || null
+      const activeStays = allStays.filter(stay => stay.status === 'checked_in') || []
 
       // Trouver le prochain séjour à venir (statut 'reserved' et pas encore commencé)
       const upcomingStay = allStays
-        .filter(stay => stay.status === 'reserved' && stay.checkInDate > DateTime.now())
-        .sort((a, b) => a.checkInDate.toMillis() - b.checkInDate.toMillis())[0] || null
+        .filter(stay =>
+          ['reserved', 'confirmed'].includes(stay.status) &&
+          stay.checkInDate.startOf('day') >= DateTime.now().startOf('day')
+        )
+        .sort((a, b) => a.checkInDate.toMillis() - b.checkInDate.toMillis())[0] || null;
+
 
       // Construire l'objet de retour final
       const profileData = {
         ...guest.serialize(),
-        activeStay: activeStay ? activeStay.serialize() : null,
+         activeStays: activeStays.map(stay => stay.serialize()),
         upcomingStay: upcomingStay ? upcomingStay.serialize() : null,
 
       };
@@ -398,7 +474,8 @@ export default class GuestsController {
   /**
    * Toggle guest blacklist status
    */
-  async toggleBlacklist({ params, request, response, auth }: HttpContext) {
+  async toggleBlacklist( ctx : HttpContext) {
+    const { params, request, response, auth } = ctx
     try {
       const guest = await Guest.findOrFail(params.id)
       const { reason } = request.only(['reason'])
@@ -411,6 +488,20 @@ export default class GuestsController {
       }
 
       await guest.save()
+      await LoggerService.log({
+      actorId: auth.user?.id!,
+      action: guest.blacklisted ? 'BLACKLIST' : 'UNBLACKLIST',
+      entityType: 'Guest',
+      entityId: guest.id,
+      hotelId: guest.hotelId,
+      description: `The guest "${guest.fullName}" has been ${guest.blacklisted ? 'added to blacklist' : 'removed from blacklist'}.`,
+      meta: {
+        blacklisted: guest.blacklisted,
+        reason: guest.blacklisted ? reason : null,
+      },
+      ctx
+    })
+
 
       return response.ok({
         message: `Guest ${guest.blacklisted ? 'blacklisted' : 'removed from blacklist'} successfully`,

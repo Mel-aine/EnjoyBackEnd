@@ -410,6 +410,9 @@ router
         '/activity-logs/user/:createdBy',
         activityLogsController.showByUser.bind(activityLogsController)
       )
+
+      router.get('/activity-log/:hotelId/guests/:guestId/activity-logs', activityLogsController.getActivityLogs.bind(activityLogsController))
+
       // This route must be before /:id to avoid 'by-entity' being treated as an id
       router.get(
         '/activity-logs/by-entity',
