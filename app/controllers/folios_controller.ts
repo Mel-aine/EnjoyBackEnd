@@ -495,6 +495,45 @@ export default class FoliosController {
   }
 
   /**
+   * Get unsettled folios
+   */
+  async unsettled({ request, response }: HttpContext) {
+    try {
+      const { hotelId } = request.only(['hotelId'])
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 20)
+      
+      const query = Folio.query()
+        .where('balance', '>', 0)
+        .where('settlement_status', '!=', 'settled')
+        .where('status', 'open')
+      
+      if (hotelId) {
+        query.where('hotel_id', hotelId)
+      }
+
+      const unsettledFolios = await query
+        .preload('hotel')
+        .preload('guest')
+        .preload('transactions', (transactionQuery) => {
+          transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc')
+        })
+        .orderBy('balance', 'desc')
+        .paginate(page, limit)
+
+      return response.ok({
+        message: 'Unsettled folios retrieved successfully',
+        data: unsettledFolios
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve unsettled folios',
+        error: error.message
+      })
+    }
+  }
+
+  /**
    * Get folio statistics
    */
   async stats({ request, response }: HttpContext) {
