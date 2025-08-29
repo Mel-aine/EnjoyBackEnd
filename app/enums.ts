@@ -99,7 +99,8 @@ export enum TransactionCategory {
   CITY_TAX = 'city_tax',
   RESORT_FEE = 'resort_fee',
   VOID = 'void',
-  REFUND = 'refund'
+  REFUND = 'refund',
+  EXTRACT_CHARGE = 'extract_charge'
 }
 
 export enum TransactionStatus {

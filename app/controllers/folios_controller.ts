@@ -513,8 +513,10 @@ export default class FoliosController {
       }
 
       const unsettledFolios = await query
-        .preload('hotel')
         .preload('guest')
+        .preload('reservation', (reservationQuery) => {
+          reservationQuery.whereNotNull('id')
+        })
         .preload('transactions', (transactionQuery) => {
           transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc')
         })
