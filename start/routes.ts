@@ -773,9 +773,7 @@ router
         router.get('/:id/balance', foliosController.balance.bind(foliosController)) // Get folio balance
         router.get('/:id/statement', foliosController.statement.bind(foliosController)) // Get folio statement
         router.get('/statistics', foliosController.stats.bind(foliosController)) // Get folio statistics
-        router.get('/unsettled', foliosController.unsettled.bind(foliosController)) // Get unsettled folios
-
-
+        router.get('/unsettled/:id', foliosController.unsettled.bind(foliosController)) // Get unsettled folios
       })
       .prefix('folios')
 
