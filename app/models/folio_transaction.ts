@@ -6,6 +6,7 @@ import Hotel from './hotel.js'
 import Folio from './folio.js'
 import PaymentMethod from './payment_method.js'
 import User from './user.js'
+import Discount from './discount.js'
 
 export default class FolioTransaction extends BaseModel {
   @column({ isPrimary: true })
@@ -404,6 +405,9 @@ export default class FolioTransaction extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
+
+  @belongsTo(() => Discount)
+  declare discount: BelongsTo<typeof Discount>
 
   // Computed properties
   get isCharge() {

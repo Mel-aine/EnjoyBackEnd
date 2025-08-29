@@ -187,6 +187,9 @@ export default class FolioTransactionsController {
         case TransactionCategory.REFUND:
           particular = 'Refund'
           break
+        case TransactionCategory.EXTRACT_CHARGE:
+          particular = 'Extract Charge'
+          break
         default:
           particular = 'Miscellaneous Charge'
       }
@@ -363,6 +366,9 @@ export default class FolioTransactionsController {
             break
           case TransactionCategory.REFUND:
             transaction.particular = 'Refund'
+            break
+          case TransactionCategory.EXTRACT_CHARGE:
+            transaction.particular = 'Extract Charge'
             break
           default:
             transaction.particular = 'Miscellaneous Charge'

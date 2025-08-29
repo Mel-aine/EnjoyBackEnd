@@ -37,7 +37,8 @@ export interface PostTransactionData {
   unitPrice?: number
   taxAmount?: number
   serviceChargeAmount?: number
-  discountAmount?: number
+  discountAmount?: number,
+  discountId?:number,
   departmentId?: number
   revenueCenterId?: number
   costCenterId?: number
@@ -149,12 +150,30 @@ export default class FolioService {
         throw new Error('Folio cannot be modified - it is finalized or closed')
       }
 
+      // Calculate discount amount if discountId is provided
+      let calculatedDiscountAmount = data.discountAmount || 0
+      if (data.discountId) {
+        const discount = await Discount.findOrFail(data.discountId)
+        
+        // Validate discount is active
+        if (discount.status !== 'active' || discount.isDeleted) {
+          throw new Error('Discount is not active or has been deleted')
+        }
+        
+        // Calculate discount amount based on type
+        if (discount.type === 'percentage') {
+          calculatedDiscountAmount = data.amount * (discount.value / 100)
+        } else if (discount.type === 'flat') {
+          calculatedDiscountAmount = Math.min(discount.value, data.amount)
+        }
+      }
+
       // Generate transaction number
       const transactionNumber = await this.generateTransactionNumber(folio.hotelId, trx)
 
       // Map category to particular description
       let particular = 'Miscellaneous Transaction'
-      
+
       switch (data.category) {
         case TransactionCategory.ROOM:
           particular = 'Room Charge'
@@ -169,7 +188,7 @@ export default class FolioService {
           particular = 'Laundry Service'
           break
         case TransactionCategory.MINIBAR:
-          particular = 'Minibar Charge' 
+          particular = 'Minibar Charge'
           break
         case TransactionCategory.SPA:
           particular = 'Spa Service'
@@ -228,6 +247,9 @@ export default class FolioService {
         case TransactionCategory.REFUND:
           particular = 'Refund'
           break
+        case TransactionCategory.EXTRACT_CHARGE:
+          particular = 'Extra Charge'
+          break
         default:
           particular = 'Miscellaneous Charge'
       }
@@ -236,20 +258,21 @@ export default class FolioService {
       const transaction = await FolioTransaction.create({
         hotelId: folio.hotelId,
         folioId: data.folioId,
-        reservationId: folio.reservationId,
+        reservationId: folio.reservationId ?? undefined,
         transactionNumber,
         transactionType: data.transactionType,
         category: data.category,
         particular: particular,
         description: data.description,
         amount: data.amount,
-        totalAmount: data.amount,
+        totalAmount: parseFloat(`${data.quantity ?? 1}`) * parseFloat(`${data.amount}`),
         quantity: data.quantity || 1,
         unitPrice: data.unitPrice || data.amount,
         taxAmount: data.taxAmount || 0,
         serviceChargeAmount: data.serviceChargeAmount || 0,
-        discountAmount: data.discountAmount || 0,
-        netAmount: data.amount - (data.discountAmount || 0),
+        discountAmount: calculatedDiscountAmount,
+        discountId: data.discountId,
+        netAmount: data.amount - calculatedDiscountAmount,
         grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
         transactionCode: transactionNumber,
         transactionTime: DateTime.now().toISOTime(),
@@ -1094,7 +1117,7 @@ export default class FolioService {
         status: TransactionStatus.POSTED,
         createdBy: data.postedBy,
         lastModifiedBy: data.postedBy
-      
+
       }, { client: trx })
 
       // Update folio totals
