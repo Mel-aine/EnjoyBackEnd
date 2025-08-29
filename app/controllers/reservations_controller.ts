@@ -569,7 +569,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
       outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
-      totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes).toFixed(2)),
+      totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes+totalServiceCharges).toFixed(2)),
       balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
     }
   }
