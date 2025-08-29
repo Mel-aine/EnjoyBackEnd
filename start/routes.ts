@@ -48,6 +48,7 @@ import IncidentalInvoiceController from '#controllers/incidental_invoice_control
 import EmailTemplatesController from '#controllers/email_templates_controller'
 import EmailQueueController from '#controllers/email_queue_controller'
 import EmailTestController from '#controllers/Http/email_test_controller'
+import PdfController from '#controllers/Http/pdf_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -1280,6 +1281,17 @@ router
         router.get('/status', [EmailTestController, 'getStatus']) // Get email service status
       })
       .prefix('email-test')
+
+    // PDF Generation Routes
+    router
+      .group(() => {
+        router.post('/invoice', [PdfController, 'generateInvoice']) // Generate invoice PDF
+        router.post('/receipt', [PdfController, 'generateReceipt']) // Generate receipt PDF
+        router.post('/custom', [PdfController, 'generateCustomPdf']) // Generate custom PDF from HTML
+        router.get('/sample/invoice', [PdfController, 'generateSampleInvoice']) // Generate sample invoice
+        router.get('/sample/receipt', [PdfController, 'generateSampleReceipt']) // Generate sample receipt
+      })
+      .prefix('pdf')
 
   })
   .prefix('/api')

@@ -69,6 +69,7 @@
     "luxon": "^3.6.0",
     "node-cron": "^4.0.7",
     "pg": "^8.14.1",
+    "puppeteer": "^24.17.1",
     "reflect-metadata": "^0.2.2"
   },
   "hotHook": {

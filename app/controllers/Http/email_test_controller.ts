@@ -1,6 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { EmailService } from '#services/email_service'
-import { EmailQueueService } from '#services/email_queue_service'
+import EmailQueueService from '#services/email_queue_service'
 import vine from '@vinejs/vine'
 
 /**
