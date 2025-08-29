@@ -45,6 +45,9 @@ import LostFoundController from '#controllers/lost_found_controller'
 import RoomBlocksController from '#controllers/room_blocks_controller'
 import VipStatusController from '#controllers/vip_status_controller'
 import IncidentalInvoiceController from '#controllers/incidental_invoice_controller'
+import EmailTemplatesController from '#controllers/email_templates_controller'
+import EmailQueueController from '#controllers/email_queue_controller'
+import EmailTestController from '#controllers/Http/email_test_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -1245,6 +1248,38 @@ router
         router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
       })
       .prefix('room-blocks')
+
+    // Email Templates Routes
+    router
+      .group(() => {
+        router.get('/', [EmailTemplatesController, 'index']) // Get all email templates
+        router.get('/name/:name', [EmailTemplatesController, 'getByName']) // Get template by name
+        router.get('/:id', [EmailTemplatesController, 'show']) // Get specific template
+        router.post('/', [EmailTemplatesController, 'store']) // Create new template
+        router.put('/:id', [EmailTemplatesController, 'update']) // Update template
+        router.delete('/:id', [EmailTemplatesController, 'destroy']) // Delete template
+      })
+      .prefix('email-templates')
+
+    // Email Queue Routes
+    router
+      .group(() => {
+        router.post('/queue', [EmailQueueController, 'queueEmail']) // Queue an email for sending
+        router.get('/status', [EmailQueueController, 'getQueueStatus']) // Get queue status
+        router.get('/history', [EmailQueueController, 'getEmailHistory']) // Get email history
+        router.post('/:id/retry', [EmailQueueController, 'retryFailedEmail']) // Retry failed email
+      })
+      .prefix('emails')
+
+    // Email Test Routes
+    router
+      .group(() => {
+        router.post('/configuration', [EmailTestController, 'testConfiguration']) // Test email configuration
+        router.post('/template', [EmailTestController, 'testTemplate']) // Test template email
+        router.post('/queue', [EmailTestController, 'queueTestEmail']) // Queue test email
+        router.get('/status', [EmailTestController, 'getStatus']) // Get email service status
+      })
+      .prefix('email-test')
 
   })
   .prefix('/api')
