@@ -1,8 +1,87 @@
 import Reservation from '#models/reservation'
 import { DateTime } from 'luxon'
 import Room from '#models/room'
+import RoomBlock from '#models/room_block'
 
 export class HotelAnalyticsService {
+    /**
+     * Determine if a guest is a woman based on their title
+     */
+    private static isWomanTitle(title: string): boolean {
+        if (!title) return false
+        
+        const womenTitles = [
+            'ms', 'mrs', 'miss', 'madam', 'madame', 'lady', 'dame',
+            'ms.', 'mrs.', 'miss.', 'madam.', 'madame.', 'lady.', 'dame.',
+            'girl', 'girls', 'woman', 'women', 'female'
+        ]
+        
+        return womenTitles.includes(title.toLowerCase().trim())
+    }
+
+    /**
+     * Calculate balance summary from folios and their transactions
+     */
+    private static calculateBalanceSummary(folios: any[]) {
+        let totalCharges = 0
+        let totalPayments = 0
+        let totalAdjustments = 0
+        let totalTaxes = 0
+        let totalServiceCharges = 0
+        let totalDiscounts = 0
+
+        folios.forEach(folio => {
+            if (folio.transactions) {
+                folio.transactions.forEach((transaction: any) => {
+                    const amount = parseFloat(transaction.amount) || 0
+
+                    switch (transaction.transactionType) {
+                        case 'charge':
+                            totalCharges += amount
+                            break
+                        case 'payment':
+                            totalPayments += amount
+                            break
+                        case 'adjustment':
+                            totalAdjustments += amount
+                            break
+                        case 'tax':
+                            totalTaxes += amount
+                            break
+                        case 'discount':
+                            totalDiscounts += Math.abs(amount) // Discounts are typically negative
+                            break
+                        case 'refund':
+                            totalPayments -= amount // Refunds reduce payments
+                            break
+                    }
+
+                    // Add service charges and taxes from transaction details
+                    if (transaction.serviceChargeAmount) {
+                        totalServiceCharges += parseFloat(transaction.serviceChargeAmount) || 0
+                    }
+                    if (transaction.taxAmount) {
+                        totalTaxes += parseFloat(transaction.taxAmount) || 0
+                    }
+                })
+            }
+        })
+
+        const outstandingBalance = totalCharges + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts + totalAdjustments
+
+        return {
+            totalCharges: parseFloat(totalCharges.toFixed(2)),
+            totalPayments: parseFloat(totalPayments.toFixed(2)),
+            totalAdjustments: parseFloat(totalAdjustments.toFixed(2)),
+            totalTaxes: parseFloat(totalTaxes.toFixed(2)),
+            totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
+            totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
+            outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
+            totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes).toFixed(2)),
+            balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
+        }
+    }
+
     public static async getDailyOccupancyAndReservations(
         hotelId: number,
         startDate: DateTime,
@@ -30,6 +109,9 @@ export class HotelAnalyticsService {
             .where('arrived_date', '<=', endDate.toISODate()!)
             .whereNotIn('status', ['cancelled', 'no-show','no_show','voided'])
             .preload('guest')
+            .preload('folios', (folioQuery) => {
+                folioQuery.preload('transactions')
+            })
             .preload('reservationRooms', (rspQuery) => {
                 rspQuery.preload('room', (spQuery) => {
                     spQuery.preload('roomType')
@@ -185,53 +267,96 @@ export class HotelAnalyticsService {
         }
 
         for (const reservation of reservations) {
-            // Group reservation by the room types of its assigned rooms
-            const reservationRoomTypes = new Set<string>()
-            const assignedRooms: { roomNumber: string | null; roomType: string }[] = []
+            // Calculate balance summary for this reservation
+            const balanceSummary = this.calculateBalanceSummary(reservation.folios || [])
+            const isBalance = balanceSummary.outstandingBalance > 0
 
+            // Process each reservation room as a separate reservation entry
             if (reservation.reservationRooms.length > 0) {
-                for (const rsp of reservation.reservationRooms) {
-                    if (rsp.room && rsp.room.roomType) {
-                        const roomType = rsp.room.roomType.roomTypeName
-                        reservationRoomTypes.add(roomType)
-                        assignedRooms.push({ roomNumber: rsp.room.roomNumber, roomType })
+                reservation.reservationRooms.forEach((reservationRoom, index) => {
+                    if (reservationRoom.room && reservationRoom.room.roomType) {
+                        const roomType = reservationRoom.room.roomType.roomTypeName
+                        const isMaster = index === 0 && reservation.reservationRooms.length >1 // First reservation room is the master
+
+                        if (groupedDetails[roomType]) {
+                            groupedDetails[roomType].reservations.push({
+                                reservation_id: reservation.id,
+                                reservation_room_id: reservationRoom.id,
+                                is_master: isMaster,
+                                guest_name: `${reservation.guest.displayName}`.trim(),
+                                check_in_date: reservationRoom.checkInDate || reservation.arrivedDate,
+                                check_out_date: reservationRoom.checkOutDate || reservation.departDate,
+                                reservation_status: getReservationStatus(reservation, today),
+                                is_checking_in_today: (reservationRoom.checkInDate || reservation.arrivedDate)?.hasSame(today, 'day') ?? false,
+                                is_checking_out_today: (reservationRoom.checkOutDate || reservation.departDate)?.hasSame(today, 'day') ?? false,
+                                assigned_room_number: reservationRoom.room.roomNumber || null,
+                                room_id: reservationRoom.roomId,
+                                total_guests: reservationRoom.adults + reservationRoom.children || reservation.guestCount || 0,
+                                adults: reservationRoom.adults || 0,
+                                children: reservationRoom.children || 0,
+                                special_requests: reservationRoom.specialRequests || reservation.specialRequests || '',
+                                reservation_number: reservation.reservationNumber,
+                                total_amount: reservationRoom.totalAmount || reservation.totalAmount,
+                                room_rate: reservationRoom.roomRate || 0,
+                                reservationType: reservation.reservationType,
+                                customerType: reservation.customerType,
+                                companyName: reservation.companyName,
+                                groupName: reservation.groupName,
+                                remainingAmount: reservation.remainingAmount,
+                                bookingSource: reservation.bookingSource,
+                                totalNights: reservation.numberOfNights,
+                                paymentStatus: reservation.paymentStatus,
+                                balance_summary: balanceSummary,
+                                is_balance: isBalance,
+                                isWomen: this.isWomanTitle(reservation.guest.title),
+                            })
+                        }
+                    }
+                })
+            } else {
+                // Handle reservations without assigned rooms (fallback to original logic)
+                const roomType = 'Unassigned'
+                if (!groupedDetails[roomType]) {
+                    groupedDetails[roomType] = {
+                        room_type: roomType,
+                        room_type_id: null,
+                        total_rooms_of_type: 0,
+                        room_details: [],
+                        reservations: [],
                     }
                 }
-            }
 
-            for (const roomType of reservationRoomTypes) {
-                if (groupedDetails[roomType]) {
-                    // Avoid adding the same reservation multiple times to the same room type group
-                    if (groupedDetails[roomType].reservations.find((r: any) => r.reservation_id === reservation.id)) {
-                        continue
-                    }
-
-                    // Find the first assigned room number of this type for this reservation
-                    const assignedRoomForType = assignedRooms.find((r) => r.roomType === roomType)
-
-                    groupedDetails[roomType].reservations.push({
-                        reservation_id: reservation.id,
-                        guest_name: `${reservation.guest.displayName}`.trim(),
-                        check_in_date: reservation.arrivedDate,
-                        check_out_date: reservation.departDate,
-                        reservation_status: getReservationStatus(reservation, today),
-                        is_checking_in_today: reservation.arrivedDate?.hasSame(today, 'day') ?? false,
-                        is_checking_out_today: reservation.departDate?.hasSame(today, 'day') ?? false,
-                        assigned_room_number: assignedRoomForType?.roomNumber || null,
-                        total_guests: reservation.guestCount || 0,
-                        special_requests: reservation.specialRequests || '',
-                        reservation_number: reservation.reservationNumber,
-                        total_amount: reservation.totalAmount,
-                        reservationType: reservation.reservationType,
-                        customerType: reservation.customerType,
-                        companyName: reservation.companyName,
-                        groupName: reservation.groupName,
-                        remainingAmount: reservation.remainingAmount,
-                        bookingSource: reservation.bookingSource,
-                        totalNights: reservation.numberOfNights,
-                        paymentStatus: reservation.paymentStatus,
-                    })
-                }
+                groupedDetails[roomType].reservations.push({
+                    reservation_id: reservation.id,
+                    reservation_room_id: null,
+                    is_master: true,
+                    guest_name: `${reservation.guest.displayName}`.trim(),
+                    check_in_date: reservation.arrivedDate,
+                    check_out_date: reservation.departDate,
+                    reservation_status: getReservationStatus(reservation, today),
+                    is_checking_in_today: reservation.arrivedDate?.hasSame(today, 'day') ?? false,
+                    is_checking_out_today: reservation.departDate?.hasSame(today, 'day') ?? false,
+                    assigned_room_number: null,
+                    room_id: null,
+                    total_guests: reservation.guestCount || 0,
+                    adults: 0,
+                    children: 0,
+                    special_requests: reservation.specialRequests || '',
+                    reservation_number: reservation.reservationNumber,
+                    total_amount: reservation.totalAmount,
+                    room_rate: 0,
+                    reservationType: reservation.reservationType,
+                    customerType: reservation.customerType,
+                    companyName: reservation.companyName,
+                    groupName: reservation.groupName,
+                    remainingAmount: reservation.remainingAmount,
+                    bookingSource: reservation.bookingSource,
+                    totalNights: reservation.numberOfNights,
+                    paymentStatus: reservation.paymentStatus,
+                    balance_summary: balanceSummary,
+                    is_balance: isBalance,
+                    isWomen: this.isWomanTitle(reservation.guest.title),
+                })
             }
         }
 
@@ -271,6 +396,25 @@ export class HotelAnalyticsService {
         const arrivingInRange = reservations.filter(
             (r) => r.arrivedDate && r.arrivedDate >= startDate && r.arrivedDate <= endDate && r.status === 'confirmed'
         )
+
+        // Get room blocks within the same time frame
+        const roomBlocks = await RoomBlock.query()
+            .where('hotel_id', hotelId)
+            .where((query) => {
+                query
+                    .whereBetween('block_from_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+                    .orWhereBetween('block_to_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+                    .orWhere((subQuery) => {
+                        subQuery
+                            .where('block_from_date', '<=', startDate.toFormat('yyyy-MM-dd'))
+                            .andWhere('block_to_date', '>=', endDate.toFormat('yyyy-MM-dd'))
+                    })
+            })
+            .preload('room')
+            .preload('blockedBy')
+            .preload('roomType')
+            .orderBy('block_from_date', 'desc')
+
         // Calculate global room status for each room
         for (const room of allRooms) {
             const isOccupied = globalOccupiedRoomIds.has(room.id)
@@ -301,6 +445,24 @@ export class HotelAnalyticsService {
             daily_occupancy_metrics: dailyMetrics,
             grouped_reservation_details: Object.values(groupedDetails),
             global_room_status_stats: globalRoomStatusStats,
+            room_blocks: roomBlocks.map(block => ({
+                 id: block.id,
+                 block_from_date: block.blockFromDate,
+                 block_to_date: block.blockToDate,
+                 reason: block.reason,
+                 status: block.status,
+                 room: block.room ? {
+                     id: block.room.id,
+                     room_number: block.room.roomNumber,
+                     floor_number: block.room.floorNumber
+                 } : null,
+                 room_type: block.roomType ? {
+                     id: block.roomType.id,
+                     name: block.roomType.roomTypeName
+                 } : null,
+                 created_at: block.createdAt,
+                 updated_at: block.updatedAt
+             })),
         }
     }
 }
