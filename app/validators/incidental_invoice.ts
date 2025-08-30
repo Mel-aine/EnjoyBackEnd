@@ -8,17 +8,25 @@ export const createIncidentalInvoiceValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     guestId: vine.number().positive(),
-    date: vine.date(),
+    date: vine.string().trim().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
     charges: vine.array(
       vine.object({
-        extraChargeId: vine.number().positive().optional(),
-        discountId: vine.number().positive().optional(),
+        transactionType: vine.string().trim().maxLength(50),
+        category: vine.string().trim().maxLength(100),
+        description: vine.string().trim().maxLength(500),
+        amount: vine.number().positive(),
         quantity: vine.number().positive().withoutDecimals(),
-        amount: vine.number().positive()
+        unitPrice: vine.number().positive(),
+        taxAmount: vine.number().min(0).optional(),
+        departmentId: vine.string().trim().maxLength(50).optional(),
+        reference: vine.string().trim().maxLength(100).optional(),
+        extraChargeId: vine.number().positive().optional(),
+        notes: vine.string().trim().maxLength(1000).optional(),
+        discountId: vine.number().positive().optional()
       })
     ).minLength(1),
     paymentType: vine.enum(['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'other']),
-    paymentMethodId: vine.number().positive().optional(),
+    paymentMethodId: vine.number().positive(),
     description: vine.string().trim().minLength(1).maxLength(500).optional(),
     referenceNumber: vine.string().trim().maxLength(100).optional(),
     notes: vine.string().trim().maxLength(1000).optional(),

@@ -45,6 +45,8 @@ import LostFoundController from '#controllers/lost_found_controller'
 import RoomBlocksController from '#controllers/room_blocks_controller'
 import VipStatusController from '#controllers/vip_status_controller'
 import IncidentalInvoiceController from '#controllers/incidental_invoice_controller'
+import CityLedgerController from '#controllers/city_ledger_controller'
+import CompanyFolioController from '#controllers/company_folio_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -111,6 +113,8 @@ const reservationsController = new ReservationsController()
 const roomBlocksController = new RoomBlocksController()
 const vipStatusController = new VipStatusController()
 const incidentalInvoiceController = new IncidentalInvoiceController()
+const cityLedgerController = new CityLedgerController()
+const companyFolioController = new CompanyFolioController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -1190,8 +1194,35 @@ router
             router.get('/:id', incidentalInvoiceController.show.bind(incidentalInvoiceController)) // Get specific incidental invoice details
             router.get('/invoice/:invoiceNumber', incidentalInvoiceController.getByInvoiceNumber.bind(incidentalInvoiceController)) // Get invoice by invoice number
             router.post('/:id/void', incidentalInvoiceController.void.bind(incidentalInvoiceController)) // Void an incidental invoice
+            
+            // PDF generation routes
+            router.get('/:id/pdf/download', incidentalInvoiceController.downloadPdf.bind(incidentalInvoiceController)) // Download invoice PDF
+            router.get('/:id/pdf/preview', incidentalInvoiceController.previewPdf.bind(incidentalInvoiceController)) // Preview invoice PDF
           })
           .prefix('incidental_invoices')
+
+        // City Ledger Management Routes
+        // City ledger payment transactions and totals for company accounts
+        router
+          .group(() => {
+            router.get('/', cityLedgerController.index.bind(cityLedgerController)) // Get city ledger transactions with filtering
+            router.get('/totals', cityLedgerController.totals.bind(cityLedgerController)) // Get city ledger totals only
+          })
+          .prefix('city_ledger')
+
+        // Company Folio Management Routes
+        // Company folio creation, payment posting, and assignment management
+        router
+          .group(() => {
+            router.get('/:companyId/:hotelId', companyFolioController.show.bind(companyFolioController)) // Get company folio with transactions
+    router.post('/create', companyFolioController.createOrGet.bind(companyFolioController)) // Create or get company folio
+    router.post('/payment', companyFolioController.postPayment.bind(companyFolioController)) // Post payment to company folio
+    router.post('/payment-with-assignment', companyFolioController.postPaymentWithAssignment.bind(companyFolioController)) // Post payment with automatic assignment
+    router.put('/assignment', companyFolioController.updateAssignment.bind(companyFolioController)) // Update payment assignment
+    router.put('/bulk-assignment', companyFolioController.updateBulkAssignments.bind(companyFolioController)) // Update bulk payment assignments
+    router.get('/:companyId/:hotelId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
+          })
+          .prefix('company_folios')
       })
       .prefix('configuration')
 

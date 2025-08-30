@@ -6,6 +6,8 @@ import FolioTransaction from '#models/folio_transaction'
 import Guest from '#models/guest'
 import Hotel from '#models/hotel'
 import PaymentMethod from '#models/payment_method'
+import PdfService, { IncidentalInvoiceData, IncidentalCharge } from '#services/pdf_service'
+import LoggerService from '#services/logger_service'
 import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
 
 export interface CreateIncidentalInvoiceData {
@@ -13,19 +15,30 @@ export interface CreateIncidentalInvoiceData {
   guestId: number
   date: DateTime
   charges: {
-    id?: number
-    extraChargeId?: number
-    discountId?: number
-    taxIncludes: boolean
-    quantity: number
-    amount: number
-    description?: string
+    transactionType?: string
     category?: string
+    description?: string
+    amount: number
+    quantity: number
+    unitPrice?: number
+    taxAmount?: number
+    extraChargeId?: number
+    notes?: string
+    discountId?: number
   }[]
   paymentType: string
   paymentMethodId: number
   description?: string
+  referenceNumber?: string
   notes?: string
+  billingName?: string
+  billingAddress?: string
+  billingCity?: string
+  billingState?: string
+  billingZip?: string
+  billingCountry?: string
+  emailInvoice?: boolean
+  emailAddress?: string
   dueDate?: DateTime
 }
 
@@ -44,25 +57,103 @@ export interface IncidentalInvoiceSearchFilters {
   amountMax?: number
   createdBy?: number
   page?: number
-  limit?: number
+  limit?: number,
+  hideVoided: boolean
 }
 
 export default class IncidentalInvoiceService {
   /**
    * Create a new incidental invoice with folio, transactions, and payment
    */
- public  static async createIncidentalInvoice(data: CreateIncidentalInvoiceData, createdBy: number) {
+  public static async createIncidentalInvoice(data: CreateIncidentalInvoiceData, createdBy: number, ctx: any) {
+    const logContext = {
+      action: 'create_incidental_invoice',
+      hotelId: data.hotelId,
+      guestId: data.guestId,
+      createdBy: createdBy
+    }
+
+    // Collect all log entries for bulk logging
+    const logEntries: any[] = []
+
+    // Add initial log entry
+    logEntries.push({
+      actorId: createdBy,
+      action: 'CREATE',
+      entityType: 'incidental_invoice',
+      entityId: 'process_start',
+      description: 'Starting incidental invoice creation process',
+      ctx: ctx,
+      meta: logContext,
+      hotelId: data.hotelId
+    })
+
     return await db.transaction(async (trx) => {
       try {
+        let folio: Folio | null = null
+        let invoice: IncidentalInvoice | null = null
+        const transactions = []
+
         // 1. Validate guest and hotel
+        logEntries.push({
+          actorId: createdBy,
+          action: 'UPDATE',
+          entityType: 'incidental_invoice',
+          entityId: 'validation',
+          description: 'Validating guest and hotel',
+          ctx: ctx,
+          meta: { ...logContext, step: 'validate_entities' },
+          hotelId: data.hotelId
+        })
         const guest = await Guest.findOrFail(data.guestId)
         const paymentMethod = await PaymentMethod.findOrFail(data.paymentMethodId)
+        const hotel = await Hotel.findOrFail(data.hotelId)
+        logEntries.push({
+          actorId: createdBy,
+          action: 'UPDATE',
+          entityType: 'incidental_invoice',
+          entityId: 'validation_success',
+          description: `Entities validated - Guest: ${guest.firstName} ${guest.lastName}, Payment: ${paymentMethod.methodName}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'validate_entities', guestName: `${guest.firstName} ${guest.lastName}`, hotelName: hotel.hotelName },
+          hotelId: data.hotelId
+        })
 
         // 2. Generate folio number
+        logEntries.push({
+          actorId: createdBy,
+          action: 'UPDATE',
+          entityType: 'incidental_invoice',
+          entityId: 'folio_generation',
+          description: 'Generating folio number',
+          ctx: ctx,
+          meta: { ...logContext, step: 'generate_folio_number' },
+          hotelId: data.hotelId
+        })
         const folioNumber = await this.generateFolioNumber(data.hotelId)
+        logEntries.push({
+          actorId: createdBy,
+          action: 'UPDATE',
+          entityType: 'incidental_invoice',
+          entityId: 'folio_generation_success',
+          description: `Folio number generated: ${folioNumber}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'generate_folio_number', folioNumber },
+          hotelId: data.hotelId
+        })
 
         // 3. Create the folio with "Voice Incidence" type
-        const folio = await Folio.create({
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'folio',
+          entityId: 'creation_start',
+          description: 'Creating folio for voice incidence',
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_folio' },
+          hotelId: data.hotelId
+        })
+        folio = await Folio.create({
           hotelId: data.hotelId,
           guestId: data.guestId,
           folioNumber: folioNumber,
@@ -81,59 +172,70 @@ export default class IncidentalInvoiceService {
           totalDiscounts: 0,
           balance: 0,
           creditLimit: 0,
-          currencyCode: 'USD',
+          currencyCode: 'XAF',
           exchangeRate: 1.0,
-          baseCurrencyAmount: 0,
           createdBy: createdBy,
           lastModifiedBy: createdBy
         }, { client: trx })
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'folio',
+          entityId: folio.id,
+          description: `Folio created successfully with ID: ${folio.id}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_folio', folioId: folio.id },
+          hotelId: data.hotelId
+        })
 
         // 4. Calculate totals
         let totalCharges = 0
         let totalTaxes = 0
         let totalDiscounts = 0
-        const transactions = []
 
         // 5. Create charge transactions
-        for (const charge of data.charges) {
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'folio_transaction',
+          entityId: 'charges_start',
+          description: `Creating ${data.charges.length} charge transactions`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_charges', chargeCount: data.charges.length },
+          hotelId: data.hotelId
+        })
+        for (const [index, charge] of data.charges.entries()) {
           const transactionNumber = await this.generateTransactionNumber(data.hotelId)
-          
-          let taxAmount = 0
-          let netAmount = charge.amount
-          
-          if (charge.taxIncludes) {
-            // Tax is included in the amount
-            taxAmount = charge.amount * 0.1 // Assuming 10% tax rate
-            netAmount = charge.amount - taxAmount
-          } else {
-            // Tax is additional
-            taxAmount = charge.amount * 0.1
-            netAmount = charge.amount
-          }
+
+          // Use provided taxAmount or calculate default
+          const taxAmount = charge.taxAmount || (charge.amount * 0.1)
+          const unitPrice = charge.unitPrice || (charge.amount / charge.quantity)
+          const netAmount = charge.amount
+          const grossAmount = charge.amount + taxAmount
 
           const transaction = await FolioTransaction.create({
             hotelId: data.hotelId,
             folioId: folio.id,
             transactionNumber: transactionNumber,
             transactionCode: transactionNumber.toString(),
-            transactionType: TransactionType.CHARGE,
+            transactionType: charge.transactionType ? TransactionType.CHARGE : TransactionType.CHARGE,
             category: this.mapChargeCategory(charge.category),
             description: charge.description || 'Incidental Charge',
             particular: charge.description || 'Voice Incidence Charge',
             amount: charge.amount,
-            totalAmount: charge.amount + taxAmount,
+            totalAmount: grossAmount,
             quantity: charge.quantity,
-            unitPrice: charge.amount / charge.quantity,
+            unitPrice: unitPrice,
             taxAmount: taxAmount,
-            taxRate: 0.1,
+            taxRate: taxAmount / charge.amount,
             serviceChargeAmount: 0,
             serviceChargeRate: 0,
             discountAmount: 0,
             discountRate: 0,
             netAmount: netAmount,
-            grossAmount: charge.amount + taxAmount,
+            grossAmount: grossAmount,
             transactionDate: data.date,
-            transactionTime: data.date.toFormat('HH:mm:ss'),
+            transactionTime: '00:00:00',
             postingDate: data.date,
             serviceDate: data.date,
             status: TransactionStatus.POSTED,
@@ -144,11 +246,32 @@ export default class IncidentalInvoiceService {
           transactions.push(transaction)
           totalCharges += charge.amount
           totalTaxes += taxAmount
+
+          logEntries.push({
+            actorId: createdBy,
+            action: 'CREATE',
+            entityType: 'folio_transaction',
+            entityId: transaction.id,
+            description: `Charge transaction ${index + 1} created: ${charge.description}`,
+            ctx: ctx,
+            meta: { ...logContext, step: 'create_charges', transactionId: transaction.id, amount: charge.amount },
+            hotelId: data.hotelId
+          })
         }
 
         const grandTotal = totalCharges + totalTaxes - totalDiscounts
 
         // 6. Create payment transaction that matches folio balance
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'folio_transaction',
+          entityId: 'payment_start',
+          description: `Creating payment transaction for amount: ${grandTotal}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_payment', amount: grandTotal },
+          hotelId: data.hotelId
+        })
         const paymentTransactionNumber = await this.generateTransactionNumber(data.hotelId)
         const paymentTransaction = await FolioTransaction.create({
           hotelId: data.hotelId,
@@ -172,7 +295,7 @@ export default class IncidentalInvoiceService {
           netAmount: -grandTotal,
           grossAmount: -grandTotal,
           transactionDate: data.date,
-          transactionTime: data.date.toFormat('HH:mm:ss'),
+          transactionTime: '00:00:00',
           postingDate: data.date,
           serviceDate: data.date,
           paymentMethodId: data.paymentMethodId,
@@ -182,8 +305,28 @@ export default class IncidentalInvoiceService {
         }, { client: trx })
 
         transactions.push(paymentTransaction)
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'folio_transaction',
+          entityId: paymentTransaction.id,
+          description: `Payment transaction created with ID: ${paymentTransaction.id}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_payment', transactionId: paymentTransaction.id },
+          hotelId: data.hotelId
+        })
 
         // 7. Update folio totals and mark as settled
+        logEntries.push({
+          actorId: createdBy,
+          action: 'UPDATE',
+          entityType: 'folio',
+          entityId: folio.id,
+          description: 'Updating folio totals and settling',
+          ctx: ctx,
+          meta: { ...logContext, step: 'update_folio', totalCharges, totalTaxes, grandTotal },
+          hotelId: data.hotelId
+        })
         await folio.useTransaction(trx).merge({
           totalCharges: totalCharges,
           totalPayments: grandTotal,
@@ -191,24 +334,66 @@ export default class IncidentalInvoiceService {
           totalDiscounts: totalDiscounts,
           balance: 0, // Should be zero since payment matches charges
           settlementStatus: SettlementStatus.SETTLED,
-          settlementDate: data.date,
+          // settlementDate: data.date,
           status: FolioStatus.CLOSED,
           workflowStatus: WorkflowStatus.FINALIZED,
           closedDate: data.date,
-          finalizedDate: data.date,
+          // finalizedDate: data.date,
           closedBy: createdBy,
           lastModifiedBy: createdBy
         }).save()
+        logEntries.push({
+          actorId: createdBy,
+          action: 'UPDATE',
+          entityType: 'folio',
+          entityId: folio.id,
+          description: 'Folio updated and settled successfully',
+          ctx: ctx,
+          meta: { ...logContext, step: 'update_folio', folioId: folio.id },
+          hotelId: data.hotelId
+        })
 
-        // 8. Generate invoice number
+        // 8. Generate invoice number and reference number
+        logEntries.push({
+          actorId: createdBy,
+          action: 'GENERATE',
+          entityType: 'incidental_invoice',
+          entityId: 'number_generation',
+          description: 'Generating invoice and reference numbers',
+          ctx: ctx,
+          meta: { ...logContext, step: 'generate_numbers' },
+          hotelId: data.hotelId
+        })
         const invoiceNumber = await IncidentalInvoice.generateInvoiceNumber(data.hotelId)
+        const referenceNumber = data.referenceNumber || await this.generateReferenceNumber(data.hotelId)
+        logEntries.push({
+          actorId: createdBy,
+          action: 'GENERATE',
+          entityType: 'incidental_invoice',
+          entityId: 'number_generation',
+          description: `Numbers generated - Invoice: ${invoiceNumber}, Reference: ${referenceNumber}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'generate_numbers', invoiceNumber, referenceNumber },
+          hotelId: data.hotelId
+        })
 
         // 9. Create the incidental invoice
-        const invoice = await IncidentalInvoice.create({
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'incidental_invoice',
+          entityId: 'invoice_start',
+          description: 'Creating incidental invoice record',
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_invoice' },
+          hotelId: data.hotelId
+        })
+        invoice = await IncidentalInvoice.create({
           hotelId: data.hotelId,
           folioId: folio.id,
           guestId: data.guestId,
           invoiceNumber: invoiceNumber,
+          referenceNumber: referenceNumber,
           invoiceDate: data.date,
           totalAmount: totalCharges,
           taxAmount: totalTaxes,
@@ -224,13 +409,16 @@ export default class IncidentalInvoiceService {
           type: 'Voice Incidence',
           description: data.description,
           notes: data.notes,
-          charges: data.charges,
-          paymentDetails: {
-            paymentMethod: paymentMethod.name,
-            paymentType: data.paymentType,
-            amount: grandTotal,
-            date: data.date.toISO()
-          },
+          billingName: data.billingName,
+          billingAddress: data.billingAddress,
+          billingCity: data.billingCity,
+          billingState: data.billingState,
+          billingZip: data.billingZip,
+          billingCountry: data.billingCountry,
+          emailInvoice: data.emailInvoice || false,
+          emailAddress: data.emailAddress,
+          paymentMethod: paymentMethod.methodName,
+          amount: grandTotal,
           dueDate: data.dueDate,
           paidDate: data.date,
           paidAmount: grandTotal,
@@ -238,12 +426,46 @@ export default class IncidentalInvoiceService {
           createdBy: createdBy,
           lastModifiedBy: createdBy
         }, { client: trx })
+        logEntries.push({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'incidental_invoice',
+          entityId: invoice.id,
+          description: `Incidental invoice created successfully with ID: ${invoice.id}`,
+          ctx: ctx,
+          meta: { ...logContext, step: 'create_invoice', invoiceId: invoice.id, invoiceNumber },
+          hotelId: data.hotelId
+        })
 
         // 10. Load relationships for response
+        logEntries.push({
+          actorId: createdBy,
+          action: 'READ',
+          entityType: 'incidental_invoice',
+          entityId: invoice.id,
+          description: 'Loading relationships for response',
+          ctx: ctx,
+          meta: { ...logContext, step: 'load_relationships' },
+          hotelId: data.hotelId
+        })
         await invoice.load('hotel')
         await invoice.load('folio')
         await invoice.load('guest')
         await folio.load('transactions')
+
+        logEntries.push({
+          actorId: createdBy,
+          action: 'COMPLETE',
+          entityType: 'incidental_invoice',
+          entityId: invoice.id,
+          description: 'Incidental invoice creation completed successfully',
+          ctx: ctx,
+          meta: { ...logContext, step: 'complete', invoiceId: invoice.id, folioId: folio.id },
+          hotelId: data.hotelId
+        })
+
+        // Bulk log all entries at once
+        await LoggerService.bulkLog(logEntries)
 
         return {
           invoice,
@@ -251,6 +473,20 @@ export default class IncidentalInvoiceService {
           transactions
         }
       } catch (error) {
+        // Log the error using bulk logging
+        const errorLogEntry = {
+          actorId: createdBy,
+          action: 'ERROR',
+          entityType: 'incidental_invoice',
+          entityId: 'creation_error',
+          description: `Error creating incidental invoice: ${error.message}`,
+          ctx: ctx,
+          meta: { ...logContext, error: error.message, stack: error.stack },
+          hotelId: data.hotelId
+        }
+        await LoggerService.bulkLog([errorLogEntry])
+
+        // Transaction will automatically rollback due to the error
         throw new Error(`Failed to create incidental invoice: ${error.message}`)
       }
     })
@@ -262,74 +498,87 @@ export default class IncidentalInvoiceService {
   static async getIncidentalInvoices(filters: IncidentalInvoiceSearchFilters) {
     const query = IncidentalInvoice.query()
       .preload('hotel')
-      .preload('folio')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('guest')
+      })
       .preload('guest')
       .preload('creator')
 
     // Apply filters
     if (filters.hotelId) {
-      query.where('hotelId', filters.hotelId)
+      query.where('hotel_id', filters.hotelId)
     }
 
     if (filters.guestId) {
-      query.where('guestId', filters.guestId)
+      query.where('guest_id', filters.guestId)
     }
 
     if (filters.folioId) {
-      query.where('folioId', filters.folioId)
+      query.where('folio_id', filters.folioId)
     }
 
     if (filters.invoiceNumber) {
-      query.where('invoiceNumber', 'like', `%${filters.invoiceNumber}%`)
+      query.where('invoice_number', 'ILIKE', `%${filters.invoiceNumber}%`)
     }
 
     if (filters.status) {
       query.where('status', filters.status)
     }
-
+    if(filters.hideVoided){
+      query.whereNot('status','voided')
+    }
     if (filters.type) {
       query.where('type', filters.type)
     }
 
     if (filters.dateFrom && filters.dateTo) {
-      query.whereBetween('invoiceDate', [filters.dateFrom.toSQL(), filters.dateTo.toSQL()])
+      query.whereBetween('invoice_date', [filters.dateFrom.toSQL(), filters.dateTo.toSQL()])
     } else if (filters.dateFrom) {
-      query.where('invoiceDate', '>=', filters.dateFrom.toSQL())
+      query.where('invoice_date', '>=', filters.dateFrom.toSQL())
     } else if (filters.dateTo) {
-      query.where('invoiceDate', '<=', filters.dateTo.toSQL())
+      query.where('invoice_date', '<=', filters.dateTo.toSQL())
     }
 
     if (filters.guestName) {
       query.whereHas('guest', (guestQuery) => {
-        guestQuery.whereRaw('CONCAT(first_name, " ", last_name) LIKE ?', [`%${filters.guestName}%`])
+        guestQuery.whereRaw('CONCAT(first_name, \' \', last_name) ILIKE ?', [`%${filters.guestName}%`])
       })
     }
 
     if (filters.folioNumber) {
       query.whereHas('folio', (folioQuery) => {
-        folioQuery.where('folioNumber', 'like', `%${filters.folioNumber}%`)
+        folioQuery.where('folio_number', 'ILIKE', `%${filters.folioNumber}%`)
       })
     }
 
     if (filters.amountMin !== undefined) {
-      query.where('totalAmount', '>=', filters.amountMin)
+      query.where('total_amount', '>=', filters.amountMin)
     }
 
     if (filters.amountMax !== undefined) {
-      query.where('totalAmount', '<=', filters.amountMax)
+      query.where('total_amount', '<=', filters.amountMax)
     }
 
     if (filters.createdBy) {
-      query.where('createdBy', filters.createdBy)
+      query.where('created_by', filters.createdBy)
     }
 
     // Pagination
     const page = filters.page || 1
     const limit = filters.limit || 20
 
-    const result = await query.orderBy('createdAt', 'desc').paginate(page, limit)
+    const result = await query.orderBy('created_at', 'desc').paginate(page, limit)
 
-    return result
+    return {
+      data: result.serialize(),
+      meta: {
+        total: result.total,
+        perPage: result.perPage,
+        currentPage: result.currentPage,
+        lastPage: result.lastPage,
+        hasMorePages: result.hasMorePages
+      }
+    }
   }
 
   /**
@@ -358,22 +607,144 @@ export default class IncidentalInvoiceService {
    */
   static async voidIncidentalInvoice(id: number, voidReason: string, voidedBy: number) {
     return await db.transaction(async (trx) => {
-      const invoice = await IncidentalInvoice.findOrFail(id)
+      const logEntries: any[] = []
+      const voidDate = DateTime.now()
+
+      // Load invoice with folio and transactions
+      const invoice = await IncidentalInvoice.query()
+        .where('id', id)
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('transactions')
+        })
+        .firstOrFail()
 
       if (!invoice.canBeVoided) {
         throw new Error('Invoice cannot be voided in its current status')
       }
 
+      logEntries.push({
+        actorId: voidedBy,
+        action: 'VOID',
+        entityType: 'incidental_invoice',
+        entityId: invoice.id,
+        description: `Starting void process for incidental invoice ${invoice.invoiceNumber}`,
+        meta: { voidReason, invoiceNumber: invoice.invoiceNumber },
+        hotelId: invoice.hotelId
+      })
+
+      // 1. Void all folio transactions
+      const transactions = invoice.folio.transactions
+      for (const transaction of transactions) {
+        if (transaction.status !== TransactionStatus.VOIDED) {
+          await transaction.useTransaction(trx).merge({
+            status: TransactionStatus.VOIDED,
+            isVoided: true,
+            voidedBy: voidedBy,
+            voidedDate: voidDate,
+            voidReason: voidReason,
+            lastModifiedBy: voidedBy
+          }).save()
+
+          logEntries.push({
+            actorId: voidedBy,
+            action: 'VOID',
+            entityType: 'folio_transaction',
+            entityId: transaction.id,
+            description: `Voided transaction ${transaction.transactionNumber} - ${transaction.description}`,
+            meta: { 
+              voidReason, 
+              transactionNumber: transaction.transactionNumber,
+              amount: transaction.amount,
+              transactionType: transaction.transactionType
+            },
+            hotelId: invoice.hotelId
+          })
+        }
+      }
+
+      // 2. Void the folio
+      await invoice.folio.useTransaction(trx).merge({
+        status: FolioStatus.VOIDED,
+        workflowStatus: WorkflowStatus.CLOSED,
+        voidedDate: voidDate,
+        voidReason: voidReason,
+        closedDate: voidDate,
+        closedBy: voidedBy,
+        lastModifiedBy: voidedBy
+      }).save()
+
+      logEntries.push({
+        actorId: voidedBy,
+        action: 'VOID',
+        entityType: 'folio',
+        entityId: invoice.folio.id,
+        description: `Voided folio ${invoice.folio.folioNumber}`,
+        meta: { 
+          voidReason, 
+          folioNumber: invoice.folio.folioNumber,
+          balance: invoice.folio.balance
+        },
+        hotelId: invoice.hotelId
+      })
+
+      // 3. Void the incidental invoice
       await invoice.useTransaction(trx).merge({
         status: 'voided',
         voidReason: voidReason,
-        voidedDate: DateTime.now(),
+        voidedDate: voidDate,
         voidedBy: voidedBy,
         lastModifiedBy: voidedBy
       }).save()
 
-      return invoice
+      logEntries.push({
+        actorId: voidedBy,
+        action: 'VOID',
+        entityType: 'incidental_invoice',
+        entityId: invoice.id,
+        description: `Successfully voided incidental invoice ${invoice.invoiceNumber}`,
+        meta: { 
+          voidReason, 
+          invoiceNumber: invoice.invoiceNumber,
+          totalAmount: invoice.totalAmount,
+          transactionsVoided: transactions.length
+        },
+        hotelId: invoice.hotelId
+      })
+
+      // Bulk log all entries
+      await LoggerService.bulkLog(logEntries)
+
+      return {
+        invoice,
+        folio: invoice.folio,
+        transactionsVoided: transactions.length
+      }
     })
+  }
+
+  /**
+   * Generate a unique reference number for the invoice
+   */
+  private static async generateReferenceNumber(hotelId: number): Promise<string> {
+    const hotel = await Hotel.findOrFail(hotelId)
+    const prefix = 'REF'
+    const year = new Date().getFullYear().toString().slice(-2)
+    const month = (new Date().getMonth() + 1).toString().padStart(2, '0')
+
+    // Get the last reference number for this hotel and month
+    const lastInvoice = await IncidentalInvoice.query()
+      .where('hotelId', hotelId)
+      .where('referenceNumber', 'like', `${prefix}${year}${month}%`)
+      .orderBy('id', 'desc')
+      .first()
+
+    let nextNumber = 1
+    if (lastInvoice && lastInvoice.referenceNumber) {
+      const lastNumber = parseInt(lastInvoice.referenceNumber.slice(-4))
+      nextNumber = lastNumber + 1
+    }
+
+    return `${prefix}${year}${month}${nextNumber.toString().padStart(4, '0')}`
   }
 
   /**
@@ -382,7 +753,7 @@ export default class IncidentalInvoiceService {
   private static async generateFolioNumber(hotelId: number): Promise<string> {
     const year = DateTime.now().year
     const month = DateTime.now().month.toString().padStart(2, '0')
-    
+
     const lastFolio = await Folio.query()
       .where('hotelId', hotelId)
       .where('folioNumber', 'like', `VI-${year}${month}-%`)
@@ -402,12 +773,56 @@ export default class IncidentalInvoiceService {
    * Generate transaction number
    */
   private static async generateTransactionNumber(hotelId: number): Promise<number> {
-    const lastTransaction = await FolioTransaction.query()
-      .where('hotelId', hotelId)
-      .orderBy('transactionNumber', 'desc')
-      .first()
+    // Use a hybrid approach: timestamp + hotel ID + random component for uniqueness
+    const timestamp = Date.now()
+    const randomComponent = Math.floor(Math.random() * 1000)
+    const hotelComponent = hotelId % 100 // Last 2 digits of hotel ID
 
-    return lastTransaction ? lastTransaction.transactionNumber + 1 : 1
+    // Create a unique number: timestamp (last 8 digits) + hotel component (2 digits) + random (3 digits)
+    const baseNumber = parseInt(
+      timestamp.toString().slice(-8) +
+      hotelComponent.toString().padStart(2, '0') +
+      randomComponent.toString().padStart(3, '0')
+    )
+
+    // Ensure it's within reasonable integer range and positive
+    let transactionNumber = Math.abs(baseNumber) % 2147483647 // Max 32-bit signed integer
+
+    // Fallback to simple increment if the generated number is too small
+    if (transactionNumber < 1000) {
+      const result = await db.rawQuery(
+        `SELECT COALESCE(MAX(transaction_number), 0) + 1 as next_num FROM folio_transactions WHERE hotel_id = ?`,
+        [hotelId]
+      )
+      transactionNumber = result.rows[0]?.next_num || 1000
+    }
+
+    // Final check for uniqueness with a few retries
+    let attempts = 0
+    const maxAttempts = 5
+
+    while (attempts < maxAttempts) {
+      const existingTransaction = await FolioTransaction.query()
+        .where('hotelId', hotelId)
+        .where('transactionNumber', transactionNumber)
+        .first()
+
+      if (!existingTransaction) {
+        return transactionNumber
+      }
+
+      // If collision occurs, increment and try again
+      transactionNumber++
+      attempts++
+
+      // Add small delay to reduce collision probability
+      if (attempts > 1) {
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 10))
+      }
+    }
+
+    // Ultimate fallback: use current timestamp in milliseconds
+    return Date.now() % 2147483647
   }
 
   /**
@@ -426,5 +841,58 @@ export default class IncidentalInvoiceService {
     }
 
     return categoryMap[category || ''] || TransactionCategory.MISCELLANEOUS
+  }
+
+  /**
+   * Generate PDF for an incidental invoice
+   */
+  static async generateInvoicePdf(invoiceId: number): Promise<Buffer> {
+    const invoice = await IncidentalInvoice.query()
+      .where('id', invoiceId)
+      .preload('hotel')
+      .preload('guest')
+      .preload('folio')
+      .firstOrFail()
+
+    // Get charges from folio transactions
+    const folioTransactions = await invoice.folio.related('transactions').query()
+      .where('transactionType', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+
+    const charges: IncidentalCharge[] = folioTransactions.map(transaction => ({
+      description: transaction.description || '',
+      category: transaction.category || '',
+      quantity: transaction.quantity || 1,
+      unitPrice: transaction.unitPrice || transaction.amount || 0,
+      amount: transaction.amount || 0,
+      taxAmount: transaction.taxAmount || 0,
+      notes: transaction.notes || ''
+    }))
+
+    // Prepare invoice data for PDF generation
+    const invoiceData: IncidentalInvoiceData = {
+      invoiceNumber: invoice.invoiceNumber,
+      referenceNumber: invoice.referenceNumber || '',
+      invoiceDate: invoice.invoiceDate.toFormat('yyyy-MM-dd'),
+      hotelName: invoice.hotel?.hotelName,
+      hotelAddress: invoice.hotel?.address ?? '',
+      guestName: invoice.guest?.fullName,
+      guestEmail: invoice.guest?.email,
+      billingName: invoice.billingName ?? '',
+      billingAddress: invoice.billingAddress || undefined,
+      billingCity: invoice.billingCity || undefined,
+      billingState: invoice.billingState || undefined,
+      billingZip: invoice.billingZip || undefined,
+      billingCountry: invoice.billingCountry || undefined,
+      charges,
+      totalAmount: invoice.totalAmount,
+      taxAmount: invoice.taxAmount,
+      netAmount: invoice.netAmount,
+      paymentType: invoice.paymentType || 'Cash',
+      status: invoice.status || 'Pending',
+      notes: invoice.notes || undefined
+    }
+
+    return await PdfService.generateIncidentalInvoicePdf(invoiceData)
   }
 }

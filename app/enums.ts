@@ -31,7 +31,8 @@ export enum FolioType {
   HOUSE = 'house',
   CITY_LEDGER = 'city_ledger',
   ADVANCE_DEPOSIT = 'advance_deposit',
-  VOICE_INCIDENTAL='voice_incidental'
+  VOICE_INCIDENTAL='voice_incidental',
+  COMPANY = 'company'
 }
 
 export enum FolioStatus {

@@ -181,7 +181,7 @@ export default class FolioTransaction extends BaseModel {
   declare guestId: number
 
   @column()
-  declare reservationId: number
+  declare reservationId: number | null
 
   @column()
   declare groupId: number
@@ -377,6 +377,19 @@ export default class FolioTransaction extends BaseModel {
 
   @column()
   declare status: TransactionStatus
+
+  // Payment assignment fields
+  @column()
+  declare assignedAmount: number
+
+  @column()
+  declare unassignedAmount: number
+
+  @column()
+  declare assignmentHistory: object | null
+
+  @column()
+  declare voucher: string | null
 
   @column()
   declare createdBy: number

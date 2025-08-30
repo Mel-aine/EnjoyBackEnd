@@ -336,9 +336,11 @@ export default class FoliosController {
     try {
       const folio = await Folio.query()
         .where('id', params.id)
-        .preload('hotel')
         .preload('guest')
         .preload('transactions', (query) => {
+          query.preload('paymentMethod',(builder)=>{
+            builder.select('id','methodName')
+          })
           query.orderBy('transactionDate', 'asc')
         })
         .firstOrFail()

@@ -13,7 +13,7 @@ export default class IncidentalInvoiceController {
     try {
       const payload = await request.validateUsing(createIncidentalInvoiceValidator)
       
-        const invoice = await IncidentalInvoiceService.createIncidentalInvoice(payload, auth.user?.id)
+        const invoice = await IncidentalInvoiceService.createIncidentalInvoice(payload, auth.user?.id, ctx)
       
       return response.status(200).json({
         success: true,
@@ -36,106 +36,50 @@ export default class IncidentalInvoiceController {
     try {
       const {
         hotelId,
+        guestId,
+        folioId,
         page = 1,
         limit = 20,
-        search,
-        folioNumber,
-        guestName,
         invoiceNumber,
         status,
+        type,
         dateFrom,
         dateTo,
-        sortBy = 'created_at',
-        sortOrder = 'desc'
+        guestName,
+        folioNumber,
+        amountMin,
+        amountMax,
+        hideVoided,
+        createdBy
       } = request.qs()
 
-      // Build query
-      let query = IncidentalInvoice.query()
-        .preload('hotel')
-        .preload('folio', (folioQuery) => {
-          folioQuery.preload('guest')
-        })
-        .preload('guest')
-
-      // Filter by hotel ID (required)
-      if (hotelId) {
-        query = query.where('hotel_id', hotelId)
+      // Build filters object matching IncidentalInvoiceSearchFilters interface
+      const filters = {
+        hotelId: hotelId ? parseInt(hotelId) : undefined,
+        guestId: guestId ? parseInt(guestId) : undefined,
+        folioId: folioId ? parseInt(folioId) : undefined,
+        invoiceNumber,
+        status,
+        type,
+        dateFrom: dateFrom ? DateTime.fromISO(dateFrom) : undefined,
+        dateTo: dateTo ? DateTime.fromISO(dateTo) : undefined,
+        guestName,
+        folioNumber,
+        amountMin: amountMin ? parseFloat(amountMin) : undefined,
+        amountMax: amountMax ? parseFloat(amountMax) : undefined,
+        createdBy: createdBy ? parseInt(createdBy) : undefined,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hideVoided: hideVoided
       }
 
-      // Search functionality
-      if (search) {
-        query = query.where((searchQuery) => {
-          searchQuery
-            .where('invoice_number', 'ILIKE', `%${search}%`)
-            .orWhere('description', 'ILIKE', `%${search}%`)
-            .orWhere('reference_number', 'ILIKE', `%${search}%`)
-        })
-      }
-
-      // Filter by folio number
-      if (folioNumber) {
-        query = query.whereHas('folio', (folioQuery) => {
-          folioQuery.where('folio_number', 'ILIKE', `%${folioNumber}%`)
-        })
-      }
-
-      // Filter by guest name
-      if (guestName) {
-        query = query.whereHas('guest', (guestQuery) => {
-          guestQuery
-            .where('first_name', 'ILIKE', `%${guestName}%`)
-            .orWhere('last_name', 'ILIKE', `%${guestName}%`)
-            .orWhere('full_name', 'ILIKE', `%${guestName}%`)
-        })
-      }
-
-      // Filter by invoice number
-      if (invoiceNumber) {
-        query = query.where('invoice_number', 'ILIKE', `%${invoiceNumber}%`)
-      }
-
-      // Filter by status
-      if (status) {
-        query = query.where('status', status)
-      }
-
-      // Filter by date range
-      if (dateFrom) {
-        const fromDate = DateTime.fromISO(dateFrom).startOf('day')
-        query = query.where('invoice_date', '>=', fromDate.toJSDate())
-      }
-
-      if (dateTo) {
-        const toDate = DateTime.fromISO(dateTo).endOf('day')
-        query = query.where('invoice_date', '<=', toDate.toJSDate())
-      }
-
-      // Sorting
-      const validSortFields = [
-        'created_at', 'updated_at', 'invoice_date', 'invoice_number',
-        'total_amount', 'status', 'folio_id'
-      ]
-      
-      if (validSortFields.includes(sortBy)) {
-        const order = sortOrder.toLowerCase() === 'asc' ? 'asc' : 'desc'
-        query = query.orderBy(sortBy, order)
-      } else {
-        query = query.orderBy('created_at', 'desc')
-      }
-
-      // Pagination
-      const invoices = await query.paginate(page, limit)
+      // Call the service method
+      const result = await IncidentalInvoiceService.getIncidentalInvoices(filters)
 
       return response.json({
         success: true,
-        data: invoices.serialize(),
-        meta: {
-          total: invoices.total,
-          perPage: invoices.perPage,
-          currentPage: invoices.currentPage,
-          lastPage: invoices.lastPage,
-          hasMorePages: invoices.hasMorePages
-        }
+        data: result.data,
+        meta: result.meta
       })
     } catch (error) {
       return response.status(500).json({
@@ -285,6 +229,58 @@ export default class IncidentalInvoiceController {
       return response.status(500).json({
         success: false,
         message: error.message || 'Failed to retrieve statistics'
+      })
+    }
+  }
+
+  /**
+   * Generate and download PDF for an incidental invoice
+   */
+  public async downloadPdf({ params, response }: HttpContext) {
+    try {
+      const invoiceId = parseInt(params.id)
+      
+      // Generate PDF buffer
+      const pdfBuffer = await IncidentalInvoiceService.generateInvoicePdf(invoiceId)
+      
+      // Get invoice details for filename
+      const invoice = await IncidentalInvoice.findOrFail(invoiceId)
+      const filename = `incidental-invoice-${invoice.invoiceNumber}.pdf`
+      
+      // Set response headers for PDF download
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${filename}"`)
+      response.header('Content-Length', pdfBuffer.length.toString())
+      
+      return response.send(pdfBuffer)
+    } catch (error) {
+      return response.status(500).json({
+        success: false,
+        message: error.message || 'Failed to generate PDF'
+      })
+    }
+  }
+
+  /**
+   * Preview PDF for an incidental invoice (inline display)
+   */
+  public async previewPdf({ params, response }: HttpContext) {
+    try {
+      const invoiceId = parseInt(params.id)
+      
+      // Generate PDF buffer
+      const pdfBuffer = await IncidentalInvoiceService.generateInvoicePdf(invoiceId)
+      
+      // Set response headers for PDF preview
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', 'inline')
+      response.header('Content-Length', pdfBuffer.length.toString())
+      
+      return response.send(pdfBuffer)
+    } catch (error) {
+      return response.status(500).json({
+        success: false,
+        message: error.message || 'Failed to generate PDF preview'
       })
     }
   }

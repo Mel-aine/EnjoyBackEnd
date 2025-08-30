@@ -53,9 +53,6 @@ export default class IncidentalInvoice extends BaseModel {
   declare paymentMethodId: number | null
 
   @column()
-  declare paymentType: string | null
-
-  @column()
   declare status: string // 'draft', 'issued', 'paid', 'cancelled', 'voided'
 
   @column()
@@ -77,19 +74,34 @@ export default class IncidentalInvoice extends BaseModel {
   declare externalReference: string | null
 
   @column()
-  declare billingAddress: object | null
+  declare billingName: string | null
 
   @column()
-  declare billingContact: object | null
+  declare billingAddress: string | null
 
   @column()
-  declare charges: object // JSON array of charge items
+  declare billingCity: string | null
 
   @column()
-  declare taxDetails: object | null // JSON object with tax breakdown
+  declare billingState: string | null
 
   @column()
-  declare paymentDetails: object | null // JSON object with payment information
+  declare billingZip: string | null
+
+  @column()
+  declare billingCountry: string | null
+
+  @column()
+  declare emailInvoice: boolean
+
+  @column()
+  declare paymentMethod: string | null
+
+  @column()
+  declare paymentType: string | null
+
+  @column()
+  declare amount: number | null
 
   @column.dateTime()
   declare dueDate: DateTime | null
@@ -120,6 +132,9 @@ export default class IncidentalInvoice extends BaseModel {
 
   @column()
   declare emailAddress: string | null
+
+  @column()
+  declare referenceNumber: string | null
 
   @column()
   declare voidReason: string | null

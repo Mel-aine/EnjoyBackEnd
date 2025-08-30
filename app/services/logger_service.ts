@@ -53,6 +53,43 @@ export default class LoggerService {
     }
   }
 
+  public static async bulkLog(dataArray: LogData[]) {
+    try {
+      if (!dataArray || dataArray.length === 0) {
+        return
+      }
+
+      // Get unique actor IDs to minimize database queries
+      const actorIds = [...new Set(dataArray.map(data => data.actorId))]
+      const actors = await User.query().whereIn('id', actorIds)
+      const actorMap = new Map(actors.map(actor => [actor.id, actor]))
+
+      // Prepare bulk insert data
+      const bulkData = dataArray.map(data => {
+        const actor = actorMap.get(data.actorId)
+        return {
+          userId: data.actorId,
+          username: actor?.firstName || 'System',
+          action: data.action,
+          entityType: data.entityType,
+          entityId: Number(data.entityId),
+          description: data.description,
+          changes: data.changes ?? null,
+          meta: data.meta ?? null,
+          hotelId: data.hotelId ?? null,
+          createdBy: data.actorId,
+          ipAddress: data.ctx.request.ip(),
+          userAgent: data.ctx.request.header('user-agent'),
+        }
+      })
+
+      // Bulk insert all logs
+      await ActivityLog.createMany(bulkData)
+    } catch (error) {
+      console.error('🔴 Failed to create bulk activity logs:', error)
+    }
+  }
+
   public static async logActivity(data: LogActivityData, trx?: any) {
     try {
       const actor = data.userId ? await User.find(data.userId) : null
