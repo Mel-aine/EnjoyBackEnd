@@ -253,7 +253,6 @@ export default class CompanyFolioService {
           totalAmount: Math.abs(paymentAmount),
           postingDate: paymentData.postingDate || DateTime.now(),
           transactionDate: paymentData.transactionDate || DateTime.now(),
-          transactionTime:"00:00:00",
           paymentMethodId,
           // reference: paymentData.reference,
           voucher: paymentData.voucher,
