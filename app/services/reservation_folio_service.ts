@@ -196,8 +196,8 @@ export default class ReservationFolioService {
     // Post room charges for each room
     for (const reservationRoom of reservation.reservationRooms) {
       // Create one transaction per night for each room
-      const roomRate = reservationRoom.roomRates
-      const roomType = reservationRoom.room.roomType
+      //const roomRate = reservationRoom.roomRates
+      //const roomType = reservationRoom.room.roomType
       // Calculate extra charges only if occupancy exceeds room type base capacity
       //const extraAdults = Math.max(0, reservationRoom.adults - (roomType?.baseAdult ?? 0))
       //const extraChildren = Math.max(0, reservationRoom.children - (roomType?.baseChild ?? 0))
