@@ -51,7 +51,7 @@ export default class Reservation extends BaseModel {
   declare actualDepartureDatetime: DateTime | null
 
   @column({ columnName: 'reservation_status' })
-  declare reservationStatus: 'Confirmed' | 'Pending' | 'Cancelled' | 'No-Show' | 'Checked-In' | 'Checked-Out' | 'Waitlist' | 'Modified' | 'PartiallyCheckedIn' | 'Guaranteed'
+  declare reservationStatus: 'Confirmed' | 'Pending' | 'Cancelled' | 'No-Show' | 'Checked-In' | 'Checked-Out' | 'Waitlist' | 'Modified' | 'PartiallyCheckedIn' | 'Guaranteed' | 'partially_no_show'
 
   @column()
   declare board_basis_type: 'BO' | 'BB' | 'Half Board' | 'Full Board' | 'AllInclusive' | 'Custom' | null
