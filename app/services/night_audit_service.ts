@@ -665,8 +665,8 @@ export default class NightAuditService {
 
       const pendingCharges = folioIds.length > 0 ? await FolioTransaction.query()
         .whereIn('folio_id', folioIds)
-        .where('transaction_type', 'room_charge')
-        .where('status', TransactionStatus.PENDING)
+        .where('transaction_type', TransactionType.CHARGE)
+       .where('status', TransactionStatus.PENDING)
         .whereRaw('DATE(transaction_date) = ?', [auditDate])
         .preload('folio', (folioQuery) => {
           folioQuery.preload('reservation', (reservationQuery) => {
@@ -706,38 +706,43 @@ export default class NightAuditService {
 
         const folioTransactions = pendingChargesByFolio.get(folio.id)
 
-        // Process each reservation room to get rates and details
-        for (const reservationRoom of reservation.reservationRooms) {
-          // Get room rate from reservationRoom's roomRates
-          const roomRate = reservationRoom.roomRate;
+        // Process each pending folio transaction
+        for (const transaction of folioTransactions) {
+          // Find the corresponding reservation room for this transaction
+          const reservationRoom = reservation.reservationRooms.find(rr => 
+            rr.room?.roomNumber === transaction.description?.match(/Room (\d+)/)?.[1] ||
+            rr.id === transaction.reservationRoomId
+          ) || reservation.reservationRooms[0]// fallback to first room
 
-          if (roomRate > 0) {
-            const chargeData = {
-              reservation_id: reservation.id,
-              reservation_number: reservation.reservationNumber,
-              folio_id: folio.id,
-              reservation_room_id: reservationRoom.id,
-              room_number: reservationRoom.room?.roomNumber,
-              guest_name: `${reservation.guest?.displayName}`,
-              room_type: reservationRoom.room?.roomType?.roomTypeName,
-              rate_type: reservationRoom.roomRates?.rateType?.rateTypeName,
-              rate: roomRate,
-              charge_date: auditDate,
-              description: `Room charge for ${auditDate}`,
-              transaction_type: 'room_charge',
-              check_in_date: reservationRoom.checkInDate,
-              check_out_date: reservationRoom.checkOutDate
-            }
-
-            pendingCharges.push(chargeData)
-            totalAmount += roomRate
-            totalRooms++
+          const transactionData = {
+            transaction_id: transaction.id,
+            reservation_id: reservation.id,
+            reservation_number: reservation.reservationNumber,
+            folio_id: folio.id,
+            reservation_room_id: reservationRoom?.id,
+            room_number: reservationRoom?.room?.roomNumber,
+            guest_name: `${reservation.guest?.displayName}`,
+            room_type: reservationRoom?.room?.roomType?.roomTypeName,
+            rate_type: reservationRoom?.roomRates.rateType.rateTypeName,
+            rate: transaction.amount,
+            charge_date: auditDate,
+            transaction_date: transaction.transactionDate,
+            description: transaction.description,
+            transaction_type: transaction.transactionType,
+            transaction_status: transaction.status,
+            reference: transaction.reference,
+            check_in_date: reservationRoom?.checkInDate,
+            check_out_date: reservationRoom?.checkOutDate,
           }
+
+          chargeData.push(transactionData)
+          totalAmount += transaction.amount
+          totalRooms++
         }
       }
 
       return {
-        pending_charges: pendingCharges,
+        pending_charges: chargeData,
         summary: {
           total_rooms: totalRooms,
           total_amount: totalAmount,
