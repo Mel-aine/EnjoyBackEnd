@@ -1,6 +1,7 @@
 import LostFound from '#models/lost_found'
 import Room from '#models/room'
 import { DateTime } from 'luxon'
+import LoggerService from '#services/logger_service'
 
 interface GetAllOptions {
   page: number
@@ -80,7 +81,7 @@ export default class LostFoundService {
   /**
    * Create new lost and found item
    */
-  async create(data: any) {
+  async create(data: any, userId?: number) {
     // Validate room exists if roomId is provided
     if (data.roomId) {
       const room = await Room.find(data.roomId)
@@ -104,6 +105,25 @@ export default class LostFoundService {
 
     const lostFoundItem = await LostFound.create(data)
     await lostFoundItem.load('room')
+    
+    // Log the creation if userId is provided
+    if (userId) {
+      await LoggerService.logActivity({
+        userId: userId,
+        action: 'CREATE',
+        resourceType: 'LostFound',
+        resourceId: lostFoundItem.id,
+        hotelId: data.hotelId,
+        details: {
+          itemDescription: data.itemDescription,
+          status: lostFoundItem.status,
+          roomId: data.roomId,
+          complainantName: data.complainantName,
+          complainantPhone: data.complainantPhone
+        }
+      })
+    }
+    
     return lostFoundItem
   }
 
@@ -141,10 +161,27 @@ export default class LostFoundService {
   /**
    * Delete lost and found item
    */
-  async delete(id: string | number) {
+  async delete(id: string | number, userId?: number) {
     const lostFoundItem = await LostFound.find(id)
     if (!lostFoundItem) {
       return false
+    }
+
+    // Log the deletion if userId is provided
+    if (userId) {
+      await LoggerService.logActivity({
+        userId: userId,
+        action: 'DELETE',
+        resourceType: 'LostFound',
+        resourceId: lostFoundItem.id,
+        hotelId: lostFoundItem.hotelId,
+        details: {
+          itemDescription: lostFoundItem.itemDescription,
+          status: lostFoundItem.status,
+          complainantName: lostFoundItem.complainantName,
+          complainantPhone: lostFoundItem.complainantPhone
+        }
+      })
     }
 
     await lostFoundItem.delete()

@@ -3,6 +3,7 @@ import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import Reservation from '#models/reservation'
 import FolioService from '#services/folio_service'
+import LoggerService from '#services/logger_service'
 import { TransactionType, TransactionCategory } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
 
@@ -127,6 +128,21 @@ export default class CheckoutService {
         await FolioService.closeFolio(data.folioId, data.processedBy)
         checkoutCompleted = true
         if (!message) message = 'Checkout completed - folio closed'
+        
+        // Log checkout completion
+        await LoggerService.logActivity({
+          actorId: data.processedBy,
+          action: 'CHECK_OUT',
+          entityType: 'Folio',
+          entityId: data.folioId,
+          hotelId: settlement.folio.hotelId,
+          description: `Folio checkout completed - ${message}`,
+          changes: {
+            paymentAmount: { old: null, new: data.paymentAmount || 0 },
+            outstandingBalance: { old: settlement.outstandingBalance, new: updatedSettlement.outstandingBalance },
+            workflowStatus: { old: 'open', new: 'closed' }
+          }
+        })
       } else if (updatedSettlement.requiresPayment) {
         // Still has outstanding balance
         if (!message) message = 'Outstanding balance remains - folio kept open'
@@ -230,7 +246,25 @@ export default class CheckoutService {
       }
       
       // Close the folio
-      return await FolioService.closeFolio(folioId, processedBy)
+      const closedFolio = await FolioService.closeFolio(folioId, processedBy)
+      
+      // Log force closure
+      await LoggerService.logActivity({
+        actorId: processedBy,
+        action: 'FORCE_CLOSE',
+        entityType: 'Folio',
+        entityId: folioId,
+        hotelId: closedFolio.hotelId,
+        description: `Folio force closed - ${reason}`,
+        changes: {
+          outstandingBalance: { old: settlement.outstandingBalance, new: 0 },
+          workflowStatus: { old: 'open', new: 'closed' },
+          authorizedBy: { old: null, new: authorizedBy },
+          reason: { old: null, new: reason }
+        }
+      })
+      
+      return closedFolio
     })
   }
   

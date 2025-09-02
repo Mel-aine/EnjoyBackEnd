@@ -1540,12 +1540,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         logger.info('Réservation mise à jour avec primary guest ID:', primaryGuest.id)
 
         // 7. Réservations de chambres
-        for (const room of data.rooms) {
+        for (let index = 0; index < data.rooms.length; index++) {
+          const room = data.rooms[index]
           await ReservationRoom.create({
             reservationId: reservation.id,
             roomTypeId: room.room_type_id,
             roomId: room.room_id!,
-            // guestId: guest.id,
+            guestId: primaryGuest.id, // Associate with primary guest
             checkInDate: DateTime.fromISO(data.arrived_date),
             checkOutDate: DateTime.fromISO(data.depart_date),
             nights: data.number_of_nights,
@@ -1558,6 +1559,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             totalTaxesAmount: room.taxes * data.number_of_nights,
             netAmount : room.room_rate * data.number_of_nights + (room.taxes * data.number_of_nights),
             status: 'reserved',
+            isOwner: index === 0, // First room is the primary/owner room
             createdBy: data.created_by,
           }, { client: trx })
         }

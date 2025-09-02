@@ -13,6 +13,7 @@ export interface CreateFolioData {
   hotelId: number
   guestId: number
   reservationId?: number
+  reservationRoomId?: number
   groupId?: number
   companyId?: number
   folioType: FolioType,
@@ -104,7 +105,7 @@ export default class FolioService {
       }
 
       // Generate unique folio number
-      const folioNumber = await this.generateFolioNumber(data.hotelId, trx)
+      const folioNumber = data.folioNumber || await this.generateFolioNumber(data.hotelId, trx, data.reservationRoomId)
 
       // Generate folio name if not provided
       const folioName = data.folioName || `${guest.firstName} ${guest.lastName} - ${data.folioType.toUpperCase()}`
@@ -114,6 +115,7 @@ export default class FolioService {
         hotelId: data.hotelId,
         guestId: data.guestId,
         reservationId: data.reservationId,
+        reservationRoomId: data.reservationRoomId,
         groupId: data.groupId,
         companyId: data.companyId,
         folioNumber,
@@ -133,6 +135,16 @@ export default class FolioService {
         lastModifiedBy: data.createdBy,
         openedBy: data.createdBy
       }, { client: trx })
+
+      await LoggerService.logActivity({
+        actorId: data.createdBy,
+        action: 'CREATE',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio "${folio.folioName}" created via service`,
+        changes: LoggerService.extractChanges({}, folio.toJSON())
+      })
 
       return folio
     })
@@ -1145,23 +1157,62 @@ export default class FolioService {
   /**
    * Generate unique folio number
    */
-  private static async generateFolioNumber(hotelId: number, trx?: TransactionClientContract): Promise<string> {
-    const query = Folio.query({ client: trx })
-      .where('hotelId', hotelId)
-      .orderBy('id', 'desc')
-      .first()
+  private static async generateFolioNumber(hotelId: number, trx?: TransactionClientContract, reservationRoomId?: number): Promise<string> {
+    // Use a more robust approach to ensure uniqueness
+    let attempts = 0
+    const maxAttempts = 10
+    
+    while (attempts < maxAttempts) {
+       let query = Folio.query({ client: trx })
+         .where('hotelId', hotelId)
+       
+       // If we have a reservation room ID, look for folios with the same pattern
+       if (reservationRoomId) {
+         query = query.where('folioNumber', 'like', `F-${hotelId}-${reservationRoomId}-%`)
+       }
+       
+       const lastFolio = await query
+         .orderBy('id', 'desc')
+         .first()
+         
+       let nextNumber = 1
 
-    const lastFolio = await query
-    let nextNumber = 1
+       if (lastFolio && lastFolio.folioNumber) {
+          // Handle both old format F-hotelId-number and new format F-hotelId-roomId-number
+          const oldFormatMatch = lastFolio.folioNumber.match(/^F-(\d+)-(\d+)$/)
+          const newFormatMatch = lastFolio.folioNumber.match(/^F-(\d+)-(\d+)-(\d+)$/)
+          
+          if (newFormatMatch) {
+            nextNumber = parseInt(newFormatMatch[3]) + 1
+          } else if (oldFormatMatch) {
+            nextNumber = parseInt(oldFormatMatch[2]) + 1
+          }
+        }
 
-    if (lastFolio && lastFolio.folioNumber) {
-      const match = lastFolio.folioNumber.match(/F-(\d+)-(\d+)$/)
-      if (match) {
-        nextNumber = parseInt(match[2]) + 1
+      // Include reservation room ID in folio number if available to ensure uniqueness
+       const candidateNumber = reservationRoomId 
+         ? `F-${hotelId}-${reservationRoomId}-${nextNumber.toString().padStart(6, '0')}`
+         : `F-${hotelId}-${nextNumber.toString().padStart(8, '0')}`
+      
+      // Check if this number already exists
+      const existingFolio = await Folio.query({ client: trx })
+        .where('folioNumber', candidateNumber)
+        .first()
+      
+      if (!existingFolio) {
+        return candidateNumber
       }
+      
+      attempts++
+      // Add a small delay to reduce contention
+      await new Promise(resolve => setTimeout(resolve, 10))
     }
-
-    return `F-${hotelId}-${nextNumber.toString().padStart(8, '0')}`
+    
+    // Fallback: use timestamp-based number if we can't find a unique sequential number
+     const timestamp = Date.now()
+     return reservationRoomId 
+       ? `F-${hotelId}-${reservationRoomId}-${timestamp.toString().padStart(6, '0')}`
+       : `F-${hotelId}-${timestamp.toString().padStart(8, '0')}`
   }
 
   /**

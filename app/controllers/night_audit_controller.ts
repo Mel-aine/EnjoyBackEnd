@@ -539,7 +539,7 @@ export default class NightAuditController {
         auditDate: vine.string(),
         charges: vine.array(vine.object({
           reservationId: vine.number(),
-          chargeType: vine.string(),
+          folioId: vine.number(),
           amount: vine.number(),
           description: vine.string().optional()
         }))

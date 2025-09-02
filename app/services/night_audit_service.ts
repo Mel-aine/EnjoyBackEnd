@@ -5,7 +5,8 @@ import Reservation from '#models/reservation'
 import Room from '#models/room'
 import Folio from '#models/folio'
 import Database from '@adonisjs/lucid/services/db'
-import { TransactionType, TransactionCategory, ReservationStatus } from '#app/enums'
+import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
+import LoggerService from '#services/logger_service'
 
 export interface NightAuditFilters {
   auditDate: DateTime
@@ -292,7 +293,7 @@ export default class NightAuditService {
   /**
    * Store the calculated daily summary
    */
-  private static async storeDailySummary(summary: NightAuditSummary): Promise<DailySummaryFact> {
+  private static async storeDailySummary(summary: NightAuditSummary, userId?: number): Promise<DailySummaryFact> {
     // Check if record already exists for this date and hotel
     const existing = await DailySummaryFact.query()
       .where('audit_date', summary.auditDate.toJSDate())
@@ -330,10 +331,47 @@ export default class NightAuditService {
       // Update existing record
       existing.merge(data)
       await existing.save()
+      
+      // Log the update if userId is provided
+      if (userId) {
+        await LoggerService.logActivity({
+          userId: userId,
+          action: 'UPDATE',
+          resourceType: 'DailySummaryFact',
+          resourceId: existing.id,
+          hotelId: summary.hotelId,
+          details: {
+            auditDate: summary.auditDate.toISODate(),
+            totalRevenue: summary.totalRevenue,
+            occupancyRate: summary.occupancyRate,
+            occupiedRooms: summary.occupiedRooms
+          }
+        })
+      }
+      
       return existing
     } else {
       // Create new record
-      return await DailySummaryFact.create(data)
+      const newRecord = await DailySummaryFact.create(data)
+      
+      // Log the creation if userId is provided
+      if (userId) {
+        await LoggerService.logActivity({
+          userId: userId,
+          action: 'CREATE',
+          resourceType: 'DailySummaryFact',
+          resourceId: newRecord.id,
+          hotelId: summary.hotelId,
+          details: {
+            auditDate: summary.auditDate.toISODate(),
+            totalRevenue: summary.totalRevenue,
+            occupancyRate: summary.occupancyRate,
+            occupiedRooms: summary.occupiedRooms
+          }
+        })
+      }
+      
+      return newRecord
     }
   }
 
@@ -364,11 +402,34 @@ export default class NightAuditService {
   /**
    * Delete night audit record for a specific date
    */
-  static async deleteNightAudit(auditDate: DateTime, hotelId: number): Promise<boolean> {
+  static async deleteNightAudit(auditDate: DateTime, hotelId: number, userId?: number): Promise<boolean> {
+    // Get the record before deletion for logging
+    const recordToDelete = userId ? await DailySummaryFact.query()
+      .where('audit_date', auditDate.toISODate()!)
+      .where('hotel_id', hotelId)
+      .first() : null
+
     const deleted = await DailySummaryFact.query()
       .where('audit_date', auditDate.toISODate()!)
       .where('hotel_id', hotelId)
       .delete()
+
+    // Log the deletion if userId is provided and record was found
+    if (userId && recordToDelete && deleted > 0) {
+      await LoggerService.logActivity({
+        userId: userId,
+        action: 'DELETE',
+        resourceType: 'DailySummaryFact',
+        resourceId: recordToDelete.id,
+        hotelId: hotelId,
+        details: {
+          auditDate: auditDate.toISODate(),
+          totalRevenue: recordToDelete.totalRevenue,
+          occupancyRate: recordToDelete.occupancyRate,
+          occupiedRooms: recordToDelete.occupiedRooms
+        }
+      })
+    }
 
     return deleted > 0
   }
@@ -461,6 +522,10 @@ export default class NightAuditService {
         folio = currentReservation?.folios[0]
       }
 
+      // Determine if action is required (checkout date matches audit date)
+      const isRequiredAction = activeReservationRoom ? 
+        DateTime.fromISO(activeReservationRoom.checkOutDate).toISODate() === auditDateStr : false
+
       return {
         reservation_id: currentReservation?.id,
         roomId: room.id,
@@ -469,6 +534,7 @@ export default class NightAuditService {
         roomType: room.roomType?.roomTypeName || 'Unknown',
         status: roomStatus,
         housekeepingStatus: room.housekeepingStatus,
+        isRequiredAction,
         guest: guest ? {
           id: guest.id,
           name: `${guest.displayName}`,
@@ -577,54 +643,96 @@ export default class NightAuditService {
    */
   static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
     try {
-      // Get all occupied rooms for the audit date
+      // Get all occupied rooms for the audit date with room rates from reservationRooms
       const occupiedRooms = await Reservation.query()
         .where('hotel_id', hotelId)
         .where('status', 'checked_in')
-        .whereRaw('DATE(check_in_date) <= ?', [auditDate])
-        .whereRaw('(DATE(check_out_date) > ? OR check_out_date IS NULL)', [auditDate])
+        .whereRaw('DATE(arrived_date) <= ?', [auditDate])
+        .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [auditDate])
         .preload('guest')
         .preload('folios')
         .preload('reservationRooms', (roomQuery) => {
           roomQuery.preload('room')
+          roomQuery.preload('roomRates', (rateQuery) => {
+            rateQuery.preload('rateType')
+          })
         })
 
-      const pendingCharges = []
+      // Get all existing pending room charges for the audit date in a single query
+      const folioIds = occupiedRooms
+        .flatMap(reservation => reservation.folios?.map(folio => folio.id) || [])
+        .filter(Boolean)
+
+      const pendingCharges = folioIds.length > 0 ? await FolioTransaction.query()
+        .whereIn('folio_id', folioIds)
+        .where('transaction_type', 'room_charge')
+        .where('status', TransactionStatus.PENDING)
+        .whereRaw('DATE(transaction_date) = ?', [auditDate])
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('reservation', (reservationQuery) => {
+            reservationQuery.preload('guest')
+            reservationQuery.preload('reservationRooms', (roomQuery) => {
+              roomQuery.preload('room', (roomDetailQuery) => {
+                roomDetailQuery.preload('roomType')
+              })
+              roomQuery.preload('roomRates', (rateQuery) => {
+                rateQuery.preload('rateType')
+              })
+            })
+          })
+        }) : []
+
+      // Create a Map for faster lookup of pending charges by folio ID
+      const pendingChargesByFolio = new Map()
+      pendingCharges.forEach(charge => {
+        if (!pendingChargesByFolio.has(charge.folioId)) {
+          pendingChargesByFolio.set(charge.folioId, [])
+        }
+        pendingChargesByFolio.get(charge.folioId).push(charge)
+      })
+
+      const chargeData = []
       let totalAmount = 0
       let totalRooms = 0
 
       for (const reservation of occupiedRooms) {
         if (!reservation.folios || reservation.folios.length === 0) continue
 
-        // Get room rate for the audit date
-        const roomRate = reservation.room_rate || 0
-
         // Use the first folio for the reservation
         const folio = reservation.folios[0]
 
-        // Check if room charge has already been posted for this date
-        const existingCharge = await FolioTransaction.query()
-          .where('folio_id', folio.id)
-          .where('transaction_type', 'room_charge')
-          .whereRaw('DATE(transaction_date) = ?', [auditDate])
-          .first()
+        // Only include reservations that have pending room charges
+        if (!pendingChargesByFolio.has(folio.id)) continue
 
-        if (!existingCharge && roomRate > 0) {
-          const chargeData = {
-            reservation_id: reservation.id,
-            folio_id: folio.id,
-            room_number: reservation.reservationRooms[0]?.room?.room_number,
-            guest_name: `${reservation.guest.first_name} ${reservation.guest.last_name}`,
-            room_type: reservation.reservationRooms[0]?.room?.room_type,
-            rate: roomRate,
-            charge_date: auditDate,
-            description: `Room charge for ${auditDate}`,
-            transaction_type: 'room_charge'
+        const folioTransactions = pendingChargesByFolio.get(folio.id)
+
+        // Process each reservation room to get rates and details
+        for (const reservationRoom of reservation.reservationRooms) {
+          // Get room rate from reservationRoom's roomRates
+          const roomRate = reservationRoom.roomRate;
+
+          if (roomRate > 0) {
+            const chargeData = {
+              reservation_id: reservation.id,
+              reservation_number: reservation.reservationNumber,
+              folio_id: folio.id,
+              reservation_room_id: reservationRoom.id,
+              room_number: reservationRoom.room?.roomNumber,
+              guest_name: `${reservation.guest?.displayName}`,
+              room_type: reservationRoom.room?.roomType?.roomTypeName,
+              rate_type: reservationRoom.roomRates?.rateType?.rateTypeName,
+              rate: roomRate,
+              charge_date: auditDate,
+              description: `Room charge for ${auditDate}`,
+              transaction_type: 'room_charge',
+              check_in_date: reservationRoom.checkInDate,
+              check_out_date: reservationRoom.checkOutDate
+            }
+
+            pendingCharges.push(chargeData)
+            totalAmount += roomRate
+            totalRooms++
           }
-
-          pendingCharges.push(chargeData)
-          totalAmount += roomRate
-          totalRooms++
         }
       }
 
@@ -719,63 +827,93 @@ export default class NightAuditService {
   /**
    * Post nightly charges for night audit
    */
-  static async postNightlyCharges(hotelId: number, auditDate: string, charges: any[]) {
-    const auditDateTime = DateTime.fromISO(auditDate)
+  static async postNightlyCharges(hotelId: number, auditDate: string, charges: any[], userId?: number) {
     const postedCharges = []
     const errors = []
+    const logEntries = []
 
     for (const charge of charges) {
       try {
-        // Get the reservation and its folio
-        const reservation = await Reservation.query()
-          .where('id', charge.reservationId)
+        // Find existing folio transaction using folio_id and charge_date
+        const existingTransaction = await FolioTransaction.query()
+          .where('folio_id', charge.folioId)
           .where('hotel_id', hotelId)
-          .preload('folios')
+          .whereRaw('DATE(transaction_date) = ?', [auditDate])
+          .andWhere('transaction_type', TransactionType.CHARGE)
+          .where('is_voided', false)
           .first()
 
-        if (!reservation || !reservation.folios || reservation.folios.length === 0) {
+        if (!existingTransaction) {
           errors.push({
-            reservationId: charge.reservationId,
-            error: 'Reservation or folio not found'
+            folioId: charge.folioId,
+            chargeDate: auditDate,
+            error: 'Existing transaction not found for update'
           })
           continue
         }
 
-        const folio = reservation.folios[0]
+        // Get the folio to update balance
+        const folio = await Folio.findOrFail(charge.folioId)
+        
+        // Calculate the difference for balance adjustment
+        const amountDifference = charge.amount - existingTransaction.amount
 
-        // Create folio transaction for the charge
-        const folioTransaction = await FolioTransaction.create({
-          folioId: folio.id,
-          hotelId: hotelId,
-          transactionType: TransactionType.CHARGE,
-          category: charge.category || TransactionCategory.ROOM,
+        // Update the existing transaction
+        await existingTransaction.merge({
           amount: charge.amount,
-          description: charge.description || `${charge.chargeType} - Night Audit`,
-          transactionDate: auditDateTime.toJSDate(),
-          reference: `NA-${auditDate}-${charge.chargeType}`,
-          isVoided: false
-        })
+          description: charge.description,
+          status: TransactionStatus.POSTED,
+        }).save()
 
-        // Update folio balance
+        // Update folio balance with the difference
         await folio.merge({
-          totalCharges: folio.totalCharges + charge.amount,
-          balance: folio.balance + charge.amount,
+          totalCharges: folio.totalCharges + amountDifference,
+          balance: folio.balance + amountDifference,
         }).save()
 
         postedCharges.push({
-          reservationId: charge.reservationId,
-          transactionId: folioTransaction.id,
+          folioId: charge.folio_id,
+          transactionId: existingTransaction.id,
           amount: charge.amount,
           chargeType: charge.chargeType,
-          status: 'Posted'
+          chargeDate: charge.charge_date,
+          status: 'Updated'
         })
+
+        // Prepare log entry for bulk logging
+        if (userId) {
+          logEntries.push({
+            userId: userId,
+            action: 'UPDATE',
+            resourceType: 'FolioTransaction',
+            resourceId: existingTransaction.id,
+            hotelId: hotelId,
+            details: {
+              folioId: charge.folio_id,
+              transactionType: TransactionType.CHARGE,
+              oldAmount: existingTransaction.amount,
+              newAmount: charge.amount,
+              amountDifference: amountDifference,
+              chargeType: charge.chargeType,
+              chargeDate: charge.charge_date,
+              auditDate: auditDate,
+              reference: existingTransaction.reference
+            }
+          })
+        }
 
       } catch (error) {
         errors.push({
-          reservationId: charge.reservationId,
+          folioId: charge.folio_id || 'unknown',
+          chargeDate: charge.charge_date || 'unknown',
           error: error.message
         })
       }
+    }
+
+    // Bulk log all successful transactions
+    if (userId && logEntries.length > 0) {
+      await LoggerService.bulkLog(logEntries)
     }
 
     return {

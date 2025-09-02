@@ -2,6 +2,7 @@
 
 import Guest from '#models/guest'
 import logger from '@adonisjs/core/services/logger'
+import LoggerService from '#services/logger_service'
 import type { ReservationData, GuestData } from '../types/reservationData.js'
 import {generateGuestCode} from '../utils/generate_guest_code.js'
 import db from '@adonisjs/lucid/services/db'
@@ -102,6 +103,19 @@ export default class ReservationService {
         postalCode: data.zipcode,
         createdBy: data.created_by,
       }, { client: trx })
+
+      // Log guest creation if actorId is available
+      if (data.created_by) {
+        await LoggerService.logActivity({
+          actorId: data.created_by,
+          action: 'CREATE',
+          entityType: 'Guest',
+          entityId: guest.id,
+          hotelId: data.hotel_id,
+          description: `Guest "${guest.firstName} ${guest.lastName}" created via reservation service`,
+          changes: LoggerService.extractChanges({}, guest.toJSON())
+        })
+      }
     }
 
     return guest
@@ -145,6 +159,18 @@ export default class ReservationService {
         postalCode: guestData.zipcode,
         createdBy: createdBy,
       }, { client: trx })
+
+      // Log guest creation
+      if (createdBy) {
+        await LoggerService.logActivity({
+          actorId: createdBy,
+          action: 'CREATE',
+          entityType: 'Guest',
+          entityId: guest.id,
+          description: `Guest "${guest.firstName} ${guest.lastName}" created from guest data`,
+          changes: LoggerService.extractChanges({}, guest.toJSON())
+        })
+      }
     }
 
     return guest
