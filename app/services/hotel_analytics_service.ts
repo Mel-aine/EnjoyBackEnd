@@ -101,24 +101,34 @@ export class HotelAnalyticsService {
             }
         }
 
-        // 2. Get all relevant reservations that overlap with the date range
+        // 2. Get all room types for the hotel
+        const roomTypes = await Room.query()
+            .where('hotel_id', hotelId)
+            .preload('roomType')
+            .then(rooms => {
+                const uniqueTypes = new Map()
+                rooms.forEach(room => {
+                    if (room.roomType) {
+                        uniqueTypes.set(room.roomType.id, room.roomType)
+                    }
+                })
+                return Array.from(uniqueTypes.values())
+            })
+
+        // 3. Get all relevant reservations that overlap with the date range
         const reservations = await Reservation.query()
             .where('hotel_id', hotelId)
 
             .where('depart_date', '>=', startDate.toISODate()!)
             .where('arrived_date', '<=', endDate.toISODate()!)
             .whereNotIn('status', ['cancelled', 'no-show','no_show','voided'])
-            .preload('guest')
-            .preload('folios', (folioQuery) => {
-                folioQuery.preload('transactions')
-            })
             .preload('reservationRooms', (rspQuery) => {
                 rspQuery.preload('room', (spQuery) => {
                     spQuery.preload('roomType')
                 })
-            }).preload('bookingSource')
+            })
 
-        // 3. Calculate daily occupancy metrics
+        // 4. Calculate daily occupancy metrics
         const dailyMetrics = []
         for (let dt = startDate; dt <= endDate; dt = dt.plus({ days: 1 })) {
             const currentDate = dt
@@ -148,6 +158,88 @@ export class HotelAnalyticsService {
             }
 
             const occupancyRate = totalRooms > 0 ? (occupiedRoomIds.size / totalRooms) * 100 : 0
+
+            // Calculate available rooms per room type
+            const availableRoomsByType: { [key: string]: { room_type_id: number, room_type_name: string, available_count: number } } = {}
+            
+            // Initialize with all room types
+            roomTypes.forEach(roomType => {
+                availableRoomsByType[roomType.id] = {
+                    room_type_id: roomType.id,
+                    room_type_name: roomType.roomTypeName,
+                    available_count: 0
+                }
+            })
+
+            // Get blocked room IDs for this specific date
+            const blockedRoomIds = new Set<number>()
+            const roomBlocksForDate = await RoomBlock.query()
+                .where('hotel_id', hotelId)
+                .where('block_from_date', '<=', currentDate.toFormat('yyyy-MM-dd'))
+                .where('block_to_date', '>=', currentDate.toFormat('yyyy-MM-dd'))
+                .preload('room')
+            
+            roomBlocksForDate.forEach(block => {
+                if (block.room) {
+                    blockedRoomIds.add(block.room.id)
+                }
+            })
+
+            // Get all room IDs that have reservations for this specific date (not just occupied)
+            const reservedRoomIds = new Set<number>()
+            activeReservationsForDay.forEach(reservation => {
+                reservation.reservationRooms.forEach(rr => {
+                    if (rr.roomId) {
+                        reservedRoomIds.add(rr.roomId)
+                    }
+                })
+            })
+
+            // Count available rooms by type (exclude reserved, blocked, and maintenance rooms)
+            allRooms.forEach(room => {
+                if (room.roomTypeId && 
+                    !reservedRoomIds.has(room.id) && 
+                    !blockedRoomIds.has(room.id) &&
+                    room.status !== 'blocked' &&
+                    room.status !== 'out_of_order' &&
+                    room.status !== 'maintenance' &&
+                    room.housekeepingStatus !== 'out_of_order') {
+                    if (availableRoomsByType[room.roomTypeId]) {
+                        availableRoomsByType[room.roomTypeId].available_count++
+                    }
+                }
+            })
+
+            // Count unassigned room reservations by room type (reservation rooms without room assignment)
+            const unassignedRoomReservationsByType: { [key: string]: { room_type_id: number | null, room_type_name: string, unassigned_count: number } } = {}
+            
+            // Initialize with all room types
+            roomTypes.forEach(roomType => {
+                unassignedRoomReservationsByType[roomType.id] = {
+                    room_type_id: roomType.id,
+                    room_type_name: roomType.roomTypeName,
+                    unassigned_count: 0
+                }
+            })
+
+            // Add "Unknown" category for reservations without room type
+            unassignedRoomReservationsByType['unknown'] = {
+                room_type_id: null,
+                room_type_name: 'Unknown',
+                unassigned_count: 0
+            }
+
+            // Count unassigned reservation rooms by their intended room type
+            activeReservationsForDay.forEach(reservation => {
+                reservation.reservationRooms.forEach(rr => {
+                    if (!rr.roomId) {
+                        const roomTypeId = rr.roomTypeId || 'unknown'
+                        if (unassignedRoomReservationsByType[roomTypeId]) {
+                            unassignedRoomReservationsByType[roomTypeId].unassigned_count++
+                        }
+                    }
+                })
+            })
 
             // Calculate room status statistics
             const roomStatusStats = {
@@ -202,6 +294,8 @@ export class HotelAnalyticsService {
                 allocated_rooms: occupiedRoomIds.size,
                 unassigned_reservations: unassignedReservationsCount,
                 room_status_stats: roomStatusStats,
+                available_rooms_by_type: Object.values(availableRoomsByType),
+                unassigned_room_reservations_by_type: Object.values(unassignedRoomReservationsByType),
             })
         }
 

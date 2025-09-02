@@ -649,7 +649,9 @@ router
         router.get('/', rateTypesController.index.bind(rateTypesController)) // Get all rate types with filtering by hotel
         router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
-        router.get('/hotel/:id', rateTypesController.showByHotel.bind(rateTypesController)) // Get rate type details for a specific hotel
+        router.get('/hotel/:id', rateTypesController.showByHotel.bind(rateTypesController)) 
+        router.get('/hotel/:hotelId/stay_view', rateTypesController.getRatesByHotelId.bind(rateTypesController)) 
+        // Get rate type details for a specific hotel
         router.get('/roomType/:id', rateTypesController.getByRoomType.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
         router.delete('/:id', rateTypesController.destroy.bind(rateTypesController)) // Soft delete rate type
