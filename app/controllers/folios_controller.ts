@@ -5,6 +5,7 @@ import FolioService from '#services/folio_service'
 import ReservationFolioService from '#services/reservation_folio_service'
 import CheckoutService from '#services/checkout_service'
 import FolioInquiryService from '#services/folio_inquiry_service'
+import LoggerService from '#services/logger_service'
 import { 
   createFolioValidator, 
   updateFolioValidator, 
@@ -131,6 +132,17 @@ export default class FoliosController {
         createdBy: auth.user!.id
       })
       
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'CREATE',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio "${folio.folioName}" created successfully`,
+        changes: LoggerService.extractChanges({}, folio.toJSON()),
+        ctx: { request, response, auth }
+      })
+      
       return response.created({
         message: 'Folio created successfully',
         data: folio
@@ -172,6 +184,7 @@ export default class FoliosController {
   async update({ params, request, response, auth }: HttpContext) {
     try {
       const folio = await Folio.findOrFail(params.id)
+      const oldData = folio.toJSON()
       const payload = await request.validateUsing(updateFolioValidator)
 
       folio.merge({
@@ -182,6 +195,20 @@ export default class FoliosController {
       await folio.save()
       await folio.load('hotel')
       await folio.load('guest')
+
+      const changes = LoggerService.extractChanges(oldData, payload)
+      if (Object.keys(changes).length > 0) {
+        await LoggerService.log({
+          actorId: auth.user?.id || 0,
+          action: 'UPDATE',
+          entityType: 'Folio',
+          entityId: folio.id,
+          hotelId: folio.hotelId,
+          description: `Folio "${folio.folioName}" updated successfully`,
+          changes: changes,
+          ctx: { request, response, auth }
+        })
+      }
 
       return response.ok({
         message: 'Folio updated successfully',
@@ -198,7 +225,7 @@ export default class FoliosController {
   /**
    * Delete a folio
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, response, auth }: HttpContext) {
     try {
       const folio = await Folio.findOrFail(params.id)
       
@@ -211,6 +238,17 @@ export default class FoliosController {
       }
 
       await folio.delete()
+
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'DELETE',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio "${folio.folioName}" deleted successfully`,
+        changes: {},
+        ctx: { request: null, response, auth }
+      })
 
       return response.ok({
         message: 'Folio deleted successfully'

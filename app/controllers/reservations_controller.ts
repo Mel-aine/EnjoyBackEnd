@@ -1540,12 +1540,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         logger.info('Réservation mise à jour avec primary guest ID:', primaryGuest.id)
 
         // 7. Réservations de chambres
-        for (const room of data.rooms) {
+        for (let index = 0; index < data.rooms.length; index++) {
+          const room = data.rooms[index]
           await ReservationRoom.create({
             reservationId: reservation.id,
             roomTypeId: room.room_type_id,
             roomId: room.room_id!,
-            // guestId: guest.id,
+            guestId: primaryGuest.id, // Associate with primary guest
             checkInDate: DateTime.fromISO(data.arrived_date),
             checkOutDate: DateTime.fromISO(data.depart_date),
             nights: data.number_of_nights,
@@ -1558,6 +1559,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             totalTaxesAmount: room.taxes * data.number_of_nights,
             netAmount : room.room_rate * data.number_of_nights + (room.taxes * data.number_of_nights),
             status: 'reserved',
+            isOwner: index === 0, // First room is the primary/owner room
             createdBy: data.created_by,
           }, { client: trx })
         }
@@ -3767,8 +3769,134 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
     }
   }
 
+  /**
+   * Get released reservations by date for a specific hotel
+   * Released reservations are those with status 'checked_out' or 'completed'
+   */
+  async getReleasedReservationsByDate({ params, request, response }: HttpContext) {
+    try {
+      const { hotelId } = params
+      const { date } = request.qs()
 
+      // Validate required parameters
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID is required',
+          errors: ['hotelId parameter is missing']
+        })
+      }
 
+      if (!date) {
+        return response.badRequest({
+          success: false,
+          message: 'Date is required',
+          errors: ['date query parameter is missing']
+        })
+      }
 
+      // Validate date format
+      const targetDate = DateTime.fromISO(date)
+      if (!targetDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format',
+          errors: ['Date must be in ISO format (YYYY-MM-DD)']
+        })
+      }
+
+      // Query released reservations (checked_out or completed status)
+      const releasedReservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereIn('status', [ReservationStatus.CHECKED_OUT, ReservationStatus.COMPLETED])
+        .where((query) => {
+          // Filter by checkout date or departure date
+          query
+            .whereRaw('DATE(check_out_date) = ?', [targetDate.toSQLDate()])
+            .orWhereRaw('DATE(depart_date) = ?', [targetDate.toSQLDate()])
+        })
+        .preload('guest', (guestQuery) => {
+          guestQuery.select(['id', 'firstName', 'lastName', 'email', 'phone'])
+        })
+        .preload('reservationRooms', (roomQuery) => {
+          roomQuery
+            .preload('room', (roomDetailQuery) => {
+              roomDetailQuery.select(['id', 'roomNumber', 'floorNumber'])
+            })
+            .preload('roomType', (typeQuery) => {
+              typeQuery.select(['id', 'roomTypeName'])
+            })
+        })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'totalAmount', 'balanceAmount'])
+        })
+        .orderBy('check_out_date', 'desc')
+        .orderBy('depart_date', 'desc')
+
+      // Format the response data
+      const formattedReservations = releasedReservations.map(reservation => {
+        const guest = reservation.guest
+        const rooms = reservation.reservationRooms.map(rr => ({
+          roomId: rr.room?.id,
+          roomNumber: rr.room?.roomNumber,
+          roomType: rr.roomType?.roomTypeName,
+          floorNumber: rr.room?.floorNumber,
+          checkInDate: rr.checkInDate?.toISODate(),
+          checkOutDate: rr.checkOutDate?.toISODate()
+        }))
+
+        const totalFolioAmount = reservation.folios.reduce((sum, folio) => sum + (folio.totalAmount || 0), 0)
+        const totalBalance = reservation.folios.reduce((sum, folio) => sum + (folio.balanceAmount || 0), 0)
+
+        return {
+          reservationId: reservation.id,
+          reservationNumber: reservation.reservationNumber,
+          confirmationNumber: reservation.confirmationNumber,
+          status: reservation.status,
+          guest: {
+            id: guest?.id,
+            name: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : 'N/A',
+            email: guest?.email,
+            phone: guest?.phonePrimary
+          },
+          checkInDate: reservation.checkInDate?.toISODate(),
+          checkOutDate: reservation.checkOutDate?.toISODate(),
+          departureDate: reservation.departDate?.toISODate(),
+          totalAmount: reservation.totalAmount,
+          finalAmount: reservation.finalAmount,
+          remainingAmount: reservation.remainingAmount,
+          rooms: rooms,
+          totalRooms: rooms.length,
+          folios: {
+            totalAmount: totalFolioAmount,
+            balanceAmount: totalBalance,
+            count: reservation.folios.length
+          },
+          releasedAt: reservation.checkOutDate || reservation.departDate,
+          createdAt: reservation.createdAt,
+          updatedAt: reservation.updatedAt
+        }
+      })
+
+      return response.ok({
+        success: true,
+        message: 'Released reservations retrieved successfully',
+        data: {
+          hotelId: parseInt(hotelId),
+          date: targetDate.toISODate(),
+          totalCount: formattedReservations.length,
+          reservations: formattedReservations
+        }
+      })
+
+    } catch (error) {
+      logger.error('Error fetching released reservations:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to fetch released reservations',
+        error: error.message
+      })
+    }
+  }
 
 }

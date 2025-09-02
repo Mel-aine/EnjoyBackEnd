@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { BaseModel } from '@adonisjs/lucid/orm'
+import LoggerService from '#services/logger_service'
 
 export default class CrudService<T extends typeof BaseModel> {
   private model: T
@@ -53,28 +54,93 @@ export default class CrudService<T extends typeof BaseModel> {
       .first()
   }
 
-  async create(data: any) {
+  async create(data: any, actorId?: number, hotelId?: number) {
     console.log('respone', data)
-    return await this.model.create(data)
-  }
-
-  async update(id: number, data: any) {
-    const item = await this.model.find(id)
-    if (!item) return null
-    item.merge(data)
-    await item.save()
+    const item = await this.model.create(data)
+    
+    // Log the create action if actorId is provided
+    if (actorId) {
+      await LoggerService.log({
+        actorId: actorId,
+        action: 'CREATE',
+        entityType: this.getModelName(),
+        entityId: (item as any).id,
+        hotelId: hotelId || (item as any).hotelId || (item as any).hotel_id || 0,
+        description: `${this.getModelName()} #${(item as any).id} created.`,
+        changes: LoggerService.extractChanges({}, item.toJSON()),
+      })
+    }
+    
     return item
   }
 
-  async delete(id: number) {
+  async update(id: number, data: any, actorId?: number, hotelId?: number) {
     const item = await this.model.find(id)
     if (!item) return null
+    
+    const oldData = item.toJSON()
+    item.merge(data)
+    await item.save()
+    
+    // Log the update action if actorId is provided
+    if (actorId) {
+      const changes = LoggerService.extractChanges(oldData, data)
+      if (Object.keys(changes).length > 0) {
+        await LoggerService.log({
+          actorId: actorId,
+          action: 'UPDATE',
+          entityType: this.getModelName(),
+          entityId: (item as any).id,
+          hotelId: hotelId || (item as any).hotelId || (item as any).hotel_id || 0,
+          description: `${this.getModelName()} #${(item as any).id} updated.`,
+          changes: changes,
+        })
+      }
+    }
+    
+    return item
+  }
+
+  async delete(id: number, actorId?: number, hotelId?: number) {
+    const item = await this.model.find(id)
+    if (!item) return null
+    
+    // Log the delete action if actorId is provided
+    if (actorId) {
+      await LoggerService.log({
+        actorId: actorId,
+        action: 'DELETE',
+        entityType: this.getModelName(),
+        entityId: (item as any).id,
+        hotelId: hotelId || (item as any).hotelId || (item as any).hotel_id || 0,
+        description: `${this.getModelName()} #${(item as any).id} deleted.`,
+        changes: {},
+      })
+    }
+    
     await item.delete()
     return item
   }
 
-  async createMany(data: any[]) {
-    return await this.model.createMany(data)
+  async createMany(data: any[], actorId?: number, hotelId?: number) {
+    const items = await this.model.createMany(data)
+    
+    // Log the bulk create action if actorId is provided
+    if (actorId && items.length > 0) {
+      const logEntries = items.map((item: any) => ({
+        actorId: actorId,
+        action: 'CREATE',
+        entityType: this.getModelName(),
+        entityId: item.id,
+        hotelId: hotelId || item.hotelId || item.hotel_id || 0,
+        description: `${this.getModelName()} #${item.id} created (bulk operation).`,
+        changes: LoggerService.extractChanges({}, item.toJSON()),
+      }))
+      
+      await LoggerService.bulkLog(logEntries)
+    }
+    
+    return items
   }
 
   async getByCategoryId(category_id: number, fields: string[]) {

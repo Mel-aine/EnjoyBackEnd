@@ -5,6 +5,7 @@ import RoomType from '#models/room_type'
 import User from '#models/user'
 import ReservationRoom from '#models/reservation_room'
 import { createRoomValidator, updateRoomValidator } from '#validators/room'
+import LoggerService from '#services/logger_service'
 
 export default class RoomsController {
   /**
@@ -118,6 +119,17 @@ export default class RoomsController {
       await room.load('roomType')
       await room.load('taxRates')
 
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'CREATE',
+        entityType: 'Room',
+        entityId: room.id,
+        hotelId: room.hotelId,
+        description: `Room "${room.roomNumber}" created successfully`,
+        changes: LoggerService.extractChanges({}, room.toJSON()),
+        ctx: { request, response, auth }
+      })
+
       return response.created({
         message: 'Room created successfully',
         data: room
@@ -162,6 +174,7 @@ export default class RoomsController {
   async update({ params, request, response, auth }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
+      const oldData = room.toJSON()
       const payload = await request.validateUsing(updateRoomValidator)
       const { taxRateIds, ...roomData } = payload
 
@@ -185,6 +198,20 @@ export default class RoomsController {
       await room.load('roomType')
       await room.load('taxRates')
 
+      const changes = LoggerService.extractChanges(oldData, payload)
+      if (Object.keys(changes).length > 0) {
+        await LoggerService.log({
+          actorId: auth.user?.id || 0,
+          action: 'UPDATE',
+          entityType: 'Room',
+          entityId: room.id,
+          hotelId: room.hotelId,
+          description: `Room "${room.roomNumber}" updated successfully`,
+          changes: changes,
+          ctx: { request, response, auth }
+        })
+      }
+
       return response.ok({
         message: 'Room updated successfully',
         data: room
@@ -200,7 +227,7 @@ export default class RoomsController {
   /**
    * Delete a room
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, response, auth }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
 
@@ -217,6 +244,17 @@ export default class RoomsController {
       }
 
       await room.delete()
+
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'DELETE',
+        entityType: 'Room',
+        entityId: room.id,
+        hotelId: room.hotelId,
+        description: `Room "${room.roomNumber}" deleted successfully`,
+        changes: {},
+        ctx: { request: null, response, auth }
+      })
 
       return response.ok({
         message: 'Room deleted successfully'

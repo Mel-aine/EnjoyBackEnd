@@ -47,6 +47,7 @@ import VipStatusController from '#controllers/vip_status_controller'
 import IncidentalInvoiceController from '#controllers/incidental_invoice_controller'
 import CityLedgerController from '#controllers/city_ledger_controller'
 import CompanyFolioController from '#controllers/company_folio_controller'
+import NightAuditController from '#controllers/night_audit_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -115,6 +116,7 @@ const vipStatusController = new VipStatusController()
 const incidentalInvoiceController = new IncidentalInvoiceController()
 const cityLedgerController = new CityLedgerController()
 const companyFolioController = new CompanyFolioController()
+const nightAuditController = new NightAuditController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -883,6 +885,9 @@ router
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
+        
+        // Get released reservations by date for a hotel
+        router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])
 
       })
       .prefix('reservation')
@@ -1277,6 +1282,37 @@ router
         router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
       })
       .prefix('room-blocks')
+
+    // Night Audit Routes
+    router
+      .group(() => {
+        // Calculate and store night audit data
+        router.post('/', nightAuditController.calculateNightAudit.bind(nightAuditController)) // Calculate night audit for specific date
+        
+        // Get night audit details and history
+        router.get('/:hotelId/:auditDate', nightAuditController.getNightAuditDetails.bind(nightAuditController)) // Get night audit details for specific date
+        router.get('/:hotelId/history', nightAuditController.getNightAuditHistory.bind(nightAuditController)) // Get night audit history for date range
+        router.get('/:hotelId/summary', nightAuditController.getNightAuditSummary.bind(nightAuditController)) // Get night audit summary statistics
+        
+        // Get room status for night audit
+        router.get('/:hotelId/:auditDate/room-status', nightAuditController.getNightAuditRoomStatus.bind(nightAuditController)) // Get room status and required actions for night audit
+        
+        // Get unsettled folios for night audit
+        router.get('/:hotelId/:auditDate/unsettled-folios', nightAuditController.getUnsettledFolios.bind(nightAuditController)) // Get unsettled folios requiring attention
+        
+        // Get pending nightly charges
+        router.get('/:hotelId/:auditDate/nightly-charges', nightAuditController.getPendingNightlyCharges.bind(nightAuditController)) // Get unbilled charges for occupied rooms
+        
+        // Get pending reservations
+        router.get('/:hotelId/:auditDate/pending-reservations', nightAuditController.getPendingReservations.bind(nightAuditController)) // Get reservations pending check-in for audit date
+        
+        // Post nightly charges
+        router.post('/:hotelId/:auditDate/nightly-charges', nightAuditController.postNightlyCharges.bind(nightAuditController)) // Post nightly charges to occupied rooms
+        
+        // Delete night audit record
+        router.delete('/:hotelId/:auditDate', nightAuditController.deleteNightAudit.bind(nightAuditController)) // Delete night audit record
+      })
+      .prefix('night-audit')
 
   })
   .prefix('/api')

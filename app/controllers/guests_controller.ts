@@ -163,6 +163,17 @@ export default class GuestsController {
       const guest = await Guest.create(guestData)
       console.log('Guest created successfully:', guest)
 
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'CREATE',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: guest.hotelId,
+        description: `Guest "${guest.fullName}" created successfully`,
+        changes: LoggerService.extractChanges({}, guest.toJSON()),
+        ctx: { request, response, auth }
+      })
+
       return response.created({
         message: 'Guest created successfully',
         data: guest,

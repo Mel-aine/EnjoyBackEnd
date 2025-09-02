@@ -1,4 +1,5 @@
 import VipStatus from '#models/vip_status'
+import LoggerService from '#services/logger_service'
 
 export default class VipStatusService {
   /**
@@ -39,14 +40,33 @@ export default class VipStatusService {
   /**
    * Create a new VIP status
    */
-  async create(data: any) {
-    return await VipStatus.create(data)
+  async create(data: any, userId?: number) {
+    const vipStatus = await VipStatus.create(data)
+    
+    // Log the creation if userId is provided
+    if (userId) {
+      await LoggerService.logActivity({
+        userId: userId,
+        action: 'CREATE',
+        resourceType: 'VipStatus',
+        resourceId: vipStatus.id,
+        hotelId: data.hotelId,
+        details: {
+          name: data.name,
+          description: data.description,
+          color: data.color,
+          isActive: data.isActive
+        }
+      })
+    }
+    
+    return vipStatus
   }
 
   /**
    * Update a VIP status
    */
-  async update(id: number, hotelId: number, data: any) {
+  async update(id: number, hotelId: number, data: any, userId?: number) {
     const vipStatus = await VipStatus.query()
       .where('id', id)
       .where('hotel_id', hotelId)
@@ -57,19 +77,54 @@ export default class VipStatusService {
     vipStatus.merge(data)
     await vipStatus.save()
 
+    // Log the update if userId is provided
+    if (userId) {
+      await LoggerService.logActivity({
+        userId: userId,
+        action: 'UPDATE',
+        resourceType: 'VipStatus',
+        resourceId: vipStatus.id,
+        hotelId: hotelId,
+        details: {
+          name: vipStatus.name,
+          description: vipStatus.description,
+          color: vipStatus.color,
+          isActive: vipStatus.isActive,
+          changes: LoggerService.extractChanges({}, data)
+        }
+      })
+    }
+
     return vipStatus
   }
 
   /**
    * Delete a VIP status (soft delete)
    */
-  async delete(id: number, hotelId: number) {
+  async delete(id: number, hotelId: number, userId?: number) {
     const vipStatus = await VipStatus.query()
       .where('id', id)
       .where('hotel_id', hotelId)
       .first()
 
     if (!vipStatus) return null
+
+    // Log the deletion if userId is provided
+    if (userId) {
+      await LoggerService.logActivity({
+        userId: userId,
+        action: 'DELETE',
+        resourceType: 'VipStatus',
+        resourceId: vipStatus.id,
+        hotelId: hotelId,
+        details: {
+          name: vipStatus.name,
+          description: vipStatus.description,
+          color: vipStatus.color,
+          isActive: vipStatus.isActive
+        }
+      })
+    }
 
     await vipStatus.delete()
     return true

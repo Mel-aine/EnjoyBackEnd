@@ -2,6 +2,7 @@ import CompanyAccount from '#models/company_account'
 import BusinessSource from '#models/business_source'
 import PaymentMethod from '#models/payment_method'
 import { PaymentMethodType } from '#app/enums'
+import LoggerService from '#services/logger_service'
 
 export default class CompanyAccountService {
   /**
@@ -57,6 +58,41 @@ export default class CompanyAccountService {
     // If not marked as doNotCountAsCityLedger, create a city ledger payment method
     if (companyAccount.doNotCountAsCityLedger !== true) {
       await this.createCityLedgerPaymentMethod(companyAccount)
+    }
+
+    // Log the creation if createdBy is provided
+    if (data.createdBy) {
+      await LoggerService.logActivity({
+        userId: data.createdBy,
+        action: 'CREATE',
+        resourceType: 'CompanyAccount',
+        resourceId: companyAccount.id,
+        hotelId: companyAccount.hotelId,
+        details: {
+          companyName: companyAccount.companyName,
+          companyCode: companyAccount.companyCode,
+          accountStatus: companyAccount.accountStatus,
+          addToBusinessSource: companyAccount.addToBusinessSource,
+          doNotCountAsCityLedger: companyAccount.doNotCountAsCityLedger
+        }
+      })
+    }
+
+    // Log the update if lastModifiedBy is provided
+    if (data.lastModifiedBy) {
+      await LoggerService.logActivity({
+        userId: data.lastModifiedBy,
+        action: 'UPDATE',
+        resourceType: 'CompanyAccount',
+        resourceId: companyAccount.id,
+        hotelId: companyAccount.hotelId,
+        details: {
+          companyName: companyAccount.companyName,
+          companyCode: companyAccount.companyCode,
+          accountStatus: companyAccount.accountStatus,
+          changes: LoggerService.extractChanges({}, data)
+        }
+      })
     }
 
     return companyAccount
@@ -116,7 +152,7 @@ export default class CompanyAccountService {
   /**
    * Delete a company account (soft delete)
    */
-  async delete(id: number) {
+  async delete(id: number, deletedBy?: number) {
     const companyAccount = await CompanyAccount.find(id)
 
     if (!companyAccount) return null
@@ -125,6 +161,23 @@ export default class CompanyAccountService {
     companyAccount.accountStatus = 'Closed'
     companyAccount.delete()
     await companyAccount.save()
+
+    // Log the deletion if deletedBy is provided
+    if (deletedBy) {
+      await LoggerService.logActivity({
+        userId: deletedBy,
+        action: 'DELETE',
+        resourceType: 'CompanyAccount',
+        resourceId: companyAccount.id,
+        hotelId: companyAccount.hotelId,
+        details: {
+          companyName: companyAccount.companyName,
+          companyCode: companyAccount.companyCode,
+          previousStatus: 'Active',
+          newStatus: 'Closed'
+        }
+      })
+    }
 
     return true
   }

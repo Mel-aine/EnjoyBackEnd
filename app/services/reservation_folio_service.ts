@@ -7,6 +7,7 @@ import db from '@adonisjs/lucid/services/db'
 
 export interface ReservationFolioData {
   reservationId: number
+  reservationRoomId?: number
   folioType?: FolioType
   creditLimit?: number
   notes?: string
@@ -85,6 +86,7 @@ export default class ReservationFolioService {
         hotelId: reservation.hotelId,
         guestId: primaryGuest.id,
         reservationId: data.reservationId,
+        reservationRoomId: data.reservationRoomId,
         groupId: reservation.groupId ?? undefined,
         // companyId: reservation.companyId,
         folioType,
@@ -476,6 +478,7 @@ export default class ReservationFolioService {
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('guests')
+        .preload('reservationRooms')
         .firstOrFail()
 
       // Check if reservation is confirmed
@@ -486,23 +489,41 @@ export default class ReservationFolioService {
       // Check if folios already exist
       const existingFolios = await this.getFoliosForReservation(reservationId)
       if (existingFolios.length > 0) {
-        // If folios exist, create individual folios for all guests
-        return await this.createIndividualFoliosForGuests(reservationId, confirmedBy)
+        return existingFolios
       }
 
-      // Create primary folio first
-      await this.createFolioForReservation({
-        reservationId,
-        folioType: FolioType.GUEST,
-        notes: `Primary folio for reservation ${reservation.confirmationNumber}`,
-        createdBy: confirmedBy
-      })
+      // Get primary guest
+      const primaryGuest = reservation.guests.find(guest => guest.$extras.pivot_is_primary) || 
+                          reservation.guests[0]
+      
+      if (!primaryGuest) {
+        throw new Error('No guest found for this reservation')
+      }
 
-      // Post room charges to primary folio
+      const folios: Folio[] = []
+
+      // Create one folio per room for the primary guest
+      for (const reservationRoom of reservation.reservationRooms) {
+        const folioData: CreateFolioData = {
+          hotelId: reservation.hotelId,
+          guestId: primaryGuest.id,
+          reservationId: reservationId,
+          reservationRoomId: reservationRoom.id,
+          groupId: reservation.groupId ?? undefined,
+          folioType: FolioType.GUEST,
+          creditLimit: 0,
+          notes: `Folio for room ${reservationRoom.id} - Reservation ${reservation.confirmationNumber}`,
+          createdBy: confirmedBy
+        }
+
+        const folio = await FolioService.createFolio(folioData)
+        folios.push(folio)
+      }
+
+      // Post room charges to folios
       await this.postRoomCharges(reservationId, confirmedBy)
 
-      // Create individual folios for all guests (including copying charges)
-      return await this.createIndividualFoliosForGuests(reservationId, confirmedBy)
+      return folios
     })
   }
 

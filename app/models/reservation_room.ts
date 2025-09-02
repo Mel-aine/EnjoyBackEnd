@@ -24,6 +24,9 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare guestId: number
 
+  @column()
+  declare isOwner: boolean
+
   @column.date()
   declare checkInDate: DateTime
 
