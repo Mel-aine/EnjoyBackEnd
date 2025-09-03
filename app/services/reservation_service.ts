@@ -6,6 +6,7 @@ import LoggerService from '#services/logger_service'
 import type { ReservationData, GuestData } from '../types/reservationData.js'
 import {generateGuestCode} from '../utils/generate_guest_code.js'
 import db from '@adonisjs/lucid/services/db'
+import { DateTime } from 'luxon'
 
 export default class ReservationService {
   /**
@@ -66,61 +67,193 @@ export default class ReservationService {
   /**
    * Crée ou met à jour un invité
    */
-  public static async createOrFindGuest(data: ReservationData, trx?: any): Promise<Guest> {
-    let guest = await Guest.query({ client: trx })
-      .where('email', data.email.toLowerCase().trim())
-      .first()
 
-    if (guest) {
-      guest.merge({
-        hotelId:data.hotel_id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        phonePrimary: data.phone_primary,
-        title: data.title,
-        companyName: data.company_name,
-        addressLine: data.address_line,
-        country: data.country,
-        stateProvince: data.state,
-        city: data.city,
-        postalCode: data.zipcode,
-      })
-      await guest.useTransaction(trx).save()
-    } else {
-      guest = await Guest.create({
-        hotelId:data.hotel_id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email.toLowerCase().trim(),
-        guestCode : generateGuestCode(),
-        phonePrimary: data.phone_primary,
-        title: data.title,
-        companyName: data.company_name,
-        addressLine: data.address_line,
-        country: data.country,
-        stateProvince: data.state,
-        city: data.city,
-        postalCode: data.zipcode,
-        createdBy: data.created_by,
-      }, { client: trx })
 
-      // Log guest creation if actorId is available
-      if (data.created_by) {
-        await LoggerService.logActivity({
-          actorId: data.created_by,
-          action: 'CREATE',
-          entityType: 'Guest',
-          entityId: guest.id,
-          hotelId: data.hotel_id,
-          description: `Guest "${guest.firstName} ${guest.lastName}" created via reservation service`,
-          changes: LoggerService.extractChanges({}, guest.toJSON())
-        })
+public static async createOrFindGuest(data: ReservationData, trx?: any): Promise<Guest> {
+  let guest = await Guest.query({ client: trx })
+    .where('email', data.email.toLowerCase().trim())
+    .first()
+
+  if (guest) {
+    guest.merge({
+      hotelId: data.hotel_id,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      phonePrimary: data.phone_primary,
+      title: data.title,
+      companyName: data.company_name,
+      addressLine: data.address_line,
+      country: data.country,
+      stateProvince: data.state,
+      city: data.city,
+      postalCode: data.zipcode,
+    })
+    await guest.useTransaction(trx).save()
+  } else {
+    // Helper function to safely convert dates
+    const convertToDateTime = (dateValue: any): DateTime | null => {
+      if (!dateValue) return null
+
+      try {
+        // If it's already a DateTime object, return it
+        if (DateTime.isDateTime(dateValue)) {
+          return dateValue.isValid ? dateValue : null
+        }
+
+        // If it's a JavaScript Date object
+        if (dateValue instanceof Date) {
+          const dt = DateTime.fromJSDate(dateValue)
+          return dt.isValid ? dt : null
+        }
+
+        // If it's a string, try to parse it
+        if (typeof dateValue === 'string') {
+          // Try ISO format first
+          let dt = DateTime.fromISO(dateValue)
+          if (dt.isValid) return dt
+
+          // Try other common formats
+          dt = DateTime.fromSQL(dateValue)
+          if (dt.isValid) return dt
+
+          // Try parsing as a regular date string
+          dt = DateTime.fromJSDate(new Date(dateValue))
+          if (dt.isValid) return dt
+        }
+
+        console.warn(`Invalid date format for value: ${dateValue}`)
+        return null
+      } catch (error) {
+        console.error(`Error converting date value ${dateValue}:`, error)
+        return null
       }
     }
 
-    return guest
+    // Prepare guest data object
+    const guestData: any = {
+      hotelId: data.hotel_id,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      email: data.email.toLowerCase().trim(),
+      guestCode: generateGuestCode(),
+      phonePrimary: data.phone_primary,
+      title: data.title,
+      companyName: data.company_name,
+      addressLine: data.address_line,
+      country: data.country,
+      stateProvince: data.state,
+      city: data.city,
+      postalCode: data.zipcode,
+      createdBy: data.created_by,
+      idPhoto: data.idPhoto,
+      idType:data.idType,
+      issuingCountry:data.issuingCountry,
+      issuingCity:data.issuingCity,
+      profilePhoto:data.profilePhoto
+    }
+
+    // Handle identity document mapping based on ID type
+    if (data.idType) {
+      const normalizedIdType = data.idType.toLowerCase().trim()
+
+      switch (normalizedIdType) {
+        case 'passport':
+        case 'passeport':
+          if (data.idNumber) {
+            guestData.passportNumber = data.idNumber
+          }
+          if (data.idExpiryDate) {
+            const convertedDate = convertToDateTime(data.idExpiryDate)
+            if (convertedDate) {
+              guestData.passportExpiry = convertedDate
+              console.log('Converted passportExpiry:', convertedDate.toISO())
+            } else {
+              console.warn('Failed to convert passportExpiry, skipping field')
+            }
+          }
+          break
+
+        case 'visa':
+          if (data.idNumber) {
+            guestData.visaNumber = data.idNumber
+          }
+          if (data.idExpiryDate) {
+            const convertedDate = convertToDateTime(data.idExpiryDate)
+            if (convertedDate) {
+              guestData.visaExpiry = convertedDate
+              console.log('Converted visaExpiry:', convertedDate.toISO())
+            } else {
+              console.warn('Failed to convert visaExpiry, skipping field')
+            }
+          }
+          break
+
+        default:
+          if (data.idNumber) {
+            guestData.idNumber = data.idNumber
+          }
+          if (data.idExpiryDate) {
+            const convertedDate = convertToDateTime(data.idExpiryDate)
+            if (convertedDate) {
+              guestData.idExpiryDate = convertedDate
+              console.log('Converted idExpiryDate:', convertedDate.toISO())
+            } else {
+              console.warn('Failed to convert idExpiryDate, skipping field')
+            }
+          }
+          break
+      }
+    }
+
+    // Handle legacy direct field mappings (fallback)
+    if (!data.idType) {
+      if (data.passportNumber) {
+        guestData.passportNumber = data.passportNumber
+      }
+      if (data.visaNumber) {
+        guestData.visaNumber = data.visaNumber
+      }
+      if (data.passportExpiry) {
+        const convertedDate = convertToDateTime(data.passportExpiry)
+        if (convertedDate) {
+          guestData.passportExpiry = convertedDate
+          console.log('Converted passportExpiry (legacy):', convertedDate.toISO())
+        }
+      }
+      if (data.visaExpiry) {
+        const convertedDate = convertToDateTime(data.visaExpiry)
+        if (convertedDate) {
+          guestData.visaExpiry = convertedDate
+          console.log('Converted visaExpiry (legacy):', convertedDate.toISO())
+        }
+      }
+      if (data.idExpiryDate) {
+        const convertedDate = convertToDateTime(data.idExpiryDate)
+        if (convertedDate) {
+          guestData.idExpiryDate = convertedDate
+          console.log('Converted idExpiryDate (legacy):', convertedDate.toISO())
+        }
+      }
+    }
+
+    guest = await Guest.create(guestData, { client: trx })
+
+    // Log guest creation if actorId is available
+    if (data.created_by) {
+      await LoggerService.logActivity({
+        actorId: data.created_by,
+        action: 'CREATE',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: data.hotel_id,
+        description: `Guest "${guest.firstName} ${guest.lastName}" created via reservation service`,
+        changes: LoggerService.extractChanges({}, guest.toJSON())
+      })
+    }
   }
 
+  return guest
+}
   /**
    * Create or find a guest from guest data
    */

@@ -32,6 +32,9 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'hotel_id' })
   declare hotelId: number
 
+   @column({ columnName: 'complimentary_room' })
+  declare complimentaryRoom: boolean
+
   @column({ columnName: 'guest_id' })
   declare guestId: number
 
