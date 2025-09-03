@@ -212,6 +212,36 @@ export default class Hotel extends BaseModel {
   })
   declare notices: object | null
 
+  @column({ columnName: 'min_price' })
+  declare minPrice: number | null
+
+  @column({ columnName: 'max_price' })
+  declare maxPrice: number | null
+
+  @column({ columnName: 'state_length' })
+  declare stateLength: number | null
+
+  @column({ columnName: 'cut_off_time' })
+  declare cutOffTime: string | null
+
+  @column({ columnName: 'cut_off_days' })
+  declare cutOffDays: number | null
+
+  @column({ columnName: 'max_day_advance' })
+  declare maxDayAdvance: number | null
+
+  @column()
+  declare longitude: string | null
+
+  @column()
+  declare latitude: string | null
+
+  @column({ columnName: 'channex_group_id' })
+  declare channexGroupId: string | null
+
+  @column({ columnName: 'channex_property_id' })
+  declare channexPropertyId: string | null
+
   @column({ columnName: 'created_by' })
   declare createdBy: number | null
 

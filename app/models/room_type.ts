@@ -72,6 +72,9 @@ declare rateTypes: ManyToMany<typeof RateType>
   @column({ columnName: 'sort_order' })
   declare sortOrder: number
 
+  @column({ columnName: 'channex_room_type_id' })
+  declare channexRoomTypeId: string | null
+
   // Enhanced traceability fields
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
