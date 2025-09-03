@@ -9,13 +9,13 @@ export class HotelAnalyticsService {
      */
     private static isWomanTitle(title: string): boolean {
         if (!title) return false
-        
+
         const womenTitles = [
             'ms', 'mrs', 'miss', 'madam', 'madame', 'lady', 'dame',
             'ms.', 'mrs.', 'miss.', 'madam.', 'madame.', 'lady.', 'dame.',
             'girl', 'girls', 'woman', 'women', 'female'
         ]
-        
+
         return womenTitles.includes(title.toLowerCase().trim())
     }
 
@@ -101,24 +101,37 @@ export class HotelAnalyticsService {
             }
         }
 
-        // 2. Get all relevant reservations that overlap with the date range
+        // 2. Get all room types for the hotel
+        const roomTypes = await Room.query()
+            .where('hotel_id', hotelId)
+            .preload('roomType')
+            .then(rooms => {
+                const uniqueTypes = new Map()
+                rooms.forEach(room => {
+                    if (room.roomType) {
+                        uniqueTypes.set(room.roomType.id, room.roomType)
+                    }
+                })
+                return Array.from(uniqueTypes.values())
+            })
+
+        // 3. Get all relevant reservations that overlap with the date range
         const reservations = await Reservation.query()
             .where('hotel_id', hotelId)
-
             .where('depart_date', '>=', startDate.toISODate()!)
             .where('arrived_date', '<=', endDate.toISODate()!)
-            .whereNotIn('status', ['cancelled', 'no-show','no_show','voided'])
-            .preload('guest')
-            .preload('folios', (folioQuery) => {
-                folioQuery.preload('transactions')
-            })
+            .whereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
             .preload('reservationRooms', (rspQuery) => {
                 rspQuery.preload('room', (spQuery) => {
                     spQuery.preload('roomType')
                 })
+            })
+            .preload('guest')
+            .preload('folios', (folioQuery) => {
+                folioQuery.preload('transactions')
             }).preload('bookingSource')
 
-        // 3. Calculate daily occupancy metrics
+        // 4. Calculate daily occupancy metrics
         const dailyMetrics = []
         for (let dt = startDate; dt <= endDate; dt = dt.plus({ days: 1 })) {
             const currentDate = dt
@@ -149,6 +162,88 @@ export class HotelAnalyticsService {
 
             const occupancyRate = totalRooms > 0 ? (occupiedRoomIds.size / totalRooms) * 100 : 0
 
+            // Calculate available rooms per room type
+            const availableRoomsByType: { [key: string]: { room_type_id: number, room_type_name: string, available_count: number } } = {}
+
+            // Initialize with all room types
+            roomTypes.forEach(roomType => {
+                availableRoomsByType[roomType.id] = {
+                    room_type_id: roomType.id,
+                    room_type_name: roomType.roomTypeName,
+                    available_count: 0
+                }
+            })
+
+            // Get blocked room IDs for this specific date
+            const blockedRoomIds = new Set<number>()
+            const roomBlocksForDate = await RoomBlock.query()
+                .where('hotel_id', hotelId)
+                .where('block_from_date', '<=', currentDate.toFormat('yyyy-MM-dd'))
+                .where('block_to_date', '>=', currentDate.toFormat('yyyy-MM-dd'))
+                .preload('room')
+
+            roomBlocksForDate.forEach(block => {
+                if (block.room) {
+                    blockedRoomIds.add(block.room.id)
+                }
+            })
+
+            // Get all room IDs that have reservations for this specific date (not just occupied)
+            const reservedRoomIds = new Set<number>()
+            activeReservationsForDay.forEach(reservation => {
+                reservation.reservationRooms.forEach(rr => {
+                    if (rr.roomId) {
+                        reservedRoomIds.add(rr.roomId)
+                    }
+                })
+            })
+
+            // Count available rooms by type (exclude reserved, blocked, and maintenance rooms)
+            allRooms.forEach(room => {
+                if (room.roomTypeId &&
+                    !reservedRoomIds.has(room.id) &&
+                    !blockedRoomIds.has(room.id) &&
+                    room.status !== 'blocked' &&
+                    room.status !== 'out_of_order' &&
+                    room.status !== 'maintenance' &&
+                    room.housekeepingStatus !== 'out_of_order') {
+                    if (availableRoomsByType[room.roomTypeId]) {
+                        availableRoomsByType[room.roomTypeId].available_count++
+                    }
+                }
+            })
+
+            // Count unassigned room reservations by room type (reservation rooms without room assignment)
+            const unassignedRoomReservationsByType: { [key: string]: { room_type_id: number | null, room_type_name: string, unassigned_count: number } } = {}
+
+            // Initialize with all room types
+            roomTypes.forEach(roomType => {
+                unassignedRoomReservationsByType[roomType.id] = {
+                    room_type_id: roomType.id,
+                    room_type_name: roomType.roomTypeName,
+                    unassigned_count: 0
+                }
+            })
+
+            // Add "Unknown" category for reservations without room type
+            unassignedRoomReservationsByType['unknown'] = {
+                room_type_id: null,
+                room_type_name: 'Unknown',
+                unassigned_count: 0
+            }
+
+            // Count unassigned reservation rooms by their intended room type
+            activeReservationsForDay.forEach(reservation => {
+                reservation.reservationRooms.forEach(rr => {
+                    if (!rr.roomId) {
+                        const roomTypeId = rr.roomTypeId || 'unknown'
+                        if (unassignedRoomReservationsByType[roomTypeId]) {
+                            unassignedRoomReservationsByType[roomTypeId].unassigned_count++
+                        }
+                    }
+                })
+            })
+
             // Calculate room status statistics
             const roomStatusStats = {
                 all: totalRooms,
@@ -172,13 +267,13 @@ export class HotelAnalyticsService {
 
             for (const room of allRooms) {
                 const isOccupied = occupiedRoomIds.has(room.id)
-                const isDueOut = checkingOutToday.some(r => 
+                const isDueOut = checkingOutToday.some(r =>
                     r.reservationRooms.some(rr => rr.roomId === room.id)
                 )
-                const isReserved = arrivingToday.some(r => 
+                const isReserved = arrivingToday.some(r =>
                     r.reservationRooms.some(rr => rr.roomId === room.id)
                 )
-                
+
                 if (isOccupied) {
                     roomStatusStats.occupied++
                     if (isDueOut) {
@@ -202,6 +297,8 @@ export class HotelAnalyticsService {
                 allocated_rooms: occupiedRoomIds.size,
                 unassigned_reservations: unassignedReservationsCount,
                 room_status_stats: roomStatusStats,
+                available_rooms_by_type: Object.values(availableRoomsByType),
+                unassigned_room_reservations_by_type: Object.values(unassignedRoomReservationsByType),
             })
         }
 
@@ -233,7 +330,7 @@ export class HotelAnalyticsService {
             if (!groupedDetails[roomType]) {
                 groupedDetails[roomType] = {
                     room_type: roomType,
-                    room_type_id:room.roomType?.id,
+                    room_type_id: room.roomType?.id,
                     total_rooms_of_type: 0,
                     room_details: [],
                     reservations: [],
@@ -255,14 +352,14 @@ export class HotelAnalyticsService {
             }
 
             groupedDetails[roomType].room_details.push({
-                room_number: room.roomNumber??room.displayName,
+                room_number: room.roomNumber ?? room.displayName,
                 room_name: room.roomNumber,
                 room_type: roomType,
                 capacity: room.roomType.maxAdult,
                 room_id: room.id,
                 room_status: roomStatus,
                 room_housekeeping_status: room.housekeepingStatus,
-                is_smoking:room.smokingAllowed
+                is_smoking: room.smokingAllowed
             })
         }
 
@@ -276,14 +373,14 @@ export class HotelAnalyticsService {
                 reservation.reservationRooms.forEach((reservationRoom, index) => {
                     if (reservationRoom.room && reservationRoom.room.roomType) {
                         const roomType = reservationRoom.room.roomType.roomTypeName
-                        const isMaster = index === 0 && reservation.reservationRooms.length >1 // First reservation room is the master
+                        const isMaster = index === 0 && reservation.reservationRooms.length > 1 // First reservation room is the master
 
                         if (groupedDetails[roomType]) {
                             groupedDetails[roomType].reservations.push({
                                 reservation_id: reservation.id,
                                 reservation_room_id: reservationRoom.id,
                                 is_master: isMaster,
-                                guest_name: `${reservation.guest.displayName}`.trim(),
+                                guest_name: `${reservation.guest?.displayName}`.trim(),
                                 check_in_date: reservationRoom.checkInDate || reservation.arrivedDate,
                                 check_out_date: reservationRoom.checkOutDate || reservation.departDate,
                                 reservation_status: getReservationStatus(reservation, today),
@@ -355,7 +452,7 @@ export class HotelAnalyticsService {
                     paymentStatus: reservation.paymentStatus,
                     balance_summary: balanceSummary,
                     is_balance: isBalance,
-                    isWomen: this.isWomanTitle(reservation.guest.title),
+                    isWomen: this.isWomanTitle(reservation.guest?.title),
                 })
             }
         }
@@ -373,8 +470,8 @@ export class HotelAnalyticsService {
 
         // Get all reservations within the date range for global calculations
         const allActiveReservations = reservations.filter(
-            (r) => r.arrivedDate && r.departDate && 
-                   r.arrivedDate <= endDate && r.departDate >= startDate
+            (r) => r.arrivedDate && r.departDate &&
+                r.arrivedDate <= endDate && r.departDate >= startDate
         )
 
         // Get all occupied room IDs across the entire date range
@@ -418,13 +515,13 @@ export class HotelAnalyticsService {
         // Calculate global room status for each room
         for (const room of allRooms) {
             const isOccupied = globalOccupiedRoomIds.has(room.id)
-            const isDueOut = checkingOutInRange.some(r => 
+            const isDueOut = checkingOutInRange.some(r =>
                 r.reservationRooms.some(rr => rr.roomId === room.id)
             )
-            const isReserved = arrivingInRange.some(r => 
+            const isReserved = arrivingInRange.some(r =>
                 r.reservationRooms.some(rr => rr.roomId === room.id)
             )
-            
+
             if (isOccupied) {
                 globalRoomStatusStats.occupied++
                 if (isDueOut) {
@@ -446,23 +543,23 @@ export class HotelAnalyticsService {
             grouped_reservation_details: Object.values(groupedDetails),
             global_room_status_stats: globalRoomStatusStats,
             room_blocks: roomBlocks.map(block => ({
-                 id: block.id,
-                 block_from_date: block.blockFromDate,
-                 block_to_date: block.blockToDate,
-                 reason: block.reason,
-                 status: block.status,
-                 room: block.room ? {
-                     id: block.room.id,
-                     room_number: block.room.roomNumber,
-                     floor_number: block.room.floorNumber
-                 } : null,
-                 room_type: block.roomType ? {
-                     id: block.roomType.id,
-                     name: block.roomType.roomTypeName
-                 } : null,
-                 created_at: block.createdAt,
-                 updated_at: block.updatedAt
-             })),
+                id: block.id,
+                block_from_date: block.blockFromDate,
+                block_to_date: block.blockToDate,
+                reason: block.reason,
+                status: block.status,
+                room: block.room ? {
+                    id: block.room.id,
+                    room_number: block.room.roomNumber,
+                    floor_number: block.room.floorNumber
+                } : null,
+                room_type: block.roomType ? {
+                    id: block.roomType.id,
+                    name: block.roomType.roomTypeName
+                } : null,
+                created_at: block.createdAt,
+                updated_at: block.updatedAt
+            })),
         }
     }
 }

@@ -1282,7 +1282,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (roomType) {
         query.whereHas('reservationRooms', (rspQuery) => {
           rspQuery.whereHas('room', (spQuery) => {
-            spQuery.where('room_name', 'like', `%${roomType}%`)
+            spQuery.where('room_type_id', roomType)
           })
         })
       }
@@ -1293,7 +1293,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('guest')
         .preload('roomType')
         .preload('bookingSource')
-        .preload('ratePlan')
         .preload('discount')
         .preload('folios', (folioQuery) => {
           folioQuery.preload('transactions')
@@ -1368,7 +1367,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (roomType) {
         totalQuery.whereHas('reservationRooms', (rspQuery) => {
           rspQuery.whereHas('room', (spQuery) => {
-            spQuery.where('room_name', 'like', `%${roomType}%`)
+            spQuery.where('room_type_id', roomType)
           })
         })
       }

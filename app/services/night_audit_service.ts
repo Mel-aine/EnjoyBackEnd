@@ -595,7 +595,7 @@ export default class NightAuditService {
    * Get unsettled folios for night audit
    */
   static async getUnsettledFoliosForAudit(hotelId: number, auditDate: string) {
-    const auditDateTime = DateTime.fromISO(auditDate)
+    ///const auditDateTime = DateTime.fromISO(auditDate)
 
     // Get all folios with outstanding balances for the hotel
     const unsettledFolios = await Folio.query()
