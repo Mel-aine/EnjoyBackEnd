@@ -1423,8 +1423,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * Create reservation
    */
-
-
   public async saveReservation(ctx: HttpContext) {
     const { request, auth, response } = ctx
 
@@ -1439,11 +1437,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      // Validate required fields
-      if (!data.hotel_id || !data.arrived_date || !data.depart_date || !data.rooms || data.rooms.length === 0) {
+      // Validate required fields - rooms are now optional
+      if (!data.hotel_id || !data.arrived_date || !data.depart_date) {
         return response.badRequest({
           success: false,
-          message: 'Missing required fields: hotel_id, arrived_date, depart_date, or rooms'
+          message: 'Missing required fields: hotel_id, arrived_date, depart_date'
         })
       }
 
@@ -1458,7 +1456,33 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      if (departDate <= arrivedDate) {
+      // Modified date validation to allow same day reservations with different times
+      if (arrivedDate.toISODate() === departDate.toISODate()) {
+        // Same day reservation - validate times
+        if (!data.check_in_time || !data.check_out_time) {
+          return response.badRequest({
+            success: false,
+            message: 'For same-day reservations, both arrival and departure times are required'
+          })
+        }
+
+        const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
+        const departureDateTime = DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`)
+
+        if (!arrivalDateTime.isValid || !departureDateTime.isValid) {
+          return response.badRequest({
+            success: false,
+            message: 'Invalid time format. Use HH:mm format'
+          })
+        }
+
+        if (departureDateTime <= arrivalDateTime) {
+          return response.badRequest({
+            success: false,
+            message: 'Departure time must be after arrival time for same-day reservations'
+          })
+        }
+      } else if (departDate <= arrivedDate) {
         return response.badRequest({
           success: false,
           message: 'Departure date must be after arrival date'
@@ -1468,8 +1492,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const trx = await db.transaction()
 
       try {
-        // Calculate number of nights
-        const numberOfNights = Math.ceil(departDate.diff(arrivedDate, 'days').days)
+        // Calculate number of nights - for same day, it's 0 (day use)
+        let numberOfNights: number
+        if (arrivedDate.toISODate() === departDate.toISODate()) {
+          numberOfNights = 0 // Day use reservation
+        } else {
+          numberOfNights = Math.ceil(departDate.diff(arrivedDate, 'days').days)
+        }
 
         // Validate business logic via service
         const validationErrors = ReservationService.validateReservationData(data)
@@ -1488,28 +1517,72 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const confirmationNumber = generateConfirmationNumber()
         const reservationNumber = generateReservationNumber()
 
-        // Calculate guest totals
-        const totalAdults = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
-        const totalChildren = data.rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
+        // Calculate guest totals - handle case when rooms array is empty or undefined
+        const rooms = data.rooms || []
+        const totalAdults = rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
+        const totalChildren = rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
 
-        // Validate room availability
-        for (const room of data.rooms) {
-          if (room.room_id) {
-            const existingReservation = await ReservationRoom.query({ client: trx })
-              .where('roomId', room.room_id)
-              .where('status', 'reserved')
-              .where((query) => {
-                query.whereBetween('checkInDate', [arrivedDate.toISODate(), departDate.toISODate()])
-                  .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
-              })
-              .first()
+        // Validate room availability only if rooms are assigned
+        if (rooms.length > 0) {
+          for (const room of rooms) {
+            if (room.room_id) {
+              // For same-day reservations, check time overlap differently
+              let existingReservation
 
-            if (existingReservation) {
-              await trx.rollback()
-              return response.badRequest({
-                success: false,
-                message: `Room ${room.room_id} is not available for the selected dates`
-              })
+              if (arrivedDate.toISODate() === departDate.toISODate()) {
+                // Same day - check for time conflicts
+                const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
+                const departureDateTime = DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`)
+
+                existingReservation = await ReservationRoom.query({ client: trx })
+                  .where('roomId', room.room_id)
+                  .where('status', 'reserved')
+                  .where('checkInDate', arrivedDate.toISODate())
+                  .where('checkOutDate', departDate.toISODate())
+                  .where((query) => {
+                    // Check for time overlaps on the same day
+                    query.where((subQuery) => {
+                      subQuery
+                        .whereBetween('checkInTime', [
+                          arrivalDateTime.toFormat('HH:mm'),
+                          departureDateTime.toFormat('HH:mm')
+                        ])
+                        .orWhereBetween('checkOutTime', [
+                          arrivalDateTime.toFormat('HH:mm'),
+                          departureDateTime.toFormat('HH:mm')
+                        ])
+                        .orWhere((overlapQuery) => {
+                          overlapQuery
+                            .where('checkInTime', '<=', arrivalDateTime.toFormat('HH:mm'))
+                            .where('checkOutTime', '>=', departureDateTime.toFormat('HH:mm'))
+                        })
+                    })
+                  })
+                  .first()
+              } else {
+                // Multi-day reservation - check date overlap
+                existingReservation = await ReservationRoom.query({ client: trx })
+                  .where('roomId', room.room_id)
+                  .where('status', 'reserved')
+                  .where((query) => {
+                    query.whereBetween('checkInDate', [arrivedDate.toISODate(), departDate.toISODate()])
+                      .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
+                      .orWhere((overlapQuery) => {
+                        overlapQuery
+                          .where('checkInDate', '<=', arrivedDate.toISODate())
+                          .where('checkOutDate', '>=', departDate.toISODate())
+                      })
+                  })
+                  .first()
+              }
+
+              if (existingReservation) {
+                await trx.rollback()
+                return response.badRequest({
+                  success: false,
+                  message: `Room ${room.room_id} is not available for the selected dates/times`
+                })
+              }
             }
           }
         }
@@ -1519,17 +1592,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const reservation = await Reservation.create({
           hotelId: data.hotel_id,
           userId: auth.user?.id || data.created_by,
-          // guest_id: guest.id, // Removed - using reservation_guests pivot table instead
           arrivedDate: arrivedDate,
           departDate: departDate,
-          checkInDate: data.arrived_time ? DateTime.fromISO(`${data.arrived_date}T${data.arrived_time}`) : arrivedDate,
-          checkOutDate: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.depart_time}`) : departDate,
+          checkInDate: data.arrived_time ? DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`) : arrivedDate,
+          checkOutDate: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`) : departDate,
           status: data.status || ReservationStatus.PENDING,
           guestCount: totalAdults + totalChildren,
-          adults:totalAdults,
-          children:totalChildren,
-          checkInTime : data.check_in_time,
-          checkOutTime : data.check_out_time,
+          adults: totalAdults,
+          children: totalChildren,
+          checkInTime: data.check_in_time || data.arrived_time,
+          checkOutTime: data.check_out_time || data.depart_time,
           totalAmount: parseFloat(`${data.total_amount ?? 0}`),
           taxAmount: parseFloat(`${data.tax_amount ?? 0}`),
           finalAmount: parseFloat(`${data.final_amount ?? 0}`),
@@ -1538,15 +1610,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
           numberOfNights: numberOfNights,
           paidAmount: parseFloat(`${data.paid_amount ?? 0}`),
           remainingAmount: parseFloat(`${data.remaining_amount ?? 0}`),
-          reservationType: data.reservation_type,
+          reservationType: numberOfNights === 0 ? 'day_use' : (data.reservation_type || ' '),
           bookingSourceId: data.booking_source,
           sourceOfBusiness: data.business_source,
-          complimentaryRoom : data.complimentary_room,
+          complimentaryRoom: data.complimentary_room,
           paymentStatus: 'pending',
-          taxExempt:data.tax_exempt,
+          taxExempt: data.tax_exempt,
           reservedBy: auth.user?.id,
           createdBy: auth.user?.id,
-
         }, { client: trx })
 
         // Vérifier que la réservation a bien été créée avec un ID
@@ -1555,86 +1626,102 @@ export default class ReservationsController extends CrudController<typeof Reserv
           throw new Error('La réservation n\'a pas pu être créée correctement - ID manquant')
         }
 
-        // 6. Process multiple guests for the reservation
+        // Process multiple guests for the reservation
         const { primaryGuest, allGuests } = await ReservationService.processReservationGuests(
           reservation.id,
           data,
           trx
         )
 
-        // 6.1. Mettre à jour la réservation avec l'ID du primary guest
+        // Mettre à jour la réservation avec l'ID du primary guest
         await reservation.merge({ guestId: primaryGuest.id }).useTransaction(trx).save()
         logger.info('Réservation mise à jour avec primary guest ID:', primaryGuest.id)
 
-        // 7. Réservations de chambres
-        for (let index = 0; index < data.rooms.length; index++) {
-          const room = data.rooms[index]
-          await ReservationRoom.create({
-            reservationId: reservation.id,
-            roomTypeId: room.room_type_id,
-            roomId: room.room_id!,
-            guestId: primaryGuest.id, // Associate with primary guest
-            checkInDate: DateTime.fromISO(data.arrived_date),
-            checkOutDate: DateTime.fromISO(data.depart_date),
-            nights: data.number_of_nights,
-            adults: room.adult_count,
-            children: room.child_count,
-            roomRate: room.room_rate,
-            roomRateId: room.room_rate_id,
-            totalRoomCharges: room.room_rate * data.number_of_nights,
-            taxAmount : room.taxes,
-            totalTaxesAmount: room.taxes * data.number_of_nights,
-            netAmount : room.room_rate * data.number_of_nights + (room.taxes * data.number_of_nights),
-            status: 'reserved',
-            isOwner: index === 0, // First room is the primary/owner room
-            createdBy: data.created_by,
-          }, { client: trx })
+        // Réservations de chambres - only if rooms are provided
+        if (rooms.length > 0) {
+          for (let index = 0; index < rooms.length; index++) {
+            const room = rooms[index]
+            await ReservationRoom.create({
+              reservationId: reservation.id,
+              roomTypeId: room.room_type_id,
+              roomId: room.room_id!,
+              guestId: primaryGuest.id,
+              checkInDate: DateTime.fromISO(data.arrived_date),
+              checkOutDate: DateTime.fromISO(data.depart_date),
+              checkInTime: data.check_in_time,
+              checkOutTime: data.check_out_time,
+              nights: numberOfNights,
+              adults: room.adult_count,
+              children: room.child_count,
+              roomRate: room.room_rate,
+              roomRateId: room.room_rate_id,
+              totalRoomCharges: numberOfNights === 0 ? room.room_rate : (room.room_rate * numberOfNights),
+              taxAmount: room.taxes,
+              totalTaxesAmount: numberOfNights === 0 ? room.taxes : (room.taxes * numberOfNights),
+              netAmount: (numberOfNights === 0 ? room.room_rate : (room.room_rate * numberOfNights)) +
+                        (numberOfNights === 0 ? room.taxes : (room.taxes * numberOfNights)),
+              status: 'reserved',
+              isOwner: index === 0,
+              createdBy: data.created_by,
+            }, { client: trx })
+          }
         }
 
-        // 8. Logging
+        // Logging
         const guestCount = allGuests.length
         const guestDescription = guestCount > 1
           ? `${primaryGuest.firstName} ${primaryGuest.lastName} and ${guestCount - 1} other guest(s)`
           : `${primaryGuest.firstName} ${primaryGuest.lastName}`
 
-        await LoggerService.log({
-          actorId: auth.user?.id!,
-          action: 'CREATE',
-          entityType: 'Reservation',
-          entityId: reservation.id,
-          hotelId : reservation.hotelId,
-          description: `Reservation #${reservation.id} was created for ${guestDescription} (${guestCount} total guests).`,
-          ctx,
-        })
+        const reservationTypeDescription = numberOfNights === 0 ? 'day-use' :
+          (rooms.length === 0 ? 'no-room' : 'overnight')
+
+          const reservationId = Number(reservation.id);
+
+          if (!isNaN(reservationId)) {
+            await LoggerService.log({
+              actorId: auth.user?.id!,
+              action: 'CREATE',
+              entityType: 'Reservation',
+              entityId: reservationId,
+              hotelId: reservation.hotelId,
+              description: `${reservationTypeDescription} reservation #${reservationId} was created for ${guestDescription} (${guestCount} total guests)${rooms.length === 0 ? ' without room assignment' : ''}.`,
+              ctx,
+            });
+          }
+
         const guestId = Number(guest.id);
-         if (!isNaN(guestId)) {
+        if (!isNaN(guestId)) {
           await LoggerService.log({
             actorId: auth.user?.id!,
             action: 'RESERVATION_CREATED',
             entityType: 'Guest',
-            entityId: guestId, // Utilisez l'ID validé ici
+            entityId: guestId,
             hotelId: reservation.hotelId,
-            description: `Une nouvelle réservation #${reservation.reservationNumber} a été créée.`,
+            description: `Une nouvelle réservation ${reservationTypeDescription} #${reservation.reservationNumber} a été créée.`,
             meta: {
               reservationId: reservation.id,
               reservationNumber: reservation.reservationNumber,
+              reservationType: reservationTypeDescription,
+              hasRooms: rooms.length > 0,
               dates: {
                 arrival: reservation.arrivedDate?.toISODate(),
                 departure: reservation.departDate?.toISODate(),
+                arrivalTime: data.arrived_time,
+                departureTime: data.depart_time,
               },
             },
             ctx,
           });
         } else {
-
           console.warn('ID invité invalide. Impossible de créer l\'entrée de journal d\'activité pour l\'invité.');
         }
 
-
         await trx.commit()
-        // 9. Create folios if reservation is confirmed
+
+        // Create folios if reservation is confirmed and has rooms
         let folios: any[] = []
-        if (reservation.status === 'confirmed') {
+        if (reservation.status === 'confirmed' && rooms.length > 0) {
           folios = await ReservationFolioService.createFoliosOnConfirmation(
             reservation.id,
             auth.user?.id!
@@ -1645,7 +1732,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CREATE_FOLIOS',
             entityType: 'Reservation',
             entityId: reservation.id,
-            hotelId : reservation.hotelId,
+            hotelId: reservation.hotelId,
             description: `Created ${folios.length} folio(s) with room charges for confirmed reservation #${reservation.id}.`,
             ctx,
           })
@@ -1655,21 +1742,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'FOLIOS_CREATED',
             entityType: 'Guest',
             entityId: guest.id,
-            hotelId : reservation.hotelId,
+            hotelId: reservation.hotelId,
             description: `${folios.length} folio(s) were created for reservation #${reservation.reservationNumber}.`,
             meta: {
               reservationId: reservation.id,
               folioIds: folios.map(f => f.id),
             },
             ctx,
-           });
+          });
         }
-
 
         const responseData: any = {
           success: true,
           reservationId: reservation.id,
           confirmationNumber,
+          reservationType: reservationTypeDescription,
+          isDayUse: numberOfNights === 0,
+          hasRooms: rooms.length > 0,
           primaryGuest: {
             id: primaryGuest.id,
             name: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
@@ -1681,7 +1770,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             name: `${g.firstName} ${g.lastName}`,
             email: g.email
           })),
-          message: `Reservation created successfully with ${allGuests.length} guest(s)`
+          message: `${reservationTypeDescription} reservation created successfully with ${allGuests.length} guest(s)${rooms.length === 0 ? ' (no room assigned)' : ''}`
         }
 
         // Add folio information if folios were created
