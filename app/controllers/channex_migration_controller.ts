@@ -21,7 +21,8 @@ export default class ChannexMigrationController {
    * Migrate complete hotel data to Channex system
    * POST /api/channex/migrate/:hotelId
    */
-  async migrateHotel({ params, response, auth }: HttpContext) {
+  async migrateHotel(ctx: HttpContext) {
+    const { params, response, auth } = ctx;
     const { hotelId } = params
     const userId = auth.user?.id
 
@@ -41,8 +42,8 @@ export default class ChannexMigrationController {
         hotelPolicy: { status: 'pending', data: null, error: null },
         roomTypes: { status: 'pending', data: [], error: null },
         ratePlans: { status: 'pending', data: [], error: null },
-        rates: { status: 'pending', data: [], error: null },
-        availability: { status: 'pending', data: [], error: null }
+        //rates: { status: 'pending', data: [], error: null },
+        //availability: { status: 'pending', data: [], error: null }
       },
       startTime: new Date(),
       endTime: null,
@@ -63,7 +64,7 @@ export default class ChannexMigrationController {
         entityId: hotelId,
         description: `Started Channex migration for hotel ${hotelId}`,
         hotelId: parseInt(hotelId),
-        ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+        ctx: ctx
       })
 
       // Step 1: Migrate Hotel Property
@@ -83,7 +84,7 @@ export default class ChannexMigrationController {
           description: `Property migration failed for hotel ${hotelId}: ${propertyResult.error}`,
           meta: { error: propertyResult.error },
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       } else {
         logEntries.push({
@@ -93,7 +94,7 @@ export default class ChannexMigrationController {
           entityId: hotelId,
           description: `Property migration completed successfully for hotel ${hotelId}`,
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       }
 
@@ -119,7 +120,7 @@ export default class ChannexMigrationController {
           description: `Hotel policy migration failed for hotel ${hotelId}: ${hotelPolicyResult.error}`,
           meta: { error: hotelPolicyResult.error },
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       } else {
         logEntries.push({
@@ -129,7 +130,7 @@ export default class ChannexMigrationController {
           entityId: hotelId,
           description: `Hotel policy migration completed successfully for hotel ${hotelId}`,
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       }
 
@@ -150,7 +151,7 @@ export default class ChannexMigrationController {
           description: `Room types migration failed for hotel ${hotelId}: ${roomTypesResult.error}`,
           meta: { error: roomTypesResult.error },
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
         throw new Error('Failed to create room types in Channex - cannot continue migration')
       } else {
@@ -162,7 +163,7 @@ export default class ChannexMigrationController {
           description: `Room types migration completed successfully for hotel ${hotelId}. Migrated ${roomTypesResult.data?.length || 0} room types`,
           meta: { count: roomTypesResult.data?.length || 0 },
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       }
 
@@ -183,7 +184,7 @@ export default class ChannexMigrationController {
           description: `Rate plans migration failed for hotel ${hotelId}: ${ratePlansResult.error}`,
           meta: { error: ratePlansResult.error },
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       } else {
         logEntries.push({
@@ -194,71 +195,7 @@ export default class ChannexMigrationController {
           description: `Rate plans migration completed successfully for hotel ${hotelId}. Migrated ${ratePlansResult.data?.length || 0} rate plans`,
           meta: { count: ratePlansResult.data?.length || 0 },
           hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
-        })
-      }
-
-      // Step 5: Migrate Rates
-      migrationResults.steps.rates.status = 'in_progress'
-      const ratesResult = await this.migrateRates(hotelId, channexPropertyId, ratePlansResult.data)
-      migrationResults.steps.rates = ratesResult
-
-      if (ratesResult.error) {
-        migrationResults.totalErrors++
-        console.error('Rates migration failed', { hotelId, error: ratesResult.error })
-
-        logEntries.push({
-          actorId: userId,
-          action: 'CHANNEX_RATES_MIGRATION_FAILED',
-          entityType: 'Hotel',
-          entityId: hotelId,
-          description: `Rates migration failed for hotel ${hotelId}: ${ratesResult.error}`,
-          meta: { error: ratesResult.error },
-          hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
-        })
-      } else {
-        logEntries.push({
-          actorId: userId,
-          action: 'CHANNEX_RATES_MIGRATION_SUCCESS',
-          entityType: 'Hotel',
-          entityId: hotelId,
-          description: `Rates migration completed successfully for hotel ${hotelId}. Migrated ${ratesResult.data?.length || 0} rate groups`,
-          meta: { count: ratesResult.data?.length || 0 },
-          hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
-        })
-      }
-
-      // Step 6: Migrate Availability
-      migrationResults.steps.availability.status = 'in_progress'
-      const availabilityResult = await this.migrateAvailability(hotelId, channexPropertyId, roomTypesResult.data)
-      migrationResults.steps.availability = availabilityResult
-
-      if (availabilityResult.error) {
-        migrationResults.totalErrors++
-        console.error('Availability migration failed', { hotelId, error: availabilityResult.error })
-
-        logEntries.push({
-          actorId: userId,
-          action: 'CHANNEX_AVAILABILITY_MIGRATION_FAILED',
-          entityType: 'Hotel',
-          entityId: hotelId,
-          description: `Availability migration failed for hotel ${hotelId}: ${availabilityResult.error}`,
-          meta: { error: availabilityResult.error },
-          hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
-        })
-      } else {
-        logEntries.push({
-          actorId: userId,
-          action: 'CHANNEX_AVAILABILITY_MIGRATION_SUCCESS',
-          entityType: 'Hotel',
-          entityId: hotelId,
-          description: `Availability migration completed successfully for hotel ${hotelId}. Migrated ${availabilityResult.data?.length || 0} availability records`,
-          meta: { count: availabilityResult.data?.length || 0 },
-          hotelId: parseInt(hotelId),
-          ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+          ctx: ctx
         })
       }
 
@@ -278,7 +215,7 @@ export default class ChannexMigrationController {
           duration: migrationResults.endTime.getTime() - migrationResults.startTime.getTime()
         },
         hotelId: parseInt(hotelId),
-        ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+        ctx: ctx
       })
 
       // Bulk log all migration activities
@@ -315,7 +252,7 @@ export default class ChannexMigrationController {
           totalErrors: migrationResults.totalErrors
         },
         hotelId: parseInt(hotelId),
-        ctx: { request: { ip: () => '127.0.0.1', header: () => 'Migration Controller' } }
+        ctx: ctx
       })
 
       // Bulk log all migration activities (including failure)
@@ -451,8 +388,8 @@ export default class ChannexMigrationController {
           currency: hotel.currencyCode || 'XAF',
           is_adults_only: false,
           max_count_of_guests: 20, // Default value, could be made configurable
-          checkin_time: hotel.checkInTime || '14:00',
-          checkout_time: hotel.checkOutTime || '12:00',
+          checkin_time: hotel.checkInTime  ,
+          checkout_time: hotel.checkOutTime ,
           internet_access_type: 'wifi',
           internet_access_cost: null,
           internet_access_coverage: 'entire_property',
@@ -963,75 +900,62 @@ export default class ChannexMigrationController {
 
     try {
       const {
-        oneTimeToken,
-        propertyId,
-        groupId,
+        hotelId,
         channels,
         availableChannels,
         channelsFilter,
         allowNotificationsEdit,
         language,
-        allowOpenBookings
+        allowOpenBookings,
+        username,
+        page
       } = request.only([
-        'oneTimeToken',
-        'propertyId', 
-        'groupId',
+        'hotelId',
         'channels',
         'availableChannels',
         'channelsFilter',
         'allowNotificationsEdit',
         'language',
-        'allowOpenBookings'
+        'allowOpenBookings',
+        'username',
+        'page'
       ])
 
-      if (!oneTimeToken || !propertyId) {
+      if (!hotelId) {
         return response.badRequest({
           success: false,
-          message: 'One-time token and property ID are required'
+          message: 'Hotel ID is required'
         })
       }
 
-      // Generate iframe URL using Channex service
-      const iframeUrl = this.channexService.generateIframeUrl({
-        oneTimeToken,
-        propertyId,
-        groupId,
+      // Generate iframe URL using Channex service (it will fetch hotel data and generate token internally)
+      const iframeUrl = await this.channexService.generateIframeUrl(hotelId, {
         channels,
+        page,
         availableChannels,
         channelsFilter,
         allowNotificationsEdit,
         language,
-        allowOpenBookings
+        allowOpenBookings,
+        username
       })
 
-      // Log the URL generation
-      await LoggerService.log({
-        actorId: userId,
-        action: 'CHANNEX_IFRAME_URL_GENERATED',
-        entityType: 'channex',
-        entityId: propertyId,
-        description: `Generated Channex iframe URL for channel mapping`,
-        meta: {
-          propertyId,
-          groupId,
-          channels,
-          language
-        }
-      })
+     
 
       return response.ok({
         success: true,
         message: 'Iframe URL generated successfully',
         data: {
           iframeUrl,
-          propertyId,
+          hotelId,
           configuration: {
             channels,
             availableChannels,
             channelsFilter,
             allowNotificationsEdit,
             language,
-            allowOpenBookings
+            allowOpenBookings,
+            username
           }
         }
       })
@@ -1040,17 +964,19 @@ export default class ChannexMigrationController {
       console.error('Failed to generate iframe URL:', error)
 
       // Log the failure
-      await LoggerService.log({
+    /*  await LoggerService.log({
         actorId: userId,
         action: 'CHANNEX_IFRAME_URL_FAILED',
-        entityType: 'channex',
-        entityId: request.input('propertyId'),
-        description: `Failed to generate Channex iframe URL`,
+        entityType: 'Hotel',
+        entityId: request.input('hotelId'),
+        description: `Failed to generate Channex iframe URL for hotel ${request.input('hotelId')}: ${error.message}`,
         meta: {
-          error: error.message
-        }
+          error: error.message,
+          hotelId: request.input('hotelId')
+        },
+        hotelId: parseInt(request.input('hotelId') || '0')
       })
-
+*/
       return response.status(500).json({
         success: false,
         message: 'Failed to generate iframe URL',

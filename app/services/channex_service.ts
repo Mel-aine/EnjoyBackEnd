@@ -693,10 +693,7 @@ export class ChannexService {
    * Create a new group
    * POST /groups
    */
-  async createGroup(groupData: {
-    title: string
-    [key: string]: any
-  }) {
+  async createGroup(groupData: any) {
     return this.post('/groups', groupData)
   }
 
@@ -967,56 +964,84 @@ export class ChannexService {
 
   /**
    * Generate iframe URL for channel mapping
-   * This is a utility method to construct the iframe URL with proper parameters
+   * This method fetches hotel data, generates a one-time token, and constructs the complete iframe URL
    */
-  generateIframeUrl(options: {
-    oneTimeToken: string
-    propertyId: string
-    groupId?: string
+  async generateIframeUrl(hotelId: string, options?: {
     channels?: string[]
+    page?: string
     availableChannels?: string[]
     channelsFilter?: string[]
     allowNotificationsEdit?: boolean
     language?: 'en' | 'pt' | 'es' | 'ru' | 'de' | 'el' | 'it' | 'hu' | 'th'
     allowOpenBookings?: boolean
-  }): string {
+    username?: string
+  }): Promise<string> {
+    // Import Hotel model dynamically to avoid circular dependencies
+    const { default: Hotel } = await import('../models/hotel.js')
+    
+    // Fetch hotel data
+    const hotel = await Hotel.find(hotelId)
+    if (!hotel) {
+      throw new Error(`Hotel with ID ${hotelId} not found`)
+    }
+
+    // Check if hotel has been migrated to Channex
+    if (!hotel.channexPropertyId || !hotel.channexGroupId) {
+      throw new Error(`Hotel ${hotelId} has not been migrated to Channex yet`)
+    }
+
+    // Generate one-time token
+    const tokenData = {
+      property_id: hotel.channexPropertyId,
+      group_id: hotel.channexGroupId,
+      username: options?.username || 'admin'
+    }
+
+    const tokenResponse:any = await this.generateOneTimeToken(tokenData)
+    const oneTimeToken = tokenResponse.data?.token
+
+    if (!oneTimeToken) {
+      throw new Error('Failed to generate one-time token')
+    }
+
+    // Construct iframe URL
     const baseUrl = this.baseURL
     const params = new URLSearchParams({
-      oauth_session_key: options.oneTimeToken,
+      oauth_session_key: oneTimeToken,
       app_mode: 'headless',
-      redirect_to: '/channels',
-      property_id: options.propertyId
+      redirect_to: options?.page || '/channels',
+      property_id: hotel.channexPropertyId
     })
 
     // Add optional parameters
-    if (options.groupId) {
-      params.append('group_id', options.groupId)
+    if (hotel.channexGroupId) {
+      params.append('group_id', hotel.channexGroupId)
     }
 
-    if (options.channels && options.channels.length > 0) {
+    if (options?.channels && options.channels.length > 0) {
       params.append('channels', options.channels.join(','))
     }
 
-    if (options.availableChannels && options.availableChannels.length > 0) {
+    if (options?.availableChannels && options.availableChannels.length > 0) {
       params.append('available_channels', options.availableChannels.join(','))
     }
 
-    if (options.channelsFilter && options.channelsFilter.length > 0) {
+    if (options?.channelsFilter && options.channelsFilter.length > 0) {
       params.append('channels_filter', options.channelsFilter.join(','))
     }
 
-    if (options.allowNotificationsEdit) {
+    if (options?.allowNotificationsEdit) {
       params.append('allow_notifications_edit', 'true')
     }
 
-    if (options.language) {
+    if (options?.language) {
       params.append('lng', options.language)
     }
 
-    if (options.allowOpenBookings) {
+    if (options?.allowOpenBookings) {
       params.append('allow_open_bookings', 'true')
     }
 
-    return `${baseUrl}/auth/exchange?${params.toString()}`
+    return `https://staging.channex.io/auth/exchange?${params.toString().replaceAll('%2F', '/')}`
   }
 }
