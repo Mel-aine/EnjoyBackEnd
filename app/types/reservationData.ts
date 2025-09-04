@@ -46,7 +46,21 @@ export interface ReservationData {
   business_source?: string
   reservation_status?:any
   status?:any,
+  check_in_time?:any,
+  check_out_time? : any,
   room_rate?:any,
+  complimentary_room?:any,
+  idExpiryDate?:any,
+  visaExpiry?:any,
+  passportExpiry?:any,
+  idPhoto?:any,
+  issuingCity?:any,
+  issuingCountry?:any,
+  idNumber?:any,
+  visaNumber?:any,
+  idType?:any,
+  passportNumber?:any,
+  profilePhoto?:any
 
   // Dates and guests
   arrived_date: string

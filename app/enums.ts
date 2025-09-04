@@ -12,7 +12,8 @@ export enum ReservationStatus {
   CHECKED_OUT = 'checked-out',
   CANCELLED = 'cancelled',
   NOSHOW = 'no_show',
-  VOIDED = 'voided'
+  VOIDED = 'voided',
+  PARTIALLY_NOSHOW = 'partially_no_show'
 }
 
 export enum RoomStatus {

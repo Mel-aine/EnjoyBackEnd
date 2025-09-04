@@ -16,6 +16,7 @@ interface LogData {
   ctx: HttpContext
   meta?:Record<string,any>
   hotelId?:number
+
 }
 
 interface LogActivityData {

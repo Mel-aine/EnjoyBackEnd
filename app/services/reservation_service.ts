@@ -6,11 +6,63 @@ import LoggerService from '#services/logger_service'
 import type { ReservationData, GuestData } from '../types/reservationData.js'
 import {generateGuestCode} from '../utils/generate_guest_code.js'
 import db from '@adonisjs/lucid/services/db'
+import { DateTime } from 'luxon'
 
 export default class ReservationService {
   /**
    * Valide les données de réservation
    */
+  // public static validateReservationData(data: ReservationData): string[] {
+  //   const errors: string[] = []
+
+  //   // Champs obligatoires
+  //   if (!data.first_name?.trim()) errors.push('Le prénom est requis')
+  //   if (!data.last_name?.trim()) errors.push('Le nom est requis')
+  //   if (!data.email?.trim()) errors.push("L'email est requis")
+  //   if (!data.hotel_id) errors.push("L'ID du service/hôtel est requis")
+  //   if (!data.arrived_date) errors.push("La date d'arrivée est requise")
+  //   if (!data.depart_date) errors.push("La date de départ est requise")
+  //   if (!data.rooms || data.rooms.length === 0) errors.push('Au moins une chambre est requise')
+
+  //   // Email
+  //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  //   if (data.email && !emailRegex.test(data.email)) {
+  //     errors.push("Format d'email invalide")
+  //   }
+
+  //   // Dates
+  //   const arrivalDate = new Date(data.arrived_date)
+  //   const departureDate = new Date(data.depart_date)
+  //   const today = new Date()
+  //   today.setHours(0, 0, 0, 0)
+
+  //   if (arrivalDate < today) {
+  //     errors.push("La date d'arrivée ne peut pas être dans le passé")
+  //   }
+  //   if (departureDate <= arrivalDate) {
+  //     errors.push("La date de départ doit être après la date d'arrivée")
+  //   }
+
+  //   // Chambres
+  //   data.rooms.forEach((room, index) => {
+  //     if (!room.room_type_id) {
+  //       errors.push(`Le type de chambre est requis pour la chambre ${index + 1}`)
+  //     }
+  //     if (room.adult_count < 1) {
+  //       errors.push(`Au moins 1 adulte est requis pour la chambre ${index + 1}`)
+  //     }
+  //     if (room.room_rate < 0) {
+  //       errors.push(`Le tarif de la chambre ${index + 1} ne peut pas être négatif`)
+  //     }
+  //   })
+
+  //   // Montants
+  //   if (data.total_amount < 0) errors.push('Le montant total ne peut pas être négatif')
+  //   if (data.tax_amount < 0) errors.push('Le montant des taxes ne peut pas être négatif')
+  //   if (data.final_amount < 0) errors.push('Le montant final ne peut pas être négatif')
+
+  //   return errors
+  // }
   public static validateReservationData(data: ReservationData): string[] {
     const errors: string[] = []
 
@@ -21,39 +73,61 @@ export default class ReservationService {
     if (!data.hotel_id) errors.push("L'ID du service/hôtel est requis")
     if (!data.arrived_date) errors.push("La date d'arrivée est requise")
     if (!data.depart_date) errors.push("La date de départ est requise")
-    if (!data.rooms || data.rooms.length === 0) errors.push('Au moins une chambre est requise')
+
 
     // Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (data.email && !emailRegex.test(data.email)) {
-      errors.push("Format d'email invalide")
+        errors.push("Format d'email invalide")
     }
 
-    // Dates
+    // Dates - MODIFIÉ pour supporter les réservations le même jour
     const arrivalDate = new Date(data.arrived_date)
     const departureDate = new Date(data.depart_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     if (arrivalDate < today) {
-      errors.push("La date d'arrivée ne peut pas être dans le passé")
-    }
-    if (departureDate <= arrivalDate) {
-      errors.push("La date de départ doit être après la date d'arrivée")
+        errors.push("La date d'arrivée ne peut pas être dans le passé")
     }
 
-    // Chambres
-    data.rooms.forEach((room, index) => {
-      if (!room.room_type_id) {
-        errors.push(`Le type de chambre est requis pour la chambre ${index + 1}`)
-      }
-      if (room.adult_count < 1) {
-        errors.push(`Au moins 1 adulte est requis pour la chambre ${index + 1}`)
-      }
-      if (room.room_rate < 0) {
-        errors.push(`Le tarif de la chambre ${index + 1} ne peut pas être négatif`)
-      }
-    })
+    // Validation des dates modifiée pour supporter les réservations le même jour
+    if (arrivalDate.toISOString().split('T')[0] === departureDate.toISOString().split('T')[0]) {
+        // Même jour - vérifier les heures
+        const arrivalTime = data.arrived_time || data.check_in_time
+        const departureTime = data.depart_time || data.check_out_time
+
+        if (!arrivalTime || !departureTime) {
+            errors.push("Pour une réservation le même jour, les heures d'arrivée et de départ sont requises")
+        } else {
+            // Convertir les heures en minutes pour comparaison
+            const [arrHour, arrMin] = arrivalTime.split(':').map(Number)
+            const [depHour, depMin] = departureTime.split(':').map(Number)
+            const arrivalMinutes = arrHour * 60 + arrMin
+            const departureMinutes = depHour * 60 + depMin
+
+            if (departureMinutes <= arrivalMinutes) {
+                errors.push("L'heure de départ doit être après l'heure d'arrivée pour une réservation le même jour")
+            }
+        }
+    } else if (departureDate <= arrivalDate) {
+        errors.push("La date de départ doit être après la date d'arrivée")
+    }
+
+    // Chambres valider seulement si des chambres sont fournies
+    if (data.rooms && data.rooms.length > 0) {
+        data.rooms.forEach((room, index) => {
+            if (!room.room_type_id) {
+                errors.push(`Le type de chambre est requis pour la chambre ${index + 1}`)
+            }
+            if (room.adult_count < 1) {
+                errors.push(`Au moins 1 adulte est requis pour la chambre ${index + 1}`)
+            }
+            if (room.room_rate < 0) {
+                errors.push(`Le tarif de la chambre ${index + 1} ne peut pas être négatif`)
+            }
+        })
+    }
 
     // Montants
     if (data.total_amount < 0) errors.push('Le montant total ne peut pas être négatif')
@@ -61,66 +135,198 @@ export default class ReservationService {
     if (data.final_amount < 0) errors.push('Le montant final ne peut pas être négatif')
 
     return errors
-  }
+}
 
   /**
    * Crée ou met à jour un invité
    */
-  public static async createOrFindGuest(data: ReservationData, trx?: any): Promise<Guest> {
-    let guest = await Guest.query({ client: trx })
-      .where('email', data.email.toLowerCase().trim())
-      .first()
 
-    if (guest) {
-      guest.merge({
-        hotelId:data.hotel_id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        phonePrimary: data.phone_primary,
-        title: data.title,
-        companyName: data.company_name,
-        addressLine: data.address_line,
-        country: data.country,
-        stateProvince: data.state,
-        city: data.city,
-        postalCode: data.zipcode,
-      })
-      await guest.useTransaction(trx).save()
-    } else {
-      guest = await Guest.create({
-        hotelId:data.hotel_id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email.toLowerCase().trim(),
-        guestCode : generateGuestCode(),
-        phonePrimary: data.phone_primary,
-        title: data.title,
-        companyName: data.company_name,
-        addressLine: data.address_line,
-        country: data.country,
-        stateProvince: data.state,
-        city: data.city,
-        postalCode: data.zipcode,
-        createdBy: data.created_by,
-      }, { client: trx })
 
-      // Log guest creation if actorId is available
-      if (data.created_by) {
-        await LoggerService.logActivity({
-          actorId: data.created_by,
-          action: 'CREATE',
-          entityType: 'Guest',
-          entityId: guest.id,
-          hotelId: data.hotel_id,
-          description: `Guest "${guest.firstName} ${guest.lastName}" created via reservation service`,
-          changes: LoggerService.extractChanges({}, guest.toJSON())
-        })
+public static async createOrFindGuest(data: ReservationData, trx?: any): Promise<Guest> {
+  let guest = await Guest.query({ client: trx })
+    .where('email', data.email.toLowerCase().trim())
+    .first()
+
+  if (guest) {
+    guest.merge({
+      hotelId: data.hotel_id,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      phonePrimary: data.phone_primary,
+      title: data.title,
+      companyName: data.company_name,
+      addressLine: data.address_line,
+      country: data.country,
+      stateProvince: data.state,
+      city: data.city,
+      postalCode: data.zipcode,
+    })
+    await guest.useTransaction(trx).save()
+  } else {
+    // Helper function to safely convert dates
+    const convertToDateTime = (dateValue: any): DateTime | null => {
+      if (!dateValue) return null
+
+      try {
+        // If it's already a DateTime object, return it
+        if (DateTime.isDateTime(dateValue)) {
+          return dateValue.isValid ? dateValue : null
+        }
+
+        // If it's a JavaScript Date object
+        if (dateValue instanceof Date) {
+          const dt = DateTime.fromJSDate(dateValue)
+          return dt.isValid ? dt : null
+        }
+
+        // If it's a string, try to parse it
+        if (typeof dateValue === 'string') {
+          // Try ISO format first
+          let dt = DateTime.fromISO(dateValue)
+          if (dt.isValid) return dt
+
+          // Try other common formats
+          dt = DateTime.fromSQL(dateValue)
+          if (dt.isValid) return dt
+
+          // Try parsing as a regular date string
+          dt = DateTime.fromJSDate(new Date(dateValue))
+          if (dt.isValid) return dt
+        }
+
+        console.warn(`Invalid date format for value: ${dateValue}`)
+        return null
+      } catch (error) {
+        console.error(`Error converting date value ${dateValue}:`, error)
+        return null
       }
     }
 
-    return guest
+    // Prepare guest data object
+    const guestData: any = {
+      hotelId: data.hotel_id,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      email: data.email.toLowerCase().trim(),
+      guestCode: generateGuestCode(),
+      phonePrimary: data.phone_primary,
+      title: data.title,
+      companyName: data.company_name,
+      addressLine: data.address_line,
+      country: data.country,
+      stateProvince: data.state,
+      city: data.city,
+      postalCode: data.zipcode,
+      createdBy: data.created_by,
+      idPhoto: data.idPhoto,
+      idType:data.idType,
+      issuingCountry:data.issuingCountry,
+      issuingCity:data.issuingCity,
+      profilePhoto:data.profilePhoto
+    }
+
+    // Handle identity document mapping based on ID type
+    if (data.idType) {
+      const normalizedIdType = data.idType.toLowerCase().trim()
+
+      switch (normalizedIdType) {
+        case 'passport':
+        case 'passeport':
+          if (data.idNumber) {
+            guestData.passportNumber = data.idNumber
+          }
+          if (data.idExpiryDate) {
+            const convertedDate = convertToDateTime(data.idExpiryDate)
+            if (convertedDate) {
+              guestData.passportExpiry = convertedDate
+              console.log('Converted passportExpiry:', convertedDate.toISO())
+            } else {
+              console.warn('Failed to convert passportExpiry, skipping field')
+            }
+          }
+          break
+
+        case 'visa':
+          if (data.idNumber) {
+            guestData.visaNumber = data.idNumber
+          }
+          if (data.idExpiryDate) {
+            const convertedDate = convertToDateTime(data.idExpiryDate)
+            if (convertedDate) {
+              guestData.visaExpiry = convertedDate
+              console.log('Converted visaExpiry:', convertedDate.toISO())
+            } else {
+              console.warn('Failed to convert visaExpiry, skipping field')
+            }
+          }
+          break
+
+        default:
+          if (data.idNumber) {
+            guestData.idNumber = data.idNumber
+          }
+          if (data.idExpiryDate) {
+            const convertedDate = convertToDateTime(data.idExpiryDate)
+            if (convertedDate) {
+              guestData.idExpiryDate = convertedDate
+              console.log('Converted idExpiryDate:', convertedDate.toISO())
+            } else {
+              console.warn('Failed to convert idExpiryDate, skipping field')
+            }
+          }
+          break
+      }
+    }
+
+    // Handle legacy direct field mappings (fallback)
+    if (!data.idType) {
+      if (data.passportNumber) {
+        guestData.passportNumber = data.passportNumber
+      }
+      if (data.visaNumber) {
+        guestData.visaNumber = data.visaNumber
+      }
+      if (data.passportExpiry) {
+        const convertedDate = convertToDateTime(data.passportExpiry)
+        if (convertedDate) {
+          guestData.passportExpiry = convertedDate
+          console.log('Converted passportExpiry (legacy):', convertedDate.toISO())
+        }
+      }
+      if (data.visaExpiry) {
+        const convertedDate = convertToDateTime(data.visaExpiry)
+        if (convertedDate) {
+          guestData.visaExpiry = convertedDate
+          console.log('Converted visaExpiry (legacy):', convertedDate.toISO())
+        }
+      }
+      if (data.idExpiryDate) {
+        const convertedDate = convertToDateTime(data.idExpiryDate)
+        if (convertedDate) {
+          guestData.idExpiryDate = convertedDate
+          console.log('Converted idExpiryDate (legacy):', convertedDate.toISO())
+        }
+      }
+    }
+
+    guest = await Guest.create(guestData, { client: trx })
+
+    // Log guest creation if actorId is available
+    if (data.created_by) {
+      await LoggerService.logActivity({
+        actorId: data.created_by,
+        action: 'CREATE',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: data.hotel_id,
+        description: `Guest "${guest.firstName} ${guest.lastName}" created via reservation service`,
+        changes: LoggerService.extractChanges({}, guest.toJSON())
+      })
+    }
   }
 
+  return guest
+}
   /**
    * Create or find a guest from guest data
    */
