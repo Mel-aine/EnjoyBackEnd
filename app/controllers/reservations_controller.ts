@@ -74,158 +74,197 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async checkIn(ctx: HttpContext) {
-    const { params, response, request, auth } = ctx;
-    const { reservationRooms, actualCheckInTime, notes
-    } = request.body();
-    logger.info('Check-in request received:');
+public async checkIn(ctx: HttpContext) {
+  const { params, response, request, auth } = ctx;
+  const { reservationRooms, actualCheckInTime, notes } = request.body();
 
-    const trx = await db.transaction();
+  console.log('Check-in request received');
+  console.log('Request body:', { reservationRooms, actualCheckInTime, notes });
 
-    try {
-      const reservationId = Number(params.reservationId);
+  const trx = await db.transaction();
+  console.log('Transaction started');
 
-      // Validate required parameters
-      if (isNaN(reservationId)) {
+  try {
+    const reservationId = Number(params.reservationId);
+    console.log('Reservation ID:', reservationId);
 
-        return response.badRequest({ message: 'Reservation ID is required' });
+    // Validate required parameters
+    if (isNaN(reservationId)) {
+      console.log('Invalid reservation ID');
+      return response.badRequest({ message: 'Reservation ID is required' });
+    }
+
+    if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+      console.log('No reservation rooms provided');
+      return response.badRequest({ message: 'At least one reservation room ID is required' });
+    }
+
+    // Find reservation with related data
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', reservationId)
+      .preload('reservationRooms', (query) => query.preload('room'))
+      .first();
+
+    console.log('Reservation found:', reservation);
+
+    if (!reservation) {
+      console.log('Reservation not found, rolling back');
+      await trx.rollback();
+      return response.notFound({ message: 'Reservation not found' });
+    }
+
+    // Check if reservation can be checked in
+    if (!['confirmed', 'pending'].includes(reservation.status)) {
+      console.log(`Cannot check in reservation with status: ${reservation.status}`);
+      await trx.rollback();
+      return response.badRequest({
+        message: `Cannot check in reservation with status: ${reservation.status}`
+      });
+    }
+
+    // Get the specific reservation rooms to check in
+    const reservationRoomsToCheckIn = await ReservationRoom.query({ client: trx })
+      .whereIn('id', reservationRooms)
+      .where('reservation_id', reservation.id)
+      .preload('room');
+
+    console.log('Reservation rooms to check in:', reservationRoomsToCheckIn);
+
+    if (reservationRoomsToCheckIn.length === 0) {
+      console.log('No valid reservation rooms found for check-in, rolling back');
+      await trx.rollback();
+      return response.notFound({ message: 'No valid reservation rooms found for check-in' });
+    }
+
+    // Check if any rooms are already checked in
+    const alreadyCheckedIn = reservationRoomsToCheckIn.filter(rr => rr.status === 'checked_in');
+    if (alreadyCheckedIn.length > 0) {
+      console.log('Some rooms are already checked in:', alreadyCheckedIn);
+      await trx.rollback();
+      return response.badRequest({
+        message: `Some rooms are already checked in: ${alreadyCheckedIn.map(r => r.room?.roomNumber || r.roomId).join(', ')}`
+      });
+    }
+
+    const now = actualCheckInTime ? DateTime.fromISO(actualCheckInTime) : DateTime.now();
+    const checkedInRooms = [];
+
+    // Update each reservation room
+    for (const reservationRoom of reservationRoomsToCheckIn) {
+      reservationRoom.status = 'checked_in';
+      reservationRoom.checkInDate = now;
+      reservationRoom.checkedInBy = auth.user!.id;
+      reservationRoom.guestNotes = notes || reservationRoom.guestNotes;
+
+      console.log('Updating reservation room:', reservationRoom.id);
+
+      await reservationRoom.useTransaction(trx).save();
+
+      // Update room status to occupied
+      if (reservationRoom.room) {
+        reservationRoom.room.status = 'occupied';
+        await reservationRoom.room.useTransaction(trx).save();
+        console.log('Room status updated to occupied:', reservationRoom.room.roomNumber);
       }
 
-      if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
-        return response.badRequest({ message: 'At least one reservation room ID is required' });
-      }
+      checkedInRooms.push({
+        id: reservationRoom.id,
+        roomId: reservationRoom.roomId,
+        roomNumber: reservationRoom.room?.roomNumber,
+        status: reservationRoom.status,
+        checkInDate: reservationRoom.checkInDate,
+        keyCardsIssued: reservationRoom.keyCardsIssued
+      });
+    }
 
-      // Find reservation with related data
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.preload('room')
-        })
-        .first();
+    // Vérifier si toutes les chambres de la réservation sont maintenant checked-in
+    const allReservationRooms = await ReservationRoom.query({ client: trx })
+      .where('reservation_id', reservation.id);
 
-      if (!reservation) {
-        await trx.rollback();
-        return response.notFound({ message: 'Reservation not found' });
-      }
+    console.log('All reservation rooms:', allReservationRooms.map(r => ({ id: r.id, status: r.status })));
 
-      // Check if reservation can be checked in
-      if (!['confirmed', 'pending'].includes(reservation.status)) {
-        await trx.rollback();
-        return response.badRequest({
-          message: `Cannot check in reservation with status: ${reservation.status}`
-        });
-      }
+    const allRoomsCheckedIn = allReservationRooms.every(room =>
+      room.status === 'checked_in' || reservationRooms.includes(room.id)
+    );
 
-      // Get the specific reservation rooms to check in
-      const reservationRoomsToCheckIn = await ReservationRoom.query({ client: trx })
-        .whereIn('id', reservationRooms)
-        .where('reservation_id', reservation.id)
-        .preload('room');
+    console.log('All rooms checked in?', allRoomsCheckedIn);
 
-      if (reservationRoomsToCheckIn.length === 0) {
-        await trx.rollback();
-        return response.notFound({ message: 'No valid reservation rooms found for check-in' });
-      }
-
-      // Check if any rooms are already checked in
-      const alreadyCheckedIn = reservationRoomsToCheckIn.filter(rr => rr.status === 'checked_in');
-      if (alreadyCheckedIn.length > 0) {
-        await trx.rollback();
-        return response.badRequest({
-          message: `Some rooms are already checked in: ${alreadyCheckedIn.map(r => r.room?.roomNumber || r.roomId).join(', ')}`
-        });
-      }
-
-      const now = actualCheckInTime ? DateTime.fromISO(actualCheckInTime) : DateTime.now();
-      const checkedInRooms = [];
-
-      // Update each reservation room
-      for (const reservationRoom of reservationRoomsToCheckIn) {
-        reservationRoom.status = 'checked_in';
-        reservationRoom.checkInDate = now;
-        reservationRoom.checkedInBy = auth.user!.id;
-        reservationRoom.guestNotes = notes || reservationRoom.guestNotes;
-        //reservationRoom.keyCardsIssued = keyCardsIssued || 2;
-        //reservationRoom.depositAmount = depositAmount || reservationRoom.depositAmount;
-
-        await reservationRoom.useTransaction(trx).save();
-
-        // Update room status to occupied
-        if (reservationRoom.room) {
-          reservationRoom.room.status = 'occupied';
-          await reservationRoom.room.useTransaction(trx).save();
-        }
-
-        checkedInRooms.push({
-          id: reservationRoom.id,
-          roomId: reservationRoom.roomId,
-          roomNumber: reservationRoom.room?.roomNumber,
-          status: reservationRoom.status,
-          checkInDate: reservationRoom.checkInDate,
-          keyCardsIssued: reservationRoom.keyCardsIssued
-        });
-      }
-
-      // Update reservation status and check-in date
+    // Ne mettre à jour le statut de la réservation que si toutes les chambres sont check-in
+    if (allRoomsCheckedIn) {
       reservation.status = ReservationStatus.CHECKED_IN;
       reservation.checkInDate = now;
       reservation.checkedInBy = auth.user!.id;
-      reservation.lastModifiedBy = auth.user!.id;
-      await reservation.useTransaction(trx).save();;
+      console.log('Updating reservation status to CHECKED_IN - all rooms are checked in');
+    } else {
+      // Statut intermédiaire pour check-in partiel
+      reservation.status = 'confirmed';
+      // Ne pas mettre à jour checkInDate et checkedInBy pour un check-in partiel
+      console.log('Updating reservation status to PARTIALLY_CHECKED_IN - partial check-in');
+    }
 
-      // Create audit log
+    reservation.lastModifiedBy = auth.user!.id;
+    await reservation.useTransaction(trx).save();
+
+    // Create audit log
+    const logDescription = allRoomsCheckedIn
+      ? `Reservation #${reservation.reservationNumber} fully checked in. Rooms: ${checkedInRooms.map(r => r.roomNumber).join(', ')}`
+      : `Reservation #${reservation.reservationNumber} partially checked in. Rooms: ${checkedInRooms.map(r => r.roomNumber).join(', ')}`;
+
+    await LoggerService.log({
+      actorId: auth.user!.id,
+      action: 'CHECK_IN',
+      entityType: 'Reservation',
+      entityId: reservation.id,
+      hotelId: reservation.hotelId,
+      description: logDescription,
+      ctx: ctx,
+    });
+
+    if (reservation.guestId) {
       await LoggerService.log({
         actorId: auth.user!.id,
         action: 'CHECK_IN',
-        entityType: 'Reservation',
-        entityId: reservation.id,
-        hotelId : reservation.hotelId,
-        description: `Reservation #${reservation.reservationNumber} checked in. Rooms: ${checkedInRooms.map(r => r.roomNumber).join(', ')}`,
-        ctx: ctx,
-      });
-
-      //for guest
-      if (reservation.guestId) {
-        await LoggerService.log({
-          actorId: auth.user!.id,
-          action: 'CHECK_IN',
-          entityType: 'Guest',
-          hotelId : reservation.hotelId,
-          entityId: reservation.guestId,
-          description: `Checked in from hotel for reservation #${reservation.reservationNumber}.`,
-          meta: {
-            reservationId: reservation.id,
-            reservationNumber: reservation.reservationNumber,
-            rooms: reservationRooms
-          },
-          ctx: ctx,
-        });
-      }
-
-      await trx.commit();
-
-      return response.ok({
-        message: 'Check-in successful',
-        data: {
+        entityType: 'Guest',
+        hotelId: reservation.hotelId,
+        entityId: reservation.guestId,
+        description: `Checked in from hotel for reservation #${reservation.reservationNumber}.`,
+        meta: {
           reservationId: reservation.id,
           reservationNumber: reservation.reservationNumber,
-          status: reservation.status,
-          checkInDate: reservation.checkInDate,
-          checkedInRooms: checkedInRooms,
-          totalRoomsCheckedIn: checkedInRooms.length
-        }
-      });
-
-    } catch (error) {
-      await trx.rollback();
-      logger.error('Error during check-in:');
-      logger.error(error)
-      return response.badRequest({
-        message: 'Failed to check in reservation',
-        error: error.message
+          rooms: reservationRooms,
+          isPartialCheckIn: !allRoomsCheckedIn
+        },
+        ctx: ctx,
       });
     }
+
+    await trx.commit();
+    console.log('Transaction committed successfully');
+
+    return response.ok({
+      message: allRoomsCheckedIn ? 'Check-in successful' : 'Partial check-in successful',
+      data: {
+        reservationId: reservation.id,
+        reservationNumber: reservation.reservationNumber,
+        status: reservation.status,
+        checkInDate: reservation.checkInDate,
+        checkedInRooms: checkedInRooms,
+        totalRoomsCheckedIn: checkedInRooms.length,
+        isPartialCheckIn: !allRoomsCheckedIn,
+        totalRoomsInReservation: allReservationRooms.length
+      }
+    });
+
+  } catch (error) {
+    await trx.rollback();
+    console.error('Error during check-in:', error);
+    return response.badRequest({
+      message: 'Failed to check in reservation',
+      error: error.message
+    });
   }
+}
+
 
 
   public async checkOut(ctx: HttpContext) {
@@ -299,6 +338,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
           success: false,
           message: 'Reservation must be checked in before check out',
           errors: [`Current status: ${reservation.status}`]
+        })
+      }
+
+       const balanceSummary = this.calculateBalanceSummary(reservation.folios)
+      console.log("💰 Balance summary calculated:", balanceSummary);
+
+      // Check if there's an outstanding balance
+      if (balanceSummary.outstandingBalance > 0) {
+        console.log("⚠️ Outstanding balance detected:", balanceSummary.outstandingBalance);
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Cannot check out with outstanding balance',
+          errors: [`Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`],
+          data: {
+            balanceSummary,
+            outstandingAmount: balanceSummary.outstandingBalance
+          }
         })
       }
 
@@ -380,9 +437,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         await reservation.useTransaction(trx).save()
       }
 
-      // Calculate balance summary
-      const balanceSummary = this.calculateBalanceSummary(reservation.folios)
-         console.log("💰 Balance summary calculated:", balanceSummary);
+
 
       // Log the check-out activity
       await LoggerService.log({
@@ -761,6 +816,108 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     return actions
   }
+
+  /**
+ * Met à jour les folios après amendement de la réservation
+ */
+private async updateFoliosAfterAmendment(
+  reservation: any,
+  trx: any,
+  userId: number
+) {
+  // Charger les folios avec les transactions
+  await reservation.load('folios', (query) => {
+    query.preload('transactions')
+  })
+
+  for (const folio of reservation.folios) {
+    // Trouver les transactions de charges de chambre existantes
+    const roomChargeTransactions = folio.transactions.filter(t =>
+      t.transactionType === 'charge' && t.chargeCategory === 'room'
+    )
+
+    // Calculer les nouveaux totaux basés sur les chambres mises à jour
+    let newRoomCharges = 0
+    let newTotalTaxes = 0
+
+    // Si le folio est lié à une chambre spécifique
+    if (folio.reservationRoomId) {
+      const reservationRoom = reservation.reservationRooms.find(rr => rr.id === folio.reservationRoomId)
+      if (reservationRoom) {
+        newRoomCharges = reservationRoom.totalRoomCharges || 0
+        newTotalTaxes = reservationRoom.totalTaxesAmount || 0
+      }
+    } else {
+      // Folio global - sommer toutes les chambres
+      for (const room of reservation.reservationRooms) {
+        newRoomCharges += room.totalRoomCharges || 0
+        newTotalTaxes += room.totalTaxesAmount || 0
+      }
+    }
+
+    // Calculer la différence
+    const oldRoomCharges = folio.roomCharges || 0
+    const oldTotalTaxes = folio.totalTaxes || 0
+    const roomChargesDiff = newRoomCharges - oldRoomCharges
+    const taxesDiff = newTotalTaxes - oldTotalTaxes
+
+    // Mettre à jour le folio seulement s'il y a une différence
+    if (Math.abs(roomChargesDiff) > 0.01 || Math.abs(taxesDiff) > 0.01) {
+
+      // Si il y a une différence positive, créer des transactions d'ajustement
+      if (roomChargesDiff !== 0) {
+        await FolioTransaction.create({
+          folioId: folio.id,
+          hotelId: reservation.hotelId,
+          guestId: folio.guestId,
+          reservationId: reservation.id,
+
+          transactionType: roomChargesDiff > 0 ? 'charge' : 'adjustment',
+
+          amount: Math.abs(roomChargesDiff),
+          description: `Room charge adjustment after stay amendment`,
+
+          transactionDate: DateTime.now(),
+          postingDate: DateTime.now(),
+          status: 'posted',
+          createdBy: userId,
+        }, { client: trx })
+      }
+
+      if (taxesDiff !== 0) {
+        await FolioTransaction.create({
+          folioId: folio.id,
+          hotelId: reservation.hotelId,
+          guestId: folio.guestId,
+          reservationId: reservation.id,
+
+          transactionType: taxesDiff > 0 ? 'charge' : 'adjustment',
+
+          amount: Math.abs(taxesDiff),
+          description: `Tax adjustment after stay amendment`,
+
+          transactionDate: DateTime.now(),
+          postingDate: DateTime.now(),
+          status: 'posted',
+          createdBy: userId,
+        }, { client: trx })
+      }
+
+      // Mettre à jour les totaux du folio
+      const newTotalCharges = folio.totalCharges + roomChargesDiff + taxesDiff
+      const newBalance = folio.balance + roomChargesDiff + taxesDiff
+
+      await folio.merge({
+        roomCharges: newRoomCharges,
+        totalTaxes: newTotalTaxes,
+        totalCharges: newTotalCharges,
+        balance: newBalance,
+        lastModifiedBy: userId,
+        internalNotes: (folio.internalNotes || '') + `\n[${DateTime.now().toFormat('yyyy-MM-dd HH:mm')}] Folio updated after stay amendment`
+      }).useTransaction(trx).save()
+    }
+  }
+}
 
   /**
    * Verify if user can extend stay in the hotel
@@ -2074,184 +2231,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  // public async amendStay({ params, request, response, auth }: HttpContext) {
-  //   const trx = await db.transaction()
-  //   try {
-  //     const reservationId = params.reservationId
-  //     const {
-  //       newArrivalDate,
-  //       newDepartureDate,
-  //       newRoomTypeId,
-  //       newNumAdults,
-  //       newNumChildren,
-  //       newSpecialNotes,
-  //       reason,
-  //       selectedRooms
-  //     } = request.all()
 
-  //     // Find the reservation
-  //     const reservation = await Reservation.query({ client: trx })
-  //       .where('id', reservationId)
-  //       .preload('reservationRooms', (query) => {
-  //         query.preload('room', (roomQuery) => {
-  //           roomQuery.preload('roomType')
-  //         })
-  //       })
-  //       .preload('folios', (query) => {
-  //         query.preload('transactions')
-  //       })
-  //       .first()
 
-  //     if (!reservation) {
-  //       await trx.rollback()
-  //       return response.notFound({ message: 'Reservation not found' })
-  //     }
-
-  //     // Check if reservation can be amended
-  //     const allowedStatuses = ['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in']
-  //     if (!allowedStatuses.includes(reservation.status.toLowerCase())) {
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         message: `Cannot amend reservation with status: ${reservation.reservationStatus}`
-  //       })
-  //     }
-
-  //     // Store original values for audit trail
-  //     const originalData = {
-  //       arrivalDate: reservation.arrivedDate,
-  //       departureDate: reservation.departDate,
-  //       roomTypeId: reservation.primaryRoomTypeId,
-  //       numAdults: reservation.numAdultsTotal,
-  //       numChildren: reservation.numChildrenTotal,
-  //       specialNotes: reservation.specialNotes
-  //     }
-
-  //     // Validate new dates if provided
-  //     if (newArrivalDate || newDepartureDate) {
-  //       const arrivalDate = newArrivalDate ? DateTime.fromISO(newArrivalDate) : reservation.arrivedDate
-  //       const departureDate = newDepartureDate ? DateTime.fromISO(newDepartureDate) : reservation.departDate
-
-  //       if (arrivalDate && departureDate && arrivalDate >= departureDate) {
-  //         await trx.rollback()
-  //         return response.badRequest({ message: 'Arrival date must be before departure date' })
-  //       }
-
-  //       // Check if dates are in the past (except for checked-in reservations)
-  //     /*  if (!['checked-in', 'checked_in'].includes(reservation.reservationStatus.toLowerCase())) {
-  //         if (arrivalDate && arrivalDate < DateTime.now().startOf('day')) {
-  //           await trx.rollback()
-  //           return response.badRequest({ message: 'Cannot set arrival date in the past' })
-  //         }
-  //       }*/
-  //     }
-
-  //     // Validate new room type if provided
-  //     if (newRoomTypeId) {
-  //       const roomType = await db.from('room_types')
-  //         .where('id', newRoomTypeId)
-  //         .where('hotel_id', reservation.hotelId)
-  //         .first()
-
-  //       if (!roomType) {
-  //         await trx.rollback()
-  //         return response.badRequest({ message: 'Invalid room type selected' })
-  //       }
-  //     }
-
-  //     // Update reservation with new details
-  //     const updateData: any = {
-  //       lastModifiedBy: auth.user?.id || 1
-  //     }
-
-  //     if (newArrivalDate) {
-  //       updateData.arrivedDate = DateTime.fromISO(newArrivalDate)
-  //     }
-  //     if (newDepartureDate) {
-  //       updateData.departDate = DateTime.fromISO(newDepartureDate)
-  //     }
-  //     if (newRoomTypeId) {
-  //       updateData.primaryRoomTypeId = newRoomTypeId
-  //     }
-  //     if (newNumAdults !== undefined) {
-  //       updateData.numAdultsTotal = newNumAdults
-  //     }
-  //     if (newNumChildren !== undefined) {
-  //       updateData.numChildrenTotal = newNumChildren
-  //     }
-  //     if (newSpecialNotes !== undefined) {
-  //       updateData.specialNotes = newSpecialNotes
-  //     }
-  //     if (reservation.arrivedDate && reservation.departDate) {
-  //       updateData.numberOfNights = Math.ceil(reservation.departDate.diff(reservation.arrivedDate, 'days').days)
-  //       updateData.nights = Math.ceil(reservation.departDate.diff(reservation.arrivedDate, 'days').days)
-  //     }
-
-  //     await reservation.merge(updateData).useTransaction(trx).save()
-
-  //     // Update reservation rooms if room type changed
-  //     if (newRoomTypeId && reservation.reservationRooms.length > 0) {
-  //       for (const reservationRoom of reservation.reservationRooms) {
-  //         await reservationRoom.merge({
-  //           roomTypeId: newRoomTypeId,
-  //           lastModifiedBy: auth.user?.id || 1
-  //         }).useTransaction(trx).save()
-  //       }
-  //     }
-
-  //     // Create audit log entry
-  //     const auditData = {
-  //       reservationId: reservation.id,
-  //       action: 'amend_stay',
-  //       performedBy: auth.user?.id || 1,
-  //       originalData: originalData,
-  //       newData: updateData,
-  //       reason: reason || 'Stay amendment requested',
-  //       timestamp: DateTime.now()
-  //     }
-
-  //     // Log the amendment (you might want to create an audit table for this)
-  //     console.log('Reservation Amendment:', auditData)
-
-  //     // If there are financial implications, create adjustment transactions
-  //     if (newArrivalDate || newDepartureDate) {
-  //       // Calculate rate difference if dates changed
-  //       // This would require rate calculation logic based on your business rules
-  //       // For now, we'll just log that rate recalculation may be needed
-  //       console.log('Rate recalculation may be required due to date changes')
-  //     }
-
-  //     await trx.commit()
-
-  //     // Reload reservation with updated data
-  //     const updatedReservation = await Reservation.query()
-  //       .where('id', reservationId)
-  //       .preload('reservationRooms', (query) => {
-  //         query.preload('room', (roomQuery) => {
-  //           roomQuery.preload('roomType')
-  //         })
-  //       })
-  //       .first()
-
-  //     return response.ok({
-  //       message: 'Stay amended successfully',
-  //       reservationId: reservationId,
-  //       changes: {
-  //         originalData,
-  //         newData: updateData
-  //       },
-  //       reservation: updatedReservation
-  //     })
-  //   } catch (error) {
-  //     await trx.rollback()
-  //     console.error('Error amending stay:', error)
-  //     return response.badRequest({
-  //       message: 'Failed to amend stay',
-  //       error: error instanceof Error ? error.message : 'Unknown error'
-  //     })
-  //   }
-  // }
-
-  public async amendStay({ params, request, response, auth }: HttpContext) {
+ public async amendStay({ params, request, response, auth }: HttpContext) {
   const trx = await db.transaction()
   try {
     const reservationId = params.reservationId
@@ -2305,16 +2287,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
         id: rr.roomId,
         checkInDate: rr.checkInDate,
         checkOutDate: rr.checkOutDate,
-        roomTypeId: rr.roomTypeId
+        roomTypeId: rr.roomTypeId,
+        nights: rr.nights,
+        totalRoomCharges: rr.totalRoomCharges,
+        totalTaxesAmount: rr.totalTaxesAmount,
+        netAmount: rr.netAmount
       }))
     }
 
     // 📌 Vérification des dates
-    if (newArrivalDate || newDepartureDate) {
-      const arrivalDate = newArrivalDate ? DateTime.fromISO(newArrivalDate) : reservation.arrivedDate
-      const departureDate = newDepartureDate ? DateTime.fromISO(newDepartureDate) : reservation.departDate
+    let newArrivalDateTime
+    let newDepartureDateTime
 
-      if (arrivalDate && departureDate && arrivalDate >= departureDate) {
+    if (newArrivalDate || newDepartureDate) {
+      newArrivalDateTime = newArrivalDate ? DateTime.fromISO(newArrivalDate) : reservation.arrivedDate
+      newDepartureDateTime = newDepartureDate ? DateTime.fromISO(newDepartureDate) : reservation.departDate
+
+      if (newArrivalDateTime && newDepartureDateTime && newArrivalDateTime >= newDepartureDateTime) {
         await trx.rollback()
         return response.badRequest({ message: 'Arrival date must be before departure date' })
       }
@@ -2350,20 +2339,65 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (newNumChildren !== undefined) updateData.numChildrenTotal = newNumChildren
       if (newSpecialNotes !== undefined) updateData.specialNotes = newSpecialNotes
 
-      if (reservation.arrivedDate && reservation.departDate) {
-        updateData.numberOfNights = Math.ceil(reservation.departDate.diff(reservation.arrivedDate, 'days').days)
-        updateData.nights = updateData.numberOfNights
+      // Recalculer le nombre de nuits pour la réservation
+      if (newArrivalDateTime && newDepartureDateTime) {
+        const numberOfNights = newArrivalDateTime.toISODate() === newDepartureDateTime.toISODate()
+          ? 0 // Day use
+          : Math.ceil(newDepartureDateTime.diff(newArrivalDateTime, 'days').days)
+
+        updateData.numberOfNights = numberOfNights
+        updateData.nights = numberOfNights
       }
 
       await reservation.merge(updateData).useTransaction(trx).save()
 
-      // 🔄 Mise à jour des chambres liées si type de chambre changé
-      if (newRoomTypeId && reservation.reservationRooms.length > 0) {
+      // 🔄 Mise à jour des chambres liées avec recalcul des montants
+      if (reservation.reservationRooms.length > 0) {
         for (const reservationRoom of reservation.reservationRooms) {
-          await reservationRoom.merge({
-            roomTypeId: newRoomTypeId,
+          const roomUpdateData: any = {
             lastModifiedBy: auth.user?.id || 1
-          }).useTransaction(trx).save()
+          }
+
+          // Mise à jour des dates si spécifiées
+          if (newArrivalDate) {
+            roomUpdateData.checkInDate = DateTime.fromISO(newArrivalDate)
+          }
+          if (newDepartureDate) {
+            roomUpdateData.checkOutDate = DateTime.fromISO(newDepartureDate)
+          }
+          if (newRoomTypeId) {
+            roomUpdateData.roomTypeId = newRoomTypeId
+          }
+
+          // Recalculer le nombre de nuits et les montants
+          if (newArrivalDate || newDepartureDate) {
+            const checkInDate = newArrivalDate ? DateTime.fromISO(newArrivalDate) : reservationRoom.checkInDate
+            const checkOutDate = newDepartureDate ? DateTime.fromISO(newDepartureDate) : reservationRoom.checkOutDate
+
+            const numberOfNights = checkInDate.toISODate() === checkOutDate.toISODate()
+              ? 0 // Day use
+              : Math.ceil(checkOutDate.diff(checkInDate, 'days').days)
+
+            roomUpdateData.nights = numberOfNights
+
+            // Recalculer les montants basés sur le nouveau nombre de nuits
+            const roomRate = reservationRoom.roomRate || 0
+            const taxPerNight = reservationRoom.taxAmount ? (reservationRoom.taxAmount / (reservationRoom.nights || 1)) : 0
+
+            if (numberOfNights === 0) {
+              // Day use - pas de multiplication par nuits
+              roomUpdateData.totalRoomCharges = roomRate
+              roomUpdateData.totalTaxesAmount = taxPerNight
+            } else {
+              // Séjour normal - multiplier par le nombre de nuits
+              roomUpdateData.totalRoomCharges = roomRate * numberOfNights
+              roomUpdateData.totalTaxesAmount = taxPerNight * numberOfNights
+            }
+
+            roomUpdateData.netAmount = roomUpdateData.totalRoomCharges + roomUpdateData.totalTaxesAmount
+          }
+
+          await reservationRoom.merge(roomUpdateData).useTransaction(trx).save()
         }
       }
     }
@@ -2383,17 +2417,44 @@ export default class ReservationsController extends CrudController<typeof Reserv
           lastModifiedBy: auth.user?.id || 1
         }
 
+        let checkInDate = reservationRoom.checkInDate
+        let checkOutDate = reservationRoom.checkOutDate
+
         if (newArrivalDate) {
-          roomUpdateData.checkInDate = DateTime.fromISO(newArrivalDate)
+          checkInDate = DateTime.fromISO(newArrivalDate)
+          roomUpdateData.checkInDate = checkInDate
         }
         if (newDepartureDate) {
-          roomUpdateData.checkOutDate = DateTime.fromISO(newDepartureDate)
-          roomUpdateData.nights = Math.ceil(
-            DateTime.fromISO(newDepartureDate).diff(reservationRoom.checkInDate, 'days').days
-          )
+          checkOutDate = DateTime.fromISO(newDepartureDate)
+          roomUpdateData.checkOutDate = checkOutDate
         }
         if (newRoomTypeId) {
           roomUpdateData.roomTypeId = newRoomTypeId
+        }
+
+        // Recalculer le nombre de nuits et les montants
+        if (newArrivalDate || newDepartureDate) {
+          const numberOfNights = checkInDate.toISODate() === checkOutDate.toISODate()
+            ? 0 // Day use
+            : Math.ceil(checkOutDate.diff(checkInDate, 'days').days)
+
+          roomUpdateData.nights = numberOfNights
+
+          // Recalculer les montants basés sur le nouveau nombre de nuits
+          const roomRate = reservationRoom.roomRate || 0
+          const taxPerNight = reservationRoom.taxAmount ? (reservationRoom.taxAmount / (reservationRoom.nights || 1)) : 0
+
+          if (numberOfNights === 0) {
+            // Day use - pas de multiplication par nuits
+            roomUpdateData.totalRoomCharges = roomRate
+            roomUpdateData.totalTaxesAmount = taxPerNight
+          } else {
+            // Séjour normal - multiplier par le nombre de nuits
+            roomUpdateData.totalRoomCharges = roomRate * numberOfNights
+            roomUpdateData.totalTaxesAmount = taxPerNight * numberOfNights
+          }
+
+          roomUpdateData.netAmount = roomUpdateData.totalRoomCharges + roomUpdateData.totalTaxesAmount
         }
 
         await reservationRoom.merge(roomUpdateData).useTransaction(trx).save()
@@ -2402,17 +2463,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 🔄 Adapter les dates globales de la réservation :
       // arrivée = plus tôt parmi toutes les chambres
       // départ = plus tard parmi toutes les chambres
+
+      // Recharger les chambres mises à jour
+      await reservation.load('reservationRooms')
+
       const minArrival = DateTime.min(...reservation.reservationRooms.map(r => r.checkInDate))
       const maxDeparture = DateTime.max(...reservation.reservationRooms.map(r => r.checkOutDate))
+      const globalNights = minArrival.toISODate() === maxDeparture.toISODate()
+        ? 0
+        : Math.ceil(maxDeparture.diff(minArrival, 'days').days)
 
       await reservation.merge({
         arrivedDate: minArrival,
         departDate: maxDeparture,
-        numberOfNights: Math.ceil(maxDeparture.diff(minArrival, 'days').days),
+        numberOfNights: globalNights,
+        nights: globalNights,
         lastModifiedBy: auth.user?.id || 1
       }).useTransaction(trx).save()
     }
-
 
     const auditData = {
       reservationId: reservation.id,
@@ -2446,6 +2514,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
       .first()
 
+      //  Mise à jour des folios si la réservation a des folios existants
+      if (reservation.folios && reservation.folios.length > 0) {
+        await this.updateFoliosAfterAmendment(reservation, trx, auth.user?.id || 1)
+      }
+
     return response.ok({
       message: 'Stay amended successfully',
       reservationId: reservationId,
@@ -2464,7 +2537,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
     })
   }
 }
-
 
   public async roomMove({ params, request, response, auth }: HttpContext) {
     const trx = await db.transaction()
