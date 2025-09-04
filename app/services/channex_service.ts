@@ -154,19 +154,19 @@ export class ChannexService {
     currency: string // 3 symbols (e.g., "GBP", "USD")
     
     // Optional fields
-    email?: string
-    phone?: string
-    zip_code?: string
-    country?: string // 2 symbols (e.g., "GB", "US")
-    state?: string
-    city?: string
-    address?: string
-    longitude?: string // decimal number as string
-    latitude?: string // decimal number as string
-    timezone?: string // e.g., "Europe/London"
-    facilities?: string[] // List of facility IDs
-    property_type?: string // e.g., "hotel"
-    group_id?: string // UUID
+    email?: string | null
+    phone?: string | null
+    zip_code?: string | null
+    country?: string | null // 2 symbols (e.g., "GB", "US")
+    state?: string | null
+    city?: string | null
+    address?: string | null
+    longitude?: string | null // decimal number as string
+    latitude?: string | null // decimal number as string
+    timezone?: string | null // e.g., "Europe/London"
+    facilities?: string[] | null // List of facility IDs
+    property_type?: string | null // e.g., "hotel"
+    group_id?: string | null // UUID
     
     // Settings object
     settings?: {
@@ -335,16 +335,7 @@ export class ChannexService {
    * Create a new room type
    * POST /properties/{property_id}/room_types
    */
-  async createRoomType(propertyId: string, roomTypeData: {
-    title: string
-    count_of_rooms: number
-    occ_adults: number
-    occ_children?: number
-    occ_infants?: number
-    default_occupancy: number
-    bed_type?: string
-    room_size?: number
-    room_kind?: string
+  async createRoomType(propertyId: string, roomTypeData: { 
     [key: string]: any
   }) {
     return this.post(`/room_types`, roomTypeData)
@@ -395,11 +386,6 @@ export class ChannexService {
    * POST /properties/{property_id}/rate_plans
    */
   async createRatePlan(propertyId: string, ratePlanData: {
-    title: string
-    room_type_id: string
-    currency: string
-    sell_mode: 'per_room' | 'per_person'
-    rate_mode: 'manual' | 'derived'
     [key: string]: any
   }) {
     return this.post(`/rate_plans`, ratePlanData)
@@ -827,22 +813,7 @@ export class ChannexService {
    * POST /hotel_policies
    */
   async createHotelPolicy(hotelPolicyData: {
-    title: string
-    currency: string
-    is_adults_only?: boolean
-    max_count_of_guests?: number
-    checkin_time?: string
-    checkout_time?: string
-    internet_access_type?: string
-    internet_access_cost?: string | null
-    internet_access_coverage?: string
-    parking_type?: string
-    parking_reservation?: string
-    parking_is_private?: boolean
-    pets_policy?: string
-    pets_non_refundable_fee?: string
-    pets_refundable_deposit?: string
-    smoking_policy?: string
+ 
     [key: string]: any
   }) {
     return this.post('/hotel_policies', { hotel_policy: hotelPolicyData })

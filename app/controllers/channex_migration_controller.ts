@@ -305,8 +305,8 @@ export default class ChannexMigrationController {
         city: hotel.city,
         address: hotel.address,
         zip_code: hotel.postalCode,
-        phone: hotel.phoneNumber,
-        email: hotel.email,
+        phone: hotel.phoneNumber!,
+        email: hotel.email!,
         website: hotel.website,
         property_type: hotel.propertyType || 'hotel',
         group_id: channexGroup.data.id,
@@ -317,6 +317,22 @@ export default class ChannexMigrationController {
         longitude: hotel.longitude, // decimal number as string
         latitude: hotel.latitude,// decimal number as string
         facilities: [],// List of facility IDs
+
+        // Hotel policy and operational fields
+        check_in_time: hotel.checkInTime,
+        check_out_time: hotel.checkOutTime,
+        internet_access_type: hotel.internetAccessType,
+        internet_access_cost: hotel.internetAccessCost,
+        internet_access_coverage: hotel.internetAccessCoverage,
+        parking_type: hotel.parkingType,
+        parking_reservation: hotel.parkingReservation,
+        parking_is_private: hotel.parkingIsPrivate,
+        pets_policy: hotel.petsPolicy,
+        pets_non_refundable_fee: hotel.petsNonRefundableFee,
+        pets_refundable_deposit: hotel.petsRefundableDeposit,
+        smoking_policy: hotel.smokingPolicy,
+        is_adults_only: hotel.isAdultsOnly,
+        max_count_of_guests: hotel.maxCountOfGuests,
 
         // Settings object
         settings: {
@@ -388,8 +404,8 @@ export default class ChannexMigrationController {
           currency: hotel.currencyCode || 'XAF',
           is_adults_only: false,
           max_count_of_guests: 20, // Default value, could be made configurable
-          checkin_time: hotel.checkInTime  ,
-          checkout_time: hotel.checkOutTime ,
+          checkin_time: hotel.checkInTime || '14:00',
+          checkout_time: hotel.checkOutTime || '12:00',
           internet_access_type: 'wifi',
           internet_access_cost: null,
           internet_access_coverage: 'entire_property',
@@ -405,7 +421,7 @@ export default class ChannexMigrationController {
 
       // Create hotel policy in Channex
       const channexHotelPolicy: any = await this.channexService.createHotelPolicy(hotelPolicyData)
-      
+
       console.log('Hotel policy migrated successfully', {
         localHotelId: hotelId,
         channexHotelPolicyId: channexHotelPolicy.data.id,
@@ -571,7 +587,7 @@ export default class ChannexMigrationController {
         migratedRatePlans.push({
           localId: roomRate.id,
           channexId: channexRatePlan.id,
-          name: `Rate Plan for ${roomRate.roomType.roomTypeName}`,
+          name: `${roomRate.roomType.roomTypeName}`,
           roomTypeId: roomRate.roomType.channexRoomTypeId,
           channexData: channexRatePlan
         })
@@ -598,173 +614,7 @@ export default class ChannexMigrationController {
     }
   }
 
-  /**
-   * Migrate rates to Channex
-   */
-  private async migrateRates(hotelId: string, channexPropertyId: string, ratePlans: any[]) {
-    try {
-      const migratedRates = []
-      const today = new Date()
-      const futureDate = new Date()
-      futureDate.setMonth(today.getMonth() + 12) // Migrate rates for next 12 months
 
-      for (const ratePlan of ratePlans) {
-        // Fetch room rates from local database
-        const roomRates = await RoomRate.query()
-          .where('rate_plan_id', ratePlan.localId)
-          .where('date', '>=', today.toISOString().split('T')[0])
-          .where('date', '<=', futureDate.toISOString().split('T')[0])
-
-        if (roomRates.length === 0) {
-          // If no specific rates found, create a default rate
-          const defaultRateData = [{
-            rate_plan_id: ratePlan.channexId,
-            date_from: today.toISOString().split('T')[0],
-            date_to: futureDate.toISOString().split('T')[0],
-            rate: 100 // Default rate
-          }]
-
-          await this.channexService.updateRates(channexPropertyId, defaultRateData)
-          migratedRates.push({
-            ratePlanId: ratePlan.channexId,
-            type: 'default',
-            count: 1
-          })
-        } else {
-          // Group consecutive dates with same rate
-          const rateGroups = this.groupConsecutiveRates(roomRates)
-
-          for (const group of rateGroups) {
-            const rateData = [{
-              rate_plan_id: ratePlan.channexId,
-              date_from: group.dateFrom,
-              date_to: group.dateTo,
-              rate: group.rate
-            }]
-
-            await this.channexService.updateRates(channexPropertyId, rateData)
-          }
-
-          migratedRates.push({
-            ratePlanId: ratePlan.channexId,
-            type: 'specific',
-            count: rateGroups.length
-          })
-        }
-
-        console.log('Rates migrated for rate plan', {
-          ratePlanId: ratePlan.channexId,
-          ratePlanName: ratePlan.name
-        })
-      }
-
-      return {
-        status: 'completed',
-        data: migratedRates,
-        error: null
-      }
-
-    } catch (error) {
-      return {
-        status: 'failed',
-        data: [],
-        error: error.message
-      }
-    }
-  }
-
-  /**
-   * Migrate availability to Channex
-   */
-  private async migrateAvailability(hotelId: string, channexPropertyId: string, roomTypes: any[]) {
-    try {
-      const migratedAvailability = []
-      const today = new Date()
-      const futureDate = new Date()
-      futureDate.setMonth(today.getMonth() + 12) // Migrate availability for next 12 months
-
-      for (const roomType of roomTypes) {
-        // Get room count for this room type
-        const roomCount = roomType.channexData.count_of_rooms || 1
-
-        // Create availability data
-        const availabilityData = [{
-          rate_plan_id: roomType.channexId, // This should be rate plan ID, but we'll use room type for now
-          date_from: today.toISOString().split('T')[0],
-          date_to: futureDate.toISOString().split('T')[0],
-          availability: roomCount
-        }]
-
-        // Note: In a real implementation, you'd need to map this to actual rate plans
-        // For now, we're setting basic availability
-
-        migratedAvailability.push({
-          roomTypeId: roomType.channexId,
-          availability: roomCount,
-          dateRange: `${today.toISOString().split('T')[0]} to ${futureDate.toISOString().split('T')[0]}`
-        })
-
-        console.log('Availability migrated for room type', {
-          roomTypeId: roomType.channexId,
-          roomTypeName: roomType.name,
-          availability: roomCount
-        })
-      }
-
-      return {
-        status: 'completed',
-        data: migratedAvailability,
-        error: null
-      }
-
-    } catch (error) {
-      return {
-        status: 'failed',
-        data: [],
-        error: error.message
-      }
-    }
-  }
-
-  /**
-   * Group consecutive dates with same rate for efficient API calls
-   */
-  private groupConsecutiveRates(roomRates: any[]) {
-    if (roomRates.length === 0) return []
-
-    // Sort by date
-    roomRates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-    const groups = []
-    let currentGroup = {
-      dateFrom: roomRates[0].date,
-      dateTo: roomRates[0].date,
-      rate: roomRates[0].rate
-    }
-
-    for (let i = 1; i < roomRates.length; i++) {
-      const currentRate = roomRates[i]
-      const prevDate = new Date(roomRates[i - 1].date)
-      const currentDate = new Date(currentRate.date)
-      const dayDiff = (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
-
-      // If consecutive date and same rate, extend current group
-      if (dayDiff === 1 && currentRate.rate === currentGroup.rate) {
-        currentGroup.dateTo = currentRate.date
-      } else {
-        // Start new group
-        groups.push(currentGroup)
-        currentGroup = {
-          dateFrom: currentRate.date,
-          dateTo: currentRate.date,
-          rate: currentRate.rate
-        }
-      }
-    }
-
-    groups.push(currentGroup)
-    return groups
-  }
 
   /**
    * Get migration status for a hotel
@@ -804,14 +654,15 @@ export default class ChannexMigrationController {
    * Generate one-time access token for Channex iframe
    * POST /api/channex/iframe/token
    */
-  async generateIframeToken({ request, response, auth }: HttpContext) {
+  async generateIframeToken(ctx: HttpContext) {
+    const { request, response, auth } = ctx;
     const userId = auth.user?.id
-    const username = auth.user?.email || auth.user?.name || 'Unknown User'
+    const username = auth.user?.firstName || auth.user?.email
 
     if (!userId) {
-      return response.unauthorized({ 
+      return response.unauthorized({
         success: false,
-        message: 'Authentication required' 
+        message: 'Authentication required'
       })
     }
 
@@ -826,7 +677,7 @@ export default class ChannexMigrationController {
       }
 
       // Generate one-time token using Channex service
-      const tokenData = {
+      const tokenData: any = {
         property_id: propertyId,
         username: username
       }
@@ -835,7 +686,7 @@ export default class ChannexMigrationController {
         tokenData.group_id = groupId
       }
 
-      const result = await this.channexService.generateOneTimeToken(tokenData)
+      const result: any = await this.channexService.generateOneTimeToken(tokenData)
 
       // Log the token generation
       await LoggerService.log({
@@ -848,7 +699,8 @@ export default class ChannexMigrationController {
           propertyId,
           groupId,
           username
-        }
+        },
+        ctx: ctx
       })
 
       return response.ok({
@@ -873,7 +725,8 @@ export default class ChannexMigrationController {
         meta: {
           error: error.message,
           username
-        }
+        },
+        ctx: ctx
       })
 
       return response.status(500).json({
@@ -892,9 +745,9 @@ export default class ChannexMigrationController {
     const userId = auth.user?.id
 
     if (!userId) {
-      return response.unauthorized({ 
+      return response.unauthorized({
         success: false,
-        message: 'Authentication required' 
+        message: 'Authentication required'
       })
     }
 
@@ -940,7 +793,7 @@ export default class ChannexMigrationController {
         username
       })
 
-     
+
 
       return response.ok({
         success: true,
@@ -964,19 +817,19 @@ export default class ChannexMigrationController {
       console.error('Failed to generate iframe URL:', error)
 
       // Log the failure
-    /*  await LoggerService.log({
-        actorId: userId,
-        action: 'CHANNEX_IFRAME_URL_FAILED',
-        entityType: 'Hotel',
-        entityId: request.input('hotelId'),
-        description: `Failed to generate Channex iframe URL for hotel ${request.input('hotelId')}: ${error.message}`,
-        meta: {
-          error: error.message,
-          hotelId: request.input('hotelId')
-        },
-        hotelId: parseInt(request.input('hotelId') || '0')
-      })
-*/
+      /*  await LoggerService.log({
+          actorId: userId,
+          action: 'CHANNEX_IFRAME_URL_FAILED',
+          entityType: 'Hotel',
+          entityId: request.input('hotelId'),
+          description: `Failed to generate Channex iframe URL for hotel ${request.input('hotelId')}: ${error.message}`,
+          meta: {
+            error: error.message,
+            hotelId: request.input('hotelId')
+          },
+          hotelId: parseInt(request.input('hotelId') || '0')
+        })
+  */
       return response.status(500).json({
         success: false,
         message: 'Failed to generate iframe URL',
@@ -994,9 +847,9 @@ export default class ChannexMigrationController {
     const userId = auth.user?.id
 
     if (!userId) {
-      return response.unauthorized({ 
+      return response.unauthorized({
         success: false,
-        message: 'Authentication required' 
+        message: 'Authentication required'
       })
     }
 

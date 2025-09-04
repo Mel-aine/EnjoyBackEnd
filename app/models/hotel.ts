@@ -236,6 +236,48 @@ export default class Hotel extends BaseModel {
   @column()
   declare latitude: string | null
 
+  @column({ columnName: 'check_in_time' })
+  declare checkInTime: string | null
+
+  @column({ columnName: 'check_out_time' })
+  declare checkOutTime: string | null
+
+  @column({ columnName: 'internet_access_type' })
+  declare internetAccessType: string | null
+
+  @column({ columnName: 'internet_access_cost' })
+  declare internetAccessCost: number | null
+
+  @column({ columnName: 'internet_access_coverage' })
+  declare internetAccessCoverage: string | null
+
+  @column({ columnName: 'parking_type' })
+  declare parkingType: string | null
+
+  @column({ columnName: 'parking_reservation' })
+  declare parkingReservation: boolean | null
+
+  @column({ columnName: 'parking_is_private' })
+  declare parkingIsPrivate: boolean | null
+
+  @column({ columnName: 'pets_policy' })
+  declare petsPolicy: string | null
+
+  @column({ columnName: 'pets_non_refundable_fee' })
+  declare petsNonRefundableFee: number | null
+
+  @column({ columnName: 'pets_refundable_deposit' })
+  declare petsRefundableDeposit: number | null
+
+  @column({ columnName: 'smoking_policy' })
+  declare smokingPolicy: string | null
+
+  @column({ columnName: 'is_adults_only' })
+  declare isAdultsOnly: boolean | null
+
+  @column({ columnName: 'max_count_of_guests' })
+  declare maxCountOfGuests: number | null
+
   @column({ columnName: 'channex_group_id' })
   declare channexGroupId: string | null
 
