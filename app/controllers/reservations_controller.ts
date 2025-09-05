@@ -699,7 +699,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
 
-    // Inclusion List: Available during reservation or stay
+  /*  // Inclusion List: Available during reservation or stay
     if (['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in'].includes(status)) {
       actions.push({
         action: 'inclusion_list',
@@ -719,7 +719,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         available: true,
         route: `/reservations/${reservation.id}/cancel`
       })
-    }
+    }*/
 
     // No Show: Available after scheduled arrival time for non-arrived guests
     if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate > arrivalDate) {
@@ -3921,29 +3921,25 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
 }
 
 
-  public async unassignRoom({ params, request, response, auth }: HttpContext) {
+  public async unassignRoom(ctx: HttpContext) {
     const trx = await db.transaction()
-
+ const { params, request, response, auth } = ctx
     try {
       const { reservationId } = params
-      const { roomId, reason, notes } = request.body()
+      const {  reservationRooms, actualCheckInTime,   } = request.body()
 
       // Validate required fields
-      if (!roomId) {
+      if (!reservationRooms) {
         await trx.rollback()
         return response.badRequest({ message: 'Room ID is required' })
       }
 
-      if (!reason) {
-        await trx.rollback()
-        return response.badRequest({ message: 'Unassignment reason is required' })
-      }
 
       // Get reservation with related data
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (query) => {
-          query.where('roomId', roomId).where('status', 'active')
+          query.whereIn('id', reservationRooms).where('status', 'reserved')
         })
         .first()
 
@@ -3953,7 +3949,7 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
       }
 
       // Check if reservation allows room unassignment
-      const allowedStatuses = ['confirmed', 'checked_in', 'pending']
+      const allowedStatuses = ['confirmed', 'pending']
       if (!allowedStatuses.includes(reservation.status)) {
         await trx.rollback()
         return response.badRequest({
@@ -3961,20 +3957,15 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
         })
       }
 
-      // Find the active room assignment
-      const roomAssignment = reservation.reservationRooms.find(rr => rr.roomId === roomId && rr.status === 'reserved')
-
-      if (!roomAssignment) {
-        await trx.rollback()
-        return response.notFound({
-          message: 'Active room assignment not found for this reservation and room'
-        })
+      for( const reservationRoom of reservation.reservationRooms){
+        reservationRoom.roomId = 0;
       }
 
+    
       // Check if this is the only room assigned to the reservation
       const totalActiveRooms = await ReservationRoom.query({ client: trx })
         .where('reservationId', reservationId)
-        .where('status', 'active')
+        .whereIn('status', ['reserved', 'checked_in'])
         .count('* as total')
 
       const activeRoomCount = Number(totalActiveRooms[0].$extras.total)
@@ -3986,47 +3977,22 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
         })
       }
 
-      // Store original data for audit
-      const originalRoomData = {
-        roomId: roomAssignment.roomId,
-        status: roomAssignment.status,
-        assignedDate: roomAssignment.createdAt
-      }
-
-
-
       // Create audit log
-      /*   await LoggerService.log({
-           action: 'room_unassigned',
-           entityType: 'reservation_room',
-           entityId: roomAssignment.id,
-           details: {
-             reservationId,
-             roomId,
-             originalStatus: originalRoomData.status,
-             newStatus: 'unassigned',
-             reason,
-             notes,
-             unassignedDate: DateTime.now().toISO(),
-             remainingActiveRooms: activeRoomCount - 1
-           },
-           ipAddress: request.ip(),
-           userAgent: request.header('user-agent')
-         })*/
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'ROOM_UNASSIGNED',
+        entityType: 'ReservationRoom',
+        entityId: reservationId,
+        hotelId: reservation.hotelId,
+        description: `Room unassigned from reservation #${reservation.reservationNumber}`,
+        ctx: ctx
+      })
 
       await trx.commit()
 
       return response.ok({
         message: 'Room unassigned successfully',
-        reservationId,
-        unassignmentDetails: {
-          roomId,
-          originalStatus: originalRoomData.status,
-          unassignedDate: DateTime.now().toISO(),
-          reason,
-          notes,
-          remainingActiveRooms: activeRoomCount - 1
-        }
+        reservationId
       })
 
     } catch (error) {
