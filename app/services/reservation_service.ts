@@ -12,6 +12,57 @@ export default class ReservationService {
   /**
    * Valide les données de réservation
    */
+  // public static validateReservationData(data: ReservationData): string[] {
+  //   const errors: string[] = []
+
+  //   // Champs obligatoires
+  //   if (!data.first_name?.trim()) errors.push('Le prénom est requis')
+  //   if (!data.last_name?.trim()) errors.push('Le nom est requis')
+  //   if (!data.email?.trim()) errors.push("L'email est requis")
+  //   if (!data.hotel_id) errors.push("L'ID du service/hôtel est requis")
+  //   if (!data.arrived_date) errors.push("La date d'arrivée est requise")
+  //   if (!data.depart_date) errors.push("La date de départ est requise")
+  //   if (!data.rooms || data.rooms.length === 0) errors.push('Au moins une chambre est requise')
+
+  //   // Email
+  //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  //   if (data.email && !emailRegex.test(data.email)) {
+  //     errors.push("Format d'email invalide")
+  //   }
+
+  //   // Dates
+  //   const arrivalDate = new Date(data.arrived_date)
+  //   const departureDate = new Date(data.depart_date)
+  //   const today = new Date()
+  //   today.setHours(0, 0, 0, 0)
+
+  //   if (arrivalDate < today) {
+  //     errors.push("La date d'arrivée ne peut pas être dans le passé")
+  //   }
+  //   if (departureDate <= arrivalDate) {
+  //     errors.push("La date de départ doit être après la date d'arrivée")
+  //   }
+
+  //   // Chambres
+  //   data.rooms.forEach((room, index) => {
+  //     if (!room.room_type_id) {
+  //       errors.push(`Le type de chambre est requis pour la chambre ${index + 1}`)
+  //     }
+  //     if (room.adult_count < 1) {
+  //       errors.push(`Au moins 1 adulte est requis pour la chambre ${index + 1}`)
+  //     }
+  //     if (room.room_rate < 0) {
+  //       errors.push(`Le tarif de la chambre ${index + 1} ne peut pas être négatif`)
+  //     }
+  //   })
+
+  //   // Montants
+  //   if (data.total_amount < 0) errors.push('Le montant total ne peut pas être négatif')
+  //   if (data.tax_amount < 0) errors.push('Le montant des taxes ne peut pas être négatif')
+  //   if (data.final_amount < 0) errors.push('Le montant final ne peut pas être négatif')
+
+  //   return errors
+  // }
   public static validateReservationData(data: ReservationData): string[] {
     const errors: string[] = []
 
@@ -22,39 +73,61 @@ export default class ReservationService {
     if (!data.hotel_id) errors.push("L'ID du service/hôtel est requis")
     if (!data.arrived_date) errors.push("La date d'arrivée est requise")
     if (!data.depart_date) errors.push("La date de départ est requise")
-    if (!data.rooms || data.rooms.length === 0) errors.push('Au moins une chambre est requise')
+
 
     // Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (data.email && !emailRegex.test(data.email)) {
-      errors.push("Format d'email invalide")
+        errors.push("Format d'email invalide")
     }
 
-    // Dates
+    // Dates - MODIFIÉ pour supporter les réservations le même jour
     const arrivalDate = new Date(data.arrived_date)
     const departureDate = new Date(data.depart_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     if (arrivalDate < today) {
-      errors.push("La date d'arrivée ne peut pas être dans le passé")
-    }
-    if (departureDate <= arrivalDate) {
-      errors.push("La date de départ doit être après la date d'arrivée")
+        errors.push("La date d'arrivée ne peut pas être dans le passé")
     }
 
-    // Chambres
-    data.rooms.forEach((room, index) => {
-      if (!room.room_type_id) {
-        errors.push(`Le type de chambre est requis pour la chambre ${index + 1}`)
-      }
-      if (room.adult_count < 1) {
-        errors.push(`Au moins 1 adulte est requis pour la chambre ${index + 1}`)
-      }
-      if (room.room_rate < 0) {
-        errors.push(`Le tarif de la chambre ${index + 1} ne peut pas être négatif`)
-      }
-    })
+    // Validation des dates modifiée pour supporter les réservations le même jour
+    if (arrivalDate.toISOString().split('T')[0] === departureDate.toISOString().split('T')[0]) {
+        // Même jour - vérifier les heures
+        const arrivalTime = data.arrived_time || data.check_in_time
+        const departureTime = data.depart_time || data.check_out_time
+
+        if (!arrivalTime || !departureTime) {
+            errors.push("Pour une réservation le même jour, les heures d'arrivée et de départ sont requises")
+        } else {
+            // Convertir les heures en minutes pour comparaison
+            const [arrHour, arrMin] = arrivalTime.split(':').map(Number)
+            const [depHour, depMin] = departureTime.split(':').map(Number)
+            const arrivalMinutes = arrHour * 60 + arrMin
+            const departureMinutes = depHour * 60 + depMin
+
+            if (departureMinutes <= arrivalMinutes) {
+                errors.push("L'heure de départ doit être après l'heure d'arrivée pour une réservation le même jour")
+            }
+        }
+    } else if (departureDate <= arrivalDate) {
+        errors.push("La date de départ doit être après la date d'arrivée")
+    }
+
+    // Chambres valider seulement si des chambres sont fournies
+    if (data.rooms && data.rooms.length > 0) {
+        data.rooms.forEach((room, index) => {
+            if (!room.room_type_id) {
+                errors.push(`Le type de chambre est requis pour la chambre ${index + 1}`)
+            }
+            if (room.adult_count < 1) {
+                errors.push(`Au moins 1 adulte est requis pour la chambre ${index + 1}`)
+            }
+            if (room.room_rate < 0) {
+                errors.push(`Le tarif de la chambre ${index + 1} ne peut pas être négatif`)
+            }
+        })
+    }
 
     // Montants
     if (data.total_amount < 0) errors.push('Le montant total ne peut pas être négatif')
@@ -62,7 +135,7 @@ export default class ReservationService {
     if (data.final_amount < 0) errors.push('Le montant final ne peut pas être négatif')
 
     return errors
-  }
+}
 
   /**
    * Crée ou met à jour un invité

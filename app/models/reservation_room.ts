@@ -34,6 +34,12 @@ export default class ReservationRoom extends BaseModel {
   declare checkOutDate: DateTime
 
   @column()
+  declare checkInTime: string
+
+  @column()
+  declare checkOutTime: string
+
+  @column()
   declare nights: number
 
   @column()
