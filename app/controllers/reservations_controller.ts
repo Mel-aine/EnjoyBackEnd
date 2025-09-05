@@ -3959,23 +3959,10 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
 
       for( const reservationRoom of reservation.reservationRooms){
         reservationRoom.roomId = 0;
+        reservationRoom.save()
       }
 
-    
-      // Check if this is the only room assigned to the reservation
-      const totalActiveRooms = await ReservationRoom.query({ client: trx })
-        .where('reservationId', reservationId)
-        .whereIn('status', ['reserved', 'checked_in'])
-        .count('* as total')
-
-      const activeRoomCount = Number(totalActiveRooms[0].$extras.total)
-
-      if (activeRoomCount <= 1) {
-        await trx.rollback()
-        return response.badRequest({
-          message: 'Cannot unassign the only room from a reservation. Consider voiding the reservation instead.'
-        })
-      }
+      
 
       // Create audit log
       await LoggerService.log({
