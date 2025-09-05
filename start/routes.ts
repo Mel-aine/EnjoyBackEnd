@@ -1339,6 +1339,9 @@ router
 
         // Get hotel Channex information for iframe
         router.get('/iframe/hotel/:hotelId', channexMigrationController.getHotelChannexInfo.bind(channexMigrationController)) // Get Channex property info for hotel
+
+        // Booking Revisions Feed
+        router.get('/booking-revisions/feed', channexMigrationController.getBookingRevisionsFeed.bind(channexMigrationController)) // Fetch booking revisions from Channex and create reservations
       })
       .prefix('channex');
 

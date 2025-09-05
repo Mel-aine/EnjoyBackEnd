@@ -5,7 +5,13 @@ import Hotel from '../models/hotel.js'
 import RoomType from '../models/room_type.js'
 import Room from '../models/room.js'
 import RoomRate from '../models/room_rate.js'
+import Reservation from '../models/reservation.js'
+import Guest from '../models/guest.js'
+import ReservationRoom from '../models/reservation_room.js'
 import logger from '@adonisjs/core/services/logger'
+import axios from 'axios'
+import env from '#start/env'
+import { DateTime } from 'luxon'
 /**
  * Controller for migrating hotel data to Channex.io system
  */
@@ -897,6 +903,151 @@ export default class ChannexMigrationController {
       return response.status(500).json({
         success: false,
         message: 'Failed to get hotel Channex information',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Fetch booking revisions from Channex and create reservation records
+   */
+  async getBookingRevisionsFeed({ response }: HttpContext) {
+    try {
+      const channexApiUrl = 'https://staging.channex.io/api/v1/booking_revisions/feed'
+      const channexApiKey = env.get('CHANNEX_API_KEY')
+
+      if (!channexApiKey) {
+        return response.status(400).json({
+          success: false,
+          message: 'Channex API key not configured'
+        })
+      }
+
+      // Fetch booking revisions from Channex
+      const channexResponse = await this.channexService.getBookingRevisionsFeed()
+
+      const bookingRevisions = channexResponse.data.data
+
+      const processedReservations = []
+
+      for (const revision of bookingRevisions) {
+        const revisionData = revision.attributes
+
+        // Find the hotel by property_id
+        const hotel = await Hotel.query()
+          .where('channex_property_id', revisionData.property_id)
+          .first()
+
+        if (!hotel) {
+          logger.warn(`Hotel not found for property_id: ${revisionData.property_id}`)
+          continue
+        }
+
+        // Create or find guest
+        const customerData = revisionData.customer
+        let guest = await Guest.query()
+          .where('phonePrimary', customerData.mail)
+          .where('hotel_id', hotel.id)
+          .first()
+
+        if (!guest) {
+          guest = await Guest.create({
+            hotelId: hotel.id,
+            firstName: customerData.name,
+            lastName: customerData.surname,
+            email: customerData.mail,
+            phonePrimary: customerData.phone,
+            address: customerData.address,
+            city: customerData.city,
+            postalCode: customerData.zip,
+            country: customerData.country,
+            language: customerData.language,
+            createdBy: 1 // System user
+          })
+        }
+
+        // Create reservation
+        const reservation = await Reservation.create({
+          hotelId: hotel.id,
+          guestId: guest.id,
+          scheduledArrivalDate: DateTime.fromISO(revisionData.arrival_date),
+          scheduledDepartureDate: DateTime.fromISO(revisionData.departure_date),
+          reservationStatus: 'Pending', // Initially pending as requested
+          numAdultsTotal: revisionData.occupancy.adults,
+          numChildrenTotal: revisionData.occupancy.children,
+          bookingSourceId: 1, // Default booking source
+          ratePlanId: 1, // Default rate plan
+          totalEstimatedRevenue: parseFloat(revisionData.amount),
+          totalAmount: parseFloat(revisionData.amount),
+          currencyCode: revisionData.currency,
+          specialRequests: revisionData.notes,
+          confirmationCode: revisionData.unique_id,
+          reservationDatetime: DateTime.now(),
+          userId: 1, // System user
+          reservationType: 'Online',
+          status: 'pending',
+          createdBy: 1 // System user
+        })
+        // Create ReservationRoom records for each room in the booking
+        if (revisionData.rooms && revisionData.rooms.length > 0) {
+          for (const roomData of revisionData.rooms) {
+            // Find local room type by channex_room_type_id
+            const roomType = await RoomType.query()
+              .where('channex_room_type_id', roomData.room_type_id)
+              .where('hotel_id', hotel.id)
+              .first()
+
+            // Find local room rate by channex_rate_id
+            const roomRate = await RoomRate.query()
+              .where('channex_rate_id', roomData.rate_plan_id)
+              .where('hotel_id', hotel.id)
+              .first()
+
+            await ReservationRoom.create({
+              reservationId: reservation.id,
+              roomRateId: roomRate?.id,
+              // roomId: null, // Will be assigned later
+              roomTypeId: roomType?.id || 1, // Use mapped room type or default
+              guestId: guest.id,
+              isOwner: true,
+              checkInDate: DateTime.fromISO(revisionData.arrival_date),
+              checkOutDate: DateTime.fromISO(revisionData.departure_date),
+              nights: DateTime.fromISO(revisionData.departure_date).diff(DateTime.fromISO(revisionData.arrival_date), 'days').days,
+              adults: roomData.occupancy?.adults || revisionData.occupancy.adults,
+              children: roomData.occupancy?.children || revisionData.occupancy.children,
+              infants: roomData.occupancy?.infants || 0,
+              roomRate:  parseFloat(roomData.rate || revisionData.amount),
+              totalRoomCharges:  parseFloat(roomData.rate || revisionData.amount),
+              roomCharges: parseFloat(roomData.rate || revisionData.amount),
+              netAmount:  parseFloat(roomData.rate || revisionData.amount),
+              status: 'reserved',
+              createdBy: 1 // System user
+            })
+          }
+        }
+
+        processedReservations.push({
+          reservationId: reservation.id,
+          guestId: guest.id,
+          channexBookingId: revisionData.booking_id,
+          status: 'pending'
+        })
+      }
+
+      return response.json({
+        success: true,
+        message: `Successfully processed ${processedReservations.length} booking revisions`,
+        data: {
+          processed_count: processedReservations.length,
+          reservations: processedReservations
+        }
+      })
+
+    } catch (error) {
+      logger.error('Error fetching booking revisions:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to fetch booking revisions',
         error: error.message
       })
     }

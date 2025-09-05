@@ -600,6 +600,24 @@ export class ChannexService {
     return this.get(`/properties/${propertyId}/bookings/${bookingId}/revisions`)
   }
 
+  /**
+   * Get booking revisions feed
+   * GET /booking_revisions/feed
+   */
+  async getBookingRevisionsFeed(params?: {
+    page?: number
+    per_page?: number
+    filter?: {
+      created_at_from?: string
+      created_at_to?: string
+      updated_at_from?: string
+      updated_at_to?: string
+      [key: string]: any
+    }
+  }) {
+    return this.get('/booking_revisions/feed', params)
+  }
+
   // =============================================================================
   // WEBHOOKS API METHODS
   // =============================================================================

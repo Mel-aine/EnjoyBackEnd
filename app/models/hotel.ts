@@ -284,6 +284,15 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'channex_property_id' })
   declare channexPropertyId: string | null
 
+  @column()
+  declare migrated: boolean
+
+  @column({ columnName: 'channel_enable' })
+  declare channelEnable: boolean
+
+  @column.dateTime({ columnName: 'last_migration_date' })
+  declare lastMigrationDate: DateTime | null
+
   @column({ columnName: 'created_by' })
   declare createdBy: number | null
 
