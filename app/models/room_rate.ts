@@ -149,6 +149,9 @@ export default class RoomRate extends BaseModel {
   declare status: string | null
 
   @column()
+  declare channexRateId: string | null
+
+  @column()
   declare createdBy: number | null
 
   @column()
