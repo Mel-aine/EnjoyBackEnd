@@ -817,107 +817,105 @@ public async checkIn(ctx: HttpContext) {
     return actions
   }
 
-  /**
- * Met à jour les folios après amendement de la réservation
- */
-private async updateFoliosAfterAmendment(
-  reservation: any,
-  trx: any,
-  userId: number
-) {
-  // Charger les folios avec les transactions
-  await reservation.load('folios', (query) => {
-    query.preload('transactions')
-  })
+      /**
+   * Met à jour les folios après amendement de la réservation
+   */
+  private async updateFoliosAfterAmendment(
+    reservation: any,
+    trx: any,
+    userId: number
+  ) {
+    // Charger les folios avec les transactions
+    await reservation.load('folios', (query:any) => {
+      query.preload('transactions')
+    })
 
-  for (const folio of reservation.folios) {
-    // Trouver les transactions de charges de chambre existantes
-    const roomChargeTransactions = folio.transactions.filter(t =>
-      t.transactionType === 'charge' && t.chargeCategory === 'room'
-    )
+    for (const folio of reservation.folios) {
+      // Calculer les nouveaux totaux basés sur les chambres mises à jour
+      let newRoomCharges = 0
+      let newTotalTaxes = 0
 
-    // Calculer les nouveaux totaux basés sur les chambres mises à jour
-    let newRoomCharges = 0
-    let newTotalTaxes = 0
-
-    // Si le folio est lié à une chambre spécifique
-    if (folio.reservationRoomId) {
-      const reservationRoom = reservation.reservationRooms.find(rr => rr.id === folio.reservationRoomId)
-      if (reservationRoom) {
-        newRoomCharges = reservationRoom.totalRoomCharges || 0
-        newTotalTaxes = reservationRoom.totalTaxesAmount || 0
+      if (folio.reservationRoomId) {
+        const reservationRoom = reservation.reservationRooms.find((rr:any) => rr.id === folio.reservationRoomId)
+        if (reservationRoom) {
+          newRoomCharges = reservationRoom.totalRoomCharges || 0
+          newTotalTaxes = reservationRoom.totalTaxesAmount || 0
+        }
+      } else {
+        for (const room of reservation.reservationRooms) {
+          newRoomCharges += room.totalRoomCharges || 0
+          newTotalTaxes += room.totalTaxesAmount || 0
+        }
       }
-    } else {
-      // Folio global - sommer toutes les chambres
-      for (const room of reservation.reservationRooms) {
-        newRoomCharges += room.totalRoomCharges || 0
-        newTotalTaxes += room.totalTaxesAmount || 0
-      }
-    }
 
-    // Calculer la différence
-    const oldRoomCharges = folio.roomCharges || 0
-    const oldTotalTaxes = folio.totalTaxes || 0
-    const roomChargesDiff = newRoomCharges - oldRoomCharges
-    const taxesDiff = newTotalTaxes - oldTotalTaxes
+      const oldRoomCharges = folio.roomCharges || 0
+      const oldTotalTaxes = folio.totalTaxes || 0
+      const roomChargesDiff = newRoomCharges - oldRoomCharges
+      const taxesDiff = newTotalTaxes - oldTotalTaxes
 
-    // Mettre à jour le folio seulement s'il y a une différence
-    if (Math.abs(roomChargesDiff) > 0.01 || Math.abs(taxesDiff) > 0.01) {
+      if (Math.abs(roomChargesDiff) > 0.01 || Math.abs(taxesDiff) > 0.01) {
+        const totalDiff = roomChargesDiff + taxesDiff;
+        const transactionType = totalDiff >= 0 ? TransactionType.CHARGE : TransactionType.ADJUSTMENT;
+        const transactionCode = transactionType === TransactionType.CHARGE ? 'CHG' : 'ADJ';
+        const transactionNumber = parseInt(Date.now().toString().slice(-9));
 
-      // Si il y a une différence positive, créer des transactions d'ajustement
-      if (roomChargesDiff !== 0) {
         await FolioTransaction.create({
           folioId: folio.id,
           hotelId: reservation.hotelId,
           guestId: folio.guestId,
           reservationId: reservation.id,
-
-          transactionType: roomChargesDiff > 0 ? 'charge' : 'adjustment',
-
-          amount: Math.abs(roomChargesDiff),
-          description: `Room charge adjustment after stay amendment`,
-
+          transactionType: transactionType,
+          transactionCode: transactionCode,
+          transactionNumber: transactionNumber,
+          amount: roomChargesDiff,
+          taxAmount: taxesDiff,
+          totalAmount: totalDiff,
+          description: 'Adjustment due to stay modification.',
           transactionDate: DateTime.now(),
           postingDate: DateTime.now(),
-          status: 'posted',
+          status: TransactionStatus.POSTED,
           createdBy: userId,
-        }, { client: trx })
+        }, { client: trx });
+
+        const safeNumber = (val: any): number => {
+          const num = Number(val);
+          return isNaN(num) ? 0 : num;
+        };
+
+
+        const newTotalCharges = safeNumber(folio.totalCharges || 0) + roomChargesDiff;
+        const newTotalTaxesOnFolio = safeNumber(folio.totalTaxes || 0) + taxesDiff;
+        const newBalance = safeNumber(folio.balance || 0) + totalDiff;
+
+        const notes = (folio.internalNotes || '') +
+        `\n[${DateTime.now().toFormat('yyyy-MM-dd HH:mm')}] Folio updated after stay amendment. ` +
+        `Room charges changed by ${roomChargesDiff.toFixed(2)}. ` +
+        `Taxes changed by ${taxesDiff.toFixed(2)}.`;
+
+        console.log({
+          oldCharges: folio.totalCharges,
+          roomChargesDiff,
+          newTotalCharges,
+          oldTaxes: folio.totalTaxes,
+          taxesDiff,
+          newTotalTaxesOnFolio,
+          oldBalance: folio.balance,
+          totalDiff,
+          newBalance,
+        });
+
+
+        await folio.merge({
+          roomCharges: newRoomCharges,
+          totalTaxes: newTotalTaxesOnFolio,
+          totalCharges: newTotalCharges,
+          balance: newBalance,
+          lastModifiedBy: userId,
+          internalNotes: notes,
+        }).useTransaction(trx).save()
       }
-
-      if (taxesDiff !== 0) {
-        await FolioTransaction.create({
-          folioId: folio.id,
-          hotelId: reservation.hotelId,
-          guestId: folio.guestId,
-          reservationId: reservation.id,
-
-          transactionType: taxesDiff > 0 ? 'charge' : 'adjustment',
-
-          amount: Math.abs(taxesDiff),
-          description: `Tax adjustment after stay amendment`,
-
-          transactionDate: DateTime.now(),
-          postingDate: DateTime.now(),
-          status: 'posted',
-          createdBy: userId,
-        }, { client: trx })
-      }
-
-      // Mettre à jour les totaux du folio
-      const newTotalCharges = folio.totalCharges + roomChargesDiff + taxesDiff
-      const newBalance = folio.balance + roomChargesDiff + taxesDiff
-
-      await folio.merge({
-        roomCharges: newRoomCharges,
-        totalTaxes: newTotalTaxes,
-        totalCharges: newTotalCharges,
-        balance: newBalance,
-        lastModifiedBy: userId,
-        internalNotes: (folio.internalNotes || '') + `\n[${DateTime.now().toFormat('yyyy-MM-dd HH:mm')}] Folio updated after stay amendment`
-      }).useTransaction(trx).save()
     }
   }
-}
 
   /**
    * Verify if user can extend stay in the hotel
@@ -2502,10 +2500,13 @@ private async updateFoliosAfterAmendment(
 
     console.log('Reservation Amendment:', auditData)
 
-    await trx.commit()
+    //  Mise à jour des folios si la réservation a des folios existants
+    if (reservation.folios && reservation.folios.length > 0) {
+      await this.updateFoliosAfterAmendment(reservation, trx, auth.user?.id || 1)
+    }
 
     // 🔄 Recharger réservation mise à jour
-    const updatedReservation = await Reservation.query()
+    const updatedReservation = await Reservation.query({ client: trx })
       .where('id', reservationId)
       .preload('reservationRooms', (query) => {
         query.preload('room', (roomQuery) => {
@@ -2514,10 +2515,7 @@ private async updateFoliosAfterAmendment(
       })
       .first()
 
-      //  Mise à jour des folios si la réservation a des folios existants
-      if (reservation.folios && reservation.folios.length > 0) {
-        await this.updateFoliosAfterAmendment(reservation, trx, auth.user?.id || 1)
-      }
+    await trx.commit()
 
     return response.ok({
       message: 'Stay amended successfully',

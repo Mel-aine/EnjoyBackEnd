@@ -7,6 +7,7 @@ import Folio from './folio.js'
 import PaymentMethod from './payment_method.js'
 import User from './user.js'
 import Discount from './discount.js'
+import Guest from './guest.js'
 
 export default class FolioTransaction extends BaseModel {
   @column({ isPrimary: true })
@@ -415,6 +416,9 @@ export default class FolioTransaction extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
+
+  @belongsTo(() => Guest, { foreignKey: 'guestId' })
+  declare guest: BelongsTo<typeof Guest>
 
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
