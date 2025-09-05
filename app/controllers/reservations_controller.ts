@@ -675,9 +675,10 @@ public async checkIn(ctx: HttpContext) {
     const actions = []
     const status = reservation.status?.toLowerCase() || reservation.reservation_status?.toLowerCase()
     const currentDate = new Date()
-    const arrivalDate = new Date(reservation.arrivalDate || reservation.checkInDate)
+    const arrivalDate = new Date(reservation.arrivedDate || reservation.checkInDate)
 
-    const departureDate = new Date(reservation.departureDate || reservation.checkOutDate)
+    const departureDate = new Date(reservation.departDate || reservation.checkOutDate)
+    console.log("reservation",reservation)
 
     // Check-in: Available for confirmed reservations on or after arrival date
     if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate >= arrivalDate) {
@@ -3998,6 +3999,10 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
       const { reservationId } = params
       const {  reservationRooms, actualCheckInTime,   } = request.body()
 
+      console.log('--- Début de unassignRoom ---')
+      console.log('Paramètres:', params)
+      console.log('Body:', request.body())
+
       // Validate required fields
       if (!reservationRooms) {
         await trx.rollback()
@@ -4012,8 +4017,11 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
           query.whereIn('id', reservationRooms).where('status', 'reserved')
         })
         .first()
+        console.log('Reservation trouvée:', reservation)
+
 
       if (!reservation) {
+        console.log('Erreur : réservation non trouvée')
         await trx.rollback()
         return response.notFound({ message: 'Reservation not found' })
       }
@@ -4021,6 +4029,7 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
       // Check if reservation allows room unassignment
       const allowedStatuses = ['confirmed', 'pending']
       if (!allowedStatuses.includes(reservation.status)) {
+        console.log('Erreur : statut non autorisé', reservation.status)
         await trx.rollback()
         return response.badRequest({
           message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`
@@ -4028,10 +4037,11 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
       }
 
       for( const reservationRoom of reservation.reservationRooms){
+         console.log('Désaffectation de la chambre:', reservationRoom.id)
         reservationRoom.roomId = 0;
       }
 
-    
+
       // Check if this is the only room assigned to the reservation
       const totalActiveRooms = await ReservationRoom.query({ client: trx })
         .where('reservationId', reservationId)
@@ -4039,8 +4049,11 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
         .count('* as total')
 
       const activeRoomCount = Number(totalActiveRooms[0].$extras.total)
+       console.log('Nombre de chambres actives:', activeRoomCount)
 
       if (activeRoomCount <= 1) {
+
+          console.log('Erreur : tentative de désaffecter la dernière chambre')
         await trx.rollback()
         return response.badRequest({
           message: 'Cannot unassign the only room from a reservation. Consider voiding the reservation instead.'
@@ -4059,6 +4072,7 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
       })
 
       await trx.commit()
+       console.log('Room désaffectée avec succès')
 
       return response.ok({
         message: 'Room unassigned successfully',
