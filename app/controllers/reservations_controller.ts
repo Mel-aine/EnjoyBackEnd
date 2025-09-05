@@ -2331,24 +2331,24 @@ public async checkIn(ctx: HttpContext) {
         lastModifiedBy: auth.user?.id || 1
       }
 
-      if (newArrivalDate) updateData.arrivedDate = DateTime.fromISO(newArrivalDate)
-      if (newDepartureDate) updateData.departDate = DateTime.fromISO(newDepartureDate)
-      if (newRoomTypeId) updateData.primaryRoomTypeId = newRoomTypeId
-      if (newNumAdults !== undefined) updateData.numAdultsTotal = newNumAdults
-      if (newNumChildren !== undefined) updateData.numChildrenTotal = newNumChildren
-      if (newSpecialNotes !== undefined) updateData.specialNotes = newSpecialNotes
+      // if (newArrivalDate) updateData.arrivedDate = DateTime.fromISO(newArrivalDate)
+      // if (newDepartureDate) updateData.departDate = DateTime.fromISO(newDepartureDate)
+      // if (newRoomTypeId) updateData.primaryRoomTypeId = newRoomTypeId
+      // if (newNumAdults !== undefined) updateData.numAdultsTotal = newNumAdults
+      // if (newNumChildren !== undefined) updateData.numChildrenTotal = newNumChildren
+      // if (newSpecialNotes !== undefined) updateData.specialNotes = newSpecialNotes
 
-      // Recalculer le nombre de nuits pour la réservation
-      if (newArrivalDateTime && newDepartureDateTime) {
-        const numberOfNights = newArrivalDateTime.toISODate() === newDepartureDateTime.toISODate()
-          ? 0 // Day use
-          : Math.ceil(newDepartureDateTime.diff(newArrivalDateTime, 'days').days)
+      // // Recalculer le nombre de nuits pour la réservation
+      // if (newArrivalDateTime && newDepartureDateTime) {
+      //   const numberOfNights = newArrivalDateTime.toISODate() === newDepartureDateTime.toISODate()
+      //     ? 0 // Day use
+      //     : Math.ceil(newDepartureDateTime.diff(newArrivalDateTime, 'days').days)
 
-        updateData.numberOfNights = numberOfNights
-        updateData.nights = numberOfNights
-      }
+      //   updateData.numberOfNights = numberOfNights
+      //   updateData.nights = numberOfNights
+      // }
 
-      await reservation.merge(updateData).useTransaction(trx).save()
+      // await reservation.merge(updateData).useTransaction(trx).save()
 
       // 🔄 Mise à jour des chambres liées avec recalcul des montants
       if (reservation.reservationRooms.length > 0) {
@@ -4038,7 +4038,7 @@ public async voidReservation({ params, request, response, auth }: HttpContext) {
 
       for( const reservationRoom of reservation.reservationRooms){
          console.log('Désaffectation de la chambre:', reservationRoom.id)
-        reservationRoom.roomId = 0;
+        reservationRoom.roomId = null;
         reservationRoom.save()
       }
 
