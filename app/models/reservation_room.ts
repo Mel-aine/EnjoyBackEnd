@@ -326,6 +326,21 @@ export default class ReservationRoom extends BaseModel {
   declare champagne: boolean
 
   @column()
+  declare sendMail: boolean
+
+  @column()
+  declare checkOutMail: boolean
+
+  @column()
+  declare thankYouEmail: boolean
+
+  @column()
+  declare supressRate: boolean
+
+  @column()
+  declare accessGuestPortal: boolean
+
+  @column()
   declare flowers: boolean
 
   @column()
