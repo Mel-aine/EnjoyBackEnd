@@ -5,7 +5,6 @@ export default class extends BaseSchema {
 
   async up() {
     this.schema.alterTable(this.tableName, (table) => {
-
       table.boolean('send_mail').defaultTo(0)
       table.boolean('check_out_mail').defaultTo(0)
       table.boolean('thank_you_email_to_guest').defaultTo(0)
