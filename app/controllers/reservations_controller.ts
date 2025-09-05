@@ -765,6 +765,7 @@ public async checkIn(ctx: HttpContext) {
         route: `/reservations/${reservation.id}/inclusion-list`
       })
     }
+      */
 
     // Cancel Reservation: Available before check-in
     if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate < arrivalDate) {
@@ -775,7 +776,7 @@ public async checkIn(ctx: HttpContext) {
         available: true,
         route: `/reservations/${reservation.id}/cancel`
       })
-    }*/
+    }
 
     // No Show: Available after scheduled arrival time for non-arrived guests
     if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate > arrivalDate) {
@@ -2322,35 +2323,12 @@ public async checkIn(ctx: HttpContext) {
     }
 
     // =============================
-    // 🎯 AMENDEMENT GLOBAL ou PARTIEL
+    // 🎯 AMENDEMENT DES CHAMBRES UNIQUEMENT
     // =============================
 
-    // 🔹 Cas 1 : Amendement global (pas de selectedRoomIds)
+    // 🔹 Cas 1 : Amendement global (toutes les chambres)
     if (!selectedRooms || selectedRooms.length === 0) {
-      const updateData: any = {
-        lastModifiedBy: auth.user?.id || 1
-      }
-
-      // if (newArrivalDate) updateData.arrivedDate = DateTime.fromISO(newArrivalDate)
-      // if (newDepartureDate) updateData.departDate = DateTime.fromISO(newDepartureDate)
-      // if (newRoomTypeId) updateData.primaryRoomTypeId = newRoomTypeId
-      // if (newNumAdults !== undefined) updateData.numAdultsTotal = newNumAdults
-      // if (newNumChildren !== undefined) updateData.numChildrenTotal = newNumChildren
-      // if (newSpecialNotes !== undefined) updateData.specialNotes = newSpecialNotes
-
-      // // Recalculer le nombre de nuits pour la réservation
-      // if (newArrivalDateTime && newDepartureDateTime) {
-      //   const numberOfNights = newArrivalDateTime.toISODate() === newDepartureDateTime.toISODate()
-      //     ? 0 // Day use
-      //     : Math.ceil(newDepartureDateTime.diff(newArrivalDateTime, 'days').days)
-
-      //   updateData.numberOfNights = numberOfNights
-      //   updateData.nights = numberOfNights
-      // }
-
-      // await reservation.merge(updateData).useTransaction(trx).save()
-
-      // 🔄 Mise à jour des chambres liées avec recalcul des montants
+      // 🔄 Mise à jour de toutes les chambres liées
       if (reservation.reservationRooms.length > 0) {
         for (const reservationRoom of reservation.reservationRooms) {
           const roomUpdateData: any = {
@@ -2458,28 +2436,12 @@ public async checkIn(ctx: HttpContext) {
 
         await reservationRoom.merge(roomUpdateData).useTransaction(trx).save()
       }
-
-      // 🔄 Adapter les dates globales de la réservation :
-      // arrivée = plus tôt parmi toutes les chambres
-      // départ = plus tard parmi toutes les chambres
-
-      // Recharger les chambres mises à jour
-      await reservation.load('reservationRooms')
-
-      const minArrival = DateTime.min(...reservation.reservationRooms.map(r => r.checkInDate))
-      const maxDeparture = DateTime.max(...reservation.reservationRooms.map(r => r.checkOutDate))
-      const globalNights = minArrival.toISODate() === maxDeparture.toISODate()
-        ? 0
-        : Math.ceil(maxDeparture.diff(minArrival, 'days').days)
-
-      await reservation.merge({
-        arrivedDate: minArrival,
-        departDate: maxDeparture,
-        numberOfNights: globalNights,
-        nights: globalNights,
-        lastModifiedBy: auth.user?.id || 1
-      }).useTransaction(trx).save()
     }
+
+    // 📌 Mise à jour uniquement du lastModifiedBy sur la réservation principale
+    await reservation.merge({
+      lastModifiedBy: auth.user?.id || 1
+    }).useTransaction(trx).save()
 
     const auditData = {
       reservationId: reservation.id,
