@@ -1314,15 +1314,16 @@ router
         // Delete night audit record
         router.delete('/:hotelId/:auditDate', nightAuditController.deleteNightAudit.bind(nightAuditController)) // Delete night audit record
       })
-      .prefix('night-audit')
 
+      //report routes
   })
   .prefix('/api')
   .use(
     middleware.auth({
       guards: ['api'],
-    })
+    }) 
   )
 
 // Import reports routes
 import './routes/reports.js'
+
