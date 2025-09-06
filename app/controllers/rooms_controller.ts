@@ -334,6 +334,75 @@ export default class RoomsController {
   }
 
   /**
+   * Get available rooms by room type ID
+   */
+  async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) {
+    try {
+      const roomTypeId = params.roomTypeId
+      const { startDate, endDate } = request.only(['startDate', 'endDate'])
+
+      // Validate room type exists
+      const roomType = await RoomType.findOrFail(roomTypeId)
+
+      // Get all rooms of this type
+      const roomsQuery = Room.query()
+        .where('room_type_id', roomTypeId)
+        .where('status', 'available')
+        .preload('roomType')
+
+      const rooms = await roomsQuery
+
+      // If date range is provided, filter out rooms with reservations
+      let availableRooms = rooms
+      if (startDate && endDate) {
+        const availableRoomIds:any = []
+        
+        for (const room of rooms) {
+          const reservations = await ReservationRoom.query()
+            .where('room_id', room.id)
+            .where('check_in_date', '<=', endDate)
+            .where('check_out_date', '>=', startDate)
+            .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
+
+          if (reservations.length === 0) {
+            availableRoomIds.push(room.id)
+          }
+        }
+
+        availableRooms = rooms.filter(room => availableRoomIds.includes(room.id))
+      }
+
+      return response.ok({
+        message: 'Available rooms retrieved successfully',
+        data: {
+          roomType: {
+            id: roomType.id,
+            name: roomType.name,
+            description: roomType.description
+          },
+          totalRooms: rooms.length,
+          availableRooms: availableRooms.length,
+          dateRange: startDate && endDate ? { startDate, endDate } : null,
+          rooms: availableRooms.map(room => ({
+            id: room.id,
+            roomNumber: room.roomNumber,
+            roomName: room.roomName,
+            floorNumber: room.floorNumber,
+            status: room.status,
+            housekeepingStatus: room.housekeepingStatus,
+            maintenanceStatus: room.maintenanceStatus
+          }))
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve available rooms',
+        error: error.message
+      })
+    }
+  }
+
+  /**
    * Get room statistics
    */
   async stats({ request, response }: HttpContext) {

@@ -1,0 +1,74 @@
+1-Reservation Reports
+    Arrival List
+    Departure List
+    Cancelled Reservations
+    No-Show Reservations
+    Country Wise Reservation Statistics
+    Release Reservation List
+    Reservation Activity
+    Void Reservations
+
+2- Front Office Reports
+    Guest Checked In
+    Guest Checked Out
+    Guest List
+    Guest Message
+    Inclusion Report
+    Inventory By Room Type
+    Invoice Breakdown
+    Night Audit
+    Pickup Dropoff
+    Room Availability
+    Room Status Report
+    Task List Report
+
+3-Back Office Reports
+    Advance Deposit Ledger
+    City Ledger - Detail
+    City Ledger - Summary
+    Daily Extra Charge - Detail
+    Daily Receipt - Detail
+    Daily Receipt - Summary
+    Daily Refund Report
+    Daily Revenue
+    Expense Voucher
+    Folio List
+    Guest Ledger
+    House Status
+    Manager Report
+    Revenue By Rate Type
+    Revenue By Room Type
+    Travel Agent Commission - Detail
+    Travel Agent Commission - Summary
+
+4-Audit Reports
+    Audit Trail
+    IP Report
+    Void Charge
+    Void Payment
+    Void Transaction
+
+5-Statistical Reports
+    Business Analysis
+    Contribution Analysis Report
+    Monthly Country wise Pax Analysis
+    Monthly Revenue by Income Stream
+    Monthly Statistics
+    Monthly Summary
+    Monthly Tax
+    Room Sale Statistics
+    Room Statistics
+    Room On Books
+    Yearly Statistics
+    Booking Source Wise Reservation Statistics
+    Channelwise Booking Report
+    Mobile/Desktop Wise Reservation Statistics
+    OTA Wise Monthly Breakdown
+    Performance Analysis Report
+
+6- Custom Reports
+    Monthly Occupancy
+    Monthly Revenue
+    Payment Summary
+    Revenue By Rate Type Summary
+    Statistics By Room Type

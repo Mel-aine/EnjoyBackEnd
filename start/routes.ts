@@ -706,6 +706,7 @@ router
         // Room analytics and reports
         router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
+        router.get('/available-by-room-type/:roomTypeId', roomsController.getAvailableRoomsByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
       })
       .prefix('configuration/rooms')
 
@@ -889,6 +890,7 @@ router
         router.post('/:reservationId/no-show', [ReservationsController, 'markNoShow'])
         router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
+        router.post('/:reservationId/assign-room', [ReservationsController, 'assignRoom'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
 
@@ -1345,7 +1347,7 @@ router
       })
       .prefix('channex');
 
-      /// audit trails
+    /// audit trails
     router
       .group(() => {
         // Import reports routes
