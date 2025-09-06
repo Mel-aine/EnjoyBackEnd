@@ -571,165 +571,218 @@ export default class ReportsController {
     const monthName = startDate.toFormat('MMMM yyyy')
     
     // Calculate chart data
-    const chartData = reservationData.map((data: any) => {
-      const reservationCount = data.reservationCount || 0
-      return {
-        day: data.day,
-        reservationCount,
-        height: Math.max(10, reservationCount * 20) // Scale to chart height (20px per reservation)
-      }
-    })
-
-    const maxReservations = Math.max(...chartData.map(d => d.reservationCount), 1)
-    const totalReservations = chartData.reduce((sum, d) => sum + d.reservationCount, 0)
-    const avgReservations = chartData.length > 0 
-      ? (totalReservations / chartData.length).toFixed(1)
+    const maxReservations = Math.max(...reservationData.map(d => d.reservationCount), 1)
+    const totalReservations = reservationData.reduce((sum, d) => sum + d.reservationCount, 0)
+    const avgReservations = reservationData.length > 0 
+      ? (totalReservations / reservationData.length).toFixed(1)
       : '0.0'
+    
+    // Set a fixed y-axis max for better visualization
+    const yAxisMax = Math.max(maxReservations, 10)
+    const maxChartHeight = 350
+    
+    const chartData = reservationData.map(data => ({
+      day: data.day,
+      reservationCount: data.reservationCount,
+      height: Math.max((data.reservationCount / yAxisMax) * maxChartHeight, 2)
+    }))
 
     return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Monthly Reservations - ${monthName}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Reservations Report - ${monthName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            padding: 1.5rem;
             margin: 0;
-            padding: 0px;
-            background-color: #f5f5f5;
         }
         .container {
             background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0px 0px rgba(0,0,0,0.1);
+            padding: 2rem;
+            max-width: 64rem;
+            margin-left: auto;
+            margin-right: auto;
         }
         .header {
             text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #e74c3c;
-            padding-bottom: 20px;
+            margin-bottom: 2rem;
+            border-bottom: 3px solid #ef4444;
+            padding-bottom: 1.5rem;
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-top: 0.5rem;
+        }
+        .header-legend {
+            background-color: #ef4444;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
         }
         .title {
-            background-color: #e74c3c;
+            background-color: #ef4444;
             color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
             display: inline-block;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
         }
         .chart-container {
-            margin: 30px 0;
+            margin: 2rem 0;
             position: relative;
             height: 450px;
-            border: 1px solid #ddd;
-            background-color: #fafafa;
-            padding: 20px;
+            border: 1px solid #d1d5db;
+            background-color: #f9fafb;
+            padding: 1.5rem;
         }
-        .chart-area {
-            position: relative;
-            height: 350px;
-            margin-left: 60px;
-            margin-bottom: 40px;
-            border-left: 2px solid #333;
-            border-bottom: 2px solid #333;
+        .chart-wrapper {
+            position: absolute;
+            top: 2rem;
+            left: 5rem;
+            right: 2rem;
+            bottom: 5rem;
+            border-left: 2px solid #1f2937;
+            border-bottom: 2px solid #1f2937;
         }
         .chart {
             display: flex;
             align-items: flex-end;
             height: 100%;
-            padding: 0 10px;
+            padding: 0 0.5rem;
             gap: 3px;
         }
         .bar {
-            background-color: #e74c3c;
+            background-color: #ef4444;
             min-height: 2px;
             flex: 1;
             position: relative;
-            border-radius: 2px 2px 0 0;
-            border: 1px solid #c0392b;
+            border: 1px solid #b91c1c;
         }
         .bar-value {
             position: absolute;
-            top: -18px;
+            top: -1.25rem;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 9px;
-            color: #333;
-            font-weight: bold;
+            font-size: 0.65rem;
+            color: #1f2937;
+            font-weight: 700;
             white-space: nowrap;
         }
         .x-axis {
             position: absolute;
-            bottom: -5px;
-            left: 60px;
-            right: 20px;
+            bottom: -2rem;
+            left: 0;
+            right: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .x-label {
-            font-size: 10px;
-            color: #666;
+            font-size: 0.75rem;
+            color: #6b7280;
             text-align: center;
             flex: 1;
         }
         .y-axis {
             position: absolute;
-            left: 1px;
-            top: 20px;
-            height: 350px;
+            left: 1.5rem;
+            top: 2rem;
+            bottom: 5rem;
+            height: calc(100% - 7rem);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             align-items: flex-end;
+            z-index: 2;
         }
         .y-label {
-            font-size: 10px;
-            color: #666;
-            margin-right: 10px;
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-right: 3px;
             line-height: 1;
+            transform: translateY(50%);
         }
-        .legend {
+        .y-label-zero {
+            position: relative;
+            margin-right: 3px;
             display: flex;
+            align-items: center;
+            line-height: 1;
+            transform: translateY(50%);
+        }
+        .red-flag {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            margin-right: 0.25rem;
+        }
+        .grid-lines {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column-reverse;
             justify-content: space-between;
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
+            z-index: 1;
+            padding-bottom: 0.2rem;
+        }
+        .grid-line {
+            border-top: 1px dashed #e5e7eb;
+            width: 100%;
+        }
+        .legend-container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background-color: #f1f5f9;
+            border-radius: 0.5rem;
         }
         .legend-item {
             text-align: center;
         }
         .legend-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2c3e50;
+            font-size: 1rem;
+            font-weight: 400;
+            color: #1f2937;
         }
         .legend-label {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-top: 5px;
+            font-size: 0.5rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
         }
         .footer {
-            margin-top: 30px;
+            margin-top: 2rem;
             text-align: center;
-            font-size: 10px;
-            color: #95a5a6;
-            border-top: 1px solid #ecf0f1;
-            padding-top: 15px;
+            font-size: 0.7rem;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 1rem;
+            display: flex;
+            justify-content: space-between;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="title">Monthly Reservations - ${monthName}</div>
-            <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 10px;">
-                <div style="background-color: #e74c3c; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">
+            <h1 class="title">Monthly Reservations Report - ${monthName}</h1>
+            <div class="header-content">
+                <div class="header-legend">
                     ■ Daily Reservations
                 </div>
             </div>
@@ -737,14 +790,19 @@ export default class ReportsController {
         
         <div class="chart-container">
             <div class="y-axis">
-                <div class="y-label">${Math.ceil(maxReservations)}</div>
-                <div class="y-label">${Math.ceil(maxReservations * 0.75)}</div>
-                <div class="y-label">${Math.ceil(maxReservations * 0.5)}</div>
-                <div class="y-label">${Math.ceil(maxReservations * 0.25)}</div>
-                <div class="y-label">0</div>
+                <div class="y-label">${Math.ceil(yAxisMax)}</div>
+                <div class="y-label">${Math.ceil(yAxisMax * 0.75)}</div>
+                <div class="y-label">${Math.ceil(yAxisMax * 0.5)}</div>
+                <div class="y-label">${Math.ceil(yAxisMax * 0.25)}</div>
+                <div class="y-label-zero"><span class="red-flag"></span>0</div>
             </div>
-            
-            <div class="chart-area">
+            <div class="chart-wrapper">
+                <div class="grid-lines">
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                </div>
                 <div class="chart">
                     ${chartData.map(data => `
                         <div class="bar" style="height: ${data.height}px;">
@@ -752,16 +810,13 @@ export default class ReportsController {
                         </div>
                     `).join('')}
                 </div>
-            </div>
-            
-            <div class="x-axis">
-                ${chartData.map(data => `
-                    <div class="x-label">${data.day}</div>
-                `).join('')}
+                <div class="x-axis">
+                    ${chartData.map(data => `<div class="x-label">${data.day}</div>`).join('')}
+                </div>
             </div>
         </div>
         
-        <div class="legend">
+        <div class="legend-container">
             <div class="legend-item">
                 <div class="legend-value">${avgReservations}</div>
                 <div class="legend-label">Average Daily Reservations</div>
