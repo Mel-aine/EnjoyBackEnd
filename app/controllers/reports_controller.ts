@@ -481,6 +481,313 @@ export default class ReportsController {
   }
 
   /**
+   * Generate monthly occupancy PDF report
+   */
+  async generateMonthlyOccupancyPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, month, year } = request.qs()
+      
+      if (!hotelId || !month || !year) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID, month, and year are required'
+        })
+      }
+
+      // Create start and end dates for the month
+      const startDate = DateTime.fromObject({ year: parseInt(year), month: parseInt(month), day: 1 })
+      const endDate = startDate.endOf('month')
+
+      // Import Reservation model
+      const { default: Reservation } = await import('#models/reservation')
+      
+      // Get daily reservation counts for the month
+      const dailyReservationCounts = await this.getDailyReservationCounts(
+        parseInt(hotelId),
+        startDate,
+        endDate
+      )
+
+      // Get authenticated user information
+      const user = auth.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateMonthlyOccupancyHtml(dailyReservationCounts, startDate, printedBy)
+
+      // Import PDF generation service
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      
+      // Generate PDF
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      // Set response headers
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="monthly-reservations-${year}-${month}.pdf"`)
+      
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating monthly reservations PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate monthly reservations PDF',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate HTML content for monthly occupancy report
+   */
+  /**
+   * Get daily reservation counts for a month
+   */
+  private async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
+    const { default: Reservation } = await import('#models/reservation')
+    
+    const daysInMonth = endDate.day
+    const dailyCounts = []
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = startDate.set({ day })
+      
+      // Count reservations for this day (arrivals)
+      const reservationCount = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [currentDate.toSQLDate()])
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .count('* as total')
+      
+      dailyCounts.push({
+        day,
+        reservationCount: parseInt(reservationCount[0].$extras.total) || 0
+      })
+    }
+    
+    return dailyCounts
+  }
+
+  private generateMonthlyOccupancyHtml(reservationData: any[], startDate: DateTime, printedBy: string = 'System'): string {
+    const monthName = startDate.toFormat('MMMM yyyy')
+    
+    // Calculate chart data
+    const chartData = reservationData.map((data: any) => {
+      const reservationCount = data.reservationCount || 0
+      return {
+        day: data.day,
+        reservationCount,
+        height: Math.max(10, reservationCount * 20) // Scale to chart height (20px per reservation)
+      }
+    })
+
+    const maxReservations = Math.max(...chartData.map(d => d.reservationCount), 1)
+    const totalReservations = chartData.reduce((sum, d) => sum + d.reservationCount, 0)
+    const avgReservations = chartData.length > 0 
+      ? (totalReservations / chartData.length).toFixed(1)
+      : '0.0'
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Monthly Reservations - ${monthName}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0px 0px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #e74c3c;
+            padding-bottom: 20px;
+        }
+        .title {
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: inline-block;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            margin: 30px 0;
+            position: relative;
+            height: 450px;
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+            padding: 20px;
+        }
+        .chart-area {
+            position: relative;
+            height: 350px;
+            margin-left: 60px;
+            margin-bottom: 40px;
+            border-left: 2px solid #333;
+            border-bottom: 2px solid #333;
+        }
+        .chart {
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            padding: 0 10px;
+            gap: 3px;
+        }
+        .bar {
+            background-color: #e74c3c;
+            min-height: 2px;
+            flex: 1;
+            position: relative;
+            border-radius: 2px 2px 0 0;
+            border: 1px solid #c0392b;
+        }
+        .bar-value {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: #333;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .x-axis {
+            position: absolute;
+            bottom: -5px;
+            left: 60px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .x-label {
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+            flex: 1;
+        }
+        .y-axis {
+            position: absolute;
+            left: 1px;
+            top: 20px;
+            height: 350px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .y-label {
+            font-size: 10px;
+            color: #666;
+            margin-right: 10px;
+            line-height: 1;
+        }
+        .legend {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .legend-item {
+            text-align: center;
+        }
+        .legend-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .legend-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10px;
+            color: #95a5a6;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">Monthly Reservations - ${monthName}</div>
+            <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 10px;">
+                <div style="background-color: #e74c3c; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">
+                    ■ Daily Reservations
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="y-axis">
+                <div class="y-label">${Math.ceil(maxReservations)}</div>
+                <div class="y-label">${Math.ceil(maxReservations * 0.75)}</div>
+                <div class="y-label">${Math.ceil(maxReservations * 0.5)}</div>
+                <div class="y-label">${Math.ceil(maxReservations * 0.25)}</div>
+                <div class="y-label">0</div>
+            </div>
+            
+            <div class="chart-area">
+                <div class="chart">
+                    ${chartData.map(data => `
+                        <div class="bar" style="height: ${data.height}px;">
+                            <div class="bar-value">${data.reservationCount}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="x-axis">
+                ${chartData.map(data => `
+                    <div class="x-label">${data.day}</div>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-value">${avgReservations}</div>
+                <div class="legend-label">Average Daily Reservations</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-value">${maxReservations}</div>
+                <div class="legend-label">Peak Daily Reservations</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-value">${totalReservations}</div>
+                <div class="legend-label">Total Reservations</div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Printed On: ${DateTime.now().toFormat('dd/MM/yyyy HH:mm')}</p>
+            <p>Printed By: ${printedBy}</p>
+            <p>Page 1 of 1</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  }
+
+  /**
    * Get report statistics and analytics
    */
   async getReportStats({ request, response }: HttpContext) {
