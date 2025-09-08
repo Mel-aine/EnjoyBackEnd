@@ -7,6 +7,7 @@ import Expense from '#models/expense'
 import FolioTransaction from '#models/folio_transaction'
 import { TransactionStatus, TransactionType } from '#app/enums'
 import Database from '@adonisjs/lucid/services/db'
+import { HtmlReportGenerator } from './htmlReports_service.ts'
 
 export interface ReportFilters {
   hotelId?: number
@@ -28,9 +29,30 @@ export interface ReportFilters {
   reservationType?: string
   taxInclusive?: boolean
   selectedColumns?: string[]
-  showAmount?: 'rent_per_night' | 'total_amount'
+  showAmount?: 'rent_per_night' | 'total_amount',
+  arrivalFrom?: string
+  arrivalTo?: string
+  roomType?: string
+  rateType?: string
+  user?: string
 }
 
+export interface HtmlReport {
+  title: string
+  html: string
+  generatedAt: DateTime
+  filters: ReportFilters
+}
+
+export interface Html {
+  title: string
+  content: string
+  generatedAt: DateTime
+  filters: ReportFilters
+  totalRecords: number
+  summary?: any
+  data: any[]
+}
 export interface ReportData {
   title: string
   generatedAt: DateTime
@@ -45,7 +67,7 @@ export class ReservationReportsService {
    * Arrival List Report
    * Liste des clients prévus pour arriver aujourd'hui ou à des dates futures
    */
-  static async getArrivalList(filters: ReportFilters): Promise<ReportData> {
+  static async getArrivalList(filters: ReportFilters): Promise<HtmlReport> {
     const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
     const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
 
@@ -62,9 +84,9 @@ export class ReservationReportsService {
     if (filters.hotelId) {
       query.where('hotel_id', filters.hotelId)
     }
-    //filter show Amount
-     if (filters.showAmount === 'rent_per_night') {
-      query.where('total_estimated_revenue', filter)
+    // Correction du filtre showAmount
+    if (filters.showAmount === 'rent_per_night') {
+      query.whereNotNull('room_rate')
     }
     if (filters.roomTypeId) {
       query.where('primary_room_type_id', filters.roomTypeId)
@@ -124,97 +146,170 @@ export class ReservationReportsService {
     const reservations = await query
     const totalRecords = reservations.length
 
-      const data = reservations.map((reservation) => ({
-      // Informations de base
-      reservationNumber: reservation.reservationNumber || 'N/A',
-      guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
-      guestEmail: reservation.guest?.email,
-      guestPhone: reservation.guest?.phonePrimary,
+  // Préparer les données avec gestion des colonnes sélectionnées et taxe inclusive
+    const data = reservations.map((reservation) => {
+      // Données de base toujours incluses
+      const baseData: any = {
+        // Informations de base
+        reservationNumber: reservation.reservationNumber || 'N/A',
+        guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
+        guestEmail: reservation.guest?.email,
+        guestPhone: reservation.guest?.phonePrimary,
 
-      // Dates
-      arrivalDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
-      departureDate: reservation.scheduledDepartureDate?.toFormat('dd/MM/yyyy'),
-      arrivalTime: reservation.scheduledArrivalDate?.toFormat('HH:mm'),
+        // Dates
+        arrivalDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy'),
+        departureDate: reservation.departDate?.toFormat('dd/MM/yyyy'),
+        arrivalTime: reservation.scheduledArrivalDate?.toFormat('HH:mm'),
 
-      // Hébergement
-      roomNumber: reservation.reservationRooms?.[0]?.room?.roomNumber || 'N/A',
-      roomType: reservation.roomType?.roomTypeName,
-      roomTypeId: reservation.roomType?.id,
+        // Hébergement
+        roomNumber: reservation.reservationRooms?.[0]?.room?.roomNumber || 'N/A',
+        roomType: reservation.roomType?.roomTypeName,
+        roomTypeId: reservation.roomType?.id,
 
-      // Tarifs
-      ratePerNight: reservation.roomRate,
-      totalAmount: reservation.totalEstimatedRevenue,
-      taxAmount: reservation.taxAmount,
-      discountAmount: reservation.discountAmount,
-      finalAmount: reservation.finalAmount,
+        // Tarifs
+        ratePerNight: reservation.roomRate,
+        totalAmount: reservation.totalEstimatedRevenue,
+        taxAmount: reservation.taxAmount,
+        discountAmount: reservation.discountAmount,
+        finalAmount: reservation.finalAmount,
 
-      // Occupants
-      adults: reservation.numAdultsTotal,
-      children: reservation.numChildrenTotal,
-      infants: reservation.infants || 0,
-      totalPax:(reservation.numAdultsTotal || 0) + (reservation.numChildrenTotal || 0) + (reservation.infants || 0),
+        // Occupants
+        adults: reservation.numAdultsTotal,
+        children: reservation.numChildrenTotal,
+        infants: reservation.infants || 0,
+        totalPax: (reservation.numAdultsTotal || 0) + (reservation.numChildrenTotal || 0) + (reservation.infants || 0),
 
-      // Informations commerciales
-      company: reservation.companyName,
-      travelAgent: reservation.travelAgentCode,
-      businessSource: reservation.bookingSource?.sourceName,
-      marketSegment: reservation.marketingSource,
-      ratePlan: reservation.ratePlan?.planName,
+        // Informations commerciales
+        company: reservation.companyName,
+        travelAgent: reservation.travelAgentCode,
+        businessSource: reservation.bookingSource?.sourceName,
+        marketSegment: reservation.marketingSource,
+        ratePlan: reservation.ratePlan?.planName,
 
-      // Statut et métadonnées
-      status: reservation.reservationStatus,
-      reservationType: reservation.reservationType,
-      isGuaranteed: reservation.isGuaranteed,
-      specialRequests: reservation.specialNotes,
-      mealPlan: reservation.board_basis_type,
+        // Statut et métadonnées
+        status: reservation.reservationStatus,
+        reservationType: reservation.reservationType,
+        isGuaranteed: reservation.isGuaranteed,
+        specialRequests: reservation.specialNotes,
+        mealPlan: reservation.board_basis_type,
 
-      // Transport
-      pickUp: reservation?.pickupInformation,
-      dropOff: reservation?.dropoffInformation,
+        // Transport
+        pickUp: reservation?.pickupInformation || '',
+        dropOff: reservation?.dropoffInformation || '',
 
-      // Paiement
-      depositPaid: reservation.depositPaid,
-      balanceDue: reservation.balanceDue,
-      paymentStatus: reservation.paymentStatus,
+        // Paiement
+        depositPaid: reservation.depositPaid,
+        balanceDue: reservation.balanceDue,
+        paymentStatus: reservation.paymentStatus,
 
-      // Utilisateur
-      createdBy: reservation.creator?.firstName
-        ? `${reservation.creator.firstName} ${reservation.creator.lastName}`
-        : 'System',
+        // Utilisateur
+        createdBy: reservation.creator?.firstName
+          ? `${reservation.creator.firstName} ${reservation.creator.lastName}`
+          : 'System',
 
-      // Nuits
-      nights: reservation.numberOfNights,
+        // Nuits
+        nights: reservation.numberOfNights,
 
-      // Check-in/out estimés
-      estimatedCheckinTime: reservation.estimatedCheckinTime,
-      estimatedCheckoutTime: reservation.estimatedCheckoutTime,
-    }))
+        // Check-in/out estimés
+        estimatedCheckinTime: reservation.estimatedCheckinTime,
+        estimatedCheckoutTime: reservation.estimatedCheckoutTime,
+      }
 
+      // Ajouter la taxe inclusive si demandée
+      if (filters.taxInclusive) {
+        baseData.taxInclusive = 'Yes'
+        // Calculer le montant avec taxe inclusive si nécessaire
+        baseData.finalAmountWithTax = baseData.finalAmount + (baseData.taxAmount || 0)
+      } else {
+        baseData.taxInclusive = 'No'
+      }
+
+      // Gérer les colonnes supplémentaires sélectionnées
+      if (filters.selectedColumns && filters.selectedColumns.length > 0) {
+        filters.selectedColumns.forEach(column => {
+            switch(column) {
+            case 'deposit':
+              baseData.deposit = reservation.depositPaid || 0
+              break
+            case 'balanceDue':
+              baseData.balanceDue = reservation.balanceDue || 0
+              break
+            case 'marketCode':
+              baseData.marketCode = reservation.marketingSource || 'N/A'
+              break
+            case 'businessSource':
+              baseData.businessSource = reservation.bookingSource?.sourceName || 'N/A'
+              break
+            case 'mealPlan':
+              baseData.mealPlan = reservation.board_basis_type || 'N/A'
+              break
+            case 'rateType':
+              baseData.rateType = reservation.ratePlan?.planName || 'N/A'
+              break
+            // Ajouter d'autres colonnes au besoin
+          }
+        })
+      }
+
+      return baseData
+    })
+
+    
     // Calcul des totaux
-    const totalRevenue = data.reduce((sum, item) => sum + (item.finalAmount || item.totalAmount || 0), 0)
+    const totalRevenue = data.reduce((sum, item) => {
+      const amount = Number(item.finalAmount) || Number(item.totalAmount) || 0;
+      return sum + amount
+    }, 0)
     const totalNights = data.reduce((sum, item) => sum + (item.nights || 0), 0)
     const totalAdults = data.reduce((sum, item) => sum + (item.adults || 0), 0)
     const totalChildren = data.reduce((sum, item) => sum + (item.children || 0), 0)
 
+    const summary = {
+      totalArrivals: totalRecords,
+      totalRevenue,
+      totalNights,
+      totalAdults,
+      totalChildren,
+      averageRate: totalNights > 0 ? totalRevenue / totalNights : 0,
+      byStatus: ReservationReportsService.getStatusSummary(data), // Utilisation directe de la classe
+      byRoomType: ReservationReportsService.getRoomTypeSummary(data), // Utilisation directe de la classe
+      byMarket: ReservationReportsService.getMarketSummary(data) // Utilisation directe de la classe
+    }
     console.log(data)
-    return {
-      title: 'Liste des Arrivées',
-      generatedAt: DateTime.now(),
-      filters,
-      data,
-      totalRecords,
-      summary: {
-        totalArrivals: totalRecords,
-        totalRevenue,
-        totalNights,
-        totalAdults,
-        totalChildren,
-        averageRate: totalNights > 0 ? totalRevenue / totalNights : 0,
-        byStatus: this.getStatusSummary(data),
-        byRoomType: this.getRoomTypeSummary(data),
-        byMarket: this.getMarketSummary(data)
-    }
-    }
+      return {
+        title: 'Liste des Arrivées',
+        html: HtmlReportGenerator.generateArrivalListHtml(data, summary, filters, DateTime.now()),
+        generatedAt: DateTime.now(),
+        filters
+      }
+  }
+
+  // Méthodes helpers pour les résumés
+
+  private static getStatusSummary(data: any[]) {
+    const statusCount: { [key: string]: number } = {}
+    data.forEach(item => {
+      statusCount[item.status] = (statusCount[item.status] || 0) + 1
+    })
+    return statusCount
+  }
+
+  private static getRoomTypeSummary(data: any[]) {
+    const roomTypeCount: { [key: string]: number } = {}
+    data.forEach(item => {
+      const roomType = item.roomType || 'Unknown'
+      roomTypeCount[roomType] = (roomTypeCount[roomType] || 0) + 1
+    })
+    return roomTypeCount
+  }
+
+  private static getMarketSummary(data: any[]) {
+    const marketCount: { [key: string]: number } = {}
+    data.forEach(item => {
+      const market = item.marketSegment || 'Unknown'
+      marketCount[market] = (marketCount[market] || 0) + 1
+    })
+    return marketCount
   }
 
   /**
