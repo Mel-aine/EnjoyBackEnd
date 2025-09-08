@@ -55,6 +55,9 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           contract_end_date: data.contract_end_date ? DateTime.fromISO(data.contract_end_date) : null,
           data_processing_consent: data.data_processing_consent || false,
           consent_date: data.consent_date ? DateTime.fromISO(data.consent_date) : null,
+          permis_discounts: data.permis_discounts ? JSON.stringify(data.permis_discounts) : null,
+          permis_privileges: data.permis_privileges ? JSON.stringify(data.permis_privileges) : null,
+          permis_reports: data.permis_reports ? JSON.stringify(data.permis_reports) : null,
         })
         isNewUser = true;
         await user.save();

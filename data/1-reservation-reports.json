@@ -1,0 +1,284 @@
+[
+  {
+    "category": "Reservation Reports",
+    "items": [
+      {
+        "id": "arrival_list",
+        "name": "Arrival List"
+      },
+      {
+        "id": "departure_list",
+        "name": "Departure List"
+      },
+      {
+        "id": "cancelled_reservations",
+        "name": "Cancelled Reservations"
+      },
+      {
+        "id": "no_show_reservations",
+        "name": "No-Show Reservations"
+      },
+      {
+        "id": "country_wise_reservation_statistics",
+        "name": "Country Wise Reservation Statistics"
+      },
+      {
+        "id": "release_reservation_list",
+        "name": "Release Reservation List"
+      },
+      {
+        "id": "reservation_activity",
+        "name": "Reservation Activity"
+      },
+      {
+        "id": "void_reservations",
+        "name": "Void Reservations"
+      }
+    ]
+  },
+  {
+    "category": "Front Office Reports",
+    "items": [
+      {
+        "id": "guest_checked_in",
+        "name": "Guest Checked In"
+      },
+      {
+        "id": "guest_checked_out",
+        "name": "Guest Checked Out"
+      },
+      {
+        "id": "guest_list",
+        "name": "Guest List"
+      },
+      {
+        "id": "guest_message",
+        "name": "Guest Message"
+      },
+      {
+        "id": "inclusion_report",
+        "name": "Inclusion Report"
+      },
+      {
+        "id": "inventory_by_room_type",
+        "name": "Inventory By Room Type"
+      },
+      {
+        "id": "invoice_breakdown",
+        "name": "Invoice Breakdown"
+      },
+      {
+        "id": "night_audit",
+        "name": "Night Audit"
+      },
+      {
+        "id": "pickup_dropoff",
+        "name": "Pickup Dropoff"
+      },
+      {
+        "id": "room_availability",
+        "name": "Room Availability"
+      },
+      {
+        "id": "room_status_report",
+        "name": "Room Status Report"
+      },
+      {
+        "id": "task_list_report",
+        "name": "Task List Report"
+      }
+    ]
+  },
+  {
+    "category": "Back Office Reports",
+    "items": [
+      {
+        "id": "advance_deposit_ledger",
+        "name": "Advance Deposit Ledger"
+      },
+      {
+        "id": "city_ledger_detail",
+        "name": "City Ledger - Detail"
+      },
+      {
+        "id": "city_ledger_summary",
+        "name": "City Ledger - Summary"
+      },
+      {
+        "id": "daily_extra_charge_detail",
+        "name": "Daily Extra Charge - Detail"
+      },
+      {
+        "id": "daily_receipt_detail",
+        "name": "Daily Receipt - Detail"
+      },
+      {
+        "id": "daily_receipt_summary",
+        "name": "Daily Receipt - Summary"
+      },
+      {
+        "id": "daily_refund_report",
+        "name": "Daily Refund Report"
+      },
+      {
+        "id": "daily_revenue",
+        "name": "Daily Revenue"
+      },
+      {
+        "id": "expense_voucher",
+        "name": "Expense Voucher"
+      },
+      {
+        "id": "folio_list",
+        "name": "Folio List"
+      },
+      {
+        "id": "guest_ledger",
+        "name": "Guest Ledger"
+      },
+      {
+        "id": "house_status",
+        "name": "House Status"
+      },
+      {
+        "id": "manager_report",
+        "name": "Manager Report"
+      },
+      {
+        "id": "revenue_by_rate_type",
+        "name": "Revenue By Rate Type"
+      },
+      {
+        "id": "revenue_by_room_type",
+        "name": "Revenue By Room Type"
+      },
+      {
+        "id": "travel_agent_commission_detail",
+        "name": "Travel Agent Commission - Detail"
+      },
+      {
+        "id": "travel_agent_commission_summary",
+        "name": "Travel Agent Commission - Summary"
+      }
+    ]
+  },
+  {
+    "category": "Audit Reports",
+    "items": [
+      {
+        "id": "audit_trail",
+        "name": "Audit Trail"
+      },
+      {
+        "id": "ip_report",
+        "name": "IP Report"
+      },
+      {
+        "id": "void_charge",
+        "name": "Void Charge"
+      },
+      {
+        "id": "void_payment",
+        "name": "Void Payment"
+      },
+      {
+        "id": "void_transaction",
+        "name": "Void Transaction"
+      }
+    ]
+  },
+  {
+    "category": "Statistical Reports",
+    "items": [
+      {
+        "id": "business_analysis",
+        "name": "Business Analysis"
+      },
+      {
+        "id": "contribution_analysis_report",
+        "name": "Contribution Analysis Report"
+      },
+      {
+        "id": "monthly_country_wise_pax_analysis",
+        "name": "Monthly Country wise Pax Analysis"
+      },
+      {
+        "id": "monthly_revenue_by_income_stream",
+        "name": "Monthly Revenue by Income Stream"
+      },
+      {
+        "id": "monthly_statistics",
+        "name": "Monthly Statistics"
+      },
+      {
+        "id": "monthly_summary",
+        "name": "Monthly Summary"
+      },
+      {
+        "id": "monthly_tax",
+        "name": "Monthly Tax"
+      },
+      {
+        "id": "room_sale_statistics",
+        "name": "Room Sale Statistics"
+      },
+      {
+        "id": "room_statistics",
+        "name": "Room Statistics"
+      },
+      {
+        "id": "room_on_books",
+        "name": "Room On Books"
+      },
+      {
+        "id": "yearly_statistics",
+        "name": "Yearly Statistics"
+      },
+      {
+        "id": "booking_source_wise_reservation_statistics",
+        "name": "Booking Source Wise Reservation Statistics"
+      },
+      {
+        "id": "channelwise_booking_report",
+        "name": "Channelwise Booking Report"
+      },
+      {
+        "id": "mobile_desktop_wise_reservation_statistics",
+        "name": "Mobile/Desktop Wise Reservation Statistics"
+      },
+      {
+        "id": "ota_wise_monthly_breakdown",
+        "name": "OTA Wise Monthly Breakdown"
+      },
+      {
+        "id": "performance_analysis_report",
+        "name": "Performance Analysis Report"
+      }
+    ]
+  },
+  {
+    "category": "Custom Reports",
+    "items": [
+      {
+        "id": "monthly_occupancy",
+        "name": "Monthly Occupancy"
+      },
+      {
+        "id": "monthly_revenue",
+        "name": "Monthly Revenue"
+      },
+      {
+        "id": "payment_summary",
+        "name": "Payment Summary"
+      },
+      {
+        "id": "revenue_by_rate_type_summary",
+        "name": "Revenue By Rate Type Summary"
+      },
+      {
+        "id": "statistics_by_room_type",
+        "name": "Statistics By Room Type"
+      }
+    ]
+  }
+]

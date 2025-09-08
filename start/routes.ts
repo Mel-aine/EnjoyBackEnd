@@ -49,6 +49,7 @@ import CityLedgerController from '#controllers/city_ledger_controller'
 import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
+import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '../app/controllers/audit_trail_controller.js'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
@@ -120,6 +121,7 @@ const cityLedgerController = new CityLedgerController()
 const companyFolioController = new CompanyFolioController()
 const nightAuditController = new NightAuditController()
 const channexMigrationController = new ChannexMigrationController()
+const configurationController = new ConfigurationController()
 const auditTrailController = new AuditTrailController()
 
 router.get('/swagger', async () => {
@@ -903,6 +905,9 @@ router
     // Configuration routes
     router
       .group(() => {
+        // Configuration data endpoint
+        router.get('/permissons', configurationController.getConfiguration.bind(configurationController)) // Get configuration data (privileges, reports, discounts)
+
         // Amenities routes
         router
           .group(() => {

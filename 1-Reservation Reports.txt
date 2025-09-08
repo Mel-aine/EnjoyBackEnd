@@ -8,7 +8,7 @@
     Reservation Activity
     Void Reservations
 
-2- Front Office Reports
+2-Front Office Reports
     Guest Checked In
     Guest Checked Out
     Guest List
