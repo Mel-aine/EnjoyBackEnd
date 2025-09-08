@@ -18,9 +18,9 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
     const data = request.body()
 
     try {
-      const serviceId = Number.parseInt(data.service_id, 10)
-      if (Number.isNaN(serviceId)) {
-        return response.badRequest({ message: 'Invalid serviceId' })
+      const hotelId = Number.parseInt(data.hotel_id, 10)
+      if (Number.isNaN(hotelId)) {
+        return response.badRequest({ message: 'Invalid hotelId' })
       }
 
       // 1. Vérifier si l'utilisateur existe déjà (par email)
@@ -35,6 +35,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           email: data.email,
           phone_number: data.phone_number,
           role_id: data.role_id,
+          hotel_id:data.hotel_id,
           address: data.address,
           nationality: data.nationality,
           status: 'active',
@@ -66,7 +67,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       // 3. Vérifier si une assignation existe déjà
       const existingAssignment = await ServiceUserAssignment.query()
         .where('user_id', user.id)
-        .andWhere('hotel_id', serviceId)
+        .andWhere('hotel_id', hotelId)
         .first()
 
       if (existingAssignment) {
@@ -81,8 +82,8 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       // 4. Créer une assignation si elle n'existe pas encore
       const assignment = new ServiceUserAssignment()
       assignment.user_id = user.id
-      assignment.service_id = serviceId
-      assignment.role = data.role
+      assignment.hotel_id = hotelId
+      assignment.role_id = data.role_id
       assignment.department_id = data.department_id
       assignment.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
 
@@ -109,16 +110,16 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
    */
   public async getEmployeesForService({ params, request, response }: HttpContext) {
     try {
-      const serviceId = Number.parseInt(params.serviceId, 10)
-      if (Number.isNaN(serviceId)) {
-        return response.badRequest({ message: 'Invalid serviceId' })
+      const hotelId = Number.parseInt(params.hotelId, 10)
+      if (Number.isNaN(hotelId)) {
+        return response.badRequest({ message: 'Invalid hotelId' })
       }
 
       const { roleId, departmentId, search } = request.qs()
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 15)
 
-      const query = ServiceUserAssignment.query().where('service_id', serviceId)
+      const query = ServiceUserAssignment.query().where('hotel_id', hotelId)
 
       if (departmentId) {
         query.where('department_id', departmentId)
@@ -141,6 +142,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           userQuery.preload('role')
         })
         .preload('department')
+        .preload('role')
         .paginate(page, perPage)
 
       // Transform paginated data to include role and department with user details

@@ -336,8 +336,8 @@ router
       )
       router.get('/roles/:serviceId', rolesController.GetByServiceId.bind(rolesController))
       router.get(
-        '/services/:serviceId/roles',
-        rolesController.getRolesByService.bind(rolesController)
+        '/hotel/:hotelId/roles',
+        rolesController.getRolesByHotel.bind(rolesController)
       )
       router.post('/roles', rolesController.store.bind(rolesController))
       router.put('/roles/:id', rolesController.update.bind(rolesController))
@@ -380,12 +380,12 @@ router
 
     router.group(() => {
       router.get(
-        '/department/:serviceId',
-        departmentsController.GetByServiceId.bind(departmentsController)
+        '/department',
+        departmentsController.index.bind(departmentsController)
       )
       router.post('/department', departmentsController.store.bind(departmentsController))
       router.put('/department/:id', departmentsController.update.bind(departmentsController))
-      router.delete('/department/:id', departmentsController.destroy.bind(departmentsController))
+       router.delete('/department/:id', departmentsController.destroy.bind(departmentsController))
     })
 
     router.group(() => {
@@ -466,7 +466,7 @@ router
         assigmentUsersController.showByServiceId.bind(assigmentUsersController)
       )
       router.get(
-        '/services/:serviceId/employees',
+        '/hotel/:hotelId/employees',
         assigmentUsersController.getEmployeesForService.bind(assigmentUsersController)
       )
     })
@@ -906,7 +906,7 @@ router
     router
       .group(() => {
         // Configuration data endpoint
-        router.get('/permissons', configurationController.getConfiguration.bind(configurationController)) // Get configuration data (privileges, reports, discounts)
+        router.get('/permissions', configurationController.getConfiguration.bind(configurationController)) // Get configuration data (privileges, reports, discounts)
 
         // Amenities routes
         router
