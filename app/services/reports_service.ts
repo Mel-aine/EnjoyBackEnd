@@ -178,7 +178,9 @@ export class ReservationReportsService {
       paymentStatus: reservation.paymentStatus,
 
       // Utilisateur
-      createdBy: reservation.creator?.firstName ? `${reservation.creator.firstName} ${reservation.creator.lastName}` : 'System',
+      createdBy: reservation.creator?.firstName
+        ? `${reservation.creator.firstName} ${reservation.creator.lastName}`
+        : 'System',
 
       // Nuits
       nights: reservation.numberOfNights,

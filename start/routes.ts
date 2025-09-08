@@ -1321,9 +1321,6 @@ router
         router.delete('/:hotelId/:auditDate', nightAuditController.deleteNightAudit.bind(nightAuditController)) // Delete night audit record
       })
 
-<<<<<<< HEAD
-      //report routes
-=======
     // Channex Integration Routes
     // Hotel data migration to Channex.io system
     router
@@ -1356,7 +1353,6 @@ router
         router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
       }).prefix('audit-trail')
 
->>>>>>> 55f8e8802e9c7cf6f0300dd33ffdd4528d8ce7bf
   })
   .prefix('/api')
   .use(
