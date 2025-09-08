@@ -74,6 +74,8 @@ router.group(() => {
     router.post('/revpar', [ReportsController, 'generate']).where('reportType', 'revparReport')
     router.post('/market-segments', [ReportsController, 'generate']).where('reportType', 'marketSegmentAnalysis')
     router.post('/business-sources', [ReportsController, 'generate']).where('reportType', 'sourceOfBusinessReport')
+    // Monthly occupancy PDF report
+    router.get('/monthly-occupancy-pdf', [ReportsController, 'generateMonthlyOccupancyPdf'])
   }).prefix('/statistics')
   
 }).prefix('/api/reports').use(middleware.auth())

@@ -67,6 +67,54 @@ export default class PdfGenerationService {
   }
 
   /**
+   * Generate PDF from HTML content
+   */
+  static async generatePdfFromHtml(
+    htmlContent: string,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    try {
+      // Default PDF options
+      const defaultOptions = {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
+        },
+        displayHeaderFooter: false,
+        printBackground: true,
+        ...options
+      }
+
+      // PDF generation options for html-pdf-node
+      const pdfOptions = {
+        format: defaultOptions.format,
+        orientation: defaultOptions.orientation,
+        border: {
+          top: defaultOptions.margin.top,
+          right: defaultOptions.margin.right,
+          bottom: defaultOptions.margin.bottom,
+          left: defaultOptions.margin.left
+        },
+        type: 'pdf',
+        quality: '75',
+        renderDelay: 500,
+        zoomFactor: 1
+      }
+
+      const file = { content: htmlContent }
+      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      
+      return pdfBuffer
+    } catch (error) {
+      throw new Error(`Failed to generate PDF from HTML: ${error.message}`)
+    }
+  }
+
+  /**
    * Generate PDF from booking confirmation data
    */
   static async generateBookingPdf(

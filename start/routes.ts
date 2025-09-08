@@ -48,6 +48,8 @@ import IncidentalInvoiceController from '#controllers/incidental_invoice_control
 import CityLedgerController from '#controllers/city_ledger_controller'
 import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
+import ChannexMigrationController from '#controllers/channex_migration_controller'
+import AuditTrailController from '../app/controllers/audit_trail_controller.js'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -117,6 +119,8 @@ const incidentalInvoiceController = new IncidentalInvoiceController()
 const cityLedgerController = new CityLedgerController()
 const companyFolioController = new CompanyFolioController()
 const nightAuditController = new NightAuditController()
+const channexMigrationController = new ChannexMigrationController()
+const auditTrailController = new AuditTrailController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -649,8 +653,8 @@ router
         router.get('/', rateTypesController.index.bind(rateTypesController)) // Get all rate types with filtering by hotel
         router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
-        router.get('/hotel/:id', rateTypesController.showByHotel.bind(rateTypesController)) 
-        router.get('/hotel/:hotelId/stay_view', rateTypesController.getRatesByHotelId.bind(rateTypesController)) 
+        router.get('/hotel/:id', rateTypesController.showByHotel.bind(rateTypesController))
+        router.get('/hotel/:hotelId/stay_view', rateTypesController.getRatesByHotelId.bind(rateTypesController))
         // Get rate type details for a specific hotel
         router.get('/roomType/:id', rateTypesController.getByRoomType.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
@@ -702,6 +706,7 @@ router
         // Room analytics and reports
         router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
+        router.get('/available-by-room-type/:roomTypeId', roomsController.getAvailableRoomsByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
       })
       .prefix('configuration/rooms')
 
@@ -885,9 +890,10 @@ router
         router.post('/:reservationId/no-show', [ReservationsController, 'markNoShow'])
         router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
+        router.post('/:reservationId/assign-room', [ReservationsController, 'assignRoom'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
-        
+
         // Get released reservations by date for a hotel
         router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])
 
@@ -1201,7 +1207,7 @@ router
             router.get('/:id', incidentalInvoiceController.show.bind(incidentalInvoiceController)) // Get specific incidental invoice details
             router.get('/invoice/:invoiceNumber', incidentalInvoiceController.getByInvoiceNumber.bind(incidentalInvoiceController)) // Get invoice by invoice number
             router.post('/:id/void', incidentalInvoiceController.void.bind(incidentalInvoiceController)) // Void an incidental invoice
-            
+
             // PDF generation routes
             router.get('/:id/pdf/download', incidentalInvoiceController.downloadPdf.bind(incidentalInvoiceController)) // Download invoice PDF
             router.get('/:id/pdf/preview', incidentalInvoiceController.previewPdf.bind(incidentalInvoiceController)) // Preview invoice PDF
@@ -1222,12 +1228,12 @@ router
         router
           .group(() => {
             router.get('/:companyId/:hotelId', companyFolioController.show.bind(companyFolioController)) // Get company folio with transactions
-    router.post('/create', companyFolioController.createOrGet.bind(companyFolioController)) // Create or get company folio
-    router.post('/payment', companyFolioController.postPayment.bind(companyFolioController)) // Post payment to company folio
-    router.post('/payment-with-assignment', companyFolioController.postPaymentWithAssignment.bind(companyFolioController)) // Post payment with automatic assignment
-    router.put('/assignment', companyFolioController.updateAssignment.bind(companyFolioController)) // Update payment assignment
-    router.put('/bulk-assignment', companyFolioController.updateBulkAssignments.bind(companyFolioController)) // Update bulk payment assignments
-    router.get('/:companyId/:hotelId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
+            router.post('/create', companyFolioController.createOrGet.bind(companyFolioController)) // Create or get company folio
+            router.post('/payment', companyFolioController.postPayment.bind(companyFolioController)) // Post payment to company folio
+            router.post('/payment-with-assignment', companyFolioController.postPaymentWithAssignment.bind(companyFolioController)) // Post payment with automatic assignment
+            router.put('/assignment', companyFolioController.updateAssignment.bind(companyFolioController)) // Update payment assignment
+            router.put('/bulk-assignment', companyFolioController.updateBulkAssignments.bind(companyFolioController)) // Update bulk payment assignments
+            router.get('/:companyId/:hotelId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
           })
           .prefix('company_folios')
       })
@@ -1290,32 +1296,67 @@ router
       .group(() => {
         // Calculate and store night audit data
         router.post('/', nightAuditController.calculateNightAudit.bind(nightAuditController)) // Calculate night audit for specific date
-        
+
         // Get night audit details and history
         router.get('/:hotelId/:auditDate', nightAuditController.getNightAuditDetails.bind(nightAuditController)) // Get night audit details for specific date
         router.get('/:hotelId/history', nightAuditController.getNightAuditHistory.bind(nightAuditController)) // Get night audit history for date range
         router.get('/:hotelId/summary', nightAuditController.getNightAuditSummary.bind(nightAuditController)) // Get night audit summary statistics
-        
+
         // Get room status for night audit
         router.get('/:hotelId/:auditDate/room-status', nightAuditController.getNightAuditRoomStatus.bind(nightAuditController)) // Get room status and required actions for night audit
-        
+
         // Get unsettled folios for night audit
         router.get('/:hotelId/:auditDate/unsettled-folios', nightAuditController.getUnsettledFolios.bind(nightAuditController)) // Get unsettled folios requiring attention
-        
+
         // Get pending nightly charges
         router.get('/:hotelId/:auditDate/nightly-charges', nightAuditController.getPendingNightlyCharges.bind(nightAuditController)) // Get unbilled charges for occupied rooms
-        
+
         // Get pending reservations
         router.get('/:hotelId/:auditDate/pending-reservations', nightAuditController.getPendingReservations.bind(nightAuditController)) // Get reservations pending check-in for audit date
-        
+
         // Post nightly charges
         router.post('/:hotelId/:auditDate/nightly-charges', nightAuditController.postNightlyCharges.bind(nightAuditController)) // Post nightly charges to occupied rooms
-        
+
         // Delete night audit record
         router.delete('/:hotelId/:auditDate', nightAuditController.deleteNightAudit.bind(nightAuditController)) // Delete night audit record
       })
 
+<<<<<<< HEAD
       //report routes
+=======
+    // Channex Integration Routes
+    // Hotel data migration to Channex.io system
+    router
+      .group(() => {
+        // Migrate complete hotel data to Channex
+        router.post('/migrate/:hotelId', channexMigrationController.migrateHotel.bind(channexMigrationController)) // Migrate hotel data to Channex
+
+        // Get migration status
+        router.get('/migration-status/:hotelId', channexMigrationController.getMigrationStatus.bind(channexMigrationController)) // Get migration status for hotel
+
+        // IFrame Integration Routes
+        // Generate one-time access token for Channex iframe
+        router.post('/iframe/token', channexMigrationController.generateIframeToken.bind(channexMigrationController)) // Generate one-time token for iframe authentication
+
+        // Generate iframe URL for channel mapping
+        router.post('/iframe/url', channexMigrationController.generateIframeUrl.bind(channexMigrationController)) // Generate iframe URL with configuration parameters
+
+        // Get hotel Channex information for iframe
+        router.get('/iframe/hotel/:hotelId', channexMigrationController.getHotelChannexInfo.bind(channexMigrationController)) // Get Channex property info for hotel
+
+        // Booking Revisions Feed
+        router.get('/booking-revisions/feed', channexMigrationController.getBookingRevisionsFeed.bind(channexMigrationController)) // Fetch booking revisions from Channex and create reservations
+      })
+      .prefix('channex');
+
+    /// audit trails
+    router
+      .group(() => {
+        // Import reports routes
+        router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
+      }).prefix('audit-trail')
+
+>>>>>>> 55f8e8802e9c7cf6f0300dd33ffdd4528d8ce7bf
   })
   .prefix('/api')
   .use(
