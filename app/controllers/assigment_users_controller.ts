@@ -169,4 +169,276 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
       })
     }
   }
+
+  /**
+   * Update User
+   */
+
+public async updateUser(ctx: HttpContext) {
+  const { request, response, auth, params } = ctx
+  const data = request.body()
+  const userId = params.id
+
+  try {
+    // Vérifier si l'utilisateur existe
+    const user = await User.find(userId)
+    if (!user) {
+      return response.notFound({ message: 'User not found' })
+    }
+
+    const hotelId = Number.parseInt(data.hotel_id || data.service_id, 10)
+    if (Number.isNaN(hotelId)) {
+      return response.badRequest({ message: 'Invalid hotelId/serviceId' })
+    }
+
+    // Mettre à jour les données utilisateur
+    await user.merge({
+      firstName: data.first_name || user.firstName,
+      lastName: data.last_name || user.lastName,
+      email: data.email || user.email,
+      phoneNumber: data.phone_number || user.phoneNumber,
+      roleId: data.role_id || user.roleId,
+      address: data.address || data.address_line || user.address,
+      nationality: data.nationality || user.nationality,
+      lastModifiedBy: auth.user?.id || null,
+      dateOfBirth: data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : user.dateOfBirth,
+      placeOfBirth: data.place_of_birth || user.placeOfBirth,
+      gender: data.gender || user.gender,
+      city: data.city || user.city,
+      country: data.country || user.country,
+      emergencyPhone: data.emergency_phone || user.emergencyPhone,
+      personalEmail: data.personal_email || user.personalEmail,
+      socialSecurityNumber: data.social_security_number || user.socialSecurityNumber,
+      nationalIdNumber: data.national_id_number || user.nationalIdNumber,
+      hireDate: data.hire_date ? DateTime.fromISO(data.hire_date) : user.hireDate,
+      contractType: data.contract_type || user.contractType,
+      contractEndDate: data.contract_end_date ? DateTime.fromISO(data.contract_end_date) : user.contractEndDate,
+      dataProcessingConsent: data.data_processing_consent !== undefined ? data.data_processing_consent : user.dataProcessingConsent,
+      consentDate: data.consent_date ? DateTime.fromISO(data.consent_date) : user.consentDate,
+
+      // Champs d'adresse additionnels
+      // stateProvince: data.state_province || user.stateProvince,
+      // postalCode: data.postal_code || user.postalCode,
+      // companyName: data.company_name || user.companyName,
+      // fax: data.fax || user.fax,
+      // registrationNumber: data.registration_number || user.registrationNumber,
+
+      // Permissions - convertir en JSON si nécessaire
+      permisDiscounts: data.discounts || data.perms_discounts
+        ? JSON.stringify(data.discounts || data.perms_discounts)
+        : user.permisDiscounts,
+      permisPrivileges: data.privileges || data.permis_privileges
+        ? JSON.stringify(data.privileges || data.permis_privileges)
+        : user.permisPrivileges,
+      permisReports: data.reports || data.permis_reports
+        ? JSON.stringify(data.reports || data.permis_reports)
+        : user.permisReports,
+    })
+
+    await user.save()
+
+    // Mettre à jour l'assignation si nécessaire
+    if (data.department_id || data.role_id) {
+      const assignment = await ServiceUserAssignment.query()
+        .where('user_id', user.id)
+        .andWhere('hotel_id', hotelId)
+        .first()
+
+      if (assignment) {
+        await assignment.merge({
+          department_id: data.department_id ,
+          role_id: data.role_id ,
+        })
+        await assignment.save()
+      } else {
+        // Créer une assignation si elle n'existe pas
+        const newAssignment = new ServiceUserAssignment()
+        newAssignment.user_id = user.id
+        newAssignment.hotel_id = hotelId
+        newAssignment.role_id = data.role_id || user.roleId
+        newAssignment.department_id = data.department_id
+        newAssignment.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
+        await newAssignment.save()
+      }
+    }
+
+    // Recharger l'utilisateur avec ses relations
+    await user.load('role')
+    await user.load('serviceAssignments', (query) => {
+      query.preload('department')
+    })
+
+    return response.ok({
+      message: 'User updated successfully',
+      user,
+    })
+
+  } catch (error) {
+    console.error('Error updating user:', error)
+    return response.status(500).json({
+      message: 'Error updating user',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * delete user
+ */
+public async deleteUser(ctx: HttpContext) {
+  const { response, params } = ctx
+  const userId = params.id
+
+  try {
+    // Vérifier si l'utilisateur existe
+    const user = await User.find(userId)
+    if (!user) {
+      return response.notFound({ message: 'User not found' })
+    }
+
+    // Option 1: Suppression logique (recommandée)
+    // Marquer l'utilisateur comme inactif au lieu de le supprimer complètement
+    // const softDelete = request.input('soft_delete', true)
+
+    // if (softDelete) {
+    //   await user.merge({
+    //     status: 'inactive',
+    //     isActive: false,
+    //     lastModifiedBy: ctx.auth.user?.id || null,
+    //   })
+    //   await user.save()
+
+    //   // Optionnellement, désactiver aussi les assignations
+    //   await ServiceUserAssignment.query()
+    //     .where('user_id', user.id)
+    //     .update({
+    //       updated_at: DateTime.now(),
+    //     })
+
+    //   return response.ok({
+    //     message: 'User deactivated successfully',
+    //     user: {
+    //       id: user.id,
+    //       status: user.status,
+    //       is_active: user.isActive
+    //     }
+    //   })
+    // }
+      // D'abord, supprimer toutes les assignations liées
+      await ServiceUserAssignment.query()
+        .where('user_id', user.id)
+        .delete()
+
+      // Ensuite, supprimer l'utilisateur
+      await user.delete()
+
+      return response.ok({
+        message: 'User and related assignments deleted successfully',
+        deletedUserId: userId
+      })
+
+
+  } catch (error) {
+    console.error('Error deleting user:', error)
+
+    // Gestion des erreurs de contraintes de clé étrangère
+    if (error.code === '23503' || error.message.includes('foreign key constraint')) {
+      return response.status(409).json({
+        message: 'Cannot delete user due to existing references. Consider deactivating instead.',
+        error: 'Foreign key constraint violation'
+      })
+    }
+
+    return response.status(500).json({
+      message: 'Error deleting user',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Fonction alternative pour supprimer un utilisateur d'un service spécifique
+ * sans supprimer complètement l'utilisateur du système
+ */
+public async removeUserFromService(ctx: HttpContext) {
+  const { response, params } = ctx
+  const userId = params.userId
+  const hotelId = Number.parseInt(params.hotelId, 10)
+
+  try {
+    if (Number.isNaN(hotelId)) {
+      return response.badRequest({ message: 'Invalid hotelId' })
+    }
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.find(userId)
+    if (!user) {
+      return response.notFound({ message: 'User not found' })
+    }
+
+    // Supprimer uniquement l'assignation au service
+    const deletedAssignments = await ServiceUserAssignment.query()
+      .where('user_id', userId)
+      .andWhere('hotel_id', hotelId)
+      .delete()
+
+    // if (deletedAssignments === 0) {
+    //   return response.notFound({
+    //     message: 'User assignment to this service not found'
+    //   })
+    // }
+
+    return response.ok({
+      message: 'User removed from service successfully',
+      userId,
+      hotelId,
+      removedAssignments: deletedAssignments
+    })
+
+  } catch (error) {
+    console.error('Error removing user from service:', error)
+    return response.status(500).json({
+      message: 'Error removing user from service',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Fonction pour restaurer un utilisateur désactivé
+ */
+public async restoreUser(ctx: HttpContext) {
+  const { response, params, auth } = ctx
+  const userId = params.id
+
+  try {
+    const user = await User.find(userId)
+    if (!user) {
+      return response.notFound({ message: 'User not found' })
+    }
+
+    await user.merge({
+      status: 'active',
+      isActive: true,
+      lastModifiedBy: auth.user?.id || null,
+    })
+    await user.save()
+
+    return response.ok({
+      message: 'User restored successfully',
+      user: {
+        id: user.id,
+        status: user.status,
+        is_active: user.isActive
+      }
+    })
+
+  } catch (error) {
+    console.error('Error restoring user:', error)
+    return response.status(500).json({
+      message: 'Error restoring user',
+      error: error.message,
+    })
+  }
+}
 }

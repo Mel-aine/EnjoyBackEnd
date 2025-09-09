@@ -276,7 +276,7 @@ router
     router.group(() => {
       router.get('/users', usersController.list.bind(usersController))
       router.post('/customers', usersController.storeClient.bind(usersController))
-      router.get('/users/:id', usersController.show.bind(usersController))
+      router.get('/users/:id', usersController.getUserById.bind(usersController))
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.put('/update_customer/:id', usersController.update.bind(usersController))
       router.get('/users/:id/details', usersController.getUserDetails.bind(usersController))
@@ -334,7 +334,6 @@ router
         '/roles_permissions/:serviceId',
         rolesController.getRolesByServiceWithPermissions.bind(rolesController)
       )
-      router.get('/roles/:serviceId', rolesController.GetByServiceId.bind(rolesController))
       router.get(
         '/hotel/:hotelId/roles',
         rolesController.getRolesByHotel.bind(rolesController)
@@ -461,6 +460,8 @@ router
 
     router.group(() => {
       router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
+      router.put('/assign-user/:id', assigmentUsersController.updateUser.bind(assigmentUsersController))
+      router.delete('/assign-user/:id', assigmentUsersController.deleteUser.bind(assigmentUsersController))
       router.get(
         '/assigmentUser/:serviceId',
         assigmentUsersController.showByServiceId.bind(assigmentUsersController)

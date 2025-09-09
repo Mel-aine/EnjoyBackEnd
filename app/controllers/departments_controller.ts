@@ -87,12 +87,13 @@ export default class DepartmentsController {
 
       // Check if department name already exists in the service
       const existingDepartment = await Department.query()
-        .where('name', payload.name)
+        .whereRaw('LOWER(name) = ?', [payload.name.toLowerCase()])
         .where('hotel_id', payload.hotel_id)
         .first()
 
       if (existingDepartment) {
         return response.conflict({
+           code : 'DEPARTMENT_ALREADY_EXISTS_NAME',
           message: 'A department with this name already exists in this service'
         })
       }
@@ -169,75 +170,78 @@ export default class DepartmentsController {
   /**
    * Update a department
    */
-  public async update({ params, request, response, auth }: HttpContext) {
-    const {id } = params
+public async update({ params, request, response, auth }: HttpContext) {
+  const { id } = params
 
-    try {
-      const payload = await request.validateUsing(updateDepartmentValidator)
-      const user = auth.user!
+  try {
+    const payload = await request.validateUsing(updateDepartmentValidator)
+    const user = auth.user!
 
-      const department = await Department.query()
-        .where('id', id)
-        .firstOrFail()
+    const department = await Department.query()
+      .where('id', id)
+      .firstOrFail()
 
-      // Check if new name already exists (excluding current department)
-      if (payload.name) {
-        const existingDepartment = await Department.query()
-          .where('name', payload.name)
-          .whereNot('id', id)
-          .first()
+    // Vérifier si un autre département avec le même nom existe (insensible à la casse)
+    if (payload.name) {
+      const existingDepartment = await Department.query()
+        .whereRaw('LOWER(name) = ?', [payload.name.toLowerCase()])
+        .where('hotel_id', department.hotel_id)
+        .where('id', '!=', id)
+        .first()
 
-        if (existingDepartment) {
-          return response.conflict({
-            message: 'A department with this name already exists in this service'
-          })
-        }
-      }
-
-      // Store old values for logging
-      const oldValues = {
-        name: department.name,
-        description: department.description,
-        responsibleUserId: department.responsible_user_id
-      }
-
-      // Update department
-      department.merge({
-        ...payload,
-        lastModifiedBy: user.id
-      })
-
-      await department.save()
-      await department.load('responsibleUser')
-
-      // Log activity
-      const changes = this.getChangedFields(oldValues, payload)
-      if (changes.length > 0) {
-        await ActivityLog.create({
-          userId: user.id,
-          entityType: 'Department',
-          entityId: department.id,
-          action: 'UPDATE',
-          description: `Updated department: ${department.name}`,
-          meta: { changes, oldValues, newValues: payload }
+      if (existingDepartment) {
+        return response.conflict({
+          code: 'DEPARTMENT_ALREADY_EXISTS',
+          message: `A department with this name already exists in this service`
         })
       }
+    }
 
-      return response.ok({
-        message: 'Department updated successfully',
-        data: department.serialize()
-      })
-    } catch (error) {
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({ message: 'Department not found' })
-      }
-      console.error('Error updating department:', error)
-      return response.internalServerError({
-        message: 'Failed to update department',
-        error: error.message,
+    // Stocker les anciennes valeurs pour le logging
+    const oldValues = {
+      name: department.name,
+      description: department.description,
+      responsibleUserId: department.responsible_user_id
+    }
+
+    // Mettre à jour le département
+    department.merge({
+      ...payload,
+      lastModifiedBy: user.id
+    })
+
+    await department.save()
+    await department.load('responsibleUser')
+
+    // Log activity
+    const changes = this.getChangedFields(oldValues, payload)
+    if (changes.length > 0) {
+      await ActivityLog.create({
+        userId: user.id,
+        entityType: 'Department',
+        entityId: department.id,
+        action: 'UPDATE',
+        description: `Updated department: ${department.name}`,
+        meta: { changes, oldValues, newValues: payload }
       })
     }
+
+    return response.ok({
+      message: 'Department updated successfully',
+      data: department.serialize()
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Department not found' })
+    }
+    console.error('Error updating department:', error)
+    return response.internalServerError({
+      message: 'Failed to update department',
+      error: error.message,
+    })
   }
+}
+
 
   /**
    * Delete

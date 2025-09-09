@@ -26,6 +26,7 @@ export const updateDepartmentValidator = vine.compile(
   vine.object({
     name: vine.string().trim().minLength(2).maxLength(100).optional(),
     description: vine.string().trim().maxLength(500).optional(),
+     hotel_id: vine.number().positive(),
     responsible_user_id: vine.number().positive().exists(async (db, value) => {
       const user = await db.from('users').where('id', value).first()
       return !!user
