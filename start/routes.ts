@@ -49,6 +49,7 @@ import CityLedgerController from '#controllers/city_ledger_controller'
 import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
+import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '../app/controllers/audit_trail_controller.js'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
@@ -120,6 +121,7 @@ const cityLedgerController = new CityLedgerController()
 const companyFolioController = new CompanyFolioController()
 const nightAuditController = new NightAuditController()
 const channexMigrationController = new ChannexMigrationController()
+const configurationController = new ConfigurationController()
 const auditTrailController = new AuditTrailController()
 
 router.get('/swagger', async () => {
@@ -274,7 +276,7 @@ router
     router.group(() => {
       router.get('/users', usersController.list.bind(usersController))
       router.post('/customers', usersController.storeClient.bind(usersController))
-      router.get('/users/:id', usersController.show.bind(usersController))
+      router.get('/users/:id', usersController.getUserById.bind(usersController))
       router.put('/users_update/:id', usersController.updateUserWithService.bind(usersController))
       router.put('/update_customer/:id', usersController.update.bind(usersController))
       router.get('/users/:id/details', usersController.getUserDetails.bind(usersController))
@@ -332,10 +334,9 @@ router
         '/roles_permissions/:serviceId',
         rolesController.getRolesByServiceWithPermissions.bind(rolesController)
       )
-      router.get('/roles/:serviceId', rolesController.GetByServiceId.bind(rolesController))
       router.get(
-        '/services/:serviceId/roles',
-        rolesController.getRolesByService.bind(rolesController)
+        '/hotel/:hotelId/roles',
+        rolesController.getRolesByHotel.bind(rolesController)
       )
       router.post('/roles', rolesController.store.bind(rolesController))
       router.put('/roles/:id', rolesController.update.bind(rolesController))
@@ -378,12 +379,12 @@ router
 
     router.group(() => {
       router.get(
-        '/department/:serviceId',
-        departmentsController.GetByServiceId.bind(departmentsController)
+        '/department',
+        departmentsController.index.bind(departmentsController)
       )
       router.post('/department', departmentsController.store.bind(departmentsController))
       router.put('/department/:id', departmentsController.update.bind(departmentsController))
-      router.delete('/department/:id', departmentsController.destroy.bind(departmentsController))
+       router.delete('/department/:id', departmentsController.destroy.bind(departmentsController))
     })
 
     router.group(() => {
@@ -459,12 +460,14 @@ router
 
     router.group(() => {
       router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
+      router.put('/assign-user/:id', assigmentUsersController.updateUser.bind(assigmentUsersController))
+      router.delete('/assign-user/:id', assigmentUsersController.deleteUser.bind(assigmentUsersController))
       router.get(
         '/assigmentUser/:serviceId',
         assigmentUsersController.showByServiceId.bind(assigmentUsersController)
       )
       router.get(
-        '/services/:serviceId/employees',
+        '/hotel/:hotelId/employees',
         assigmentUsersController.getEmployeesForService.bind(assigmentUsersController)
       )
     })
@@ -903,6 +906,9 @@ router
     // Configuration routes
     router
       .group(() => {
+        // Configuration data endpoint
+        router.get('/permissions', configurationController.getConfiguration.bind(configurationController)) // Get configuration data (privileges, reports, discounts)
+
         // Amenities routes
         router
           .group(() => {

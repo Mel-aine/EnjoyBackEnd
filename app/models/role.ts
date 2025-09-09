@@ -44,7 +44,7 @@ export default class Role extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
 
-  @hasMany(() => User, { foreignKey: 'role_id' })
+  @hasMany(() => User, { foreignKey: 'roleId' })
   declare users: HasMany<typeof User>
 
   @hasMany(() => RolePermission, {

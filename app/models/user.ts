@@ -132,6 +132,15 @@ export default class User extends AuthFinder(BaseModel) {
   @column({ columnName: 'last_modified_by' })
   declare lastModifiedBy: number | null
 
+  @column({ columnName: 'permis_discounts' })
+  declare permisDiscounts: string | null
+
+  @column({ columnName: 'permis_privileges' })
+  declare permisPrivileges: string | null
+
+  @column({ columnName: 'permis_reports' })
+  declare permisReports: string | null
+
   @column.dateTime({ autoCreate: true, columnName: 'created_at' })
   declare createdAt: DateTime
 

@@ -17,13 +17,12 @@ export default class ServiceUserAssignment extends BaseModel {
   declare hotel_id: number
 
   @column()
-  declare role: string
+  declare role_id: number
 
   @belongsTo(() => Role, {
-    foreignKey: 'role',
-    localKey: 'roleName',
+    foreignKey: 'role_id'
   })
-  declare roleModel: BelongsTo<typeof Role>
+  declare role: BelongsTo<typeof Role>
 
   @column()
   public department_id?: number

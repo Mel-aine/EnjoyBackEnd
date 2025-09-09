@@ -72,33 +72,52 @@ public async signin(ctx: HttpContext) {
   const { request, response } = ctx
   const { email } = request.only(['email', 'password'])
 
+  console.log('📩 Requête de connexion reçue:', { email })
+
   try {
     const user = await User.query().where('email', email).preload('role').firstOrFail()
+    console.log('✅ Utilisateur trouvé:', user.id, user.email)
 
-    const passwordValid = true
+    const passwordValid = true // ⚠️ à remplacer par une vraie vérification
+    console.log('🔑 Vérification mot de passe:', passwordValid)
+
     if (!passwordValid) {
+      console.warn('❌ Mot de passe invalide pour:', email)
       return response.unauthorized({ message: 'Invalid credentials' })
     }
 
     const token = await User.accessTokens.create(user, ['*'], { name: email })
+    console.log('🪪 Token généré:', token)
 
     const assignments = await user
       .related('serviceAssignments')
       .query()
-      .preload('roleModel')
+      .preload('role')
       .preload('hotel')
+      for (const assignment of assignments) {
+  console.log('➡️ Assignment details:', assignment.toJSON())
+}
+
+
+    console.log('📌 Assignations récupérées:', assignments.length)
 
     const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
       const hotel = assignment.hotel
-      const role = assignment.roleModel
+      const role = assignment.role
+      console.log('➡️ Traitement assignment:', { hotel: hotel?.id, role: role?.id })
 
-      if (!hotel || !role) return null
+      if (!hotel || !role) {
+        console.warn('⚠️ Assignment invalide (hotel ou role manquant)')
+        return null
+      }
 
       const rolePermissions = await RolePermission
         .query()
         .where('role_id', role.id)
         .andWhere('hotel_id', hotel.id)
         .preload('permission')
+
+      console.log(`🔒 Permissions trouvées pour role ${role.roleName} à l’hôtel ${hotel.hotelName}:`, rolePermissions.length)
 
       const permissions = rolePermissions.map((rp) => ({
         id: rp.permission.id,
@@ -121,30 +140,40 @@ public async signin(ctx: HttpContext) {
     }))
 
     const filteredPermissions = detailedPermissions.filter((p) => p !== null)
+    console.log('✅ Permissions détaillées filtrées:', filteredPermissions.length)
+
     const userServices = assignments
       .map((assignment) => assignment.hotel)
       .filter((service) => service !== null)
 
-    // 🔹 Récupérer uniquement les IDs des hôtels liés à l'utilisateur
-    const hotelIds = userServices.map(h => h.id)
+    console.log('🏨 Services utilisateurs:', userServices.map(s => s.id))
 
-    // 🔹 Récupération filtrée
+    const hotelIds = userServices.map(h => h.id)
+    console.log('📊 IDs des hôtels liés:', hotelIds)
+
     const bookingSources = await BookingSource.query()
       .where('isActive', true)
-      .whereIn('id', hotelIds) // si BookingSource est lié à hotelId (à adapter selon ton modèle)
+      .whereIn('id', hotelIds)
+
+    console.log('📚 BookingSources:', bookingSources.length)
 
     const businessSources = await BusinessSource.query()
       .whereIn('hotel_id', hotelIds)
       .where('isDeleted', false)
 
+    console.log('💼 BusinessSources:', businessSources.length)
+
     const reservationTypes = await ReservationType.query()
       .whereIn('hotel_id', hotelIds)
       .where('isDeleted', false)
+
+    console.log('📑 ReservationTypes:', reservationTypes.length)
 
     const currencies = await Currency.query()
       .whereIn('hotel_id', hotelIds)
       .where('isDeleted', false)
 
+    console.log('💱 Currencies:', currencies.length)
 
     await LoggerService.log({
       actorId: user.id,
@@ -154,6 +183,7 @@ public async signin(ctx: HttpContext) {
       description: `Connexion de l'utilisateur ${email}`,
       ctx: ctx,
     })
+    console.log('📝 Log enregistré dans LoggerService')
 
     return response.ok({
       message: 'Login successful',
@@ -170,12 +200,14 @@ public async signin(ctx: HttpContext) {
     })
   } catch (error) {
     if (error.code === 'E_ROW_NOT_FOUND') {
+      console.warn('❌ Utilisateur introuvable:', email)
       return response.unauthorized({ message: 'Invalid credentials' })
     }
-    console.error(error)
+    console.error('🔥 Erreur lors de la connexion:', error)
     return response.badRequest({ message: 'Login failed' })
   }
 }
+
 
 
   public async update_user({ auth, request, response }: HttpContext) {

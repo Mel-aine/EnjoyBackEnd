@@ -1,0 +1,487 @@
+[
+    {
+        "category": "Configuration",
+        "items": [
+            {
+                "id": "access_to_configuration_panel",
+                "name": "Access to Configuration Panel"
+            },
+            {
+                "id": "access_to_change_language",
+                "name": "Access to change Language"
+            },
+            {
+                "id": "define_rates",
+                "name": "Define Rates"
+            },
+            {
+                "id": "access_to_change_exchange_rate",
+                "name": "Access to change Exchange Rate"
+            },
+            {
+                "id": "access_to_create_user",
+                "name": "Access to create User"
+            },
+            {
+                "id": "access_to_general_settings",
+                "name": "Access to General Settings"
+            },
+            {
+                "id": "access_to_web_settings",
+                "name": "Access to web settings"
+            },
+            {
+                "id": "global_access",
+                "name": "Global Access"
+            },
+            {
+                "id": "access_to_open_an_ip",
+                "name": "Access to open an IP"
+            },
+            {
+                "id": "access_to_reservation_panel",
+                "name": "Access To Reservation Panel"
+            },
+            {
+                "id": "access_to_edit_or_delete_user",
+                "name": "Access to Edit or Delete User"
+            },
+            {
+                "id": "access_to_create_user_role",
+                "name": "Access to create User Role"
+            },
+            {
+                "id": "access_to_edit_or_delete_user_role",
+                "name": "Access to Edit or Delete User Role"
+            },
+            {
+                "id": "access_to_mobile_reports_quick_updates",
+                "name": "Access To Mobile Reports - Quick Updates"
+            },
+            {
+                "id": "device_user_activity",
+                "name": "Device & User Activity"
+            },
+            {
+                "id": "access_to_export_functionality_in_centralized_guest_profile",
+                "name": "Access to Export Functionality in Centralized Guest Profile"
+            }
+        ]
+    },
+    {
+        "category": "Cashiering",
+        "items": [
+            {
+                "id": "open_folio",
+                "name": "Open Folio"
+            },
+            {
+                "id": "void_folio",
+                "name": "Void Folio"
+            },
+            {
+                "id": "close_folio",
+                "name": "Close Folio"
+            },
+            {
+                "id": "add_item_to_open_folio",
+                "name": "Add Item to open Folio"
+            },
+            {
+                "id": "add_item_to_close_folio",
+                "name": "Add item to close Folio"
+            },
+            {
+                "id": "add_item_on_audited_date",
+                "name": "Add item on Audited Date"
+            },
+            {
+                "id": "transfer_item_from_folio",
+                "name": "Transfer item From Folio"
+            },
+            {
+                "id": "void_item_on_open_date",
+                "name": "Void Item on Open date"
+            },
+            {
+                "id": "access_to_transfer_charges_to_city_ledger",
+                "name": "Access to transfer charges to city ledger"
+            },
+            {
+                "id": "creating_new_folio",
+                "name": "Creating new Folio"
+            },
+            {
+                "id": "edit_item_on_audited_date",
+                "name": "Edit item on audited date"
+            },
+            {
+                "id": "edit_item_on_open_date",
+                "name": "Edit item on open date"
+            },
+            {
+                "id": "void_item_on_audited_date",
+                "name": "Void item on audited date"
+            },
+            {
+                "id": "change_exchange_rate",
+                "name": "Change Exchange Rate"
+            },
+            {
+                "id": "access_to_expense_voucher",
+                "name": "Access to Expense Voucher"
+            },
+            {
+                "id": "cut_folio",
+                "name": "Cut Folio"
+            },
+            {
+                "id": "access_to_city_ledger_payment_feature",
+                "name": "Access to City Ledger Payment Feature"
+            },
+            {
+                "id": "remove_discount",
+                "name": "Remove discount"
+            }
+        ]
+    },
+    {
+        "category": "House Keeping",
+        "items": [
+            {
+                "id": "access_to_house_keeping",
+                "name": "Access to House Keeping"
+            },
+            {
+                "id": "access_to_assign_chamber_maid",
+                "name": "Access to Assign Chamber Maid"
+            },
+            {
+                "id": "access_to_change_house_keeping_status",
+                "name": "Access to change House Keeping Status"
+            },
+            {
+                "id": "access_to_add_work_order",
+                "name": "Access to Add Work Order"
+            },
+            {
+                "id": "access_to_change_house_keeping_clear_status",
+                "name": "Access to Change House Keeping Clear Status"
+            },
+            {
+                "id": "access_to_update_house_keeping_remarks",
+                "name": "Access to update House Keeping Remarks"
+            },
+            {
+                "id": "access_to_block",
+                "name": "Access to Block"
+            },
+            {
+                "id": "access_to_unblock",
+                "name": "Access to Unblock"
+            }
+        ]
+    },
+    {
+        "category": "Reservation",
+        "items": [
+            {
+                "id": "add_reservation",
+                "name": "Add Reservation"
+            },
+            {
+                "id": "edit_reservation",
+                "name": "Edit Reservation"
+            },
+            {
+                "id": "cancel_reservation",
+                "name": "Cancel Reservation"
+            },
+            {
+                "id": "mark_no_show",
+                "name": "Mark No Show"
+            },
+            {
+                "id": "release_reservation",
+                "name": "Release Reservation"
+            },
+            {
+                "id": "void_reservation",
+                "name": "Void Reservation"
+            },
+            {
+                "id": "void_ota_booking_restricted",
+                "name": "Void OTA Booking Restricted"
+            },
+            {
+                "id": "modify_ota_booking_restriction_amend_stay",
+                "name": "Modify OTA Booking Restriction [Amend stay]"
+            },
+            {
+                "id": "cancel_ota_booking",
+                "name": "Cancel OTA Booking"
+            }
+        ]
+    },
+    {
+        "category": "Front Office",
+        "items": [
+            {
+                "id": "check_in_guest",
+                "name": "Check in Guest"
+            },
+            {
+                "id": "walk_in_guest",
+                "name": "Walk In Guest"
+            },
+            {
+                "id": "change_room_rate_before_check_in",
+                "name": "Change Room Rate before Check In"
+            },
+            {
+                "id": "change_room_rate_after_check_in",
+                "name": "Change Room Rate after Check In"
+            },
+            {
+                "id": "change_room_rate_for_audited_date",
+                "name": "Change Room Rate for Audited date"
+            },
+            {
+                "id": "access_to_move_room",
+                "name": "Access to Move Room"
+            },
+            {
+                "id": "access_to_add_inclusion",
+                "name": "Access to add Inclusion"
+            },
+            {
+                "id": "access_to_edit_inclusion",
+                "name": "Access to edit Inclusion"
+            },
+            {
+                "id": "access_to_void_inclusion",
+                "name": "Access to void Inclusion"
+            },
+            {
+                "id": "change_guest_profile",
+                "name": "Change Guest Profile"
+            },
+            {
+                "id": "access_to_extend_guest_stay",
+                "name": "Access to extend guest stay"
+            },
+            {
+                "id": "access_to_shorten_guest_stay",
+                "name": "Access to shorten guest stay"
+            },
+            {
+                "id": "show_viewer_export_save_button_facility_during_print_invoice",
+                "name": "Show viewer Export (Save button) facility during Print Invoice"
+            },
+            {
+                "id": "access_to_check_in_guest_when_room_is_dirty",
+                "name": "Access to check in guest when room is dirty"
+            },
+            {
+                "id": "assign_room",
+                "name": "Assign Room"
+            },
+            {
+                "id": "unassign_room",
+                "name": "Unassign Room"
+            },
+            {
+                "id": "access_to_change_rate_type",
+                "name": "Access to change rate type"
+            },
+            {
+                "id": "access_to_change_pax",
+                "name": "Access to change pax"
+            },
+            {
+                "id": "edit_transaction_after_check_in",
+                "name": "Edit transaction after check in"
+            },
+            {
+                "id": "access_to_take_booking_with_blacklisted_guest_profile",
+                "name": "Access to take booking with blacklisted guest profile"
+            },
+            {
+                "id": "restrict_negative_manual_charges_posting",
+                "name": "Restrict negative manual charges posting"
+            },
+            {
+                "id": "access_to_change_arrival_date",
+                "name": "Access to change arrival date"
+            },
+            {
+                "id": "void_check_in",
+                "name": "Void check-in"
+            },
+            {
+                "id": "add_travel_agent",
+                "name": "Add Travel agent"
+            },
+            {
+                "id": "delete_travel_agent",
+                "name": "Delete Travel Agent"
+            },
+            {
+                "id": "consolidate_travel_agent",
+                "name": "Consolidate travel agent"
+            },
+            {
+                "id": "add_company",
+                "name": "Add Company"
+            },
+            {
+                "id": "delete_company",
+                "name": "Delete Company"
+            },
+            {
+                "id": "consolidate_company",
+                "name": "Consolidate Company"
+            },
+            {
+                "id": "access_to_night_audit",
+                "name": "Access to Night Audit"
+            },
+            {
+                "id": "access_to_override_stop_room_move",
+                "name": "Access to override stop room move"
+            },
+            {
+                "id": "access_to_insert_transaction",
+                "name": "Access to Insert Transaction"
+            },
+            {
+                "id": "add_expense_voucher_on_audited_date",
+                "name": "Add expense voucher on audited date"
+            },
+            {
+                "id": "add_pos_on_audited_date",
+                "name": "Add POS on audited date"
+            },
+            {
+                "id": "modified_expense_voucher_on_audited_date",
+                "name": "Modified expense voucher on audited date"
+            },
+            {
+                "id": "modified_pos_on_audited_date",
+                "name": "Modified POS on audited date"
+            },
+            {
+                "id": "edit_travel_agent",
+                "name": "Edit Travel agent"
+            },
+            {
+                "id": "deactivate_travel_agent",
+                "name": "Deactivate Travel agent"
+            },
+            {
+                "id": "access_to_guest_database",
+                "name": "Access to Guest Database"
+            },
+            {
+                "id": "exit_transaction_after_check_in",
+                "name": "Exit transaction after check-in"
+            },
+            {
+                "id": "access_to_allow_posting_after_checkout",
+                "name": "Access to Allow Posting after Checkout"
+            },
+            {
+                "id": "access_to_allow_room_charge_discount_after_checkout",
+                "name": "Access to Allow Room Charge Discount after Checkout"
+            },
+            {
+                "id": "access_to_allow_undo_check_in",
+                "name": "Access To Allow Undo Check In"
+            },
+            {
+                "id": "access_to_view_transaction_data_after_check_out",
+                "name": "Access To View Transaction Data After Check Out"
+            },
+            {
+                "id": "access_to_print_transaction_data_after_check_out",
+                "name": "Access To Print Transaction Data After Check Out"
+            },
+            {
+                "id": "access_to_change_pax_for_audited_date",
+                "name": "Access To Change Pax for Audited date"
+            },
+            {
+                "id": "access_to_change_rate_type_for_audited_date",
+                "name": "Access To Change Rate type for Audited Date"
+            },
+            {
+                "id": "reputation_management",
+                "name": "Reputation Management"
+            },
+            {
+                "id": "reputation_management_respond_to_review",
+                "name": "Reputation Management: Respond to Review"
+            },
+            {
+                "id": "reputation_management_publish_unpublish_review",
+                "name": "Reputation Management: Publish/Unpublish Review"
+            },
+            {
+                "id": "reputation_management_send_email",
+                "name": "Reputation Management: Send E-mail"
+            },
+            {
+                "id": "access_to_change_posted_restaurant_charges",
+                "name": "Access to change posted Restaurant Charges"
+            },
+            {
+                "id": "access_to_allow_refund_payments",
+                "name": "Access to Allow Refund Payments"
+            },
+            {
+                "id": "allow_selling_room_as_complimentary",
+                "name": "Allow selling Room as Complimentary"
+            },
+            {
+                "id": "allow_to_post_cityledger_transfer_over_credit_limit",
+                "name": "Allow to post Cityledger transfer over Credit Limit"
+            },
+            {
+                "id": "access_to_allow_undo_checkout",
+                "name": "Access To Allow Undo CheckOut"
+            },
+            {
+                "id": "access_to_void_room_posting",
+                "name": "Access to Void Room Posting"
+            },
+            {
+                "id": "allow_rate_beyond_threshold",
+                "name": "Allow Rate Beyond Threshold"
+            },
+            {
+                "id": "access_to_lost_and_found",
+                "name": "Access to Lost And Found"
+            },
+            {
+                "id": "edit_travel_agent_2",
+                "name": "Edit Travel Agent"
+            },
+            {
+                "id": "export_travel_agent",
+                "name": "Export Travel Agent"
+            },
+            {
+                "id": "deactivate_travel_agent_2",
+                "name": "Deactivate Travel Agent"
+            },
+            {
+                "id": "edit_company",
+                "name": "Edit Company"
+            },
+            {
+                "id": "export_company",
+                "name": "Export Company"
+            }
+        ]
+    }
+]

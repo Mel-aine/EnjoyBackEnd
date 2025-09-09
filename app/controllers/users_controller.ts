@@ -64,7 +64,10 @@ export default class UsersController extends CrudController<typeof User> {
         contract_type: user.contractType,
         contract_end_date: user.contractEndDate,
         data_processing_consent: user.dataProcessingConsent,
-        consent_date: user.consentDate
+        consent_date: user.consentDate,
+        permis_discounts: user.permisDiscounts ? JSON.parse(user.permisDiscounts) : [],
+        permis_privileges: user.permisPrivileges ? JSON.parse(user.permisPrivileges) : [],
+        permis_reports: user.permisReports ? JSON.parse(user.permisReports) : []
       }
 
       user.firstName = data.first_name
@@ -91,6 +94,11 @@ export default class UsersController extends CrudController<typeof User> {
         : null
       user.dataProcessingConsent = data.data_processing_consent
       user.consentDate = data.consent_date ? DateTime.fromISO(data.consent_date) : null
+
+      // Nouveaux champs de permissions
+      user.permisDiscounts = data.permis_discounts ? JSON.stringify(data.permis_discounts) : null
+      user.permisPrivileges = data.permis_privileges ? JSON.stringify(data.permis_privileges) : null
+      user.permisReports = data.permis_reports ? JSON.stringify(data.permis_reports) : null
 
       if (data.password) {
         user.password = data.password
@@ -143,6 +151,9 @@ export default class UsersController extends CrudController<typeof User> {
         contract_end_date: user.contractEndDate,
         data_processing_consent: user.dataProcessingConsent,
         consent_date: user.consentDate,
+        permis_discounts: data.permis_discounts || [],
+        permis_privileges: data.permis_privileges || [],
+        permis_reports: data.permis_reports || [],
       }
 
       const changes = LoggerService.extractChanges(oldData, newData)
@@ -364,22 +375,22 @@ export default class UsersController extends CrudController<typeof User> {
         .preload('hotel')
 
       // 3. Get all permissions for that user's role across all their assigned services.
-      const serviceIds = assignments.map((a) => a.hotel_id)
-      let permissions: Permission[] = []
+      // const serviceIds = assignments.map((a) => a.hotel_id)
+      // let permissions: Permission[] = []
 
-      if (user.roleId) {
-        permissions = await Permission.query().whereHas('rolePermissions', (rpQuery) => {
-          rpQuery.where('role_id', user.roleId).where((q) => {
-            // Permissions for assigned services OR global permissions
-            if (serviceIds.length > 0) {
-              q.whereIn('service_id', serviceIds).orWhereNull('service_id')
-            } else {
-              // If no assignments, only get global permissions
-              q.whereNull('service_id')
-            }
-          })
-        })
-      }
+      // if (user.roleId) {
+      //   permissions = await Permission.query().whereHas('rolePermissions', (rpQuery) => {
+      //     rpQuery.where('role_id', user.roleId).where((q) => {
+      //       // Permissions for assigned services OR global permissions
+      //       if (serviceIds.length > 0) {
+      //         q.whereIn('service_id', serviceIds).orWhereNull('service_id')
+      //       } else {
+      //         // If no assignments, only get global permissions
+      //         q.whereNull('service_id')
+      //       }
+      //     })
+      //   })
+      // }
       // Get activities
       const activityHistory = await ActivityLog.query()
         .where((query) => {
@@ -393,7 +404,9 @@ export default class UsersController extends CrudController<typeof User> {
       let responseData: any = {
         ...serializedUser,
         activityLogs: activityHistory.map((a) => a.serialize()),
-        permissions: permissions.map((p) => p.serialize()),
+        permis_discounts: user.permisDiscounts ? JSON.parse(user.permisDiscounts) : [],
+        permis_privileges: user.permisPrivileges ? JSON.parse(user.permisPrivileges) : [],
+        permis_reports: user.permisReports ? JSON.parse(user.permisReports) : [],
       }
 
       if (assignments && assignments.length > 0) {
@@ -449,7 +462,7 @@ export default class UsersController extends CrudController<typeof User> {
   public async getClientsByService({ params, response }: HttpContext) {
   try {
     const serviceId = parseInt(params.serviceId)
-    
+
     if (isNaN(serviceId)) {
       return response.badRequest({ message: 'Invalid serviceId' })
     }
@@ -488,6 +501,9 @@ public async storeClient({ request, auth, response }: HttpContext) {
       'special_preferences',
       'service_id',
       'date_of_birth',
+      'permis_discounts',
+      'permis_privileges',
+      'permis_reports',
     ])
 
     const { email, service_id } = data
@@ -513,6 +529,9 @@ public async storeClient({ request, auth, response }: HttpContext) {
       roleId: role.id,
       createdBy: currentUser.id,
       lastModifiedBy: currentUser.id,
+      permisDiscounts: data.permis_discounts ? JSON.stringify(data.permis_discounts) : null,
+      permisPrivileges: data.permis_privileges ? JSON.stringify(data.permis_privileges) : null,
+      permisReports: data.permis_reports ? JSON.stringify(data.permis_reports) : null,
     })
 
     return response.created(newUser)
@@ -523,6 +542,45 @@ public async storeClient({ request, auth, response }: HttpContext) {
     })
   }
 }
+
+/**
+ * getUser By Id
+ */
+public async getUserById({ params, response }: HttpContext) {
+    try {
+      const id = params.id
+
+      const users = await User.query()
+        .where('id', id)
+        .preload('role')
+        .preload('serviceAssignments', (query) => {
+          query.preload('department')
+        })
+        .preload('hotel')
+        .firstOrFail()
+
+      return response.ok({
+        success: true,
+        data: users,
+        message: 'user récupéré avec succès',
+      })
+    } catch (error) {
+      console.error('Error retrieving room block:', error)
+
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({
+          success: false,
+          message: 'user non trouvé',
+        })
+      }
+
+      return response.internalServerError({
+        success: false,
+        message: 'Erreur lors de la récupération du user',
+        error: error.message,
+      })
+    }
+  }
 
 
 
