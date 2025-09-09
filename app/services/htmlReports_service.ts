@@ -47,32 +47,33 @@ export class HtmlReportGenerator {
 
     // Générer les en-têtes du tableau
     const tableHeaders = allColumns.map(column => 
-      `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">${column.label}</th>`
+      `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">${column.label}</th>`
     ).join('')
 
     // Générer les lignes du tableau
-    const tableRows = data.map((item) => {
+    const tableRows = data.map((item, index) => {
       const roomInfo = `${item.roomNumber || 'N/A'} ${item.roomType ? `- ${item.roomType}` : ''}`
       const paxInfo = `${item.adults || 0}/${item.children || 0}`
       
       // Cellules de base
       const baseCells = [
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.reservationNumber || 'N/A'}</td>`,
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.guestName || 'N/A'}</td>`,
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${roomInfo}</td>`,
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.ratePerNight ? Number(item.ratePerNight).toFixed(2) : '0.00'}</td>`,
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.arrivalDate || 'N/A'}</td>`,
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.departureDate || 'N/A'}</td>`,
-        `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${paxInfo}</td>`
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.reservationNumber || 'N/A'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.guestName || 'N/A'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${roomInfo}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.ratePerNight ? Number(item.ratePerNight).toFixed(2) : '0.00'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.arrivalDate || 'N/A'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.departureDate || 'N/A'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${paxInfo}</td>`
       ]
 
       // Cellules supplémentaires basées sur la sélection
       const additionalCells = selectedAdditionalColumns.map(column => {
-        const value = item[column.key] || ''
-        return `<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${value}</td>`
+        const value = item[column.key] || '-'
+        return `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${value}</td>`
       })
 
-      return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">${[...baseCells, ...additionalCells].join('')}</tr>`
+      const rowClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'
+      return `<tr class="${rowClass} hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors cursor-pointer">${[...baseCells, ...additionalCells].join('')}</tr>`
     }).join('')
 
     // Formater les dates pour l'affichage des filtres
@@ -96,8 +97,8 @@ export class HtmlReportGenerator {
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             margin: 0; 
-            padding: 0; 
-            background-color: #f9fafb; 
+            padding: 20px; 
+            background-color: #f8fafc; 
             color: #1f2937; 
         }
         
@@ -105,33 +106,30 @@ export class HtmlReportGenerator {
             max-width: 100%; 
             margin: 0 auto; 
             background-color: white; 
-            border-radius: 0.5rem; 
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
         
         .dark .report-container {
             background-color: #1f2937;
-            border-color: #374151;
             color: #e5e7eb;
         }
         
         .report-header { 
-            padding: 1.5rem; 
-            border-bottom: 1px solid #e5e7eb; 
-            background-color: #f9fafb;
+            padding: 20px 24px; 
+            background-color: white;
         }
         
         .dark .report-header {
-            background-color: #374151;
-            border-color: #4b5563;
+            background-color: #1f2937;
         }
         
         .report-title { 
-            font-size: 1.5rem; 
+            font-size: 24px; 
             font-weight: 600; 
             color: #111827; 
-            margin-bottom: 0.5rem; 
+            margin-bottom: 8px; 
         }
         
         .dark .report-title {
@@ -139,7 +137,7 @@ export class HtmlReportGenerator {
         }
         
         .report-subtitle { 
-            font-size: 0.875rem; 
+            font-size: 14px; 
             color: #6b7280; 
         }
         
@@ -148,11 +146,11 @@ export class HtmlReportGenerator {
         }
         
         .filters-info { 
-            padding: 1rem 1.5rem; 
+            padding: 16px 24px; 
             background-color: #f8fafc; 
-            border-bottom: 1px solid #e5e7eb; 
-            font-size: 0.875rem; 
+            font-size: 14px; 
             color: #6b7280; 
+            border-top: 1px solid #e5e7eb;
         }
         
         .dark .filters-info {
@@ -162,20 +160,20 @@ export class HtmlReportGenerator {
         }
         
         .filters-info span { 
-            margin-right: 1rem; 
+            margin-right: 16px; 
         }
         
         .results-section { 
-            padding: 1.5rem; 
+            background-color: white;
+        }
+        
+        .dark .results-section {
+            background-color: #1f2937;
         }
         
         .results-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 1rem; 
-            padding-bottom: 1rem; 
-            border-bottom: 1px solid #e5e7eb; 
+            padding: 20px 24px;
+            border-top: 1px solid #e5e7eb;
         }
         
         .dark .results-header {
@@ -183,9 +181,10 @@ export class HtmlReportGenerator {
         }
         
         .results-title { 
-            font-size: 1.125rem; 
+            font-size: 18px; 
             font-weight: 600; 
             color: #111827; 
+            margin: 0;
         }
         
         .dark .results-title {
@@ -193,63 +192,70 @@ export class HtmlReportGenerator {
         }
         
         .results-meta { 
-            font-size: 0.875rem; 
+            font-size: 12px; 
             color: #6b7280; 
+            margin-top: 4px;
         }
         
         .dark .results-meta {
             color: #9ca3af;
         }
         
+        .table-container {
+            background-color: white;
+        }
+        
+        .dark .table-container {
+            background-color: #1f2937;
+        }
+        
         .results-table { 
             width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 1rem; 
-            font-size: 0.875rem; 
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px; 
         }
         
         .results-table th { 
             background-color: #f9fafb; 
-            padding: 0.75rem 1.5rem; 
+            padding: 12px 16px; 
             text-align: left; 
             font-weight: 500; 
-            color: #374151; 
-            border-bottom: 1px solid #e5e7eb; 
-            font-size: 0.75rem; 
+            color: #6b7280; 
+            font-size: 12px; 
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
         }
         
         .dark .results-table th {
             background-color: #374151;
-            color: #d1d5db;
-            border-color: #4b5563;
+            color: #9ca3af;
         }
         
         .results-table td { 
-            padding: 1rem 1.5rem; 
-            border-bottom: 1px solid #e5e7eb; 
-            font-size: 0.875rem; 
+            padding: 16px; 
+            font-size: 14px; 
         }
         
         .dark .results-table td {
-            border-color: #4b5563;
             color: #e5e7eb;
         }
         
         .results-table tr:hover { 
-            background-color: #f8fafc; 
+            background-color: #f0f9ff !important; 
         }
         
         .dark .results-table tr:hover {
-            background-color: #374151;
+            background-color: #374151 !important;
         }
         
         .results-footer { 
-            padding: 1rem; 
+            padding: 20px 24px; 
             background-color: #f9fafb; 
             border-top: 1px solid #e5e7eb; 
-            font-size: 0.875rem; 
+            font-size: 14px; 
             font-weight: 500; 
             color: #374151; 
         }
@@ -262,8 +268,8 @@ export class HtmlReportGenerator {
         
         .summary-stats { 
             display: flex; 
-            gap: 1.25rem; 
-            margin-top: 0.75rem; 
+            gap: 20px; 
+            margin-top: 12px; 
             flex-wrap: wrap; 
         }
         
@@ -271,11 +277,11 @@ export class HtmlReportGenerator {
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            min-width: 5rem; 
+            min-width: 80px; 
         }
         
         .stat-value { 
-            font-size: 0.875rem; 
+            font-size: 14px; 
             font-weight: 600; 
             color: #3b82f6; 
         }
@@ -285,7 +291,7 @@ export class HtmlReportGenerator {
         }
         
         .stat-label { 
-            font-size: 0.75rem; 
+            font-size: 12px; 
             color: #6b7280; 
         }
         
@@ -294,10 +300,10 @@ export class HtmlReportGenerator {
         }
         
         .report-meta { 
-            margin-top: 1.25rem; 
-            padding-top: 1rem; 
+            margin-top: 20px; 
+            padding-top: 16px; 
             border-top: 1px solid #e5e7eb; 
-            font-size: 0.75rem; 
+            font-size: 12px; 
             color: #6b7280; 
             text-align: center; 
         }
@@ -309,10 +315,10 @@ export class HtmlReportGenerator {
         
         .selected-columns-info { 
             background-color: #eff6ff; 
-            padding: 0.5rem 0.75rem; 
-            border-radius: 0.25rem; 
-            margin: 0.5rem 0; 
-            font-size: 0.75rem; 
+            padding: 8px 12px; 
+            border-radius: 4px; 
+            margin: 8px 0; 
+            font-size: 12px; 
         }
         
         .dark .selected-columns-info {
@@ -322,16 +328,18 @@ export class HtmlReportGenerator {
         
         /* Responsive design */
         @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
             .report-container {
-                margin: 0;
                 border-radius: 0;
-                border: none;
             }
             
             .results-header {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 0.5rem;
+                gap: 8px;
             }
             
             .summary-stats {
@@ -339,12 +347,19 @@ export class HtmlReportGenerator {
             }
             
             .summary-stat {
-                min-width: 4rem;
+                min-width: 60px;
             }
             
             .filters-info span {
                 display: block;
-                margin-bottom: 0.5rem;
+                margin-bottom: 8px;
+                margin-right: 0;
+            }
+            
+            .results-table th,
+            .results-table td {
+                padding: 8px;
+                font-size: 12px;
             }
         }
     </style>
@@ -358,8 +373,8 @@ export class HtmlReportGenerator {
         
         <div class="filters-info">
             <span><strong>Hotel:</strong> ${filters.hotelId || 'All Hotels'}</span>
-            <span><strong>Period:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} - ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
-            <span><strong>Room Type:</strong> ${filters.roomTypeId || 'All Types'}</span>
+            <span><strong>Date From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
+            <span><strong>Order By:</strong> ${filters.orderBy || 'Room'}</span>
             <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>
         </div>
         
@@ -373,10 +388,10 @@ export class HtmlReportGenerator {
         <div class="results-section">
             <div class="results-header">
                 <h2 class="results-title">Arrival List Results</h2>
-                <div class="results-meta">Generated: ${generatedAt.toFormat('dd/MM/yyyy HH:mm')}</div>
+                <div class="results-meta">Hotel Nihai • Date From: ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} To ${filters.endDate ? formatDate(filters.endDate) : 'N/A'} • Order By: ${filters.orderBy || 'Room'} • Tax Inclusive: ${filters.taxInclusive ? 'Yes' : 'No'}</div>
             </div>
             
-            <div style="overflow-x: auto;">
+            <div class="table-container">
                 <table class="results-table">
                     <thead>
                         <tr>${tableHeaders}</tr>
@@ -386,9 +401,8 @@ export class HtmlReportGenerator {
             </div>
             
             <div class="results-footer">
-                <div style="margin-bottom: 0.5rem;">
-                    <span>Total Reservations: ${summary.totalArrivals || 0}</span> • 
-                    <span>Total Pax: ${(summary.totalAdults || 0) + (summary.totalChildren || 0)} (${summary.totalAdults || 0} adults, ${summary.totalChildren || 0} children)</span>
+                <div style="margin-bottom: 8px;">
+                    <span>Total Reservations: #${summary.totalArrivals || 1} • Total Pax: ${(summary.totalAdults || 0) + (summary.totalChildren || 0)}</span>
                 </div>
                 
                 <div class="summary-stats">
