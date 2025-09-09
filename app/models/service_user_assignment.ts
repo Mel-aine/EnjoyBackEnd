@@ -17,7 +17,7 @@ export default class ServiceUserAssignment extends BaseModel {
   declare hotel_id: number
 
   @column()
-  declare role_id: string
+  declare role_id: number
 
   @belongsTo(() => Role, {
     foreignKey: 'role_id'
