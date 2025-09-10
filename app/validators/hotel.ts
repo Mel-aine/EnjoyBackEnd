@@ -173,7 +173,15 @@ export const createHotelValidator = vine.compile(
         url: vine.string().url(),
         uploadedAt: vine.date().optional()
       })
-    ).optional()
+    ).optional(),
+    notices: vine.object({}).optional(),
+    formulaSetting: vine.object({}).optional(),
+    documentNumberingSetting: vine.object({}).optional(),
+    printEmailSettings: vine.object({}).optional(),
+    checkinReservationSettings: vine.object({}).optional(),
+    displaySettings: vine.object({}).optional(),
+    registrationSettings: vine.object({}).optional(),
+    housekeepingStatusColors: vine.object({}).optional()
   })
 )
 
@@ -350,6 +358,14 @@ export const updateHotelValidator = vine.compile(
         url: vine.string().url(),
         uploadedAt: vine.date().optional()
       })
-    ).optional()
+    ).optional(),
+    notices: vine.object({}).optional(),
+    formulaSetting: vine.object({}).optional(),
+    documentNumberingSetting: vine.object({}).optional(),
+    printEmailSettings: vine.object({}).optional(),
+    checkinReservationSettings: vine.object({}).optional(),
+    displaySettings: vine.object({}).optional(),
+    registrationSettings: vine.object({}).optional(),
+    housekeepingStatusColors: vine.object({}).optional()
   })
 )

@@ -159,6 +159,24 @@ export default class Hotel extends BaseModel {
   })
   declare statusColors: object | null
 
+  @column({
+    columnName: 'housekeeping_status_colors',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare housekeepingStatusColors: object | null
+
   @column({ columnName: 'floor_plan_url' })
   declare floorPlanUrl: string | null
 
@@ -211,6 +229,114 @@ export default class Hotel extends BaseModel {
     }
   })
   declare notices: object | null
+
+  @column({
+    columnName: 'formula_setting',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare formulaSetting: object | null
+
+  @column({
+    columnName: 'document_numbering_setting',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare documentNumberingSetting: object | null
+
+  @column({
+    columnName: 'print_email_settings',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare printEmailSettings: object | null
+
+  @column({
+    columnName: 'checkin_reservation_settings',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare checkinReservationSettings: object | null
+
+  @column({
+    columnName: 'display_settings',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare displaySettings: object | null
+
+  @column({
+    columnName: 'registration_settings',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare registrationSettings: object | null
 
   @column({ columnName: 'min_price' })
   declare minPrice: number | null

@@ -2,6 +2,7 @@ import Reservation from '#models/reservation'
 import { DateTime } from 'luxon'
 import Room from '#models/room'
 import RoomBlock from '#models/room_block'
+import logger from '@adonisjs/core/services/logger'
 
 export class HotelAnalyticsService {
     /**
@@ -225,18 +226,13 @@ export class HotelAnalyticsService {
                 }
             })
 
-            // Add "Unknown" category for reservations without room type
-            unassignedRoomReservationsByType['unknown'] = {
-                room_type_id: null,
-                room_type_name: 'Unknown',
-                unassigned_count: 0
-            }
-
             // Count unassigned reservation rooms by their intended room type
             activeReservationsForDay.forEach(reservation => {
                 reservation.reservationRooms.forEach(rr => {
-                    if (!rr.roomId) {
-                        const roomTypeId = rr.roomTypeId || 'unknown'
+                    logger.info('rr')
+                    logger.info(rr.roomId)
+                    if (!rr.roomId && rr.roomTypeId ) {
+                        const roomTypeId = rr.roomTypeId
                         if (unassignedRoomReservationsByType[roomTypeId]) {
                             unassignedRoomReservationsByType[roomTypeId].unassigned_count++
                         }

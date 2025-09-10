@@ -39,7 +39,8 @@ export default class VipStatusController {
       }
 
       const vipStatuses = await query
-        .preload('hotel')
+        .preload('creator')
+        .preload('modifier')
         .orderBy('name', 'asc')
         .paginate(page, limit)
 
@@ -69,17 +70,10 @@ export default class VipStatusController {
         })
       }
 
-      // Validate icon
-      if (!VipStatus.validateIcon(payload.icon)) {
-        return response.badRequest({
-          message: 'Invalid icon format. Icon must be a non-empty string with maximum 100 characters'
-        })
-      }
-
       const vipStatus = await VipStatus.create({
         ...payload,
-        createdBy: auth.user?.id?.toString() || 'system',
-        lastModifiedBy: auth.user?.id?.toString() || 'system'
+        createdBy: auth.user?.id || null,
+        lastModifiedBy: auth.user?.id || null
       })
 
       await vipStatus.load('hotel')
@@ -114,6 +108,8 @@ export default class VipStatusController {
         .where('id', params.id)
         .where('hotel_id', hotelId)
         .preload('hotel')
+        .preload('creator')
+        .preload('modifier')
         .firstOrFail()
 
       return response.ok({
@@ -164,11 +160,13 @@ export default class VipStatusController {
 
       vipStatus.merge({
         ...payload,
-        lastModifiedBy: auth.user?.id?.toString() || 'system'
+        lastModifiedBy: auth.user?.id || null
       })
 
       await vipStatus.save()
       await vipStatus.load('hotel')
+      await vipStatus.load('creator')
+      await vipStatus.load('modifier')
 
       return response.ok({
         message: 'VIP status updated successfully',

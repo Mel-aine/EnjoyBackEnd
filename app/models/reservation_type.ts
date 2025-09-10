@@ -14,6 +14,15 @@ export default class ReservationType extends BaseModel {
   @column()
   declare name: string
 
+  @column()
+  declare isHold: boolean
+
+  @column()
+  declare status: 'active' | 'inactive'
+
+  @column()
+  declare reservationStatus: 'confirmed' | 'pending'
+
   // Audit fields
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

@@ -2,10 +2,14 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from './user.js'
+import Hotel from './hotel.js'
 
 export default class BookingSource extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
+
+  @column()
+  declare hotelId: number
 
   @column()
   declare sourceName: string
@@ -67,7 +71,7 @@ export default class BookingSource extends BaseModel {
   @column()
   declare isActive: boolean
 
-  @column()
+  @column({ columnName: 'priority_level' })
   declare priority: number
 
   @column()
@@ -86,6 +90,9 @@ export default class BookingSource extends BaseModel {
   declare updatedAt: DateTime
 
   // Relationships
+  @belongsTo(() => Hotel)
+  declare hotel: BelongsTo<typeof Hotel>
+
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
