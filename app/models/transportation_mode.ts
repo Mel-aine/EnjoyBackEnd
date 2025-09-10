@@ -17,6 +17,12 @@ export default class TransportationMode extends BaseModel {
   @column()
   declare description: string | null
 
+  @column()
+  declare isInternal: boolean
+
+  @column()
+  declare isExternal: boolean
+
   // Audit fields
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

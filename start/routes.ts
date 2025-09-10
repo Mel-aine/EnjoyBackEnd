@@ -54,6 +54,7 @@ import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '../app/controllers/audit_trail_controller.js'
 import EmailAccountsController from '#controllers/email_accounts_controller'
 import EmailTemplateController from '#controllers/email_template_controller'
+import TransportRequestsController from '#controllers/transport_requests_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -129,6 +130,7 @@ const configurationController = new ConfigurationController()
 const auditTrailController = new AuditTrailController()
 const emailAccountsController = new EmailAccountsController()
 const emailTemplateController = new EmailTemplateController()
+const transportRequestsController = new TransportRequestsController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -1089,6 +1091,7 @@ router
           })
           .prefix('transportation_modes')
 
+
         // Template Categories management routes
         router
           .group(() => {
@@ -1306,6 +1309,18 @@ router
           .prefix('company_folios')
       })
       .prefix('configuration')
+
+        //Demande de transport
+        router.group(() => {
+          router.post('/transportation-requests',transportRequestsController.store.bind(transportRequestsController))
+          router.get('/transportation-requests',transportRequestsController.index.bind(transportRequestsController))
+          router.get('/transportation-requests/:id',transportRequestsController.show.bind(transportRequestsController) )
+          router.put('/transportation-requests/:id',transportRequestsController.update.bind(transportRequestsController) )
+          router.patch('/transportation-requests/:id/status', transportRequestsController.updateStatus.bind(transportRequestsController))
+          router.delete('/transportation-requests/:id',transportRequestsController.destroy.bind(transportRequestsController))
+          router.get('/transportation-analytics', transportRequestsController.analytics.bind(transportRequestsController))
+        })
+
 
     router
       .group(() => {

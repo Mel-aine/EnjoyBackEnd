@@ -123,6 +123,25 @@ export default class User extends AuthFinder(BaseModel) {
   @column({ columnName: 'service_id' })
   declare serviceId: string | null
 
+
+  @column({ columnName: 'state_province' })
+  declare stateProvince: string | null
+
+@column({ columnName: 'company_name' })
+  declare companyName: string | null
+
+@column({ columnName: 'postal_code' })
+  declare postalCode: string | null
+
+@column({ columnName: 'fax' })
+  declare fax: string | null
+
+
+@column({ columnName: 'registration_number' })
+  declare registrationNumber: string | null
+
+
+
   @column({ columnName: 'role_id' })
   declare roleId: number
 
