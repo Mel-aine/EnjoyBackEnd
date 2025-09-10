@@ -37,11 +37,11 @@ async store({ request, response, auth }: HttpContext) {
       const folio = await Folio.findOrFail(payload.folioId, { client: trx })
 
       // Poster les frais correctement
-      folio.totalCharges += payload.serviceFee
+      folio.totalCharges = Number(folio.totalCharges) + payload.serviceFee
 
 
       // Recalculer le balance
-      folio.balance = folio.totalCharges - folio.totalPayments - folio.totalAdjustments
+      folio.balance = Number(folio.totalCharges) - Number(folio.totalPayments) - Number(folio.totalAdjustments)
 
       folio.useTransaction(trx)
       await folio.save()
@@ -61,6 +61,7 @@ async store({ request, response, auth }: HttpContext) {
         description: `Frais de transport - ${transportationMode.name}`,
         amount : payload.serviceFee,
         totalAmount: payload.serviceFee ,
+        grossAmount:payload.serviceFee,
         transactionDate: DateTime.now(),
         postingDate: DateTime.now(),
         transactionCode: transactionCode,
