@@ -73,7 +73,9 @@ export default class ReportsController {
         case 'reservationForecast':
           reportData = await ReportsService.getReservationForecast(reportFilters)
           break
-
+        case 'voidReservations':
+          reportData = await ReportsService.getVoidReservations(reportFilters)
+          break
         // Front Office Reports
         case 'guestCheckedIn':
           reportData = await ReportsService.getGuestCheckedIn(reportFilters)

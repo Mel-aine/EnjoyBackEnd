@@ -302,7 +302,7 @@ export default class Reservation extends BaseModel {
   @column()
   declare modifiedBy: number
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'cancellation_date' })
   declare cancellationDate: DateTime
 
   @column()
