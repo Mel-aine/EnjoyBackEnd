@@ -7,12 +7,16 @@ import Guest from './guest.js'
 import Reservation from './reservation.js'
 import Folio from './folio.js'
 import User from './user.js'
+import Hotel from './hotel.js'
 
 export default class PickupsDropoffsLog extends BaseModel {
-  public static table = 'pickups_dropoffs_log'
+  public static table = 'pickups_dropoffs_logs'
 
   @column({ isPrimary: true })
   declare id: number
+
+   @column()
+  declare hotelId: number
 
   @column()
   declare guestId: number
@@ -27,7 +31,7 @@ export default class PickupsDropoffsLog extends BaseModel {
   declare requestDate: DateTime
 
   @column.dateTime()
-  declare scheduledDateTime: DateTime
+  declare scheduledDateTime?: DateTime
 
   @column.dateTime()
   declare actualDateTime?: DateTime
@@ -104,6 +108,9 @@ export default class PickupsDropoffsLog extends BaseModel {
   // Relations
   @belongsTo(() => Guest, { foreignKey: 'guestId' })
   declare guest: BelongsTo<typeof Guest>
+
+  @belongsTo(() => Hotel)
+    declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => Reservation, { foreignKey: 'reservationId' })
   declare reservation: BelongsTo<typeof Reservation>
