@@ -746,11 +746,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Stop Room Move: Available if there's a pending room move
-    if (['checked-in', 'checked_in'].includes(status)) {
+    if (['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in'].includes(status)) {
       actions.push({
         action: 'stop_room_move',
         label: 'Stop Room Move',
-        description: 'Cancel pending room change',
+        description: 'Add Flag stop move',
         available: false, // Would need to check if there's a pending move
         route: `/reservations/${reservation.id}/stop-room-move`
       })
@@ -3966,10 +3966,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const { reservationId } = params
       const { reservationRooms, actualCheckInTime, } = request.body()
 
-      console.log('--- Début de unassignRoom ---')
-      console.log('Paramètres:', params)
-      console.log('Body:', request.body())
-
       // Validate required fields
       if (!reservationRooms) {
         await trx.rollback()
@@ -4004,8 +4000,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       for (const reservationRoom of reservation.reservationRooms) {
-        reservationRoom.roomId = 0;
-        reservationRoom.save()
+        // Store the reservation room ID before unassigning
+        const reservationRoomId = reservationRoom.id
+        
+        reservationRoom.roomId = null;
+        reservationRoom.lastModifiedBy = auth?.user?.id!
+        await reservationRoom.useTransaction(trx).save()
+        
+        // Remove room number from folio transaction descriptions
+        await ReservationFolioService.removeRoomChargeDescriptions(
+          reservationRoomId,
+          auth?.user?.id!
+        )
       }
 
 
@@ -4354,7 +4360,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     try {
       const { reservationId } = params
       const { reservationRooms, } = request.body();
-      const resRoomIds = reservationRooms?.map((e: any) => e.resRoomId);
+      const resRoomIds = reservationRooms?.map((e: any) => e.reservationRoomId);
 
 
       // Validate required fields
@@ -4368,7 +4374,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (query) => {
-          query.whereIn('id', resRoomIds).where('status', 'reserved')
+          query.whereIn('id', resRoomIds)
         })
         .first()
 
@@ -4377,27 +4383,32 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ message: 'Reservation not found' })
       }
 
-      // Check if reservation allows room unassignment
-      const allowedStatuses = ['confirmed', 'pending']
-      if (!allowedStatuses.includes(reservation.status)) {
-        await trx.rollback()
-        return response.badRequest({
-          message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`
-        })
-      }
 
       for (const reservationRoom of reservation.reservationRooms) {
-        if (!reservationRoom.roomId || reservationRoom.roomId === 0) {
+        if (reservationRoom.roomId && reservationRoom.roomId !== 0) {
           await trx.rollback();
           return response.badRequest({
             message: `Cannot assign room from reservation with room`
           })
         } else {
-          reservationRoom.roomId = reservationRooms.filter((e: any) => e.resRoomId === reservationRoom.id)[0].roomId;
+          const newRoomId = reservationRooms.filter((e: any) => e.reservationRoomId === reservationRoom.id)[0].roomId;
+          reservationRoom.roomId = newRoomId;
           reservationRoom.lastModifiedBy = auth?.user?.id!
-          reservationRoom.save()
+          await reservationRoom.useTransaction(trx).save()
+          
+          // Get room number and update folio transaction descriptions
+          const room = await Room.query({ client: trx })
+            .where('id', newRoomId)
+            .first()
+          
+          if (room) {
+            await ReservationFolioService.updateRoomChargeDescriptions(
+              reservationRoom.id,
+              room.roomNumber,
+              auth?.user?.id!
+            )
+          }
         }
-
       }
       // Create audit log
       await LoggerService.log({
@@ -4419,9 +4430,75 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     } catch (error) {
       await trx.rollback()
-      logger.error('Error unassigning room:', error)
+      logger.error('Error assigning room:', error)
       return response.badRequest({
         message: 'Failed to unassign room',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update stopMove status for reservation rooms
+   */
+  public async updateStopMove(ctx: HttpContext) {
+    const trx = await db.transaction()
+    const { params, request, response, auth } = ctx
+    try {
+      const { reservationId } = params
+      const { reservationRooms, stopMove } = request.body();
+      const resRoomIds = reservationRooms?.map((e: any) => e.reservationRoomId);
+
+      // Validate required fields
+      if (!reservationRooms || stopMove === undefined) {
+        await trx.rollback()
+        return response.badRequest({ message: 'Reservation rooms and stopMove status are required' })
+      }
+
+      // Get reservation with related data
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('reservationRooms', (query) => {
+          query.whereIn('id', resRoomIds)
+        })
+        .first()
+
+      if (!reservation) {
+        await trx.rollback()
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      // Update stopMove status for each reservation room
+      for (const reservationRoom of reservation.reservationRooms) {
+        reservationRoom.stopMove = stopMove
+        reservationRoom.lastModifiedBy = auth?.user?.id!
+        await reservationRoom.useTransaction(trx).save()
+      }
+
+      // Create audit log
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: stopMove ? 'STOP_MOVE_ENABLED' : 'STOP_MOVE_DISABLED',
+        entityType: 'ReservationRoom',
+        entityId: reservationId,
+        hotelId: reservation.hotelId,
+        description: `${stopMove ? 'Enabled' : 'Disabled'} stop move for reservation #${reservation.reservationNumber}`,
+        ctx: ctx
+      })
+
+      await trx.commit()
+
+      return response.ok({
+        message: `Stop move ${stopMove ? 'enabled' : 'disabled'} successfully`,
+        reservationId,
+        stopMove
+      })
+
+    } catch (error) {
+      await trx.rollback()
+      logger.error('Error updating stop move:', error)
+      return response.badRequest({
+        message: 'Failed to update stop move status',
         error: error.message
       })
     }

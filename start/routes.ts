@@ -909,6 +909,7 @@ router
         router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
         router.post('/:reservationId/assign-room', [ReservationsController, 'assignRoom'])
+        router.put('/:reservationId/stop-move', [ReservationsController, 'updateStopMove'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
 
