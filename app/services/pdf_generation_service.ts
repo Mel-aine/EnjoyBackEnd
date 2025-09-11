@@ -259,32 +259,23 @@ export default class PdfGenerationService {
         }
         
         .guest-details, .stay-details {
-            border-bottom: 2px solid #000;
         }
         
         .data-table {
             width: 100%;
-            border-collapse: collapse;
             font-size: 10px;
         }
         
         .data-table th, .data-table td {
-            border-right: 2px solid #000;
             padding: 4px 6px;
             text-align: left;
         }
         
-        .data-table th:last-child, .data-table td:last-child {
-            border-right: none;
-        }
-        
         .data-table th {
-            border-bottom: 2px solid #000;
             font-weight: bold;
         }
         
         .charges-table {
-            border-bottom: 2px solid #000;
         }
         
         .charges-table .amount {
@@ -293,7 +284,6 @@ export default class PdfGenerationService {
         
         .totals-section {
             padding: 8px;
-            border-bottom: 2px solid #000;
             text-align: center;
             font-size: 10px;
         }
@@ -303,24 +293,16 @@ export default class PdfGenerationService {
         }
         
         .amount-words {
-            border-bottom: 2px solid #000;
         }
         
         .amount-table {
             width: 100%;
-            border-collapse: collapse;
             font-size: 10px;
         }
         
         .amount-table td {
-            border-right: 2px solid #000;
-            border-bottom: 2px solid #000;
             padding: 6px;
             vertical-align: top;
-        }
-        
-        .amount-table td:last-child {
-            border-right: none;
         }
         
         .bill-to {
@@ -586,9 +568,25 @@ export default class PdfGenerationService {
         .border-classic {
             border: 2px solid #333;
             padding: 16px;
-            margin-bottom: 16px;
         }
-        
+        .border-2{
+         border: 2px solid #333;
+         padding: 3px;
+    margin-bottom: 16px;
+        }
+    .border-1{
+         border: 1px solid #333;
+         padding: 3px;
+    margin-bottom: 16px;
+        }
+    .border-header{
+         border: 1px solid #333;
+         padding: 3px;
+        }
+     .border-1-inside{
+         border: 1px solid #333;
+         padding: 6px;
+        }
         .flex {
             display: flex;
         }
@@ -657,20 +655,47 @@ export default class PdfGenerationService {
             background-color: #edf2f7;
         }
         
-        table {
+        .data-grid {
+            display: grid;
             width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 16px;
+            gap: 1px;
+            background-color: #cbd5e0;
         }
         
-        th, td {
+        .grid-header {
+            display: contents;
+        }
+        
+        .grid-header-cell {
             padding: 4px 8px;
-            border: 1px solid #cbd5e0;
+            background-color: #edf2f7;
+            font-weight: bold;
+            text-align: left;
+            width: 100%;
+        }
+        
+        .grid-row {
+            display: contents;
+        }
+        
+        .grid-cell {
+            padding: 4px 8px;
+            background-color: white;
             text-align: left;
         }
         
-        th {
-            background-color: #edf2f7;
+        .room-details-grid {
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+        }
+        
+        .rates-grid {
+            grid-template-columns: 2fr 1fr;
+        }
+        
+        .rates-grid .grid-header-cell:last-child,
+        .rates-grid .grid-cell:last-child {
+            text-align: right;
+            justify-self: end;
         }
         
         .border-2 {
@@ -682,7 +707,6 @@ export default class PdfGenerationService {
         }
         
         .border-t {
-            border-top: 1px solid #000;
         }
         
         .list-disc {
@@ -717,13 +741,14 @@ export default class PdfGenerationService {
 <body>
     <div class="print-page p-4">
         <!-- Main Header Box -->
+        <div class='border-2'>
         <div class="border-classic">
             <div class="flex justify-between">
                 <div>
                     <h1 class="text-lg font-bold mb-2">CONFIRM BOOKING</h1>
                     <div class="mb-2">
                         <strong>BOOKING REFERENCE NO</strong><br>
-                        <span class="text-xl font-bold">: ${reservation.confirmationCode}</span>
+                        <span class="text-xl font-bold">: ${reservation.reservationNumber}</span>
                     </div>
                     <div class="text-sm">
                         Kindly print this confirmation and have it<br>
@@ -731,22 +756,23 @@ export default class PdfGenerationService {
                     </div>
                 </div>
                 <div class="text-right">
-                    <h2 class="text-lg font-bold">${hotel.name}</h2>
+                    <h2 class="text-lg font-bold">${hotel.hotelName}</h2>
                     <div class="text-sm mt-2">
                         ${hotel.address}<br>
                         ${hotel.city}, ${hotel.country}<br>
                         <u>${hotel.email}</u><br>
-                        Phone : ${hotel.phone}
+                        Phone : ${hotel.phoneNumber}
                     </div>
                 </div>
             </div>
         </div>
+        </div>
 
         <!-- Guest Information -->
         <div class="mb-4">
-            <p class="text-sm">Dear ${reservation.guestName},</p>
+            <p class="text-sm">Dear ${reservation.guest?.displayName},</p>
             <p class="text-sm mt-2">
-                Thank you for choosing ${hotel.name} for your stay. We are pleased to inform you that your
+                Thank you for choosing ${hotel.hotelName} for your stay. We are pleased to inform you that your
                 reservation request is CONFIRMED and your reservation details are as follows.
             </p>
         </div>
@@ -756,11 +782,11 @@ export default class PdfGenerationService {
             <h3 class="font-bold mb-2">Booking Details</h3>
             <div class="text-sm grid grid-cols-2 gap-2">
                 <div>Booking Date : ${this.formatDate(data.printInfo.printedDate.toString())}</div>
-                <div>Check In Date : ${this.formatDate(reservation.checkInDate.toString())}</div>
-                <div>Check Out Date : ${this.formatDate(reservation.checkOutDate.toString())}</div>
+                <div>Check In Date : ${this.formatDate(reservation.arrivedDate!.toString())}</div>
+                <div>Check Out Date : ${this.formatDate(reservation.departDate!.toString())}</div>
                 <div>Nights : ${reservation.numberOfNights}</div>
-                <div>Arrival Time : ${reservation.actualArrivalDatetime}</div>
-                <div>Special Request : </div>
+                <div>Arrival Time : ${reservation.checkInTime}</div>
+                <div>Special Request : ${reservation.specialRequests??''}</div>
             </div>
         </div>
 
@@ -768,7 +794,7 @@ export default class PdfGenerationService {
         <div class="mb-4">
             <h3 class="font-bold mb-2">Your Details</h3>
             <div class="text-sm">
-                ${reservation.guestName}<br>
+                ${reservation.guest?.displayName}<br>
                 Email ID : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
                 Phone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
             </div>
@@ -777,109 +803,109 @@ export default class PdfGenerationService {
         <!-- Room Details -->
         <div class="mb-4">
             <h3 class="font-bold mb-2">Room Details</h3>
-            <table>
-                <thead>
-                    <tr class="bg-gray-200">
-                        <th>Room Type</th>
-                        <th>Guest(s)</th>
-                        <th>No of rooms</th>
-                        <th>Package if any</th>
-                        <th>Promotion if any</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>${reservation.roomType}</td>
-                        <td>${reservation.adults} Adults, ${reservation.children} Children</td>
-                        <td>1</td>
-                        <td>Standard Rate</td>
-                        <td>${this.formatAmount(reservation.roomCharge)} ${currency.code}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="border-header mb-2">
+            <div class="data-grid room-details-grid border-1-inside">
+                <div class="grid-header">
+                    <div class="grid-header-cell">Room Type</div>
+                    <div class="grid-header-cell">Guest(s)</div>
+                    <div class="grid-header-cell">No of rooms</div>
+                    <div class="grid-header-cell">Package if any</div>
+                    <div class="grid-header-cell">Promotion if any</div>
+                </div>
+                </div></div>
+                  <div class="data-grid room-details-grid">
+                ${reservation.reservationRooms?.map(room => `
+                <div class="grid-row">
+                    <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ??''}</strong></div>
+                    <div class="grid-cell">${room.adults || 1} Adults, ${room.children || 0} Children</div>
+                    <div class="grid-cell">1</div>
+                    <div class="grid-cell">none</div>
+                    <div class="grid-cell">none</div>
+                </div>`).join('') }
+            </div>
         </div>
 
         <!-- Rates Details -->
         <div class="mb-4">
             <h3 class="font-bold mb-2">Rates Details</h3>
-            <table>
-                <thead>
-                    <tr class="bg-gray-200">
-                        <th>Details</th>
-                        <th class="text-right">Rates (${currency.code})</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Total Room Charges</td>
-                        <td class="text-right">${this.formatAmount(totals.totalCharges)}</td>
-                    </tr>
-                    <tr>
-                        <td>Room Charges Tax</td>
-                        <td class="text-right">${this.formatAmount(totals.totalTax)}</td>
-                    </tr>
-                    <tr>
-                        <td>Service Charges</td>
-                        <td class="text-right">${this.formatAmount(totals.totalServiceCharges)}</td>
-                    </tr>
-                    <tr>
-                        <td>Extra Charges Including Discounts and Tax</td>
-                        <td class="text-right">-${this.formatAmount(totals.totalDiscounts)}</td>
-                    </tr>
-                    <tr>
-                        <td>Round off</td>
-                        <td class="text-right">-${this.formatAmount(totals.totalDiscounts)}</td>
-                    </tr>
-                    <tr class="font-bold">
-                        <td>Grand Total</td>
-                        <td class="text-right">${this.formatAmount(totals.grandTotal)}</td>
-                    </tr>
-                    <tr>
-                        <td>Total Paid</td>
-                        <td class="text-right">${this.formatAmount(totals.totalPaid)}</td>
-                    </tr>
-                    <tr class="font-bold">
-                        <td>Amount due at time of check in</td>
-                        <td class="text-right">${this.formatAmount(totals.balance)}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="border-header mb-2">
+            <div class="data-grid rates-grid border-1-inside">
+                <div class="grid-header">
+                    <div class="grid-header-cell ">Details</div>
+                    <div class="grid-header-cell text-right">Rates (${currency.code})</div>
+                </div>
+                </div>
+                </div>
+            <div class="data-grid rates-grid">
+                <div class="grid-row">
+                    <div class="grid-cell">Total Room Charges</div>
+                    <div class="grid-cell text-right">${this.formatAmount(totals.totalCharges)}</div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell">Room Charges Tax</div>
+                    <div class="grid-cell text-right">${this.formatAmount(totals.totalTaxes)}</div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell">Service Charges</div>
+                    <div class="grid-cell text-right">${this.formatAmount(totals.totalServiceCharges)}</div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell">Extra Charges Including Discounts and Tax</div>
+                    <div class="grid-cell text-right">${this.formatAmount(totals.totalDiscounts)}</div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell">Round off</div>
+                    <div class="grid-cell text-right">${this.formatAmount(totals.totalDiscounts)}</div>
+                </div>
+                <div class="grid-row font-bold">
+                    <div class="grid-cell font-bold">Grand Total</div>
+                    <div class="grid-cell text-right font-bold">${this.formatAmount(totals.totalChargesWithTaxes)}</div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell">Total Paid</div>
+                    <div class="grid-cell text-right">${this.formatAmount(totals.totalPayments)}</div>
+                </div>
+                <div class="grid-row font-bold">
+                    <div class="grid-cell font-bold">Amount due at time of check in</div>
+                    <div class="grid-cell text-right font-bold">${this.formatAmount(totals.outstandingBalance)}</div>
+                </div>
+            </div>
         </div>
 
         <!-- Booking Amount Box -->
         <div class="flex justify-between items-start mb-4">
-            <div class="border-2 border-black p-3">
-                <div class="text-center font-bold">
-                    BOOKING AMOUNT<br>
-                    ${currency.code} ${this.formatAmount(totals.grandTotal)} ${currency.code}
+            <div class="border-1">
+                <div class="text-center font-bold border-1-inside">
+                  <h2>BOOKING AMOUNT</h2>
+                   <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3> 
                 </div>
             </div>
             <div class="text-right text-sm">
                 <strong>Booked & Payable By</strong><br>
-                ${reservation.guestName}
+                ${reservation.guest?.displayName}
             </div>
         </div>
 
         <!-- Conditions & Policies -->
         <div class="mb-4">
-            <h3 class="font-bold mb-2 bg-gray-200 p-3">Conditions & Policies</h3>
-            
-            <div class="text-sm mt-4">
-                <h4 class="font-bold mb-2">Cancellation Policy</h4>
-                <p class="mb-2">
-                    Free cancellation up to 48 hours before check-in. After that, 1 night will be charged.
-                </p>
+        <div class='border-1'>
+        <div class='border-1-inside'>
+                                <h3 class="font-bold bg-gray-200">Conditions & Policies</h3>
+        </div>
+        </div>
 
-                <div class="mt-2">
-                    <h4 class="font-bold mb-2">Additional Terms</h4>
-                    <ul class="list-disc pl-5">
-                        <li>Early check-in and late check-out subject to availability</li>
-                        <li>Credit card required at check-in for incidentals</li>
-                        <li>Pets are not allowed</li>
-                        <li>Check-in time: 2:00 PM, Check-out time: 12:00 PM</li>
-                    </ul>
-                </div>
-
+            <div class="text-sm mt-6">
+                
+                <div>
+                <h3 class="font-bold">Cancellation Policy</h3>
+                <p>${hotel.cancellationPolicy}</>
+                <div/>
+                <div>
+                <h3 class="font-bold">Hotel Policy</h3>
+                <p>${hotel.hotelPolicy}</p>
+                <div/>
+                <p><strong>Hotel Check in Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime??'12:00'}</p>
+                 <p><strong>Hotel Check out Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime??'12:00'}</p>
                 <div class="mt-4 font-bold text-center">
                     <em>This email has been sent from an automated system - please do not reply to it.</em>
                 </div>
@@ -887,7 +913,7 @@ export default class PdfGenerationService {
                 <div class="mt-6 mb-4 pt-4 border-t">
                     <strong>**** FOR ANY FURTHER QUERY ****</strong><br>
                     Contact us by Email Id ${hotel.email}<br>
-                    Phone NO : ${hotel.phone}<br>
+                    Phone NO : ${hotel.phoneNumber}<br>
                     ${hotel.address}, ${hotel.city}, ${hotel.country}
                 </div>
                 <div class="border-t"></div>
@@ -1064,43 +1090,25 @@ static async generateSuitaHotelPdf(
             }
 
             .guest-details-table {
-                border-bottom: 2px solid black;
             }
 
             .guest-details-table th, .guest-details-table td {
-                border-right: 2px solid black;
                 padding: 8px;
                 text-align: left;
             }
 
-            .guest-details-table th:last-child, .guest-details-table td:last-child {
-                border-right: none;
-            }
-
             .guest-details-table th {
-                border-bottom: 2px solid black;
                 font-weight: 600;
             }
 
             .stay-details-table {
-                border-bottom: 2px solid black;
             }
 
             .stay-details-table th, .stay-details-table td {
-                border-right: 2px solid black;
                 padding: 8px;
             }
 
-            .stay-details-table td:last-child, .stay-details-table th:last-child {
-                border-right: none;
-            }
-
-            .stay-details-table tr {
-                border-bottom: 2px solid black;
-            }
-
             .charges-table {
-                border-bottom: 2px solid black;
             }
 
             .charges-table th, .charges-table td {
@@ -1108,13 +1116,7 @@ static async generateSuitaHotelPdf(
             }
 
             .charges-table th {
-                border-right: 2px solid black;
-                border-bottom: 2px solid black;
                 font-weight: 600;
-            }
-
-            .charges-table th:last-child {
-                border-right: none;
             }
 
             .charges-table .text-right {
@@ -1123,7 +1125,6 @@ static async generateSuitaHotelPdf(
 
             .totals-section {
                 padding: 8px;
-                border-bottom: 2px solid black;
                 text-align: center;
                 font-size: 11px;
             }
@@ -1465,7 +1466,7 @@ static async generateSuitaHotelPdf(
    * Format amount with 2 decimal places
    */
   private static formatAmount(amount: number): string {
-    return amount.toLocaleString('en-US', {
+    return amount?.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })

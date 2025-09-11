@@ -147,21 +147,21 @@ export class HotelAnalyticsService {
 
             for (const reservation of activeReservationsForDay) {
                 let isAssignedForToday = false
-                 logger.info(reservation.guest.displayName)
-                logger.info(reservation.reservationRooms.length)
                 if (reservation.reservationRooms.length > 0) {
                     for (const rsp of reservation.reservationRooms) {
-                        if (rsp.id) {
+                        if (rsp.roomId) {
                             occupiedRoomIds.add(rsp.id)
                             isAssignedForToday = true
                         }
                     }
+
+                    if (!isAssignedForToday) {
+                        logger.info(reservation)
+                        unassignedReservationsCount++
+                    }
                 }
 
-                if (!isAssignedForToday) {
-                    logger.info(reservation)
-                    unassignedReservationsCount++
-                }
+
             }
 
             const occupancyRate = totalRooms > 0 ? (occupiedRoomIds.size / totalRooms) * 100 : 0
@@ -218,14 +218,15 @@ export class HotelAnalyticsService {
             })
 
             // Count unassigned room reservations by room type (reservation rooms without room assignment)
-            const unassignedRoomReservationsByType: { [key: string]: { room_type_id: number | null, room_type_name: string, unassigned_count: number } } = {}
+            const unassignedRoomReservationsByType: { [key: string]: { room_type_id: number | null, room_type_name: string, unassigned_count: number, unassigned_reservations: Reservation[] } } = {}
 
             // Initialize with all room types
             roomTypes.forEach(roomType => {
                 unassignedRoomReservationsByType[roomType.id] = {
                     room_type_id: roomType.id,
                     room_type_name: roomType.roomTypeName,
-                    unassigned_count: 0
+                    unassigned_count: 0,
+                    unassigned_reservations: []
                 }
             })
 
@@ -234,10 +235,15 @@ export class HotelAnalyticsService {
                 reservation.reservationRooms.forEach(rr => {
                     logger.info('rr')
                     logger.info(rr.roomId)
-                    if (!rr.roomId && rr.roomTypeId ) {
+                    if (!rr.roomId && rr.roomTypeId) {
                         const roomTypeId = rr.roomTypeId
                         if (unassignedRoomReservationsByType[roomTypeId]) {
-                            unassignedRoomReservationsByType[roomTypeId].unassigned_count++
+                            unassignedRoomReservationsByType[roomTypeId].unassigned_count++;
+                            // Check if reservation is not already in the list
+                            const existingReservation = unassignedRoomReservationsByType[roomTypeId].unassigned_reservations.find(r => r.id === reservation.id);
+                            if (!existingReservation) {
+                                unassignedRoomReservationsByType[roomTypeId].unassigned_reservations.push(reservation);
+                            }
                         }
                     }
                 })
@@ -408,50 +414,6 @@ export class HotelAnalyticsService {
                             })
                         }
                     }
-                })
-            } else {
-                // Handle reservations without assigned rooms (fallback to original logic)
-                const roomType = 'Unassigned'
-                if (!groupedDetails[roomType]) {
-                    groupedDetails[roomType] = {
-                        room_type: roomType,
-                        room_type_id: null,
-                        total_rooms_of_type: 0,
-                        room_details: [],
-                        reservations: [],
-                    }
-                }
-
-                groupedDetails[roomType].reservations.push({
-                    reservation_id: reservation.id,
-                    reservation_room_id: null,
-                    is_master: true,
-                    guest_name: `${reservation.guest.displayName}`.trim(),
-                    check_in_date: reservation.arrivedDate,
-                    check_out_date: reservation.departDate,
-                    reservation_status: getReservationStatus(reservation, today),
-                    is_checking_in_today: reservation.arrivedDate?.hasSame(today, 'day') ?? false,
-                    is_checking_out_today: reservation.departDate?.hasSame(today, 'day') ?? false,
-                    assigned_room_number: null,
-                    room_id: null,
-                    total_guests: reservation.guestCount || 0,
-                    adults: 0,
-                    children: 0,
-                    special_requests: reservation.specialRequests || '',
-                    reservation_number: reservation.reservationNumber,
-                    total_amount: reservation.totalAmount,
-                    room_rate: 0,
-                    reservationType: reservation.reservationType,
-                    customerType: reservation.customerType,
-                    companyName: reservation.companyName,
-                    groupName: reservation.groupName,
-                    remainingAmount: reservation.remainingAmount,
-                    bookingSource: reservation.bookingSource,
-                    totalNights: reservation.numberOfNights,
-                    paymentStatus: reservation.paymentStatus,
-                    balance_summary: balanceSummary,
-                    is_balance: isBalance,
-                    isWomen: this.isWomanTitle(reservation.guest?.title),
                 })
             }
         }

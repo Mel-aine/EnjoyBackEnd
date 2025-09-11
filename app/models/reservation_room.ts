@@ -79,6 +79,9 @@ export default class ReservationRoom extends BaseModel {
   declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
 
   @column()
+  declare stopMove: boolean
+
+  @column()
   declare bedPreference: string
 
   @column()

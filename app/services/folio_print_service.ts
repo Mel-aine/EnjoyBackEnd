@@ -8,41 +8,11 @@ import Currency from '#models/currency'
 import User from '#models/user'
 import TaxRate from '#models/tax_rate'
 import { TransactionCategory } from '../enums.js'
+import logger from '@adonisjs/core/services/logger'
 
 export interface FolioPrintData {
-  hotel: {
-    id: number
-    name: string
-    address: string
-    city: string
-    state: string
-    country: string
-    postalCode: string
-    phone: string
-    email: string
-    website: string
-    logo?: string
-    rcNumber?: string
-    registrationNumber?: string
-  }
-  reservation: {
-    id: number
-    confirmationCode: string
-    guestName: string
-    checkInDate: DateTime
-    checkOutDate: DateTime
-    numberOfNights: number
-    roomType: string
-    adults: number
-    children: number
-    status: string
-    checkedInBy?: string
-    checkedOutBy?: string
-    reservedBy?: string,
-    guest:Guest,
-    roomCharge:number
-    actualArrivalDatetime?: DateTime
-  }
+  hotel: Hotel
+  reservation: Reservation
   folio: {
     id: number
     folioNumber: string
@@ -302,10 +272,15 @@ export class FolioPrintService {
       .preload('hotel')
       .preload('guest')
       .preload('roomType')
+      .preload('folios', (folioQuery) => {
+        folioQuery.preload('transactions')
+      })
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room', (roomSubQuery) => {
           roomSubQuery.preload('taxRates')
-        }).preload('roomType')
+        }).preload('roomType').preload('roomRates', (rateQuery) => {
+          rateQuery.preload('rateType')
+        })
       })
       // .preload('checkedInByUser')
       // .preload('checkedOutByUser')
@@ -320,61 +295,14 @@ export class FolioPrintService {
     const taxRates = this.collectTaxRatesFromRooms(reservation)
 
     // Calculate estimated totals for booking
-    const totals = this.calculateBookingTotals(reservation, taxRates)
+    const totals = this.calculateBalanceSummary(reservation.folios)
+    logger.info(totals)
 
     // Prepare hotel information - EN CAMELCASE
-    const hotelData = {
-      id: reservation.hotel.id,
-      name: reservation.hotel.hotelName, // Vérifiez si cette propriété existe
-      address: reservation.hotel.address || '',
-      city: reservation.hotel.city || '',
-      state: reservation.hotel.stateProvince || '',
-      country: reservation.hotel.country || '',
-      postalCode: reservation.hotel.postalCode || '',
-      phone: reservation.hotel.phoneNumber || '',
-      email: reservation.hotel.email || '',
-      website: reservation.hotel.website || '',
-      logo: reservation.hotel.logoUrl || undefined,
-      registrationNumber: reservation.hotel.registrationNo1,
-      rcNumber: reservation.hotel.registrationNo2
-    }
+    const hotelData = reservation.hotel
 
     // Prepare reservation information - EN CAMELCASE
-    const reservationData = {
-      guest: reservation.guest,
-      id: reservation.id,
-      confirmationCode: reservation.confirmationCode || reservation.confirmationNumber,
-      guestName: reservation.guest ? 
-        `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim() : 
-        'Guest',
-      checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
-      checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
-      numberOfNights: reservation.numberOfNights || reservation.nights || 1,
-      roomType: reservation.roomType?.roomTypeName || 'Standard Room',
-      adults: reservation.adults || reservation.numAdultsTotal || 1,
-      children: reservation.children || reservation.numChildrenTotal || 0,
-      status: reservation.status || reservation.reservationStatus,
-      checkedInBy: reservation.checkedInByUser ? 
-        `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : undefined,
-      checkedOutBy: reservation.checkedOutByUser ? 
-        `${reservation.checkedOutByUser.firstName} ${reservation.checkedOutByUser.lastName}` : undefined,
-      reservedBy: reservation.reservedByUser ? 
-        `${reservation.reservedByUser.firstName} ${reservation.reservedByUser.lastName}` : undefined,
-      roomCharge: reservation.roomRate || reservation.baseRate || 0,
-      // Ajout des propriétés camelCase supplémentaires
-      totalAmount: reservation.totalAmount,
-      discountAmount: reservation.discountAmount,
-      taxAmount: reservation.taxAmount,
-      finalAmount: reservation.finalAmount,
-      paidAmount: reservation.paidAmount,
-      remainingAmount: reservation.remainingAmount,
-      paymentStatus: reservation.paymentStatus,
-      reservationNumber: reservation.reservationNumber,
-      specialRequests: reservation.specialRequests,
-      customerType: reservation.customerType,
-      companyName: reservation.companyName,
-      groupName: reservation.groupName
-    }
+    const reservationData = reservation
 
     // Prepare billing address from guest - EN CAMELCASE
     const billingAddress = {
@@ -574,6 +502,70 @@ export class FolioPrintService {
       }
     } catch (error) {
       throw new Error(`Failed to generate Suita Hotel print data: ${error.message}`)
+    }
+  }
+
+
+  /**
+   * Calculate balance summary from folio transactions
+   */
+  private calculateBalanceSummary(folios: any[]) {
+    let totalCharges = 0
+    let totalPayments = 0
+    let totalAdjustments = 0
+    let totalTaxes = 0
+    let totalServiceCharges = 0
+    let totalDiscounts = 0
+
+    folios.forEach(folio => {
+      if (folio.transactions) {
+        folio.transactions.forEach((transaction: any) => {
+          const amount = parseFloat(transaction.amount) || 0
+
+          switch (transaction.transactionType) {
+            case 'charge':
+              totalCharges += amount
+              break
+            case 'payment':
+              totalPayments += amount
+              break
+            case 'adjustment':
+              totalAdjustments += amount
+              break
+            case 'tax':
+              totalTaxes += amount
+              break
+            case 'discount':
+              totalDiscounts += Math.abs(amount) // Discounts are typically negative
+              break
+            case 'refund':
+              totalPayments -= amount // Refunds reduce payments
+              break
+          }
+
+          // Add service charges and taxes from transaction details
+          if (transaction.serviceChargeAmount) {
+            totalServiceCharges += parseFloat(transaction.serviceChargeAmount) || 0
+          }
+          if (transaction.taxAmount) {
+            totalTaxes += parseFloat(transaction.taxAmount) || 0
+          }
+        })
+      }
+    })
+
+    const outstandingBalance = totalCharges + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts + totalAdjustments
+
+    return {
+      totalCharges: parseFloat(totalCharges.toFixed(2)),
+      totalPayments: parseFloat(totalPayments.toFixed(2)),
+      totalAdjustments: parseFloat(totalAdjustments.toFixed(2)),
+      totalTaxes: parseFloat(totalTaxes.toFixed(2)),
+      totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
+      totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
+      outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
+      totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes + totalServiceCharges).toFixed(2)),
+      balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
     }
   }
 /**
