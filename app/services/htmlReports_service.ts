@@ -135,7 +135,7 @@ export class HtmlReportGenerator {
         }
         
         .dark .report-title {
-            color: #f9fafb;
+            color: #f9fafb; 
         }
         
         .report-subtitle { 
@@ -770,7 +770,7 @@ export class HtmlReportGenerator {
         
         <div class="filters-info">
             <span><strong>Hotel:</strong> ${filters.hotelId || 'Hotel Nihal'}</span>
-            <span><strong>Departure From:</strong> ${filters.arrivalFrom || 'N/A'} <strong>To:</strong> ${filters.arrivalTo || 'N/A'}</span>
+            <span><strong>Departure From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
             <span><strong>Order By:</strong> Room</span>
             <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>
         </div>
@@ -1169,7 +1169,7 @@ export class HtmlReportGenerator {
         
         <div class="filters-info">
             <span><strong>Hotel:</strong> ${filters.hotelId || 'Hotel Nihal'}</span>
-            <span><strong>Cancellation From:</strong> ${filters.arrivalFrom || 'N/A'} <strong>To:</strong> ${filters.arrivalTo || 'N/A'}</span>
+            <span><strong>Cancellation From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
             <span><strong>Order By:</strong> Room</span>
             <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>
         </div>
@@ -1595,7 +1595,7 @@ export class HtmlReportGenerator {
             
             <div class="filters-info">
                 <span><strong>Hotel:</strong> ${filters.hotelId || 'Hotel Nihal'}</span>
-                <span><strong>Void From:</strong> ${filters.arrivalFrom || 'N/A'} <strong>To:</strong> ${filters.arrivalTo || 'N/A'}</span>
+                <span><strong>Void From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
                 <span><strong>Order By:</strong> Room</span>
                 <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>
             </div>

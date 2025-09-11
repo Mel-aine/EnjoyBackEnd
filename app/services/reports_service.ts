@@ -329,7 +329,7 @@ export class ReservationReportsService {
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
       })
-      .preload('creator')
+      //.preload('creator')
       .whereBetween('depart_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .orderBy('depart_date', 'asc')
 
@@ -512,7 +512,7 @@ export class ReservationReportsService {
       .preload('bookingSource')
       .preload('ratePlan')
       .preload('folios')
-      .preload('creator')
+      //.preload('creator')
       .whereBetween('cancellation_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .where('reservation_status', 'Cancelled')
       .orderBy('cancellation_date', 'desc')
@@ -560,7 +560,7 @@ export class ReservationReportsService {
 
     // Préparer les données pour le rapport
     const data = reservations.map((reservation) => {
-      const folio = reservation.folio?.[0]
+      const folio = reservation.folios?.[0]
 
       return {
         // Données de base pour les colonnes principales
