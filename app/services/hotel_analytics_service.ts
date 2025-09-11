@@ -147,6 +147,8 @@ export class HotelAnalyticsService {
 
             for (const reservation of activeReservationsForDay) {
                 let isAssignedForToday = false
+                 logger.info(reservation.guest.displayName)
+                logger.info(reservation.reservationRooms.length)
                 if (reservation.reservationRooms.length > 0) {
                     for (const rsp of reservation.reservationRooms) {
                         if (rsp.id) {
@@ -157,6 +159,7 @@ export class HotelAnalyticsService {
                 }
 
                 if (!isAssignedForToday) {
+                    logger.info(reservation)
                     unassignedReservationsCount++
                 }
             }

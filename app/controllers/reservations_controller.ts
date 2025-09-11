@@ -1806,7 +1806,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             await ReservationRoom.create({
               reservationId: reservation.id,
               roomTypeId: room.room_type_id,
-              roomId: room.room_id!,
+              roomId: room.room_id || null,
               guestId: primaryGuest.id,
               checkInDate: DateTime.fromISO(data.arrived_date),
               checkOutDate: DateTime.fromISO(data.depart_date),

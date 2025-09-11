@@ -221,7 +221,7 @@ export default class ReservationFolioService {
           folioId: reservation.folios[0].id,
           transactionType: TransactionType.CHARGE,
           category: TransactionCategory.ROOM,
-          description: `Room ${reservationRoom.room.roomNumber} - Night ${night}`,
+          description: `Room ${reservationRoom.room?.roomNumber??''} - Night ${night}`,
           amount: totalDailyAmount,
           quantity: 1,
           unitPrice: baseAmount,
