@@ -140,7 +140,8 @@ export default class User extends AuthFinder(BaseModel) {
 @column({ columnName: 'registration_number' })
   declare registrationNumber: string | null
 
-
+@column({ columnName: 'language' })
+  declare language: string
 
   @column({ columnName: 'role_id' })
   declare roleId: number

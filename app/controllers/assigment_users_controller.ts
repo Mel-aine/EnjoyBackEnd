@@ -40,6 +40,7 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           nationality: data.nationality,
           status: 'active',
           created_by: auth.user?.id || null,
+          language:data.language,
           last_modified_by: auth.user?.id || null,
           password: data.password,
           date_of_birth: data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null,
@@ -215,6 +216,7 @@ public async updateUser(ctx: HttpContext) {
       stateProvince: data.state_province || user.stateProvince,
       postalCode: data.postal_code || user.postalCode,
       fax: data.fax || user.fax,
+      language:data.language || user.language ,
       registrationNumber: data.registration_number || user.registrationNumber,
       emergencyPhone: data.emergency_phone || user.emergencyPhone,
       personalEmail: data.personal_email || user.personalEmail,
@@ -226,12 +228,7 @@ public async updateUser(ctx: HttpContext) {
       dataProcessingConsent: data.data_processing_consent !== undefined ? data.data_processing_consent : user.dataProcessingConsent,
       consentDate: data.consent_date ? DateTime.fromISO(data.consent_date) : user.consentDate,
 
-      // Champs d'adresse additionnels
-      // stateProvince: data.state_province || user.stateProvince,
-      // postalCode: data.postal_code || user.postalCode,
-      // companyName: data.company_name || user.companyName,
-      // fax: data.fax || user.fax,
-      // registrationNumber: data.registration_number || user.registrationNumber,
+
 
       // Permissions - convertir en JSON si nécessaire
       permisDiscounts: data.discounts || data.perms_discounts

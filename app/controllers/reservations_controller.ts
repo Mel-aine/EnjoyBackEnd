@@ -4194,6 +4194,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationId: reservation.id,
           reservationNumber: reservation.reservationNumber,
           guestName: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''}`.trim(),
+          status: reservation.status,
           checkInDate: reservation.arrivedDate?.toISODate(),
           checkOutDate: reservation.departDate?.toISODate(),
           totalNights: reservation.nights,
