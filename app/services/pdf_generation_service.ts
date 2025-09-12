@@ -328,7 +328,6 @@ export default class PdfGenerationService {
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
         }
-        
         .font-bold { font-weight: bold; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
