@@ -158,7 +158,7 @@ export default class PdfGenerationService {
 
       const file = { content: htmlContent }
       const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-      
+
       return pdfBuffer
     } catch (error) {
       throw new Error(`Failed to generate booking PDF: ${error.message}`)
@@ -985,6 +985,7 @@ static async generateSuitaHotelPdf(
         folio,
         transactions,
         totals,
+        total,
         currency,
     } = data
 
@@ -1239,7 +1240,7 @@ static async generateSuitaHotelPdf(
                         <td style="width: 33%;">
                             <div><span class="label">Folio No./Rcv No.</span> <span style="margin-left: 32px;">${folio.folioNumber} / ${folio.folioNumber || 'N/A'}</span></div>
                             <div><span class="label">Guest Name</span> <span style="margin-left: 32px;">${reservation.guest?.displayName || 'N/A'}</span></div>
-                            <div><span class="label">Company Name</span> <span style="margin-left: 24px;">${reservation.guest?.companyName || 'N/A'}</span></div>
+                            <div><span class="label">Company Name</span> <span style="margin-left: 24px;">${reservation.guest?.companyName || 'None'}</span></div>
                         </td>
                         <td style="width: 33%; text-align: center;">
                             <div><span class="label">Invoice No.</span> <span style="margin-left: 8px;">${folio.folioNumber || 'N/A'}</span></div>
@@ -1313,8 +1314,8 @@ static async generateSuitaHotelPdf(
                         <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
                         <td>${transaction.transactionNumber || ''}</td>
                         <td><strong>${transaction.description}</strong></td>
-<td class="text-right">${(transaction.amount || 0) > 0 ? this.formatAmount(transaction.amount) : '0'}</td>
-<td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
+                        <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatAmount(transaction.amount) : '0'}</td>
+                        <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
                         <td class="text-right">${this.formatAmount(transaction.netAmount)}</td>
                     </tr>
                     `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
@@ -1325,12 +1326,12 @@ static async generateSuitaHotelPdf(
             <div class="totals-section">
                 <div style="margin-bottom: 4px;">
                     <span class="label">Grand Total</span>
-                    <span style="margin-left: 32px;">${totals.grandTotal?.toLocaleString() || '0'}</span>
-                    <span style="margin-left: 32px;">-${totals.totalPaid?.toLocaleString() || '0'}</span>
+                    <span style="margin-left: 32px;">${total.totalCharges?.toLocaleString() || '0'}</span>
+                    <span style="margin-left: 32px;">-${total.total?.toLocaleString() || '0'}</span>
                 </div>
                 <div>
                     <span class="label">Tax</span>
-                    <span style="margin-left: 64px;">${totals.totalTax?.toLocaleString() || '0'}</span>
+                    <span style="margin-left: 64px;">${total.totalTaxes?.toLocaleString() || '0'}</span>
                 </div>
             </div>
 
@@ -1341,17 +1342,17 @@ static async generateSuitaHotelPdf(
                         <td class="border-r-2 border-b-2 border-black font-semibold w-1/3 align-top p-1 md:p-2">
                             This Folio is in ${currency.code}
                         </td>
-                        <td class="border-r-2 border-b-2 border-black w-1/3 align-top p-1 md:p-2">
+                        <td class="border-r-2 border-b-2 border-black w-1/3 font-semibold align-top p-1 md:p-2">
                             ${amountInWords}
                         </td>
                         <td class="border-b-2 border-black w-1/3 align-top p-1 md:p-2 font-semibold">Total Paid</td>
-                        <td class="border-b-2 border-black w-1/6 align-top p-1 md:p-2 text-right">${totals.totalPaid.toLocaleString()}</td>
+                        <td class="border-b-2 border-black w-1/6 align-top p-1 md:p-2 text-right">${total.totalPayments.toLocaleString()}</td>
                     </tr>
                     <tr>
                         <td class="border-black p-1 md:p-2"></td>
                         <td class="border-r-2 border-black p-1 md:p-2"></td>
                         <td class="border-b-2 border-black font-semibold p-1 md:p-2">Balance</td>
-                        <td class="border-b-2 border-black p-1 md:p-2 text-right">${totals.balance.toLocaleString()}</td>
+                        <td class="border-b-2 border-black p-1 md:p-2 text-right">${total.outstandingBalance.toLocaleString()}</td>
                     </tr>
                 </table>
             </div>

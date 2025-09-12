@@ -394,7 +394,12 @@ export class FolioPrintService {
 
       // Calculate estimated totals for booking
       const totals = this.calculateBookingTotals(reservation, taxRates)
+      console.log('totalFolios', totals)
 
+      // Calculate overall totals including folio transactions
+      const total = this.calculateBalanceSummary([folio])
+      console.log('totalFolio', total)
+      //c
       // Prepare hotel information
       const hotel = {
         id: reservation.hotel.id,
@@ -495,6 +500,7 @@ export class FolioPrintService {
         folio: folioData,
         transactions,
         totals,
+        total:total,
         taxRates,
         billingAddress,
         currency,
