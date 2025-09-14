@@ -340,7 +340,7 @@ export class FolioPrintService {
       taxRates,
       billingAddress,
       currency,
-      printInfo
+      printInfo,
     }
   }
 
@@ -642,17 +642,17 @@ export class FolioPrintService {
         }
       })
     })
-    
+
     return Array.from(taxRatesMap.values())
   }
 
   private calculateTaxForTransaction(transaction: FolioTransaction, taxRates: any[]): number {
     let totalTax = 0
-    
+
     // Apply applicable tax rates based on transaction category
     taxRates.forEach(taxRate => {
       let shouldApplyTax = false
-      
+
       // Determine if tax should be applied based on transaction category
       if (transaction.category === 'room' && taxRate.appliesToRoomRate) {
         shouldApplyTax = true
@@ -661,7 +661,7 @@ export class FolioPrintService {
       } else if (transaction.category !== 'room' && transaction.category !== TransactionCategory.SERVICE_CHARGE && taxRate.appliesToOtherServices) {
         shouldApplyTax = true
       }
-      
+
       if (shouldApplyTax) {
         if (taxRate.postingType === 'flat_percentage' && taxRate.percentage) {
           totalTax += (transaction.amount * taxRate.percentage) / 100
@@ -670,7 +670,7 @@ export class FolioPrintService {
         }
       }
     })
-    
+
     return totalTax
   }
 
@@ -685,7 +685,7 @@ export class FolioPrintService {
     transactions.forEach(transaction => {
       if (transaction.transactionType === 'charge') {
         totalCharges += transaction.amount
-        
+
         // Calculate tax based on room tax rates if not already calculated
         if (!transaction.taxAmount && taxRates.length > 0) {
           const calculatedTax = this.calculateTaxForTransaction(transaction, taxRates)
