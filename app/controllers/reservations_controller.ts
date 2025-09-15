@@ -152,6 +152,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const reservationRoom of reservationRoomsToCheckIn) {
         reservationRoom.status = 'checked_in';
         reservationRoom.checkInDate = now;
+        reservationRoom.actualCheckIn = now;
         reservationRoom.checkedInBy = auth.user!.id;
         reservationRoom.guestNotes = notes || reservationRoom.guestNotes;
 
@@ -4002,11 +4003,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const reservationRoom of reservation.reservationRooms) {
         // Store the reservation room ID before unassigning
         const reservationRoomId = reservationRoom.id
-        
+
         reservationRoom.roomId = null;
         reservationRoom.lastModifiedBy = auth?.user?.id!
         await reservationRoom.useTransaction(trx).save()
-        
+
         // Remove room number from folio transaction descriptions
         await ReservationFolioService.removeRoomChargeDescriptions(
           reservationRoomId,
@@ -4353,7 +4354,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   /**
-   * assign rooom to reservation 
+   * assign rooom to reservation
    */
   public async assignRoom(ctx: HttpContext) {
     const trx = await db.transaction()
@@ -4396,12 +4397,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationRoom.roomId = newRoomId;
           reservationRoom.lastModifiedBy = auth?.user?.id!
           await reservationRoom.useTransaction(trx).save()
-          
+
           // Get room number and update folio transaction descriptions
           const room = await Room.query({ client: trx })
             .where('id', newRoomId)
             .first()
-          
+
           if (room) {
             await ReservationFolioService.updateRoomChargeDescriptions(
               reservationRoom.id,

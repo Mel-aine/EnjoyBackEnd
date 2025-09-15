@@ -129,6 +129,12 @@ export default class ReservationRoom extends BaseModel {
   @column.dateTime()
   declare actualCheckOutTime: DateTime
 
+  @column.dateTime()
+  declare actualCheckIn: DateTime
+
+  @column.dateTime()
+  declare actualCheckOut: DateTime
+
   @column()
   declare checkedInBy: number
 
