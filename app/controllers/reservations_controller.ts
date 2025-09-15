@@ -23,6 +23,8 @@ import FolioService from '#services/folio_service'
 import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import PaymentMethod from '#models/payment_method'
+import PdfGenerationService from '#services/pdf_generation_service'
+import Guest from '#models/guest'
 
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
@@ -4002,11 +4004,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const reservationRoom of reservation.reservationRooms) {
         // Store the reservation room ID before unassigning
         const reservationRoomId = reservationRoom.id
-        
+
         reservationRoom.roomId = null;
         reservationRoom.lastModifiedBy = auth?.user?.id!
         await reservationRoom.useTransaction(trx).save()
-        
+
         // Remove room number from folio transaction descriptions
         await ReservationFolioService.removeRoomChargeDescriptions(
           reservationRoomId,
@@ -4396,12 +4398,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationRoom.roomId = newRoomId;
           reservationRoom.lastModifiedBy = auth?.user?.id!
           await reservationRoom.useTransaction(trx).save()
-          
+
           // Get room number and update folio transaction descriptions
           const room = await Room.query({ client: trx })
             .where('id', newRoomId)
             .first()
-          
+
           if (room) {
             await ReservationFolioService.updateRoomChargeDescriptions(
               reservationRoom.id,
@@ -4503,5 +4505,370 @@ export default class ReservationsController extends CrudController<typeof Reserv
         error: error.message
       })
     }
+  }
+
+  public async printGuestCard({ request, response }: HttpContext) {
+    try {
+      const { guestId, reservationId } = request.only(['guestId', 'reservationId'])
+
+      if (!guestId || !reservationId) {
+        return response.badRequest({
+          message: 'Guest ID and Reservation ID are required'
+        })
+      }
+
+      // Fetch guest and reservation data
+      const guest = await Guest.find(guestId)
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('hotel')
+        .preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions');
+        })
+        .preload('reservationRooms', (query) => {
+          query.preload('room', (roomQuery) => {
+            roomQuery.preload('roomType')
+          })
+            .preload('roomRates', (roomRateQuery) => {
+              roomRateQuery.preload('rateType')
+            })
+        })
+        .first()
+
+      if (!guest) {
+        return response.notFound({ message: 'Guest not found' })
+      }
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+      const totalsSummary = this.calculateBalanceSummary(reservation.folios);
+
+      logger.info(totalsSummary)
+      // Generate guest card HTML content
+      const htmlContent = this.generateGuestCardHtml(guest, reservation, totalsSummary)
+
+      // Generate PDF
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        orientation: 'portrait'
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="guest-card-${guest.firstName}-${guest.lastName}.pdf"`)
+
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating guest card PDF:', error)
+      return response.internalServerError({
+        message: 'Failed to generate guest card PDF',
+        error: error.message
+      })
+    }
+  }
+
+  private generateGuestCardHtml(guest: Guest, reservation: Reservation, totalSummary: any): string {
+    const room = reservation.reservationRooms?.[0]?.room
+    const reservationRoom = reservation.reservationRooms?.[0]
+
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Guest Registration Card</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            body {
+                font-family: 'Inter', sans-serif;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+                background-color: #f8fafc;
+                font-size: 0.875rem;
+            }
+            .registration-card {
+                margin: 0 auto;
+                background-color: #ffffff;
+                padding: 1.5rem;
+                line-height: 1.5;
+            }
+            .hotel-info {
+                text-align: center;
+                margin-bottom: 1rem;
+            }
+            .hotel-info p {
+                font-size: 0.875rem;
+                margin: 0;
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                margin-bottom: 1rem;
+            }
+            .header .title {
+                font-size: 1.25rem;
+                font-weight: 700;
+            }
+            .header .card-no {
+                font-size: 1rem;
+                font-weight: 500;
+            }
+            .section {
+                border-bottom: 1px solid #000;
+                padding: 0.25rem 0;
+                margin-top: 1rem;
+                display: flex;
+                gap: 1.5rem;
+            }
+            .section-title {
+                font-weight: 700;
+                flex-basis: 20%;
+                flex-shrink: 0;
+                margin-right: 0.5rem;
+                white-space: nowrap;
+            }
+            .section-content {
+                flex-grow: 1;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .field {
+                 display: flex;
+                 align-items: flex-end;
+                 flex-basis: 50%;
+                 padding-bottom: 0.5rem;
+                 gap: 0.5rem;
+                 min-height: 2rem;
+             }
+             .field-label {
+                 font-weight: 500;
+                 white-space: nowrap;
+                 line-height: 1.5;
+                 min-width: 80px;
+                 flex-shrink: 0;
+             }
+            .input-line {
+                flex-grow: 1;
+                border-bottom: 1px solid #000;
+                min-height: 1.2em;
+                padding-left: 0.25rem;
+            }
+            .note-section {
+                margin-top: 1rem;
+                padding: 0.5rem 0;
+                border: 1px solid #000;
+                padding-left: 0.5rem;
+            }
+            .note-section .field-label {
+                margin-right: 0.5rem;
+            }
+            .signature-section {
+                margin-top: 2rem;
+                display: flex;
+                justify-content: space-between;
+            }
+            .signature-section .signature-field {
+                flex-basis: 48%;
+            }
+            .divider {
+                border-top: 1px solid #000;
+                margin: 1rem 0;
+            }
+            @media print {
+                body {
+                    background: none;
+                    padding: 0;
+                }
+                .registration-card {
+                    box-shadow: none;
+                    border: 1px solid #000;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="registration-card">
+            <div class="hotel-info">
+                <h3 style="font-weight: 600; margin-top: 0.5rem;">${reservation.hotel?.hotelName}</h3>
+                <p>${reservation.hotel?.address}</p>
+                <p>Phone: ${reservation.hotel?.phoneNumber}; Email: ${reservation.hotel?.email};</p>
+                <p>URL: ${reservation.hotel?.website}</p>
+            </div>
+            <div class="divider"></div>
+            <div class="header">
+                <div class="title">Guest Registration Card</div>
+                <div class="title">GR Card No.: ${reservation.confirmationNumber || '____________'}</div>
+            </div>
+<div class="divider"></div>
+            <div class="section">
+                <div class="section-title">Personal</div>
+                <div class="section-content flex-wrap">
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Name</span>
+                        <span class="input-line">${guest.displayName}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Email</span>
+                        <span class="input-line">${guest.email || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Phone</span>
+                        <span class="input-line">${guest.phonePrimary || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Fax</span>
+                        <span class="input-line">${guest.fax || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Mobile</span>
+                        <span class="input-line">${guest.phonePrimary || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">City</span>
+                        <span class="input-line">${guest.city || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Address</span>
+                        <span class="input-line">${guest.address || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Country</span>
+                        <span class="input-line">${guest.country || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 100%;">
+                        <span class="field-label">ID/Passport No.</span>
+                        <span class="input-line">${guest.idType || ''} - ${guest.passportNumber || guest.idNumber || ''}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Company Details</div>
+                <div class="section-content flex-wrap">
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Company</span>
+                        <span class="input-line">${guest.companyName || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Business Source</span>
+                        <span class="input-line">${reservation.businessSource?.name || ''}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Accommodation</div>
+                <div class="section-content flex-wrap">
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Arrival Date</span>
+                        <span class="input-line">${new Date(reservation.checkInDate).toLocaleDateString()}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Arrival Time</span>
+                        <span class="input-line">${reservation.checkInTime || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Dep. Date</span>
+                        <span class="input-line">${new Date(reservation.checkOutDate).toLocaleDateString()}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Dep. Time</span>
+                        <span class="input-line">${reservation.checkOutTime || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Night(s)</span>
+                        <span class="input-line">${reservation.numberOfNights || ''}</span>
+                    </div>
+                     <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Pax</span>
+                        <span class="input-line">${reservation.adults} / ${(reservation.children || 0)} (A/C)</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Room</span>
+                        <span class="input-line">${room?.roomNumber || ''} - ${room?.roomType?.roomTypeName || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Rate Type</span>
+                        <span class="input-line">${reservationRoom?.roomRates?.rateType?.rateTypeName || ''}</span>
+                    </div>
+                   
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Tariff</span>
+                        <span class="input-line">${reservationRoom.roomRate || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Total Charges</span>
+                        <span class="input-line">${totalSummary.totalCharges}</span>
+                    </div>
+                     <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Tax</span>
+                        <span class="input-line">${totalSummary.totalTaxes}</span>
+                    </div>
+                     <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Amount Paid</span>
+                        <span class="input-line">${totalSummary.totalPayments}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Discount</span>
+                        <span class="input-line">${totalSummary.totalDiscounts}</span>
+                    </div>
+                      <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Due Amount</span>
+                        <span class="input-line">${totalSummary.outstandingBalance}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Adjustment</span>
+                        <span class="input-line">${totalSummary.totalAdjustments}</span>
+                    </div>
+                  
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Net</span>
+                        <span class="input-line">${totalSummary.totalChargesWithTaxes}</span>
+                    </div>
+                   
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Payment Details</div>
+                <div class="section-content flex-wrap">
+                    <div class="field" style="flex-basis: 45%;">
+                        <span class="field-label">Payment Type</span>
+                        <span class="input-line">${reservation.paymentMethod || ''}</span>
+                    </div>
+                    <div class="field" style="flex-basis: 50%;">
+                        <span class="field-label">Direct Billing A/C</span>
+                        <span class="input-line">${reservation.billingAccount || ''}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="note-section">
+                <div class="section-title">Please Note</div>
+                <p style="margin-top: 0.5rem; font-size: 0.75rem;">
+                   ${reservation.hotel?.notices?.registrationCard}
+                </p>
+            </div>
+
+            <div class="signature-section">
+                <div class="signature-field">
+                    <label style="display: block; width: 100%; font-size: 0.875rem; font-weight: 500; color: #4b5063;">Guest Signature</label>
+                    <span class="input-line"></span>
+                </div>
+                <div class="signature-field">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5063;">Date</label>
+                    <span class="input-line">${new Date().toLocaleDateString()}</span>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    `
   }
 }
