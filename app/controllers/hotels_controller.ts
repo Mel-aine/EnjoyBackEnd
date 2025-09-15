@@ -11,6 +11,7 @@ import CurrenciesController from '#controllers/currencies_controller'
 import ReservationType from '#models/reservation_type'
 import BookingSource from '#models/booking_source'
 import IdentityType from '#models/identity_type'
+import PaymentMethod from '#models/payment_method'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -128,6 +129,17 @@ export default class HotelsController {
         logger.error('Failed to create default identity types for hotel', {
           hotelId: hotel.id,
           error: identityTypeError.message
+        })
+      }
+
+      // Create default payment methods for the new hotel
+      try {
+        await this.createDefaultPaymentMethods(hotel.id, auth.user?.id)
+      } catch (paymentMethodError) {
+        // Log the error but don't fail the hotel creation
+        logger.error('Failed to create default payment methods for hotel', {
+          hotelId: hotel.id,
+          error: paymentMethodError.message
         })
       }
 
@@ -1017,5 +1029,65 @@ export default class HotelsController {
         updatedBy: userId || null
       })
     }
+  }
+
+  /**
+   * Create default payment methods for a new hotel
+   */
+  private async createDefaultPaymentMethods(hotelId: number, userId?: number) {
+    const defaultPaymentMethod = {
+      hotelId,
+      methodName: 'Cash',
+      methodCode: 'CASH',
+      methodType: 'cash' as const,
+      description: 'Cash payment method',
+      isActive: true,
+      isDefault: true,
+      acceptsPartialPayments: true,
+      requiresAuthorization: false,
+      requiresSignature: false,
+      requiresId: false,
+      minimumAmount: 0,
+      maximumAmount: 999999999,
+      dailyLimit: 999999999,
+      monthlyLimit: 999999999,
+      processingFee: 0,
+      processingFeeType: 'fixed' as const,
+      merchantFee: 0,
+      merchantFeeType: 'fixed' as const,
+      settlementTime: 0,
+      settlementTimeUnit: 'minutes' as const,
+      currenciesAccepted: {},
+      exchangeRateMarkup: 0,
+      paymentProcessor: '',
+      processorConfig: {},
+      merchantId: '',
+      terminalId: '',
+      shortCode: 'CASH',
+      type: 'CASH' as const,
+      cardProcessing: false,
+      surchargeEnabled: false,
+      surchargeType: null,
+      surchargeValue: null,
+      extraChargeId: null,
+      receiptNoSetting: 'auto_general' as const,
+      createdBy: userId || 0,
+      lastModifiedBy: userId || 0,
+      sortOrder: 1,
+      displayName: 'Cash',
+      icon: 'cash',
+      color: '#28a745',
+      isVisible: true,
+      isAvailableOnline: false,
+      isAvailableAtProperty: true,
+      isAvailableMobile: false,
+      departmentRestrictions: {},
+      userRoleRestrictions: {},
+      timeRestrictions: {},
+      locationRestrictions: {},
+      notes: 'Default cash payment method'
+    }
+
+    await PaymentMethod.create(defaultPaymentMethod)
   }
 }
