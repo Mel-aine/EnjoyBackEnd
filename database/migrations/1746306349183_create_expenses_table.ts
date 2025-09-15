@@ -8,10 +8,10 @@ export default class extends BaseSchema {
       table.increments('id').primary()
 
       table
-        .integer('service_id')
+        .integer('hotel_id')
         .unsigned()
         .references('id')
-        .inTable('services')
+        .inTable('hotels')
         .onDelete('RESTRICT')
 
       table

@@ -10,10 +10,10 @@ export default class extends BaseSchema {
       table.text('description').nullable()
       table.integer('parent_category_id').nullable()
       table
-      .integer('service_id')
+      .integer('hotel_id')
       .unsigned()
       .references('id')
-      .inTable('services')
+      .inTable('hotels')
       .onDelete('SET NULL')
       .nullable()
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()

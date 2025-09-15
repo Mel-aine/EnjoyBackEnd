@@ -7,7 +7,7 @@ export default class extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.integer('user_id').unsigned().references('id').inTable('users').onDelete('CASCADE')
-      table.integer('service_id').unsigned().references('id').inTable('services').onDelete('CASCADE')
+      table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('CASCADE')
       table.string('reservation_type', 50)
       table.string('reservation_number', 50).unique().nullable()
       table.integer('guest_count').defaultTo(1).nullable()
@@ -29,6 +29,12 @@ export default class extends BaseSchema {
       table.decimal('tax_amount', 15, 2).defaultTo(0.00).nullable()
       table.decimal('final_amount', 15, 2).notNullable().nullable()
       table.decimal('paid_amount', 15, 2).defaultTo(0.00).nullable()
+       table.string('booking_source').nullable()
+      table.dateTime('check_in_date').nullable()
+      table.dateTime('check_out_date').nullable()
+      table.integer('number_of_nights').nullable()
+        table.decimal('remaining_amount', 15, 2).nullable()
+      table.boolean('invoice_available').notNullable().defaultTo(true)
 
       table.enu('payment_status', ['unpaid', 'partially_paid', 'paid', 'refunded', 'disputed','pending'])
         .defaultTo('unpaid')

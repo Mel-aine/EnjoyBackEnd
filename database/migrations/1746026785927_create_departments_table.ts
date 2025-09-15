@@ -11,7 +11,7 @@ export default class extends BaseSchema {
       table.decimal('budget', 15, 2).defaultTo(0.00).nullable()
       table.enu('status', ['active', 'inactive', 'suspended']).defaultTo('active')
       table.integer('number_employees').nullable()
-      table.integer('service_id').unsigned().references('id').inTable('services').onDelete('CASCADE')
+      table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('CASCADE')
       table.integer('product_id').unsigned().references('id').inTable('products').onDelete('CASCADE').nullable()
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
       table.integer('responsible_user_id').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()

@@ -5,8 +5,10 @@ export default class extends BaseSchema {
 
   async up() {
     this.schema.alterTable('roles', (table) => {
-      table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL')
-      table.foreign('last_modified_by').references('id').inTable('users').onDelete('SET NULL')
+      table.integer('hotel_id').unsigned().nullable().references('id').inTable('hotels').onDelete('CASCADE')
+      table.integer('created_by').unsigned().nullable().references('id').inTable('users').onDelete('SET NULL')
+      table.integer('last_modified_by').unsigned().nullable().references('id').inTable('users').onDelete('SET NULL')
+
     })
   }
 
@@ -14,6 +16,7 @@ export default class extends BaseSchema {
     this.schema.alterTable('roles', (table) => {
       table.dropForeign('created_by')
       table.dropForeign('last_modified_by')
+      table.dropForeign('hotel_id')
   })
 }
 }

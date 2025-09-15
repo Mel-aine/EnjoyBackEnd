@@ -8,7 +8,7 @@ export default class extends BaseSchema {
       table.increments('id')
       table.string('name').notNullable()
       table.text('description').nullable()
-      table.integer('service_id').unsigned().references('id').inTable('services').onDelete('CASCADE')
+      table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('CASCADE')
       table.enum('status', ['active', 'inactive', 'archived']).defaultTo('active').notNullable()
       table.enum('source_type', ['External', 'Internal']).notNullable()
       table.string('external_system_id').nullable()
