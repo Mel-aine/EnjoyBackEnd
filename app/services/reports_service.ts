@@ -770,7 +770,7 @@ export class ReservationReportsService {
       .preload('bookingSource')
       .preload('ratePlan')
       .preload('folios')
-      .preload('creator')
+      //.preload('creator')
       .whereBetween('voided_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')]) 
       .where('reservation_status', 'Void')
       .orderBy('voided_date', 'desc')
