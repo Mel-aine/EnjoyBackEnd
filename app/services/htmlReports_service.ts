@@ -12,20 +12,20 @@ export interface HtmlReport {
 export class HtmlReportGenerator {
 
     // Génère un rapport HTML pour la liste d'arrivée
-  static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     // Mapping des colonnes disponibles
     const availableColumns = {
-      'Pick Up': { key: 'pickUp', label: 'Pick Up' },
-      'Drop Off': { key: 'dropOff', label: 'Drop Off' },
-      'Res.Type': { key: 'reservationType', label: 'Res.Type' },
-      'Company': { key: 'company', label: 'Company' },
-      'User': { key: 'createdBy', label: 'User' },
-      'Deposit': { key: 'depositPaid', label: 'Deposit' },
-      'Balance Due': { key: 'balanceDue', label: 'Balance Due' },
-      'Market Code': { key: 'marketSegment', label: 'Market Code' },
-      'Business Source': { key: 'businessSource', label: 'Business Source' },
-      'Meal Plan': { key: 'mealPlan', label: 'Meal Plan' },
-      'Rate Type': { key: 'ratePlan', label: 'Rate Type' }
+      'pickUp': { key: 'pickUp', label: 'Pick Up' },
+      'dropOff': { key: 'dropOff', label: 'Drop Off' },
+      'resType': { key: 'resType', label: 'Res.Type' },
+      'company': { key: 'company', label: 'Company' },
+      'user': { key: 'user', label: 'User' },
+      'deposit': { key: 'deposit', label: 'Deposit' },
+      'balanceDue': { key: 'balanceDue', label: 'Balance Due' },
+      'marketCode': { key: 'marketCode', label: 'Market Code' },
+      'businessSource': { key: 'businessSource', label: 'Business Source' },
+      'mealPlan': { key: 'mealPlan', label: 'Meal Plan' },
+      'rateType': { key: 'rateType', label: 'Rate Type' }
     }
 
     // Colonnes de base toujours visibles
@@ -41,8 +41,8 @@ export class HtmlReportGenerator {
 
     // Colonnes supplémentaires sélectionnées
     const selectedAdditionalColumns = (filters.selectedColumns || [])
-      .filter(col => availableColumns[col as keyof typeof availableColumns])
-      .map(col => availableColumns[col as keyof typeof availableColumns])
+      .filter(col => availableColumns[col])
+      .map(col => availableColumns[col])
 
     // Toutes les colonnes à afficher
     const allColumns = [...baseColumns, ...selectedAdditionalColumns]
@@ -57,20 +57,32 @@ export class HtmlReportGenerator {
       const roomInfo = `${item.roomNumber || 'N/A'} ${item.roomType ? `- ${item.roomType}` : ''}`
       const paxInfo = `${item.adults || 0}/${item.children || 0}`
       
+      // Fonction pour formater les valeurs
+      const formatValue = (value: any, key: string) => {
+        if (value === undefined || value === null) return '-'
+        
+        // Formater les montants financiers
+        if (['ratePerNight', 'finalAmount', 'deposit', 'balanceDue'].includes(key)) {
+          return Number(value).toFixed(2)
+        }
+        
+        return value.toString()
+      }
+
       // Cellules de base
       const baseCells = [
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.reservationNumber || 'N/A'}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.guestName || 'N/A'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.reservationNumber, 'reservationNumber')}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.guestName, 'guestName')}</td>`,
         `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${roomInfo}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.ratePerNight ? Number(item.ratePerNight).toFixed(2) : '0.00'}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.arrivalDate || 'N/A'}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${item.departureDate || 'N/A'}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.ratePerNight, 'ratePerNight')}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.arrivalDate, 'arrivalDate')}</td>`,
+        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.departureDate, 'departureDate')}</td>`,
         `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${paxInfo}</td>`
       ]
 
       // Cellules supplémentaires basées sur la sélection
       const additionalCells = selectedAdditionalColumns.map(column => {
-        const value = item[column.key] || '-'
+        const value = formatValue(item[column.key], column.key)
         return `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${value}</td>`
       })
 
@@ -87,6 +99,18 @@ export class HtmlReportGenerator {
         return dateString
       }
     }
+
+    // Compter le nombre de filtres actifs
+    const activeFilters = Object.keys(filters).filter(key => 
+      key !== 'startDate' && 
+      key !== 'endDate' && 
+      key !== 'hotelId' && 
+      key !== 'selectedColumns' &&
+      filters[key] !== undefined && 
+      filters[key] !== '' &&
+      filters[key] !== null &&
+      filters[key] !== false
+    ).length
 
     return `
 <!DOCTYPE html>
@@ -328,6 +352,33 @@ export class HtmlReportGenerator {
             color: #dbeafe;
         }
         
+        .filters-applied {
+            background-color: #ecfdf5;
+            padding: 12px 16px;
+            border-left: 4px solid #10b981;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #065f46;
+        }
+        
+        .dark .filters-applied {
+            background-color: #064e3b;
+            color: #a7f3d0;
+            border-left-color: #34d399;
+        }
+        
+        .no-data {
+            padding: 60px 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .dark .no-data {
+            color: #9ca3af;
+        }
+        
         /* Responsive design */
         @media (max-width: 768px) {
             body {
@@ -373,11 +424,18 @@ export class HtmlReportGenerator {
             <p class="report-subtitle">View and manage upcoming guest arrivals</p>
         </div>
         
+        ${activeFilters > 0 ? `
+        <div class="filters-applied">
+            <strong>${activeFilters} filtre(s) appliqué(s) :</strong> 
+            Les résultats respectent toutes les conditions des filtres sélectionnés
+        </div>
+        ` : ''}
+        
         <div class="filters-info">
             <span><strong>Hotel:</strong> ${filters.hotelId || 'All Hotels'}</span>
             <span><strong>Date From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
-            <span><strong>Order By:</strong> ${filters.orderBy || 'Room'}</span>
             <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>
+            ${filters.showAmount ? `<span><strong>Show Amount:</strong> ${filters.showAmount}</span>` : ''}
         </div>
         
         ${selectedAdditionalColumns.length > 0 ? `
@@ -390,9 +448,12 @@ export class HtmlReportGenerator {
         <div class="results-section">
             <div class="results-header">
                 <h2 class="results-title">Arrival List Results</h2>
-                <div class="results-meta">Hotel Nihai • Date From: ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} To ${filters.endDate ? formatDate(filters.endDate) : 'N/A'} • Order By: ${filters.orderBy || 'Room'} • Tax Inclusive: ${filters.taxInclusive ? 'Yes' : 'No'}</div>
+                <div class="results-meta">
+                    Showing ${data.length} reservations matching all selected filters
+                </div>
             </div>
             
+            ${data.length > 0 ? `
             <div class="table-container">
                 <table class="results-table">
                     <thead>
@@ -426,6 +487,11 @@ export class HtmlReportGenerator {
                     </div>
                 </div>
             </div>
+            ` : `
+            <div class="no-data">
+                Aucune donnée ne correspond à tous les filtres sélectionnés
+            </div>
+            `}
             
             <div class="report-meta">
                 <p>Generated on ${generatedAt.toFormat('dd/MM/yyyy HH:mm:ss')} | ${data.length} records | ${allColumns.length} columns displayed</p>

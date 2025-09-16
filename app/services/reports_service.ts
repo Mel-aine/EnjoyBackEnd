@@ -68,222 +68,278 @@ export class ReservationReportsService {
    * Liste des clients prévus pour arriver aujourd'hui ou à des dates futures
    */
   static async getArrivalList(filters: ReportFilters): Promise<HtmlReport> {
-    const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
-    const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
+      const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
+      const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
 
-    const query = Reservation.query()
-      .preload('guest')
-      .preload('hotel')
-      .preload('roomType')
-      .preload('reservationRooms', (roomQuery) => {
-        roomQuery.preload('room')
-      })
-      .whereBetween('arrived_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
-      .orderBy('arrived_date', 'asc')
+      const query = Reservation.query()
+        .preload('guest')
+        .preload('hotel')
+        .preload('roomType')
+        .preload('reservationRooms', (roomQuery) => {
+          roomQuery.preload('room')
+        })
+        .preload('bookingSource')
+        .preload('ratePlan')
+        //.preload('creator')
+        .whereBetween('arrived_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .orderBy('arrived_date', 'asc')
 
-    if (filters.hotelId) {
-      query.where('hotel_id', filters.hotelId)
-    }
-    // Correction du filtre showAmount
-    if (filters.showAmount === 'rent_per_night') {
-      query.whereNotNull('room_rate')
-    }
-    if (filters.roomTypeId) {
-      query.where('primary_room_type_id', filters.roomTypeId)
-    }
-    if (filters.status) {
-      // Si le filtre status est une string, la convertir en array
-      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
-      query.whereIn('reservation_status', statuses)
-    }
-    // Filtre par compagnie
-    if (filters.company) {
-      query.whereIn('company', (companyQuery) => {
-        companyQuery.where('name', 'like', `%${filters.company}%`)
-      })
-    }
+      // Vérifier si au moins un filtre est fourni (en plus des dates)
+      const hasFilters = Object.keys(filters).some(key => 
+        key !== 'startDate' && 
+        key !== 'endDate' && 
+        key !== 'hotelId' && 
+        filters[key] !== undefined && 
+        filters[key] !== '' &&
+        filters[key] !== null
+      )
 
-    // Filtre par agent de voyage
-    if (filters.travelAgent) {
-      query.whereIn('travelAgent', (agentQuery) => {
-        agentQuery.where('name', 'like', `%${filters.travelAgent}%`)
-      })
-    }
-
-    // Filtre par source d'affaires
-    if (filters.businessSource) {
-      query.whereIn('bookingSource', (sourceQuery) => {
-        sourceQuery.where('source_name', 'like', `%${filters.businessSource}%`)
-      })
-    }
-
-    // Filtre par marché
-    if (filters.market) {
-      query.where('market_segment', filters.market)
-    }
-
-    // Filtre par fourchette de prix
-    if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
-      if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
-        query.whereBetween('total_estimated_revenue', [filters.rateFrom, filters.rateTo])
-      } else if (filters.rateFrom !== undefined) {
-        query.where('total_estimated_revenue', '>=', filters.rateFrom)
-      } else if (filters.rateTo !== undefined) {
-        query.where('total_estimated_revenue', '<=', filters.rateTo)
+      // Appliquer tous les filtres en condition ET
+      if (filters.hotelId) {
+        query.where('hotel_id', filters.hotelId)
       }
-    }
-
-    // Filtre par type de réservation
-    if (filters.reservationType) {
-      query.where('reservation_type', filters.reservationType)
-    }
-
-    // Filtre par utilisateur
-    if (filters.userId) {
-      query.where('user_id', filters.userId)
-    }
-
-    const reservations = await query
-    const totalRecords = reservations.length
-
-  // Préparer les données avec gestion des colonnes sélectionnées et taxe inclusive
-    const data = reservations.map((reservation) => {
-      // Données de base toujours incluses
-      const baseData: any = {
-        // Informations de base
-        reservationNumber: reservation.reservationNumber || 'N/A',
-        guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
-        guestEmail: reservation.guest?.email,
-        guestPhone: reservation.guest?.phonePrimary,
-
-        // Dates
-        arrivalDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy'),
-        departureDate: reservation.departDate?.toFormat('dd/MM/yyyy'),
-        arrivalTime: reservation.scheduledArrivalDate?.toFormat('HH:mm'),
-
-        // Hébergement
-        roomNumber: reservation.reservationRooms?.[0]?.room?.roomNumber || 'N/A',
-        roomType: reservation.roomType?.roomTypeName,
-        roomTypeId: reservation.roomType?.id,
-
-        // Tarifs
-        ratePerNight: reservation.roomRate,
-        totalAmount: reservation.totalEstimatedRevenue,
-        taxAmount: reservation.taxAmount,
-        discountAmount: reservation.discountAmount,
-        finalAmount: reservation.finalAmount,
-
-        // Occupants
-        adults: reservation.numAdultsTotal,
-        children: reservation.numChildrenTotal,
-        infants: reservation.infants || 0,
-        totalPax: (reservation.numAdultsTotal || 0) + (reservation.numChildrenTotal || 0) + (reservation.infants || 0),
-
-        // Informations commerciales
-        company: reservation.companyName,
-        travelAgent: reservation.travelAgentCode,
-        businessSource: reservation.bookingSource?.sourceName,
-        marketSegment: reservation.marketingSource,
-        ratePlan: reservation.ratePlan?.planName,
-
-        // Statut et métadonnées
-        status: reservation.reservationStatus,
-        reservationType: reservation.reservationType,
-        isGuaranteed: reservation.isGuaranteed,
-        specialRequests: reservation.specialNotes,
-        mealPlan: reservation.board_basis_type,
-
-        // Transport
-        pickUp: reservation?.pickupInformation || '',
-        dropOff: reservation?.dropoffInformation || '',
-
-        // Paiement
-        depositPaid: reservation.depositPaid,
-        balanceDue: reservation.balanceDue,
-        paymentStatus: reservation.paymentStatus,
-
-        // Utilisateur
-        createdBy: reservation.creator?.firstName
-          ? `${reservation.creator.firstName} ${reservation.creator.lastName}`
-          : 'System',
-
-        // Nuits
-        nights: reservation.numberOfNights,
-
-        // Check-in/out estimés
-        estimatedCheckinTime: reservation.estimatedCheckinTime,
-        estimatedCheckoutTime: reservation.estimatedCheckoutTime,
-      }
-
-      // Ajouter la taxe inclusive si demandée
+      
+      // Filtre taxInclusive - si true, seulement les réservations où tax_exempt = false (taxes incluses)
       if (filters.taxInclusive) {
-        baseData.taxInclusive = 'Yes'
-        // Calculer le montant avec taxe inclusive si nécessaire
-        baseData.finalAmountWithTax = baseData.finalAmount + (baseData.taxAmount || 0)
-      } else {
-        baseData.taxInclusive = 'No'
+        query.where('tax_exempt', false)
+      }
+      
+      // Correction du filtre showAmount
+      if (filters.showAmount === 'rent_per_night') {
+        query.whereNotNull('room_rate')
+      }
+      
+      if (filters.roomTypeId) {
+        query.where('primary_room_type_id', filters.roomTypeId)
+      }
+      
+      if (filters.status) {
+        // Si le filtre status est une string, la convertir en array
+        const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
+        query.whereIn('reservation_status', statuses)
+      }
+      
+      // Filtre par compagnie
+      if (filters.company) {
+        query.where('company_name', 'like', `%${filters.company}%`)
       }
 
-      // Gérer les colonnes supplémentaires sélectionnées
-      if (filters.selectedColumns && filters.selectedColumns.length > 0) {
-        filters.selectedColumns.forEach(column => {
-            switch(column) {
-            case 'deposit':
-              baseData.deposit = reservation.depositPaid || 0
-              break
-            case 'balanceDue':
-              baseData.balanceDue = reservation.balanceDue || 0
-              break
-            case 'marketCode':
-              baseData.marketCode = reservation.marketingSource || 'N/A'
-              break
-            case 'businessSource':
-              baseData.businessSource = reservation.bookingSource?.sourceName || 'N/A'
-              break
-            case 'mealPlan':
-              baseData.mealPlan = reservation.board_basis_type || 'N/A'
-              break
-            case 'rateType':
-              baseData.rateType = reservation.ratePlan?.planName || 'N/A'
-              break
-            // Ajouter d'autres colonnes au besoin
-          }
+      // Filtre par agent de voyage
+      if (filters.travelAgent) {
+        query.where('travel_agent_code', 'like', `%${filters.travelAgent}%`)
+      }
+
+      // Filtre par source d'affaires
+      if (filters.businessSource) {
+        query.whereHas('bookingSource', (sourceQuery) => {
+          sourceQuery.where('source_name', 'like', `%${filters.businessSource}%`)
         })
       }
 
-      return baseData
-    })
+      // Filtre par marché
+      if (filters.market) {
+        query.where('marketing_source', filters.market)
+      }
 
-    
-    // Calcul des totaux
-    const totalRevenue = data.reduce((sum, item) => {
-      const amount = Number(item.finalAmount) || Number(item.totalAmount) || 0;
-      return sum + amount
-    }, 0)
-    const totalNights = data.reduce((sum, item) => sum + (item.nights || 0), 0)
-    const totalAdults = data.reduce((sum, item) => sum + (item.adults || 0), 0)
-    const totalChildren = data.reduce((sum, item) => sum + (item.children || 0), 0)
+      // Filtre par fourchette de prix
+      if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
+        if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
+          query.whereBetween('total_estimated_revenue', [filters.rateFrom, filters.rateTo])
+        } else if (filters.rateFrom !== undefined) {
+          query.where('total_estimated_revenue', '>=', filters.rateFrom)
+        } else if (filters.rateTo !== undefined) {
+          query.where('total_estimated_revenue', '<=', filters.rateTo)
+        }
+      }
 
-    const summary = {
-      totalArrivals: totalRecords,
-      totalRevenue,
-      totalNights,
-      totalAdults,
-      totalChildren,
-      averageRate: totalNights > 0 ? totalRevenue / totalNights : 0,
-      byStatus: ReservationReportsService.getStatusSummary(data), // Utilisation directe de la classe
-      byRoomType: ReservationReportsService.getRoomTypeSummary(data), // Utilisation directe de la classe
-      byMarket: ReservationReportsService.getMarketSummary(data) // Utilisation directe de la classe
-    }
-    console.log(data)
+      // Filtre par type de réservation
+      if (filters.reservationType) {
+        query.where('reservation_type', filters.reservationType)
+      }
+
+      // Filtre par utilisateur
+      if (filters.userId) {
+        query.where('user_id', filters.userId)
+      }
+
+      // Filtre par rate plan
+      if (filters.ratePlanId) {
+        query.where('rate_plan_id', filters.ratePlanId)
+      }
+
+      const reservations = await query
+      const totalRecords = reservations.length
+
+      // Si des filtres sont fournis mais aucune réservation ne correspond à TOUS les filtres
+      if (hasFilters && totalRecords === 0) {
+        return {
+          title: 'Liste des Arrivées',
+          html: '<div class="no-data" style="padding: 40px; text-align: center; color: #666; font-size: 16px;">Aucune donnée ne correspond à tous les filtres sélectionnés</div>',
+          datas: { data: [], summary: null },
+          generatedAt: DateTime.now(),
+          filters
+        }
+      }
+
+      // Si aucune réservation ne correspond aux dates
+      if (totalRecords === 0) {
+        return {
+          title: 'Liste des Arrivées',
+          html: '<div class="no-data" style="padding: 40px; text-align: center; color: #666; font-size: 16px;">Aucune donnée trouvée pour la période sélectionnée</div>',
+          datas: { data: [], summary: null },
+          generatedAt: DateTime.now(),
+          filters
+        }
+      }
+
+      // Préparer les données avec gestion des colonnes sélectionnées
+      const data = reservations.map((reservation) => {
+        // Données de base toujours incluses
+        const baseData: any = {
+          // Informations de base
+          reservationNumber: reservation.reservationNumber || 'N/A',
+          guestName: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''}`.trim() || 'N/A',
+          guestEmail: reservation.guest?.email || 'N/A',
+          guestPhone: reservation.guest?.phonePrimary || 'N/A',
+
+          // Dates
+          arrivalDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+          departureDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
+          arrivalTime: reservation.scheduledArrivalDate?.toFormat('HH:mm') || 'N/A',
+
+          // Hébergement
+          roomNumber: reservation.reservationRooms?.[0]?.room?.roomNumber || 'N/A',
+          roomType: reservation.roomType?.roomTypeName || 'N/A',
+          roomTypeId: reservation.roomType?.id,
+
+          // Tarifs
+          ratePerNight: reservation.roomRate || 0,
+          totalAmount: reservation.totalEstimatedRevenue || 0,
+          taxAmount: reservation.taxAmount || 0,
+          discountAmount: reservation.discountAmount || 0,
+          finalAmount: reservation.finalAmount || 0,
+
+          // Occupants
+          adults: reservation.numAdultsTotal || 0,
+          children: reservation.numChildrenTotal || 0,
+          infants: reservation.infants || 0,
+          totalPax: (reservation.numAdultsTotal || 0) + (reservation.numChildrenTotal || 0) + (reservation.infants || 0),
+
+          // Informations commerciales
+          company: reservation.companyName || 'N/A',
+          travelAgent: reservation.travelAgentCode || 'N/A',
+          businessSource: reservation.bookingSource?.sourceName || 'N/A',
+          marketSegment: reservation.marketingSource || 'N/A',
+          ratePlan: reservation.ratePlan?.planName || 'N/A',
+
+          // Statut et métadonnées
+          status: reservation.reservationStatus || 'N/A',
+          reservationType: reservation.reservationType || 'N/A',
+          isGuaranteed: reservation.isGuaranteed,
+          specialRequests: reservation.specialNotes || '',
+          mealPlan: reservation.board_basis_type || 'N/A',
+
+          // Transport
+          pickUp: reservation.pickupInformation || '',
+          dropOff: reservation.dropoffInformation || '',
+
+          // Paiement
+          depositPaid: reservation.depositPaid || 0,
+          balanceDue: reservation.balanceDue || 0,
+          paymentStatus: reservation.paymentStatus || 'N/A',
+
+          // Utilisateur
+          createdBy: reservation.creator?.firstName
+            ? `${reservation.creator.firstName} ${reservation.creator.lastName}`
+            : 'System',
+
+          // Nuits
+          nights: reservation.numberOfNights || 0,
+
+          // Check-in/out estimés
+          estimatedCheckinTime: reservation.estimatedCheckinTime || 'N/A',
+          estimatedCheckoutTime: reservation.estimatedCheckoutTime || 'N/A',
+
+          // Information taxes
+          taxExempt: reservation.taxExempt
+        }
+
+        // Gérer les colonnes supplémentaires sélectionnées
+        if (filters.selectedColumns && filters.selectedColumns.length > 0) {
+          filters.selectedColumns.forEach(column => {
+            switch(column) {
+              case 'pickUp':
+                baseData.pickUp = reservation.pickupInformation || ''
+                break
+              case 'dropOff':
+                baseData.dropOff = reservation.dropoffInformation || ''
+                break
+              case 'resType':
+                baseData.resType = reservation.reservationType || 'N/A'
+                break
+              case 'company':
+                baseData.company = reservation.companyName || 'N/A'
+                break
+              case 'user':
+                baseData.user = reservation.creator?.firstName
+                  ? `${reservation.creator.firstName} ${reservation.creator.lastName}`
+                  : 'System'
+                break
+              case 'deposit':
+                baseData.deposit = reservation.depositPaid || 0
+                break
+              case 'balanceDue':
+                baseData.balanceDue = reservation.balanceDue || 0
+                break
+              case 'marketCode':
+                baseData.marketCode = reservation.marketingSource || 'N/A'
+                break
+              case 'businessSource':
+                baseData.businessSource = reservation.bookingSource?.sourceName || 'N/A'
+                break
+              case 'mealPlan':
+                baseData.mealPlan = reservation.board_basis_type || 'N/A'
+                break
+              case 'rateType':
+                baseData.rateType = reservation.ratePlan?.planName || 'N/A'
+                break
+            }
+          })
+        }
+
+        return baseData
+      })
+
+      // Calcul des totaux
+      const totalRevenue = data.reduce((sum, item) => {
+        const amount = Number(item.finalAmount) || Number(item.totalAmount) || 0
+        return sum + amount
+      }, 0)
+      
+      const totalNights = data.reduce((sum, item) => sum + (item.nights || 0), 0)
+      const totalAdults = data.reduce((sum, item) => sum + (item.adults || 0), 0)
+      const totalChildren = data.reduce((sum, item) => sum + (item.children || 0), 0)
+
+      const summary = {
+        totalArrivals: totalRecords,
+        totalRevenue,
+        totalNights,
+        totalAdults,
+        totalChildren,
+        averageRate: totalNights > 0 ? totalRevenue / totalNights : 0,
+        byStatus: ReservationReportsService.getStatusSummary(data),
+        byRoomType: ReservationReportsService.getRoomTypeSummary(data),
+        byMarket: ReservationReportsService.getMarketSummary(data)
+      }
+
       return {
         title: 'Liste des Arrivées',
         html: HtmlReportGenerator.generateArrivalListHtml(data, summary, filters, DateTime.now()),
+        datas: {data, summary},
         generatedAt: DateTime.now(),
         filters
       }
   }
-
   // Méthodes helpers pour les résumés
 
   private static getStatusSummary(data: any[]) {
@@ -317,9 +373,10 @@ export class ReservationReportsService {
    * Liste des clients prévus pour le départ
    */
   static async getDepartureList(filters: ReportFilters): Promise<HtmlReport> {
-    const startDate = filters.arrivalFrom ? DateTime.fromFormat(filters.arrivalFrom, 'dd/MM/yyyy') : DateTime.now().startOf('day')
-    const endDate = filters.arrivalTo ? DateTime.fromFormat(filters.arrivalTo, 'dd/MM/yyyy') : DateTime.now().endOf('day')
+    const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
+    const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
 
+    console.log('Filters:', filters)
     const query = Reservation.query()
       .preload('guest')
       .preload('hotel')
@@ -441,6 +498,7 @@ export class ReservationReportsService {
     return {
       title: 'Liste des Départs',
       html: HtmlReportGenerator.generateDepartureListHtml(data, summary, filters, DateTime.now()),
+      datas: {data, summary},
       generatedAt: DateTime.now(),
       filters,
     }
@@ -502,8 +560,8 @@ export class ReservationReportsService {
    * Cancelled Reservations Report
    */
   static async getCancelledReservations(filters: ReportFilters): Promise<HtmlReport> {
-    const startDate = filters.arrivalFrom? DateTime.fromFormat(filters.arrivalFrom, 'dd/MM/yyyy') : DateTime.now().startOf('month')
-    const endDate = filters.arrivalTo ? DateTime.fromFormat(filters.arrivalTo, 'dd/MM/yyyy') : DateTime.now().endOf('month')
+    const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
+    const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
 
     const query = Reservation.query()
       .preload('guest')
@@ -702,8 +760,8 @@ export class ReservationReportsService {
    * Void Reservations Report
    */
   static async getVoidReservations(filters: ReportFilters): Promise<HtmlReport> {
-    const startDate = filters.arrivalFrom ? DateTime.fromFormat(filters.arrivalFrom, 'dd/MM/yyyy') : DateTime.now().startOf('month')
-    const endDate = filters.arrivalTo ? DateTime.fromFormat(filters.arrivalTo, 'dd/MM/yyyy') : DateTime.now().endOf('month')
+    const startDate = filters.startDate ? DateTime.fromISO(filters.startDate) : DateTime.now().startOf('day')
+    const endDate = filters.endDate ? DateTime.fromISO(filters.endDate) : DateTime.now().endOf('day')
 
     const query = Reservation.query()
       .preload('guest')
@@ -776,6 +834,7 @@ export class ReservationReportsService {
     return {
       title: 'Void Reservations Report',
       html: HtmlReportGenerator.generateVoidReservationsHtml(data, summary, filters, DateTime.now()),
+      datas: {data, summary},
       generatedAt: DateTime.now(),
       filters
     }
