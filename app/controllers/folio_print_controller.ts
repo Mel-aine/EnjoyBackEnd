@@ -105,7 +105,7 @@ export default class FolioPrintController {
       const bookingPdf = await PdfGenerationService.generateBookingPdf(folioPrintData)
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.confirmationCode}.pdf"`)
+      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.reservationNumber}.pdf"`)
       response.header('Content-Length', bookingPdf.length.toString())
 
       return response.send(bookingPdf)
@@ -132,7 +132,6 @@ export default class FolioPrintController {
 
       // CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
       const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(reservationId)
-
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
       const bookingPdf = await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
 

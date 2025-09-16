@@ -8,6 +8,10 @@ import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { createHotelValidator, updateHotelValidator } from '#validators/hotel'
 import CurrenciesController from '#controllers/currencies_controller'
+import ReservationType from '#models/reservation_type'
+import BookingSource from '#models/booking_source'
+import IdentityType from '#models/identity_type'
+import PaymentMethod from '#models/payment_method'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -92,6 +96,50 @@ export default class HotelsController {
         logger.error('Failed to create default currency for hotel', {
           hotelId: hotel.id,
           error: currencyError.message
+        })
+      }
+
+      // Create default reservation types for the new hotel
+      try {
+        await this.createDefaultReservationTypes(hotel.id, auth.user?.id)
+      } catch (reservationTypeError) {
+        // Log the error but don't fail the hotel creation
+        logger.error('Failed to create default reservation types for hotel', {
+          hotelId: hotel.id,
+          error: reservationTypeError.message
+        })
+      }
+
+      // Create default booking sources for the new hotel
+      try {
+        await this.createDefaultBookingSources(hotel.id, auth.user?.id)
+      } catch (bookingSourceError) {
+        // Log the error but don't fail the hotel creation
+        logger.error('Failed to create default booking sources for hotel', {
+          hotelId: hotel.id,
+          error: bookingSourceError.message
+        })
+      }
+
+      // Create default identity types for the new hotel
+      try {
+        await this.createDefaultIdentityTypes(hotel.id, auth.user?.id)
+      } catch (identityTypeError) {
+        // Log the error but don't fail the hotel creation
+        logger.error('Failed to create default identity types for hotel', {
+          hotelId: hotel.id,
+          error: identityTypeError.message
+        })
+      }
+
+      // Create default payment methods for the new hotel
+      try {
+        await this.createDefaultPaymentMethods(hotel.id, auth.user?.id)
+      } catch (paymentMethodError) {
+        // Log the error but don't fail the hotel creation
+        logger.error('Failed to create default payment methods for hotel', {
+          hotelId: hotel.id,
+          error: paymentMethodError.message
         })
       }
 
@@ -226,7 +274,7 @@ export default class HotelsController {
           message: 'Notices must be a valid JSON object'
         })
       }
-
+      logger.info(JSON.stringify(notices))
       // Update hotel notices
       hotel.notices = notices
       hotel.lastModifiedBy = auth.user?.id || 0
@@ -242,6 +290,251 @@ export default class HotelsController {
     } catch (error) {
       return response.badRequest({
         message: 'Failed to update hotel notices',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel formula settings
+   */
+  async updateFormulaSetting({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { formulaSetting } = request.only(['formulaSetting'])
+
+      // Validate that formulaSetting is an object
+      if (formulaSetting && typeof formulaSetting !== 'object') {
+        return response.badRequest({
+          message: 'Formula setting must be a valid JSON object'
+        })
+      }
+
+      // Update hotel formula setting
+      hotel.formulaSetting = formulaSetting
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel formula setting updated successfully',
+        data: {
+          id: hotel.id,
+          formulaSetting: hotel.formulaSetting
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel formula setting',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel document numbering settings
+   */
+  async updateDocumentNumberingSetting({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { documentNumberingSetting } = request.only(['documentNumberingSetting'])
+
+      // Validate that documentNumberingSetting is an object
+      if (documentNumberingSetting && typeof documentNumberingSetting !== 'object') {
+        return response.badRequest({
+          message: 'Document numbering setting must be a valid JSON object'
+        })
+      }
+
+      // Update hotel document numbering setting
+      hotel.documentNumberingSetting = documentNumberingSetting
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel document numbering setting updated successfully',
+        data: {
+          id: hotel.id,
+          documentNumberingSetting: hotel.documentNumberingSetting
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel document numbering setting',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel print and email settings
+   */
+  async updatePrintEmailSettings({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { printEmailSettings } = request.only(['printEmailSettings'])
+
+      // Validate that printEmailSettings is an object
+      if (printEmailSettings && typeof printEmailSettings !== 'object') {
+        return response.badRequest({
+          message: 'Print and email settings must be a valid JSON object'
+        })
+      }
+
+      // Update hotel print and email settings
+      hotel.printEmailSettings = printEmailSettings
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel print and email settings updated successfully',
+        data: {
+          id: hotel.id,
+          printEmailSettings: hotel.printEmailSettings
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel print and email settings',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel check-in and reservation settings
+   */
+  async updateCheckinReservationSettings({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { checkinReservationSettings } = request.only(['checkinReservationSettings'])
+
+      // Validate that checkinReservationSettings is an object
+      if (checkinReservationSettings && typeof checkinReservationSettings !== 'object') {
+        return response.badRequest({
+          message: 'Check-in and reservation settings must be a valid JSON object'
+        })
+      }
+
+      // Update hotel check-in and reservation settings
+      hotel.checkinReservationSettings = checkinReservationSettings
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel check-in and reservation settings updated successfully',
+        data: {
+          id: hotel.id,
+          checkinReservationSettings: hotel.checkinReservationSettings
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel check-in and reservation settings',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel display settings
+   */
+  async updateDisplaySettings({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { displaySettings } = request.only(['displaySettings'])
+
+      // Validate that displaySettings is an object
+      if (displaySettings && typeof displaySettings !== 'object') {
+        return response.badRequest({
+          message: 'Display settings must be a valid JSON object'
+        })
+      }
+
+      // Update hotel display settings
+      hotel.displaySettings = displaySettings
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel display settings updated successfully',
+        data: {
+          id: hotel.id,
+          displaySettings: hotel.displaySettings
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel display settings',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel registration settings
+   */
+  async updateRegistrationSettings({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { registrationSettings } = request.only(['registrationSettings'])
+
+      // Validate that registrationSettings is an object
+      if (registrationSettings && typeof registrationSettings !== 'object') {
+        return response.badRequest({
+          message: 'Registration settings must be a valid JSON object'
+        })
+      }
+
+      // Update hotel registration settings
+      hotel.registrationSettings = registrationSettings
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel registration settings updated successfully',
+        data: {
+          id: hotel.id,
+          registrationSettings: hotel.registrationSettings
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel registration settings',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel housekeeping status colors
+   */
+  async updateHousekeepingStatusColors({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const { housekeepingStatusColors } = request.only(['housekeepingStatusColors'])
+
+      // Validate that housekeepingStatusColors is an object
+      if (housekeepingStatusColors && typeof housekeepingStatusColors !== 'object') {
+        return response.badRequest({
+          message: 'Housekeeping status colors must be a valid JSON object'
+        })
+      }
+
+      // Update hotel housekeeping status colors
+      hotel.housekeepingStatusColors = housekeepingStatusColors
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      return response.ok({
+        message: 'Hotel housekeeping status colors updated successfully',
+        data: {
+          id: hotel.id,
+          housekeepingStatusColors: hotel.housekeepingStatusColors
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel housekeeping status colors',
         error: error.message
       })
     }
@@ -569,7 +862,7 @@ export default class HotelsController {
     const { params, request, response, auth } = ctx
     try {
       const hotel = await Hotel.findOrFail(params.id)
-      const statusColors = request.input('status_colors')
+      const statusColors = request.input('statusColors')
 
       // Validate that status_colors is an object if provided
       if (statusColors !== null && statusColors !== undefined && typeof statusColors !== 'object') {
@@ -578,7 +871,6 @@ export default class HotelsController {
           message: 'Status colors must be an object or null'
         })
       }
-
       hotel.statusColors = statusColors
       await hotel.save()
 
@@ -609,5 +901,193 @@ export default class HotelsController {
         error:error
       })
     }
+  }
+
+  /**
+   * Create default reservation types for a new hotel
+   */
+  private async createDefaultReservationTypes(hotelId: number, userId?: number) {
+    const defaultReservationTypes = [
+      {
+        name: 'Confirmed Booking',
+        reservationStatus: 'confirmed' as const,
+        isHold: false,
+        status: 'active' as const
+      },
+      {
+        name: 'Unconfirmed Booking Inquiry',
+        reservationStatus: 'pending' as const,
+        isHold: false,
+        status: 'active' as const
+      },
+      {
+        name: 'Online Failed Booking',
+        reservationStatus: 'confirmed' as const,
+        isHold: false,
+        status: 'active' as const
+      },
+      {
+        name: 'Hold Confirmed Booking',
+        reservationStatus: 'confirmed' as const,
+        isHold: true,
+        status: 'active' as const
+      },
+      {
+        name: 'Hold Unconfirmed Booking',
+        reservationStatus: 'pending' as const,
+        isHold: true,
+        status: 'active' as const
+      }
+    ]
+
+    for (const reservationType of defaultReservationTypes) {
+      await ReservationType.create({
+        hotelId,
+        name: reservationType.name,
+        isHold: reservationType.isHold,
+        status: reservationType.status,
+        reservationStatus: reservationType.reservationStatus,
+        createdByUserId: userId || null,
+        updatedByUserId: userId || null,
+        isDeleted: false
+      })
+    }
+  }
+
+  private async createDefaultBookingSources(hotelId: number, userId?: number) {
+    const defaultBookingSources = [
+      {
+        sourceName: 'Directly',
+        sourceCode: 'Directly',
+        sourceType: 'direct',
+        commissionRate: 0,
+        description: 'Guests who come to the front desk without a prior reservation'
+      },
+      {
+        sourceName: 'Walk-in',
+        sourceCode: 'WALKIN',
+        sourceType: 'walk_in',
+        commissionRate: 0,
+        description: 'Guests who come to the front desk without a prior reservation'
+      },
+      {
+        sourceName: 'Website',
+        sourceCode: 'WEBSITE',
+        sourceType: 'website',
+        commissionRate: 0,
+        description: 'Direct bookings made through the hotel\'s own website booking engine'
+      },
+      {
+        sourceName: 'Telephone/Call Center',
+        sourceCode: 'PHONE',
+        sourceType: 'phone',
+        commissionRate: 0,
+        description: 'Reservations made over the phone'
+      }
+    ]
+
+    for (const bookingSource of defaultBookingSources) {
+      await BookingSource.create({
+        hotelId,
+        sourceName: bookingSource.sourceName,
+        sourceCode: bookingSource.sourceCode,
+        sourceType: bookingSource.sourceType,
+        description: bookingSource.description,
+        commissionRate: bookingSource.commissionRate,
+        isActive: true,
+        priority: 1,
+        createdBy: userId || null,
+        lastModifiedBy: userId || null
+      })
+    }
+  }
+
+  /**
+   * Create default identity types for a new hotel
+   */
+  private async createDefaultIdentityTypes(hotelId: number, userId?: number) {
+    // Delete all existing identity types for this hotel first
+    await IdentityType.query().where('hotelId', hotelId).delete()
+
+    const defaultIdentityTypes = [
+        {
+          name: 'Passport',
+          shortCode: 'PASS'
+        },
+        {
+          name: 'National ID Card',
+          shortCode: 'NAT_ID'
+        }
+      ]
+
+    for (const identityType of defaultIdentityTypes) {
+      await IdentityType.create({
+        hotelId,
+        name: identityType.name,
+        shortCode: identityType.shortCode,
+        createdBy: userId || null,
+        updatedBy: userId || null
+      })
+    }
+  }
+
+  /**
+   * Create default payment methods for a new hotel
+   */
+  private async createDefaultPaymentMethods(hotelId: number, userId?: number) {
+    const defaultPaymentMethod = {
+      hotelId,
+      methodName: 'Cash',
+      methodCode: 'CASH',
+      methodType: 'cash' as const,
+      description: 'Cash payment method',
+      isActive: true,
+      isDefault: true,
+      acceptsPartialPayments: true,
+      requiresAuthorization: false,
+      requiresSignature: false,
+      requiresId: false,
+      minimumAmount: 0,
+      maximumAmount: 999999999,
+      dailyLimit: 999999999,
+      monthlyLimit: 999999999,
+      processingFee: 0,
+      processingFeeType: 'fixed' as const,
+      merchantFee: 0,
+      merchantFeeType: 'fixed' as const,
+      settlementTime: 0,
+      settlementTimeUnit: 'minutes' as const,
+      currenciesAccepted: {},
+      exchangeRateMarkup: 0,
+      paymentProcessor: '',
+      processorConfig: {},
+      merchantId: '',
+      terminalId: '',
+      shortCode: 'CASH',
+      type: 'CASH' as const,
+      cardProcessing: false,
+      surchargeEnabled: false,
+      surchargeType: null,
+      surchargeValue: null,
+      extraChargeId: null,
+      receiptNoSetting: 'auto_general' as const,
+      createdBy: userId || 0,
+      lastModifiedBy: userId || 0,
+      sortOrder: 1,
+      displayName: 'Cash',
+      icon: 'cash',
+      color: '#28a745',
+      isVisible: true,
+      isAvailableOnline: false,
+      isAvailableAtProperty: true,
+      isAvailableMobile: false,
+      departmentRestrictions: {},
+      userRoleRestrictions: {},
+      timeRestrictions: {},
+      locationRestrictions: {},
+      notes: 'Default cash payment method'
+    }
+
+    await PaymentMethod.create(defaultPaymentMethod)
   }
 }

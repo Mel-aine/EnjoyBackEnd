@@ -41,26 +41,26 @@ export interface ReservationData {
 
   // Reservation details
   hotel_id: number
-  reservation_type: string
+  reservation_type_id: number
   booking_source?: number
-  business_source?: string
-  reservation_status?:any
-  status?:any,
-  check_in_time?:any,
-  check_out_time? : any,
-  room_rate?:any,
-  complimentary_room?:any,
-  idExpiryDate?:any,
-  visaExpiry?:any,
-  passportExpiry?:any,
-  idPhoto?:any,
-  issuingCity?:any,
-  issuingCountry?:any,
-  idNumber?:any,
-  visaNumber?:any,
-  idType?:any,
-  passportNumber?:any,
-  profilePhoto?:any
+  business_source?: number
+  reservation_status?: any
+  status?: any,
+  check_in_time?: any,
+  check_out_time?: any,
+  room_rate?: any,
+  complimentary_room?: any,
+  idExpiryDate?: any,
+  visaExpiry?: any,
+  passportExpiry?: any,
+  idPhoto?: any,
+  issuingCity?: any,
+  issuingCountry?: any,
+  idNumber?: any,
+  visaNumber?: any,
+  idType?: any,
+  passportNumber?: any,
+  profilePhoto?: any
 
   // Dates and guests
   arrived_date: string
@@ -77,8 +77,8 @@ export interface ReservationData {
     room_rate: number
     adult_count: number
     child_count: number
-    room_rate_id:number,
-    taxes:number
+    room_rate_id: number,
+    taxes: number
   }>
 
   // Financial
@@ -106,5 +106,11 @@ export interface ReservationData {
   created_by: number
   special_requests?: string
   guest_notes?: string
+
+  isHold: boolean,
+  holdReleaseDate: string
+  ReleaseTem: number,
+  ReleaseRemindGuestbeforeDays: number,
+  ReleaseRemindGuestbefore: 'hold_release_date' | 'arrival_date' | null
 }
 

@@ -7,6 +7,7 @@ export const createReservationValidator = vine.compile(
     guest_id: vine.number().positive(),
     reservation_number: vine.string().optional(),
     confirmation_number: vine.string().optional(),
+    reservation_type_id: vine.number().positive().optional(),
 
     // Booking Details
     booking_source_id: vine.number().positive().optional(),
@@ -195,7 +196,14 @@ export const createReservationValidator = vine.compile(
     subcategory: vine.string().optional(),
 
     //other
-    complimentary_room : vine.boolean().optional()
+    complimentary_room : vine.boolean().optional(),
+
+    // Hold-related fields
+    isHold: vine.boolean(),
+    holdReleaseDate: vine.date().requiredWhen('isHold', '=', true),
+    ReleaseTem: vine.number().min(0).max(100).requiredWhen('isHold', '=', true),
+    ReleaseRemindGuestbeforeDays: vine.number().min(0).requiredWhen('isHold', '=', true),
+    ReleaseRemindGuestbefore: vine.enum(['hold_release_date', 'arrival_date']).requiredWhen('isHold', '=', true)
   })
 )
 
@@ -206,6 +214,7 @@ export const updateReservationValidator = vine.compile(
     guest_id: vine.number().positive().optional(),
     reservation_number: vine.string().optional(),
     confirmation_number: vine.string().optional(),
+    reservation_type_id: vine.number().positive().optional(),
 
     // Booking Details
     booking_source_id: vine.number().positive().optional(),
@@ -394,6 +403,13 @@ export const updateReservationValidator = vine.compile(
     subcategory: vine.string().optional(),
 
      //other
-    complimentary_room : vine.boolean().optional()
+    complimentary_room : vine.boolean().optional(),
+
+    // Hold-related fields
+    isHold: vine.boolean().optional(),
+    holdReleaseDate: vine.date().requiredWhen('isHold', '=', true),
+    ReleaseTem: vine.number().min(0).max(100).requiredWhen('isHold', '=', true),
+    ReleaseRemindGuestbeforeDays: vine.number().min(0).requiredWhen('isHold', '=', true),
+    ReleaseRemindGuestbefore: vine.enum(['hold_release_date', 'arrival_date']).requiredWhen('isHold', '=', true)
   })
 )

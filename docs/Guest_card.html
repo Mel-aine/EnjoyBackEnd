@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest Registration Card</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            background-color: #f8fafc;
+            padding: 2rem;
+            font-size: 0.875rem;
+        }
+        .registration-card {
+            max-width: 210mm;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 1px solid #000;
+            padding: 1.5rem;
+            line-height: 1.5;
+        }
+        .hotel-info {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .hotel-info p {
+            font-size: 0.875rem;
+            margin: 0;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+        .header .title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        .header .card-no {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        .section {
+            border-bottom: 1px solid #000;
+            padding: 0.25rem 0;
+            margin-top: 1rem;
+            display: flex;
+            gap: 1.5rem;
+        }
+        .section-title {
+            font-weight: 700;
+            flex-basis: 25%;
+            flex-shrink: 0;
+            margin-right: 1.5rem;
+            white-space: nowrap;
+        }
+        .section-content {
+            flex-grow: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .field {
+            display: flex;
+            align-items: flex-end;
+            flex-basis: 50%;
+            padding-bottom: 0.5rem;
+        }
+        .field-label {
+            font-weight: 500;
+            white-space: nowrap;
+            margin-right: 0.5rem;
+            line-height: 1.5;
+        }
+        .input-line {
+            flex-grow: 1;
+            border-bottom: 1px solid #000;
+        }
+        .note-section {
+            margin-top: 1rem;
+            padding: 0.5rem 0;
+            border: 1px solid #000;
+            padding-left: 0.5rem;
+        }
+        .note-section .field-label {
+            margin-right: 0.5rem;
+        }
+        .signature-section {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-section .signature-field {
+            flex-basis: 48%;
+        }
+        .divider {
+            border-top: 1px solid #000;
+            margin: 1rem 0;
+        }
+        @media print {
+            body {
+                background: none;
+                padding: 0;
+            }
+            .registration-card {
+                box-shadow: none;
+                border: 1px solid #000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="registration-card">
+        <div class="hotel-info">
+            <!-- Placeholder for Hotel Logo -->
+            <div style="width: 50px; height: 50px; margin: 0 auto; background: #eee; border-radius: 50%;"></div>
+            <h3 style="font-weight: 600; margin-top: 0.5rem;">Hotel eZee</h3>
+            <p>ITC Building, Surat, Gujarat, 395001, United States</p>
+            <p>Phone: 02614004505; Email: mehuldemo@yahoo.com;</p>
+            <p>URL: www.ezeetechnosys.com</p>
+        </div>
+        <div class="divider"></div>
+        <div class="header">
+            <div class="title">Guest Registration Card</div>
+            <div class="card-no">GR Card No.: ____________</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Personal</div>
+            <div class="section-content flex-wrap">
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Name</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Email</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Phone</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Fax</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Mobile</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">City</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Address</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Country</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 100%;">
+                    <span class="field-label">ID/Passport No.</span>
+                    <span class="input-line"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Company Details</div>
+            <div class="section-content flex-wrap">
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Company</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Business Source</span>
+                    <span class="input-line"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Accommodation</div>
+            <div class="section-content flex-wrap">
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Arrival Date</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Arrival Time</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Dep. Date</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Dep. Time</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Room</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Rate Type</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Pax</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Rate</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Total Charges</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Amount Paid</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Discount</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Due Amount</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Net</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Tax</span>
+                    <span class="input-line"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Payment Details</div>
+            <div class="section-content flex-wrap">
+                <div class="field" style="flex-basis: 45%;">
+                    <span class="field-label">Payment Type</span>
+                    <span class="input-line"></span>
+                </div>
+                <div class="field" style="flex-basis: 55%;">
+                    <span class="field-label">Direct Billing A/C</span>
+                    <span class="input-line"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="note-section">
+            <div class="section-title">Please Note</div>
+            <p style="margin-top: 0.5rem; font-size: 0.75rem;">
+                Reg. Cash Notice<br>
+                Reg. Cash Notice
+            </p>
+        </div>
+
+        <div class="signature-section">
+            <div class="signature-field">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563;">Guest Signature</label>
+                <span class="input-line"></span>
+            </div>
+            <div class="signature-field">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563;">Date</label>
+                <span class="input-line"></span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

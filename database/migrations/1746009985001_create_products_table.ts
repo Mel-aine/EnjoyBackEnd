@@ -22,20 +22,20 @@ export default class extends BaseSchema {
       table.enu('status', ['active', 'inactive', 'out_of_stock', 'discontinued', 'coming_soon'])
       .defaultTo('active').notNullable()
       table
-        .integer('service_id')
+        .integer('hotel_id')
         .unsigned()
         .references('id')
-        .inTable('services')
+        .inTable('hotels')
         .onDelete('SET NULL')
         .nullable()
 
-        table
-        .integer('product_type_id')
-        .unsigned()
-        .references('id')
-        .inTable('product_types')
-        .onDelete('SET NULL')
-        .nullable()
+        // table
+        // .integer('product_type_id')
+        // .unsigned()
+        // .references('id')
+        // .inTable('product_types')
+        // .onDelete('SET NULL')
+        // .nullable()
 
         // table.integer('department_id').unsigned().nullable()
         // .references('id').inTable('departments').onDelete('SET NULL')

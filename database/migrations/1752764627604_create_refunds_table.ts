@@ -15,8 +15,8 @@ export default class extends BaseSchema {
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
       table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
       table.integer('reservation_id').unsigned().references('id').inTable('reservations').onDelete('CASCADE')
-      table.integer('payment_id_original').unsigned().references('id').inTable('payments').onDelete('SET NULL').nullable()
       table.integer('processed_by_user_id').unsigned().references('id').inTable('users').onDelete('RESTRICT')
+      table.integer('hotel_id').unsigned().nullable().references('id').inTable('hotels').onDelete('CASCADE')
     })
   }
 

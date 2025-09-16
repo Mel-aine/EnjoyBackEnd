@@ -20,8 +20,8 @@ export default class extends BaseSchema {
         .integer('supplier_id')
         .unsigned()
         .notNullable()
-        .references('id')
-        .inTable('suppliers')
+        .references('user_id')
+        .inTable('supplier_details')
         .onDelete('CASCADE')
         .unique()
 

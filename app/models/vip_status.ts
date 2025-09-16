@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
+import User from '#models/user'
 
 export default class VipStatus extends BaseModel {
   public static table = 'vip_statuses'
@@ -22,10 +23,10 @@ export default class VipStatus extends BaseModel {
   declare hotelId: number
 
   @column()
-  declare createdBy: string
+  declare createdBy: number | null
 
   @column()
-  declare lastModifiedBy: string
+  declare lastModifiedBy: number | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -38,6 +39,16 @@ export default class VipStatus extends BaseModel {
     foreignKey: 'hotelId',
   })
   declare hotel: BelongsTo<typeof Hotel>
+
+  @belongsTo(() => User, {
+    foreignKey: 'createdBy',
+  })
+  declare creator: BelongsTo<typeof User>
+
+  @belongsTo(() => User, {
+    foreignKey: 'lastModifiedBy',
+  })
+  declare modifier: BelongsTo<typeof User>
 
   // Validation methods
   public static validateColor(color: string): boolean {

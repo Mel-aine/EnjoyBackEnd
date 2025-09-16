@@ -19,6 +19,8 @@ export default class VipStatusService {
 
     // Apply relationships
     query.preload('hotel')
+    query.preload('creator')
+    query.preload('modifier')
 
     // Apply sorting and pagination
     return await query
@@ -34,6 +36,8 @@ export default class VipStatusService {
       .where('id', id)
       .where('hotel_id', hotelId)
       .preload('hotel')
+      .preload('creator')
+      .preload('modifier')
       .first()
   }
 

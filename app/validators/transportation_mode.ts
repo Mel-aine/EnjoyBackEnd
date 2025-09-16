@@ -8,7 +8,9 @@ export const createTransportationModeValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     name: vine.string().trim().minLength(1).maxLength(255),
-    description: vine.string().trim().optional()
+    description: vine.string().trim().optional(),
+    is_external:vine.boolean().optional(),
+    is_internal:vine.boolean().optional()
   })
 )
 
@@ -20,6 +22,8 @@ export const updateTransportationModeValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive().optional(),
     name: vine.string().trim().minLength(1).maxLength(255).optional(),
-    description: vine.string().trim().optional()
+    description: vine.string().trim().optional(),
+    is_external:vine.boolean().optional(),
+    is_internal:vine.boolean().optional()
   })
 )

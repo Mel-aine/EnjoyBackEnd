@@ -38,6 +38,7 @@ import ReservationTypesController from '#controllers/reservation_types_controlle
 import PreferenceTypesController from '#controllers/preference_types_controller'
 import PreferencesController from '#controllers/preferences_controller'
 import BusinessSourcesController from '#controllers/business_sources_controller'
+import BookingSourcesController from '#controllers/booking_sources_controller'
 import PayoutReasonsController from '#controllers/payout_reasons_controller'
 import ExtraChargesController from '#controllers/extra_charges_controller'
 import TaxRatesController from '#controllers/tax_rates_controller'
@@ -51,6 +52,9 @@ import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
 import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '../app/controllers/audit_trail_controller.js'
+import EmailAccountsController from '#controllers/email_accounts_controller'
+import EmailTemplateController from '#controllers/email_template_controller'
+import TransportRequestsController from '#controllers/transport_requests_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -109,6 +113,7 @@ const reservationTypesController = new ReservationTypesController()
 const preferenceTypesController = new PreferenceTypesController()
 const preferencesController = new PreferencesController()
 const businessSourcesController = new BusinessSourcesController()
+const bookingSourcesController = new BookingSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
 const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
@@ -123,6 +128,9 @@ const nightAuditController = new NightAuditController()
 const channexMigrationController = new ChannexMigrationController()
 const configurationController = new ConfigurationController()
 const auditTrailController = new AuditTrailController()
+const emailAccountsController = new EmailAccountsController()
+const emailTemplateController = new EmailTemplateController()
+const transportRequestsController = new TransportRequestsController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -576,6 +584,13 @@ router
         router.put('/:id', hotelsController.update.bind(hotelsController)) // Update hotel information
         router.put('/:id/information', hotelsController.updateHotelInformation.bind(hotelsController)) // Update complete hotel information
         router.put('/:id/notices', hotelsController.updateNotices.bind(hotelsController)) // Update hotel notices
+        router.put('/:id/formula-setting', hotelsController.updateFormulaSetting.bind(hotelsController)) // Update hotel formula settings
+        router.put('/:id/document-numbering-setting', hotelsController.updateDocumentNumberingSetting.bind(hotelsController)) // Update hotel document numbering settings
+        router.put('/:id/print-email-settings', hotelsController.updatePrintEmailSettings.bind(hotelsController)) // Update hotel print and email settings
+        router.put('/:id/checkin-reservation-settings', hotelsController.updateCheckinReservationSettings.bind(hotelsController)) // Update hotel check-in and reservation settings
+        router.put('/:id/display-settings', hotelsController.updateDisplaySettings.bind(hotelsController)) // Update hotel display settings
+        router.put('/:id/registration-settings', hotelsController.updateRegistrationSettings.bind(hotelsController)) // Update hotel registration settings
+        router.put('/:id/housekeeping-status-colors', hotelsController.updateHousekeepingStatusColors.bind(hotelsController)) // Update hotel housekeeping status colors
         router.delete('/:id', hotelsController.destroy.bind(hotelsController)) // Delete hotel
 
         // Hotel analytics and statistics
@@ -894,8 +909,10 @@ router
         router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
         router.post('/:reservationId/assign-room', [ReservationsController, 'assignRoom'])
+        router.put('/:reservationId/stop-move', [ReservationsController, 'updateStopMove'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
+        router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
 
         // Get released reservations by date for a hotel
         router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])
@@ -989,10 +1006,43 @@ router
             router.post('/', identityTypesController.store.bind(identityTypesController)) // Create a new identity type
             router.get('/:id', identityTypesController.show.bind(identityTypesController)) // Get specific identity type details
             router.put('/:id', identityTypesController.update.bind(identityTypesController)) // Update identity type information
-            router.delete('/:id', identityTypesController.destroy.bind(identityTypesController)) // Soft delete identity type
+            router.delete('/:id', identityTypesController.destroy.bind(identityTypesController)) // Delete identity type
           })
           .prefix('identity_types')
 
+        // Email Account Management Routes
+        // Email account configuration for hotel communications
+        router
+          .group(() => {
+            // Basic CRUD operations for email accounts
+            router.get('/', emailAccountsController.index.bind(emailAccountsController)) // Get all email accounts with pagination
+            router.post('/', emailAccountsController.store.bind(emailAccountsController)) // Create a new email account
+            router.get('/active/:hotelId', emailAccountsController.getActive.bind(emailAccountsController)) // Get active email accounts for hotel
+            router.get('/:id', emailAccountsController.show.bind(emailAccountsController)) // Get specific email account details
+            router.put('/:id', emailAccountsController.update.bind(emailAccountsController)) // Update email account information
+            router.delete('/:id', emailAccountsController.destroy.bind(emailAccountsController)) // Delete email account
+            router.patch('/:id/toggle-active', emailAccountsController.toggleActive.bind(emailAccountsController)) // Toggle active status
+          })
+          .prefix('email-accounts')
+
+        // Email Template Management Routes
+        // Email template configuration for automated hotel communications
+        router
+          .group(() => {
+            // Basic CRUD operations for email templates
+            router.get('/', emailTemplateController.list.bind(emailTemplateController)) // Get all email templates with pagination
+            router.post('/', emailTemplateController.create.bind(emailTemplateController)) // Create a new email template
+            router.get('/:id', emailTemplateController.fetch.bind(emailTemplateController)) // Get specific email template details
+            router.put('/:id', emailTemplateController.update.bind(emailTemplateController)) // Update email template information
+            router.delete('/:id', emailTemplateController.delete.bind(emailTemplateController)) // Soft delete email template
+            router.patch('/:id/restore', emailTemplateController.restore.bind(emailTemplateController)) // Restore soft deleted email template
+            
+            // Filter operations for email templates
+            router.get('/by-auto-send/:hotelId', emailTemplateController.getByAutoSendType.bind(emailTemplateController)) // Get templates by auto send type
+            router.get('/by-category/:hotelId', emailTemplateController.getByTemplateCategory.bind(emailTemplateController)) // Get templates by category
+            router.get('/by-email-account/:hotelId', emailTemplateController.getByEmailAccount.bind(emailTemplateController)) // Get templates by email account
+          })
+          .prefix('email-templates')
         // Reason Management Routes
         // Reason configuration for various hotel operations
         router
@@ -1042,6 +1092,7 @@ router
             router.delete('/:id', transportationModesController.destroy.bind(transportationModesController)) // Soft delete transportation mode
           })
           .prefix('transportation_modes')
+
 
         // Template Categories management routes
         router
@@ -1139,6 +1190,22 @@ router
             router.delete('/:id', businessSourcesController.destroy.bind(businessSourcesController)) // Soft delete business source
           })
           .prefix('business_sources')
+
+        // Booking Sources management routes
+        router
+          .group(() => {
+            // Basic CRUD operations for booking sources
+            router.get('/', bookingSourcesController.index.bind(bookingSourcesController)) // Get all booking sources with filtering by hotel
+            router.post('/', bookingSourcesController.store.bind(bookingSourcesController)) // Create a new booking source
+            router.get('/:id', bookingSourcesController.show.bind(bookingSourcesController)) // Get specific booking source details
+            router.put('/:id', bookingSourcesController.update.bind(bookingSourcesController)) // Update booking source information
+            router.delete('/:id', bookingSourcesController.destroy.bind(bookingSourcesController)) // Soft delete booking source
+            
+            // Additional booking source operations
+            router.get('/list', bookingSourcesController.list.bind(bookingSourcesController)) // Get all booking sources without pagination
+            router.get('/hotel/:hotelId', bookingSourcesController.getByHotelId.bind(bookingSourcesController)) // Get booking sources by hotel ID
+          })
+          .prefix('booking_sources')
 
         // Company Accounts management routes
         router
@@ -1244,6 +1311,18 @@ router
           .prefix('company_folios')
       })
       .prefix('configuration')
+
+        //Demande de transport
+        router.group(() => {
+          router.post('/transportation-requests',transportRequestsController.store.bind(transportRequestsController))
+          router.get('/transportation-requests',transportRequestsController.index.bind(transportRequestsController))
+          router.get('/transportation-requests/:id',transportRequestsController.show.bind(transportRequestsController) )
+          router.put('/transportation-requests/:id',transportRequestsController.update.bind(transportRequestsController) )
+          router.patch('/transportation-requests/:id/status', transportRequestsController.updateStatus.bind(transportRequestsController))
+          router.delete('/transportation-requests/:id',transportRequestsController.destroy.bind(transportRequestsController))
+          router.get('/transportation-analytics', transportRequestsController.analytics.bind(transportRequestsController))
+        })
+
 
     router
       .group(() => {

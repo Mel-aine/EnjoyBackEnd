@@ -21,7 +21,7 @@ export default class extends BaseSchema {
         .inTable('permissions')
         .onDelete('CASCADE')
         .nullable()
-      table.integer('service_id').unsigned().references('id').inTable('services').onDelete('CASCADE').nullable()
+      table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('CASCADE').nullable()
       table.integer('created_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
       table.integer('last_modified_by').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable()
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())

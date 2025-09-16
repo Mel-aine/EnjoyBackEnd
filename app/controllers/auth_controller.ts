@@ -152,8 +152,8 @@ public async signin(ctx: HttpContext) {
     console.log('📊 IDs des hôtels liés:', hotelIds)
 
     const bookingSources = await BookingSource.query()
-      .where('isActive', true)
-      .whereIn('id', hotelIds)
+     .whereIn('hotel_id', hotelIds)
+
 
     console.log('📚 BookingSources:', bookingSources.length)
 

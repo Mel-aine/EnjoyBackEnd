@@ -13,10 +13,10 @@ export default class extends BaseSchema {
         .inTable('users')
         .onDelete('CASCADE')
       table
-        .integer('service_id')
+        .integer('hotel_id')
         .unsigned()
         .references('id')
-        .inTable('services')
+        .inTable('hotels')
         .onDelete('CASCADE')
       table.datetime('hire_date').nullable()
       table.string('role').notNullable()

@@ -8,6 +8,7 @@ import FolioTransaction from './folio_transaction.js'
 import User from './user.js'
 import Reservation from './reservation.js'
 import ReservationRoom from './reservation_room.js'
+import PickupsDropoffsLog from './pickups_dropoffs_log.js'
 
 export default class Folio extends BaseModel {
   @column({ isPrimary: true })
@@ -428,6 +429,10 @@ export default class Folio extends BaseModel {
 
   @hasMany(() => FolioTransaction)
   declare transactions: HasMany<typeof FolioTransaction>
+
+  @hasMany(() => PickupsDropoffsLog)
+  declare pickupDropoffLogs: HasMany<typeof PickupsDropoffsLog>
+
 
   // Computed properties
   get isOpen() {

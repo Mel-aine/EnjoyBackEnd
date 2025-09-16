@@ -221,7 +221,7 @@ export default class ReservationFolioService {
           folioId: reservation.folios[0].id,
           transactionType: TransactionType.CHARGE,
           category: TransactionCategory.ROOM,
-          description: `Room ${reservationRoom.room.roomNumber} - Night ${night}`,
+          description: `Room ${reservationRoom.room?.roomNumber??''} - Night ${night}`,
           amount: totalDailyAmount,
           quantity: 1,
           unitPrice: baseAmount,
@@ -482,9 +482,9 @@ export default class ReservationFolioService {
         .firstOrFail()
 
       // Check if reservation is confirmed
-      if (reservation.status !== 'confirmed') {
+      /*if (reservation.status !== 'confirmed') {
         throw new Error('Reservation must be confirmed to create folios')
-      }
+      }*/
 
       // Check if folios already exist
       const existingFolios = await this.getFoliosForReservation(reservationId)
@@ -579,5 +579,110 @@ export default class ReservationFolioService {
       .where('reservation_id', reservationId)
       .where('guest_id', guestId)
       .update(updateFields)
+  }
+
+  /**
+   * Update folio transaction descriptions when room is assigned to reservation room
+   */
+  static async updateRoomChargeDescriptions(
+    reservationRoomId: number,
+    roomNumber: string,
+    updatedBy: number
+  ): Promise<void> {
+    const trx = await db.transaction()
+    
+    try {
+      // Get the reservation room to find associated folio transactions
+      const reservationRoom = await db.from('reservation_rooms')
+        .where('id', reservationRoomId)
+        .first()
+      
+      if (!reservationRoom) {
+        throw new Error('Reservation room not found')
+      }
+
+      // Find all room charge transactions for this reservation room
+      const folioTransactions = await db.from('folio_transactions')
+        .join('folios', 'folio_transactions.folio_id', 'folios.id')
+        .where('folios.reservation_id', reservationRoom.reservation_id)
+        .where('folio_transactions.transaction_type', TransactionType.CHARGE)
+        .where('folio_transactions.category', TransactionCategory.ROOM)
+        .where('folio_transactions.description', 'like', 'Room % - Night %')
+        .select('folio_transactions.id', 'folio_transactions.description')
+
+      // Update each transaction description to include the room number
+      for (const transaction of folioTransactions) {
+        // Extract the night number from the existing description
+        const nightMatch = transaction.description.match(/Night (\d+)/)
+        const nightNumber = nightMatch ? nightMatch[1] : ''
+        
+        const newDescription = `Room ${roomNumber} - Night ${nightNumber}`
+        
+        await db.from('folio_transactions')
+          .where('id', transaction.id)
+          .update({
+            description: newDescription,
+            last_modified_by: updatedBy,
+            updated_at: new Date()
+          })
+      }
+
+      await trx.commit()
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
+  }
+
+  /**
+   * Remove room numbers from folio transaction descriptions when room is unassigned
+   */
+  static async removeRoomChargeDescriptions(
+    reservationRoomId: number,
+    updatedBy: number
+  ): Promise<void> {
+    const trx = await db.transaction()
+    
+    try {
+      // Get the reservation room to find associated folio transactions
+      const reservationRoom = await db.from('reservation_rooms')
+        .where('id', reservationRoomId)
+        .first()
+      
+      if (!reservationRoom) {
+        throw new Error('Reservation room not found')
+      }
+
+      // Find all room charge transactions for this reservation room that have room numbers
+      const folioTransactions = await db.from('folio_transactions')
+        .join('folios', 'folio_transactions.folio_id', 'folios.id')
+        .where('folios.reservation_id', reservationRoom.reservation_id)
+        .where('folio_transactions.transaction_type', TransactionType.CHARGE)
+        .where('folio_transactions.category', TransactionCategory.ROOM)
+        .where('folio_transactions.description', 'like', 'Room % - Night %')
+        .select('folio_transactions.id', 'folio_transactions.description')
+
+      // Update each transaction description to remove the room number
+      for (const transaction of folioTransactions) {
+        // Extract the night number from the existing description
+        const nightMatch = transaction.description.match(/Room .+ - Night (\d+)/)
+        const nightNumber = nightMatch ? nightMatch[1] : ''
+        
+        const newDescription = `Room  - Night ${nightNumber}`
+        
+        await db.from('folio_transactions')
+          .where('id', transaction.id)
+          .update({
+            description: newDescription,
+            last_modified_by: updatedBy,
+            updated_at: new Date()
+          })
+      }
+
+      await trx.commit()
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
   }
 }

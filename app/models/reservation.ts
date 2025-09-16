@@ -10,9 +10,11 @@ import RoomType from './room_type.js'
 import BookingSource from './booking_source.js'
 import RatePlan from './rate_plan.js'
 import Discount from './discount.js'
+import BusinessSource from './business_source.js'
 import ReservationRoom from './reservation_room.js'
 import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
+import ReservationType from './reservation_type.js'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -83,6 +85,9 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'source_of_business' })
   declare sourceOfBusiness: string | null
 
+  @column({ columnName: 'business_source_id' })
+  declare businessSourceId: number | null
+
   @column({ columnName: 'group_id' })
   declare groupId: number | null
 
@@ -125,8 +130,11 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'service_id' })
   declare serviceId: number | null
 
-  @column({ columnName: 'reservation_type' })
-  declare reservationType: string
+  @column({ columnName: 'reservation_type_id' })
+  declare reservationTypeId: number | null
+
+  @column({ columnName: 'is_hold' })
+  declare isHold: boolean
 
   @column({ columnName: 'reservation_number' })
   declare reservationNumber: string | null
@@ -395,6 +403,18 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'tax_exempt_reason' })
   declare taxExemptReason: string | null
 
+  @column.dateTime({ columnName: 'hold_release_date' })
+  declare holdReleaseDate: DateTime | null
+
+  @column({ columnName: 'release_tem' })
+  declare releaseTem: number | null
+
+  @column({ columnName: 'release_remind_guest_before_days' })
+  declare releaseRemindGuestbeforeDays: number | null
+
+  @column({ columnName: 'release_remind_guest_before' })
+  declare releaseRemindGuestbefore: 'hold_release_date' | 'arrival_date' | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -452,8 +472,14 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => RatePlan)
   declare ratePlan: BelongsTo<typeof RatePlan>
 
+  @belongsTo(() => ReservationType)
+  declare reservationType: BelongsTo<typeof ReservationType>
+
   @belongsTo(() => Discount)
   declare discount: BelongsTo<typeof Discount>
+
+  @belongsTo(() => BusinessSource)
+  declare businessSource: BelongsTo<typeof BusinessSource>
 
   @hasMany(() => ReservationRoom)
   declare reservationRooms: HasMany<typeof ReservationRoom>
