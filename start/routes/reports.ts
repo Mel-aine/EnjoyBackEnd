@@ -76,9 +76,37 @@ router.group(() => {
     router.post('/business-sources', [ReportsController, 'generate']).where('reportType', 'sourceOfBusinessReport')
     // Monthly occupancy PDF report
     router.get('/monthly-occupancy-pdf', [ReportsController, 'generateMonthlyOccupancyPdf'])
+    // Room status report PDF
+    router.post('/room-status-report-pdf', [ReportsController, 'generateRoomStatusReportPdf'])
+    // Night audit report PDF
+    router.post('/night-audit-report-pdf', [ReportsController, 'generateNightAuditReportPdf'])
+    // Management report PDF
+    router.post('/management-report-pdf', [ReportsController, 'generateManagementReportPdf'])
+    
+    // Revenue By Rate Type reports
+    router.get('/revenue-by-rate-type', [ReportsController, 'getRevenueByRateType'])
+    router.post('/revenue-by-rate-type-pdf', [ReportsController, 'generateRevenueByRateTypePdf'])
+    
+    // Revenue By Room Type reports
+    router.get('/revenue-by-room-type', [ReportsController, 'getRevenueByRoomType'])
+    router.post('/revenue-by-room-type-pdf', [ReportsController, 'generateRevenueByRoomTypePdf'])
+    
+    // Monthly Revenue PDF report
+    router.post('/monthly-revenue-pdf', [ReportsController, 'generateMonthlyRevenuePdf'])
+    
+    // Payment Summary PDF report
+    router.post('/payment-summary-pdf', [ReportsController, 'generatePaymentSummaryPdf'])
+    
+    // Revenue By Rate Type Summary PDF report
+    router.post('/revenue-by-rate-type-summary-pdf', [ReportsController, 'generateRevenueByRateTypeSummaryPdf'])
+    
+    // Statistics By Room Type PDF report
+    router.post('/statistics-by-room-type-pdf', [ReportsController, 'generateStatisticsByRoomTypePdf'])
   }).prefix('/statistics')
   
 }).prefix('/api/reports').use(middleware.auth())
+// Temporarily disabled auth for testing
+// .use(middleware.auth())
 
 // Public routes (no authentication required)
 router.group(() => {
@@ -89,5 +117,68 @@ router.group(() => {
       message: 'Reports service is running',
       timestamp: new Date().toISOString()
     })
+  })
+  
+  // Test endpoint for debugging roomCharges
+  router.get('/test-roomcharges', async ({ request, response }) => {
+    const ReportsController = (await import('#controllers/reports_controller')).default
+    const controller = new ReportsController()
+    
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', '2024-01-15')
+      const { DateTime } = await import('luxon')
+      const reportDate = DateTime.fromISO(asOnDate)
+      const ptdStartDate = reportDate.startOf('month')
+      const ytdStartDate = reportDate.startOf('year')
+      const currency = 'USD'
+      
+      const roomCharges = await controller['getManagementRoomChargesData'](hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+      
+      return response.ok({
+        success: true,
+        roomCharges,
+        message: 'Room charges data retrieved successfully'
+      })
+    } catch (error) {
+      return response.status(500).json({
+        success: false,
+        error: error.message,
+        stack: error.stack
+      })
+    }
+  })
+  
+  // Test template rendering
+  router.get('/test-template', async ({ request, response, view }) => {
+    const ReportsController = (await import('#controllers/reports_controller')).default
+    const controller = new ReportsController()
+    
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', '2024-01-15')
+      const { DateTime } = await import('luxon')
+      const reportDate = DateTime.fromISO(asOnDate)
+      const ptdStartDate = reportDate.startOf('month')
+      const ytdStartDate = reportDate.startOf('year')
+      const currency = 'USD'
+      
+      const roomCharges = await controller['getManagementRoomChargesData'](hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+      
+      const templateData = {
+        data: {
+          roomCharges
+        }
+      }
+      
+      const html = await view.render('test_template', templateData)
+      return response.type('text/html').send(html)
+    } catch (error) {
+      return response.status(500).json({
+        success: false,
+        error: error.message,
+        stack: error.stack
+      })
+    }
   })
 }).prefix('/api/reports')

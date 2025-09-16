@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Template</title>
+</head>
+<body>
+    <h1>Test Data Access</h1>
+    <p>Data exists: {{ data ? 'Yes' : 'No' }}</p>
+    <p>RoomCharges exists: {{ data.roomCharges ? 'Yes' : 'No' }}</p>
+    <p>RoomCharges.roomCharges exists: {{ data.roomCharges && data.roomCharges.roomCharges ? 'Yes' : 'No' }}</p>
+    
+    @if(data.roomCharges && data.roomCharges.roomCharges)
+        <p>Room Charges Today: {{ data.roomCharges.roomCharges.today }}</p>
+        <p>Room Charges PTD: {{ data.roomCharges.roomCharges.ptd }}</p>
+        <p>Room Charges YTD: {{ data.roomCharges.roomCharges.ytd }}</p>
+    @else
+        <p>Room charges data not available</p>
+    @endif
+    
+    <h2>Raw Data Dump:</h2>
+    <pre>{{ JSON.stringify(data, null, 2) }}</pre>
+</body>
+</html>
