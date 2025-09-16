@@ -197,6 +197,7 @@ export class ReservationReportsService {
         // Données de base toujours incluses
         const baseData: any = {
           // Informations de base
+          hotelName: reservation.hotel?.hotelName || 'N/A',
           reservationNumber: reservation.reservationNumber || 'N/A',
           guestName: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''}`.trim() || 'N/A',
           guestEmail: reservation.guest?.email || 'N/A',
@@ -779,10 +780,10 @@ export class ReservationReportsService {
       query.where('hotel_id', filters.hotelId)
     }
 
-    if (filters.arrivalFrom && filters.arrivalTo) {
+    if (filters.startDate && filters.endDate) {
       query.whereBetween('updated_at', [
-        DateTime.fromFormat(filters.arrivalFrom, 'dd/MM/yyyy').toString(),
-        DateTime.fromFormat(filters.arrivalTo, 'dd/MM/yyyy').toString()
+        DateTime.fromFormat(filters.startDate, 'dd/MM/yyyy').toString(),
+        DateTime.fromFormat(filters.endDate, 'dd/MM/yyyy').toString()
       ])
     }
 

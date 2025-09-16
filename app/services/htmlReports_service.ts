@@ -446,13 +446,6 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
         ` : ''}
         
         <div class="results-section">
-            <div class="results-header">
-                <h2 class="results-title">Arrival List Results</h2>
-                <div class="results-meta">
-                    Showing ${data.length} reservations matching all selected filters
-                </div>
-            </div>
-            
             ${data.length > 0 ? `
             <div class="table-container">
                 <table class="results-table">
@@ -842,11 +835,6 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
         </div>
         
         <div class="results-section">
-            <div class="results-header">
-                <h2 class="results-title">Departure List Results</h2>
-                <div class="results-meta">Hotel Nihal • Departure From: ${filters.arrivalFrom || 'N/A'} To ${filters.arrivalTo || 'N/A'} • Order By: Room • Tax Inclusive: ${filters.taxInclusive ? 'Yes' : 'No'}</div>
-            </div>
-            
             <div class="table-container">
                 <table class="results-table">
                     <thead>
@@ -1241,10 +1229,6 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
         </div>
         
         <div class="results-section">
-            <div class="results-header">
-                <h2 class="results-title">Cancelled Reservations Results</h2>
-                <div class="results-meta">Hotel Nihal • Date From: ${filters.arrivalFrom || 'N/A'} To ${filters.arrivalTo || 'N/A'} • Order By: Room • Tax Inclusive: ${filters.taxInclusive ? 'Yes' : 'No'}</div>
-            </div>
             
             <div class="table-container">
                 <table class="results-table">
@@ -1667,10 +1651,6 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
             </div>
             
             <div class="results-section">
-                <div class="results-header">
-                    <h2 class="results-title">Void Reservations Results</h2>
-                    <div class="results-meta">Hotel Nihal • Void From: ${filters.arrivalFrom || 'N/A'} To ${filters.arrivalTo || 'N/A'} • Order By: Room • Tax Inclusive: ${filters.taxInclusive ? 'Yes' : 'No'}</div>
-                </div>
                 
                 <div class="table-container">
                     <table class="results-table">
