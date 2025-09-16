@@ -64,6 +64,7 @@ router.group(() => {
     router.post('/room-availability', [ReportsController, 'generate']).where('reportType', 'roomAvailability')
     router.post('/room-status', [ReportsController, 'generate']).where('reportType', 'roomStatus')
     router.post('/tasks', [ReportsController, 'generate']).where('reportType', 'taskList')
+    router.get('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
   }).prefix('/front-office')
   
   // Back Office Reports
