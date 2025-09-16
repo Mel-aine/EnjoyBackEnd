@@ -1462,7 +1462,7 @@ static async generateSuitaHotelPdf(
   private static formatDate(dateString: string): string {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', {!
+      return date.toLocaleDateString('en-GB', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
