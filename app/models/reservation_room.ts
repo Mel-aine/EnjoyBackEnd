@@ -143,6 +143,15 @@ export default class ReservationRoom extends BaseModel {
   declare checkedOutBy: number
 
   @column()
+  declare reservedByUser: number | null
+
+  @column()
+  declare voidedByUser: number | null
+
+  @column()
+  declare markNoShowByUser: number | null
+
+  @column()
   declare earlyCheckIn: boolean
 
   @column()
@@ -624,6 +633,21 @@ export default class ReservationRoom extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'checkedInBy' })
+  declare checkedInByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'checkedOutBy' })
+  declare checkedOutByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'reservedByUser' })
+  declare reservedByUserRelation: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'voidedByUser' })
+  declare voidedByUserRelation: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'markNoShowByUser' })
+  declare markNoShowByUserRelation: BelongsTo<typeof User>
 
   @belongsTo(() => Reservation, { foreignKey: 'reservationId' })
   declare reservation: BelongsTo<typeof Reservation>

@@ -51,10 +51,11 @@ import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
 import ConfigurationController from '#controllers/configuration_controller'
-import AuditTrailController from '../app/controllers/audit_trail_controller.js'
+import AuditTrailController from '#controllers/audit_trail_controller'
 import EmailAccountsController from '#controllers/email_accounts_controller'
 import EmailTemplateController from '#controllers/email_template_controller'
 import TransportRequestsController from '#controllers/transport_requests_controller'
+import WorkOrdersController from '#controllers/work_orders_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -131,6 +132,7 @@ const auditTrailController = new AuditTrailController()
 const emailAccountsController = new EmailAccountsController()
 const emailTemplateController = new EmailTemplateController()
 const transportRequestsController = new TransportRequestsController()
+const workOrdersController = new WorkOrdersController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -1437,6 +1439,23 @@ router
         // Import reports routes
         router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
       }).prefix('audit-trail')
+
+    // Work Orders Management Routes
+    // Work order creation, assignment, status tracking, and maintenance management
+    router
+      .group(() => {
+        // Basic CRUD operations for work orders
+        router.get('/', workOrdersController.index.bind(workOrdersController)) // Get all work orders with filtering
+        router.post('/', workOrdersController.store.bind(workOrdersController)) // Create a new work order
+        router.get('/:id', workOrdersController.show.bind(workOrdersController)) // Get specific work order details
+        router.put('/:id', workOrdersController.update.bind(workOrdersController)) // Update work order information
+        router.delete('/:id', workOrdersController.destroy.bind(workOrdersController)) // Delete work order
+
+        // Work order status management
+        router.patch('/:id/status', workOrdersController.updateStatus.bind(workOrdersController)) // Update work order status with logging
+        router.patch('/:id/assign', workOrdersController.assign.bind(workOrdersController)) // Assign work order to a user
+      })
+      .prefix('work_orders')
 
   })
   .prefix('/api')

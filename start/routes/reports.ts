@@ -16,6 +16,7 @@ const ReportsController = () => import('#controllers/reports_controller')
 const PickupDropoffReportsController = () => import('#controllers/pickup_dropoff_reports_controller')
 const GuestCheckoutReportsController = () => import('#controllers/guest_checkout_reports_controller')
 const DailyReceiptReportsController = () => import('#controllers/daily_receipt_reports_controller')
+const WorkOrderReportsController = () => import('#controllers/work_order_reports_controller')
 
 // Group all report routes under /api/reports prefix
 router.group(() => {
@@ -133,6 +134,24 @@ router.group(() => {
   router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
   router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
 }).prefix('/statistics')
+
+// Work Order Reports
+router.group(() => {
+  // Get available work order report types
+  router.get('/', [WorkOrderReportsController, 'index'])
+  
+  // Generate work order reports
+  router.post('/generate', [WorkOrderReportsController, 'generate'])
+  
+  // Specific work order report endpoints
+  router.post('/by-status', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByStatus')
+  router.post('/by-priority', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByPriority')
+  router.post('/by-department', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByDepartment')
+  router.post('/by-assignee', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByAssignee')
+  router.post('/overdue', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersOverdue')
+  router.post('/completed', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersCompleted')
+  router.post('/summary', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersSummary')
+}).prefix('/work-orders')
   
 }).prefix('/api/reports').use(middleware.auth())
 // Temporarily disabled auth for testing

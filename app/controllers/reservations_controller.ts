@@ -402,7 +402,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Update reservation room status
         reservationRoom.status = 'checked_out'
         //reservationRoom.actualCheckOutTime = checkOutDateTime
-        //reservationRoom.checkedOutBy = auth.user!.id
+        reservationRoom.checkedOutBy = auth.user!.id
+        reservationRoom.lastModifiedBy = auth.user!.id
 
         if (notes) {
           reservationRoom.guestNotes = notes
@@ -1826,6 +1827,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 (numberOfNights === 0 ? room.taxes : (room.taxes * numberOfNights)),
               status: 'reserved',
               isOwner: index === 0,
+              reservedByUser: auth.user?.id,
               createdBy: data.created_by,
             }, { client: trx })
           }
@@ -3543,6 +3545,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         for (const room of reservation.reservationRooms) {
           if (selectedRooms.includes(room.roomId)) {
             room.status = 'no_show'
+            room.markNoShowByUser = auth.user!.id
             room.lastModifiedBy = auth.user!.id
             await room.useTransaction(trx).save()
 
@@ -3845,6 +3848,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           status: 'voided',
           voided_date: DateTime.now(),
           void_reason: reason,
+          voidedByUser: auth.user?.id,
           lastModifiedBy: auth.user?.id,
           updatedAt: DateTime.now()
         })
