@@ -3,12 +3,11 @@ import Hotel from '#models/hotel'
 import User from '#models/user'
 import Role from '#models/role'
 import ServiceUserAssignment from '#models/service_user_assignment'
-import Permission from '#models/permission'
-import RolePermission from '#models/role_permission'
 import CrudService from '#services/crud_service'
 import LoggerService from '#services/logger_service'
 import PermissionService from '#services/permission_service'
 import db from '@adonisjs/lucid/services/db'
+import Database from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { createHotelValidator, updateHotelValidator } from '#validators/hotel'
 import CurrenciesController from '#controllers/currencies_controller'
@@ -18,6 +17,8 @@ import IdentityType from '#models/identity_type'
 import PaymentMethod from '#models/payment_method'
 import fs from 'fs/promises'
 import path from 'path'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
 import Discount from '../models/discount.js'
 
 export default class HotelsController {
@@ -84,98 +85,146 @@ export default class HotelsController {
    * Create a new hotel
    */
   async store({ request, response, auth }: HttpContext) {
+    const trx = await Database.beginGlobalTransaction()
+
     try {
+      logger.info(request.body())
+
       const payload = await request.validateUsing(createHotelValidator)
 
-      // Create hotel data with proper typing
-      const hotelData: any = {
-        ...payload,
-        createdBy: auth.user?.id || 0
+      logger.info(payload)
+      const hotel = await Hotel.create({
+        hotelName: payload.name,
+        description: payload.description,
+        address: payload.address,
+        city: payload.city,
+        stateProvince: payload.state,
+        country: payload.country,
+        postalCode: payload.postalCode,
+        email: payload.email,
+        website: payload.website,
+        totalRooms: payload.totalRooms || 0,
+        totalFloors: payload.totalFloors || 0,
+        phoneNumber: payload.phone,
+        fax: payload.fax,
+        grade: payload.starRating,
+        longitude: payload.coordinates?.longitude?.toString(),
+        latitude: payload.coordinates?.latitude?.toString(),
+        socialMedia: payload.socialMedia,
+        contactInfo: {
+          contactPerson: payload.contactPerson,
+          emergencyContact: payload.emergencyContact
+        },
+        checkInTime: payload.checkInTime,
+        checkOutTime: payload.checkOutTime,
+        currencyCode: payload.currency || 'USD',
+        timezone: payload.timezone || 'UTC',
+        taxRate: payload.taxRate || 0,
+        //licenseNumber: payload.licenseNumber,
+        status: payload.isActive !== false ? 'active' : 'inactive',
+        cancellationPolicy: payload.cancellationPolicy,
+        hotelPolicy: payload.policies,
+        propertyType: 'hotel',
+      }, { client: trx })
+
+      let adminUser = null
+
+      // Create default administrator and get the user ID
+      try {
+        adminUser = await this.createDefaultAdministrator(hotel.id, {
+          firstName: payload.adminFirstName,
+          lastName: payload.adminLastName,
+          email: payload.adminEmail,
+          phoneNumber: payload.adminPhoneNumber
+        }, trx)
+        logger.info('Default administrator created successfully', {
+          hotelId: hotel.id,
+          adminEmail: payload.adminEmail,
+          adminUserId: adminUser.id
+        })
+      } catch (adminError) {
+        trx.rollback()
+        logger.error('Failed to create default administrator for hotel', {
+          hotelId: hotel.id,
+          error: adminError.message
+        })
+        throw adminError // This will trigger rollback
       }
 
-      const hotel = await Hotel.create(hotelData)
-
-      // Create default administrator user if admin details are provided
-      if (payload.adminFirstName && payload.adminLastName && payload.adminEmail) {
-        try {
-          await this.createDefaultAdministrator(hotel.id, {
-            firstName: payload.adminFirstName,
-            lastName: payload.adminLastName,
-            email: payload.adminEmail,
-            phoneNumber: payload.adminPhoneNumber
-          })
-          logger.info('Default administrator created successfully', {
-            hotelId: hotel.id,
-            adminEmail: payload.adminEmail
-          })
-        } catch (adminError) {
-          logger.error('Failed to create default administrator for hotel', {
-            hotelId: hotel.id,
-            error: adminError.message
-          })
-        }
-      }
+      // Use admin user ID for other default elements, fallback to auth.user?.id
+      const createdByUserId = adminUser?.id || auth.user?.id
 
       // Create default XAF currency for the new hotel
       try {
-        await CurrenciesController.createDefaultCurrency(hotel.id, auth.user?.id)
+        await CurrenciesController.createDefaultCurrency(hotel.id, createdByUserId)
       } catch (currencyError) {
-        // Log the error but don't fail the hotel creation
         logger.error('Failed to create default currency for hotel', {
           hotelId: hotel.id,
           error: currencyError.message
         })
+        throw currencyError // This will trigger rollback
       }
 
       // Create default reservation types for the new hotel
       try {
-        await this.createDefaultReservationTypes(hotel.id, auth.user?.id)
+        await this.createDefaultReservationTypes(hotel.id, createdByUserId, trx)
       } catch (reservationTypeError) {
-        // Log the error but don't fail the hotel creation
         logger.error('Failed to create default reservation types for hotel', {
           hotelId: hotel.id,
           error: reservationTypeError.message
         })
+        throw reservationTypeError // This will trigger rollback
       }
 
       // Create default booking sources for the new hotel
       try {
-        await this.createDefaultBookingSources(hotel.id, auth.user?.id)
+        await this.createDefaultBookingSources(hotel.id, createdByUserId, trx)
       } catch (bookingSourceError) {
-        // Log the error but don't fail the hotel creation
         logger.error('Failed to create default booking sources for hotel', {
           hotelId: hotel.id,
           error: bookingSourceError.message
         })
+        throw bookingSourceError // This will trigger rollback
       }
 
       // Create default identity types for the new hotel
       try {
-        await this.createDefaultIdentityTypes(hotel.id, auth.user?.id)
+        await this.createDefaultIdentityTypes(hotel.id, createdByUserId, trx)
       } catch (identityTypeError) {
-        // Log the error but don't fail the hotel creation
         logger.error('Failed to create default identity types for hotel', {
           hotelId: hotel.id,
           error: identityTypeError.message
         })
+        throw identityTypeError // This will trigger rollback
       }
 
       // Create default payment methods for the new hotel
       try {
-        await this.createDefaultPaymentMethods(hotel.id, auth.user?.id)
+        await this.createDefaultPaymentMethods(hotel.id, createdByUserId, trx)
       } catch (paymentMethodError) {
-        // Log the error but don't fail the hotel creation
         logger.error('Failed to create default payment methods for hotel', {
           hotelId: hotel.id,
           error: paymentMethodError.message
         })
+        throw paymentMethodError // This will trigger rollback
       }
+
+      // Commit the transaction if everything succeeds
+      await trx.commit()
 
       return response.created({
         message: 'Hotel created successfully',
         data: hotel
       })
     } catch (error) {
+      // Rollback the transaction on any error
+      await trx.rollback()
+
+      logger.error('Hotel creation failed, transaction rolled back', {
+        error: error.message,
+        stack: error.stack
+      })
+
       return response.badRequest({
         message: 'Failed to create hotel',
         error: error.message
@@ -934,7 +983,7 @@ export default class HotelsController {
   /**
    * Create default reservation types for a new hotel
    */
-  private async createDefaultReservationTypes(hotelId: number, userId?: number) {
+  private async createDefaultReservationTypes(hotelId: number, userId?: number, trx?: any) {
     const defaultReservationTypes = [
       {
         name: 'Confirmed Booking',
@@ -969,7 +1018,7 @@ export default class HotelsController {
     ]
 
     for (const reservationType of defaultReservationTypes) {
-      await ReservationType.create({
+      const createData = {
         hotelId,
         name: reservationType.name,
         isHold: reservationType.isHold,
@@ -978,11 +1027,17 @@ export default class HotelsController {
         createdByUserId: userId || null,
         updatedByUserId: userId || null,
         isDeleted: false
-      })
+      }
+
+      if (trx) {
+        await ReservationType.create(createData, { client: trx })
+      } else {
+        await ReservationType.create(createData)
+      }
     }
   }
 
-  private async createDefaultBookingSources(hotelId: number, userId?: number) {
+  private async createDefaultBookingSources(hotelId: number, userId?: number, trx?: any) {
     const defaultBookingSources = [
       {
         sourceName: 'Directly',
@@ -1015,27 +1070,37 @@ export default class HotelsController {
     ]
 
     for (const bookingSource of defaultBookingSources) {
-      await BookingSource.create({
+      const createData = {
         hotelId,
         sourceName: bookingSource.sourceName,
-        sourceCode: bookingSource.sourceCode,
+        sourceCode: hotelId + '_' + bookingSource.sourceCode,
         sourceType: bookingSource.sourceType,
         description: bookingSource.description,
         commissionRate: bookingSource.commissionRate,
         isActive: true,
         priority: 1,
-        createdBy: userId || null,
-        lastModifiedBy: userId || null
-      })
+        createdBy: userId,
+        lastModifiedBy: userId
+      }
+
+      if (trx) {
+        await BookingSource.create(createData, { client: trx })
+      } else {
+        await BookingSource.create(createData)
+      }
     }
   }
 
   /**
    * Create default identity types for a new hotel
    */
-  private async createDefaultIdentityTypes(hotelId: number, userId?: number) {
+  private async createDefaultIdentityTypes(hotelId: number, userId?: number, trx?: any) {
     // Delete all existing identity types for this hotel first
-    await IdentityType.query().where('hotelId', hotelId).delete()
+    if (trx) {
+      await IdentityType.query({ client: trx }).where('hotelId', hotelId).delete()
+    } else {
+      await IdentityType.query().where('hotelId', hotelId).delete()
+    }
 
     const defaultIdentityTypes = [
       {
@@ -1049,85 +1114,121 @@ export default class HotelsController {
     ]
 
     for (const identityType of defaultIdentityTypes) {
-      await IdentityType.create({
+      const createData = {
         hotelId,
         name: identityType.name,
         shortCode: identityType.shortCode,
         createdBy: userId || null,
         updatedBy: userId || null
-      })
+      }
+
+      if (trx) {
+        await IdentityType.create(createData, { client: trx })
+      } else {
+        await IdentityType.create(createData)
+      }
     }
   }
 
   /**
    * Create default payment methods for a new hotel
    */
-  private async createDefaultPaymentMethods(hotelId: number, userId?: number) {
-    const defaultPaymentMethod = {
-      hotelId,
-      methodName: 'Cash',
-      methodCode: 'CASH',
-      methodType: 'cash' as const,
-      description: 'Cash payment method',
-      isActive: true,
-      isDefault: true,
-      acceptsPartialPayments: true,
-      requiresAuthorization: false,
-      requiresSignature: false,
-      requiresId: false,
-      minimumAmount: 0,
-      maximumAmount: 999999999,
-      dailyLimit: 999999999,
-      monthlyLimit: 999999999,
-      processingFee: 0,
-      processingFeeType: 'fixed' as const,
-      merchantFee: 0,
-      merchantFeeType: 'fixed' as const,
-      settlementTime: 0,
-      settlementTimeUnit: 'minutes' as const,
-      currenciesAccepted: {},
-      exchangeRateMarkup: 0,
-      paymentProcessor: '',
-      processorConfig: {},
-      merchantId: '',
-      terminalId: '',
-      shortCode: 'CASH',
-      type: 'CASH' as const,
-      cardProcessing: false,
-      surchargeEnabled: false,
-      surchargeType: null,
-      surchargeValue: null,
-      extraChargeId: null,
-      receiptNoSetting: 'auto_general' as const,
-      createdBy: userId || 0,
-      lastModifiedBy: userId || 0,
-      sortOrder: 1,
-      displayName: 'Cash',
-      icon: 'cash',
-      color: '#28a745',
-      isVisible: true,
-      isAvailableOnline: false,
-      isAvailableAtProperty: true,
-      isAvailableMobile: false,
-      departmentRestrictions: {},
-      userRoleRestrictions: {},
-      timeRestrictions: {},
-      locationRestrictions: {},
-      notes: 'Default cash payment method'
+  private async createDefaultPaymentMethods(hotelId: number, userId?: number, trx?: any) {
+    const paymentMethods = [
+      {
+        methodName: 'Master card',
+        methodCode: 'MASTERCARD',
+        methodType: 'cash',
+        shortCode: 'MC',
+        type: 'CASH',
+        cardProcessing: false
+      },
+      {
+        methodName: 'Orange Money',
+        methodCode: 'ORANGE_MONEY',
+        methodType: 'cash',
+        shortCode: 'OM',
+        type: 'CASH',
+        cardProcessing: false
+      },
+      {
+        methodName: 'Especes',
+        methodCode: 'CASH',
+        methodType: 'cash',
+        shortCode: 'CASH',
+        type: 'CASH',
+        cardProcessing: false,
+        isDefault: true
+      },
+      {
+        methodName: 'VISA card',
+        methodCode: 'VISA',
+        methodType: 'cash',
+        shortCode: 'VISA',
+        type: 'CASH',
+        cardProcessing: false
+      },
+      {
+        methodName: 'VIREMENT BANCAIRE',
+        methodCode: 'BANK_TRANSFER',
+        methodType: 'cash',
+        shortCode: 'WIRE',
+        type: 'CASH',
+        cardProcessing: false
+      },
+      {
+        methodName: 'MTN Mobile Money',
+        methodCode: 'MTN_MOMO',
+        methodType: 'cash',
+        shortCode: 'MTN',
+        type: 'CASH',
+        cardProcessing: false
+      },
+      {
+        methodName: 'Chèque',
+        methodCode: 'CHECK',
+        methodType: 'cash',
+        shortCode: 'CHK',
+        type: 'CASH',
+        cardProcessing: false
+      }
+    ]
+
+    for (let i = 0; i < paymentMethods.length; i++) {
+      const method = paymentMethods[i]
+      const defaultPaymentMethod = {
+        hotelId: hotelId,
+        methodName: method.methodName,
+        methodCode: hotelId + '_' + method.methodCode,
+        methodType: method.methodType,
+        description: `${method.methodName} payment method`,
+        isActive: true,
+        isDefault: method.isDefault || false,
+        shortCode: method.shortCode,
+        type: method.type,
+        cardProcessing: method.cardProcessing,
+        surchargeEnabled: false,
+        receiptNoSetting: 'auto_general'
+      }
+      if (trx) {
+        await PaymentMethod.create(defaultPaymentMethod, { client: trx })
+      } else {
+        await PaymentMethod.create(defaultPaymentMethod)
+      }
     }
 
-    await PaymentMethod.create(defaultPaymentMethod)
+
   }
 
   /**
    * Create default administrator user for a new hotel
    */
   private async createDefaultAdministrator(hotelId: number, adminData: {
-    firstName: string
+    firstName?: string
     lastName: string
     email: string
     phoneNumber?: string
-  }) {
+  }, trx?: any) {
     // Check if user already exists
     const existingUser = await this.userService.findByEmail(adminData.email)
 
@@ -1136,45 +1237,62 @@ export default class HotelsController {
       user = existingUser
     } else {
       // Read and parse the contents of the JSON files
-      const privilegesFilePath = path.join(__dirname, '../../data/1-priviledger.json')
-      const reportsFilePath = path.join(__dirname, '../../data/1-reservation-reports.json')
+      const currentDir = dirname(fileURLToPath(import.meta.url))
+      const privilegesFilePath = path.join(currentDir, '../../data/1-priviledger.json')
+      const reportsFilePath = path.join(currentDir, '../../data/1-reservation-reports.json')
 
       const privilegesData = JSON.parse(await fs.readFile(privilegesFilePath, 'utf-8'))
       const reportsData = JSON.parse(await fs.readFile(reportsFilePath, 'utf-8'))
 
       // Extract IDs from the JSON files
-      const permisPrivileges = privilegesData.map((item: any) => item.id)
-      const permisReports = reportsData.map((item: any) => item.id)
+      const permisPrivileges: any = [];
+      privilegesData.forEach((ct: any) => {
+        permisPrivileges.push(...ct.items.map((e: any) => e.id))
+      })
+      const permisReports: any = [];
+      reportsData.forEach((ct: any) => {
+        permisReports.push(...ct.items.map((e: any) => e.id))
+      })
 
       // Query all discounts and extract their IDs
       const discounts = await Discount.query().where('hotel_id', hotelId)
       const permisDiscounts = discounts.map((discount) => discount.id)
 
-      // Create new administrator user
-      user = await this.userService.create({
+      // Create new administrator user with transaction support
+      const userCreateOptions: any = {
         firstName: adminData.firstName,
         lastName: adminData.lastName,
         email: adminData.email,
         phoneNumber: adminData.phoneNumber || null,
         password: 'admin123', // Default password - should be changed on first login
-        roleId: 2, // Admin role ID
         status: 'active',
         createdBy: null,
         lastModifiedBy: null,
         permisPrivileges: JSON.stringify(permisPrivileges),
         permisReports: JSON.stringify(permisReports),
         permisDiscounts: JSON.stringify(permisDiscounts),
-      })
+      }
+
+
+      user = await this.userService.create(userCreateOptions)
     }
+
     // Find or create admin role
     let adminRole = await Role.findBy('roleName', 'admin')
     if (!adminRole) {
-      adminRole = await Role.create({
+      const roleCreateData = {
         roleName: 'admin',
         description: 'Administrator role with full permissions',
         createdBy: user.id,
         lastModifiedBy: user.id,
-      })
+        hotelId: hotelId,
+      }
+      
+      if (trx) {
+        adminRole = await Role.create(roleCreateData, { client: trx })
+      } else {
+        adminRole = await Role.create(roleCreateData)
+      }
     }
 
     // Create service user assignment
@@ -1184,13 +1302,20 @@ export default class HotelsController {
       .first()
 
     if (!existingAssignment) {
-      await ServiceUserAssignment.create({
+      const assignmentData = {
         user_id: user.id,
         hotel_id: hotelId,
         role_id: adminRole.id,
-      })
-    }
+      }
 
+      if (trx) {
+        await ServiceUserAssignment.create(assignmentData, { client: trx })
+      } else {
+        await ServiceUserAssignment.create(assignmentData)
+      }
+    }
+    user.roleId = adminRole.id
+    await user.save();
     return user
   }
 

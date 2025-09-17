@@ -387,7 +387,7 @@ export default class PaymentMethod extends BaseModel {
   declare shortCode: string
 
   @column()
-  declare type: 'CASH' | 'BANK'
+  declare type: 'CASH' | 'BANK'| string
 
   @column()
   declare cardProcessing: boolean

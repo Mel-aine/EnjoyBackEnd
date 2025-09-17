@@ -23,7 +23,12 @@ export default class extends BaseSchema {
         .inTable('hotels')
         .onDelete('CASCADE')
       table.datetime('hire_date').nullable()
-      table.string('role').notNullable()
+      table
+        .integer('role_id')
+        .unsigned()
+        .references('id')
+        .inTable('roles')
+        .onDelete('CASCADE')
       table.integer('department_id').unsigned().nullable().references('id').inTable('departments').onDelete('SET NULL')
 
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())

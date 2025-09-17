@@ -141,7 +141,7 @@ router.get('/swagger/json', async ({ response }) => {
   const basicSpec = {
     swagger: '2.0',
     info: swagger.info,
-    host: 'localhost:3333',
+    host: '127.0.0.1:3333',
     basePath: '/',
     schemes: ['http'],
     securityDefinitions: {
@@ -224,43 +224,141 @@ router.get('/swagger/json', async ({ response }) => {
         }
       },
       '/api/servicesWithUser': {
-        post: {
-          summary: 'Créer un service avec un utilisateur (inscription publique)',
-          consumes: ['application/json'],
-          parameters: [{
-            in: 'body',
-            name: 'serviceWithUser',
-            schema: {
-              type: 'object',
-              required: ['user', 'service'],
-              properties: {
-                user: {
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string', example: 'Jean Dupont' },
-                    email: { type: 'string', example: 'read@gmail.com' },
-                    password: { type: 'string', example: 'Password123' },
-                    phone: { type: 'string', example: '+33123456789' }
-                  }
-                },
-                service: {
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string', example: 'Mon Hôtel' },
-                    description: { type: 'string', example: 'Un bel hôtel' },
-                    category_id: { type: 'integer', example: 1 }
-                  }
-                }
-              }
-            }
-          }],
-          responses: {
-            201: { description: 'Service et utilisateur créés avec succès' },
-            400: { description: 'Données invalides' },
-            422: { description: 'Email déjà utilisé' }
-          }
-        }
-      }
+         post: {
+           summary: 'Créer un service avec un utilisateur (inscription publique)',
+           consumes: ['application/json'],
+           parameters: [{
+             in: 'body',
+             name: 'serviceWithUser',
+             schema: {
+               type: 'object',
+               required: ['user', 'service'],
+               properties: {
+                 user: {
+                   type: 'object',
+                   properties: {
+                     name: { type: 'string', example: 'Jean Dupont' },
+                     email: { type: 'string', example: 'read@gmail.com' },
+                     password: { type: 'string', example: 'Password123' },
+                     phone: { type: 'string', example: '+33123456789' }
+                   }
+                 },
+                 service: {
+                   type: 'object',
+                   properties: {
+                     name: { type: 'string', example: 'Mon Hôtel' },
+                     description: { type: 'string', example: 'Un bel hôtel' },
+                     category_id: { type: 'integer', example: 1 }
+                   }
+                 }
+               }
+             }
+           }],
+           responses: {
+             201: { description: 'Service et utilisateur créés avec succès' },
+             400: { description: 'Données invalides' },
+             422: { description: 'Email déjà utilisé' }
+           }
+         }
+       },
+       '/api/hotels': {
+         post: {
+           summary: 'Créer un nouvel hôtel avec utilisateur admin (nécessite authentification)',
+           security: [{ Bearer: [] }],
+           consumes: ['application/json'],
+           parameters: [{
+             in: 'body',
+             name: 'hotelWithAdmin',
+             schema: {
+               type: 'object',
+               required: ['hotel', 'admin'],
+               properties: {
+                 hotel: {
+                   type: 'object',
+                   required: ['name', 'address', 'city', 'country'],
+                   properties: {
+                     name: { type: 'string', example: 'Grand Hôtel Paris' },
+                     description: { type: 'string', example: 'Un magnifique hôtel au cœur de Paris' },
+                     address: { type: 'string', example: '123 Avenue des Champs-Élysées' },
+                     city: { type: 'string', example: 'Paris' },
+                     state: { type: 'string', example: 'Île-de-France' },
+                     country: { type: 'string', example: 'France' },
+                     postalCode: { type: 'string', example: '75008' },
+                     phone: { type: 'string', example: '+33142563789' },
+                     email: { type: 'string', example: 'contact@grandhotel.com' },
+                     website: { type: 'string', example: 'https://www.grandhotel.com' },
+                     starRating: { type: 'integer', minimum: 1, maximum: 5, example: 5 },
+                     checkInTime: { type: 'string', example: '15:00' },
+                     checkOutTime: { type: 'string', example: '11:00' },
+                     currency: { type: 'string', example: 'EUR' },
+                     timezone: { type: 'string', example: 'Europe/Paris' },
+                     taxRate: { type: 'number', example: 10.5 },
+                     serviceFeeRate: { type: 'number', example: 5.0 },
+                     cancellationPolicy: { type: 'string', example: 'Annulation gratuite jusqu\'à 24h avant l\'arrivée' },
+                     policies: { type: 'string', example: 'Politique de l\'hôtel concernant les animaux, fumeurs, etc.' },
+                     amenities: { 
+                       type: 'array', 
+                       items: { type: 'string' },
+                       example: ['WiFi gratuit', 'Piscine', 'Spa', 'Restaurant', 'Bar']
+                     },
+                     facilities: { 
+                       type: 'array', 
+                       items: { type: 'string' },
+                       example: ['Parking', 'Salle de sport', 'Centre d\'affaires']
+                     },
+                     languages: { 
+                       type: 'array', 
+                       items: { type: 'string' },
+                       example: ['Français', 'Anglais', 'Espagnol']
+                     },
+                     coordinates: {
+                       type: 'object',
+                       properties: {
+                         latitude: { type: 'number', example: 48.8566 },
+                         longitude: { type: 'number', example: 2.3522 }
+                       }
+                     },
+                     socialMedia: {
+                       type: 'object',
+                       properties: {
+                         facebook: { type: 'string', example: 'https://facebook.com/grandhotel' },
+                         instagram: { type: 'string', example: 'https://instagram.com/grandhotel' },
+                         twitter: { type: 'string', example: 'https://twitter.com/grandhotel' }
+                       }
+                     }
+                   }
+                 },
+                 admin: {
+                   type: 'object',
+                   required: ['name', 'email', 'password'],
+                   properties: {
+                     name: { type: 'string', example: 'Marie Dubois' },
+                     email: { type: 'string', example: 'marie.dubois@grandhotel.com' },
+                     password: { type: 'string', example: 'AdminPassword123' },
+                     phone: { type: 'string', example: '+33123456789' },
+                     address: { type: 'string', example: '456 Rue de Rivoli' },
+                     title: { type: 'string', example: 'Directrice Générale' }
+                   }
+                 }
+               }
+             }
+           }],
+           responses: {
+             201: { description: 'Hôtel et administrateur créés avec succès' },
+             400: { description: 'Données invalides' },
+             401: { description: 'Non autorisé' },
+             422: { description: 'Email déjà utilisé ou données en conflit' }
+           }
+         },
+         get: {
+           summary: 'Lister tous les hôtels (nécessite authentification)',
+           security: [{ Bearer: [] }],
+           responses: {
+             200: { description: 'Liste des hôtels' },
+             401: { description: 'Non autorisé' }
+           }
+         }
+       }
     },
   }
   return response.json(basicSpec)
@@ -1406,7 +1504,7 @@ router
 
         // Delete night audit record
         router.delete('/:hotelId/:auditDate', nightAuditController.deleteNightAudit.bind(nightAuditController)) // Delete night audit record
-      })
+      }).prefix('night-audit')
 
     // Channex Integration Routes
     // Hotel data migration to Channex.io system
@@ -1459,7 +1557,7 @@ router
 
   })
   .prefix('/api')
-  .use(
+ .use(
     middleware.auth({
       guards: ['api'],
     }) 
