@@ -2,6 +2,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import FolioTransaction from '#models/folio_transaction'
 import Folio from '#models/folio'
+import ReceiptService from '#services/receipt_service'
+import LoggerService from '#services/logger_service'
 import { TransactionCategory, TransactionStatus, TransactionType } from '#app/enums'
 import { createFolioTransactionValidator, updateFolioTransactionValidator } from '#validators/folio_transaction'
 
@@ -231,6 +233,48 @@ export default class FolioTransactionsController {
 
       // Update folio totals
       await this.updateFolioTotals(payload.folioId)
+
+      // Create receipt if this is a payment transaction
+      if (payload.transactionType === TransactionType.PAYMENT && payload.paymentMethodId) {
+        try {
+          await ReceiptService.createReceipt({
+            tenantId: folio.guestId || 0, // Use guestId from folio
+            hotelId: folio.hotelId,
+            paymentDate: transaction.transactionDate,
+            paymentMethodId: payload.paymentMethodId,
+            totalAmount: transaction.amount,
+            description: transaction.description,
+            breakdown: {
+              payment: transaction.amount,
+              serviceCharge: transaction.serviceChargeAmount || 0
+            },
+            createdBy: auth.user?.id || 0,
+            folioTransactionId: transaction.id,
+            currency: folio.currencyCode || 'XAF'
+          })
+
+          await LoggerService.log({
+            level: 'info',
+            message: 'Receipt created for payment transaction',
+            data: {
+              transactionId: transaction.id,
+              folioId: folio.id,
+              amount: transaction.amount
+            }
+          })
+        } catch (receiptError) {
+          // Log error but don't fail the transaction creation
+          await LoggerService.log({
+            level: 'error',
+            message: 'Failed to create receipt for payment transaction',
+            data: {
+              error: receiptError.message,
+              transactionId: transaction.id,
+              folioId: folio.id
+            }
+          })
+        }
+      }
 
       await transaction.load('hotel')
       await transaction.load('folio')
@@ -504,6 +548,37 @@ export default class FolioTransactionsController {
 
       // Update folio totals
       await this.updateFolioTotals(transaction.folioId)
+
+      // Void related receipt if this is a payment transaction
+      if (transaction.transactionType === TransactionType.PAYMENT) {
+        try {
+          await ReceiptService.voidReceiptByTransaction(transaction.id, {
+            voidedBy: auth.user?.id || 0,
+            voidReason: reason || 'Transaction voided'
+          })
+
+          await LoggerService.log({
+            level: 'info',
+            message: 'Receipt voided for payment transaction',
+            data: {
+              transactionId: transaction.id,
+              folioId: transaction.folioId,
+              voidedBy: auth.user?.id
+            }
+          })
+        } catch (receiptError) {
+          // Log error but don't fail the transaction voiding
+          await LoggerService.log({
+            level: 'error',
+            message: 'Failed to void receipt for payment transaction',
+            data: {
+              error: receiptError.message,
+              transactionId: transaction.id,
+              folioId: transaction.folioId
+            }
+          })
+        }
+      }
 
       return response.ok({
         message: 'Transaction voided successfully',

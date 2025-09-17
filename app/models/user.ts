@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, beforeSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, beforeSave, computed } from '@adonisjs/lucid/orm'
 import { AccessToken } from '@adonisjs/auth/access_tokens'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
@@ -228,6 +228,12 @@ export default class User extends AuthFinder(BaseModel) {
     await this.role.load('permissions')
 
     return this.role.permissions.some((permission) => permission.name === permissionName)
+  }
+
+  // Computed properties
+  @computed()
+  get fullName() {
+    return `${this.firstName} ${this.lastName}`
   }
 
   public async hasAnyPermission(permissions: string[]): Promise<boolean> {

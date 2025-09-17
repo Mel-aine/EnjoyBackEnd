@@ -1,6 +1,10 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Hotel from '#models/hotel'
 import User from '#models/user'
+import Role from '#models/role'
+import ServiceUserAssignment from '#models/service_user_assignment'
+import Permission from '#models/permission'
+import RolePermission from '#models/role_permission'
 import CrudService from '#services/crud_service'
 import LoggerService from '#services/logger_service'
 import PermissionService from '#services/permission_service'
@@ -12,6 +16,9 @@ import ReservationType from '#models/reservation_type'
 import BookingSource from '#models/booking_source'
 import IdentityType from '#models/identity_type'
 import PaymentMethod from '#models/payment_method'
+import fs from 'fs/promises'
+import path from 'path'
+import Discount from '../models/discount.js'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -87,6 +94,27 @@ export default class HotelsController {
       }
 
       const hotel = await Hotel.create(hotelData)
+
+      // Create default administrator user if admin details are provided
+      if (payload.adminFirstName && payload.adminLastName && payload.adminEmail) {
+        try {
+          await this.createDefaultAdministrator(hotel.id, {
+            firstName: payload.adminFirstName,
+            lastName: payload.adminLastName,
+            email: payload.adminEmail,
+            phoneNumber: payload.adminPhoneNumber
+          })
+          logger.info('Default administrator created successfully', {
+            hotelId: hotel.id,
+            adminEmail: payload.adminEmail
+          })
+        } catch (adminError) {
+          logger.error('Failed to create default administrator for hotel', {
+            hotelId: hotel.id,
+            error: adminError.message
+          })
+        }
+      }
 
       // Create default XAF currency for the new hotel
       try {
@@ -898,7 +926,7 @@ export default class HotelsController {
       return response.status(500).json({
         success: false,
         message: 'Internal server error',
-        error:error
+        error: error
       })
     }
   }
@@ -1010,15 +1038,15 @@ export default class HotelsController {
     await IdentityType.query().where('hotelId', hotelId).delete()
 
     const defaultIdentityTypes = [
-        {
-          name: 'Passport',
-          shortCode: 'PASS'
-        },
-        {
-          name: 'National ID Card',
-          shortCode: 'NAT_ID'
-        }
-      ]
+      {
+        name: 'Passport',
+        shortCode: 'PASS'
+      },
+      {
+        name: 'National ID Card',
+        shortCode: 'NAT_ID'
+      }
+    ]
 
     for (const identityType of defaultIdentityTypes) {
       await IdentityType.create({
@@ -1090,4 +1118,80 @@ export default class HotelsController {
 
     await PaymentMethod.create(defaultPaymentMethod)
   }
+
+  /**
+   * Create default administrator user for a new hotel
+   */
+  private async createDefaultAdministrator(hotelId: number, adminData: {
+    firstName: string
+    lastName: string
+    email: string
+    phoneNumber?: string
+  }) {
+    // Check if user already exists
+    const existingUser = await this.userService.findByEmail(adminData.email)
+
+    let user
+    if (existingUser) {
+      user = existingUser
+    } else {
+      // Read and parse the contents of the JSON files
+      const privilegesFilePath = path.join(__dirname, '../../data/1-priviledger.json')
+      const reportsFilePath = path.join(__dirname, '../../data/1-reservation-reports.json')
+
+      const privilegesData = JSON.parse(await fs.readFile(privilegesFilePath, 'utf-8'))
+      const reportsData = JSON.parse(await fs.readFile(reportsFilePath, 'utf-8'))
+
+      // Extract IDs from the JSON files
+      const permisPrivileges = privilegesData.map((item: any) => item.id)
+      const permisReports = reportsData.map((item: any) => item.id)
+
+      // Query all discounts and extract their IDs
+      const discounts = await Discount.query().where('hotel_id', hotelId)
+      const permisDiscounts = discounts.map((discount) => discount.id)
+
+      // Create new administrator user
+      user = await this.userService.create({
+        firstName: adminData.firstName,
+        lastName: adminData.lastName,
+        email: adminData.email,
+        phoneNumber: adminData.phoneNumber || null,
+        password: 'admin123', // Default password - should be changed on first login
+        roleId: 2, // Admin role ID
+        status: 'active',
+        createdBy: null,
+        lastModifiedBy: null,
+        permisPrivileges: JSON.stringify(permisPrivileges),
+        permisReports: JSON.stringify(permisReports),
+        permisDiscounts: JSON.stringify(permisDiscounts),
+      })
+    }
+    // Find or create admin role
+    let adminRole = await Role.findBy('roleName', 'admin')
+    if (!adminRole) {
+      adminRole = await Role.create({
+        roleName: 'admin',
+        description: 'Administrator role with full permissions',
+        createdBy: user.id,
+        lastModifiedBy: user.id,
+      })
+    }
+
+    // Create service user assignment
+    const existingAssignment = await ServiceUserAssignment.query()
+      .where('user_id', user.id)
+      .andWhere('hotel_id', hotelId)
+      .first()
+
+    if (!existingAssignment) {
+      await ServiceUserAssignment.create({
+        user_id: user.id,
+        hotel_id: hotelId,
+        role_id: adminRole.id,
+      })
+    }
+
+    return user
+  }
+
 }

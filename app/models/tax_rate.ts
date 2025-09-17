@@ -4,6 +4,7 @@ import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
 import Room from '#models/room'
+import FolioTransaction from '#models/folio_transaction'
 
 export default class TaxRate extends BaseModel {
   @column({ isPrimary: true, columnName: 'tax_rate_id' })
@@ -89,4 +90,14 @@ export default class TaxRate extends BaseModel {
     pivotRelatedForeignKey: 'room_id'
   })
   declare rooms: ManyToMany<typeof Room>
+
+  @manyToMany(() => FolioTransaction, {
+    pivotTable: 'folio_transaction_taxes',
+    localKey: 'taxRateId',
+    pivotForeignKey: 'tax_rate_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'folio_transaction_id',
+    pivotColumns: ['tax_amount', 'tax_rate_percentage', 'taxable_amount']
+  })
+  declare folioTransactions: ManyToMany<typeof FolioTransaction>
 }

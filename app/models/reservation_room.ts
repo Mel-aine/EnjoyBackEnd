@@ -1,12 +1,13 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import RoomType from './room_type.js'
 import User from './user.js'
 import Reservation from './reservation.js'
 import Guest from './guest.js'
 import RoomRate from './room_rate.js'
+import Folio from './folio.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -140,6 +141,15 @@ export default class ReservationRoom extends BaseModel {
 
   @column()
   declare checkedOutBy: number
+
+  @column()
+  declare reservedByUser: number | null
+
+  @column()
+  declare voidedByUser: number | null
+
+  @column()
+  declare markNoShowByUser: number | null
 
   @column()
   declare earlyCheckIn: boolean
@@ -624,12 +634,29 @@ export default class ReservationRoom extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
+  @belongsTo(() => User, { foreignKey: 'checkedInBy' })
+  declare checkedInByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'checkedOutBy' })
+  declare checkedOutByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'reservedByUser' })
+  declare reservedByUserRelation: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'voidedByUser' })
+  declare voidedByUserRelation: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'markNoShowByUser' })
+  declare markNoShowByUserRelation: BelongsTo<typeof User>
+
   @belongsTo(() => Reservation, { foreignKey: 'reservationId' })
   declare reservation: BelongsTo<typeof Reservation>
 
   @belongsTo(() => Guest, { foreignKey: 'guestId' })
   declare guest: BelongsTo<typeof Guest>
 
+  @hasMany(() => Folio, { foreignKey: 'reservationRoomId' })
+  declare folios: HasMany<typeof Folio>
 
   @belongsTo(() => RoomRate,{ foreignKey : 'roomRateId'})
   declare roomRates: BelongsTo <typeof RoomRate>

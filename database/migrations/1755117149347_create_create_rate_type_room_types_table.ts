@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'rate_type_room_types'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.integer('rate_type_id').unsigned().notNullable()
       table.integer('room_type_id').unsigned().notNullable()
@@ -18,6 +22,7 @@ export default class extends BaseSchema {
       // Unique constraint to prevent duplicate relationships
       table.unique(['rate_type_id', 'room_type_id'])
     })
+    }
   }
 
   async down() {

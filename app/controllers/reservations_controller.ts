@@ -402,7 +402,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Update reservation room status
         reservationRoom.status = 'checked_out'
         //reservationRoom.actualCheckOutTime = checkOutDateTime
-        //reservationRoom.checkedOutBy = auth.user!.id
+        reservationRoom.checkedOutBy = auth.user!.id
+        reservationRoom.lastModifiedBy = auth.user!.id
 
         if (notes) {
           reservationRoom.guestNotes = notes
@@ -519,7 +520,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
  *
  * GET /reservations/:id
  */
-  public async getReservationDetails({ params, response }: HttpContext) {
+  public async getReservationDetails({ params, response,auth }: HttpContext) {
     try {
       const reservationId = parseInt(params.reservationId, 10)
 
@@ -565,7 +566,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const avgDailyRate = this.calculateAvgDailyRate(reservation)
 
       // Determine available actions based on reservation status
-      const availableActions = this.getAvailableActions(reservation)
+      const availableActions = this.getAvailableActions(reservation, JSON.parse(auth.user?.permisPrivileges || '[]'))
 
       const result = {
         ...reservation.toJSON(),
@@ -675,17 +676,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * Get available actions based on reservation status
    */
-  private getAvailableActions(reservation: any) {
+  private getAvailableActions(reservation: any, userPermissions: string []) {
     const actions = []
     const status = reservation.status?.toLowerCase() || reservation.reservation_status?.toLowerCase()
     const currentDate = new Date()
     const arrivalDate = new Date(reservation.arrivedDate || reservation.checkInDate)
-
     const departureDate = new Date(reservation.departDate || reservation.checkOutDate)
-    console.log("reservation", reservation)
+    const canUnAssign = reservation.reservationRooms.some((reservationRoom: any) => reservationRoom.roomId)
 
     // Check-in: Available for confirmed reservations on or after arrival date
-    if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate >= arrivalDate) {
+    if (userPermissions.includes('check_in_guest') && ['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate >= arrivalDate) {
       actions.push({
         action: 'check_in',
         label: 'Check-in',
@@ -695,7 +695,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
     // Checkout : Available during stay (checked-in status)
-    if (['checked-in', 'checked_in'].includes(status) && currentDate >= departureDate) {
+    if (userPermissions.includes('check_out_guest') && ['checked-in', 'checked_in'].includes(status) && currentDate >= departureDate) {
       actions.push({
         action: 'check_out',
         label: 'Check-out',
@@ -705,7 +705,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
     // Add Payment: Available for all active reservations
-    if (!['cancelled', 'no-show', 'voided'].includes(status)) {
+    if (userPermissions.includes('add_item_to_open_folio') &&!['cancelled', 'no-show', 'voided'].includes(status)) {
       actions.push({
         action: 'add_payment',
         label: 'Add Payment',
@@ -716,7 +716,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Amend Stay: Available before or during stay
-    if (['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in'].includes(status)) {
+    if (userPermissions.includes('access_to_extend_guest_stay') && ['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in'].includes(status)) {
       actions.push({
         action: 'amend_stay',
         label: 'Amend Stay',
@@ -727,7 +727,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Room Move: Available during stay (checked-in status)
-    if (['checked-in', 'checked_in'].includes(status)) {
+    if (userPermissions.includes('access_to_move_room') && ['checked-in', 'checked_in'].includes(status)) {
       actions.push({
         action: 'room_move',
         label: 'Room Move',
@@ -738,7 +738,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Exchange Room: Similar to room move
-    if (['checked-in', 'checked_in'].includes(status)) {
+    if (userPermissions.includes('access_to_move_room') && ['checked-in', 'checked_in'].includes(status)) {
       actions.push({
         action: 'exchange_room',
         label: 'Exchange Room',
@@ -749,7 +749,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Stop Room Move: Available if there's a pending room move
-    if (['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in'].includes(status)) {
+    if (userPermissions.includes('access_to_override_stop_room_move') && ['confirmed', 'guaranteed', 'pending', 'checked-in', 'checked_in'].includes(status)) {
       actions.push({
         action: 'stop_room_move',
         label: 'Stop Room Move',
@@ -772,7 +772,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         */
 
     // Cancel Reservation: Available before check-in
-    if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate < arrivalDate) {
+    if (userPermissions.includes('cancel_reservation')&& ['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate < arrivalDate) {
       actions.push({
         action: 'cancel_reservation',
         label: 'Cancel Reservation',
@@ -783,7 +783,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // No Show: Available after scheduled arrival time for non-arrived guests
-    if (['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate > arrivalDate) {
+    if (userPermissions.includes('mark_no_show') && ['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate > arrivalDate) {
       actions.push({
         action: 'no_show',
         label: 'No Show',
@@ -796,7 +796,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Void Reservation: Available for recent reservations with errors
     const numRooms = reservation.reservationRooms?.length || 0;
 
-    if (
+    if (userPermissions.includes('void_reservation') && 
       ['confirmed', 'guaranteed', 'pending'].includes(status) &&
       numRooms <= 1
     ) {
@@ -810,7 +810,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Unassign Room: Available for confirmed reservations with assigned rooms
-    if (['confirmed', 'guaranteed', 'pending'].includes(status)) {
+    if (userPermissions.includes('unassign_room') && canUnAssign &&  ['confirmed', 'guaranteed', 'pending'].includes(status)) {
       actions.push({
         action: 'unassign_room',
         label: 'Unassign Room',
@@ -1375,7 +1375,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async searchReservations({ request, response }: HttpContext) {
+  public async searchReservations({ request, response,auth }: HttpContext) {
     try {
       const {
         searchText = '',
@@ -1469,7 +1469,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Calculate balanceSummary and availableActions for each reservation
       const enrichedReservations = reservations.map(reservation => {
         const balanceSummary = this.calculateBalanceSummary(reservation.folios)
-        const availableActions = this.getAvailableActions(reservation)
+        const availableActions = this.getAvailableActions(reservation,JSON.parse(auth.user?.permisPrivileges||'[]'))
 
         return {
           ...reservation.toJSON(),
@@ -1828,6 +1828,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 (numberOfNights === 0 ? room.taxes : (room.taxes * numberOfNights)),
               status: 'reserved',
               isOwner: index === 0,
+              reservedByUser: auth.user?.id,
               createdBy: data.created_by,
             }, { client: trx })
           }
@@ -3545,6 +3546,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         for (const room of reservation.reservationRooms) {
           if (selectedRooms.includes(room.roomId)) {
             room.status = 'no_show'
+            room.markNoShowByUser = auth.user!.id
             room.lastModifiedBy = auth.user!.id
             await room.useTransaction(trx).save()
 
@@ -3847,6 +3849,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           status: 'voided',
           voided_date: DateTime.now(),
           void_reason: reason,
+          voidedByUser: auth.user?.id,
           lastModifiedBy: auth.user?.id,
           updatedAt: DateTime.now()
         })

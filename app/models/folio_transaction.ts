@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
 import Hotel from './hotel.js'
 import Folio from './folio.js'
@@ -8,6 +8,7 @@ import PaymentMethod from './payment_method.js'
 import User from './user.js'
 import Discount from './discount.js'
 import Guest from './guest.js'
+import TaxRate from './tax_rate.js'
 
 export default class FolioTransaction extends BaseModel {
   @column({ isPrimary: true })
@@ -425,6 +426,16 @@ export default class FolioTransaction extends BaseModel {
 
   @belongsTo(() => Discount)
   declare discount: BelongsTo<typeof Discount>
+
+  @manyToMany(() => TaxRate, {
+    pivotTable: 'folio_transaction_taxes',
+    localKey: 'id',
+    pivotForeignKey: 'folio_transaction_id',
+    relatedKey: 'taxRateId',
+    pivotRelatedForeignKey: 'tax_rate_id',
+    pivotColumns: ['tax_amount', 'tax_rate_percentage', 'taxable_amount']
+  })
+  declare taxes: ManyToMany<typeof TaxRate>
 
   // Computed properties
   get isCharge() {

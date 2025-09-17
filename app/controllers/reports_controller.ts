@@ -1,6 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import ReportsService, { ReportFilters } from '#services/reports_service'
 import { DateTime } from 'luxon'
+import logger from '@adonisjs/core/services/logger'
+import { ReservationStatus, TransactionCategory } from '#app/enums'
+import PaymentMethod from '#models/payment_method'
 import PdfService from '#services/pdf_service'
 
 export default class ReportsController {
@@ -461,8 +464,10 @@ export default class ReportsController {
       // Get headers from first data row
       const headers = Object.keys(reportData.data[0])
 
+
       // Create CSV content
       let csvContent = headers.join(',') + '\n'
+
 
       reportData.data.forEach((row: any) => {
         const values = headers.map((header) => {
@@ -549,6 +554,7 @@ export default class ReportsController {
     try {
       const { hotelId, month, year } = request.qs()
 
+
       if (!hotelId || !month || !year) {
         return response.badRequest({
           success: false,
@@ -566,6 +572,7 @@ export default class ReportsController {
 
       // Import Reservation model
       const { default: Reservation } = await import('#models/reservation')
+
 
       // Get daily reservation counts for the month
       const dailyReservationCounts = await this.getDailyReservationCounts(
@@ -590,6 +597,7 @@ export default class ReportsController {
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
+
       // Generate PDF
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
 
@@ -599,6 +607,8 @@ export default class ReportsController {
         'Content-Disposition',
         `attachment; filename="monthly-reservations-${year}-${month}.pdf"`
       )
+
+      response.header('Content-Disposition', `attachment; filename="monthly-reservations-${year}-${month}.pdf"`)
 
       return response.send(pdfBuffer)
     } catch (error) {
@@ -612,6 +622,421 @@ export default class ReportsController {
   }
 
   /**
+   * Generate room status report PDF
+   */
+  async generateRoomStatusReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate } = request.only(['hotelId', 'asOnDate'])
+
+      if (!hotelId || !asOnDate) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID and asOnDate are required'
+        })
+      }
+
+      // Parse the date
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD format'
+        })
+      }
+
+      // Import models
+      const { default: Hotel } = await import('#models/hotel')
+      const { default: Room } = await import('#models/room')
+      const { default: Reservation } = await import('#models/reservation')
+
+      // Get hotel information
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      // Get all rooms for the hotel
+      const rooms = await Room.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .preload('roomType')
+        .orderBy('floor_number', 'asc')
+        .orderBy('room_number', 'asc')
+
+      // Get reservations for the specific date
+      const reservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .where('arrived_date', '<=', reportDate.toSQLDate())
+        .where('depart_date', '>', reportDate.toSQLDate())
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .preload('reservationRooms')
+        .preload('guest')
+
+      // Get room blocks for the specified date
+      const { default: RoomBlock } = await import('#models/room_block')
+      const roomBlocks = await RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+        .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
+        .where('status', '!=', 'completed')
+
+      // Categorize rooms by status
+      const roomsByStatus = {
+        occupied: [] as any[],
+        dueOut: [] as any[],
+        vacant: [] as any[],
+        departed: [] as any[],
+        reserved: [] as any[],
+        blocked: [] as any[]
+      }
+
+      // Get reservations checking out today
+      const checkingOutToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .where('depart_date', reportDate.toSQLDate())
+        .where('status', 'checked_in')
+        .preload('reservationRooms')
+
+      // Get reservations arriving today
+      const arrivingToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .where('arrived_date', reportDate.toSQLDate())
+        .where('status', 'confirmed')
+        .preload('reservationRooms')
+
+      // Get departed rooms (checked out today)
+      const departedToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .where('depart_date', reportDate.toSQLDate())
+        .where('status', 'checked_out')
+        .preload('reservationRooms')
+
+      // Create sets for quick lookup
+      const occupiedRoomIds = new Set<number>()
+      const dueOutRoomIds = new Set<number>()
+      const reservedRoomIds = new Set<number>()
+      const departedRoomIds = new Set<number>()
+      const blockedRoomIds = new Set<number>()
+
+      // Process room blocks
+      roomBlocks.forEach((block: any) => {
+        blockedRoomIds.add(block.roomId)
+      })
+
+      // Process current reservations
+      reservations.forEach(reservation => {
+        reservation.reservationRooms.forEach(rr => {
+          if (rr.roomId) {
+            occupiedRoomIds.add(rr.roomId)
+          }
+        })
+      })
+
+      // Process due out rooms
+      checkingOutToday.forEach(reservation => {
+        reservation.reservationRooms.forEach(rr => {
+          if (rr.roomId) {
+            dueOutRoomIds.add(rr.roomId)
+          }
+        })
+      })
+
+      // Process arriving today (reserved)
+      arrivingToday.forEach(reservation => {
+        reservation.reservationRooms.forEach(rr => {
+          if (rr.roomId) {
+            reservedRoomIds.add(rr.roomId)
+          }
+        })
+      })
+
+      // Process departed rooms
+      departedToday.forEach(reservation => {
+        reservation.reservationRooms.forEach(rr => {
+          if (rr.roomId) {
+            departedRoomIds.add(rr.roomId)
+          }
+        })
+      })
+
+      // Categorize all rooms
+      rooms.forEach(room => {
+        const roomInfo = {
+          roomNumber: room.roomNumber,
+          roomType: room.roomType?.roomTypeName || 'Unknown',
+          floorNumber: room.floorNumber
+        }
+
+        if (departedRoomIds.has(room.id)) {
+          roomsByStatus.departed.push(roomInfo)
+        } else if (dueOutRoomIds.has(room.id)) {
+          roomsByStatus.dueOut.push(roomInfo)
+        } else if (occupiedRoomIds.has(room.id)) {
+          roomsByStatus.occupied.push(roomInfo)
+        } else if (reservedRoomIds.has(room.id)) {
+          roomsByStatus.reserved.push(roomInfo)
+        } else if (blockedRoomIds.has(room.id)) {
+          roomsByStatus.blocked.push(roomInfo)
+        } else {
+          roomsByStatus.vacant.push(roomInfo)
+        }
+      })
+
+      // Get authenticated user information
+      const user = auth.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateRoomStatusReportHtml(
+        hotel.hotelName,
+        reportDate,
+        roomsByStatus,
+        printedBy
+      )
+
+      // Import PDF generation service
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+      // Generate PDF
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      // Set response headers
+      const fileName = `room-status-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating room status report PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate room status report PDF',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate HTML content for room status report
+   */
+  private generateRoomStatusReportHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    roomsByStatus: any,
+    printedBy: string = 'System'
+  ): string {
+    const formattedDate = reportDate.toFormat('dd/MM/yyyy')
+    const currentDateTime = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+    // Calculate totals
+    const totals = {
+      occupied: roomsByStatus.occupied.length,
+      dueOut: roomsByStatus.dueOut.length,
+      vacant: roomsByStatus.vacant.length,
+      departed: roomsByStatus.departed.length,
+      reserved: roomsByStatus.reserved.length,
+      blocked: roomsByStatus.blocked.length
+    }
+
+    const generateRoomList = (rooms: any[]) => {
+      if (rooms.length === 0) {
+        return ''
+      }
+      return rooms.map(room =>
+        `<div style="display: inline-block; margin: 2px 2px; padding: 4px 8px; background: #f8f9fa; border: 1px solid #dee2e6;  font-size: 12px;">
+          ${room.roomNumber}
+        </div>`
+      ).join('')
+    }
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Status Report - ${hotelName}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            color: #333;
+            line-height: 1.4;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid black;
+        }
+        .hotel-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            color:orange
+        }
+        .date-section {
+            text-align: center;
+            margin: 15px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .horizontal-line {
+            border-top: 1px solid #333;
+            margin: 5px 0;
+        }
+        .section {
+            margin: 20px 0;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .room-list {
+            margin: 10px 0;
+            min-height: 30px;
+        }
+        .summary {
+            margin: 30px 0;
+        }
+        .summary-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .summary-item {
+            padding: 8px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+        @media print {
+            body { margin: 15px; }
+            .header { page-break-after: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="hotel-name">${hotelName}</div>
+        <div class="report-title">Room Status Report</div>
+    </div>
+
+    <div class="date-section">
+        As on Date: ${formattedDate}
+    </div>
+    <div class="horizontal-line"></div>
+
+    <!-- Occupied Rooms Section -->
+    <div class="section">
+        <div class="section-title">Occupied Rooms</div>
+        <div class="horizontal-line"></div>
+        <div class="room-list">
+            ${generateRoomList(roomsByStatus.occupied)}
+        </div>
+        <div class="horizontal-line"></div>
+    </div>
+
+    <!-- Due Out Rooms Section -->
+    <div class="section">
+        <div class="section-title">Due Out Rooms</div>
+        <div class="horizontal-line"></div>
+        <div class="room-list">
+            ${generateRoomList(roomsByStatus.dueOut)}
+        </div>
+        <div class="horizontal-line"></div>
+    </div>
+
+    <!-- Vacant Rooms Section -->
+    <div class="section">
+        <div class="section-title">Vacant Rooms</div>
+        <div class="horizontal-line"></div>
+        <div class="room-list">
+            ${generateRoomList(roomsByStatus.vacant)}
+        </div>
+        <div class="horizontal-line"></div>
+    </div>
+
+    <!-- Departed Rooms Section -->
+    <div class="section">
+        <div class="section-title">Departed Rooms</div>
+        <div class="horizontal-line"></div>
+        <div class="room-list">
+            ${generateRoomList(roomsByStatus.departed)}
+        </div>
+        <div class="horizontal-line"></div>
+    </div>
+
+    <!-- Reserve Rooms Section -->
+    <div class="section">
+        <div class="section-title">Reserve Rooms</div>
+        <div class="horizontal-line"></div>
+        <div class="room-list">
+            ${generateRoomList(roomsByStatus.reserved)}
+        </div>
+        <div class="horizontal-line"></div>
+    </div>
+
+    <!-- Blocked Rooms Section -->
+    <div class="section">
+        <div class="section-title">Blocked Rooms</div>
+        <div class="horizontal-line"></div>
+        <div class="room-list">
+            ${generateRoomList(roomsByStatus.blocked)}
+        </div>
+        <div class="horizontal-line"></div>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="summary">
+        <div class="horizontal-line"></div>
+        <div class="summary-title">Summary</div>
+        <div class="horizontal-line"></div>
+        <div class="summary-grid">
+            <div class="summary-item">Occupied Rooms # ${totals.occupied}</div>
+            <div class="summary-item">Departed Rooms # ${totals.departed}</div>
+            <div class="summary-item">Due Out Rooms # ${totals.dueOut}</div>
+            <div class="summary-item">Vacant Rooms # ${totals.vacant}</div>
+            <div class="summary-item">Reserve Rooms # ${totals.reserved}</div>
+            <div class="summary-item">Blocked Rooms # ${totals.blocked}</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div><strong>Printed On:</strong> ${currentDateTime}</div>
+        <div><strong>Printed By:</strong> ${printedBy}</div>
+        <div><strong>Page 1 of 1</strong></div>
+    </div>
+</body>
+</html>
+    `
+  }
+
+  /**
    * Generate HTML content for monthly occupancy report
    */
   /**
@@ -620,11 +1045,14 @@ export default class ReportsController {
   private async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
     const { default: Reservation } = await import('#models/reservation')
 
+
     const daysInMonth = endDate.day
     const dailyCounts = []
 
+
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = startDate.set({ day })
+
 
       // Count reservations for this day (arrivals)
       const reservationCount = await Reservation.query()
@@ -633,11 +1061,13 @@ export default class ReportsController {
         .whereNotIn('status', ['cancelled', 'voided'])
         .count('* as total')
 
+
       dailyCounts.push({
         day,
         reservationCount: parseInt(reservationCount[0].$extras.total) || 0,
       })
     }
+
 
     return dailyCounts
   }
@@ -649,15 +1079,22 @@ export default class ReportsController {
   ): string {
     const monthName = startDate.toFormat('MMMM yyyy')
 
+
     // Calculate chart data
     const maxReservations = Math.max(...reservationData.map((d) => d.reservationCount), 1)
     const totalReservations = reservationData.reduce((sum, d) => sum + d.reservationCount, 0)
+    const avgReservations = reservationData.length > 0
+      ? (totalReservations / reservationData.length)?.toFixed(1)
+      : '0.0'
+
     const avgReservations =
       reservationData.length > 0 ? (totalReservations / reservationData.length).toFixed(1) : '0.0'
 
     // Set a fixed y-axis max for better visualization
     const yAxisMax = Math.max(maxReservations, 10)
     const maxChartHeight = 350
+
+    const chartData = reservationData.map(data => ({
 
     const chartData = reservationData.map((data) => ({
       day: data.day,
@@ -925,11 +1362,1084 @@ export default class ReportsController {
   }
 
   /**
+   * Generate Night Audit Report PDF
+   */
+  async generateNightAuditReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate, currency } = request.only(['hotelId', 'asOnDate', 'currency'])
+
+      // Validate required parameters
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID is required'
+        })
+      }
+
+      if (!asOnDate) {
+        return response.badRequest({
+          success: false,
+          message: 'As On Date is required'
+        })
+      }
+
+      if (!currency) {
+        return response.badRequest({
+          success: false,
+          message: 'Currency is required'
+        })
+      }
+
+      // Parse and validate date
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+        })
+      }
+
+      // Import required models
+      const { default: Hotel } = await import('#models/hotel')
+
+      // Get hotel information
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      // Get authenticated user information
+      const user = auth.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+
+      // Generate all sections data
+      const sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
+
+      // Generate HTML content
+      const htmlContent = this.generateNightAuditReportHtml(
+        hotel.hotelName,
+        reportDate,
+        currency,
+        sectionsData,
+        printedBy
+      )
+
+      // Import PDF generation service
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+      // Generate PDF
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      // Set response headers
+      const fileName = `night-audit-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating night audit report PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate night audit report PDF',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate all sections data for Night Audit Report
+   */
+  private async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
+    // Import required models
+    const { default: Reservation } = await import('#models/reservation')
+    const { default: Room } = await import('#models/room')
+    const { default: Folio } = await import('#models/folio')
+    const { default: Guest } = await import('#models/guest')
+    const { default: RoomRate } = await import('#models/room_rate')
+    const { default: Transaction } = await import('#models/folio_transaction')
+    const { default: User } = await import('#models/user')
+
+    // Section 1: Room Charges
+    const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
+
+    // Section 2: Daily Sales
+    const dailySales = await this.getDailySalesData(hotelId, reportDate, currency)
+
+    // Section 3: Misc. Charges
+    const miscCharges = await this.getMiscChargesData(hotelId, reportDate, currency)
+
+    // Section 4: Room Status
+    const roomStatus = await this.getRoomStatusData(hotelId, reportDate)
+
+    // Section 5: Pax Status
+    const paxStatus = await this.getPaxStatusData(hotelId, reportDate)
+
+    // Section 6: Pax Analysis
+    const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
+
+    return {
+      roomCharges,
+      dailySales,
+      miscCharges,
+      roomStatus,
+      paxStatus,
+      paxAnalysis
+    }
+  }
+
+  /**
+   * Section 1: Room Charges Data
+   */
+  private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency: string) {
+    const { default: Reservation } = await import('#models/reservation')
+
+    const reservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+      .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
+      .whereIn('status', ['checked_in', 'confirmed'])
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('room')
+        roomQuery.preload('roomType')
+        roomQuery.preload('roomRates', (rateQuery) => {
+          rateQuery.preload('rateType')
+        })
+      })
+      .preload('folios')
+      .preload('guest')
+      .preload('businessSource')
+      .preload('checkedInByUser')
+
+    const roomChargesData = []
+    let totals = {
+      normalTariff: 0,
+      offeredTariff: 0,
+      totalTax: 0,
+      totalRent: 0,
+      totalVariant: 0
+    }
+
+    for (const reservation of reservations) {
+      for (const reservationRoom of reservation.reservationRooms) {
+        if (reservationRoom.room) {
+          const roomRate = reservationRoom.roomRates.baseRate
+          const normalTariff = roomRate
+          const offeredTariff = reservationRoom.roomRate ?? 0
+          const taxAmount = reservationRoom.taxAmount || 0
+          const totalRent = Number(offeredTariff) + Number(taxAmount)
+          const variance = normalTariff > 0 ? ((roomRate - totalRent) / Number(normalTariff) * 100) : 0
+
+          roomChargesData.push({
+            room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
+            folioNo: reservation.folios?.[0]?.folioNumber,
+            guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : '',
+            source: reservation.businessSource?.name || '',
+            company: reservation.companyName || '',
+            rentDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+            rateType: reservationRoom.roomRates?.rateType?.rateTypeName,
+            normalTariff,
+            offeredTariff,
+            totalTax: taxAmount,
+            totalRent,
+            variance: variance,
+            checkinBy: reservation.checkedInByUser ? `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : 'System'
+          })
+
+          totals.normalTariff += Number(normalTariff)
+          totals.offeredTariff += Number(offeredTariff)
+          totals.totalTax += Number(taxAmount)
+          totals.totalRent += Number(totalRent)
+          totals.totalVariant += Number(variance)
+        }
+      }
+    }
+
+    return { data: roomChargesData, totals }
+  }
+
+  /**
+   * Section 2: Daily Sales Data
+   */
+  private async getDailySalesData(hotelId: number, reportDate: DateTime, currency: string) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: Reservation } = await import('#models/reservation')
+    const { TransactionCategory, TransactionType, TransactionStatus } = await import('#app/enums')
+
+    const salesData = []
+    let totals = {
+      roomCharges: 0,
+      extraCharges: 0,
+      roomTax: 0,
+      extraTax: 0,
+      discount: 0,
+      adjustment: 0,
+      totalSales: 0
+    }
+
+    const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
+
+    // 1. Room Sales - Regular room charges posted on the report date
+    const roomSalesData = await this.getRoomSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(roomSalesData)
+    this.addToTotals(totals, roomSalesData)
+
+    // 2. Direct Room Sales - Direct sales transactions (walk-ins, etc.)
+    const directRoomSalesData = await this.getDirectRoomSalesData(hotelId, reportDateStr, FolioTransaction, Reservation, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(directRoomSalesData)
+    this.addToTotals(totals, directRoomSalesData)
+
+    // 3. Cancellation Sales - Cancellation fees posted on the report date
+    const cancellationSalesData = await this.getCancellationSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(cancellationSalesData)
+    this.addToTotals(totals, cancellationSalesData)
+
+    // 4. No Show Sales - No show fees posted on the report date
+    const noShowSalesData = await this.getNoShowSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(noShowSalesData)
+    this.addToTotals(totals, noShowSalesData)
+
+    // 5. Day Use Sales - Same day check-in and check-out reservations
+    const dayUseSalesData = await this.getDayUseSalesData(hotelId, reportDateStr, FolioTransaction, Reservation, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(dayUseSalesData)
+    this.addToTotals(totals, dayUseSalesData)
+
+    // 6. Late Checkout Sales - Late checkout fees posted on the report date
+    const lateCheckoutSalesData = await this.getLateCheckoutSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(lateCheckoutSalesData)
+    this.addToTotals(totals, lateCheckoutSalesData)
+
+    // 7. Incidental Sales - Incidental charges posted on the report date
+    const incidentalSalesData = await this.getIncidentalSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    salesData.push(incidentalSalesData)
+    this.addToTotals(totals, incidentalSalesData)
+
+    return { data: salesData, totals }
+  }
+
+  /**
+   * Helper method to add sales data to totals
+   */
+  private addToTotals(totals: any, salesData: any) {
+    totals.roomCharges += salesData.roomCharges || 0
+    totals.extraCharges += salesData.extraCharges || 0
+    totals.roomTax += salesData.roomTax || 0
+    totals.extraTax += salesData.extraTax || 0
+    totals.discount += salesData.discount || 0
+    totals.adjustment += salesData.adjustment || 0
+    totals.totalSales += salesData.totalSales || 0
+  }
+
+  /**
+   * Get Room Sales Data - Regular room charges posted on the report date
+   */
+  private async getRoomSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('category', TransactionCategory.ROOM)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+
+    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+
+    return {
+      salesType: 'Room Sales',
+      roomCharges,
+      extraCharges: 0,
+      roomTax,
+      extraTax: 0,
+      discount,
+      adjustment: 0,
+      totalSales: roomCharges + roomTax - discount
+    }
+  }
+
+  /**
+   * Get Direct Room Sales Data - Direct sales transactions (walk-ins, etc.)
+   */
+  private async getDirectRoomSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, Reservation: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    // Get reservations that were created and checked in on the same day (walk-ins)
+    const walkInReservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereRaw('DATE(arrived_date) = ?', [reportDateStr])
+      .where('status', 'checked_in')
+
+    const reservationIds = walkInReservations.map((r: any) => r.id)
+
+    if (reservationIds.length === 0) {
+      return {
+        salesType: 'Direct Room Sales',
+        roomCharges: 0,
+        extraCharges: 0,
+        roomTax: 0,
+        extraTax: 0,
+        discount: 0,
+        adjustment: 0,
+        totalSales: 0
+      }
+    }
+
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('reservation_id', reservationIds)
+      .where('category', TransactionCategory.ROOM)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+
+    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+
+    return {
+      salesType: 'Direct Room Sales',
+      roomCharges,
+      extraCharges: 0,
+      roomTax,
+      extraTax: 0,
+      discount,
+      adjustment: 0,
+      totalSales: roomCharges + roomTax - discount
+    }
+  }
+
+  /**
+   * Get Cancellation Sales Data - Cancellation fees posted on the report date
+   */
+  private async getCancellationSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('category', TransactionCategory.CANCELLATION_FEE)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+
+    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+
+    return {
+      salesType: 'Cancellation Sales',
+      roomCharges: 0,
+      extraCharges,
+      roomTax: 0,
+      extraTax,
+      discount: 0,
+      adjustment: 0,
+      totalSales: extraCharges + extraTax
+    }
+  }
+
+  /**
+   * Get No Show Sales Data - No show fees posted on the report date
+   */
+  private async getNoShowSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('category', TransactionCategory.NO_SHOW_FEE)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+
+    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+
+    return {
+      salesType: 'No Show Sales',
+      roomCharges: 0,
+      extraCharges,
+      roomTax: 0,
+      extraTax,
+      discount: 0,
+      adjustment: 0,
+      totalSales: extraCharges + extraTax
+    }
+  }
+
+  /**
+   * Get Day Use Sales Data - Same day check-in and check-out reservations
+   */
+  private async getDayUseSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, Reservation: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    // Get reservations with same check-in and check-out date
+    const dayUseReservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .whereRaw('DATE(arrived_date) = DATE(depart_date)')
+      .whereRaw('DATE(arrived_date) = ?', [reportDateStr])
+      .whereIn('status', ['checked_in', 'checked_out'])
+
+    const reservationIds = dayUseReservations.map((r: any) => r.id)
+
+    if (reservationIds.length === 0) {
+      return {
+        salesType: 'Day Use Sales',
+        roomCharges: 0,
+        extraCharges: 0,
+        roomTax: 0,
+        extraTax: 0,
+        discount: 0,
+        adjustment: 0,
+        totalSales: 0
+      }
+    }
+
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('reservation_id', reservationIds)
+      .where('category', TransactionCategory.ROOM)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+
+    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+
+    return {
+      salesType: 'Day Use Sales',
+      roomCharges,
+      extraCharges: 0,
+      roomTax,
+      extraTax: 0,
+      discount,
+      adjustment: 0,
+      totalSales: roomCharges + roomTax - discount
+    }
+  }
+
+  /**
+   * Get Late Checkout Sales Data - Late checkout fees posted on the report date
+   */
+  private async getLateCheckoutSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('category', TransactionCategory.LATE_CHECKOUT_FEE)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+
+    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+
+    return {
+      salesType: 'Late Checkout Sales',
+      roomCharges: 0,
+      extraCharges,
+      roomTax: 0,
+      extraTax,
+      discount: 0,
+      adjustment: 0,
+      totalSales: extraCharges + extraTax
+    }
+  }
+
+  /**
+   * Get Incidental Sales Data - Incidental charges posted on the report date
+   */
+  private async getIncidentalSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+    const incidentalCategories = [
+      TransactionCategory.FOOD_BEVERAGE,
+      TransactionCategory.TELEPHONE,
+      TransactionCategory.LAUNDRY,
+      TransactionCategory.MINIBAR,
+      TransactionCategory.SPA,
+      TransactionCategory.BUSINESS_CENTER,
+      TransactionCategory.PARKING,
+      TransactionCategory.INTERNET,
+      TransactionCategory.INCIDENTAL,
+      TransactionCategory.MISCELLANEOUS
+    ]
+
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('category', incidentalCategories)
+      .where('transaction_type', TransactionType.CHARGE)
+      .where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+
+    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+
+    return {
+      salesType: 'Incidental Sales',
+      roomCharges: 0,
+      extraCharges,
+      roomTax: 0,
+      extraTax,
+      discount,
+      adjustment: 0,
+      totalSales: Number(extraCharges) + Number(extraTax) - Number(discount)
+    }
+  }
+
+  /**
+   * Section 3: Misc. Charges Data
+   */
+  private async getMiscChargesData(hotelId: number, reportDate: DateTime, currency: string) {
+    const { default: Transaction } = await import('#models/folio_transaction')
+
+    const miscCharges = await Transaction.query()
+      .where('hotel_id', hotelId)
+      .whereRaw('DATE(transaction_date) = ?', [reportDate.toFormat('yyyy-MM-dd')])
+      .where('transaction_type', 'charge')
+      .whereNot('category', 'room')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation', (resQuery) => {
+          resQuery.preload('guest')
+          resQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room')
+          })
+        })
+      })
+
+    const miscChargesData = []
+    let totals = { units: 0, amount: 0 }
+
+    for (const charge of miscCharges) {
+      const reservation = charge.folio?.reservation
+      const room = reservation?.reservationRooms?.[0]?.room
+
+      miscChargesData.push({
+        room: room?.roomNumber,
+        folioNo: charge.folio?.folioNumber,
+        guest: reservation?.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'N/A',
+        chargeDate: charge.createdAt.toFormat('dd/MM/yyyy'),
+        voucherNo: charge.receiptNumber,
+        charge: charge.description,
+        unitPrice: charge.amount || 0,
+        units: charge.quantity || 1,
+        amount: (charge.amount || 0) * (charge.quantity || 1),
+        enteredOn: charge.createdAt.toFormat('dd/MM/yyyy HH:mm'),
+        remark: charge.notes
+      })
+
+      totals.units += charge.quantity || 1
+      totals.amount += (charge.amount || 0) * (charge.quantity || 1)
+    }
+
+    return { data: miscChargesData, totals }
+  }
+
+  /**
+   * Section 4: Room Status Data
+   */
+  private async getRoomStatusData(hotelId: number, reportDate: DateTime) {
+    const { default: Room } = await import('#models/room')
+    const { default: Reservation } = await import('#models/reservation')
+
+    const totalRooms = await Room.query().where('hotel_id', hotelId).count('* as total')
+    const totalRoomsCount = parseInt(totalRooms[0].$extras.total)
+
+    // Get occupancy statistics for the date
+    const occupied = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+      .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'checked_in')
+      .count('* as total')
+
+    const dueOut = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'checked_in')
+      .count('* as total')
+
+    const departed = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'checked_out')
+      .count('* as total')
+
+    const reserved = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'confirmed')
+      .count('* as total')
+
+    const occupiedCount = parseInt(occupied[0].$extras.total)
+    const dueOutCount = parseInt(dueOut[0].$extras.total)
+    const departedCount = parseInt(departed[0].$extras.total)
+    const reservedCount = parseInt(reserved[0].$extras.total)
+    const vacantCount = totalRoomsCount - occupiedCount
+    const blockedCount = 0 // You may need to implement room blocking logic
+
+    return {
+      date: reportDate.toFormat('dd/MM/yyyy'),
+      totalRooms: totalRoomsCount,
+      occupied: occupiedCount,
+      dueOut: dueOutCount,
+      vacant: vacantCount,
+      departed: departedCount,
+      reserved: reservedCount,
+      blocked: blockedCount
+    }
+  }
+
+  /**
+   * Section 5: Pax Status Data
+   */
+  private async getPaxStatusData(hotelId: number, reportDate: DateTime) {
+    const { default: Reservation } = await import('#models/reservation')
+
+    // Due Out guests
+    const dueOutReservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'checked_in')
+      .preload('reservationRooms')
+
+    // Stayover guests
+    const stayoverReservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', '<', reportDate.toFormat('yyyy-MM-dd'))
+      .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'checked_in')
+      .preload('reservationRooms')
+
+    const calculatePax = (reservations: any[]) => {
+      let rooms = 0, adults = 0, children = 0
+
+      reservations.forEach(reservation => {
+        reservation.reservationRooms.forEach((rr: any) => {
+          rooms += 1
+          adults += rr.adults || 1
+          children += rr.children || 0
+        })
+      })
+
+      return { rooms, adults, children }
+    }
+
+    const dueOutPax = calculatePax(dueOutReservations)
+    const stayoverPax = calculatePax(stayoverReservations)
+
+    return [
+      {
+        status: 'Due Out',
+        rooms: dueOutPax.rooms,
+        adults: dueOutPax.adults,
+        children: dueOutPax.children
+      },
+      {
+        status: 'Stayover',
+        rooms: stayoverPax.rooms,
+        adults: stayoverPax.adults,
+        children: stayoverPax.children
+      }
+    ]
+  }
+
+  /**
+   * Section 6: Pax Analysis Data
+   */
+  private async getPaxAnalysisData(hotelId: number, reportDate: DateTime) {
+    const { default: Reservation } = await import('#models/reservation')
+
+    const reservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+      .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'checked_in')
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('roomRates', (rateQuery) => {
+          rateQuery.preload('rateType')
+        })
+      })
+
+    const rateTypeAnalysis: { [key: string]: { adults: number, children: number } } = {}
+
+    reservations.forEach(reservation => {
+      reservation.reservationRooms.forEach((rr: any) => {
+        const rateTypeName = rr.roomRates?.rateType?.rateTypeName
+        if (!rateTypeAnalysis[rateTypeName]) {
+          rateTypeAnalysis[rateTypeName] = { adults: 0, children: 0 }
+        }
+
+        rateTypeAnalysis[rateTypeName].adults += rr.adults || 1
+        rateTypeAnalysis[rateTypeName].children += rr.children || 0
+      })
+    })
+
+    return Object.entries(rateTypeAnalysis)
+      .filter(([_, data]) => data.adults > 0)
+      .map(([rateType, data]) => ({
+        rateType,
+        adults: data.adults,
+        children: data.children
+      }))
+  }
+
+  /**
+   * Generate HTML content for Night Audit Report
+   */
+  private generateNightAuditReportHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    currency: string,
+    sectionsData: any,
+    printedBy: string = 'System'
+  ): string {
+    const formattedDate = reportDate.toFormat('dd/MM/yyyy')
+    const currentDateTime = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Night Audit Report - ${hotelName}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 15px;
+            color: #333;
+            line-height: 1.3;
+            font-size: 12px;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid black;
+        }
+        .hotel-name {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .report-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .report-info {
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .horizontal-line {
+            border-top: 1px solid #333;
+            margin: 5px 0;
+        }
+        .dotted-line {
+            border-top: 1px dotted #333;
+            margin: 5px 0;
+        }
+        .section {
+            margin: 15px 0;
+            page-break-inside: avoid;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 5px 0;
+            font-size: 10px;
+        }
+        .data-table th {
+            background-color: #f5f5f5;
+            border: 1px solid #333;
+            padding: 4px 2px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .data-table td {
+            border: 1px solid #333;
+            padding: 3px 2px;
+            text-align: left;
+        }
+        .data-table td.number {
+            text-align: right;
+        }
+        .data-table td.center {
+            text-align: center;
+        }
+        .totals-row {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .footer {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+        }
+        @media print {
+            body { margin: 10px; }
+            .page-header { page-break-after: avoid; }
+            .section { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="hotel-name">${hotelName}</div>
+        <div class="report-title">Night Audit</div>
+    </div>
+
+    <!-- Report Info -->
+    <div class="report-info">
+        As On Date: ${formattedDate} &nbsp;&nbsp;&nbsp;&nbsp; Currency: ${currency}
+    </div>
+    <div class="horizontal-line"></div>
+
+    <!-- Section 1: Room Charges -->
+    <div class="section">
+        <div class="section-title">Room Charges</div>
+        <div class="horizontal-line"></div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Folio No.</th>
+                    <th>Guest</th>
+                    <th>Source</th>
+                    <th>Company</th>
+                    <th>Rent Date</th>
+                    <th>Rate Type</th>
+                    <th>Nrml. Tariff (${currency})</th>
+                    <th>Ofrd.Tariff (${currency})</th>
+                    <th>Total Tax (${currency})</th>
+                    <th>Total Rent (${currency})</th>
+                    <th>Var %</th>
+                    <th>Checkin By</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sectionsData.roomCharges.data.map((row: any) => `
+                <tr>
+                    <td>${row.room}</td>
+                    <td class="center">${row.folioNo}</td>
+                    <td>${row.guest}</td>
+                    <td>${row.source}</td>
+                    <td>${row.company}</td>
+                    <td class="center">${row.rentDate}</td>
+                    <td>${row.rateType}</td>
+                    <td class="number">${row.normalTariff}</td>
+                    <td class="number">${row.offeredTariff}</td>
+                    <td class="number">${row.totalTax}</td>
+                    <td class="number">${row.totalRent}</td>
+                    <td class="number">${row.variance}</td>
+                    <td>${row.checkinBy}</td>
+                </tr>
+                `).join('')}
+                <tr class="totals-row">
+                    <td colspan="7"><strong>Total (${currency}):</strong></td>
+                    <td class="number"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
+                    <td class="number"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
+                    <td class="number"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
+                    <td class="number"><strong>${sectionsData.roomCharges.totals.totalRent}</strong></td>
+                    <td class="number"><strong>${sectionsData.roomCharges.totals.totalVariant}</strong></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="dotted-line"></div>
+    </div>
+
+    <!-- Section 2: Daily Sales -->
+    <div class="section">
+        <div class="section-title">Daily Sales</div>
+        <div class="horizontal-line"></div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Sales Type</th>
+                    <th>Room Charges (${currency})</th>
+                    <th>Extra Charges (${currency})</th>
+                    <th>Room Tax (${currency})</th>
+                    <th>Extra Tax (${currency})</th>
+                    <th>Discount (${currency})</th>
+                    <th>Adjustment (${currency})</th>
+                    <th>Total Sales (${currency})</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sectionsData.dailySales.data.map((row: any) => `
+                <tr>
+                    <td>${row.salesType}</td>
+                    <td class="number">${row.roomCharges}</td>
+                    <td class="number">${row.extraCharges}</td>
+                    <td class="number">${row.roomTax}</td>
+                    <td class="number">${row.extraTax}</td>
+                    <td class="number">${row.discount}</td>
+                    <td class="number">${row.adjustment}</td>
+                    <td class="number">${row.totalSales}</td>
+                </tr>
+                `).join('')}
+                <tr class="totals-row">
+                    <td><strong>Total:</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.extraTax}</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.discount}</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.adjustment}</strong></td>
+                    <td class="number"><strong>${sectionsData.dailySales.totals.totalSales}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="dotted-line"></div>
+    </div>
+
+    <!-- Section 3: Misc. Charges -->
+    <div class="section">
+        <div class="section-title">Misc. Charges</div>
+        <div class="horizontal-line"></div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Folio No.</th>
+                    <th>Guest</th>
+                    <th>Charge Date</th>
+                    <th>Voucher No</th>
+                    <th>Charge</th>
+                    <th>Unit Price (${currency})</th>
+                    <th>Unit (Q'ty)</th>
+                    <th>Amount (${currency})</th>
+                    <th>Entered On</th>
+                    <th>Remark</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sectionsData.miscCharges.data.map((row: any) => `
+                <tr>
+                    <td>${row.room}</td>
+                    <td class="center">${row.folioNo}</td>
+                    <td>${row.guest}</td>
+                    <td class="center">${row.chargeDate}</td>
+                    <td class="center">${row.voucherNo}</td>
+                    <td>${row.charge}</td>
+                    <td class="number">${row.unitPrice}</td>
+                    <td class="number">${row.units}</td>
+                    <td class="number">${row.amount}</td>
+                    <td class="center">${row.enteredOn}</td>
+                    <td>${row.remark}</td>
+                </tr>
+                `).join('')}
+                <tr class="totals-row">
+                    <td colspan="7"><strong>Total:</strong></td>
+                    <td class="number"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
+                    <td class="number"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="dotted-line"></div>
+    </div>
+
+    <!-- Section 4: Room Status -->
+    <div class="section">
+        <div class="section-title">Room Status</div>
+        <div class="horizontal-line"></div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Total Rooms</th>
+                    <th>Occupied</th>
+                    <th>Due Out</th>
+                    <th>Vacant</th>
+                    <th>Departed</th>
+                    <th>Reserve</th>
+                    <th>Blocked</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="center">${sectionsData.roomStatus.date}</td>
+                    <td class="number">${sectionsData.roomStatus.totalRooms}</td>
+                    <td class="number">${sectionsData.roomStatus.occupied}</td>
+                    <td class="number">${sectionsData.roomStatus.dueOut}</td>
+                    <td class="number">${sectionsData.roomStatus.vacant}</td>
+                    <td class="number">${sectionsData.roomStatus.departed}</td>
+                    <td class="number">${sectionsData.roomStatus.reserved}</td>
+                    <td class="number">${sectionsData.roomStatus.blocked}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="dotted-line"></div>
+    </div>
+
+    <!-- Section 5: Pax Status -->
+    <div class="section">
+        <div class="section-title">Pax Status</div>
+        <div class="horizontal-line"></div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Rooms</th>
+                    <th>Adult</th>
+                    <th>Child</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sectionsData.paxStatus.map((row: any) => `
+                <tr>
+                    <td>${row.status}</td>
+                    <td class="number">${row.rooms}</td>
+                    <td class="number">${row.adults}</td>
+                    <td class="number">${row.children}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <div class="dotted-line"></div>
+    </div>
+
+    <!-- Section 6: Pax Analysis -->
+    <div class="section">
+        <div class="section-title">Pax Analysis</div>
+        <div class="horizontal-line"></div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Rate Type</th>
+                    <th>Adult</th>
+                    <th>Child</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sectionsData.paxAnalysis.map((row: any) => `
+                <tr>
+                    <td>${row.rateType}</td>
+                    <td class="number">${row.adults}</td>
+                    <td class="number">${row.children}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <div class="dotted-line"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div><strong>Printed On:</strong> ${currentDateTime}</div>
+        <div><strong>Printed By:</strong> ${printedBy}</div>
+        <div><strong>Page 1 of 1</strong></div>
+    </div>
+</body>
+</html>
+    `
+  }
+
+  /**
    * Get report statistics and analytics
    */
   async getReportStats({ request, response }: HttpContext) {
     try {
       const { hotelId } = request.qs()
+
 
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
@@ -974,6 +2484,3206 @@ export default class ReportsController {
       })
     }
   }
+
+  /**
+   * Generate Management Report PDF
+   */
+  async generateManagementReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate, currency } = request.only(['hotelId', 'asOnDate', 'currency'])
+
+      // Validate required parameters
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID is required'
+        })
+      }
+
+      if (!asOnDate) {
+        return response.badRequest({
+          success: false,
+          message: 'As On Date is required'
+        })
+      }
+
+      if (!currency) {
+        return response.badRequest({
+          success: false,
+          message: 'Currency is required'
+        })
+      }
+
+      // Parse and validate date
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+        })
+      }
+
+      // Import required models
+      const { default: Hotel } = await import('#models/hotel')
+
+      // Get hotel information
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      // Get authenticated user information
+      const user = auth.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+
+      // Generate all sections data
+      const sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
+
+      // Generate HTML content using Edge template
+      const htmlContent = await this.generateManagementReportHtml(
+        hotel.hotelName,
+        reportDate,
+        currency,
+        sectionsData,
+        printedBy
+      )
+
+      // Import PDF generation service
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+      // Generate PDF
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      // Set response headers
+      const fileName = `management-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating management report PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate management report PDF',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate all sections data for Management Report
+   */
+  private async generateManagementReportSections(hotelId: number, reportDate: DateTime, currency: string) {
+    // Calculate PTD (Period To Date) - first day of month to report date
+    const ptdStartDate = reportDate.startOf('month')
+
+    // Calculate YTD (Year To Date) - first day of year to report date
+    const ytdStartDate = reportDate.startOf('year')
+
+    // Section 1: Room Charges
+    const roomCharges = await this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+
+    // Section 2: Extra Charges
+    const extraCharges = await this.getManagementExtraChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+
+    // Section 3: Discounts
+    const discounts = await this.getManagementDiscountData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+
+    // Section 4: Adjustments
+    const adjustments = await this.getManagementAdjustmentsData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+
+    // Section 5: Tax
+    const tax = await this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+
+    // Section 6: Payments
+    const payments = await this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+
+    // Section 7: City Ledger
+    const cityLedger = await this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+
+    // Section 8: Advance Deposit Ledger
+    const advanceDepositLedger = await this.getManagementAdvanceDepositLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+
+    // Section 9: Guest Ledger
+    const guestLedger = await this.getManagementGuestLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+
+    // Section 10: Room Summary
+    const roomSummary = await this.getManagementRoomSummaryData(hotelId, reportDate)
+
+    // Section 11: Statistics
+    const statistics = await this.getManagementStatisticsData(hotelId, reportDate, roomSummary)
+
+    // Section 12: POS Summary
+    const posSummary = await this.getManagementPOSSummaryData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+
+    // Section 13: POS Payment Summary
+    const posPaymentSummary = await this.getManagementPOSPaymentSummaryData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+
+    // Section 14: Revenue Summary
+    const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges, posSummary)
+    return {
+      roomCharges,
+      extraCharges,
+      discounts,
+      adjustments,
+      tax,
+      payments,
+      cityLedger,
+      advanceDepositLedger,
+      guestLedger,
+      roomSummary,
+      statistics,
+      posSummary,
+      posPaymentSummary,
+      revenueSummary
+    }
+  }
+
+  /**
+   * Generate HTML content for Management Report using Edge template
+   */
+  private async generateManagementReportHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    currency: string,
+    sectionsData: any,
+    printedBy: string = 'System'
+  ): Promise<string> {
+    const { default: edge } = await import('edge.js')
+    const path = await import('path')
+    logger.info(sectionsData)
+
+    // Configure Edge with views directory
+    edge.mount(path.join(process.cwd(), 'resources/views'))
+
+    // Format dates
+    const asOnDate = reportDate.toFormat('dd/MM/yyyy')
+    const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+    const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+    // Helper function for currency formatting
+    const formatCurrency = (amount: number | null | undefined): string => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return '0.00'
+      }
+      return amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    }
+
+    // Calculate totals
+    const totals = {
+      revenueWithoutTax: {
+        today: (sectionsData.roomCharges?.total?.today || 0) + (sectionsData.extraCharges?.today || 0) - (sectionsData.discounts?.today || 0) + (sectionsData.adjustments?.today || 0),
+        ptd: (sectionsData.roomCharges?.total?.ptd || 0) + (sectionsData.extraCharges?.ptd || 0) - (sectionsData.discounts?.ptd || 0) + (sectionsData.adjustments?.ptd || 0),
+        ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges?.ytd || 0) - (sectionsData.discounts?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
+      },
+      revenueWithTax: {
+        today: 0, // Will be calculated with tax
+        ptd: 0,
+        ytd: 0
+      },
+      posToPs: {
+        today: 0, // Placeholder
+        ptd: 0,
+        ytd: 0
+      },
+      transferToGuestLedger: {
+        today: 0, // Placeholder
+        ptd: 0,
+        ytd: 0
+      }
+    }
+
+    // Calculate revenue with tax
+    totals.revenueWithTax.today = totals.revenueWithoutTax.today + (sectionsData.tax?.today || 0)
+    totals.revenueWithTax.ptd = totals.revenueWithoutTax.ptd + (sectionsData.tax?.ptd || 0)
+    totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
+    logger.info(sectionsData)
+    // Prepare template data
+    const templateData = {
+      hotelName,
+      asOnDate,
+      ptdDate,
+      ytdDate,
+      currency,
+      printedOn,
+      printedBy,
+      currentPage: 1,
+      totalPages: 1, // Will be calculated by PDF service
+      content: {
+        ...sectionsData,
+        totals
+      },
+      formatCurrency
+    }
+
+    // Render template
+    return await edge.render('reports/management_report', templateData)
+  }
+
+  /**
+   * Get Room Charges data for Management Report
+   */
+  private async getManagementRoomChargesData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+    try {
+      const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+      // Today's room charges
+      const todayRoomCharges = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+        .where('category', 'room')
+        .whereNotIn('status', ['cancelled', 'void'])
+
+      // PTD room charges
+      const ptdRoomCharges = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .where('category', 'room')
+        .whereNotIn('status', ['cancelled', 'void'])
+
+      // YTD room charges
+      const ytdRoomCharges = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .where('category', 'room')
+        .whereNotIn('status', ['cancelled', 'void'])
+
+      // Cancellation Revenue
+      const todayCancellation = await this.getCancellationRevenue(hotelId, reportDate, reportDate)
+      const ptdCancellation = await this.getCancellationRevenue(hotelId, ptdStartDate, reportDate)
+      const ytdCancellation = await this.getCancellationRevenue(hotelId, ytdStartDate, reportDate)
+
+      // No Show Revenue
+      const todayNoShow = await this.getNoShowRevenue(hotelId, reportDate, reportDate)
+      const ptdNoShow = await this.getNoShowRevenue(hotelId, ptdStartDate, reportDate)
+      const ytdNoShow = await this.getNoShowRevenue(hotelId, ytdStartDate, reportDate)
+      return {
+        roomCharges: {
+          today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
+          ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
+          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0)
+        },
+        cancellationRevenue: {
+          today: todayCancellation,
+          ptd: ptdCancellation,
+          ytd: ytdCancellation
+        },
+        noShowRevenue: {
+          today: todayNoShow,
+          ptd: ptdNoShow,
+          ytd: ytdNoShow
+        },
+        total: {
+          today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(todayCancellation) + Number(todayNoShow),
+          ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(ptdCancellation) + Number(ptdNoShow),
+          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(ytdCancellation) + Number(ytdNoShow)
+        }
+      }
+    } catch (error) {
+      console.error('Error in getManagementRoomChargesData:', error)
+      return {
+        roomCharges: { today: 0, ptd: 0, ytd: 0 },
+        cancellationRevenue: { today: 0, ptd: 0, ytd: 0 },
+        noShowRevenue: { today: 0, ptd: 0, ytd: 0 },
+        total: { today: 0, ptd: 0, ytd: 0 }
+      }
+    }
+  }
+
+  /**
+   * Get Cancellation Revenue
+   */
+  private async getCancellationRevenue(hotelId: number, startDate: DateTime, endDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const result = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .where('status', ReservationStatus.CANCELLED)
+        })
+      })
+      .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .where('category', TransactionCategory.CANCELLATION_FEE)
+      .whereNotIn('status', ['cancelled', 'void'])
+
+    return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
+  }
+
+  /**
+   * Get No Show Revenue
+   */
+  private async getNoShowRevenue(hotelId: number, startDate: DateTime, endDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const result = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .where('status', ReservationStatus.NOSHOW)
+        })
+      })
+      .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .where('category', TransactionCategory.NO_SHOW_FEE)
+      .whereNotIn('status', ['cancelled', 'void'])
+
+    return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
+  }
+
+  /**
+   * Get Extra Charges data for Management Report
+   */
+  private async getManagementExtraChargesData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: ExtraCharge } = await import('#models/extra_charge')
+
+    // Get all extra charges for the hotel
+    const extraCharges = await ExtraCharge.query()
+      .where('hotel_id', hotelId)
+      .where('is_deleted', false)
+      .select('id', 'name', 'short_code')
+
+    const getExtraChargesByPeriod = async (startDate: DateTime, endDate: DateTime) => {
+      // Get all folio transactions in the period
+      const transactions = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotNull('description')
+        .select('description', 'amount')
+
+      const extraChargeAmounts: any = {}
+      let totalExtraCharges = 0
+
+      // Initialize all extra charges with 0
+      extraCharges.forEach(extraCharge => {
+        extraChargeAmounts[extraCharge.name] = 0
+      })
+
+      // Match transaction descriptions with extra charge names
+      transactions.forEach(transaction => {
+        const description = transaction.description?.toLowerCase() || ''
+
+        extraCharges.forEach(extraCharge => {
+          const extraChargeName = extraCharge.name?.toLowerCase() || ''
+          const extraChargeShortCode = extraCharge.shortCode?.toLowerCase() || ''
+
+          // Check if transaction description contains the extra charge name or short code
+          if (description.includes(extraChargeName) ||
+            (extraChargeShortCode && description.includes(extraChargeShortCode))) {
+            const amount = Number(transaction.amount || 0)
+            extraChargeAmounts[extraCharge.name] += amount
+            totalExtraCharges += amount
+          }
+        })
+      })
+
+      return { extraChargeAmounts, totalExtraCharges }
+    }
+
+    // Calculate for each period
+    const todayData = await getExtraChargesByPeriod(reportDate, reportDate)
+    const ptdData = await getExtraChargesByPeriod(ptdStartDate, reportDate)
+    const ytdData = await getExtraChargesByPeriod(ytdStartDate, reportDate)
+
+    // Build result with individual extra charges and totals
+    const result: any = {
+      extraCharges: {},
+      totals: {
+        today: todayData.totalExtraCharges,
+        ptd: ptdData.totalExtraCharges,
+        ytd: ytdData.totalExtraCharges
+      }
+    }
+
+    // Add individual extra charge data
+    extraCharges.forEach(extraCharge => {
+      result.extraCharges[extraCharge.name] = {
+        today: todayData.extraChargeAmounts[extraCharge.name] || 0,
+        ptd: ptdData.extraChargeAmounts[extraCharge.name] || 0,
+        ytd: ytdData.extraChargeAmounts[extraCharge.name] || 0
+      }
+    })
+
+    return result
+  }
+
+  /**
+   * Get Discount data for Management Report
+   */
+  private async getManagementDiscountData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: Discount } = await import('#models/discount')
+
+    // Get all active discounts for the hotel
+    const discounts = await Discount.query()
+      .where('hotel_id', hotelId)
+      .where('is_deleted', false)
+      .where('status', 'active')
+
+    const getDiscountData = async (discount: any, startDate: DateTime, endDate: DateTime) => {
+      const transactions = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .where('discount_id', discount.id)
+        .where('status', 'posted')
+        .whereNotNull('discount_amount')
+
+      return transactions.reduce((sum: number, t: any) => sum + Math.abs(Number(t.discountAmount || 0)), 0)
+    }
+
+    const discountData = []
+    let totalToday = 0
+    let totalPtd = 0
+    let totalYtd = 0
+
+    for (const discount of discounts) {
+      const today = await getDiscountData(discount, reportDate, reportDate)
+      const ptd = await getDiscountData(discount, ptdStartDate, reportDate)
+      const ytd = await getDiscountData(discount, ytdStartDate, reportDate)
+
+      if (today > 0 || ptd > 0 || ytd > 0) {
+        discountData.push({
+          id: discount.id,
+          name: discount.name,
+          shortCode: discount.shortCode,
+          type: discount.type,
+          value: discount.value,
+          applyOn: discount.applyOn,
+          today,
+          ptd,
+          ytd
+        })
+
+        totalToday += today
+        totalPtd += ptd
+        totalYtd += ytd
+      }
+    }
+
+    return {
+      discounts: discountData,
+      totals: {
+        today: totalToday,
+        ptd: totalPtd,
+        ytd: totalYtd
+      },
+      // Backward compatibility
+      today: totalToday,
+      ptd: totalPtd,
+      ytd: totalYtd
+    }
+  }
+
+  /**
+   * Get Adjustments data for Management Report
+   */
+  private async getManagementAdjustmentsData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const getAdjustmentData = async (startDate: DateTime, endDate: DateTime) => {
+      const transactions = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .where('category', 'adjustment')
+        .where('status', 'posted')
+        .select('description', 'particular', 'amount')
+
+      const adjustmentTypes = {}
+      let totalAmount = 0
+
+      transactions.forEach((transaction: any) => {
+        const amount = Number(transaction.amount || 0)
+        const description = transaction.description || transaction.particular || 'General Adjustment'
+
+        // Check if it's a round off adjustment
+        const isRoundOff = description.toLowerCase().includes('round') ||
+          description.toLowerCase().includes('unit adjustment') ||
+          Math.abs(amount) < 1 // Small amounts are likely round offs
+
+        const adjustmentType = isRoundOff ? 'Round Off' : description
+
+        if (!adjustmentTypes[adjustmentType]) {
+          adjustmentTypes[adjustmentType] = 0
+        }
+
+        adjustmentTypes[adjustmentType] += amount
+        totalAmount += amount
+      })
+
+      return { types: adjustmentTypes, total: totalAmount }
+    }
+
+    const todayData = await getAdjustmentData(reportDate, reportDate)
+    const ptdData = await getAdjustmentData(ptdStartDate, reportDate)
+    const ytdData = await getAdjustmentData(ytdStartDate, reportDate)
+
+    // Combine all adjustment types
+    const allTypes = new Set([
+      ...Object.keys(todayData.types),
+      ...Object.keys(ptdData.types),
+      ...Object.keys(ytdData.types)
+    ])
+
+    const adjustmentData = Array.from(allTypes).map(type => ({
+      name: type,
+      today: todayData.types[type] || 0,
+      ptd: ptdData.types[type] || 0,
+      ytd: ytdData.types[type] || 0
+    })).filter(adj => adj.today !== 0 || adj.ptd !== 0 || adj.ytd !== 0)
+
+    return {
+      adjustments: adjustmentData,
+      totals: {
+        today: todayData.total,
+        ptd: ptdData.total,
+        ytd: ytdData.total
+      },
+      // Backward compatibility
+      today: todayData.total,
+      ptd: ptdData.total,
+      ytd: ytdData.total
+    }
+  }
+
+  /**
+   * Get Tax data for Management Report
+   */
+  private async getManagementTaxData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: TaxRate } = await import('#models/tax_rate')
+    const { TransactionCategory } = await import('#app/enums')
+
+    const getTaxData = async (startDate: DateTime, endDate: DateTime) => {
+      // Get all transactions with preloaded taxes relationship
+      const transactions = await FolioTransaction.query()
+        .whereNotNull('folio_id')
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .where('status', 'posted')
+        .preload('taxes', (taxQuery) => {
+          taxQuery.where('hotel_id', hotelId)
+        })
+        .select('id', 'category', 'tax_amount', 'tax_rate', 'description', 'particular')
+
+      const taxData: any = {
+        roomTaxes: 0,
+        extraTaxes: 0,
+        totalTaxes: 0,
+        breakdown: {}
+      }
+
+      transactions.forEach((transaction: any) => {
+        const isRoomCharge = transaction.category === TransactionCategory.ROOM
+
+        // Process taxes from the relationship
+        if (transaction.taxes && transaction.taxes.length > 0) {
+          transaction.taxes.forEach((tax: any) => {
+            const taxAmount = Number(tax.$pivot.taxAmount || 0)
+            const taxRate = Number(tax.$pivot.taxRatePercentage || tax.rate || 0)
+            const taxName = tax.taxName || `${taxRate}% Tax`
+
+            // Create breakdown by tax name
+            if (!taxData.breakdown[taxName]) {
+              taxData.breakdown[taxName] = {
+                roomTax: 0,
+                extraTax: 0,
+                total: 0,
+                rate: taxRate
+              }
+            }
+
+            if (isRoomCharge) {
+              taxData.roomTaxes += taxAmount
+              taxData.breakdown[taxName].roomTax += taxAmount
+            } else {
+              taxData.extraTaxes += taxAmount
+              taxData.breakdown[taxName].extraTax += taxAmount
+            }
+
+            taxData.breakdown[taxName].total += taxAmount
+            taxData.totalTaxes += taxAmount
+          })
+        }
+      })
+
+      return taxData
+    }
+
+    const todayData = await getTaxData(reportDate, reportDate)
+    const ptdData = await getTaxData(ptdStartDate, reportDate)
+    const ytdData = await getTaxData(ytdStartDate, reportDate)
+
+    // Combine all tax rate breakdowns
+    const allRates = new Set([
+      ...Object.keys(todayData.breakdown),
+      ...Object.keys(ptdData.breakdown),
+      ...Object.keys(ytdData.breakdown)
+    ])
+
+    const taxBreakdown = Array.from(allRates).map(rate => {
+      return {
+        taxRate: rate,
+        name: rate,
+        rate: todayData.breakdown[rate]?.rate || ptdData.breakdown[rate]?.rate || ytdData.breakdown[rate]?.rate || 0,
+        today: {
+          roomTax: todayData.breakdown[rate]?.roomTax || 0,
+          extraTax: todayData.breakdown[rate]?.extraTax || 0,
+          total: todayData.breakdown[rate]?.total || 0
+        },
+        ptd: {
+          roomTax: ptdData.breakdown[rate]?.roomTax || 0,
+          extraTax: ptdData.breakdown[rate]?.extraTax || 0,
+          total: ptdData.breakdown[rate]?.total || 0
+        },
+        ytd: {
+          roomTax: ytdData.breakdown[rate]?.roomTax || 0,
+          extraTax: ytdData.breakdown[rate]?.extraTax || 0,
+          total: ytdData.breakdown[rate]?.total || 0
+        }
+      }
+    }).filter(tax =>
+      tax.today.total !== 0 || tax.ptd.total !== 0 || tax.ytd.total !== 0
+    )
+
+    return {
+      taxes: taxBreakdown,
+      totals: {
+        today: todayData.totalTaxes,
+        ptd: ptdData.totalTaxes,
+        ytd: ytdData.totalTaxes
+      },
+      roomTaxes: {
+        today: todayData.roomTaxes,
+        ptd: ptdData.roomTaxes,
+        ytd: ytdData.roomTaxes
+      },
+      extraTaxes: {
+        today: todayData.extraTaxes,
+        ptd: ptdData.extraTaxes,
+        ytd: ytdData.extraTaxes
+      },
+      // Backward compatibility
+      today: todayData.totalTaxes,
+      ptd: ptdData.totalTaxes,
+      ytd: ytdData.totalTaxes
+    }
+  }
+
+  /**
+   * Get Payment data for Management Report
+   */
+  private async getManagementPaymentData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const getPaymentsByMethod = async (startDate: DateTime, endDate: DateTime) => {
+      const paymentMethods = await PaymentMethod.query().where('hotel_id', hotelId);
+      const payments = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
+        })
+        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .where('category', 'payment')
+        .whereNotIn('status', ['cancel', 'voided'])
+        .select('paymentMethodId')
+        .groupBy('paymentMethodId')
+        .preload('paymentMethod')
+        .sum('amount as totalAmount')
+
+      const paymentMethodsList: any = {}
+      let totalPayments = 0
+      paymentMethods.forEach(paymentMethod => {
+        paymentMethodsList[paymentMethod.methodName] = 0
+      })
+      payments.filter(payment => payment.paymentMethod)?.forEach(payment => {
+        const method: any = payment.paymentMethod.methodName
+        const amount = Math.abs(payment.totalAmount || 0) // Payments are typically negative
+        paymentMethodsList[method] = amount
+        totalPayments += amount
+      })
+
+      return { methods: paymentMethodsList, total: totalPayments }
+    }
+
+    const todayPayments = await getPaymentsByMethod(reportDate, reportDate)
+    const ptdPayments = await getPaymentsByMethod(ptdStartDate, reportDate)
+    const ytdPayments = await getPaymentsByMethod(ytdStartDate, reportDate)
+
+    // Combine all payment methods
+    const allMethods = new Set([
+      ...Object.keys(todayPayments.methods),
+      ...Object.keys(ptdPayments.methods),
+      ...Object.keys(ytdPayments.methods)
+    ])
+
+    const paymentsByMethod = {}
+    allMethods.forEach(method => {
+      paymentsByMethod[method] = {
+        today: todayPayments.methods[method] || 0,
+        ptd: ptdPayments.methods[method] || 0,
+        ytd: ytdPayments.methods[method] || 0
+      }
+    })
+
+    return {
+      methods: paymentsByMethod,
+      total: {
+        today: todayPayments.total,
+        ptd: ptdPayments.total,
+        ytd: ytdPayments.total
+      }
+    }
+  }
+
+  /**
+   * Placeholder methods for remaining sections - to be implemented
+   */
+  private async getManagementCityLedgerData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+    try {
+      const { default: FolioTransaction } = await import('#models/folio_transaction')
+      const { default: PaymentMethod } = await import('#models/payment_method')
+      const { default: CompanyAccount } = await import('#models/company_account')
+      const { PaymentMethodType, TransactionType } = await import('#app/enums')
+
+      // Get city ledger payment methods
+      const cityLedgerPaymentMethods = await PaymentMethod.query()
+        .where('hotel_id', hotelId)
+        .where('method_type', PaymentMethodType.CITY_LEDGER)
+        .where('is_active', true)
+
+      const cityLedgerPaymentMethodIds = cityLedgerPaymentMethods.map(pm => pm.id)
+
+      if (cityLedgerPaymentMethodIds.length === 0) {
+        return {
+          openingBalance: { today: 0, ptd: 0, ytd: 0 },
+          paymentReceived: { today: 0, ptd: 0, ytd: 0 },
+          chargesRaised: { today: 0, ptd: 0, ytd: 0 },
+          outstandingCommission: { today: 0, ptd: 0, ytd: 0 },
+          closingBalance: { today: 0, ptd: 0, ytd: 0 }
+        }
+      }
+
+      // Calculate opening balance (transactions before each period)
+      const openingBalanceToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const openingBalancePTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_date', '<', ptdStartDate)
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const openingBalanceYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_date', '<', ytdStartDate)
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate payments received (credit transactions)
+      const paymentsToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const paymentsPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const paymentsYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate charges raised (debit transactions)
+      const chargesToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const chargesPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const chargesYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate outstanding commission (commission amounts not yet paid)
+      const commissionToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('is_commissionable', true)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('commission_amount as total')
+
+      const commissionPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('is_commissionable', true)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('commission_amount as total')
+
+      const commissionYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
+        .where('is_commissionable', true)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('commission_amount as total')
+
+      // Calculate closing balance
+      const closingBalanceToday = (openingBalanceToday[0]?.$extras?.total || 0) +
+        (chargesToday[0]?.$extras?.total || 0) -
+        Math.abs(paymentsToday[0]?.$extras?.total || 0)
+
+      const closingBalancePTD = (openingBalancePTD[0]?.$extras?.total || 0) +
+        (chargesPTD[0]?.$extras?.total || 0) -
+        Math.abs(paymentsPTD[0]?.$extras?.total || 0)
+
+      const closingBalanceYTD = (openingBalanceYTD[0]?.$extras?.total || 0) +
+        (chargesYTD[0]?.$extras?.total || 0) -
+        Math.abs(paymentsYTD[0]?.$extras?.total || 0)
+
+      return {
+        openingBalance: {
+          today: openingBalanceToday[0]?.$extras?.total || 0,
+          ptd: openingBalancePTD[0]?.$extras?.total || 0,
+          ytd: openingBalanceYTD[0]?.$extras?.total || 0
+        },
+        paymentReceived: {
+          today: Math.abs(paymentsToday[0]?.$extras?.total || 0),
+          ptd: Math.abs(paymentsPTD[0]?.$extras?.total || 0),
+          ytd: Math.abs(paymentsYTD[0]?.$extras?.total || 0)
+        },
+        chargesRaised: {
+          today: chargesToday[0]?.$extras?.total || 0,
+          ptd: chargesPTD[0]?.$extras?.total || 0,
+          ytd: chargesYTD[0]?.$extras?.total || 0
+        },
+        outstandingCommission: {
+          today: commissionToday[0]?.$extras?.total || 0,
+          ptd: commissionPTD[0]?.$extras?.total || 0,
+          ytd: commissionYTD[0]?.$extras?.total || 0
+        },
+        closingBalance: {
+          today: closingBalanceToday,
+          ptd: closingBalancePTD,
+          ytd: closingBalanceYTD
+        }
+      }
+    } catch (error) {
+      console.error('Error in getManagementCityLedgerData:', error)
+      return {
+        openingBalance: { today: 0, ptd: 0, ytd: 0 },
+        paymentReceived: { today: 0, ptd: 0, ytd: 0 },
+        chargesRaised: { today: 0, ptd: 0, ytd: 0 },
+        outstandingCommission: { today: 0, ptd: 0, ytd: 0 },
+        closingBalance: { today: 0, ptd: 0, ytd: 0 }
+      }
+    }
+  }
+
+  private async getManagementAdvanceDepositLedgerData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+    try {
+      const { default: FolioTransaction } = await import('#models/folio_transaction')
+      const { default: PaymentMethod } = await import('#models/payment_method')
+      const { PaymentMethodType, TransactionType } = await import('#app/enums')
+
+      // Get advance deposit payment methods
+      const advanceDepositPaymentMethods = await PaymentMethod.query()
+        .where('hotel_id', hotelId)
+        .where('method_type', PaymentMethodType.ADVANCE_DEPOSIT)
+        .where('is_active', true)
+
+      const advanceDepositPaymentMethodIds = advanceDepositPaymentMethods.map(pm => pm.id)
+
+      if (advanceDepositPaymentMethodIds.length === 0) {
+        return {
+          openingBalance: { today: 0, ptd: 0, ytd: 0 },
+          advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
+          balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
+          closingBalance: { today: 0, ptd: 0, ytd: 0 }
+        }
+      }
+
+      // Calculate opening balance (advance deposit balance before each period)
+      const openingBalanceToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const openingBalancePTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_date', '<', ptdStartDate)
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const openingBalanceYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_date', '<', ytdStartDate)
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate advance deposits collected (new deposits received)
+      const depositsToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_advance_deposit', true)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const depositsPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_advance_deposit', true)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const depositsYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_advance_deposit', true)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate balance transfers to guest ledger (advance deposits used for charges)
+      const transfersToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_type', TransactionType.TRANSFER)
+        .where('is_transfer_from_advance_deposit', true)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const transfersPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_type', TransactionType.TRANSFER)
+        .where('is_transfer_from_advance_deposit', true)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const transfersYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
+        .where('transaction_type', TransactionType.TRANSFER)
+        .where('is_transfer_from_advance_deposit', true)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate closing balance
+      const closingBalanceToday = (openingBalanceToday[0]?.$extras?.total || 0) +
+        Math.abs(depositsToday[0]?.$extras?.total || 0) -
+        Math.abs(transfersToday[0]?.$extras?.total || 0)
+
+      const closingBalancePTD = (openingBalancePTD[0]?.$extras?.total || 0) +
+        Math.abs(depositsPTD[0]?.$extras?.total || 0) -
+        Math.abs(transfersPTD[0]?.$extras?.total || 0)
+
+      const closingBalanceYTD = (openingBalanceYTD[0]?.$extras?.total || 0) +
+        Math.abs(depositsYTD[0]?.$extras?.total || 0) -
+        Math.abs(transfersYTD[0]?.$extras?.total || 0)
+
+      return {
+        openingBalance: {
+          today: openingBalanceToday[0]?.$extras?.total || 0,
+          ptd: openingBalancePTD[0]?.$extras?.total || 0,
+          ytd: openingBalanceYTD[0]?.$extras?.total || 0
+        },
+        advanceDepositCollected: {
+          today: Math.abs(depositsToday[0]?.$extras?.total || 0),
+          ptd: Math.abs(depositsPTD[0]?.$extras?.total || 0),
+          ytd: Math.abs(depositsYTD[0]?.$extras?.total || 0)
+        },
+        balanceTransferToGuestLedger: {
+          today: Math.abs(transfersToday[0]?.$extras?.total || 0),
+          ptd: Math.abs(transfersPTD[0]?.$extras?.total || 0),
+          ytd: Math.abs(transfersYTD[0]?.$extras?.total || 0)
+        },
+        closingBalance: {
+          today: closingBalanceToday,
+          ptd: closingBalancePTD,
+          ytd: closingBalanceYTD
+        }
+      }
+    } catch (error) {
+      console.error('Error in getManagementAdvanceDepositLedgerData:', error)
+      return {
+        openingBalance: { today: 0, ptd: 0, ytd: 0 },
+        advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
+        balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
+        closingBalance: { today: 0, ptd: 0, ytd: 0 }
+      }
+    }
+  }
+
+  private async getManagementGuestLedgerData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+    try {
+      const { default: FolioTransaction } = await import('#models/folio_transaction')
+      const { default: Folio } = await import('#models/folio')
+      const { default: PaymentMethod } = await import('#models/payment_method')
+      const { PaymentMethodType, TransactionType, FolioType } = await import('#app/enums')
+
+      // Get guest ledger folios (excluding city ledger and advance deposit folios)
+      const guestFolios = await Folio.query()
+        .where('hotel_id', hotelId)
+        .where('folio_type', FolioType.GUEST)
+        .where('is_active', true)
+
+      const guestFolioIds = guestFolios.map(f => f.id)
+
+      if (guestFolioIds.length === 0) {
+        return {
+          openingBalance: { today: 0, ptd: 0, ytd: 0 },
+          carryForwardedAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
+          chargePostedToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
+          settlementByGuest: { today: 0, ptd: 0, ytd: 0 },
+          outstandingPaymentOnCharges: { today: 0, ptd: 0, ytd: 0 },
+          transferFromAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
+          closingBalance: { today: 0, ptd: 0, ytd: 0 }
+        }
+      }
+
+      // Calculate opening balance (guest ledger balance before each period)
+      const openingBalanceToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const openingBalancePTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_date', '<', ptdStartDate)
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const openingBalanceYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_date', '<', ytdStartDate)
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate carry forwarded advance deposits (transfers from advance deposit to guest ledger)
+      const advanceDepositTransfersToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.TRANSFER)
+        .where('is_transfer_from_advance_deposit', true)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const advanceDepositTransfersPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.TRANSFER)
+        .where('is_transfer_from_advance_deposit', true)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const advanceDepositTransfersYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.TRANSFER)
+        .where('is_transfer_from_advance_deposit', true)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate charges posted to guest ledger
+      const chargesToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const chargesPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const chargesYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate settlements by guest (payments made by guests)
+      const settlementsToday = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_advance_deposit', false)
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const settlementsPTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_advance_deposit', false)
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      const settlementsYTD = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('folio_id', guestFolioIds)
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_advance_deposit', false)
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('is_voided', false)
+        .sum('amount as total')
+
+      // Calculate outstanding payments (current balance on guest folios)
+      const outstandingToday = await Folio.query()
+        .whereIn('id', guestFolioIds)
+        .where('updated_at', '<=', reportDate.endOf('day'))
+        .sum('balance as total')
+
+      const outstandingPTD = await Folio.query()
+        .whereIn('id', guestFolioIds)
+        .where('updated_at', '<=', reportDate.endOf('day'))
+        .sum('balance as total')
+
+      const outstandingYTD = await Folio.query()
+        .whereIn('id', guestFolioIds)
+        .where('updated_at', '<=', reportDate.endOf('day'))
+        .sum('balance as total')
+
+      // Calculate closing balance
+      const closingBalanceToday = (openingBalanceToday[0]?.$extras?.total || 0) +
+        (chargesToday[0]?.$extras?.total || 0) +
+        Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0) -
+        Math.abs(settlementsToday[0]?.$extras?.total || 0)
+
+      const closingBalancePTD = (openingBalancePTD[0]?.$extras?.total || 0) +
+        (chargesPTD[0]?.$extras?.total || 0) +
+        Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0) -
+        Math.abs(settlementsPTD[0]?.$extras?.total || 0)
+
+      const closingBalanceYTD = (openingBalanceYTD[0]?.$extras?.total || 0) +
+        (chargesYTD[0]?.$extras?.total || 0) +
+        Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0) -
+        Math.abs(settlementsYTD[0]?.$extras?.total || 0)
+
+      return {
+        openingBalance: {
+          today: openingBalanceToday[0]?.$extras?.total || 0,
+          ptd: openingBalancePTD[0]?.$extras?.total || 0,
+          ytd: openingBalanceYTD[0]?.$extras?.total || 0
+        },
+        carryForwardedAdvanceDeposit: {
+          today: Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0),
+          ptd: Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0),
+          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0)
+        },
+        chargePostedToGuestLedger: {
+          today: chargesToday[0]?.$extras?.total || 0,
+          ptd: chargesPTD[0]?.$extras?.total || 0,
+          ytd: chargesYTD[0]?.$extras?.total || 0
+        },
+        settlementByGuest: {
+          today: Math.abs(settlementsToday[0]?.$extras?.total || 0),
+          ptd: Math.abs(settlementsPTD[0]?.$extras?.total || 0),
+          ytd: Math.abs(settlementsYTD[0]?.$extras?.total || 0)
+        },
+        outstandingPaymentOnCharges: {
+          today: outstandingToday[0]?.$extras?.total || 0,
+          ptd: outstandingPTD[0]?.$extras?.total || 0,
+          ytd: outstandingYTD[0]?.$extras?.total || 0
+        },
+        transferFromAdvanceDeposit: {
+          today: Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0),
+          ptd: Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0),
+          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0)
+        },
+        closingBalance: {
+          today: closingBalanceToday,
+          ptd: closingBalancePTD,
+          ytd: closingBalanceYTD
+        }
+      }
+    } catch (error) {
+      console.error('Error in getManagementGuestLedgerData:', error)
+      return {
+        openingBalance: { today: 0, ptd: 0, ytd: 0 },
+        carryForwardedAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
+        chargePostedToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
+        settlementByGuest: { today: 0, ptd: 0, ytd: 0 },
+        outstandingPaymentOnCharges: { today: 0, ptd: 0, ytd: 0 },
+        transferFromAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
+        closingBalance: { today: 0, ptd: 0, ytd: 0 }
+      }
+    }
+  }
+
+  private async getManagementRoomSummaryData(hotelId: number, reportDate: DateTime) {
+    return { today: 0, ptd: 0, ytd: 0 }
+  }
+
+  private async getManagementStatisticsData(hotelId: number, reportDate: DateTime, roomSummary: any) {
+    try {
+      const { default: Room } = await import('#models/room')
+      const { default: Reservation } = await import('#models/reservation')
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+      const { default: RoomBlock } = await import('#models/room_block')
+
+      // Calculate PTD and YTD start dates
+      const ptdStartDate = reportDate.startOf('month')
+      const ytdStartDate = reportDate.startOf('year')
+
+      // Get total rooms for the hotel
+      const totalRooms = await Room.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .count('* as total')
+
+      // Get blocked rooms for each period
+      const blockedRoomsToday = await RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+        .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
+        .count('* as total')
+
+      const blockedRoomsPTD = await RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('block_from_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .count('* as total')
+
+      const blockedRoomsYTD = await RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('block_from_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .count('* as total')
+
+      // Get guest counts (adults and children) for each period
+      const guestCountsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .sum('num_adults_total as adults')
+        .sum('num_children_total as children')
+
+      const guestCountsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .sum('num_adults_total as adults')
+        .sum('num_children_total as children')
+
+      const guestCountsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .sum('num_adults_total as adults')
+        .sum('num_children_total as children')
+
+      // Calculate available room nights for each period
+      const totalRoomsCount = totalRooms[0].$extras.total
+      const availableRoomNightsToday = totalRoomsCount - (blockedRoomsToday[0].$extras.total || 0)
+      const availableRoomNightsPTD = totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) - (blockedRoomsPTD[0].$extras.total || 0)
+      const availableRoomNightsYTD = totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) - (blockedRoomsYTD[0].$extras.total || 0)
+
+      // Get sold rooms (occupied rooms) for each period
+      const soldRoomsToday = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        })
+        .where('status', 'checked_in')
+        .count('* as total')
+
+      const soldRoomsPTD = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        })
+        .where('status', 'checked_in')
+        .count('* as total')
+
+      const soldRoomsYTD = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        })
+        .where('status', 'checked_in')
+        .count('* as total')
+
+      // Get day use rooms for each period
+      const dayUseRoomsToday = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+            .where('customer_type', 'day_use')
+        })
+        .count('* as total')
+
+      const dayUseRoomsPTD = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+            .where('customer_type', 'day_use')
+        })
+        .count('* as total')
+
+      const dayUseRoomsYTD = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+            .where('customer_type', 'day_use')
+        })
+        .count('* as total')
+
+      // Get complimentary rooms for each period
+      const complimentaryRoomsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('complimentary_room', true)
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .count('* as total')
+
+      const complimentaryRoomsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('complimentary_room', true)
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .count('* as total')
+
+      const complimentaryRoomsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('complimentary_room', true)
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .count('* as total')
+
+      // Get no show rooms for each period
+      const noShowRoomsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('status', 'no_show')
+        .count('* as total')
+
+      const noShowRoomsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('status', 'no_show')
+        .count('* as total')
+
+      const noShowRoomsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('status', 'no_show')
+        .count('* as total')
+
+      // Calculate average guests per room
+      const totalGuestsToday = (guestCountsToday[0].$extras.adults || 0) + (guestCountsToday[0].$extras.children || 0)
+      const totalGuestsPTD = (guestCountsPTD[0].$extras.adults || 0) + (guestCountsPTD[0].$extras.children || 0)
+      const totalGuestsYTD = (guestCountsYTD[0].$extras.adults || 0) + (guestCountsYTD[0].$extras.children || 0)
+
+      const avgGuestsPerRoomToday = (soldRoomsToday[0].$extras.total || 0) > 0 ? totalGuestsToday / (soldRoomsToday[0].$extras.total || 1) : 0
+      const avgGuestsPerRoomPTD = (soldRoomsPTD[0].$extras.total || 0) > 0 ? totalGuestsPTD / (soldRoomsPTD[0].$extras.total || 1) : 0
+      const avgGuestsPerRoomYTD = (soldRoomsYTD[0].$extras.total || 0) > 0 ? totalGuestsYTD / (soldRoomsYTD[0].$extras.total || 1) : 0
+
+      // Get confirmed reservations for each period
+      const confirmedReservationsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('status', 'confirmed')
+        .count('* as total')
+
+      const confirmedReservationsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('status', 'confirmed')
+        .count('* as total')
+
+      const confirmedReservationsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('status', 'confirmed')
+        .count('* as total')
+
+      // Get unconfirmed reservations for each period
+      const unconfirmedReservationsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereIn('status', ['pending', 'waitlist'])
+        .count('* as total')
+
+      const unconfirmedReservationsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereIn('status', ['pending', 'waitlist'])
+        .count('* as total')
+
+      const unconfirmedReservationsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereIn('status', ['pending', 'waitlist'])
+        .count('* as total')
+
+      // Get walk-in reservations for each period
+      const walkInReservationsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('customer_type', 'walk_in')
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .count('* as total')
+
+      const walkInReservationsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('customer_type', 'walk_in')
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .count('* as total')
+
+      const walkInReservationsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('customer_type', 'walk_in')
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .count('* as total')
+
+      return {
+        totalRoom: {
+          today: totalRoomsCount,
+          ptd: totalRoomsCount,
+          ytd: totalRoomsCount
+        },
+        blockRoom: {
+          today: blockedRoomsToday[0].$extras.total || 0,
+          ptd: blockedRoomsPTD[0].$extras.total || 0,
+          ytd: blockedRoomsYTD[0].$extras.total || 0
+        },
+        noOfGuestAdult: {
+          today: guestCountsToday[0].$extras.adults || 0,
+          ptd: guestCountsPTD[0].$extras.adults || 0,
+          ytd: guestCountsYTD[0].$extras.adults || 0
+        },
+        noOfGuestChild: {
+          today: guestCountsToday[0].$extras.children || 0,
+          ptd: guestCountsPTD[0].$extras.children || 0,
+          ytd: guestCountsYTD[0].$extras.children || 0
+        },
+        totalAvailableRoomNights: {
+          today: Math.max(0, availableRoomNightsToday),
+          ptd: Math.max(0, availableRoomNightsPTD),
+          ytd: Math.max(0, availableRoomNightsYTD)
+        },
+        soldRoom: {
+          today: soldRoomsToday[0].$extras.total || 0,
+          ptd: soldRoomsPTD[0].$extras.total || 0,
+          ytd: soldRoomsYTD[0].$extras.total || 0
+        },
+        dayUseRoom: {
+          today: dayUseRoomsToday[0].$extras.total || 0,
+          ptd: dayUseRoomsPTD[0].$extras.total || 0,
+          ytd: dayUseRoomsYTD[0].$extras.total || 0
+        },
+        complimentaryRoom: {
+          today: complimentaryRoomsToday[0].$extras.total || 0,
+          ptd: complimentaryRoomsPTD[0].$extras.total || 0,
+          ytd: complimentaryRoomsYTD[0].$extras.total || 0
+        },
+        noShowRooms: {
+          today: noShowRoomsToday[0].$extras.total || 0,
+          ptd: noShowRoomsPTD[0].$extras.total || 0,
+          ytd: noShowRoomsYTD[0].$extras.total || 0
+        },
+        averageGuestPerRoom: {
+          today: Math.round(avgGuestsPerRoomToday * 100) / 100,
+          ptd: Math.round(avgGuestsPerRoomPTD * 100) / 100,
+          ytd: Math.round(avgGuestsPerRoomYTD * 100) / 100
+        },
+        noOfReservationsConfirm: {
+          today: confirmedReservationsToday[0].$extras.total || 0,
+          ptd: confirmedReservationsPTD[0].$extras.total || 0,
+          ytd: confirmedReservationsYTD[0].$extras.total || 0
+        },
+        noOfReservationsUnconfirm: {
+          today: unconfirmedReservationsToday[0].$extras.total || 0,
+          ptd: unconfirmedReservationsPTD[0].$extras.total || 0,
+          ytd: unconfirmedReservationsYTD[0].$extras.total || 0
+        },
+        noOfWalkins: {
+          today: walkInReservationsToday[0].$extras.total || 0,
+          ptd: walkInReservationsPTD[0].$extras.total || 0,
+          ytd: walkInReservationsYTD[0].$extras.total || 0
+        }
+      }
+    } catch (error) {
+      console.error('Error in getManagementStatisticsData:', error)
+      return {
+        totalRoom: { today: 0, ptd: 0, ytd: 0 },
+        blockRoom: { today: 0, ptd: 0, ytd: 0 },
+        noOfGuestAdult: { today: 0, ptd: 0, ytd: 0 },
+        noOfGuestChild: { today: 0, ptd: 0, ytd: 0 },
+        totalAvailableRoomNights: { today: 0, ptd: 0, ytd: 0 },
+        soldRoom: { today: 0, ptd: 0, ytd: 0 },
+        dayUseRoom: { today: 0, ptd: 0, ytd: 0 },
+        complimentaryRoom: { today: 0, ptd: 0, ytd: 0 },
+        noShowRooms: { today: 0, ptd: 0, ytd: 0 },
+        averageGuestPerRoom: { today: 0, ptd: 0, ytd: 0 },
+        noOfReservationsConfirm: { today: 0, ptd: 0, ytd: 0 },
+        noOfReservationsUnconfirm: { today: 0, ptd: 0, ytd: 0 },
+        noOfWalkins: { today: 0, ptd: 0, ytd: 0 }
+      }
+    }
+  }
+
+  private async getManagementPOSSummaryData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+    try {
+      const { default: Room } = await import('#models/room')
+      const { default: Reservation } = await import('#models/reservation')
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+      const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+      // Get total available rooms
+      const totalRooms = await Room.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .count('* as total')
+
+      const totalRoomsCount = totalRooms[0].$extras.total
+
+      // Get occupied rooms for each period
+      const occupiedRoomsToday = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        })
+        .where('status', 'checked_in')
+        .count('* as total')
+
+      const occupiedRoomsPTD = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        })
+        .where('status', 'checked_in')
+        .count('* as total')
+
+      const occupiedRoomsYTD = await ReservationRoom.query()
+        .whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        })
+        .where('status', 'checked_in')
+        .count('* as total')
+
+      // Calculate occupancy rates
+      const occupancyRateToday = totalRoomsCount > 0 ? ((occupiedRoomsToday[0].$extras.total || 0) / totalRoomsCount) * 100 : 0
+      const occupancyRatePTD = totalRoomsCount > 0 ? ((occupiedRoomsPTD[0].$extras.total || 0) / totalRoomsCount) * 100 : 0
+      const occupancyRateYTD = totalRoomsCount > 0 ? ((occupiedRoomsYTD[0].$extras.total || 0) / totalRoomsCount) * 100 : 0
+
+      // Get room revenue for each period
+      const roomRevenueToday = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.where('hotel_id', hotelId)
+        })
+        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('transaction_type', 'charge')
+        .where('category', 'room')
+        .where('currency', currency)
+        .sum('amount as total')
+
+      const roomRevenuePTD = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.where('hotel_id', hotelId)
+        })
+        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('transaction_type', 'charge')
+        .where('category', 'room')
+        .where('currency', currency)
+        .sum('amount as total')
+
+      const roomRevenueYTD = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.where('hotel_id', hotelId)
+        })
+        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('transaction_type', 'charge')
+        .where('category', 'room')
+        .where('currency', currency)
+        .sum('amount as total')
+
+      // Calculate Average Daily Rate (ADR)
+      const adrToday = (occupiedRoomsToday[0].$extras.total || 0) > 0 ?
+        (roomRevenueToday[0].$extras.total || 0) / (occupiedRoomsToday[0].$extras.total || 1) : 0
+
+      const adrPTD = (occupiedRoomsPTD[0].$extras.total || 0) > 0 ?
+        (roomRevenuePTD[0].$extras.total || 0) / (occupiedRoomsPTD[0].$extras.total || 1) : 0
+
+      const adrYTD = (occupiedRoomsYTD[0].$extras.total || 0) > 0 ?
+        (roomRevenueYTD[0].$extras.total || 0) / (occupiedRoomsYTD[0].$extras.total || 1) : 0
+
+      // Calculate Revenue Per Available Room (RevPAR)
+      const revparToday = totalRoomsCount > 0 ? (roomRevenueToday[0].$extras.total || 0) / totalRoomsCount : 0
+      const revparPTD = totalRoomsCount > 0 ? (roomRevenuePTD[0].$extras.total || 0) / totalRoomsCount : 0
+      const revparYTD = totalRoomsCount > 0 ? (roomRevenueYTD[0].$extras.total || 0) / totalRoomsCount : 0
+
+      return {
+        occupancyRate: {
+          today: Math.round(occupancyRateToday * 100) / 100,
+          ptd: Math.round(occupancyRatePTD * 100) / 100,
+          ytd: Math.round(occupancyRateYTD * 100) / 100
+        },
+        averageDailyRate: {
+          today: Math.round(adrToday * 100) / 100,
+          ptd: Math.round(adrPTD * 100) / 100,
+          ytd: Math.round(adrYTD * 100) / 100
+        },
+        revenuePerAvailableRoom: {
+          today: Math.round(revparToday * 100) / 100,
+          ptd: Math.round(revparPTD * 100) / 100,
+          ytd: Math.round(revparYTD * 100) / 100
+        }
+      }
+    } catch (error) {
+      console.error('Error in getManagementPOSSummaryData:', error)
+      return {
+        occupancyRate: { today: 0, ptd: 0, ytd: 0 },
+        averageDailyRate: { today: 0, ptd: 0, ytd: 0 },
+        revenuePerAvailableRoom: { today: 0, ptd: 0, ytd: 0 }
+      }
+    }
+  }
+
+  private async getManagementPOSPaymentSummaryData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+    return { today: 0, ptd: 0, ytd: 0 }
+  }
+
+  private async getManagementRevenueSummaryData(roomCharges: any, extraCharges: any, posSummary: any) {
+    const roomChargesTotal = roomCharges?.total || { today: 0, ptd: 0, ytd: 0 }
+    const extraChargesTotal = extraCharges?.totals || { today: 0, ptd: 0, ytd: 0 }
+    const posTotal = posSummary || { today: 0, ptd: 0, ytd: 0 }
+
+    return {
+      today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0) + (posTotal.today || 0),
+      ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0) + (posTotal.ptd || 0),
+      ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0) + (posTotal.ytd || 0)
+    }
+  }
+
+  /**
+   * Get Revenue By Rate Type report data
+   */
+  async getRevenueByRateType({ request, response }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+      const rateTypeId = request.input('rateTypeId') // Optional - if empty, get all rate types
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
+
+      return response.ok({
+        success: true,
+        data: revenueData,
+        message: 'Revenue by rate type data retrieved successfully'
+      })
+    } catch (error) {
+      logger.error('Error generating revenue by rate type report:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate Revenue By Rate Type PDF report
+   */
+  async generateRevenueByRateTypePdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate, rateTypeId, currency = 'XAF' } = request.only(['hotelId', 'asOnDate', 'rateTypeId', 'currency'])
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(hotelId)
+      const hotelName = hotel?.hotelName!
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateRevenueByRateTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
+
+      // Generate PDF
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      const filename = `revenue-by-rate-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating revenue by rate type PDF:')
+      logger.error(error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get Revenue By Room Type report data
+   */
+  async getRevenueByRoomType({ request, response }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
+
+      return response.ok({
+        success: true,
+        data: revenueData,
+        message: 'Revenue by room type data retrieved successfully'
+      })
+    } catch (error) {
+      logger.error('Error generating revenue by room type report:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate Revenue By Room Type PDF report
+   */
+  async generateRevenueByRoomTypePdf({ request, response, auth }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
+      const currency = request.input('currency', 'XAF') // Default currency is XAF
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(hotelId)
+      const hotelName = hotel?.hotelName!
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateRevenueByRoomTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
+
+      // Generate PDF
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      const filename = `revenue-by-room-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating revenue by room type PDF:', error)
+      logger.error(error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get revenue data grouped by rate type
+   */
+  private async getRevenueByRateTypeData(hotelId: number, reportDate: DateTime, rateTypeId?: string) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    let query = FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereHas('reservationRooms', (roomQuery) => {
+              roomQuery.whereHas('roomRates', (rateQuery) => {
+                if (rateTypeId) {
+                  rateQuery.whereHas('rateType', (rateTypeQuery) => {
+                    rateTypeQuery.where('id', rateTypeId)
+                  })
+                }
+              })
+            })
+        })
+      })
+      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('category', 'room')
+      .where('status', 'posted')
+      .distinctOn('folio_transactions.folio_id')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('roomRates', (rateQuery) => {
+              rateQuery.preload('rateType')
+            })
+          })
+        })
+      })
+
+    const transactions = await query
+
+    // Group transactions by rate type
+    const revenueByRateType: any = {}
+    let totalRevenue = 0
+
+    for (const transaction of transactions) {
+      const reservation = transaction.folio.reservation
+      for (const reservationRoom of reservation.reservationRooms) {
+        const rateType = reservationRoom.roomRates.rateType
+        const rateTypeName = rateType?.rateTypeName
+
+        if (!revenueByRateType[rateTypeName]) {
+          revenueByRateType[rateTypeName] = {
+            rateTypeName,
+            rateTypeId: rateType?.id,
+            totalRevenue: 0,
+            transactionCount: 0,
+            averageRate: 0
+          }
+        }
+
+        const amount = Number(transaction.amount || 0)
+        revenueByRateType[rateTypeName].totalRevenue += amount
+        revenueByRateType[rateTypeName].transactionCount += 1
+        totalRevenue += amount
+
+      }
+    }
+
+    // Calculate average rates
+    Object.values(revenueByRateType).forEach((rateTypeData: any) => {
+      rateTypeData.averageRate = rateTypeData.transactionCount > 0
+        ? rateTypeData.totalRevenue / rateTypeData.transactionCount
+        : 0
+    })
+
+    return {
+      reportDate: reportDate.toFormat('yyyy-MM-dd'),
+      hotelId,
+      rateTypeId: rateTypeId || 'All Rate Types',
+      revenueByRateType: Object.values(revenueByRateType),
+      totalRevenue,
+      summary: {
+        totalRateTypes: Object.keys(revenueByRateType).length,
+        totalTransactions: transactions.length,
+        averageRevenuePerRateType: Object.keys(revenueByRateType).length > 0
+          ? totalRevenue / Object.keys(revenueByRateType).length
+          : 0
+      }
+    }
+  }
+
+  /**
+   * Get revenue data grouped by room type
+   */
+  private async getRevenueByRoomTypeData(hotelId: number, reportDate: DateTime, roomTypeId?: string) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    let query = FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+            .whereHas('reservationRooms', (roomQuery) => {
+              if (roomTypeId) {
+                roomQuery.where('room_type_id', roomTypeId)
+              }
+            })
+        })
+      })
+      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('category', 'room')
+      .whereNotIn('status', ['cancel', 'void'])
+      .distinctOn('folio_transactions.folio_id')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('roomType')
+          })
+        })
+      })
+
+    const transactions = await query
+
+    // Group transactions by room type
+    const revenueByRoomType: any = {}
+    let totalRevenue = 0
+
+    for (const transaction of transactions) {
+      const reservation = transaction.folio.reservation
+      for (const reservationRoom of reservation.reservationRooms) {
+        const roomType = reservationRoom.roomType
+        const roomTypeName = roomType?.roomTypeName
+
+        if (!revenueByRoomType[roomTypeName]) {
+          revenueByRoomType[roomTypeName] = {
+            roomTypeName,
+            roomTypeId: roomType?.id,
+            totalRevenue: 0,
+            transactionCount: 0,
+            averageRate: 0,
+            roomCount: 0
+          }
+        }
+
+        const amount = Number(transaction.amount || 0)
+        revenueByRoomType[roomTypeName].totalRevenue += amount
+        revenueByRoomType[roomTypeName].transactionCount += 1
+        revenueByRoomType[roomTypeName].roomCount += 1
+        totalRevenue += amount
+      }
+    }
+
+    // Calculate average rates
+    Object.values(revenueByRoomType).forEach((roomTypeData: any) => {
+      roomTypeData.averageRate = roomTypeData.transactionCount > 0
+        ? roomTypeData.totalRevenue / roomTypeData.transactionCount
+        : 0
+    })
+
+    return {
+      reportDate: reportDate.toFormat('yyyy-MM-dd'),
+      hotelId,
+      roomTypeId: roomTypeId || 'All Room Types',
+      revenueByRoomType: Object.values(revenueByRoomType),
+      totalRevenue,
+      summary: {
+        totalRoomTypes: Object.keys(revenueByRoomType).length,
+        totalTransactions: transactions.length,
+        averageRevenuePerRoomType: Object.keys(revenueByRoomType).length > 0
+          ? totalRevenue / Object.keys(revenueByRoomType).length
+          : 0
+      }
+    }
+  }
+
+  /**
+   * Generate HTML for Revenue By Rate Type report
+   */
+  private generateRevenueByRateTypeHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    revenueData: any,
+    printedBy: string = 'System',
+    currency: string = 'XAF'
+  ): string {
+    const formatCurrency = (amount: number) => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return `0.00`
+      }
+      return `${Number(amount).toFixed(2)}`
+    }
+
+    return `
+     <!DOCTYPE html>
+     <html>
+     <head>
+         <title>Revenue By Rate Type Report</title>
+         <style>
+             body { font-family: Arial, sans-serif; margin: 20px; }
+             .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid black;
+        }
+        .hotel-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+             .hotel-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+             .report-date { font-size: 14px; color: #666; }
+             .summary { margin: 0px 0px; padding: 10px px; background-color: #f5f5f5; border-radius: 5px; }
+             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+             th { background-color: #f2f2f2; font-weight: bold; }
+             .number { text-align: right; }
+             .center { text-align: center; }
+             .totals-row { background-color: #f9f9f9; font-weight: bold; }
+.footer {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+        }
+                         .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            color:orange
+        }
+        .date-section {
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .horizontal-line {
+            border-top: 1px solid #333;
+            margin: 5px 0;
+        }
+         </style>
+     </head>
+     <body>
+     <div class="header">
+        <div class="hotel-name">${hotelName}</div>
+        <div class="report-title">Revenue By Rate Type Report</div>
+    </div>
+
+    <div class="date-section">
+       <strong> As on Date:</strong> ${reportDate.toFormat('MMMM dd, yyyy')}
+       <strong> Currency:</strong>${currency}
+    </div>
+    <div class="horizontal-line"></div>
+     <h3>Summary</h3>
+         <div class="horizontal-line"></div>
+         <div class="summary">
+             <p><strong>Total Rate Types:</strong> ${revenueData.summary.totalRateTypes}</p>
+             <p><strong>Total Transactions:</strong> ${revenueData.summary.totalTransactions}</p>
+             <p><strong>Total Revenue:</strong> ${formatCurrency(revenueData.totalRevenue)}</p>
+             <p><strong>Average Revenue per Rate Type:</strong> ${formatCurrency(revenueData.summary.averageRevenuePerRateType)}</p>
+         </div>
+    <div class="horizontal-line"></div>
+         <table>
+             <thead>
+                 <tr>
+                     <th>Rate Type</th>
+                     <th class="center">Transaction Count</th>
+                     <th class="number">Total Revenue</th>
+                     <th class="number">Average Rate</th>
+                     <th class="number">% of Total Revenue</th>
+                 </tr>
+             </thead>
+             <tbody>
+                 ${revenueData.revenueByRateType.map((rateType: any) => `
+                 <tr>
+                     <td>${rateType.rateTypeName}</td>
+                     <td class="center">${rateType.transactionCount}</td>
+                     <td class="number">${formatCurrency(rateType.totalRevenue)}</td>
+                     <td class="number">${formatCurrency(rateType.averageRate)}</td>
+                     <td class="number">${revenueData.totalRevenue > 0 ? ((rateType.totalRevenue / revenueData.totalRevenue) * 100).toFixed(1) : '0.0'}%</td>
+                 </tr>
+                 `).join('')}
+                 <tr class="totals-row">
+                     <td><strong>Total:</strong></td>
+                     <td class="center"><strong>${revenueData.summary.totalTransactions}</strong></td>
+                     <td class="number"><strong>${formatCurrency(revenueData.totalRevenue)}</strong></td>
+                     <td class="number"><strong>${formatCurrency(revenueData.summary.averageRevenuePerRateType)}</strong></td>
+                     <td class="number"><strong>100.0%</strong></td>
+                 </tr>
+             </tbody>
+         </table>
+
+         <div class="footer">
+             <p>Generated on: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</p>
+             <p>Printed by: ${printedBy}</p>
+             <p>Page 1 of 1 </p>
+         </div>
+     </body>
+     </html>
+     `
+  }
+
+  /**
+   * Generate HTML for Revenue By Room Type report
+   */
+  private generateRevenueByRoomTypeHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    revenueData: any,
+    printedBy: string = 'System',
+    currency: string = 'XAF'
+  ): string {
+    const formatCurrency = (amount: number) => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return `0.00`
+      }
+      return `${Number(amount).toFixed(2)}`
+    }
+
+    return `
+     <!DOCTYPE html>
+     <html>
+     <head>
+         <title>Revenue By Room Type Report</title>
+          <style>
+             body { font-family: Arial, sans-serif; margin: 20px; }
+             .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid black;
+        }
+        .hotel-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+             .hotel-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+             .report-date { font-size: 14px; color: #666; }
+             .summary { margin: 0px 0px; padding: 10px px; background-color: #f5f5f5; border-radius: 5px; }
+             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+             th { background-color: #f2f2f2; font-weight: bold; }
+             .number { text-align: right; }
+             .center { text-align: center; }
+             .totals-row { background-color: #f9f9f9; font-weight: bold; }
+.footer {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+        }
+                         .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            color:orange
+        }
+        .date-section {
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .horizontal-line {
+            border-top: 1px solid #333;
+            margin: 5px 0;
+        }
+         </style>
+     </head>
+     <body>
+     <div class="header">
+        <div class="hotel-name">${hotelName}</div>
+        <div class="report-title">Revenue By Rate Type Report</div>
+    </div>
+
+    <div class="date-section">
+       <strong> As on Date:</strong> ${reportDate.toFormat('MMMM dd, yyyy')}
+       <strong> Currency:</strong>${currency}
+    </div>
+    <div class="horizontal-line"></div>
+                 <h3>Summary</h3>
+    <div class="horizontal-line"></div>
+
+         <div class="summary">
+             <p><strong>Total Room Types:</strong> ${revenueData.summary.totalRoomTypes}</p>
+             <p><strong>Total Transactions:</strong> ${revenueData.summary.totalTransactions}</p>
+             <p><strong>Total Revenue:</strong> ${formatCurrency(revenueData.totalRevenue)}</p>
+             <p><strong>Average Revenue per Room Type:</strong> ${formatCurrency(revenueData.summary.averageRevenuePerRoomType)}</p>
+         </div>
+
+         <table>
+             <thead>
+                 <tr>
+                     <th>Room Type</th>
+                     <th class="center">Transaction Count</th>
+                     <th class="center">Room Count</th>
+                     <th class="number">Total Revenue</th>
+                     <th class="number">Average Rate</th>
+                     <th class="number">% of Total Revenue</th>
+                 </tr>
+             </thead>
+             <tbody>
+                 ${revenueData.revenueByRoomType.map((roomType: any) => `
+                 <tr>
+                     <td>${roomType.roomTypeName}</td>
+                     <td class="center">${roomType.transactionCount}</td>
+                     <td class="center">${roomType.roomCount}</td>
+                     <td class="number">${formatCurrency(roomType.totalRevenue)}</td>
+                     <td class="number">${formatCurrency(roomType.averageRate)}</td>
+                     <td class="number">${revenueData.totalRevenue > 0 ? ((roomType.totalRevenue / revenueData.totalRevenue) * 100).toFixed(1) : '0.0'}%</td>
+                 </tr>
+                 `).join('')}
+                 <tr class="totals-row">
+                     <td><strong>Total:</strong></td>
+                     <td class="center"><strong>${revenueData.summary.totalTransactions}</strong></td>
+                     <td class="center"><strong>-</strong></td>
+                     <td class="number"><strong>${formatCurrency(revenueData.totalRevenue)}</strong></td>
+                     <td class="number"><strong>${formatCurrency(revenueData.summary.averageRevenuePerRoomType)}</strong></td>
+                     <td class="number"><strong>100.0%</strong></td>
+                 </tr>
+             </tbody>
+         </table>
+
+         <div class="footer">
+             <p>Print on: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</p>
+             <p>Printed by: ${printedBy}</p>
+             <p>Page 1 of 1 </p>
+         </div>
+     </body>
+     </html>
+     `
+  }
+
+  /**
+   * Generate Monthly Revenue PDF report
+   */
+  async generateMonthlyRevenuePdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, month, year } = request.qs()
+
+      if (!hotelId || !month || !year) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID, month, and year are required'
+        })
+      }
+
+      // Create start and end dates for the month
+      const reportDate = DateTime.fromObject({ year: parseInt(year), month: parseInt(month), day: 1 })
+      const monthStart = reportDate.startOf('month')
+      const monthEnd = reportDate.endOf('month')
+
+      const currency = request.input('currency', 'XAF')
+
+      // Get monthly revenue data
+      const revenueData = await this.getMonthlyRevenueData(parseInt(hotelId), monthStart, monthEnd)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(parseInt(hotelId))
+      const hotelName = hotel?.hotelName!
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateMonthlyRevenueHtml(hotelName, reportDate, revenueData, printedBy, currency)
+
+      // Generate PDF
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      const filename = `monthly-revenue-${reportDate.toFormat('yyyy-MM')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating monthly revenue PDF:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate Payment Summary PDF report
+   */
+  async generatePaymentSummaryPdf({ request, response, auth }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+
+      const reportDate = DateTime.fromISO(asOnDate)
+
+      // Get payment summary data (you'll need to implement this method)
+      const paymentData = await this.getPaymentSummaryData(hotelId, reportDate)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(hotelId)
+      const hotelName = hotel?.name || 'Hotel'
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
+
+      // Generate HTML content (you'll need to implement this method)
+      const htmlContent = this.generatePaymentSummaryHtml(hotelName, reportDate, paymentData, printedBy)
+
+      // Generate PDF
+      const { default: PdfService } = await import('#services/pdf_service')
+      const pdfBuffer = await PdfService.generatePdf(htmlContent)
+
+      const filename = `payment-summary-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating payment summary PDF:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate Revenue By Rate Type Summary PDF report
+   */
+  async generateRevenueByRateTypeSummaryPdf({ request, response, auth }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+
+      const reportDate = DateTime.fromISO(asOnDate)
+
+      // Get revenue by rate type summary data (you'll need to implement this method)
+      const summaryData = await this.getRevenueByRateTypeSummaryData(hotelId, reportDate)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(hotelId)
+      const hotelName = hotel?.name || 'Hotel'
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
+
+      // Generate HTML content (you'll need to implement this method)
+      const htmlContent = this.generateRevenueByRateTypeSummaryHtml(hotelName, reportDate, summaryData, printedBy)
+
+      // Generate PDF
+      const { default: PdfService } = await import('#services/pdf_service')
+      const pdfBuffer = await PdfService.generatePdf(htmlContent)
+
+      const filename = `revenue-by-rate-type-summary-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating revenue by rate type summary PDF:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Generate Statistics By Room Type PDF report
+   */
+  async generateStatisticsByRoomTypePdf({ request, response, auth }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+
+      const reportDate = DateTime.fromISO(asOnDate)
+
+      // Get statistics by room type data (you'll need to implement this method)
+      const statisticsData = await this.getStatisticsByRoomTypeData(hotelId, reportDate)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(hotelId)
+      const hotelName = hotel?.name || 'Hotel'
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
+
+      // Generate HTML content (you'll need to implement this method)
+      const htmlContent = this.generateStatisticsByRoomTypeHtml(hotelName, reportDate, statisticsData, printedBy)
+
+      // Generate PDF
+      const { default: PdfService } = await import('#services/pdf_service')
+      const pdfBuffer = await PdfService.generatePdf(htmlContent)
+
+      const filename = `statistics-by-room-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating statistics by room type PDF:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get monthly revenue data - daily breakdown for the entire month
+   */
+  private async getMonthlyRevenueData(hotelId: number, monthStart: DateTime, monthEnd: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    // Get all transactions for the month
+    const transactions = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+        })
+      })
+      .whereBetween('transaction_date', [monthStart.toFormat('yyyy-MM-dd'), monthEnd.toFormat('yyyy-MM-dd')])
+      .where('category', 'room')
+      .where('status', 'posted')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation')
+      })
+
+    // Group by day and calculate daily revenue
+    const dailyRevenue: { [key: string]: number } = {}
+    const daysInMonth = monthEnd.day
+
+    // Initialize all days with 0
+    for (let day = 1; day <= daysInMonth; day++) {
+      dailyRevenue[day.toString()] = 0
+    }
+
+    // Calculate actual revenue for each day
+    transactions.forEach(transaction => {
+      const transactionDate = DateTime.fromISO(transaction.transactionDate)
+      const day = transactionDate.day.toString()
+      dailyRevenue[day] += Number(transaction.amount || 0)
+    })
+
+    // Calculate total revenue
+    const totalRevenue = Object.values(dailyRevenue).reduce((sum, amount) => sum + amount, 0)
+
+    return {
+      dailyRevenue,
+      totalRevenue,
+      monthStart,
+      monthEnd,
+      daysInMonth
+    }
+  }
+
+  /**
+   * Generate HTML for Monthly Revenue report with chart
+   */
+  private generateMonthlyRevenueHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    revenueData: any,
+    printedBy: string = 'System',
+    currency: string = 'XAF'
+  ): string {
+    const formatCurrency = (amount: number) => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return `${currency} 0.00`
+      }
+      return `${currency} ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    }
+
+    // Prepare chart data
+    const chartData = []
+    const maxRevenue = Math.max(...Object.values(revenueData.dailyRevenue) as number[])
+    const chartHeight = 300
+
+    for (let day = 1; day <= revenueData.daysInMonth; day++) {
+      const revenue = revenueData.dailyRevenue[day.toString()] || 0
+      const barHeight = maxRevenue > 0 ? (revenue / maxRevenue) * chartHeight : 0
+      chartData.push({
+        day,
+        revenue,
+        barHeight,
+        formattedRevenue: formatCurrency(revenue)
+      })
+    }
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Monthly Revenue Report</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                font-size: 12px;
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+            }
+            .hotel-name {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            .report-title {
+                font-size: 16px;
+                color: #d2691e;
+                margin-bottom: 10px;
+            }
+            .chart-container {
+                margin: 30px 0;
+                text-align: center;
+            }
+            .chart {
+                display: inline-block;
+                border: 1px solid #ccc;
+                padding: 20px;
+                background: #f9f9f9;
+            }
+            .chart-title {
+                margin-bottom: 20px;
+                font-weight: bold;
+                background-color: #4472c4;
+                color: white;
+                padding: 5px 10px;
+                display: inline-block;
+            }
+            .chart-area {
+                position: relative;
+                width: 800px;
+                height: 350px;
+                border: 1px solid #333;
+                background: white;
+                margin: 0 auto;
+            }
+            .y-axis {
+                position: absolute;
+                left: -40px;
+                top: 0;
+                height: 100%;
+                width: 40px;
+            }
+            .y-label {
+                position: absolute;
+                right: 5px;
+                font-size: 10px;
+                transform: translateY(-50%);
+            }
+            .x-axis {
+                position: absolute;
+                bottom: -30px;
+                left: 0;
+                width: 100%;
+                height: 30px;
+            }
+            .x-label {
+                position: absolute;
+                bottom: 5px;
+                font-size: 10px;
+                transform: translateX(-50%);
+            }
+            .bar {
+                position: absolute;
+                bottom: 0;
+                background-color: #4472c4;
+                border: 1px solid #2c5aa0;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                color: #4472c4;
+                font-size: 8px;
+                font-weight: bold;
+            }
+            .bar-value {
+                position: absolute;
+                top: -15px;
+                font-size: 8px;
+                color: #333;
+                white-space: nowrap;
+            }
+            .footer {
+                margin-top: 50px;
+                border-top: 1px solid #333;
+                padding-top: 10px;
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+            }
+            .grid-line {
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: #e0e0e0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="hotel-name">${hotelName}</div>
+            <div class="report-title">Monthly Revenue - ${reportDate.toFormat('MMMM yyyy')}</div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart">
+                <div class="chart-title"> Revenue (Room Charges, Extra Charges)</div>
+                <div class="chart-area">
+                    <!-- Y-axis labels -->
+                    <div class="y-axis">
+                        ${[0, 0.2, 0.4, 0.6, 0.8, 1.0].map(ratio => `
+                            <div class="y-label" style="top: ${(1 - ratio) * 100}%">
+                                ${formatCurrency(maxRevenue * ratio).replace(currency + ' ', '')}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Grid lines -->
+                    ${[0.2, 0.4, 0.6, 0.8].map(ratio => `
+                        <div class="grid-line" style="top: ${(1 - ratio) * 100}%"></div>
+                    `).join('')}
+
+                    <!-- Bars -->
+                    ${chartData.map(data => `
+                        <div class="bar"
+                             style="left: ${((data.day - 1) / revenueData.daysInMonth) * 100}%;
+                                    width: ${(1 / revenueData.daysInMonth) * 100 * 0.8}%;
+                                    height: ${data.barHeight}px;
+                                    margin-left: ${(1 / revenueData.daysInMonth) * 100 * 0.1}%;">
+                            ${data.revenue > 0 ? `<div class="bar-value">${data.formattedRevenue.replace(currency + ' ', '')}</div>` : ''}
+                        </div>
+                    `).join('')}
+
+                    <!-- X-axis labels -->
+                    <div class="x-axis">
+                        ${chartData.map(data => `
+                            <div class="x-label" style="left: ${(data.day / revenueData.daysInMonth) * 100}%">
+                                ${data.day}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div style="margin-top: 40px; font-weight: bold;">Date</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>Printed On: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</div>
+            <div>Printed By: ${printedBy}</div>
+            <div>Page 1 of 1</div>
+        </div>
+    </body>
+    </html>
+    `
+  }
+
+  /**
+   * Get daily revenue data by different revenue types
+   */
+  private async getDailyRevenueData(hotelId: number, reportDate: DateTime, revenueTypes: string[]) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: Reservation } = await import('#models/reservation')
+
+    // Get all transactions for the specific date
+    const transactions = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+        })
+      })
+      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'posted')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('guest')
+          reservationQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room')
+            roomQuery.preload('roomRates')
+            roomQuery.preload('roomType')
+          })
+        })
+      })
+
+    // Group transactions by revenue type and guest
+    const revenueData: any = {
+      transactions: [],
+      totals: {
+        roomCharges: 0,
+        discount: 0,
+        roundOff: 0,
+        taxes: 0,
+        net: 0
+      }
+    }
+
+    const guestTransactions = new Map()
+
+    transactions.forEach(transaction => {
+      const reservation = transaction.folio?.reservation
+      if (!reservation) return
+
+      const guest = reservation.guest
+      const reservationRoom = reservation.reservationRooms?.[0]
+      const room = reservationRoom?.room
+      const rateType = reservationRoom?.rateType
+
+      // Filter by revenue type if specified
+      const transactionCategory = this.mapTransactionToRevenueType(transaction)
+      if (revenueTypes.length > 0 && !revenueTypes.includes(transactionCategory)) {
+        return
+      }
+
+      const guestKey = `${reservation.id}-${guest?.id || 'unknown'}`
+
+      if (!guestTransactions.has(guestKey)) {
+        guestTransactions.set(guestKey, {
+          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : 'Unknown Guest',
+          room: room?.roomNumber || 'N/A',
+          rateType: rateType?.name || 'Standard',
+          roomCharges: 0,
+          discount: 0,
+          roundOff: 0,
+          taxes: 0,
+          net: 0
+        })
+      }
+
+      const guestData = guestTransactions.get(guestKey)
+      const amount = Number(transaction.amount || 0)
+
+      // Categorize transaction amounts
+      if (transaction.category === 'room' || transactionCategory === 'room_revenue') {
+        guestData.roomCharges += amount
+      } else if (transaction.category === 'discount') {
+        guestData.discount += Math.abs(amount)
+      } else if (transaction.category === 'tax') {
+        guestData.taxes += amount
+      } else if (transaction.category === 'adjustment') {
+        guestData.roundOff += amount
+      }
+
+      guestData.net = guestData.roomCharges - guestData.discount + guestData.roundOff + guestData.taxes
+    })
+
+    // Convert map to array and calculate totals
+    revenueData.transactions = Array.from(guestTransactions.values())
+
+    revenueData.transactions.forEach(transaction => {
+      revenueData.totals.roomCharges += transaction.roomCharges
+      revenueData.totals.discount += transaction.discount
+      revenueData.totals.roundOff += transaction.roundOff
+      revenueData.totals.taxes += transaction.taxes
+      revenueData.totals.net += transaction.net
+    })
+
+    return revenueData
+  }
+
+  /**
+   * Map transaction to revenue type category
+   */
+  private mapTransactionToRevenueType(transaction: any): string {
+    const description = transaction.description?.toLowerCase() || ''
+    const category = transaction.category?.toLowerCase() || ''
+
+    if (description.includes('no show') || category.includes('no_show')) {
+      return 'no_show_revenue'
+    } else if (description.includes('cancellation') || category.includes('cancellation')) {
+      return 'cancellation_revenue'
+    } else if (description.includes('day user') || description.includes('dayuser')) {
+      return 'dayuser_revenue'
+    } else if (description.includes('late check out') || description.includes('late_check_out')) {
+      return 'late_check_out_revenue'
+    } else {
+      return 'room_revenue'
+    }
+  }
+
+  /**
+   * Generate HTML for Daily Revenue report with pagination
+   */
+  private generateDailyRevenueHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    revenueData: any,
+    printedBy: string,
+    revenueTypes: string[]
+  ): string {
+    const formatCurrency = (amount: number) => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return 'XAF 0.00'
+      }
+      return `XAF ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    }
+
+    const revenueByText = revenueTypes.length > 0 ? revenueTypes.join(', ') : 'All Revenue Types'
+    const transactions = revenueData.transactions || []
+    const totals = revenueData.totals || {}
+
+    // Calculate pagination - assume 25 rows per page
+    const rowsPerPage = 25
+    const totalPages = Math.max(1, Math.ceil(transactions.length / rowsPerPage))
+
+    let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Daily Revenue Report</title>
+        <style>
+            @page {
+                size: A4;
+                margin: 20mm;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                font-size: 11px;
+                line-height: 1.2;
+                margin: 0;
+                padding: 0;
+            }
+            .page {
+                page-break-after: always;
+                min-height: 100vh;
+                position: relative;
+                padding-bottom: 60px;
+            }
+            .page:last-child {
+                page-break-after: avoid;
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+                padding-bottom: 5px;
+                border-bottom: 2px solid #000;
+            }
+            .hotel-name {
+                font-size: 16px;
+                font-weight: bold;
+            }
+            .night-audit {
+                font-size: 16px;
+                font-weight: bold;
+            }
+            .report-info {
+                margin: 15px 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #000;
+            }
+            .report-info-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 5px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+            }
+            th, td {
+                border: 1px solid #000;
+                padding: 4px 6px;
+                text-align: left;
+                font-size: 10px;
+            }
+            th {
+                background-color: #f0f0f0;
+                font-weight: bold;
+                text-align: center;
+            }
+            .text-right {
+                text-align: right;
+            }
+            .text-center {
+                text-align: center;
+            }
+            .totals-row {
+                font-weight: bold;
+                background-color: #f9f9f9;
+            }
+            .footer {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                border-top: 1px solid #000;
+                padding-top: 10px;
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+            }
+        </style>
+    </head>
+    <body>
+    `
+
+    // Generate pages
+    for (let page = 0; page < totalPages; page++) {
+      const startIndex = page * rowsPerPage
+      const endIndex = Math.min(startIndex + rowsPerPage, transactions.length)
+      const pageTransactions = transactions.slice(startIndex, endIndex)
+      const isLastPage = page === totalPages - 1
+
+      html += `
+        <div class="page">
+            <!-- Header for each page -->
+            <div class="header">
+                <div class="hotel-name">${hotelName}</div>
+                <div class="night-audit">Night Audit</div>
+            </div>
+
+            ${page === 0 ? `
+            <!-- Report info only on first page -->
+            <div class="report-info">
+                <div class="report-info-row">
+                    <div><strong>As On Date:</strong> ${reportDate.toFormat('MMMM dd, yyyy')}</div>
+                    <div><strong>Daily Revenue by:</strong> ${revenueByText}</div>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Table -->
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%">Guest Name</th>
+                        <th style="width: 10%">Room</th>
+                        <th style="width: 15%">Rate Type</th>
+                        <th style="width: 12%">Room Charges</th>
+                        <th style="width: 12%">Discount</th>
+                        <th style="width: 10%">Round Off</th>
+                        <th style="width: 8%">Taxes</th>
+                        <th style="width: 8%">Net</th>
+                    </tr>
+                </thead>
+                <tbody>
+      `
+
+      // Add transaction rows for this page
+      pageTransactions.forEach(transaction => {
+        html += `
+                    <tr>
+                        <td>${transaction.guestName}</td>
+                        <td class="text-center">${transaction.room}</td>
+                        <td>${transaction.rateType}</td>
+                        <td class="text-right">${formatCurrency(transaction.roomCharges)}</td>
+                        <td class="text-right">${formatCurrency(transaction.discount)}</td>
+                        <td class="text-right">${formatCurrency(transaction.roundOff)}</td>
+                        <td class="text-right">${formatCurrency(transaction.taxes)}</td>
+                        <td class="text-right">${formatCurrency(transaction.net)}</td>
+                    </tr>
+        `
+      })
+
+      // Add totals row only on last page
+      if (isLastPage) {
+        html += `
+                    <tr class="totals-row">
+                        <td colspan="3"><strong>Total for:</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.roomCharges || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.discount || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.roundOff || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.taxes || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.net || 0)}</strong></td>
+                    </tr>
+        `
+      }
+
+      html += `
+                </tbody>
+            </table>
+
+            <!-- Footer -->
+            <div class="footer">
+                <div>Printed On: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</div>
+                <div>Printed By: ${printedBy}</div>
+                <div>Page ${page + 1} of ${totalPages}</div>
+            </div>
+        </div>
+      `
+    }
+
+    html += `
+    </body>
+    </html>
+    `
+
+    return html
+  }
+
+  /**
+   * Generate Daily Revenue PDF report
+   */
+  async generateDailyRevenuePdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate, revenueBy } = request.qs()
+
+      if (!hotelId || !asOnDate) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID and As On Date are required'
+        })
+      }
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD'
+        })
+      }
+
+      // Default revenue types if not specified
+      const revenueTypes = revenueBy ? revenueBy.split(',') : [
+        'room_revenue',
+        'no_show_revenue',
+        'cancellation_revenue',
+        'dayuser_revenue',
+        'late_check_out_revenue'
+      ]
+
+      // Get daily revenue data
+      const revenueData = await this.getDailyRevenueData(parseInt(hotelId), reportDate, revenueTypes)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(parseInt(hotelId))
+      const hotelName = hotel?.hotelName || 'Hotel'
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateDailyRevenueHtml(hotelName, reportDate, revenueData, printedBy, revenueTypes)
+
+      // Generate PDF
+      const { default: PdfGenerationService } = await import('#services/pdf_service')
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      const filename = `daily-revenue-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating daily revenue PDF:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+}
 
 
 /**

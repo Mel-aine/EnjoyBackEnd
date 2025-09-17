@@ -50,6 +50,12 @@ export const createHotelValidator = vine.compile(
       phone: vine.string().trim().maxLength(20),
       relationship: vine.string().trim().maxLength(100).optional()
     }).optional(),
+    administrator: vine.object({
+      firstName: vine.string().trim().minLength(2).maxLength(100),
+      lastName: vine.string().trim().minLength(2).maxLength(100),
+      email: vine.string().email().maxLength(255),
+      phoneNumber: vine.string().trim().maxLength(20).optional()
+    }).optional(),
     businessLicense: vine.string().trim().maxLength(100).optional(),
     taxId: vine.string().trim().maxLength(50).optional(),
     insurancePolicy: vine.string().trim().maxLength(100).optional(),

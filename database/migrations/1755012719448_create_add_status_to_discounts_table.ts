@@ -4,9 +4,12 @@ export default class extends BaseSchema {
   protected tableName = 'discounts'
 
   async up() {
-    this.schema.alterTable(this.tableName, (table) => {
-      table.enum('status', ['active', 'inactive']).defaultTo('active').after('apply_on')
-    })
+    const hasColumn = await this.schema.hasColumn(this.tableName, 'status')
+    if (!hasColumn) {
+      this.schema.alterTable(this.tableName, (table) => {
+        table.enum('status', ['active', 'inactive']).defaultTo('active').after('apply_on')
+      })
+    }
   }
 
   async down() {
