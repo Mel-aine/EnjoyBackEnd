@@ -680,9 +680,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const status = reservation.status?.toLowerCase() || reservation.reservation_status?.toLowerCase()
     const currentDate = new Date()
     const arrivalDate = new Date(reservation.arrivedDate || reservation.checkInDate)
-
     const departureDate = new Date(reservation.departDate || reservation.checkOutDate)
-    console.log("reservation", reservation)
+    const canUnAssign = reservation.reservationRooms.some((reservationRoom: any) => reservationRoom.roomId)
 
     // Check-in: Available for confirmed reservations on or after arrival date
     if (userPermissions.includes('check_in_guest') && ['confirmed', 'guaranteed', 'pending'].includes(status) && currentDate >= arrivalDate) {
@@ -810,7 +809,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
 
     // Unassign Room: Available for confirmed reservations with assigned rooms
-    if (userPermissions.includes('unassign_room') && ['confirmed', 'guaranteed', 'pending'].includes(status)) {
+    if (userPermissions.includes('unassign_room') && canUnAssign &&  ['confirmed', 'guaranteed', 'pending'].includes(status)) {
       actions.push({
         action: 'unassign_room',
         label: 'Unassign Room',
@@ -1375,7 +1374,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async searchReservations({ request, response }: HttpContext) {
+  public async searchReservations({ request, response,auth }: HttpContext) {
     try {
       const {
         searchText = '',
@@ -1469,7 +1468,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Calculate balanceSummary and availableActions for each reservation
       const enrichedReservations = reservations.map(reservation => {
         const balanceSummary = this.calculateBalanceSummary(reservation.folios)
-        const availableActions = this.getAvailableActions(reservation)
+        const availableActions = this.getAvailableActions(reservation,JSON.parse(auth.user?.permisPrivileges||'[]'))
 
         return {
           ...reservation.toJSON(),

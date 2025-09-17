@@ -40,7 +40,7 @@ export default class PickupDropoffReportsController {
         query = query.where('serviceType',type)
       } 
 
-      const pickdata = await query.orderBy('arrivalDate', 'asc')
+      const pickdata = await query.orderBy('scheduledDateTime', 'asc')
 
       // Process data for pickup
       const pickupData = pickdata
