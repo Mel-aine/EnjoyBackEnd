@@ -61,10 +61,17 @@ router.group(() => {
   router.group(() => {
     router.post('/checked-in', [ReportsController, 'generate']).where('reportType', 'guestCheckedIn')
     router.post('/checked-out', [ReportsController, 'generate']).where('reportType', 'guestCheckedOut')
-    router.post('/room-availability', [ReportsController, 'generate']).where('reportType', 'roomAvailability')
+    router.post('/room-availabilitys', [ReportsController, 'generate']).where('reportType', 'roomAvailability')
     router.post('/room-status', [ReportsController, 'generate']).where('reportType', 'roomStatus')
     router.post('/tasks', [ReportsController, 'generate']).where('reportType', 'taskList')
-    router.get('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
+    router.post('/room-availability', [ReportsController, 'generateRoomAvailabilityData'])
+    
+    // PDF
+    router.post('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
+    
+    // Export
+    router.post('/room-availability-export', [ReportsController, 'exportRoomAvailabilityReport'])
+    
   }).prefix('/front-office')
   
   // Back Office Reports
