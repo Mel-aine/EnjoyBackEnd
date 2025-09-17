@@ -1775,6 +1775,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           businessSourceId: data.business_source,
           complimentaryRoom: data.complimentary_room,
           paymentStatus: 'pending',
+          payment_method : data.payment ,
           taxExempt: data.tax_exempt,
           isHold: data.isHold,
           holdReleaseDate: data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
@@ -4798,7 +4799,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                         <span class="field-label">Rate Type</span>
                         <span class="input-line">${reservationRoom?.roomRates?.rateType?.rateTypeName || ''}</span>
                     </div>
-                   
+
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Tariff</span>
                         <span class="input-line">${reservationRoom.roomRate || ''}</span>
@@ -4827,12 +4828,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
                         <span class="field-label">Adjustment</span>
                         <span class="input-line">${totalSummary.totalAdjustments}</span>
                     </div>
-                  
+
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Net</span>
                         <span class="input-line">${totalSummary.totalChargesWithTaxes}</span>
                     </div>
-                   
+
                 </div>
             </div>
 
@@ -4849,7 +4850,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                     </div>
                 </div>
             </div>
-            
+
             <div class="note-section">
                 <div class="section-title">Please Note</div>
                 <p style="margin-top: 0.5rem; font-size: 0.75rem;">

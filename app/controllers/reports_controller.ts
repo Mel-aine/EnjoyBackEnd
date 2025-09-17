@@ -865,7 +865,7 @@ export default class ReportsController {
                 </div>
             </div>
         </div>
-        
+
         <div class="chart-container">
             <div class="y-axis">
                 <div class="y-label">${Math.ceil(yAxisMax)}</div>
@@ -897,7 +897,7 @@ export default class ReportsController {
                 </div>
             </div>
         </div>
-        
+
         <div class="legend-container">
             <div class="legend-item">
                 <div class="legend-value">${avgReservations}</div>
@@ -912,7 +912,7 @@ export default class ReportsController {
                 <div class="legend-label">Total Reservations</div>
             </div>
         </div>
-        
+
         <div class="footer">
             <p>Printed On: ${DateTime.now().toFormat('dd/MM/yyyy HH:mm')}</p>
             <p>Printed By: ${printedBy}</p>
@@ -975,7 +975,6 @@ export default class ReportsController {
     }
   }
 
- 
 
 /**
  * Génère les données du rapport de disponibilité des chambres
@@ -987,11 +986,7 @@ async generateRoomAvailabilityData({ request, response }: HttpContext) {
       dateFrom,
       dateTo,
       roomTypeId,
-      floor,
-      includeSummary = true,
-      includeCharts = true,
-      includeDetails = true,
-      groupByFloor = false,
+      floor
     } = request.body()
 
     // Validation des paramètres requis
@@ -1012,7 +1007,7 @@ async generateRoomAvailabilityData({ request, response }: HttpContext) {
     // Validation de la plage de dates
     const startDate = new Date(dateFrom)
     const endDate = new Date(dateTo)
-    
+
     if (startDate > endDate) {
       return response.badRequest({
         success: false,
@@ -1026,7 +1021,7 @@ async generateRoomAvailabilityData({ request, response }: HttpContext) {
       startDate: dateFrom,
       endDate: dateTo,
       roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-      floor: floor ? parseInt(floor) : undefined,
+
     }
 
     // Récupérer les données de disponibilité des chambres
@@ -1073,11 +1068,7 @@ async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
       dateFrom,
       dateTo,
       roomTypeId,
-      floor,
-      includeSummary = true,
-      includeCharts = true,
-      includeDetails = true,
-      groupByFloor = false,
+      floor
     } = request.body()
 
     // Validation des paramètres requis
@@ -1101,6 +1092,7 @@ async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
       startDate: dateFrom,
       endDate: dateTo,
       roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
+
     }
 
     // Récupérer les données de disponibilité des chambres
@@ -1112,19 +1104,10 @@ async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
       ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
       : 'System'
 
-    // Générer le contenu HTML pour le PDF
-    const htmlContent = this.generateRoomAvailabilityHtml(
+    // Générer le contenu HTML pour le PDF (version simplifiée)
+    const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
       roomAvailabilityData,
-      {
-        dateFrom,
-        dateTo,
-        floor,
-        roomTypeId,
-        includeSummary,
-        includeCharts,
-        includeDetails,
-        groupByFloor,
-      },
+      { dateFrom, dateTo, roomTypeId, floor },
       printedBy
     )
 
@@ -1161,108 +1144,6 @@ async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
 }
 
 /**
- * Exporte le rapport de disponibilité des chambres dans différents formats
- */
-async exportRoomAvailabilityReport({ request, response, auth }: HttpContext) {
-  try {
-    const {
-      hotelId,
-      dateFrom,
-      dateTo,
-      roomTypeId,
-      floor,
-      format = 'pdf',
-      includeSummary = true,
-      includeCharts = true,
-      includeDetails = true,
-      groupByFloor = false,
-    } = request.body()
-
-    // Validation
-    if (!dateFrom || !dateTo) {
-      return response.badRequest({
-        success: false,
-        message: 'Date range is required',
-      })
-    }
-
-    if (!hotelId) {
-      return response.badRequest({
-        success: false,
-        message: 'Hotel ID is required',
-      })
-    }
-
-    const reportFilters: ReportFilters = {
-      hotelId: parseInt(hotelId),
-      startDate: dateFrom,
-      endDate: dateTo,
-      roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-    }
-
-    const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
-    const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
-
-    switch (format.toLowerCase()) {
-      case 'pdf':
-        const user = auth.user
-        const printedBy = user
-          ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
-          : 'System'
-
-        const htmlContent = this.generateRoomAvailabilityHtml(
-          roomAvailabilityData,
-          { dateFrom, dateTo, floor, roomTypeId, includeSummary, includeCharts, includeDetails, groupByFloor },
-          printedBy
-        )
-
-        const pdfBuffer = await PdfService.generatePdfFromHtml(htmlContent, {
-          format: 'A4',
-          orientation: 'landscape',
-          margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' },
-        })
-
-        response.header('Content-Type', 'application/pdf')
-        response.header('Content-Disposition', `attachment; filename="room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf"`)
-        return response.send(pdfBuffer)
-
-      case 'excel':
-        const excelBuffer = await ExcelService.generateRoomAvailabilityExcel(
-          roomAvailabilityData,
-          { dateFrom, dateTo, includeSummary, includeDetails }
-        )
-
-        response.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response.header('Content-Disposition', `attachment; filename="room_availability_${dateFrom}_to_${dateTo}_${timestamp}.xlsx"`)
-        return response.send(excelBuffer)
-
-      case 'csv':
-        const csvContent = await CsvService.generateRoomAvailabilityCsv(
-          roomAvailabilityData,
-          { dateFrom, dateTo, includeDetails }
-        )
-
-        response.header('Content-Type', 'text/csv')
-        response.header('Content-Disposition', `attachment; filename="room_availability_${dateFrom}_to_${dateTo}_${timestamp}.csv"`)
-        return response.send(csvContent)
-
-      default:
-        return response.badRequest({
-          success: false,
-          message: 'Unsupported format. Supported formats: pdf, excel, csv',
-        })
-    }
-  } catch (error) {
-    console.error('Error exporting room availability report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Failed to export room availability report',
-      error: error.message,
-    })
-  }
-}
-
-/**
  * Récupère les types de chambres disponibles pour un hôtel
  */
 async getRoomTypes({ request, response }: HttpContext) {
@@ -1291,6 +1172,7 @@ async getRoomTypes({ request, response }: HttpContext) {
     return response.ok({
       success: true,
       roomTypes: [
+        { value: '', label: 'Tous les types' },
         { value: 'standard', label: 'Chambre Standard' },
         { value: 'deluxe', label: 'Chambre Deluxe' },
         { value: 'suite', label: 'Suite' }
@@ -1300,62 +1182,21 @@ async getRoomTypes({ request, response }: HttpContext) {
 }
 
 /**
- * Récupère les étages disponibles pour un hôtel
+ * Génère le contenu HTML simplifié pour le PDF
  */
-async getFloors({ request, response }: HttpContext) {
-  try {
-    const { hotelId } = request.qs()
-
-    if (!hotelId) {
-      return response.badRequest({
-        success: false,
-        message: 'Hotel ID is required',
-      })
-    }
-
-    const floors = await RoomService.getFloors(parseInt(hotelId))
-
-    return response.ok({
-      success: true,
-      floors: floors.map(floor => ({
-        value: floor.toString(),
-        label: `Étage ${floor}`
-      }))
-    })
-  } catch (error) {
-    console.error('Error fetching floors:', error)
-    // Retourner des étages par défaut en cas d'erreur
-    return response.ok({
-      success: true,
-      floors: [
-        { value: '1', label: 'Étage 1' },
-        { value: '2', label: 'Étage 2' },
-        { value: '3', label: 'Étage 3' }
-      ]
-    })
-  }
-}
-
-/**
- * Génère le contenu HTML pour le PDF du rapport de disponibilité des chambres
- */
-private generateRoomAvailabilityHtml(
+private generateSimplifiedRoomAvailabilityHtml(
   reportData: any,
   options: {
     dateFrom: string
     dateTo: string
-    floor?: string
     roomTypeId?: string
-    includeSummary: boolean
-    includeCharts: boolean
-    includeDetails: boolean
-    groupByFloor: boolean
+    floor?: string
   },
   printedBy: string = 'System'
 ): string {
-  const { dateFrom, dateTo, includeSummary, includeCharts, includeDetails, groupByFloor } = options;
-  
-  // Calculs des statistiques à partir des vraies données
+  const { dateFrom, dateTo, roomTypeId, floor } = options;
+
+  // Calculs des statistiques à partir des données filtrées
   const rooms = reportData.data || [];
   const totalRooms = rooms.length;
   const availableRooms = rooms.filter((room: any) => room.status === 'available').length;
@@ -1365,8 +1206,12 @@ private generateRoomAvailabilityHtml(
 
   // Générer les données pour les graphiques
   const weeklyData = this.generateWeeklyData(reportData);
-  const roomsDataJson = JSON.stringify(rooms);
-  
+
+  // Filtres appliqués pour affichage
+  const appliedFilters = [];
+  if (roomTypeId) appliedFilters.push(`Type: ${this.getRoomTypeName(roomTypeId)}`);
+  if (floor) appliedFilters.push(`Étage: ${floor}`);
+
   return `
 <!DOCTYPE html>
 <html lang="fr">
@@ -1419,6 +1264,12 @@ private generateRoomAvailabilityHtml(
         .date-range {
             font-size: 14px;
             opacity: 0.9;
+        }
+
+        .filters-info {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
         }
 
         .main-content {
@@ -1492,58 +1343,6 @@ private generateRoomAvailabilityHtml(
             text-align: center;
         }
 
-        /* Graphique circulaire CSS - CORRIGÉ */
-        .pie-chart {
-            position: relative;
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            margin: 0 auto 15px;
-            /* Le background sera défini par JavaScript */
-            background: #f8f9fa; /* Couleur de fallback */
-        }
-
-        .pie-center {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80px;
-            height: 80px;
-            background: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #2c3e50;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .chart-legend {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11px;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
-
-        .legend-color.available { background: #2ecc71; }
-        .legend-color.occupied { background: #e74c3c; }
-        .legend-color.maintenance { background: #f39c12; }
-
         /* Graphique en barres */
         .bar-chart {
             display: flex;
@@ -1583,7 +1382,7 @@ private generateRoomAvailabilityHtml(
             font-weight: bold;
         }
 
-        /* Grille des chambres */
+        /* Grille des chambres simplifiée */
         .rooms-section {
             grid-column: 1 / -1;
             background: white;
@@ -1609,14 +1408,6 @@ private generateRoomAvailabilityHtml(
             font-weight: bold;
             font-size: 9px;
             text-shadow: 0 1px 1px rgba(0,0,0,0.3);
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        .room-card:hover {
-            transform: scale(1.1);
-            z-index: 10;
-            position: relative;
         }
 
         .room-card.available { background: #2ecc71; }
@@ -1624,19 +1415,29 @@ private generateRoomAvailabilityHtml(
         .room-card.maintenance { background: #f39c12; }
         .room-card.out-of-order { background: #95a5a6; }
 
-        .floor-group {
+        .legend-simple {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
             margin-bottom: 15px;
         }
 
-        .floor-title {
-            font-size: 12px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 5px;
-            padding: 5px 10px;
-            background: #ecf0f1;
-            border-radius: 4px;
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
         }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .legend-color.available { background: #2ecc71; }
+        .legend-color.occupied { background: #e74c3c; }
+        .legend-color.maintenance { background: #f39c12; }
 
         .footer {
             display: flex;
@@ -1649,22 +1450,8 @@ private generateRoomAvailabilityHtml(
         }
 
         @media print {
-            body {
-                font-size: 11px;
-            }
-            
-            .page-container {
-                height: auto;
-            }
-            
-            .room-card:hover {
-                transform: none;
-            }
-            
-            .main-content {
-                margin-bottom: 10px;
-            }
-            
+            body { font-size: 11px; }
+            .page-container { height: auto; }
             .rooms-grid {
                 grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
                 gap: 2px;
@@ -1677,11 +1464,11 @@ private generateRoomAvailabilityHtml(
         <div class="header">
             <h1>📊 Rapport de Disponibilité des Chambres</h1>
             <div class="date-range">Période: ${dateFrom} au ${dateTo}</div>
+            ${appliedFilters.length > 0 ? `<div class="filters-info">Filtres: ${appliedFilters.join(' | ')}</div>` : ''}
         </div>
 
         <div class="main-content">
             <div class="left-panel">
-                ${includeSummary ? `
                 <div class="stats-section">
                     <h3 class="chart-title">Statistiques</h3>
                     <div class="stats-grid">
@@ -1703,59 +1490,21 @@ private generateRoomAvailabilityHtml(
                         </div>
                     </div>
                 </div>
-                ` : ''}
-
-                ${includeCharts ? `
-                <div class="chart-section">
-                    <h3 class="chart-title">Répartition</h3>
-                    <div class="pie-chart">
-                        <div class="pie-center">${occupancyRate}%</div>
-                    </div>
-                    <div class="chart-legend">
-                        <div class="legend-item">
-                            <div class="legend-color available"></div>
-                            <span>Libres (${availableRooms})</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color occupied"></div>
-                            <span>Occupées (${occupiedRooms})</span>
-                        </div>
-                        ${maintenanceRooms > 0 ? `
-                        <div class="legend-item">
-                            <div class="legend-color maintenance"></div>
-                            <span>Maintenance (${maintenanceRooms})</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-                ` : ''}
             </div>
 
             <div class="right-panel">
-                ${includeCharts ? `
                 <div class="chart-section">
                     <h3 class="chart-title">Évolution 7 jours</h3>
                     <div class="bar-chart" id="barChart">
                         <!-- Les barres seront générées par JavaScript -->
                     </div>
                 </div>
-                ` : ''}
-
-                ${includeDetails ? `
-                <div class="chart-section">
-                    <h3 class="chart-title">État des Chambres</h3>
-                    <div id="roomsContainer">
-                        <!-- Les chambres seront générées par JavaScript -->
-                    </div>
-                </div>
-                ` : ''}
             </div>
         </div>
 
-        ${includeDetails ? `
         <div class="rooms-section">
-            <h3 class="chart-title">Vue Détaillée des Chambres</h3>
-            <div class="chart-legend">
+            <h3 class="chart-title">Vue des Chambres</h3>
+            <div class="legend-simple">
                 <div class="legend-item">
                     <div class="legend-color available"></div>
                     <span>Disponible</span>
@@ -1769,11 +1518,10 @@ private generateRoomAvailabilityHtml(
                     <span>Maintenance</span>
                 </div>
             </div>
-            <div id="allRoomsGrid" class="rooms-grid">
-                <!-- Toutes les chambres seront affichées ici -->
+            <div id="roomsGrid" class="rooms-grid">
+                <!-- Les chambres seront générées par JavaScript -->
             </div>
         </div>
-        ` : ''}
 
         <div class="footer">
             <div>Généré le ${new Date().toLocaleDateString('fr-FR')} par ${printedBy}</div>
@@ -1790,63 +1538,12 @@ private generateRoomAvailabilityHtml(
             maintenanceRooms: ${maintenanceRooms},
             occupancyRate: ${occupancyRate},
             weeklyData: ${JSON.stringify(weeklyData)},
-            rooms: ${roomsDataJson},
-            groupByFloor: ${groupByFloor},
-            includeCharts: ${includeCharts},
-            includeDetails: ${includeDetails}
+            rooms: ${JSON.stringify(rooms)}
         };
 
-        // FONCTION CORRIGÉE pour créer le graphique donut
-        function createPieChart() {
-            const pieChart = document.querySelector('.pie-chart');
-            if (!pieChart) return;
-            
-            const total = reportData.totalRooms;
-            const available = reportData.availableRooms;
-            const occupied = reportData.occupiedRooms;
-            const maintenance = reportData.maintenanceRooms;
-            
-            if (total === 0) return;
-            
-            // Calculer les angles
-            const availableAngle = (available / total) * 360;
-            const occupiedAngle = (occupied / total) * 360;
-            const maintenanceAngle = (maintenance / total) * 360;
-            
-            // Construire le gradient conique
-            let gradientParts = [];
-            let currentAngle = 0;
-            
-            if (available > 0) {
-                gradientParts.push(\`#2ecc71 \${currentAngle}deg \${currentAngle + availableAngle}deg\`);
-                currentAngle += availableAngle;
-            }
-            
-            if (occupied > 0) {
-                gradientParts.push(\`#e74c3c \${currentAngle}deg \${currentAngle + occupiedAngle}deg\`);
-                currentAngle += occupiedAngle;
-            }
-            
-            if (maintenance > 0) {
-                gradientParts.push(\`#f39c12 \${currentAngle}deg \${currentAngle + maintenanceAngle}deg\`);
-            }
-            
-            // Appliquer le gradient
-            if (gradientParts.length > 0) {
-                pieChart.style.background = \`conic-gradient(\${gradientParts.join(', ')})\`;
-            }
-        }
-
         function initializeReport() {
-            if (reportData.includeCharts) {
-                createBarChart();
-                createPieChart(); // AJOUT de cette ligne
-            }
-            
-            if (reportData.includeDetails) {
-                createRoomsDisplay();
-                createAllRoomsGrid();
-            }
+            createBarChart();
+            createRoomsGrid();
         }
 
         function createBarChart() {
@@ -1855,13 +1552,13 @@ private generateRoomAvailabilityHtml(
 
             const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
             const maxValue = Math.max(...reportData.weeklyData);
-            
+
             container.innerHTML = '';
-            
+
             days.forEach((day, index) => {
                 const value = reportData.weeklyData[index];
-                const height = (value / maxValue) * 80; // hauteur max 80px
-                
+                const height = (value / maxValue) * 80;
+
                 const bar = document.createElement('div');
                 bar.className = 'bar';
                 bar.innerHTML = \`
@@ -1873,99 +1570,17 @@ private generateRoomAvailabilityHtml(
             });
         }
 
-        function createRoomsDisplay() {
-            const container = document.getElementById('roomsContainer');
+        function createRoomsGrid() {
+            const container = document.getElementById('roomsGrid');
             if (!container) return;
 
-            if (reportData.groupByFloor) {
-                createRoomsByFloor(container);
-            } else {
-                const sampleRooms = reportData.rooms.slice(0, 20); // Afficher seulement 20 pour l'aperçu
-                const grid = document.createElement('div');
-                grid.className = 'rooms-grid';
-                grid.style.gridTemplateColumns = 'repeat(10, 1fr)';
-                
-                sampleRooms.forEach(room => {
-                    grid.appendChild(createRoomCard(room));
-                });
-                
-                container.appendChild(grid);
-            }
-        }
-
-        function createAllRoomsGrid() {
-            const container = document.getElementById('allRoomsGrid');
-            if (!container) return;
-
-            if (reportData.groupByFloor) {
-                createRoomsByFloor(container, true);
-            } else {
-                reportData.rooms.forEach(room => {
-                    container.appendChild(createRoomCard(room));
-                });
-            }
-        }
-
-        function createRoomsByFloor(container, showAll = false) {
-            const roomsByFloor = {};
-            
             reportData.rooms.forEach(room => {
-                const floor = room.floor || Math.floor(room.number / 100) || 1;
-                if (!roomsByFloor[floor]) {
-                    roomsByFloor[floor] = [];
-                }
-                roomsByFloor[floor].push(room);
+                const roomElement = document.createElement('div');
+                roomElement.className = \`room-card \${room.status}\`;
+                roomElement.textContent = room.number || room.roomNumber || 'N/A';
+                roomElement.title = \`Chambre \${room.number || room.roomNumber}: \${room.status}\`;
+                container.appendChild(roomElement);
             });
-
-            Object.keys(roomsByFloor).sort((a, b) => Number(a) - Number(b)).forEach(floor => {
-                if (!showAll) {
-                    const floorDiv = document.createElement('div');
-                    floorDiv.className = 'floor-group';
-                    
-                    const floorTitle = document.createElement('div');
-                    floorTitle.className = 'floor-title';
-                    floorTitle.textContent = \`Étage \${floor}\`;
-                    floorDiv.appendChild(floorTitle);
-                    
-                    const roomGrid = document.createElement('div');
-                    roomGrid.className = 'rooms-grid';
-                    roomGrid.style.gridTemplateColumns = 'repeat(8, 1fr)';
-                    
-                    roomsByFloor[floor].slice(0, 16).forEach(room => {
-                        roomGrid.appendChild(createRoomCard(room));
-                    });
-                    
-                    floorDiv.appendChild(roomGrid);
-                    container.appendChild(floorDiv);
-                } else {
-                    // Pour la vue complète
-                    const floorTitle = document.createElement('div');
-                    floorTitle.style.gridColumn = '1 / -1';
-                    floorTitle.style.fontSize = '11px';
-                    floorTitle.style.fontWeight = 'bold';
-                    floorTitle.style.margin = '10px 0 5px 0';
-                    floorTitle.style.color = '#2c3e50';
-                    floorTitle.style.textAlign = 'center';
-                    floorTitle.style.background = '#ecf0f1';
-                    floorTitle.style.padding = '3px';
-                    floorTitle.style.borderRadius = '3px';
-                    floorTitle.textContent = \`Étage \${floor}\`;
-                    container.appendChild(floorTitle);
-
-                    roomsByFloor[floor].forEach(room => {
-                        container.appendChild(createRoomCard(room));
-                    });
-                }
-            });
-        }
-
-        function createRoomCard(room) {
-            const roomElement = document.createElement('div');
-            roomElement.className = \`room-card \${room.status}\`;
-            roomElement.textContent = room.number || room.roomNumber || 'N/A';
-            roomElement.title = \`Chambre \${room.number || room.roomNumber}: \${room.status}\`;
-            
-            return roomElement;
         }
 
         // Initialiser le rapport
@@ -1981,15 +1596,26 @@ private generateWeeklyData(reportData: any): number[] {
   if (reportData.weeklyOccupancy) {
     return reportData.weeklyOccupancy;
   }
-  
-  const baseRate = reportData.data ? 
-    ((reportData.data.filter((r: any) => r.status === 'occupied').length / reportData.data.length) * 100) : 
+
+  const baseRate = reportData.data ?
+    ((reportData.data.filter((r: any) => r.status === 'occupied').length / reportData.data.length) * 100) :
     70;
-  
+
   return Array.from({length: 7}, (_, i) => {
     const variation = (Math.random() - 0.5) * 20;
     return Math.max(0, Math.min(100, Math.round(baseRate + variation)));
   });
 }
+
+// Méthode auxiliaire pour obtenir le nom du type de chambre
+private getRoomTypeName(roomTypeId: string): string {
+  const types: { [key: string]: string } = {
+    'standard': 'Standard',
+    'deluxe': 'Deluxe',
+    'suite': 'Suite'
+  };
+  return types[roomTypeId] || roomTypeId;
+}
+
 
 }

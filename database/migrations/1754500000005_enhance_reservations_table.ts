@@ -46,6 +46,7 @@ export default class extends BaseSchema {
       table.text('internal_notes').nullable().after('guest_preferences')
       table.boolean('vip_guest').defaultTo(false).after('internal_notes')
       table.string('vip_level', 20).nullable().after('vip_guest')
+      table.integer('payment_method').nullable()
 
       // Booking and modification tracking
       table.timestamp('booking_date').nullable().after('vip_level')

@@ -35,6 +35,7 @@ export interface ReservationData {
   state?: string
   city?: string
   zipcode?: string
+  payment: number
 
   // Multiple guests support
   guests?: GuestData[]

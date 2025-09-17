@@ -14,7 +14,7 @@ export default class extends BaseSchema {
 
       table.text('reason').nullable()
       table.integer('room_type_id').unsigned().notNullable().references('id').inTable('room_types').onDelete('CASCADE')
-      table.enum('status', ['available', 'occupied', 'out_of_order', 'maintenance', 'blocked', 'dirty']).defaultTo('available')
+      table.enum('status', ['pending', 'inProgess', 'completed']).defaultTo('pending')
 
       table.integer('blocked_by_user_id').unsigned().notNullable().references('id').inTable('users').onDelete('CASCADE')
 

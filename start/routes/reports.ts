@@ -18,24 +18,24 @@ const ReportsController = () => import('#controllers/reports_controller')
 router.group(() => {
   // Get all available report types
   router.get('/', [ReportsController, 'index'])
-  
+
   // Generate a specific report
   router.post('/generate', [ReportsController, 'generate'])
-  
+
   // Export report in different formats (CSV, PDF, Excel)
   router.post('/export', [ReportsController, 'export'])
-  
+
   // Generate custom report
   router.post('/custom', [ReportsController, 'generateCustom'])
-  
+
   // Get report templates for custom reports
   router.get('/templates', [ReportsController, 'getTemplates'])
-  
+
   // Get report statistics for dashboard
   router.get('/stats', [ReportsController, 'getReportStats'])
-  
+
   // Specific report endpoints for direct access
-  
+
   // Reservation Reports
   router.group(() => {
     router.post('/arrival-list', [ReportsController, 'generate']).where('reportType', 'arrivalList')
@@ -65,27 +65,25 @@ router.group(() => {
     router.post('/room-status', [ReportsController, 'generate']).where('reportType', 'roomStatus')
     router.post('/tasks', [ReportsController, 'generate']).where('reportType', 'taskList')
     router.post('/room-availability', [ReportsController, 'generateRoomAvailabilityData'])
-    
+
     // PDF
     router.post('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
-    
-    // Export
-    router.post('/room-availability-export', [ReportsController, 'exportRoomAvailabilityReport'])
-    
+
+
   }).prefix('/front-office')
-  
+
   // Back Office Reports
   router.group(() => {
     router.post('/revenue', [ReportsController, 'generate']).where('reportType', 'revenueReport')
     router.post('/expenses', [ReportsController, 'generate']).where('reportType', 'expenseReport')
     router.post('/cashier', [ReportsController, 'generate']).where('reportType', 'cashierReport')
   }).prefix('/back-office')
-  
+
   // Audit Reports
   router.group(() => {
     router.post('/user-activity', [ReportsController, 'generate']).where('reportType', 'userActivityLog')
   }).prefix('/audit')
-  
+
   // Statistical Reports
   router.group(() => {
     router.post('/occupancy', [ReportsController, 'generate']).where('reportType', 'occupancyReport')
@@ -96,7 +94,7 @@ router.group(() => {
     // Monthly occupancy PDF report
     router.get('/monthly-occupancy-pdf', [ReportsController, 'generateMonthlyOccupancyPdf'])
   }).prefix('/statistics')
-  
+
 }).prefix('/api/reports').use(middleware.auth())
 
 // Public routes (no authentication required)
