@@ -607,7 +607,7 @@ export default class ReportsController {
       // Get all rooms for the hotel
       const rooms = await Room.query()
         .where('hotel_id', hotelId)
-        .where('is_deleted', false)
+        
         .preload('roomType')
         .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
@@ -2785,7 +2785,7 @@ export default class ReportsController {
     // Get all extra charges for the hotel
     const extraCharges = await ExtraCharge.query()
       .where('hotel_id', hotelId)
-      .where('is_deleted', false)
+      
       .select('id', 'name', 'short_code')
 
     const getExtraChargesByPeriod = async (startDate: DateTime, endDate: DateTime) => {
@@ -2867,7 +2867,7 @@ export default class ReportsController {
     // Get all active discounts for the hotel
     const discounts = await Discount.query()
       .where('hotel_id', hotelId)
-      .where('is_deleted', false)
+      
       .where('status', 'active')
 
     const getDiscountData = async (discount: any, startDate: DateTime, endDate: DateTime) => {
@@ -3753,7 +3753,7 @@ export default class ReportsController {
       // Get total rooms for the hotel
       const totalRooms = await Room.query()
         .where('hotel_id', hotelId)
-        .where('is_deleted', false)
+        
         .count('* as total')
 
       // Get blocked rooms for each period
@@ -4061,7 +4061,7 @@ export default class ReportsController {
       // Get total available rooms
       const totalRooms = await Room.query()
         .where('hotel_id', hotelId)
-        .where('is_deleted', false)
+        
         .count('* as total')
 
       const totalRoomsCount = totalRooms[0].$extras.total

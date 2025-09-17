@@ -254,24 +254,34 @@ export default class FolioTransactionsController {
           })
 
           await LoggerService.log({
-            level: 'info',
-            message: 'Receipt created for payment transaction',
-            data: {
+            actorId: auth.user?.id || 0,
+            action: 'CREATE',
+            entityType: 'Receipt',
+            entityId: transaction.id,
+            description: 'Receipt created for payment transaction',
+            meta: {
               transactionId: transaction.id,
               folioId: folio.id,
               amount: transaction.amount
-            }
+            },
+            hotelId: transaction.hotelId,
+            ctx: { request, response }
           })
         } catch (receiptError) {
           // Log error but don't fail the transaction creation
           await LoggerService.log({
-            level: 'error',
-            message: 'Failed to create receipt for payment transaction',
-            data: {
+            actorId: auth.user?.id || 0,
+            action: 'ERROR',
+            entityType: 'Receipt',
+            entityId: transaction.id,
+            description: 'Failed to create receipt for payment transaction',
+            meta: {
               error: receiptError.message,
               transactionId: transaction.id,
               folioId: folio.id
-            }
+            },
+            hotelId: transaction.hotelId,
+            ctx: { request, response }
           })
         }
       }
@@ -552,30 +562,40 @@ export default class FolioTransactionsController {
       // Void related receipt if this is a payment transaction
       if (transaction.transactionType === TransactionType.PAYMENT) {
         try {
-          await ReceiptService.voidReceiptByTransaction(transaction.id, {
+          await ReceiptService.voidReceipt(transaction.id, {
             voidedBy: auth.user?.id || 0,
             voidReason: reason || 'Transaction voided'
           })
 
           await LoggerService.log({
-            level: 'info',
-            message: 'Receipt voided for payment transaction',
-            data: {
+            actorId: auth.user?.id || 0,
+            action: 'VOID',
+            entityType: 'Receipt',
+            entityId: transaction.id,
+            description: 'Receipt voided for payment transaction',
+            meta: {
               transactionId: transaction.id,
               folioId: transaction.folioId,
               voidedBy: auth.user?.id
-            }
+            },
+            hotelId: transaction.hotelId,
+            ctx: { request, response }
           })
         } catch (receiptError) {
           // Log error but don't fail the transaction voiding
           await LoggerService.log({
-            level: 'error',
-            message: 'Failed to void receipt for payment transaction',
-            data: {
+            actorId: auth.user?.id || 0,
+            action: 'ERROR',
+            entityType: 'Receipt',
+            entityId: transaction.id,
+            description: 'Failed to void receipt for payment transaction',
+            meta: {
               error: receiptError.message,
               transactionId: transaction.id,
               folioId: transaction.folioId
-            }
+            },
+            hotelId: transaction.hotelId,
+            ctx: { request, response }
           })
         }
       }

@@ -63,6 +63,7 @@ export default class ReservationRoomsController {
       const reservationRooms = await query
         .preload('room')
         .preload('roomType')
+        .preload('paymentMethod')
         .orderBy('check_in_date', 'desc')
         .paginate(page, limit)
 
@@ -115,6 +116,7 @@ export default class ReservationRoomsController {
         .where('id', params.id)
         .preload('room')
         .preload('roomType')
+        .preload('paymentMethod')
         .firstOrFail()
 
       return response.ok({

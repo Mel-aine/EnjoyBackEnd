@@ -33,7 +33,7 @@ export const createReservationValidator = vine.compile(
     number_of_rooms: vine.number().min(1).max(50),
     room_preference: vine.string().optional(),
     bed_type_preference: vine.string().optional(),
-    payment_method: vine.string().optional(),
+    payment_method: vine.number().positive(),
     floor_preference: vine.string().optional(),
     view_preference: vine.string().optional(),
 
@@ -115,7 +115,6 @@ export const createReservationValidator = vine.compile(
     referral_source: vine.string().optional(),
 
     // Payment Information
-    payment_method: vine.string().optional(),
     credit_card_last_four: vine.string().fixedLength(4).optional(),
     deposit_amount: vine.number().min(0).optional(),
     deposit_paid: vine.boolean().optional(),
@@ -197,7 +196,7 @@ export const createReservationValidator = vine.compile(
     subcategory: vine.string().optional(),
 
     //other
-    complimentary_room : vine.boolean().optional(),
+    complimentary_room: vine.boolean().optional(),
 
     // Hold-related fields
     isHold: vine.boolean(),
@@ -235,7 +234,7 @@ export const updateReservationValidator = vine.compile(
     number_of_children: vine.number().min(0).max(20).optional(),
     number_of_infants: vine.number().min(0).max(20).optional(),
     total_guests: vine.number().min(1).max(60).optional(),
-     payment_method: vine.string().optional(),
+    payment_method: vine.number().positive().optional(),
 
     // Room Details
     room_type_id: vine.number().positive().optional(),
@@ -323,7 +322,6 @@ export const updateReservationValidator = vine.compile(
     referral_source: vine.string().optional(),
 
     // Payment Information
-    payment_method: vine.string().optional(),
     credit_card_last_four: vine.string().fixedLength(4).optional(),
     deposit_amount: vine.number().min(0).optional(),
     deposit_paid: vine.boolean().optional(),
@@ -404,8 +402,8 @@ export const updateReservationValidator = vine.compile(
     category: vine.string().optional(),
     subcategory: vine.string().optional(),
 
-     //other
-    complimentary_room : vine.boolean().optional(),
+    //other
+    complimentary_room: vine.boolean().optional(),
 
     // Hold-related fields
     isHold: vine.boolean().optional(),

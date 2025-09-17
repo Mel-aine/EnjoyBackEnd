@@ -17,7 +17,7 @@ export default class DiscountsController {
       const applyOn = request.input('apply_on')
 
       const query = Discount.query()
-        .where('is_deleted', false)
+
         .preload('hotel')
         .preload('creator')
         .preload('modifier')
@@ -99,7 +99,6 @@ export default class DiscountsController {
     try {
       const discount = await Discount.query()
         .where('id', params.id)
-        .where('is_deleted', false)
         .preload('hotel')
         .preload('creator')
         .preload('modifier')
@@ -129,7 +128,7 @@ export default class DiscountsController {
 
       const discount = await Discount.query()
         .where('id', params.id)
-        .where('is_deleted', false)
+
         .firstOrFail()
 
       discount.merge({
@@ -164,7 +163,7 @@ export default class DiscountsController {
       const user = auth.user!
       const discount = await Discount.query()
         .where('id', params.id)
-        .where('is_deleted', false)
+
         .firstOrFail()
 
       discount.merge({
@@ -204,7 +203,7 @@ export default class DiscountsController {
 
       const query = Discount.query()
         .where('type', type)
-        .where('is_deleted', false)
+
         .preload('hotel')
 
       if (hotel_id) {
@@ -285,7 +284,7 @@ export default class DiscountsController {
 
       const discounts = await Discount.query()
         .where('status', status)
-        .where('is_deleted', false)
+
         .preload('hotel')
         .preload('creator')
         .preload('modifier')

@@ -15,6 +15,7 @@ import ReservationRoom from './reservation_room.js'
 import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
 import ReservationType from './reservation_type.js'
+import PaymentMethod from './payment_method.js'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -196,6 +197,9 @@ export default class Reservation extends BaseModel {
 
   @column({ columnName: 'paid_amount' })
   declare paidAmount?: number
+
+  @column({ columnName: 'payment_method_id' })
+  declare paymentMethodId: number | null
 
   @column({ columnName: 'remaining_amount' })
   declare remainingAmount?: number
@@ -483,6 +487,9 @@ export default class Reservation extends BaseModel {
 
   @belongsTo(() => BusinessSource)
   declare businessSource: BelongsTo<typeof BusinessSource>
+
+  @belongsTo(() => PaymentMethod)
+  declare paymentMethod: BelongsTo<typeof PaymentMethod>
 
   @hasMany(() => ReservationRoom)
   declare reservationRooms: HasMany<typeof ReservationRoom>

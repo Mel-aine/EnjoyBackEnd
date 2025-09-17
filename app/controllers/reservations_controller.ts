@@ -59,6 +59,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('room')
         .preload('creator')
         .preload('modifier')
+        .preload('paymentMethod')
 
       // Si aucune réservation trouvée
       if (items.length === 0) {
@@ -1118,7 +1119,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async getCancellationSummary({ params, response }: HttpContext) {
     try {
       const reservationId = params.id
-      const reservation = await Reservation.query().where('id', reservationId).preload('hotel').preload('reservationRooms').first()
+      const reservation = await Reservation.query().where('id', reservationId).preload('hotel').preload('reservationRooms').preload('paymentMethod').first()
 
       if (!reservation) {
         return response.notFound({ message: 'Reservation not found' })
@@ -1454,6 +1455,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('roomType')
         .preload('bookingSource')
         .preload('discount')
+        .preload('paymentMethod')
         .preload('folios', (folioQuery) => {
           folioQuery.preload('transactions')
         })
@@ -1775,7 +1777,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           businessSourceId: data.business_source,
           complimentaryRoom: data.complimentary_room,
           paymentStatus: 'pending',
-          payment_method : data.payment ,
+          paymentMethodId: data.payment_mod,
           taxExempt: data.tax_exempt,
           isHold: data.isHold,
           holdReleaseDate: data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
@@ -1816,6 +1818,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               checkOutDate: DateTime.fromISO(data.depart_date),
               checkInTime: data.check_in_time,
               checkOutTime: data.check_out_time,
+              totalAmount:room.room_rate*numberOfNights,
               nights: numberOfNights,
               adults: room.adult_count,
               children: room.child_count,
@@ -4079,6 +4082,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         .preload('ratePlan')
         .preload('guest')
+        .preload('paymentMethod')
         .preload('folios', (query) => {
           query.where('status', '!=', FolioStatus.VOIDED)
         })
