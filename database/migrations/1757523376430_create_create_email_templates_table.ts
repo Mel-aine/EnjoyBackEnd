@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'email_templates'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       
       // Required fields
@@ -63,6 +67,7 @@ export default class extends BaseSchema {
       table.index(['auto_send'], 'email_templates_auto_send_index')
       table.index(['is_deleted'], 'email_templates_is_deleted_index')
     })
+    }
   }
 
   async down() {

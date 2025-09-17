@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'daily_summary_facts'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.date('audit_date').primary()
       table.integer('hotel_id').unsigned().notNullable()
       
@@ -47,6 +51,7 @@ export default class extends BaseSchema {
       // Index for performance
       table.index(['hotel_id', 'audit_date'])
     })
+    }
   }
 
   async down() {

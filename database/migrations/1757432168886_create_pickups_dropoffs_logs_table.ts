@@ -5,7 +5,11 @@ export default class extends BaseSchema {
 
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.integer('guest_id').unsigned().references('id').inTable('guests')
       table.integer('reservation_id').unsigned().references('id').inTable('reservations').nullable()
@@ -37,6 +41,7 @@ export default class extends BaseSchema {
       table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(this.now())
       table.timestamp('updated_at', { useTz: true }).notNullable().defaultTo(this.now())
     })
+    }
   }
 
 

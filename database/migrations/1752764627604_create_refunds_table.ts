@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'refunds'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.decimal('refund_amount', 10, 2).notNullable()
       table.timestamp('refund_date').notNullable()
@@ -18,6 +22,7 @@ export default class extends BaseSchema {
       table.integer('processed_by_user_id').unsigned().references('id').inTable('users').onDelete('RESTRICT')
       table.integer('hotel_id').unsigned().nullable().references('id').inTable('hotels').onDelete('CASCADE')
     })
+    }
   }
 
   async down() {

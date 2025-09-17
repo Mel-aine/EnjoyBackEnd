@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'vip_statuses'
 
   public async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       
       // Required fields
@@ -32,6 +36,7 @@ export default class extends BaseSchema {
       // Unique constraint to prevent duplicate names within the same hotel
       table.unique(['hotel_id', 'name'], 'vip_statuses_hotel_id_name_unique')
     })
+    }
   }
 
   public async down() {

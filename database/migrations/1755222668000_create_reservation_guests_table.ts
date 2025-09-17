@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'reservation_guests'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.integer('reservation_id').unsigned().references('id').inTable('reservations').onDelete('CASCADE')
       table.integer('guest_id').unsigned().references('id').inTable('guests').onDelete('CASCADE')
@@ -25,6 +29,7 @@ export default class extends BaseSchema {
       // Add a unique constraint to prevent duplicate entries
       table.unique(['reservation_id', 'guest_id'])
     })
+    }
   }
 
   async down() {

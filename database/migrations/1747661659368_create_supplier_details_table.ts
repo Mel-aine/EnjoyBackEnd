@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'supplier_details'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.integer('user_id').unsigned().primary()
       table.string('company_name', 255).notNullable()
       table.string('contact_person', 255).nullable()
@@ -20,6 +24,7 @@ export default class extends BaseSchema {
       table.timestamp('created_at', { useTz: true }).defaultTo(this.now())
       table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
     })
+    }
   }
 
   async down() {

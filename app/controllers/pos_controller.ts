@@ -20,7 +20,7 @@ export default class PosController {
 
       // Import Hotel model
       const { default: Hotel } = await import('#models/hotel')
-      
+      console.log('reservation',hotelId)
       // Get hotel information
       const hotel = await Hotel.find(parseInt(hotelId))
       

@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'rate_plans'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.integer('hotel_id').unsigned().notNullable()
       table.string('plan_name', 100).notNullable()
@@ -77,6 +81,7 @@ export default class extends BaseSchema {
       table.index(['is_active'])
       table.index(['rate_type'])
     })
+    }
   }
 
   async down() {

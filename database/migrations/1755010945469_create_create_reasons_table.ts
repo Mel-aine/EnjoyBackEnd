@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'reasons'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.string('category').notNullable()
       table.string('reason_name').notNullable()
@@ -28,6 +32,7 @@ export default class extends BaseSchema {
       table.index(['category'])
       table.index(['is_deleted'])
     })
+    }
   }
 
   async down() {

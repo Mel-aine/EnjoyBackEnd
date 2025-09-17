@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'extra_charges'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('CASCADE')
       table.string('short_code', 50).notNullable()
@@ -38,6 +42,7 @@ export default class extends BaseSchema {
       table.index(['is_deleted'])
       table.index(['valid_from', 'valid_to'])
     })
+    }
   }
 
   async down() {
