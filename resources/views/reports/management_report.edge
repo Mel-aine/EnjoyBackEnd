@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Management Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .horizontal-line {
+            border-top: 1px solid #333;
+            margin: 10px 0;
+        }
+        
+        .report-info {
+            margin-bottom: 20px;
+            font-size: 11px;
+        }
+        
+        .report-info span {
+            margin-right: 30px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        
+        th, td {
+            text-align: left;
+            padding: 4px 0px;
+            font-size: 11px;
+        }
+        
+        th {
+            font-weight: bold;
+            background-color: #f5f5f5;
+        }
+        
+        .section-title {
+            font-weight: bold;
+            margin: 15px 0 5px 0;
+            font-size: 12px;
+        }
+        
+        .section-total {
+            font-weight: bold;
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+        
+        .section-subtotal {
+            font-weight: bold;
+            border-top: 1px solid #ddd;
+        }
+        
+        .bold-section {
+            font-weight: bold;
+        }
+        
+        .currency {
+            text-align: right;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            font-size: 10px;
+        }
+        
+        .footer-line {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+        }
+        
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        @media print {
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <span>{{ hotelName }}</span>
+        <span>Management Report</span>
+    </div>
+    <div class="horizontal-line"></div>
+    
+    <!-- Report Info -->
+    <div class="report-info">
+        <span><strong>As On Date:</strong> {{ asOnDate }}</span>
+        <span><strong>PTD:</strong> {{ ptdDate }}</span>
+        <span><strong>YTD:</strong> {{ ytdDate }}</span>
+        <span><strong>Currency:</strong> {{ currency }}</span>
+    </div>
+    <div class="horizontal-line"></div>
+    
+    <!-- Column Headers -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40%;">Particulars</th>
+                <th style="width: 20%;">Today ({{ currency }})</th>
+                <th style="width: 20%;">PTD ({{ currency }})</th>
+                <th style="width: 20%;">YTD ({{ currency }})</th>
+            </tr>
+        </thead>
+    </table>
+    <div class="horizontal-line"></div>
+
+    <!-- Section 1: Room Charges -->
+    <div class="section-title">Room Charges</div>
+    <table>
+        <tbody>
+            <tr>
+                <td style="width: 40%;">Room Charges</td>
+                <td class="currency" style="width: 20%;">{{ formatCurrency(content.roomCharges?.roomCharges?.today) }}</td>
+                <td class="currency" style="width: 20%;">{{ formatCurrency(content.roomCharges?.roomCharges?.ptd) }}</td>
+                <td class="currency" style="width: 20%;">{{ formatCurrency(content.roomCharges?.roomCharges?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Cancellation Revenue</td>
+                <td class="currency">{{ formatCurrency(content.roomCharges?.cancellationRevenue.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.roomCharges?.cancellationRevenue.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.roomCharges?.cancellationRevenue.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>No Show Revenue</td>
+                <td class="currency">{{ formatCurrency(content.roomCharges?.noShowRevenue.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.roomCharges?.noShowRevenue.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.roomCharges?.noShowRevenue.ytd) }}</td>
+            </tr>
+            <tr class="section-total">
+                <td><strong>Total Room Charges</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.roomCharges?.total.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.roomCharges?.total.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.roomCharges?.total.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 2: Extra Charges -->
+    <div class="section-title">Extra Charges</div>
+    <table>
+        <tbody>
+            @each(extraCharge in Object.keys(content.extraCharges.extraCharges || {}))
+            <tr>
+                <td>{{ extraCharge }}</td>
+                <td class="currency">{{ formatCurrency(content.extraCharges.extraCharges[extraCharge].today) }}</td>
+                <td class="currency">{{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ytd) }}</td>
+            </tr>
+            @endeach
+            <tr class="section-total">
+                <td><strong>Total Extra Charges</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.extraCharges.totals?.today || content.extraCharges.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.extraCharges.totals?.ptd || content.extraCharges.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.extraCharges.totals?.ytd || content.extraCharges.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 3: Discount -->
+    <div class="section-title">Discount</div>
+    <table>
+        <tbody>
+            @each(discount in (content.discounts.discounts || []))
+            <tr>
+                <td>{{ discount.name }} ({{ discount.shortCode }})</td>
+                <td class="currency">{{ formatCurrency(discount.today) }}</td>
+                <td class="currency">{{ formatCurrency(discount.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(discount.ytd) }}</td>
+            </tr>
+            @endeach
+            <tr class="section-total">
+                <td><strong>Total Discount</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.discounts.totals?.today || content.discounts.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.discounts.totals?.ptd || content.discounts.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.discounts.totals?.ytd || content.discounts.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 4: Adjustments -->
+    <div class="section-title">Adjustments</div>
+    <table>
+        <tbody>
+            @each(adjustment in (content.adjustments.adjustments || []))
+            <tr>
+                <td>{{ adjustment.name }}</td>
+                <td class="currency">{{ formatCurrency(adjustment.today) }}</td>
+                <td class="currency">{{ formatCurrency(adjustment.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(adjustment.ytd) }}</td>
+            </tr>
+            @endeach
+            <tr class="section-total">
+                <td><strong>Total Adjustments</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.adjustments.totals?.today || content.adjustments.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.adjustments.totals?.ptd || content.adjustments.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.adjustments.totals?.ytd || content.adjustments.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 5: Tax -->
+    <div class="section-title">Tax</div>
+    <table>
+        <tbody>
+            @each(taxRate in ( content.tax.taxes || []))
+            <tr>
+                <td>{{ taxRate.name }}</td>
+                <td class="currency">{{ formatCurrency(taxRate.today.total) }}</td>
+                <td class="currency">{{ formatCurrency(taxRate.ptd.total) }}</td>
+                <td class="currency">{{ formatCurrency(taxRate.ytd.total) }}</td>
+            </tr>
+            @endeach
+
+            <tr class="section-total">
+                <td><strong>Total Tax</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.tax.totals?.today || content.tax.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.tax.totals?.ptd || content.tax.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.tax.totals?.ytd || content.tax.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Bold Section After Tax -->
+    <table>
+        <tbody>
+            <tr class="bold-section">
+                <td><strong>Total Revenue without Tax</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithoutTax.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithoutTax.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithoutTax.ytd) }}</strong></td>
+            </tr>
+            <tr class="bold-section">
+                <td><strong>Total Revenue with Tax</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithTax.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithTax.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithTax.ytd) }}</strong></td>
+            </tr>
+            <tr class="bold-section">
+                <td><strong>POS to PMS Posting</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.posToPs.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.posToPs.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.posToPs.ytd) }}</strong></td>
+            </tr>
+            <tr class="bold-section">
+                <td><strong>Transfer Charges to Guest Ledger</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.transferToGuestLedger.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.transferToGuestLedger.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.totals.transferToGuestLedger.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 6: Payment -->
+    <div class="section-title">Payment</div>
+    <table>
+        <tbody>
+            @each(method in Object.keys(content.payments.methods))
+            <tr>
+                <td>{{ method }}</td>
+                <td class="currency">{{ formatCurrency(content.payments.methods[method].today) }}</td>
+                <td class="currency">{{ formatCurrency(content.payments.methods[method].ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.payments.methods[method].ytd) }}</td>
+            </tr>
+            @end
+            <tr class="section-total">
+                <td><strong>Total Payment</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.payments.total.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.payments.total.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.payments.total.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 7: City Ledger -->
+    <div class="section-title">City Ledger</div>
+    <table>
+        <tbody>
+            <tr>
+                <td>Opening Balance</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.openingBalance?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.openingBalance?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.openingBalance?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Payment Received</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.paymentReceived?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.paymentReceived?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.paymentReceived?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Charges Raised</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.chargesRaised?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.chargesRaised?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.chargesRaised?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Outstanding Commission</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.outstandingCommission?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.outstandingCommission?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.cityLedger?.outstandingCommission?.ytd) }}</td>
+            </tr>
+            <tr class="section-total">
+                <td><strong>Closing Balance</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.cityLedger?.closingBalance?.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.cityLedger?.closingBalance?.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.cityLedger?.closingBalance?.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 8: Advance Deposit Ledger -->
+    <div class="section-title">Advance Deposit Ledger</div>
+    <table>
+        <tbody>
+            <tr>
+                <td>Opening Balance</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.openingBalance?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.openingBalance?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.openingBalance?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Advance Deposit Collected</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.advanceDepositCollected?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.advanceDepositCollected?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.advanceDepositCollected?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Balance Transfer to Guest Ledger</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.balanceTransferToGuestLedger?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.balanceTransferToGuestLedger?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.advanceDepositLedger?.balanceTransferToGuestLedger?.ytd) }}</td>
+            </tr>
+            <tr class="section-total">
+                <td><strong>Closing Balance</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.advanceDepositLedger?.closingBalance?.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.advanceDepositLedger?.closingBalance?.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.advanceDepositLedger?.closingBalance?.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 9: Guest Ledger -->
+    <div class="section-title">Guest Ledger</div>
+    <table>
+        <tbody>
+            <tr>
+                <td>Opening Balance</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.openingBalance?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.openingBalance?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.openingBalance?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Carry Forwarded Advance Deposit</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.carryForwardedAdvanceDeposit?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.carryForwardedAdvanceDeposit?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.carryForwardedAdvanceDeposit?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Charge Posted to Guest Ledger</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.chargePostedToGuestLedger?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.chargePostedToGuestLedger?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.chargePostedToGuestLedger?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Settlement by Guest</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.settlementByGuest?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.settlementByGuest?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.settlementByGuest?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Outstanding Payment on Charges</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.outstandingPaymentOnCharges?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.outstandingPaymentOnCharges?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.outstandingPaymentOnCharges?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Transfer from Advance Deposit</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.transferFromAdvanceDeposit?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.transferFromAdvanceDeposit?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.guestLedger?.transferFromAdvanceDeposit?.ytd) }}</td>
+            </tr>
+            <tr class="section-total">
+                <td><strong>Closing Balance</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.guestLedger?.closingBalance?.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.guestLedger?.closingBalance?.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.guestLedger?.closingBalance?.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 10: Room Summary -->
+    <div class="section-title">Room Summary</div>
+    <table>
+        <tbody>
+            <tr>
+                <td>Total Rooms</td>
+                <td class="currency">{{ content.roomSummary?.totalRooms?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalRooms?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalRooms?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Occupied Rooms</td>
+                <td class="currency">{{ content.roomSummary?.occupiedRooms?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.occupiedRooms?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.occupiedRooms?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Available Rooms</td>
+                <td class="currency">{{ content.roomSummary?.availableRooms?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.availableRooms?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.availableRooms?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Blocked Rooms</td>
+                <td class="currency">{{ content.roomSummary?.blockedRooms?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.blockedRooms?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.blockedRooms?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Out of Order Rooms</td>
+                <td class="currency">{{ content.roomSummary?.outOfOrderRooms?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.outOfOrderRooms?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.outOfOrderRooms?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Total Guests</td>
+                <td class="currency">{{ content.roomSummary?.totalGuests?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalGuests?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalGuests?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Adult Guests</td>
+                <td class="currency">{{ content.roomSummary?.adultGuests?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.adultGuests?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.adultGuests?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Child Guests</td>
+                <td class="currency">{{ content.roomSummary?.childGuests?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.childGuests?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.childGuests?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Arrivals</td>
+                <td class="currency">{{ content.roomSummary?.arrivals?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.arrivals?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.arrivals?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Departures</td>
+                <td class="currency">{{ content.roomSummary?.departures?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.departures?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.departures?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>No Shows</td>
+                <td class="currency">{{ content.roomSummary?.noShows?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noShows?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noShows?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>Cancellations</td>
+                <td class="currency">{{ content.roomSummary?.cancellations?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.cancellations?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.cancellations?.ytd || 0 }}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 11: Statistics -->
+    <div class="section-title">Statistics</div>
+    <table>
+        <tbody>
+            <tr>
+                <td>Occupancy Rate (%)</td>
+                <td class="currency">{{ (content.statistics?.occupancyRate?.today || 0).toFixed(2) }}%</td>
+                <td class="currency">{{ (content.statistics?.occupancyRate?.ptd || 0).toFixed(2) }}%</td>
+                <td class="currency">{{ (content.statistics?.occupancyRate?.ytd || 0).toFixed(2) }}%</td>
+            </tr>
+            <tr>
+                <td>Average Daily Rate (ADR)</td>
+                <td class="currency">{{ formatCurrency(content.statistics?.averageDailyRate?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.statistics?.averageDailyRate?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.statistics?.averageDailyRate?.ytd) }}</td>
+            </tr>
+            <tr>
+                <td>Revenue Per Available Room (RevPAR)</td>
+                <td class="currency">{{ formatCurrency(content.statistics?.revenuePerAvailableRoom?.today) }}</td>
+                <td class="currency">{{ formatCurrency(content.statistics?.revenuePerAvailableRoom?.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.statistics?.revenuePerAvailableRoom?.ytd) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Section 12: POS Summary -->
+    <div class="section-title">POS Summary</div>
+    <table>
+        <tbody>
+            @each(outlet in Object.keys(content.posSummary?.outlets || {}))
+            <tr>
+                <td>{{ outlet }}</td>
+                <td class="currency">{{ formatCurrency(content.posSummary.outlets[outlet].today) }}</td>
+                <td class="currency">{{ formatCurrency(content.posSummary.outlets[outlet].ptd) }}</td>
+                <td class="currency">{{ formatCurrency(content.posSummary.outlets[outlet].ytd) }}</td>
+            </tr>
+            @endeach
+            <tr class="section-total">
+                <td><strong>Total POS Revenue</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.posSummary?.total?.today) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.posSummary?.total?.ptd) }}</strong></td>
+                <td class="currency"><strong>{{ formatCurrency(content.posSummary?.total?.ytd) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-line"></div>
+        <div class="footer-content">
+            <span>Printed On: {{ printedOn }}</span>
+            <span>Printed By: {{ printedBy }}</span>
+            <span>Page {{ currentPage }} of {{ totalPages }}</span>
+        </div>
+    </div>
+</body>
+</html>

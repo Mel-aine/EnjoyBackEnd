@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAMI SARL (SUITA HOTEL) - Manager Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            /* color: #fff; */
+            background-color: #fff;
+        }
+
+        .report-container {
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+
+        .hotel-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .report-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .report-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+
+        .page-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #666;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            /* background-color: #f0f0f0; */
+            padding: 5px;
+            /* border: 1px solid #000; */
+            /* text-align: left; */
+            padding-left: 0px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .table th,
+        .table td {
+            border: 1px solid #000;
+            padding: 3px 5px;
+            text-align: left;
+        }
+
+        .table th {
+            background-color: #e0e0e0;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .numeric {
+            text-align: right;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background-color: #f5f5f5;
+        }
+
+        /* Données statiques (foncées) */
+        .static-data {
+            font-weight: bold;
+        }
+        
+        .hotel-name {
+            color: #000;
+        }
+        
+        .report-title {
+            color: #0000FF;
+        }
+
+        /* Données dynamiques (normales) */
+        .dynamic-data {
+            background-color: #fff;
+            color: #000;
+        }
+
+        .sub-section {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .room-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+
+        .currency {
+            font-size: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- En-tête -->
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="hotel-name static-data">TAMISARL (SUITA HOTEL)</div>
+                <div class="report-title static-data">Manager Report</div>
+            </div>
+            <div class="report-info">
+                <span class="static-data">As on Date</span>
+                <span class="dynamic-data">21-08-2025</span>
+                <span class="static-data">PTD</span>
+                <span class="dynamic-data">01-08-2025</span>
+                <span class="static-data">YTD</span>
+                <span class="dynamic-data">01-01-2025</span>
+                <span class="static-data">Currency</span>
+                <span class="dynamic-data">XAF</span>
+            </div>
+            <!-- <div class="page-info">
+                <span class="static-data">Page 1 of 4</span>
+                <span class="static-data">Printed By: </span><span class="dynamic-data">EMMANUEL</span>
+                <span class="static-data">Printed On: </span><span class="dynamic-data">21-08-2025 09:58:35</span>
+            </div> -->
+        </div>
+        
+        
+        <!-- Room Charges -->
+        <div class="section">
+            <div style="margin: 5px 0; padding-top: 0px; display: flex; justify-content: space-between;">
+                <div style="position: relative; width: 100%;">
+                    <div style="display: flex; align-items: flex-start; gap: 40px; margin-bottom: 25px;">
+                        <div>
+                            <div style="position: relative;">
+                                <strong>Particulars</strong>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 40px; font-weight: bold; margin-left: 360px;">
+                            <span>Today (XAF)</span>
+                            <span>PTD (XAF)</span>
+                            <span>YTD (XAF)</span>
+                        </div>
+                    </div>
+                    <div style="position: absolute; top: 20px; left: 0; width: 100%; height: 2px; background-color: #000;"></div>
+                    <div style="margin-top: 10px;">
+                        <strong>Room Charges</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between;">
+                <span>Room Charges</span>
+                <div style="display: flex; gap: 40px; margin-right: 20px;">
+                    <span style="text-align: right; display: inline-block; width: 80px;">997 567</span>
+                    <span style="text-align: right; display: inline-block; width: 80px;">21 014 837</span>
+                    <span style="text-align: right; display: inline-block; width: 80px;">234 143 483</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Cancellation Revenue</span>
+                <div style="display: flex; gap: 40px; margin-right: 20px;">
+                    <span style="text-align: right; display: inline-block; width: 80px;">0</span>
+                    <span style="text-align: right; display: inline-block; width: 80px;">0</span>
+                    <span style="text-align: right; display: inline-block; width: 80px;">1</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>No Show Revenue</span>
+                <div style="display: flex; gap: 40px; margin-right: 20px;">
+                    <span style="text-align: right; display: inline-block; width: 80px;">0</span>
+                    <span style="text-align: right; display: inline-block; width: 80px;">0</span>
+                    <span style="text-align: right; display: inline-block; width: 80px;">0</span>
+                </div>
+            </div>
+            <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between;">
+                <strong>Total</strong>
+                <div style="display: flex; gap: 40px; margin-right: 20px;">
+                    <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;">997 567</span>
+                    <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;">21 014 837</span>
+                    <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;">234 143 484</span>
+                </div>
+            </div>
+            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+        </div>
+
+        <!-- Extra Charges -->
+        <div class="section">
+            <div class="section-title static-data">Extra Charges</div>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <div style="width: 40%;" class="dynamic-data">PDJ</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">142 560</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">3 094 390</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">29 822 521</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0px;">
+                    <div style="width: 40%;" class="dynamic-data">Transfert de Charges</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">114 000</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">287 000</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Dette Hebergement</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">-5 180</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">646</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Piscine</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">21 803</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 078 406</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Restaurant chez madeleine</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">125 786</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">273 795</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Massage</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">8 386</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">436 065</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Sauna</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">4 193</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Soins cheveux femme</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">8 386</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Hammam</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">16 771</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">BLANCHISSERIE</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">16 352</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">196 813</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Late Checkout</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">125 787</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">756 815</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Pédicure-Manicure</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">71 279</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="width: 40%;" class="dynamic-data">Soins de visage</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">20 964</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="dynamic-data">Total</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">142 560</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">3 506 499</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">33 153 654</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            </div>
+        </div>
+
+        <!-- Discount -->
+        <div class="section">
+            <div class="section-title static-data">Discount</div>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">DISCOUNT DG</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">-15 375</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="dynamic-data">Total</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">-15 375</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            </div>
+        </div>
+
+        <!-- Adjustments -->
+        <div class="section">
+            <div class="section-title static-data">Adjustments</div>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Round Off</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">2</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="dynamic-data">Total</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">2</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            </div>
+        </div>
+
+        <!-- Tax -->
+        <div class="section">
+            <div class="section-title static-data">Tax</div>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">TVA</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">219 473</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">4 698 404</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">51 395 892</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Taxe de Sejour</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">95 400</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 850 760</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">20 821 050</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="dynamic-data">Total</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">314 873</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">6 549 164</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">72 216 942</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            </div>
+        </div>
+
+        <!-- Revenue Summary -->
+        <div class="section">
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="static-data">Total Revenue without Tax</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;">1 140 127</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;">24 521 336</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;">267 281 765</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="static-data">POS to PMS Posting</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;">2 500</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;">13 474 000</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;">81 306 192</span>
+                    </div>
+                </div>
+                <div style="margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="static-data">Total Revenue with Tax</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;">1 455 000</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;">31 070 500</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;">339 498 707</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin: 15px 0 10px 0;">
+                    <div class="static-data">Transfer Charges to Guest Ledger</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;">1 457 500</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;">44 544 500</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;">420 804 899</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Payment -->
+        <div class="section ">
+            <div class="section-title static-data">Payment</div>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Master card</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">220 000</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">6 435 501</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Orange Money</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">598 750</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">12 025 216</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Especes</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">5 863 000</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">63 043 500</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Virement Bancaire</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">5 200 000</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">MTN Mobile Money</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 500 000</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">15 500 000</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Visa Card</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 500 000</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Carte de crédit</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 000 000</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="dynamic-data">Total</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">8 181 750</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">104 704 217</span>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            </div>
+        </div>
+
+        <!-- City Ledger -->
+        <div class="section">
+            <div class="section-title static-data">City Ledger</div>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Opening Balance</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">561 270 021</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">528 919 771</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">299 803 895</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Payment Received</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">-1 582 050</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Charges Raised</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">32 350 250</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">263 048 176</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div class="dynamic-data">Outstanding Commission</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                    </div>
+                </div>
+                <div style="margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                    <div class="dynamic-data">Closing Balance</div>
+                    <div style="display: flex; gap: 40px; margin-right: 20px;">
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">561 270 021</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">561 270 021</span>
+                        <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">561 270 021</span>
+                    </div>
+                </div>
+                <div style="border-top: 2px solid #000; margin: 10px 0;"></div>
+
+                </tbody>
+            </table>
+              <div class="page-info" style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <span class="static-data" style="margin-right: 10px;"><strong style="margin-right: 50px;">Printed On:</strong> <span class="dynamic-data">21-08-2025 09:58:35</span></span>
+                <span class="static-data" style="margin-right: 60px;"><strong style="margin-right: 5px;">Printed By:</strong> <span class="dynamic-data">Emmanuel</span></span>
+                <span class="static-data"><strong style="margin-right: 5px;">Page:</strong> <span class="dynamic-data">1 of 4</span></span>
+            </div>
+        </div>
+
+        <!-- PAGE 2 -->
+        <div style="page-break-before: always; margin-top: 40px;">
+             <!-- En-tête -->
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="hotel-name static-data">TAMISARL (SUITA HOTEL)</div>
+                <div class="report-title static-data">Manager Report</div>
+            </div>
+            <div class="report-info">
+                <span class="static-data">As on Date</span>
+                <span class="dynamic-data">21-08-2025</span>
+                <span class="static-data">PTD</span>
+                <span class="dynamic-data">01-08-2025</span>
+                <span class="static-data">YTD</span>
+                <span class="dynamic-data">01-01-2025</span>
+                <span class="static-data">Currency</span>
+                <span class="dynamic-data">XAF</span>
+            </div>
+            <!-- <div class="page-info">
+                <span class="static-data">Page 1 of 4</span>
+                <span class="static-data">Printed By: </span><span class="dynamic-data">EMMANUEL</span>
+                <span class="static-data">Printed On: </span><span class="dynamic-data">21-08-2025 09:58:35</span>
+            </div> -->
+        </div>
+
+         <!-- Room Charges -->
+         <div class="section">
+            <div style="margin: 5px 0; padding-top: 0px; display: flex; justify-content: space-between;">
+                <div style="position: relative; width: 100%;">
+                    <div style="display: flex; align-items: flex-start; gap: 40px; margin-bottom: 25px;">
+                        <div>
+                            <div style="position: relative;">
+                                <strong>Particulars</strong>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 40px; font-weight: bold; margin-left: 360px;">
+                            <span>Today (XAF)</span>
+                            <span>PTD (XAF)</span>
+                            <span>YTD (XAF)</span>
+                        </div>
+                    </div>
+                    <div style="position: absolute; top: 20px; left: 0; width: 100%; height: 2px; background-color: #000;"></div>
+                    <div style="margin-top: 10px;">
+                        <strong>Advance Deposit Ledger</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- En-tête Page 2 -->
+            <!-- <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="hotel-name static-data">TAMI SARL (SUITA HOTEL)</div>
+                    <div class="page-info">
+                        <span class="static-data">Page 2 of 4</span>
+                    </div>
+                </div>
+                <div class="report-title static-data">Manager Report</div>
+                <div class="report-info">
+                    <span class="static-data">As on Date: </span><span class="dynamic-data">21-08-2025</span>
+                    <span class="static-data">PTD: </span><span class="dynamic-data">01-08-2025</span>
+                    <span class="static-data">YTD: </span><span class="dynamic-data">01-01-2025</span>
+                    <span class="static-data">Currency: </span><span class="dynamic-data">XAF</span>
+                </div>
+                <div class="print-info">
+                    <span class="static-data">Printed By: </span><span class="dynamic-data">EMMANUEL</span>
+                    <span class="static-data">Printed On: </span><span class="dynamic-data">21-08-2025 09:58:35</span>
+                </div>
+            </div> -->
+
+            <!-- Advance Deposit Ledger -->
+            <div class="section">
+                <!-- <div class="section-title static-data">Advance Deposit Ledger</div> -->
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Opening Balance</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">4 640 000</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Advance Deposit Collected</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Balance Transfer to Guest Ledger</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                        <div class="dynamic-data">Closing Balance</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">4 640 000</span>
+                        </div>
+                    </div>
+            
+                    <div class="section-title static-data">Guest Ledger</div>
+                    <div style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="dynamic-data">Opening Balance</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">13 653 230</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="dynamic-data">Settlement by Guest</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="dynamic-data">Transfer From Advance Deposit*</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">90 000</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="dynamic-data">Charge Posted to Guest Ledger</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 457 500</span>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                            <div class="dynamic-data">Closing Balance*</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">15 020 730</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin: 15px 0 10px 0;">
+                            <div class="dynamic-data">Carry Forwarded Advance Deposit</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">90 000</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="dynamic-data">Outstanding payment on charges</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">8 569 706</span>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+                    <!-- <div style="border-top: 1px dashed #000; margin: 10px 0;"></div> -->
+                </div>
+            </div>
+
+            <!-- Guest Ledger -->
+            <div class="section">
+                <div class="section-title static-data">Guest Ledger</div>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Opening Balance</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">13 653 230</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Settlement by Guest</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Transfer From Advance Deposit*</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">90 000</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Charge Posted to Guest Ledger</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 457 500</span>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px dashed #000; margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold;">
+                        <div class="dynamic-data">Closing Balance*</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px; font-weight: bold;" class="dynamic-data">15 020 730</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin: 15px 0 10px 0;">
+                        <div class="dynamic-data">Carry Forwarded Advance Deposit</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">90 000</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data">Outstanding payment on charges</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">8 569 706</span>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
+            </div>
+
+            <!-- Room Summary -->
+            <div class="section">
+                <div class="section-title static-data">Room Summary</div>
+                    
+                    <!-- Lignes de données -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Total Room</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">51</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1188</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1071</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Block Room</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">167</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">161</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">No of Guest (Adult/Child)</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">20/0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">499/23</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">433/0</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Total Available Room nights</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">40</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1120</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">891</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Sold Room</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">20</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">442</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">388</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Day Use Room</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">5</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Complimentary Room | Complimentary Day Use</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0 | 0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">38 | 0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0 | 0</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">No Show Rooms</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">2</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Average Guest Per Room</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1/0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1/0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1/0</span>
+                        </div>
+                    </div>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Statistics -->
+            <div class="section">
+                <div class="section-title static-data">Statistics</div>
+                <div style="width: 100%;">
+                    <!-- Lignes de données -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Occupancy Rate(%)</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">107</span>
+                            <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1594</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="dynamic-data" style="width: 40%;">Average Daily Rate(ADR)</div>
+                        <div style="display: flex; gap: 40px; margin-right: 20px; width: 60%; justify-content: flex-end;">
+                            <span style="text-align: right; display: inline-block; width: 80px; " class="dynamic-data">24 939</span>
+                            <span style="text-align: right; display: inline-block; width: 80px; " class="dynamic-data">23 093</span>
+                            <span style="text-align: right; display: inline-block; width: 80px; " class="dynamic-data">20 891</span>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px solid #000; margin: 10px 0; "></div>
+            </div>
+        </div>
+
+        <!-- PAGE 3 -->
+        <!-- <div style="page-break-before: always; margin-top: 40px;"> -->
+            <!-- En-tête Page 3 -->
+            <!-- <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="hotel-name static-data">TAMI SARL (SUITA HOTEL)</div>
+                    <div class="page-info">
+                        <span class="static-data">Page 3 of 4</span>
+                    </div>
+                </div>
+                <div class="report-title static-data">Manager Report</div>
+                <div class="report-info">
+                    <span class="static-data">As on Date: </span><span class="dynamic-data">21-08-2025</span>
+                    <span class="static-data">PTD: </span><span class="dynamic-data">01-08-2025</span>
+                    <span class="static-data">YTD: </span><span class="dynamic-data">01-01-2025</span>
+                    <span class="static-data">Currency: </span><span class="dynamic-data">XAF</span>
+                </div>
+                <div class="print-info">
+                    <span class="static-data">Printed By: </span><span class="dynamic-data">EMMANUEL</span>
+                    <span class="static-data">Printed On: </span><span class="dynamic-data">21-08-2025 09:58:35</span>
+                </div>
+            </div> -->
+
+            <!-- POS Summary -->
+            <div class="section" style="margin-left: 0; padding-left: 0;">
+                <div class="section-title static-data" style="margin-left: 0; padding-left: 0;">POS Summary</div>
+                <div style="border-top: 1px solid #000; margin: 10px 0 20px 0;"></div>
+                
+                <!-- Restaurant Chez Madeleine -->
+                <div class="sub-section" style="margin-left: 0; padding-left: 0;">
+                    <h4 class="static-data">Restaurant Chez Madeleine (XAF)</h4>
+                    <div style="width: 100%;">
+                        <!-- En-têtes -->
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
+                            <div style="width: 60%;" class="dynamic-data">Category</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">Today</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">PTD</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">YTD</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Lignes de données -->
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Boissons</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">55 765</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">350 524</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Grillades Bar/Snack Bar</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">3 354</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">60 797</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">MIDI EXPRESS</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">16 771</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">462 893</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Nourriture</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">461 216</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">7 761 950</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Petit-Déjeuner</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">355 136</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">1 409 224</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Service</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">2 096</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">27 254</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">309 434</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Tax - TVA</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">404</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">177 003</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">1 991 043</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Discount - PDJ B&B</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">-11 740</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Adjustment - Others</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">-2</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 10px 0; padding-top: 5px; display: flex; font-weight: bold; border-top: 1px dashed #000; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Total Revenue without Tax</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">2 096</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">919 496</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">10 343 080</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 10px; padding-top: 5px; display: flex; font-weight: bold; border-top: 1px solid #000; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Total Revenue with Tax</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">2 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">1 096 499</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">12 334 123</span>
+                            </div>
+                        </div>
+                </div>
+
+                <!-- BANQUET -->
+                <div class="sub-section" style="margin-left: 0; padding-left: 0;">
+                    <h4 class="static-data" >BANQUET (XAF)</h4>
+                    <div style="width: 100%; padding-left: 0; margin-left: 0;">
+                        <!-- En-têtes -->
+                        <div style="display: flex; margin-bottom: 15px; font-weight: bold; width: 100%;">
+                            <div style="width: 60%; padding-left: 0;" class="static-data">Category - Boissons</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="static-data">Today</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="static-data">PTD</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="static-data">YTD</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Lignes de données -->
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Category - Nourriture</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">540 880</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">1 796 872</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Category - Service</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">10 183 648</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">64 074 681</span>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px solid #000; margin: 10px 0; "></div>
+                        <div class="page-info" style="display: flex; justify-content: space-between; margin-top: 10px;">
+                            <span class="static-data" style="margin-right: 10px;"><strong style="margin-right: 50px;">Printed On:</strong> <span class="dynamic-data">21-08-2025 09:58:35</span></span>
+                            <span class="static-data" style="margin-right: 60px;"><strong style="margin-right: 5px;">Printed By:</strong> <span class="dynamic-data">Emmanuel</span></span>
+                            <span class="static-data"><strong style="margin-right: 5px;">Page:</strong> <span class="dynamic-data">1 of 4</span></span>
+                        </div>
+                        
+                        
+                        
+
+
+
+
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            
+                            <div class="static-data" style="width: 60%;">Service</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">16 771</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">746 331</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Tax - TVA</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">2 067 700</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">12 823 943</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold; border-top: 1px dashed #000;">
+                            <div class="static-data" style="width: 60%;">Total Revenue without Tax</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">10 741 299</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">66 617 884</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 10px; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #000;">
+                            <div class="static-data" style="width: 60%;">Total Revenue with Tax</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">12 808 999</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">79 441 827</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TERRACINA -->
+                <div class="sub-section">
+                    <h4 class="static-data" style="background-color: #ddd; padding: 3px; margin-top: 20px;">TERRACINA (XAF)</h4>
+                    <div style="width: 100%;">
+                        <!-- En-têtes -->
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
+                            <div style="width: 60%;" class="static-data">Category</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="static-data">Today</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="static-data">PTD</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="static-data">YTD</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Lignes de données -->
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Autres</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">3 354</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">40 252</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Boissons</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 258</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">541 300</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">7 364 654</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Grillades Bar/Snack Bar</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">93 501</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Nourriture</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">5 031</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Service</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">39 413</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <div class="static-data" style="width: 60%;">Tax - TVA</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">242</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">104 846</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 451 999</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 10px 0; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold; border-top: 1px dashed #000;">
+                            <div class="static-data" style="width: 60%;">Total Revenue without Tax</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 258</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">544 654</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">7 542 851</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px; padding-top: 5px; display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #000;">
+                            <div class="static-data" style="width: 60%;">Total Revenue with Tax</div>
+                            <div style="display: flex; gap: 40px; margin-right: 20px; width: 40%; justify-content: flex-end;">
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">1 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">649 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px;" class="dynamic-data">8 994 850</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Outlet's Total -->
+                <div class="section" style="margin-top: 20px;">
+                    <div style="width: 100%;">
+                        <!-- Ligne de séparation -->
+                        <div style="margin: 10px 0; border-top: 1px solid #000;"></div>
+                        
+                        <!-- Total All Outlet -->
+                        <div style="margin: 10px 0; display: flex; font-weight: bold; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">All Outlet's Total Revenue without Tax</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">3 354</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">12 205 449</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">84 502 815</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 20px 0; display: flex; font-weight: bold; border-top: 2px solid #000; padding-top: 5px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">All Outlet's Total Revenue with Tax</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">4 000</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">14 554 998</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">100 770 800</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 4 -->
+        <div style="page-break-before: always; margin-top: 40px;">
+           
+            </div>
+
+            <!-- POS Payment Summary -->
+            <div class="section">
+                <div class="section-title static-data">POS Payment Summary</div>
+                
+                <!-- Restaurant Chez Madeleine Payment -->
+                <div class="sub-section" style="margin-left: 0; padding-left: 0;">
+                    <h4 class="static-data" ">Restaurant Chez Madeleine (XAF)</h4>
+                    <div style="width: 100%;">
+                        
+                        
+                        <!-- Lignes de données -->
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Espèce</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">298 000</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">7 111 257</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - KAMTA CEDRIC</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">30 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">399 500</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Mobile Money</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">2 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">62 500</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Orange Money</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">1 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">53 000</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Room Posting</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">2 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">754 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">4 504 366</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Visa Master</div>
+                            <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">9 500</span>
+                                <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">203 500</span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 20px 0; display: flex; font-weight: bold; border-top: 1px solid #000; padding-top: 5px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Total</div>
+                                <td class="numeric dynamic-data">2 500</td>
+                                <td class="numeric dynamic-data">1 096 500</td>
+                                <td class="numeric dynamic-data">12 334 123</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+               
+                <div class="sub-section" style="margin-left: 0; padding-left: 0;">
+                    <h4 class="static-data" >BANQUET (XAF)</h4>
+                    <div style="width: 100%;">
+                       
+                        
+                        <!-- Lignes de données -->
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                                <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Mobile Money</div>
+                                <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                    <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                    <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">2 500</span>
+                                    <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">62 500</span>
+                                </div>
+                            </div>
+                        </div>
+                       
+                        </div>
+                        
+                        <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                            <div style="display: flex; margin-bottom: 10px; width: 100%;">
+                                <div class="dynamic-data" style="width: 60%; padding-left: 0;">Payment - Mobile Money</div>
+                                <div style="display: flex; width: 40%; justify-content: flex-end; padding-right: 20px;">
+                                    <span style="text-align: right; display: inline-block; width: 80px; margin-left: 0;" class="dynamic-data">0</span>
+                                    <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">2 500</span>
+                                    <span style="text-align: right; display: inline-block; width: 80px; margin-left: 40px;" class="dynamic-data">62 500</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 20px 0; display: flex; font-weight: bold; border-top: 1px solid #000; padding-top: 5px; width: 100%;">
+                            <div class="static-data" style="width: 60%; padding-left: 0;">Total</div>
+                                <td class="numeric dynamic-data">2 500</td>
+                                <td class="numeric dynamic-data">1 096 500</td>
+                                <td class="numeric dynamic-data">12 334 123</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+               

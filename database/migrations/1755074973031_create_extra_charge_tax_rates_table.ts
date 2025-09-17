@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'extra_charge_tax_rates'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.integer('extra_charge_id').unsigned().references('id').inTable('extra_charges').onDelete('CASCADE')
       table.integer('tax_rate_id').unsigned().references('tax_rate_id').inTable('tax_rates').onDelete('CASCADE')
@@ -19,6 +23,7 @@ export default class extends BaseSchema {
       table.index(['extra_charge_id'])
       table.index(['tax_rate_id'])
     })
+    }
   }
 
   async down() {

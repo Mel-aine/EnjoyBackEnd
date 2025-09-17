@@ -11,6 +11,10 @@
                 "name": "Access to change Language"
             },
             {
+                "id": "access_to_channel_manager",
+                "name": "Access to Channel Manager"
+            },
+            {
                 "id": "define_rates",
                 "name": "Define Rates"
             },
@@ -63,6 +67,10 @@
                 "name": "Device & User Activity"
             },
             {
+                "id": "access_to_reports",
+                "name": "Access to Repots"
+            },
+            {
                 "id": "access_to_export_functionality_in_centralized_guest_profile",
                 "name": "Access to Export Functionality in Centralized Guest Profile"
             }
@@ -71,6 +79,10 @@
     {
         "category": "Cashiering",
         "items": [
+            {
+                "id": "access_to_cashiering_panel",
+                "name": "Access to Cashiering Panel"
+            },
             {
                 "id": "open_folio",
                 "name": "Open Folio"
@@ -142,10 +154,22 @@
             {
                 "id": "remove_discount",
                 "name": "Remove discount"
+            },
+            {
+                "id": "access_to_company_database",
+                "name": "Access to Company Database"
+            },
+            {
+                "id": "access_to_pos",
+                "name": "Access to POS"
+            },
+            {
+                "id": "access_to_exchange_rate",
+                "name": "Access to Exchange Rate"
             }
         ]
     },
-    {
+    {   
         "category": "House Keeping",
         "items": [
             {
@@ -231,6 +255,10 @@
                 "name": "Check in Guest"
             },
             {
+                "id": "check_out_guest",
+                "name": "Check out Guest"
+            },
+            {
                 "id": "walk_in_guest",
                 "name": "Walk In Guest"
             },
@@ -261,6 +289,10 @@
             {
                 "id": "access_to_void_inclusion",
                 "name": "Access to void Inclusion"
+            },
+            {
+                "id": "access_to_stay_view",
+                "name": "Access to Stay View"
             },
             {
                 "id": "change_guest_profile",
@@ -330,6 +362,7 @@
                 "id": "consolidate_travel_agent",
                 "name": "Consolidate travel agent"
             },
+            
             {
                 "id": "add_company",
                 "name": "Add Company"
@@ -381,6 +414,18 @@
             {
                 "id": "access_to_guest_database",
                 "name": "Access to Guest Database"
+            },
+            {
+                "id": "access_to_dashboard_view",
+                "name": "Access to Dashboard View"
+            },
+            {
+                "id": "access_to_room_view",
+                "name": "Access to Room View"
+            },
+            {
+                "id": "access_to_unsettled_folios",
+                "name": "Access to Unsettled Folios"
             },
             {
                 "id": "exit_transaction_after_check_in",

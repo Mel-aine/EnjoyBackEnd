@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'departments'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.string('name').notNullable()
       table.string('description').nullable()
@@ -20,6 +24,7 @@ export default class extends BaseSchema {
       table.timestamp('updated_at', { useTz: true }).defaultTo(this.now())
 
     })
+    }
   }
 
   async down() {

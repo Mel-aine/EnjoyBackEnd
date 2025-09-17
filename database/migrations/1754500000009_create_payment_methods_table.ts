@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'payment_methods'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.string('method_name', 100).notNullable()
       table.string('method_code', 20).unique().notNullable()
@@ -64,6 +68,7 @@ export default class extends BaseSchema {
       // Note: extra_charge_id foreign key would reference extra_charges table when it exists
       // table.foreign('extra_charge_id').references('id').inTable('extra_charges').onDelete('SET NULL')
     })
+    }
   }
 
   async down() {

@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'booking_sources'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.string('source_name', 100).notNullable()
       table.string('source_code', 20).unique().notNullable()
@@ -41,6 +45,7 @@ export default class extends BaseSchema {
       table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL')
       table.foreign('last_modified_by').references('id').inTable('users').onDelete('SET NULL')
     })
+    }
   }
 
   async down() {

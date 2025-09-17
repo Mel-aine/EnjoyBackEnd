@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'email_accounts'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.integer('hotel_id').unsigned().references('id').inTable('hotels').onDelete('CASCADE')
       table.string('title').notNullable()
@@ -17,6 +21,7 @@ export default class extends BaseSchema {
       table.timestamp('created_at')
       table.timestamp('updated_at')
     })
+    }
   }
 
   async down() {

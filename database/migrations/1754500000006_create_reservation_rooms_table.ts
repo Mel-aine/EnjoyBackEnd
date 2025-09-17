@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'reservation_rooms'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.integer('reservation_id').unsigned().notNullable()
       table.integer('room_id').unsigned().nullable() // NULL until room is assigned
@@ -64,6 +68,7 @@ export default class extends BaseSchema {
       table.index(['check_in_date', 'check_out_date'])
       table.index(['status'])
     })
+    }
   }
 
   async down() {

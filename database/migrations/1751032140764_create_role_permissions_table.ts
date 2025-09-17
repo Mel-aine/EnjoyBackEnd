@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'role_permissions'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table
         .integer('role_id')
@@ -30,6 +34,7 @@ export default class extends BaseSchema {
       table.unique(['role_id', 'permission_id']) // éviter les doublons
 
     })
+    }
   }
 
   async down() {

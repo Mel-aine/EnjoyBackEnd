@@ -4,7 +4,11 @@ export default class extends BaseSchema {
   protected tableName = 'guests'
 
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    // Check if table exists first
+    const hasTable = await this.schema.hasTable(this.tableName)
+    
+    if (!hasTable) {
+      this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.string('guest_code', 50).unique().notNullable()
       table.enum('title', ['Mr', 'Mrs', 'Ms', 'Dr', 'Prof','Miss']).nullable()
@@ -63,6 +67,7 @@ export default class extends BaseSchema {
       table.index(['passport_number'])
       table.index(['national_id'])
     })
+    }
   }
 
   async down() {
