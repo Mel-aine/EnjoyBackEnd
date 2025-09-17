@@ -1405,7 +1405,6 @@ router
         // Delete night audit record
         router.delete('/:hotelId/:auditDate', nightAuditController.deleteNightAudit.bind(nightAuditController)) // Delete night audit record
       })
-      .prefix('night-audit')
 
     // Channex Integration Routes
     // Hotel data migration to Channex.io system
@@ -1444,8 +1443,9 @@ router
   .use(
     middleware.auth({
       guards: ['api'],
-    })
+    }) 
   )
 
 // Import reports routes
 import './routes/reports.js'
+

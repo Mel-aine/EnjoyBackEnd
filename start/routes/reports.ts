@@ -44,8 +44,19 @@ router.group(() => {
     router.post('/cancelled', [ReportsController, 'generate']).where('reportType', 'cancelledReservations')
     router.post('/no-show', [ReportsController, 'generate']).where('reportType', 'noShowReservations')
     router.post('/forecast', [ReportsController, 'generate']).where('reportType', 'reservationForecast')
+    router.post('/void', [ReportsController, 'generate']).where('reportType', 'voidReservations')
   }).prefix('/reservations')
-  
+
+    // Reservation export
+  router.group(() => {
+    router.post('/arrival-list', [ReportsController, 'export']).where('reportType', 'arrivalList')
+    router.post('/departure-list', [ReportsController, 'export']).where('reportType', 'departureList')
+    router.post('/confirmed', [ReportsController, 'export']).where('reportType', 'confirmedReservations')
+    router.post('/cancelled', [ReportsController, 'export']).where('reportType', 'cancelledReservations')
+    router.post('/no-show', [ReportsController, 'export']).where('reportType', 'noShowReservations')
+    router.post('/forecast', [ReportsController, 'generate']).where('reportType', 'reservationForecast')
+    router.post('/void', [ReportsController, 'export']).where('reportType', 'voidReservations')
+  }).prefix('/exports')
   // Front Office Reports
   router.group(() => {
     router.post('/checked-in', [ReportsController, 'generate']).where('reportType', 'guestCheckedIn')

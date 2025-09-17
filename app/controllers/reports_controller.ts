@@ -6,6 +6,7 @@ import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import { ReservationStatus, TransactionCategory } from '#app/enums'
 import PaymentMethod from '#models/payment_method'
+import PdfService from '#services/pdf_service'
 
 export default class ReportsController {
   /**
@@ -76,7 +77,9 @@ export default class ReportsController {
         case 'reservationForecast':
           reportData = await ReportsService.getReservationForecast(reportFilters)
           break
-
+        case 'voidReservations':
+          reportData = await ReportsService.getVoidReservations(reportFilters)
+          break
         // Front Office Reports
         case 'guestCheckedIn':
           reportData = await ReportsService.getGuestCheckedIn(reportFilters)
@@ -183,7 +186,7 @@ export default class ReportsController {
       }
 
       // Get report data using the same logic as generate method
-      let reportData
+      let reportData: HtmlReport
       switch (reportType) {
         case 'arrivalList':
           reportData = await ReportsService.getArrivalList(reportFilters)
@@ -245,6 +248,9 @@ export default class ReportsController {
         case 'sourceOfBusinessReport':
           reportData = await ReportsService.getSourceOfBusinessReport(reportFilters)
           break
+        case 'voidReservations':
+          reportData = await ReportsService.getVoidReservations(reportFilters)
+          break
         default:
           return response.badRequest({
             success: false,
@@ -278,6 +284,34 @@ export default class ReportsController {
     }
   }
 
+/**
+ * Export report to PDF format
+ */
+  private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
+    try {
+      // Générer le PDF à partir du HTML du rapport
+      const pdfBuffer = await PdfService.generatePdfFromHtml(reportData.html, {
+        format: 'A4',
+        orientation: 'landscape',
+        margin: {
+          top: '1cm',
+          right: '1cm',
+          bottom: '1cm',
+          left: '1cm'
+        }
+      })
+
+      // Définir les en-têtes de réponse pour le téléchargement du PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${filename}"`)
+      response.header('Content-Length', pdfBuffer.length.toString())
+
+      // Envoyer le buffer PDF en réponse
+      return response.send(pdfBuffer)
+    } catch (error) {
+      throw new Error(`Erreur lors de la génération du PDF: ${error.message}`)
+    }
+  }
   /**
    * Generate custom report
    */
@@ -432,7 +466,7 @@ export default class ReportsController {
   /**
    * Export to PDF format (basic implementation)
    */
-  private exportToPDF(response: any, reportData: any, filename: string) {
+/*   private exportToPDF(response: any, reportData: any, filename: string) {
     try {
       // For now, return JSON with PDF export instructions
       // In a real implementation, you would use a PDF library like puppeteer or jsPDF
@@ -454,7 +488,7 @@ export default class ReportsController {
         error: error.message
       })
     }
-  }
+  } */
 
   /**
    * Export to Excel format (basic implementation)

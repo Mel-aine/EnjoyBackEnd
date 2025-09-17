@@ -1411,7 +1411,7 @@ static async generateSuitaHotelPdf(
   /**
    * Convert number to words (simplified implementation)
    */
-  private static numberToWords(amount: number): string {
+  private static numberToWords(amount: number): string {  
     if (amount === 0) return 'Zero'
     
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
