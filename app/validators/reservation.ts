@@ -33,6 +33,7 @@ export const createReservationValidator = vine.compile(
     number_of_rooms: vine.number().min(1).max(50),
     room_preference: vine.string().optional(),
     bed_type_preference: vine.string().optional(),
+    payment_method: vine.string().optional(),
     floor_preference: vine.string().optional(),
     view_preference: vine.string().optional(),
 
@@ -234,6 +235,7 @@ export const updateReservationValidator = vine.compile(
     number_of_children: vine.number().min(0).max(20).optional(),
     number_of_infants: vine.number().min(0).max(20).optional(),
     total_guests: vine.number().min(1).max(60).optional(),
+     payment_method: vine.string().optional(),
 
     // Room Details
     room_type_id: vine.number().positive().optional(),

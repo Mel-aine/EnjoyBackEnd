@@ -350,6 +350,9 @@ export default class Reservation extends BaseModel {
   declare specialOfferCode: string
 
   @column()
+  declare payment_method: number
+
+  @column()
   declare communicationPreferences: object
 
   @column()

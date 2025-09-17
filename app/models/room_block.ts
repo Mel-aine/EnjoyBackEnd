@@ -17,7 +17,7 @@ export default class RoomBlock extends BaseModel {
   declare roomTypeId: number
 
   @column()
-  declare status: 'available' | 'occupied' | 'out_of_order' | 'maintenance' | 'blocked' | 'dirty'
+  declare status: 'pending' | 'inProgress' | 'completed'
 
   @column()
   declare hotelId: number
@@ -30,6 +30,9 @@ export default class RoomBlock extends BaseModel {
 
   @column()
   declare reason: string | null
+
+  @column()
+  declare description: string | null
 
   @column()
   declare blockedByUserId: number
