@@ -18,6 +18,7 @@ import IdentityType from '#models/identity_type'
 import PaymentMethod from '#models/payment_method'
 import fs from 'fs/promises'
 import path from 'path'
+import Discount from '../models/discount.js'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -925,7 +926,7 @@ export default class HotelsController {
       return response.status(500).json({
         success: false,
         message: 'Internal server error',
-        error:error
+        error: error
       })
     }
   }
@@ -1037,15 +1038,15 @@ export default class HotelsController {
     await IdentityType.query().where('hotelId', hotelId).delete()
 
     const defaultIdentityTypes = [
-        {
-          name: 'Passport',
-          shortCode: 'PASS'
-        },
-        {
-          name: 'National ID Card',
-          shortCode: 'NAT_ID'
-        }
-      ]
+      {
+        name: 'Passport',
+        shortCode: 'PASS'
+      },
+      {
+        name: 'National ID Card',
+        shortCode: 'NAT_ID'
+      }
+    ]
 
     for (const identityType of defaultIdentityTypes) {
       await IdentityType.create({
@@ -1129,11 +1130,26 @@ export default class HotelsController {
   }) {
     // Check if user already exists
     const existingUser = await this.userService.findByEmail(adminData.email)
-    
+
     let user
     if (existingUser) {
       user = existingUser
     } else {
+      // Read and parse the contents of the JSON files
+      const privilegesFilePath = path.join(__dirname, '../../data/1-priviledger.json')
+      const reportsFilePath = path.join(__dirname, '../../data/1-reservation-reports.json')
+
+      const privilegesData = JSON.parse(await fs.readFile(privilegesFilePath, 'utf-8'))
+      const reportsData = JSON.parse(await fs.readFile(reportsFilePath, 'utf-8'))
+
+      // Extract IDs from the JSON files
+      const permisPrivileges = privilegesData.map((item: any) => item.id)
+      const permisReports = reportsData.map((item: any) => item.id)
+
+      // Query all discounts and extract their IDs
+      const discounts = await Discount.query().where('hotel_id', hotelId)
+      const permisDiscounts = discounts.map((discount) => discount.id)
+
       // Create new administrator user
       user = await this.userService.create({
         firstName: adminData.firstName,
@@ -1145,9 +1161,11 @@ export default class HotelsController {
         status: 'active',
         createdBy: null,
         lastModifiedBy: null,
+        permisPrivileges: JSON.stringify(permisPrivileges),
+        permisReports: JSON.stringify(permisReports),
+        permisDiscounts: JSON.stringify(permisDiscounts),
       })
     }
-
     // Find or create admin role
     let adminRole = await Role.findBy('roleName', 'admin')
     if (!adminRole) {
@@ -1173,52 +1191,7 @@ export default class HotelsController {
       })
     }
 
-    // Load permissions from JSON files and assign to admin
-    await this.loadPermissionsFromJsonFiles()
-
     return user
   }
-
-  /**
-   * Load permissions from JSON files in the data directory
-   */
-  private async loadPermissionsFromJsonFiles() {
-    try {
-      const dataDir = path.join(process.cwd(), 'data')
-      const files = await fs.readdir(dataDir)
-      const jsonFiles = files.filter(file => file.endsWith('.json'))
-
-      for (const file of jsonFiles) {
-        const filePath = path.join(dataDir, file)
-        const fileContent = await fs.readFile(filePath, 'utf-8')
-        const permissionData = JSON.parse(fileContent)
-
-        // Process each category in the JSON file
-        for (const [categoryName, permissions] of Object.entries(permissionData)) {
-          if (Array.isArray(permissions)) {
-            for (const permission of permissions) {
-              // Check if permission already exists
-              const existingPermission = await Permission.findBy('name', permission.id)
-              
-              if (!existingPermission) {
-                await Permission.create({
-                  name: permission.id,
-                  label: permission.name,
-                  description: `${categoryName} - ${permission.name}`,
-                })
-              }
-            }
-          }
-        }
-      }
-
-      logger.info('Successfully loaded permissions from JSON files')
-    } catch (error) {
-      logger.error('Failed to load permissions from JSON files', {
-        error: error.message
-      })
-    }
-  }
-
 
 }

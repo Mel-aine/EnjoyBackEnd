@@ -132,83 +132,8 @@ router.group(() => {
   // Daily Receipt Reports
   router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
   router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
-}).prefix('/custom')
+}).prefix('/statistics')
   
 }).prefix('/api/reports').use(middleware.auth())
 // Temporarily disabled auth for testing
 // .use(middleware.auth())
-
-// Public routes (no authentication required)
-router.group(() => {
-  // Health check for reports service
-  router.get('/health', ({ response }) => {
-    return response.ok({
-      success: true,
-      message: 'Reports service is running',
-      timestamp: new Date().toISOString()
-    })
-  })
-  
-  // Test endpoint for debugging roomCharges
-  router.get('/test-roomcharges', async ({ request, response }) => {
-    const ReportsController = (await import('#controllers/reports_controller')).default
-    const controller = new ReportsController()
-    
-    try {
-      const hotelId = parseInt(request.input('hotelId', '1'))
-      const asOnDate = request.input('asOnDate', '2024-01-15')
-      const { DateTime } = await import('luxon')
-      const reportDate = DateTime.fromISO(asOnDate)
-      const ptdStartDate = reportDate.startOf('month')
-      const ytdStartDate = reportDate.startOf('year')
-      const currency = 'USD'
-      
-      const roomCharges = await controller['getManagementRoomChargesData'](hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
-      
-      return response.ok({
-        success: true,
-        roomCharges,
-        message: 'Room charges data retrieved successfully'
-      })
-    } catch (error) {
-      return response.status(500).json({
-        success: false,
-        error: error.message,
-        stack: error.stack
-      })
-    }
-  })
-  
-  // Test template rendering
-  router.get('/test-template', async ({ request, response, view }) => {
-    const ReportsController = (await import('#controllers/reports_controller')).default
-    const controller = new ReportsController()
-    
-    try {
-      const hotelId = parseInt(request.input('hotelId', '1'))
-      const asOnDate = request.input('asOnDate', '2024-01-15')
-      const { DateTime } = await import('luxon')
-      const reportDate = DateTime.fromISO(asOnDate)
-      const ptdStartDate = reportDate.startOf('month')
-      const ytdStartDate = reportDate.startOf('year')
-      const currency = 'USD'
-      
-      const roomCharges = await controller['getManagementRoomChargesData'](hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
-      
-      const templateData = {
-        data: {
-          roomCharges
-        }
-      }
-      
-      const html = await view.render('test_template', templateData)
-      return response.type('text/html').send(html)
-    } catch (error) {
-      return response.status(500).json({
-        success: false,
-        error: error.message,
-        stack: error.stack
-      })
-    }
-  })
-}).prefix('/api/reports')

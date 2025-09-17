@@ -2,11 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import Receipt from '#models/receipt'
 import Hotel from '#models/hotel'
-import User from '#models/user'
-import PaymentMethod from '#models/payment_method'
-import Currency from '#models/currency'
 import { createDailyReceiptReportValidator } from '#validators/daily_receipt_report'
-import LoggerService from '#services/logger_service'
 
 export default class DailyReceiptReportsController {
   /**
@@ -27,9 +23,8 @@ export default class DailyReceiptReportsController {
 
       // Build query for receipts
       let query = Receipt.query()
-        .preload('createdByUser')
+        .preload('creator')
         .preload('paymentMethod')
-        .preload('currency')
         .preload('hotel')
         .where('hotelId', hotelId)
         .where('paymentDate', '>=', startDateTime.toSQLDate())
@@ -37,10 +32,6 @@ export default class DailyReceiptReportsController {
 
       if (receiptByUserId) {
         query = query.where('createdBy', receiptByUserId)
-      }
-
-      if (currencyId) {
-        query = query.where('currencyId', currencyId)
       }
 
       if (paymentMethodId) {
@@ -58,12 +49,10 @@ export default class DailyReceiptReportsController {
       let grandVoidAmount = 0
 
       receipts.forEach(receipt => {
-        const userId = receipt.createdBy
-        const userName = receipt.createdByUser ? 
-          `${receipt.createdByUser.firstName} ${receipt.createdByUser.lastName}` : 
-          'Unknown User'
+        const userId = receipt.creator?.id
+        const userName = `${receipt.creator?.fullName}`
         const paymentMethodId = receipt.paymentMethodId
-        const paymentMethodName = receipt.paymentMethod?.methodName || 'Unknown Method'
+        const paymentMethodName = receipt.paymentMethod?.methodName
         const amount = receipt.totalAmount
         const isVoided = receipt.isVoided
 
@@ -193,22 +182,6 @@ export default class DailyReceiptReportsController {
         }
       }
 
-      // Log the report generation
-      await LoggerService.log({
-        level: 'info',
-        message: 'Daily receipt summary report generated',
-        data: {
-          hotelId,
-          fromDate,
-          toDate,
-          receiptByUserId,
-          currencyId,
-          paymentMethodId,
-          totalReceipts: receipts.length,
-          generatedBy: auth.user?.id
-        }
-      })
-
       return response.ok({
         success: true,
         message: 'Daily receipt summary report generated successfully',
@@ -219,16 +192,7 @@ export default class DailyReceiptReportsController {
       })
 
     } catch (error) {
-      await LoggerService.log({
-        level: 'error',
-        message: 'Failed to generate daily receipt summary report',
-        data: {
-          error: error.message,
-          stack: error.stack,
-          userId: auth.user?.id
-        }
-      })
-
+    
       return response.badRequest({
         success: false,
         message: 'Failed to generate daily receipt summary report',
@@ -255,9 +219,8 @@ export default class DailyReceiptReportsController {
 
       // Build query for receipts
       let query = Receipt.query()
-        .preload('createdByUser')
+        .preload('creator')
         .preload('paymentMethod')
-        .preload('currency')
         .preload('hotel')
         .preload('tenant') // Guest
         .where('hotelId', hotelId)
@@ -268,10 +231,6 @@ export default class DailyReceiptReportsController {
         query = query.where('createdBy', receiptByUserId)
       }
 
-      if (currencyId) {
-        query = query.where('currencyId', currencyId)
-      }
-
       if (paymentMethodId) {
         query = query.where('paymentMethodId', paymentMethodId)
       }
@@ -280,20 +239,16 @@ export default class DailyReceiptReportsController {
 
       // Process receipt details
       const receiptList = receipts.map(receipt => ({
-        date: DateTime.fromJSDate(receipt.paymentDate).toFormat('yyyy-MM-dd HH:mm:ss'),
+        date: receipt.paymentDate.toFormat('yyyy-MM-dd HH:mm:ss'),
         receiptNumber: receipt.receiptNumber,
         summary: receipt.description,
         amount: receipt.totalAmount,
-        user: receipt.createdByUser ? 
-          `${receipt.createdByUser.firstName} ${receipt.createdByUser.lastName}` : 
-          'Unknown User',
-        enteredOn: DateTime.fromJSDate(receipt.createdAt).toFormat('yyyy-MM-dd HH:mm:ss'),
-        paymentMethod: receipt.paymentMethod?.methodName || 'Unknown Method',
+        user: receipt.creator.fullName,
+        enteredOn: receipt.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
+        paymentMethod: receipt.paymentMethod?.methodName,
         isVoided: receipt.isVoided,
-        currency: receipt.currency?.currencyCode || 'XAF',
-        guest: receipt.tenant ? 
-          `${receipt.tenant.firstName} ${receipt.tenant.lastName}` : 
-          'Unknown Guest'
+        currency: receipt.currency,
+        guest: receipt.tenant.displayName
       }))
 
       // Calculate totals by payment method
@@ -324,8 +279,6 @@ export default class DailyReceiptReportsController {
           hotelId: hotel.id,
           hotelName: hotel.hotelName,
           address: hotel.address,
-          contactPerson: hotel.contactPerson,
-          phone: hotel.phone,
           email: hotel.email
         },
         dateRange: {
@@ -337,21 +290,6 @@ export default class DailyReceiptReportsController {
         grandTotalAmount
       }
 
-      // Log the report generation
-      await LoggerService.log({
-        level: 'info',
-        message: 'Daily receipt detail report generated',
-        data: {
-          hotelId,
-          fromDate,
-          toDate,
-          receiptByUserId,
-          currencyId,
-          paymentMethodId,
-          totalReceipts: receipts.length,
-          generatedBy: auth.user?.id
-        }
-      })
 
       return response.ok({
         success: true,
@@ -363,15 +301,6 @@ export default class DailyReceiptReportsController {
       })
 
     } catch (error) {
-      await LoggerService.log({
-        level: 'error',
-        message: 'Failed to generate daily receipt detail report',
-        data: {
-          error: error.message,
-          stack: error.stack,
-          userId: auth.user?.id
-        }
-      })
 
       return response.badRequest({
         success: false,

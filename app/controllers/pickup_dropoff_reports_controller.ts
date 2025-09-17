@@ -1,11 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
-import Reservation from '#models/reservation'
-import Hotel from '#models/hotel'
-import Guest from '#models/guest'
-import Room from '#models/room'
 import { createPickupDropoffReportValidator } from '#validators/pickup_dropoff_report'
-import LoggerService from '#services/logger_service'
+import PickupsDropoffsLog from '../models/pickups_dropoffs_log.js'
 
 export default class PickupDropoffReportsController {
   /**
@@ -22,65 +18,62 @@ export default class PickupDropoffReportsController {
       const endDateTime = DateTime.fromISO(endDate)
 
       // Build query based on type
-      let query = Reservation.query()
+      let query = PickupsDropoffsLog.query()
         .preload('guest')
         .preload('hotel')
-        .preload('room')
-        .preload('roomType')
-        .where('arrivalDate', '>=', startDateTime.toSQLDate())
-        .where('departureDate', '<=', endDateTime.toSQLDate())
+        .preload('transportationMode')
+        .preload('reservation',(reserQuery)=>{
+          reserQuery.preload('reservationRooms',(resQuery)=>{
+            resQuery.preload('room')
+          })
+        })
+        .where('scheduledDateTime', '>=', startDateTime.toSQLDate())
+        .where('scheduledDateTime', '<=', endDateTime.toSQLDate())
+        
 
       if (hotelId) {
         query = query.where('hotelId', hotelId)
       }
 
       // Filter by pickup/dropoff requirements
-      if (type === 'Pickup') {
-        query = query.whereNotNull('pickupRequired').where('pickupRequired', true)
-      } else if (type === 'Dropoff') {
-        query = query.whereNotNull('dropoffRequired').where('dropoffRequired', true)
-      } else if (type === 'Both') {
-        query = query.where((subQuery) => {
-          subQuery
-            .where('pickupRequired', true)
-            .orWhere('dropoffRequired', true)
-        })
-      }
+      if (type) {
+        query = query.where('serviceType',type)
+      } 
 
-      const reservations = await query.orderBy('arrivalDate', 'asc')
+      const pickdata = await query.orderBy('arrivalDate', 'asc')
 
       // Process data for pickup
-      const pickupData = reservations
-        .filter(res => res.pickupRequired && (type === 'Pickup' || type === 'Both'))
+      const pickupData = pickdata
+        .filter(res => res.serviceType === 'Pickup')
         .map(reservation => ({
           hotelName: reservation.hotel.hotelName,
           startDate: startDateTime.toFormat('yyyy-MM-dd'),
           endDate: endDateTime.toFormat('yyyy-MM-dd'),
-          pickDropDateTime: reservation.pickupDateTime ? 
-            DateTime.fromJSDate(reservation.pickupDateTime).toFormat('yyyy-MM-dd HH:mm:ss') : 
-            reservation.arrivalDate,
-          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
-          roomNo: reservation.room?.roomNumber || 'N/A',
-          mode: reservation.pickupMode || 'Standard',
-          vehicle: reservation.pickupVehicle || 'N/A',
-          description: reservation.pickupNotes || 'Pickup service'
+          pickDropDateTime: reservation.scheduledDateTime ? 
+            reservation.scheduledDateTime.toFormat('yyyy-MM-dd HH:mm:ss') : 
+            reservation.actualDateTime?.toFormat('yyyy-MM-dd HH:mm:ss'),
+          guestName: `${reservation.guest.fullName}`,
+          roomNo: reservation.reservation?.reservationRooms[0]?.room?.roomNumber,
+          mode: reservation.transportationMode.name || 'Standard',
+          vehicle: reservation.externalVehicleMatriculation || '',
+          description: reservation.pickupPoint
         }))
 
       // Process data for dropoff
-      const dropoffData = reservations
-        .filter(res => res.dropoffRequired && (type === 'Dropoff' || type === 'Both'))
+      const dropoffData = pickdata
+        .filter(res => res.serviceType === 'Dropoff')
         .map(reservation => ({
           hotelName: reservation.hotel.hotelName,
           startDate: startDateTime.toFormat('yyyy-MM-dd'),
           endDate: endDateTime.toFormat('yyyy-MM-dd'),
-          pickDropDateTime: reservation.dropoffDateTime ? 
-            DateTime.fromJSDate(reservation.dropoffDateTime).toFormat('yyyy-MM-dd HH:mm:ss') : 
-            reservation.departureDate,
-          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
-          roomNo: reservation.room?.roomNumber || 'N/A',
-          mode: reservation.dropoffMode || 'Standard',
-          vehicle: reservation.dropoffVehicle || 'N/A',
-          description: reservation.dropoffNotes || 'Dropoff service'
+          pickDropDateTime: reservation.scheduledDateTime ? 
+            reservation.scheduledDateTime.toFormat('yyyy-MM-dd HH:mm:ss') : 
+            reservation.actualDateTime?.toFormat('yyyy-MM-dd HH:mm:ss'),
+          guestName: `${reservation.guest.displayName}`,
+          roomNo: reservation.reservation?.reservationRooms[0]?.room?.roomNumber || 'N/A',
+          mode: reservation.transportationMode.name,
+          vehicle: reservation.externalVehicleMatriculation,
+          description: reservation.dropoffPoint
         }))
 
       // Prepare response based on type
@@ -100,20 +93,6 @@ export default class PickupDropoffReportsController {
         }
       }
 
-      // Log the report generation
-      await LoggerService.log({
-        level: 'info',
-        message: 'Pickup/Dropoff guest report generated',
-        data: {
-          type,
-          startDate,
-          endDate,
-          hotelId,
-          pickupCount: pickupData.length,
-          dropoffCount: dropoffData.length,
-          generatedBy: auth.user?.id
-        }
-      })
 
       return response.ok({
         success: true,
@@ -130,16 +109,6 @@ export default class PickupDropoffReportsController {
       })
 
     } catch (error) {
-      await LoggerService.log({
-        level: 'error',
-        message: 'Failed to generate pickup/dropoff guest report',
-        data: {
-          error: error.message,
-          stack: error.stack,
-          userId: auth.user?.id
-        }
-      })
-
       return response.badRequest({
         success: false,
         message: 'Failed to generate pickup/dropoff guest report',
