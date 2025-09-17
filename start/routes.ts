@@ -1449,3 +1449,6 @@ router
 // Import reports routes
 import './routes/reports.js'
 
+// Import POS routes
+import './routes/pos.js'
+

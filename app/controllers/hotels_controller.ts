@@ -1,6 +1,10 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Hotel from '#models/hotel'
 import User from '#models/user'
+import Role from '#models/role'
+import ServiceUserAssignment from '#models/service_user_assignment'
+import Permission from '#models/permission'
+import RolePermission from '#models/role_permission'
 import CrudService from '#services/crud_service'
 import LoggerService from '#services/logger_service'
 import PermissionService from '#services/permission_service'
@@ -12,6 +16,8 @@ import ReservationType from '#models/reservation_type'
 import BookingSource from '#models/booking_source'
 import IdentityType from '#models/identity_type'
 import PaymentMethod from '#models/payment_method'
+import fs from 'fs/promises'
+import path from 'path'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -87,6 +93,27 @@ export default class HotelsController {
       }
 
       const hotel = await Hotel.create(hotelData)
+
+      // Create default administrator user if admin details are provided
+      if (payload.adminFirstName && payload.adminLastName && payload.adminEmail) {
+        try {
+          await this.createDefaultAdministrator(hotel.id, {
+            firstName: payload.adminFirstName,
+            lastName: payload.adminLastName,
+            email: payload.adminEmail,
+            phoneNumber: payload.adminPhoneNumber
+          })
+          logger.info('Default administrator created successfully', {
+            hotelId: hotel.id,
+            adminEmail: payload.adminEmail
+          })
+        } catch (adminError) {
+          logger.error('Failed to create default administrator for hotel', {
+            hotelId: hotel.id,
+            error: adminError.message
+          })
+        }
+      }
 
       // Create default XAF currency for the new hotel
       try {
@@ -1090,4 +1117,108 @@ export default class HotelsController {
 
     await PaymentMethod.create(defaultPaymentMethod)
   }
+
+  /**
+   * Create default administrator user for a new hotel
+   */
+  private async createDefaultAdministrator(hotelId: number, adminData: {
+    firstName: string
+    lastName: string
+    email: string
+    phoneNumber?: string
+  }) {
+    // Check if user already exists
+    const existingUser = await this.userService.findByEmail(adminData.email)
+    
+    let user
+    if (existingUser) {
+      user = existingUser
+    } else {
+      // Create new administrator user
+      user = await this.userService.create({
+        firstName: adminData.firstName,
+        lastName: adminData.lastName,
+        email: adminData.email,
+        phoneNumber: adminData.phoneNumber || null,
+        password: 'admin123', // Default password - should be changed on first login
+        roleId: 2, // Admin role ID
+        status: 'active',
+        createdBy: null,
+        lastModifiedBy: null,
+      })
+    }
+
+    // Find or create admin role
+    let adminRole = await Role.findBy('roleName', 'admin')
+    if (!adminRole) {
+      adminRole = await Role.create({
+        roleName: 'admin',
+        description: 'Administrator role with full permissions',
+        createdBy: user.id,
+        lastModifiedBy: user.id,
+      })
+    }
+
+    // Create service user assignment
+    const existingAssignment = await ServiceUserAssignment.query()
+      .where('user_id', user.id)
+      .andWhere('hotel_id', hotelId)
+      .first()
+
+    if (!existingAssignment) {
+      await ServiceUserAssignment.create({
+        user_id: user.id,
+        hotel_id: hotelId,
+        role_id: adminRole.id,
+      })
+    }
+
+    // Load permissions from JSON files and assign to admin
+    await this.loadPermissionsFromJsonFiles()
+
+    return user
+  }
+
+  /**
+   * Load permissions from JSON files in the data directory
+   */
+  private async loadPermissionsFromJsonFiles() {
+    try {
+      const dataDir = path.join(process.cwd(), 'data')
+      const files = await fs.readdir(dataDir)
+      const jsonFiles = files.filter(file => file.endsWith('.json'))
+
+      for (const file of jsonFiles) {
+        const filePath = path.join(dataDir, file)
+        const fileContent = await fs.readFile(filePath, 'utf-8')
+        const permissionData = JSON.parse(fileContent)
+
+        // Process each category in the JSON file
+        for (const [categoryName, permissions] of Object.entries(permissionData)) {
+          if (Array.isArray(permissions)) {
+            for (const permission of permissions) {
+              // Check if permission already exists
+              const existingPermission = await Permission.findBy('name', permission.id)
+              
+              if (!existingPermission) {
+                await Permission.create({
+                  name: permission.id,
+                  label: permission.name,
+                  description: `${categoryName} - ${permission.name}`,
+                })
+              }
+            }
+          }
+        }
+      }
+
+      logger.info('Successfully loaded permissions from JSON files')
+    } catch (error) {
+      logger.error('Failed to load permissions from JSON files', {
+        error: error.message
+      })
+    }
+  }
+
+
 }

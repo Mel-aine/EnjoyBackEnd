@@ -1,12 +1,13 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import RoomType from './room_type.js'
 import User from './user.js'
 import Reservation from './reservation.js'
 import Guest from './guest.js'
 import RoomRate from './room_rate.js'
+import Folio from './folio.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -630,6 +631,8 @@ export default class ReservationRoom extends BaseModel {
   @belongsTo(() => Guest, { foreignKey: 'guestId' })
   declare guest: BelongsTo<typeof Guest>
 
+  @hasMany(() => Folio, { foreignKey: 'reservationRoomId' })
+  declare folios: HasMany<typeof Folio>
 
   @belongsTo(() => RoomRate,{ foreignKey : 'roomRateId'})
   declare roomRates: BelongsTo <typeof RoomRate>

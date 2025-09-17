@@ -13,6 +13,9 @@ import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 
 const ReportsController = () => import('#controllers/reports_controller')
+const PickupDropoffReportsController = () => import('#controllers/pickup_dropoff_reports_controller')
+const GuestCheckoutReportsController = () => import('#controllers/guest_checkout_reports_controller')
+const DailyReceiptReportsController = () => import('#controllers/daily_receipt_reports_controller')
 
 // Group all report routes under /api/reports prefix
 router.group(() => {
@@ -115,8 +118,21 @@ router.group(() => {
     router.post('/statistics-by-room-type-pdf', [ReportsController, 'generateStatisticsByRoomTypePdf'])
     
     // Daily Revenue PDF report
-    router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
-  }).prefix('/statistics')
+  router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
+}).prefix('/statistics')
+
+// New Report Endpoints
+router.group(() => {
+  // Pickup/Dropoff Guest Report
+  router.post('/pickup-dropoff', [PickupDropoffReportsController, 'generate'])
+  
+  // Guest Checkout Report
+  router.post('/guest-checkout', [GuestCheckoutReportsController, 'generate'])
+  
+  // Daily Receipt Reports
+  router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
+  router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
+}).prefix('/custom')
   
 }).prefix('/api/reports').use(middleware.auth())
 // Temporarily disabled auth for testing

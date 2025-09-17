@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany, belongsTo } from '@adonisjs/lucid/orm'
+import { BaseModel, column, hasMany, belongsTo, beforeCreate } from '@adonisjs/lucid/orm'
 import type { HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
 import RoomType from './room_type.js'
 import Room from './room.js'
@@ -458,5 +458,27 @@ export default class Hotel extends BaseModel {
 
   @hasMany(() => PaymentMethod)
   declare paymentMethods: HasMany<typeof PaymentMethod>
+
+  @beforeCreate()
+  static async generateHotelCode(hotel: Hotel) {
+    if (!hotel.hotelCode) {
+      let isUnique = false
+      let hotelCode = ''
+      
+      while (!isUnique) {
+        // Generate Y + 4 random digits
+        const randomDigits = Math.floor(1000 + Math.random() * 9000)
+        hotelCode = `Y${randomDigits}`
+        
+        // Check if this code already exists
+        const existingHotel = await Hotel.query().where('hotel_code', hotelCode).first()
+        if (!existingHotel) {
+          isUnique = true
+        }
+      }
+      
+      hotel.hotelCode = hotelCode
+    }
+  }
 
 }
