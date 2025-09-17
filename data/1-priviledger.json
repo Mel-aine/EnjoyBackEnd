@@ -145,7 +145,7 @@
             }
         ]
     },
-    {
+    {   
         "category": "House Keeping",
         "items": [
             {
@@ -229,6 +229,10 @@
             {
                 "id": "check_in_guest",
                 "name": "Check in Guest"
+            },
+            {
+                "id": "check_out_guest",
+                "name": "Check out Guest"
             },
             {
                 "id": "walk_in_guest",
