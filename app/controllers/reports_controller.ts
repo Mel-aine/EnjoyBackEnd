@@ -4739,31 +4739,40 @@ export default class ReportsController {
    */
   async generateMonthlyRevenuePdf({ request, response, auth }: HttpContext) {
     try {
-      const hotelId = parseInt(request.input('hotelId', '1'))
-      const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
+      const { hotelId, month, year } = request.qs()
 
-      const reportDate = DateTime.fromISO(asOnDate)
+      if (!hotelId || !month || !year) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID, month, and year are required'
+        })
+      }
+
+      // Create start and end dates for the month
+      const reportDate = DateTime.fromObject({ year: parseInt(year), month: parseInt(month), day: 1 })
       const monthStart = reportDate.startOf('month')
       const monthEnd = reportDate.endOf('month')
 
-      // Get monthly revenue data (you'll need to implement this method)
-      const revenueData = await this.getMonthlyRevenueData(hotelId, monthStart, monthEnd)
+      const currency = request.input('currency', 'XAF')
+      
+      // Get monthly revenue data
+      const revenueData = await this.getMonthlyRevenueData(parseInt(hotelId), monthStart, monthEnd)
 
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
-      const hotel = await Hotel.find(hotelId)
-      const hotelName = hotel?.name || 'Hotel'
+      const hotel = await Hotel.find(parseInt(hotelId))
+      const hotelName = hotel?.hotelName!
 
       // Get user info
       const user = auth?.user
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
-      // Generate HTML content (you'll need to implement this method)
-      const htmlContent = this.generateMonthlyRevenueHtml(hotelName, reportDate, revenueData, printedBy)
+      // Generate HTML content
+      const htmlContent = this.generateMonthlyRevenueHtml(hotelName, reportDate, revenueData, printedBy, currency)
 
       // Generate PDF
-      const { default: PdfService } = await import('#services/pdf_service')
-      const pdfBuffer = await PdfService.generatePdf(htmlContent)
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
 
       const filename = `monthly-revenue-${reportDate.toFormat('yyyy-MM')}.pdf`
 
@@ -4916,4 +4925,660 @@ export default class ReportsController {
     }
   }
 
+  /**
+   * Get monthly revenue data - daily breakdown for the entire month
+   */
+  private async getMonthlyRevenueData(hotelId: number, monthStart: DateTime, monthEnd: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    // Get all transactions for the month
+    const transactions = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+        })
+      })
+      .whereBetween('transaction_date', [monthStart.toFormat('yyyy-MM-dd'), monthEnd.toFormat('yyyy-MM-dd')])
+      .where('category', 'room')
+      .where('status', 'posted')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation')
+      })
+
+    // Group by day and calculate daily revenue
+    const dailyRevenue: { [key: string]: number } = {}
+    const daysInMonth = monthEnd.day
+
+    // Initialize all days with 0
+    for (let day = 1; day <= daysInMonth; day++) {
+      dailyRevenue[day.toString()] = 0
+    }
+
+    // Calculate actual revenue for each day
+    transactions.forEach(transaction => {
+      const transactionDate = DateTime.fromISO(transaction.transactionDate)
+      const day = transactionDate.day.toString()
+      dailyRevenue[day] += Number(transaction.amount || 0)
+    })
+
+    // Calculate total revenue
+    const totalRevenue = Object.values(dailyRevenue).reduce((sum, amount) => sum + amount, 0)
+
+    return {
+      dailyRevenue,
+      totalRevenue,
+      monthStart,
+      monthEnd,
+      daysInMonth
+    }
+  }
+
+  /**
+   * Generate HTML for Monthly Revenue report with chart
+   */
+  private generateMonthlyRevenueHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    revenueData: any,
+    printedBy: string = 'System',
+    currency: string = 'XAF'
+  ): string {
+    const formatCurrency = (amount: number) => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return `${currency} 0.00`
+      }
+      return `${currency} ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    }
+
+    // Prepare chart data
+    const chartData = []
+    const maxRevenue = Math.max(...Object.values(revenueData.dailyRevenue) as number[])
+    const chartHeight = 300
+
+    for (let day = 1; day <= revenueData.daysInMonth; day++) {
+      const revenue = revenueData.dailyRevenue[day.toString()] || 0
+      const barHeight = maxRevenue > 0 ? (revenue / maxRevenue) * chartHeight : 0
+      chartData.push({
+        day,
+        revenue,
+        barHeight,
+        formattedRevenue: formatCurrency(revenue)
+      })
+    }
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Monthly Revenue Report</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                font-size: 12px;
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+            }
+            .hotel-name {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            .report-title {
+                font-size: 16px;
+                color: #d2691e;
+                margin-bottom: 10px;
+            }
+            .chart-container {
+                margin: 30px 0;
+                text-align: center;
+            }
+            .chart {
+                display: inline-block;
+                border: 1px solid #ccc;
+                padding: 20px;
+                background: #f9f9f9;
+            }
+            .chart-title {
+                margin-bottom: 20px;
+                font-weight: bold;
+                background-color: #4472c4;
+                color: white;
+                padding: 5px 10px;
+                display: inline-block;
+            }
+            .chart-area {
+                position: relative;
+                width: 800px;
+                height: 350px;
+                border: 1px solid #333;
+                background: white;
+                margin: 0 auto;
+            }
+            .y-axis {
+                position: absolute;
+                left: -40px;
+                top: 0;
+                height: 100%;
+                width: 40px;
+            }
+            .y-label {
+                position: absolute;
+                right: 5px;
+                font-size: 10px;
+                transform: translateY(-50%);
+            }
+            .x-axis {
+                position: absolute;
+                bottom: -30px;
+                left: 0;
+                width: 100%;
+                height: 30px;
+            }
+            .x-label {
+                position: absolute;
+                bottom: 5px;
+                font-size: 10px;
+                transform: translateX(-50%);
+            }
+            .bar {
+                position: absolute;
+                bottom: 0;
+                background-color: #4472c4;
+                border: 1px solid #2c5aa0;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                color: #4472c4;
+                font-size: 8px;
+                font-weight: bold;
+            }
+            .bar-value {
+                position: absolute;
+                top: -15px;
+                font-size: 8px;
+                color: #333;
+                white-space: nowrap;
+            }
+            .footer {
+                margin-top: 50px;
+                border-top: 1px solid #333;
+                padding-top: 10px;
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+            }
+            .grid-line {
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: #e0e0e0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="hotel-name">${hotelName}</div>
+            <div class="report-title">Monthly Revenue - ${reportDate.toFormat('MMMM yyyy')}</div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart">
+                <div class="chart-title"> Revenue (Room Charges, Extra Charges)</div>
+                <div class="chart-area">
+                    <!-- Y-axis labels -->
+                    <div class="y-axis">
+                        ${[0, 0.2, 0.4, 0.6, 0.8, 1.0].map(ratio => `
+                            <div class="y-label" style="top: ${(1 - ratio) * 100}%">
+                                ${formatCurrency(maxRevenue * ratio).replace(currency + ' ', '')}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Grid lines -->
+                    ${[0.2, 0.4, 0.6, 0.8].map(ratio => `
+                        <div class="grid-line" style="top: ${(1 - ratio) * 100}%"></div>
+                    `).join('')}
+
+                    <!-- Bars -->
+                    ${chartData.map(data => `
+                        <div class="bar" 
+                             style="left: ${((data.day - 1) / revenueData.daysInMonth) * 100}%; 
+                                    width: ${(1 / revenueData.daysInMonth) * 100 * 0.8}%; 
+                                    height: ${data.barHeight}px;
+                                    margin-left: ${(1 / revenueData.daysInMonth) * 100 * 0.1}%;">
+                            ${data.revenue > 0 ? `<div class="bar-value">${data.formattedRevenue.replace(currency + ' ', '')}</div>` : ''}
+                        </div>
+                    `).join('')}
+
+                    <!-- X-axis labels -->
+                    <div class="x-axis">
+                        ${chartData.map(data => `
+                            <div class="x-label" style="left: ${(data.day / revenueData.daysInMonth) * 100}%">
+                                ${data.day}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div style="margin-top: 40px; font-weight: bold;">Date</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>Printed On: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</div>
+            <div>Printed By: ${printedBy}</div>
+            <div>Page 1 of 1</div>
+        </div>
+    </body>
+    </html>
+    `
+  }
+
+  /**
+   * Get daily revenue data by different revenue types
+   */
+  private async getDailyRevenueData(hotelId: number, reportDate: DateTime, revenueTypes: string[]) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: Reservation } = await import('#models/reservation')
+
+    // Get all transactions for the specific date
+    const transactions = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+        })
+      })
+      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', 'posted')
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('guest')
+          reservationQuery.preload('reservationRooms', (roomQuery) => {
+            roomQuery.preload('room')
+            roomQuery.preload('roomRates')
+            roomQuery.preload('roomType')
+          })
+        })
+      })
+
+    // Group transactions by revenue type and guest
+    const revenueData: any = {
+      transactions: [],
+      totals: {
+        roomCharges: 0,
+        discount: 0,
+        roundOff: 0,
+        taxes: 0,
+        net: 0
+      }
+    }
+
+    const guestTransactions = new Map()
+
+    transactions.forEach(transaction => {
+      const reservation = transaction.folio?.reservation
+      if (!reservation) return
+
+      const guest = reservation.guest
+      const reservationRoom = reservation.reservationRooms?.[0]
+      const room = reservationRoom?.room
+      const rateType = reservationRoom?.rateType
+
+      // Filter by revenue type if specified
+      const transactionCategory = this.mapTransactionToRevenueType(transaction)
+      if (revenueTypes.length > 0 && !revenueTypes.includes(transactionCategory)) {
+        return
+      }
+
+      const guestKey = `${reservation.id}-${guest?.id || 'unknown'}`
+      
+      if (!guestTransactions.has(guestKey)) {
+        guestTransactions.set(guestKey, {
+          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : 'Unknown Guest',
+          room: room?.roomNumber || 'N/A',
+          rateType: rateType?.name || 'Standard',
+          roomCharges: 0,
+          discount: 0,
+          roundOff: 0,
+          taxes: 0,
+          net: 0
+        })
+      }
+
+      const guestData = guestTransactions.get(guestKey)
+      const amount = Number(transaction.amount || 0)
+
+      // Categorize transaction amounts
+      if (transaction.category === 'room' || transactionCategory === 'room_revenue') {
+        guestData.roomCharges += amount
+      } else if (transaction.category === 'discount') {
+        guestData.discount += Math.abs(amount)
+      } else if (transaction.category === 'tax') {
+        guestData.taxes += amount
+      } else if (transaction.category === 'adjustment') {
+        guestData.roundOff += amount
+      }
+
+      guestData.net = guestData.roomCharges - guestData.discount + guestData.roundOff + guestData.taxes
+    })
+
+    // Convert map to array and calculate totals
+    revenueData.transactions = Array.from(guestTransactions.values())
+    
+    revenueData.transactions.forEach(transaction => {
+      revenueData.totals.roomCharges += transaction.roomCharges
+      revenueData.totals.discount += transaction.discount
+      revenueData.totals.roundOff += transaction.roundOff
+      revenueData.totals.taxes += transaction.taxes
+      revenueData.totals.net += transaction.net
+    })
+
+    return revenueData
+  }
+
+  /**
+   * Map transaction to revenue type category
+   */
+  private mapTransactionToRevenueType(transaction: any): string {
+    const description = transaction.description?.toLowerCase() || ''
+    const category = transaction.category?.toLowerCase() || ''
+
+    if (description.includes('no show') || category.includes('no_show')) {
+      return 'no_show_revenue'
+    } else if (description.includes('cancellation') || category.includes('cancellation')) {
+      return 'cancellation_revenue'
+    } else if (description.includes('day user') || description.includes('dayuser')) {
+      return 'dayuser_revenue'
+    } else if (description.includes('late check out') || description.includes('late_check_out')) {
+      return 'late_check_out_revenue'
+    } else {
+      return 'room_revenue'
+    }
+  }
+
+  /**
+   * Generate HTML for Daily Revenue report with pagination
+   */
+  private generateDailyRevenueHtml(
+    hotelName: string,
+    reportDate: DateTime,
+    revenueData: any,
+    printedBy: string,
+    revenueTypes: string[]
+  ): string {
+    const formatCurrency = (amount: number) => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return 'XAF 0.00'
+      }
+      return `XAF ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    }
+
+    const revenueByText = revenueTypes.length > 0 ? revenueTypes.join(', ') : 'All Revenue Types'
+    const transactions = revenueData.transactions || []
+    const totals = revenueData.totals || {}
+
+    // Calculate pagination - assume 25 rows per page
+    const rowsPerPage = 25
+    const totalPages = Math.max(1, Math.ceil(transactions.length / rowsPerPage))
+    
+    let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Daily Revenue Report</title>
+        <style>
+            @page {
+                size: A4;
+                margin: 20mm;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                font-size: 11px;
+                line-height: 1.2;
+                margin: 0;
+                padding: 0;
+            }
+            .page {
+                page-break-after: always;
+                min-height: 100vh;
+                position: relative;
+                padding-bottom: 60px;
+            }
+            .page:last-child {
+                page-break-after: avoid;
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+                padding-bottom: 5px;
+                border-bottom: 2px solid #000;
+            }
+            .hotel-name {
+                font-size: 16px;
+                font-weight: bold;
+            }
+            .night-audit {
+                font-size: 16px;
+                font-weight: bold;
+            }
+            .report-info {
+                margin: 15px 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #000;
+            }
+            .report-info-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 5px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+            }
+            th, td {
+                border: 1px solid #000;
+                padding: 4px 6px;
+                text-align: left;
+                font-size: 10px;
+            }
+            th {
+                background-color: #f0f0f0;
+                font-weight: bold;
+                text-align: center;
+            }
+            .text-right {
+                text-align: right;
+            }
+            .text-center {
+                text-align: center;
+            }
+            .totals-row {
+                font-weight: bold;
+                background-color: #f9f9f9;
+            }
+            .footer {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                border-top: 1px solid #000;
+                padding-top: 10px;
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+            }
+        </style>
+    </head>
+    <body>
+    `
+
+    // Generate pages
+    for (let page = 0; page < totalPages; page++) {
+      const startIndex = page * rowsPerPage
+      const endIndex = Math.min(startIndex + rowsPerPage, transactions.length)
+      const pageTransactions = transactions.slice(startIndex, endIndex)
+      const isLastPage = page === totalPages - 1
+
+      html += `
+        <div class="page">
+            <!-- Header for each page -->
+            <div class="header">
+                <div class="hotel-name">${hotelName}</div>
+                <div class="night-audit">Night Audit</div>
+            </div>
+
+            ${page === 0 ? `
+            <!-- Report info only on first page -->
+            <div class="report-info">
+                <div class="report-info-row">
+                    <div><strong>As On Date:</strong> ${reportDate.toFormat('MMMM dd, yyyy')}</div>
+                    <div><strong>Daily Revenue by:</strong> ${revenueByText}</div>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Table -->
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%">Guest Name</th>
+                        <th style="width: 10%">Room</th>
+                        <th style="width: 15%">Rate Type</th>
+                        <th style="width: 12%">Room Charges</th>
+                        <th style="width: 12%">Discount</th>
+                        <th style="width: 10%">Round Off</th>
+                        <th style="width: 8%">Taxes</th>
+                        <th style="width: 8%">Net</th>
+                    </tr>
+                </thead>
+                <tbody>
+      `
+
+      // Add transaction rows for this page
+      pageTransactions.forEach(transaction => {
+        html += `
+                    <tr>
+                        <td>${transaction.guestName}</td>
+                        <td class="text-center">${transaction.room}</td>
+                        <td>${transaction.rateType}</td>
+                        <td class="text-right">${formatCurrency(transaction.roomCharges)}</td>
+                        <td class="text-right">${formatCurrency(transaction.discount)}</td>
+                        <td class="text-right">${formatCurrency(transaction.roundOff)}</td>
+                        <td class="text-right">${formatCurrency(transaction.taxes)}</td>
+                        <td class="text-right">${formatCurrency(transaction.net)}</td>
+                    </tr>
+        `
+      })
+
+      // Add totals row only on last page
+      if (isLastPage) {
+        html += `
+                    <tr class="totals-row">
+                        <td colspan="3"><strong>Total for:</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.roomCharges || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.discount || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.roundOff || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.taxes || 0)}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(totals.net || 0)}</strong></td>
+                    </tr>
+        `
+      }
+
+      html += `
+                </tbody>
+            </table>
+
+            <!-- Footer -->
+            <div class="footer">
+                <div>Printed On: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</div>
+                <div>Printed By: ${printedBy}</div>
+                <div>Page ${page + 1} of ${totalPages}</div>
+            </div>
+        </div>
+      `
+    }
+
+    html += `
+    </body>
+    </html>
+    `
+
+    return html
+  }
+
+  /**
+   * Generate Daily Revenue PDF report
+   */
+  async generateDailyRevenuePdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate, revenueBy } = request.qs()
+
+      if (!hotelId || !asOnDate) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID and As On Date are required'
+        })
+      }
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD'
+        })
+      }
+
+      // Default revenue types if not specified
+      const revenueTypes = revenueBy ? revenueBy.split(',') : [
+        'room_revenue',
+        'no_show_revenue', 
+        'cancellation_revenue',
+        'dayuser_revenue',
+        'late_check_out_revenue'
+      ]
+
+      // Get daily revenue data
+      const revenueData = await this.getDailyRevenueData(parseInt(hotelId), reportDate, revenueTypes)
+
+      // Get hotel name
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(parseInt(hotelId))
+      const hotelName = hotel?.hotelName || 'Hotel'
+
+      // Get user info
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+
+      // Generate HTML content
+      const htmlContent = this.generateDailyRevenueHtml(hotelName, reportDate, revenueData, printedBy, revenueTypes)
+
+      // Generate PDF
+      const { default: PdfGenerationService } = await import('#services/pdf_service')
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+
+      const filename = `daily-revenue-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating daily revenue PDF:', error)
+      return response.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
 }

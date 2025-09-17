@@ -92,7 +92,7 @@ router.group(() => {
     router.post('/revenue-by-room-type-pdf', [ReportsController, 'generateRevenueByRoomTypePdf'])
     
     // Monthly Revenue PDF report
-    router.post('/monthly-revenue-pdf', [ReportsController, 'generateMonthlyRevenuePdf'])
+    router.get('/monthly-revenue-pdf', [ReportsController, 'generateMonthlyRevenuePdf'])
     
     // Payment Summary PDF report
     router.post('/payment-summary-pdf', [ReportsController, 'generatePaymentSummaryPdf'])
@@ -102,6 +102,9 @@ router.group(() => {
     
     // Statistics By Room Type PDF report
     router.post('/statistics-by-room-type-pdf', [ReportsController, 'generateStatisticsByRoomTypePdf'])
+    
+    // Daily Revenue PDF report
+    router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
   }).prefix('/statistics')
   
 }).prefix('/api/reports').use(middleware.auth())
