@@ -284,9 +284,9 @@ export default class ReportsController {
     }
   }
 
-/**
- * Export report to PDF format
- */
+  /**
+   * Export report to PDF format
+   */
   private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
     try {
       // Générer le PDF à partir du HTML du rapport
@@ -466,29 +466,29 @@ export default class ReportsController {
   /**
    * Export to PDF format (basic implementation)
    */
-/*   private exportToPDF(response: any, reportData: any, filename: string) {
-    try {
-      // For now, return JSON with PDF export instructions
-      // In a real implementation, you would use a PDF library like puppeteer or jsPDF
-      return response.ok({
-        success: true,
-        message: 'Export PDF non encore implémenté. Utilisez CSV pour le moment.',
-        data: {
-          reportTitle: reportData.title,
-          generatedAt: reportData.generatedAt,
-          totalRecords: reportData.totalRecords,
-          summary: reportData.summary,
-          filename: filename
-        }
-      })
-    } catch (error) {
-      return response.internalServerError({
-        success: false,
-        message: 'Erreur lors de l\'export PDF',
-        error: error.message
-      })
-    }
-  } */
+  /*   private exportToPDF(response: any, reportData: any, filename: string) {
+      try {
+        // For now, return JSON with PDF export instructions
+        // In a real implementation, you would use a PDF library like puppeteer or jsPDF
+        return response.ok({
+          success: true,
+          message: 'Export PDF non encore implémenté. Utilisez CSV pour le moment.',
+          data: {
+            reportTitle: reportData.title,
+            generatedAt: reportData.generatedAt,
+            totalRecords: reportData.totalRecords,
+            summary: reportData.summary,
+            filename: filename
+          }
+        })
+      } catch (error) {
+        return response.internalServerError({
+          success: false,
+          message: 'Erreur lors de l\'export PDF',
+          error: error.message
+        })
+      }
+    } */
 
   /**
    * Export to Excel format (basic implementation)
@@ -607,7 +607,7 @@ export default class ReportsController {
       // Get all rooms for the hotel
       const rooms = await Room.query()
         .where('hotel_id', hotelId)
-        
+
         .preload('roomType')
         .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
@@ -2785,7 +2785,7 @@ export default class ReportsController {
     // Get all extra charges for the hotel
     const extraCharges = await ExtraCharge.query()
       .where('hotel_id', hotelId)
-      
+
       .select('id', 'name', 'short_code')
 
     const getExtraChargesByPeriod = async (startDate: DateTime, endDate: DateTime) => {
@@ -2867,7 +2867,7 @@ export default class ReportsController {
     // Get all active discounts for the hotel
     const discounts = await Discount.query()
       .where('hotel_id', hotelId)
-      
+
       .where('status', 'active')
 
     const getDiscountData = async (discount: any, startDate: DateTime, endDate: DateTime) => {
@@ -3753,7 +3753,7 @@ export default class ReportsController {
       // Get total rooms for the hotel
       const totalRooms = await Room.query()
         .where('hotel_id', hotelId)
-        
+
         .count('* as total')
 
       // Get blocked rooms for each period
@@ -4061,7 +4061,7 @@ export default class ReportsController {
       // Get total available rooms
       const totalRooms = await Room.query()
         .where('hotel_id', hotelId)
-        
+
         .count('* as total')
 
       const totalRoomsCount = totalRooms[0].$extras.total
@@ -4514,7 +4514,7 @@ export default class ReportsController {
       if (amount === null || amount === undefined || isNaN(amount)) {
         return `0.00`
       }
-      return `${Number(amount).toFixed(2)}`
+      return `${Number(amount)}`
     }
 
     return `
@@ -4646,7 +4646,7 @@ export default class ReportsController {
       if (amount === null || amount === undefined || isNaN(amount)) {
         return `0.00`
       }
-      return `${Number(amount).toFixed(2)}`
+      return `${Number(amount)}`
     }
 
     return `
@@ -5619,204 +5619,204 @@ export default class ReportsController {
   /**
  * Génère les données du rapport de disponibilité des chambres
  */
-async generateRoomAvailabilityData({ request, response }: HttpContext) {
-  try {
-    const {
-      hotelId,
-      dateFrom,
-      dateTo,
-      roomTypeId,
-      floor
-    } = request.body()
+  async generateRoomAvailabilityData({ request, response }: HttpContext) {
+    try {
+      const {
+        hotelId,
+        dateFrom,
+        dateTo,
+        roomTypeId,
+        floor
+      } = request.body()
 
-    // Validation des paramètres requis
-    if (!dateFrom || !dateTo) {
-      return response.badRequest({
-        success: false,
-        message: 'Date range is required (dateFrom and dateTo)',
-      })
-    }
-
-    if (!hotelId) {
-      return response.badRequest({
-        success: false,
-        message: 'Hotel ID is required',
-      })
-    }
-
-    // Validation de la plage de dates
-    const startDate = new Date(dateFrom)
-    const endDate = new Date(dateTo)
-
-    if (startDate > endDate) {
-      return response.badRequest({
-        success: false,
-        message: 'Start date must be before or equal to end date',
-      })
-    }
-
-    // Créer les filtres pour le rapport
-    const reportFilters: ReportFilters = {
-      hotelId: parseInt(hotelId),
-      startDate: dateFrom,
-      endDate: dateTo,
-      roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-
-    }
-
-    // Récupérer les données de disponibilité des chambres
-    const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
-
-    // Calculer le résumé
-    const totalRooms = roomAvailabilityData.data?.length || 0
-    const availableRooms = roomAvailabilityData.data?.filter((room: any) => room.status === 'available').length || 0
-    const occupiedRooms = roomAvailabilityData.data?.filter((room: any) => room.status === 'occupied').length || 0
-    const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
-
-    const summary = {
-      totalRooms,
-      availableRooms,
-      occupiedRooms,
-      occupancyRate
-    }
-
-    return response.ok({
-      success: true,
-      message: 'Room availability data generated successfully',
-      data: {
-        data: roomAvailabilityData.data || [],
-        summary
+      // Validation des paramètres requis
+      if (!dateFrom || !dateTo) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required (dateFrom and dateTo)',
+        })
       }
-    })
-  } catch (error) {
-    console.error('Error generating room availability data:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Failed to generate room availability data',
-      error: error.message,
-    })
-  }
-}
 
-/**
- * Génère un PDF du rapport de disponibilité des chambres
- */
-async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
-  try {
-    const {
-      hotelId,
-      dateFrom,
-      dateTo,
-      roomTypeId,
-      floor
-    } = request.body()
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID is required',
+        })
+      }
 
-    // Validation des paramètres requis
-    if (!dateFrom || !dateTo) {
-      return response.badRequest({
+      // Validation de la plage de dates
+      const startDate = new Date(dateFrom)
+      const endDate = new Date(dateTo)
+
+      if (startDate > endDate) {
+        return response.badRequest({
+          success: false,
+          message: 'Start date must be before or equal to end date',
+        })
+      }
+
+      // Créer les filtres pour le rapport
+      const reportFilters: ReportFilters = {
+        hotelId: parseInt(hotelId),
+        startDate: dateFrom,
+        endDate: dateTo,
+        roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
+
+      }
+
+      // Récupérer les données de disponibilité des chambres
+      const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
+
+      // Calculer le résumé
+      const totalRooms = roomAvailabilityData.data?.length || 0
+      const availableRooms = roomAvailabilityData.data?.filter((room: any) => room.status === 'available').length || 0
+      const occupiedRooms = roomAvailabilityData.data?.filter((room: any) => room.status === 'occupied').length || 0
+      const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
+
+      const summary = {
+        totalRooms,
+        availableRooms,
+        occupiedRooms,
+        occupancyRate
+      }
+
+      return response.ok({
+        success: true,
+        message: 'Room availability data generated successfully',
+        data: {
+          data: roomAvailabilityData.data || [],
+          summary
+        }
+      })
+    } catch (error) {
+      console.error('Error generating room availability data:', error)
+      return response.internalServerError({
         success: false,
-        message: 'Date range is required (dateFrom and dateTo)',
+        message: 'Failed to generate room availability data',
+        error: error.message,
       })
     }
+  }
 
-    if (!hotelId) {
-      return response.badRequest({
+  /**
+   * Génère un PDF du rapport de disponibilité des chambres
+   */
+  async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
+    try {
+      const {
+        hotelId,
+        dateFrom,
+        dateTo,
+        roomTypeId,
+        floor
+      } = request.body()
+
+      // Validation des paramètres requis
+      if (!dateFrom || !dateTo) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required (dateFrom and dateTo)',
+        })
+      }
+
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID is required',
+        })
+      }
+
+      // Créer les filtres pour le rapport
+      const reportFilters: ReportFilters = {
+        hotelId: parseInt(hotelId),
+        startDate: dateFrom,
+        endDate: dateTo,
+        roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
+
+      }
+
+      // Récupérer les données de disponibilité des chambres
+      const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
+
+      // Obtenir les informations de l'utilisateur authentifié
+      const user = auth.user
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
+
+      // Générer le contenu HTML pour le PDF (version simplifiée)
+      const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
+        roomAvailabilityData,
+        { dateFrom, dateTo, roomTypeId, floor },
+        printedBy
+      )
+
+      // Générer le PDF
+      const pdfBuffer = await PdfService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        orientation: 'landscape',
+        margin: {
+          top: '1cm',
+          right: '1cm',
+          bottom: '1cm',
+          left: '1cm',
+        },
+      })
+
+      // Générer le nom de fichier
+      const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
+      const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
+
+      // Définir les en-têtes de réponse
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${filename}"`)
+      response.header('Content-Length', pdfBuffer.length.toString())
+
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating room availability PDF:', error)
+      return response.internalServerError({
         success: false,
-        message: 'Hotel ID is required',
+        message: 'Failed to generate room availability PDF',
+        error: error.message,
       })
     }
-
-    // Créer les filtres pour le rapport
-    const reportFilters: ReportFilters = {
-      hotelId: parseInt(hotelId),
-      startDate: dateFrom,
-      endDate: dateTo,
-      roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-
-    }
-
-    // Récupérer les données de disponibilité des chambres
-    const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
-
-    // Obtenir les informations de l'utilisateur authentifié
-    const user = auth.user
-    const printedBy = user
-      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
-      : 'System'
-
-    // Générer le contenu HTML pour le PDF (version simplifiée)
-    const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
-      roomAvailabilityData,
-      { dateFrom, dateTo, roomTypeId, floor },
-      printedBy
-    )
-
-    // Générer le PDF
-    const pdfBuffer = await PdfService.generatePdfFromHtml(htmlContent, {
-      format: 'A4',
-      orientation: 'landscape',
-      margin: {
-        top: '1cm',
-        right: '1cm',
-        bottom: '1cm',
-        left: '1cm',
-      },
-    })
-
-    // Générer le nom de fichier
-    const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
-    const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
-
-    // Définir les en-têtes de réponse
-    response.header('Content-Type', 'application/pdf')
-    response.header('Content-Disposition', `attachment; filename="${filename}"`)
-    response.header('Content-Length', pdfBuffer.length.toString())
-
-    return response.send(pdfBuffer)
-  } catch (error) {
-    console.error('Error generating room availability PDF:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Failed to generate room availability PDF',
-      error: error.message,
-    })
   }
-}
 
 
 
-/**
- * Génère le contenu HTML simplifié pour le PDF
- */
-private generateSimplifiedRoomAvailabilityHtml(
-  reportData: any,
-  options: {
-    dateFrom: string
-    dateTo: string
-    roomTypeId?: string
-    floor?: string
-  },
-  printedBy: string = 'System'
-): string {
-  const { dateFrom, dateTo, roomTypeId, floor } = options;
+  /**
+   * Génère le contenu HTML simplifié pour le PDF
+   */
+  private generateSimplifiedRoomAvailabilityHtml(
+    reportData: any,
+    options: {
+      dateFrom: string
+      dateTo: string
+      roomTypeId?: string
+      floor?: string
+    },
+    printedBy: string = 'System'
+  ): string {
+    const { dateFrom, dateTo, roomTypeId, floor } = options;
 
-  // Calculs des statistiques à partir des données filtrées
-  const rooms = reportData.data || [];
-  const totalRooms = rooms.length;
-  const availableRooms = rooms.filter((room: any) => room.status === 'available').length;
-  const occupiedRooms = rooms.filter((room: any) => room.status === 'occupied').length;
-  const maintenanceRooms = rooms.filter((room: any) => room.status === 'maintenance').length;
-  const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : '0.0';
+    // Calculs des statistiques à partir des données filtrées
+    const rooms = reportData.data || [];
+    const totalRooms = rooms.length;
+    const availableRooms = rooms.filter((room: any) => room.status === 'available').length;
+    const occupiedRooms = rooms.filter((room: any) => room.status === 'occupied').length;
+    const maintenanceRooms = rooms.filter((room: any) => room.status === 'maintenance').length;
+    const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : '0.0';
 
-  // Générer les données pour les graphiques
-  const weeklyData = this.generateWeeklyData(reportData);
+    // Générer les données pour les graphiques
+    const weeklyData = this.generateWeeklyData(reportData);
 
-  // Filtres appliqués pour affichage
-  const appliedFilters = [];
-  if (roomTypeId) appliedFilters.push(`Type: ${this.getRoomTypeName(roomTypeId)}`);
-  if (floor) appliedFilters.push(`Étage: ${floor}`);
+    // Filtres appliqués pour affichage
+    const appliedFilters = [];
+    if (roomTypeId) appliedFilters.push(`Type: ${this.getRoomTypeName(roomTypeId)}`);
+    if (floor) appliedFilters.push(`Étage: ${floor}`);
 
-  return `
+    return `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -6193,620 +6193,624 @@ private generateSimplifiedRoomAvailabilityHtml(
 </body>
 </html>
   `;
-}
-
-// Méthode auxiliaire pour générer les données hebdomadaires
-private generateWeeklyData(reportData: any): number[] {
-  if (reportData.weeklyOccupancy) {
-    return reportData.weeklyOccupancy;
   }
 
-  const baseRate = reportData.data ?
-    ((reportData.data.filter((r: any) => r.status === 'occupied').length / reportData.data.length) * 100) :
-    70;
-
-  return Array.from({length: 7}, (_, i) => {
-    const variation = (Math.random() - 0.5) * 20;
-    return Math.max(0, Math.min(100, Math.round(baseRate + variation)));
-  });
-}
-
-// Méthode auxiliaire pour obtenir le nom du type de chambre
-private getRoomTypeName(roomTypeId: string): string {
-  const types: { [key: string]: string } = {
-    'standard': 'Standard',
-    'deluxe': 'Deluxe',
-    'suite': 'Suite'
-  };
-  return types[roomTypeId] || roomTypeId;
-}
-
-/**
- * Get folio list report
- */
-async getFolioListReport({ request, response }: HttpContext) {
-  try {
-    const {
-      dateType = 'transaction',
-      dateFrom,
-      dateTo,
-      status = { paid: true, unpaid: true },
-      businessSource = '',
-      include = {
-        all: true,
-        reserved: true,
-        cancelled: true,
-        noShow: true,
-        checkedIn: true,
-        checkedOut: true,
-        void: true,
-        unconfirmedReservation: true
-      },
-      hotelId
-    } = request.only([
-      'dateType', 'dateFrom', 'dateTo', 'status', 'businessSource', 'include', 'hotelId'
-    ])
-
-    if (!dateFrom || !dateTo) {
-      return response.badRequest({
-        success: false,
-        message: 'Date range is required'
-      })
+  // Méthode auxiliaire pour générer les données hebdomadaires
+  private generateWeeklyData(reportData: any): number[] {
+    if (reportData.weeklyOccupancy) {
+      return reportData.weeklyOccupancy;
     }
 
-    // Import models
-    const Folio = (await import('#models/folio')).default
-    const FolioTransaction = (await import('#models/folio_transaction')).default
-    const Reservation = (await import('#models/reservation')).default
-    const Guest = (await import('#models/guest')).default
-    const BookingSource = (await import('#models/booking_source')).default
+    const baseRate = reportData.data ?
+      ((reportData.data.filter((r: any) => r.status === 'occupied').length / reportData.data.length) * 100) :
+      70;
 
-    // Build query
-    let query = Folio.query()
-      .preload('guest')
-      .preload('reservation', (reservationQuery) => {
-        reservationQuery.preload('bookingSource')
-      })
-      .preload('transactions')
+    return Array.from({ length: 7 }, (_, i) => {
+      const variation = (Math.random() - 0.5) * 20;
+      return Math.max(0, Math.min(100, Math.round(baseRate + variation)));
+    });
+  }
 
-    // Apply hotel filter
-    if (hotelId) {
-      query = query.where('hotel_id', hotelId)
-    }
+  // Méthode auxiliaire pour obtenir le nom du type de chambre
+  private getRoomTypeName(roomTypeId: string): string {
+    const types: { [key: string]: string } = {
+      'standard': 'Standard',
+      'deluxe': 'Deluxe',
+      'suite': 'Suite'
+    };
+    return types[roomTypeId] || roomTypeId;
+  }
 
-    // Apply date filter based on dateType
-    if (dateType === 'transaction') {
-      query = query.whereHas('transactions', (transactionQuery) => {
-        transactionQuery.whereBetween('transaction_date', [dateFrom, dateTo])
-      })
-    } else {
-      query = query.whereBetween('created_at', [dateFrom, dateTo])
-    }
+  /**
+   * Get folio list report
+   */
+  async getFolioListReport({ request, response }: HttpContext) {
+    try {
+      const {
+        dateType = 'transaction',
+        dateFrom,
+        dateTo,
+        status = { paid: true, unpaid: true },
+        businessSource = '',
+        include = {
+          all: true,
+          reserved: true,
+          cancelled: true,
+          noShow: true,
+          checkedIn: true,
+          checkedOut: true,
+          void: true,
+          unconfirmedReservation: true
+        },
+        hotelId
+      } = request.only([
+        'dateType', 'dateFrom', 'dateTo', 'status', 'businessSource', 'include', 'hotelId'
+      ])
 
-    // Apply business source filter
-    if (businessSource) {
-      query = query.whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereHas('bookingSource', (sourceQuery) => {
-          sourceQuery.where('name', 'like', `%${businessSource}%`)
+      if (!dateFrom || !dateTo) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required'
         })
-      })
-    }
-
-    // Apply status filters
-    const statusFilters = []
-    if (status.paid) statusFilters.push('paid')
-    if (status.unpaid) statusFilters.push('unpaid', 'partial')
-    
-    if (statusFilters.length > 0) {
-      query = query.whereIn('settlement_status', statusFilters)
-    }
-
-    // Apply include filters for reservation status
-    const includeFilters = []
-    if (include.reserved) includeFilters.push('confirmed')
-    if (include.cancelled) includeFilters.push('cancelled')
-    if (include.noShow) includeFilters.push('no_show')
-    if (include.checkedIn) includeFilters.push('checked_in')
-    if (include.checkedOut) includeFilters.push('checked_out')
-    if (include.void) includeFilters.push('void')
-    if (include.unconfirmedReservation) includeFilters.push('pending')
-
-    if (!include.all && includeFilters.length > 0) {
-      query = query.whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereIn('status', includeFilters)
-      })
-    }
-
-    const folios = await query.exec()
-
-    // Calculate totals
-    let totalChargeAmount = 0
-    let totalTaxAmount = 0
-    let totalCreditAmount = 0
-    let totalBalanceAmount = 0
-
-    const folioList = folios.map(folio => {
-      const chargeAmount = folio.folioTransactions
-        .filter(t => t.transactionCategory === 'charge')
-        .reduce((sum, t) => sum + (t.amount || 0), 0)
-      
-      const taxAmount = folio.folioTransactions
-        .filter(t => t.transactionCategory === 'tax')
-        .reduce((sum, t) => sum + (t.amount || 0), 0)
-      
-      const creditAmount = folio.folioTransactions
-        .filter(t => t.transactionCategory === 'payment' || t.transactionCategory === 'credit')
-        .reduce((sum, t) => sum + (t.amount || 0), 0)
-      
-      const balanceAmount = chargeAmount + taxAmount - creditAmount
-
-      // Add to totals
-      totalChargeAmount += chargeAmount
-      totalTaxAmount += taxAmount
-      totalCreditAmount += creditAmount
-      totalBalanceAmount += balanceAmount
-
-      return {
-        folioNo: folio.folioNumber,
-        invoiceNo: folio.invoiceNumber || '',
-        date: folio.createdAt.toFormat('dd/MM/yyyy'),
-        pax: folio.reservation?.adults || 1,
-        name: folio.guest ? `${folio.guest.firstName} ${folio.guest.lastName}` : folio.folioName,
-        status: folio.status,
-        chargeAmount: chargeAmount.toFixed(2),
-        taxAmount: taxAmount.toFixed(2),
-        creditAmount: creditAmount.toFixed(2),
-        balanceAmount: balanceAmount.toFixed(2)
       }
-    })
 
-    return response.ok({
-      success: true,
-      data: {
-        folios: folioList,
-        totals: {
-          totalFolios: folios.length,
-          totalChargeAmount: totalChargeAmount.toFixed(2),
-          totalTaxAmount: totalTaxAmount.toFixed(2),
-          totalCreditAmount: totalCreditAmount.toFixed(2),
-          totalBalance: totalBalanceAmount.toFixed(2)
-        }
+      // Import models
+      const Folio = (await import('#models/folio')).default
+
+      // Build query
+      let query = Folio.query()
+        .preload('guest')
+        .preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('bookingSource')
+        })
+        .preload('transactions')
+
+      // Apply hotel filter
+      if (hotelId) {
+        query = query.where('hotel_id', hotelId)
       }
-    })
 
-  } catch (error) {
-    logger.error('Error generating folio list report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Error generating folio list report',
-      error: error.message
-    })
-  }
-}
+      // Apply date filter based on dateType
+      if (dateType === 'transaction') {
+        query = query.whereHas('transactions', (transactionQuery) => {
+          transactionQuery.whereBetween('transaction_date', [dateFrom, dateTo])
+        })
+      } else if (dateType === 'Arrival')  {
+        query = query.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereBetween('arrivalDate', [dateFrom, dateTo])
 
-/**
- * Get audit report
- */
-async getAuditReport({ request, response }: HttpContext) {
-  try {
-    const {
-      from,
-      to,
-      user = null,
-      operation = null,
-      hotelId
-    } = request.only(['from', 'to', 'user', 'operation', 'hotelId'])
+        })
+      }else if (dateType === 'Arrival')  {
+          query = query.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereBetween('departureDate', [dateFrom, dateTo])
 
-    if (!from || !to) {
-      return response.badRequest({
-        success: false,
-        message: 'Date range is required'
-      })
-    }
+        })
+      }
 
-    // Import models
-    const ActivityLog = (await import('#models/activity_log')).default
+      // Apply business source filter
+      if (businessSource) {
+        query = query.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereHas('bookingSource', (sourceQuery) => {
+            sourceQuery.where('name', 'like', `%${businessSource}%`)
+          })
+        })
+      }
 
-    // Build query
-    let query = ActivityLog.query()
-      .preload('user')
-      .whereBetween('created_at', [from, to])
+      // Apply status filters
+      const statusFilters = []
+      if (status.paid) statusFilters.push('paid')
+      if (status.unpaid) statusFilters.push('unpaid', 'partial')
 
-    // Apply hotel filter
-    if (hotelId) {
-   //   query = query.where('hotel_id', hotelId)
-    }
+      if (statusFilters.length > 0) {
+        //TODO  query = query.whereIn('settlement_status', statusFilters)
+      }
 
-    // Apply user filter
-    if (user) {
-      query = query.where('user_id', user)
-    }
+      // Apply include filters for reservation status
+      const includeFilters: any = []
+      if (include.reserved) includeFilters.push('confirmed')
+      if (include.cancelled) includeFilters.push('cancelled')
+      if (include.noShow) includeFilters.push('no_show')
+      if (include.checkedIn) includeFilters.push('checked_in')
+      if (include.checkedOut) includeFilters.push('checked-out')
+      if (include.void) includeFilters.push('voided')
+      if (include.unconfirmedReservation) includeFilters.push('pending')
 
-    // Apply operation filter
-    if (operation) {
-      const operations = Array.isArray(operation) ? operation : [operation]
-      const actionFilters = operations.map(op => {
-        switch (op) {
-          case 'roomrate_change': return 'ROOM_RATE_CHANGE'
-          case 'check_in': return 'CHECK_IN'
-          case 'check_out': return 'CHECK_OUT'
-          case 'room_assignment': return 'ROOM_ASSIGNMENT'
-          case 'payment': return 'PAYMENT'
-          default: return op.toUpperCase()
+      if (!include.all && includeFilters.length > 0) {
+        query = query.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereIn('status', includeFilters)
+        })
+      }
+
+      const folios = await query.exec()
+
+      // Calculate totals
+      let totalChargeAmount = 0
+      let totalTaxAmount = 0
+      let totalCreditAmount = 0
+      let totalBalanceAmount = 0
+
+      const folioList = folios.map(folio => {
+        const chargeAmount = folio.transactions
+          .filter(t => t.category === TransactionCategory.ROOM)
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+
+        const taxAmount = folio.transactions
+          .filter(t => t.category === TransactionCategory.TAX)
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+
+        const creditAmount = folio.transactions
+          .filter(t => t.category === 'payment')
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+
+        const balanceAmount = chargeAmount + taxAmount - creditAmount
+
+        // Add to totals
+        totalChargeAmount += chargeAmount
+        totalTaxAmount += taxAmount
+        totalCreditAmount += creditAmount
+        totalBalanceAmount += balanceAmount
+
+        return {
+          folioNo: folio.folioNumber,
+          invoiceNo: folio.invoiceNumber || '',
+          date: folio.createdAt.toFormat('dd/MM/yyyy'),
+          pax: folio.reservation?.adults || 1,
+          name: folio.guest ? `${folio.guest.firstName} ${folio.guest.lastName}` : folio.folioName,
+          status: folio.status,
+          chargeAmount: chargeAmount,
+          taxAmount: taxAmount,
+          creditAmount: creditAmount,
+          balanceAmount: balanceAmount
         }
       })
-      query = query.whereIn('action', actionFilters)
-    }
 
-    const logs = await query.orderBy('created_at', 'desc').exec()
-
-    // Group by operation
-    const groupedLogs = logs.reduce((acc:any, log) => {
-      const operation:any = log.action
-      if (!acc[operation]) {
-        acc[operation] = []
-      }
-      
-      acc[operation].push({
-        resNo: log.entityType === 'Reservation' ? log.entityId : '',
-        folioNo: log.entityType === 'Folio' ? log.entityId : '',
-        guest: log.description || '',
-        user: log.user ? `${log.user.firstName} ${log.user.lastName}` : log.username || '',
-        date: log.createdAt.toFormat('dd/MM/yyyy'),
-        time: log.createdAt.toFormat('HH:mm:ss')
+      return response.ok({
+        success: true,
+        data: {
+          folios: folioList,
+          totals: {
+            totalFolios: folios.length,
+            totalChargeAmount: totalChargeAmount,
+            totalTaxAmount: totalTaxAmount,
+            totalCreditAmount: totalCreditAmount,
+            totalBalance: totalBalanceAmount
+          }
+        }
       })
-      
-      return acc
-    }, {})
 
-    return response.ok({
-      success: true,
-      data: {
-        auditLogs: groupedLogs,
-        totalRecords: logs.length
-      }
-    })
-
-  } catch (error) {
-    logger.error('Error generating audit report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Error generating audit report',
-      error: error.message
-    })
-  }
-}
-
-/**
- * Get void charge report
- */
-async getVoidChargeReport({ request, response }: HttpContext) {
-  try {
-    const {
-      from,
-      to,
-      by = null,
-      hotelId
-    } = request.only(['from', 'to', 'by', 'hotelId'])
-
-    if (!from || !to) {
-      return response.badRequest({
+    } catch (error) {
+      logger.error('Error generating folio list report:', error)
+      return response.internalServerError({
         success: false,
-        message: 'Date range is required'
+        message: 'Error generating folio list report',
+        error: error.message
       })
     }
-
-    // Import models
-    const FolioTransaction = (await import('#models/folio_transaction')).default
-
-    // Build query for void charges
-    let query = FolioTransaction.query()
-      .preload('folio', (folioQuery) => {
-        folioQuery.preload('guest').preload('reservation')
-      })
-      .preload('voidedByUser')
-      .where('status', 'voided')
-      .where('category', TransactionCategory.ROOM)
-      .whereBetween('voidedDate', [from, to])
-
-
-    // Apply hotel filter
-    if (hotelId) {
-      query = query.whereHas('folio', (folioQuery) => {
-        folioQuery.where('hotel_id', hotelId)
-      })
-    }
-
-    // Apply user filter
-    if (by) {
-      query = query.where('voided_by_user_id', by)  
-    }
-
-    const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
-
-    const voidCharges = voidTransactions.map(transaction => ({
-      folioNo: transaction.folio.folioNumber,
-      invoiceNo: transaction.folio.invoiceNumber || '',
-      guestName: transaction.folio.guest 
-        ? `${transaction.folio.guest.firstName} ${transaction.folio.guest.lastName}`
-        : transaction.folio.folioName,
-      resNo: transaction.folio.reservation?.reservationNumber || '',
-      chargeDescription: transaction.description,
-      amount: transaction.amount.toFixed(2),
-      voidedBy: transaction.voidedByUser
-        ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
-        : '',
-      voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
-      reason: transaction.voidReason || ''
-    }))
-
-    const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
-
-    return response.ok({
-      success: true,
-      data: {
-        voidCharges,
-        totalRecords: voidTransactions.length,
-        totalAmount: totalAmount.toFixed(2)
-      }
-    })
-
-  } catch (error) {
-    logger.error('Error generating void charge report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Error generating void charge report',
-      error: error.message
-    })
   }
-}
 
-/**
- * Get void payment report
- */
-async getVoidPaymentReport({ request, response }: HttpContext) {
-  try {
-    const {
-      from,
-      to,
-      by = null,
-      hotelId
-    } = request.only(['from', 'to', 'by', 'hotelId'])
+  /**
+   * Get audit report
+   */
+  async getAuditReport({ request, response }: HttpContext) {
+    try {
+      const {
+        from,
+        to,
+        user = null,
+        operation = null,
+        hotelId
+      } = request.only(['from', 'to', 'user', 'operation', 'hotelId'])
 
-    if (!from || !to) {
-      return response.badRequest({
-        success: false,
-        message: 'Date range is required'
-      })
-    }
-
-    // Import models
-    const FolioTransaction = (await import('#models/folio_transaction')).default
-
-    // Build query for void payments
-    let query = FolioTransaction.query()
-      .preload('folio', (folioQuery) => {
-        folioQuery.preload('guest').preload('reservation')
-      })
-      .preload('voidedByUser')
-      .where('status', 'voided')
-      .where('category', TransactionCategory.PAYMENT)
-      .whereBetween('voidedDate', [from, to])
-
-    // Apply hotel filter
-    if (hotelId) {
-      query = query.whereHas('folio', (folioQuery) => {
-        folioQuery.where('hotel_id', hotelId)
-      })
-    }
-
-    // Apply user filter
-    if (by) {
-      query = query.where('voided_by_user_id', by)
-    }
-
-    const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
-
-    const voidPayments = voidTransactions.map(transaction => ({
-      folioNo: transaction.folio.folioNumber,
-      invoiceNo: transaction.folio.invoiceNumber || '',
-      guestName: transaction.folio.guest 
-        ? `${transaction.folio.guest.firstName} ${transaction.folio.guest.lastName}`
-        : transaction.folio.folioName,
-      resNo: transaction.folio.reservation?.reservationNumber || '',
-      paymentDescription: transaction.description,
-      amount: transaction.amount.toFixed(2),
-      voidedBy: transaction.voidedByUser 
-        ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
-        : '',
-      voidedAt: transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
-      reason: transaction.voidReason || ''
-    }))
-
-    const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
-
-    return response.ok({
-      success: true,
-      data: {
-        voidPayments,
-        totalRecords: voidTransactions.length,
-        totalAmount: totalAmount.toFixed(2)
+      if (!from || !to) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required'
+        })
       }
-    })
 
-  } catch (error) {
-    logger.error('Error generating void payment report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Error generating void payment report',
-      error: error.message
-    })
+      // Import models
+      const ActivityLog = (await import('#models/activity_log')).default
+
+      // Build query
+      let query = ActivityLog.query()
+        .preload('user')
+        .whereBetween('created_at', [from, to])
+
+      // Apply hotel filter
+      if (hotelId) {
+        //   query = query.where('hotel_id', hotelId)
+      }
+
+      // Apply user filter
+      if (user) {
+        query = query.where('user_id', user)
+      }
+
+      // Apply operation filter
+      if (operation) {
+        const operations = Array.isArray(operation) ? operation : [operation]
+        const actionFilters = operations.map(op => {
+          switch (op) {
+            case 'roomrate_change': return 'ROOM_RATE_CHANGE'
+            case 'check_in': return 'CHECK_IN'
+            case 'check_out': return 'CHECK_OUT'
+            case 'room_assignment': return 'ROOM_ASSIGNMENT'
+            case 'payment': return 'PAYMENT'
+            default: return op.toUpperCase()
+          }
+        })
+        query = query.whereIn('action', actionFilters)
+      }
+
+      const logs = await query.orderBy('created_at', 'desc').exec()
+
+      // Group by operation
+      const groupedLogs = logs.reduce((acc: any, log) => {
+        const operation: any = log.action
+        if (!acc[operation]) {
+          acc[operation] = []
+        }
+
+        acc[operation].push({
+          resNo: log.entityType === 'Reservation' ? log.entityId : '',
+          folioNo: log.entityType === 'Folio' ? log.entityId : '',
+          guest: log.description || '',
+          user: log.user ? `${log.user.firstName} ${log.user.lastName}` : log.username || '',
+          date: log.createdAt.toFormat('dd/MM/yyyy'),
+          time: log.createdAt.toFormat('HH:mm:ss')
+        })
+
+        return acc
+      }, {})
+
+      return response.ok({
+        success: true,
+        data: {
+          auditLogs: groupedLogs,
+          totalRecords: logs.length
+        }
+      })
+
+    } catch (error) {
+      logger.error('Error generating audit report:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating audit report',
+        error: error.message
+      })
+    }
   }
-}
 
-/**
- * Get void transaction report
- */
-async getVoidTransactionReport({ request, response }: HttpContext) {
-  try {
-    const {
-      from,
-      to,
-      by = null,
-      hotelId
-    } = request.only(['from', 'to', 'by', 'hotelId'])
+  /**
+   * Get void charge report
+   */
+  async getVoidChargeReport({ request, response }: HttpContext) {
+    try {
+      const {
+        from,
+        to,
+        by = null,
+        hotelId
+      } = request.only(['from', 'to', 'by', 'hotelId'])
 
-    if (!from || !to) {
-      return response.badRequest({
-        success: false,
-        message: 'Date range is required'
-      })
-    }
-
-    // Import models
-    const FolioTransaction = (await import('#models/folio_transaction')).default
-
-    // Build query for all void transactions
-    let query = FolioTransaction.query()
-      .preload('folio', (folioQuery) => {
-        folioQuery.preload('guest').preload('reservation')
-      })
-      .preload('voidedByUser')
-      .where('status', 'voided')
-      .where('category', TransactionCategory.PAYMENT)
-      .whereBetween('voidedDate', [from, to]) 
-
-    // Apply hotel filter
-    if (hotelId) {
-      query = query.whereHas('folio', (folioQuery) => {
-        folioQuery.where('hotel_id', hotelId)
-      })
-    }
-
-    // Apply user filter
-    if (by) {
-      query = query.where('voided_by_user_id', by)
-    }
-
-    const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
-
-    const voidTransactionsList = voidTransactions.map(transaction => ({
-      folioNo: transaction.folio.folioNumber,
-      invoiceNo: transaction.folio.invoiceNumber || '',
-      guestName: transaction.folio.guest 
-        ? `${transaction.folio.guest.firstName} ${transaction.folio.guest.lastName}`
-        : transaction.folio.folioName,
-      resNo: transaction.folio.reservation?.reservationNumber || '',
-      transactionType: transaction.transactionType,
-      description: transaction.description,
-      amount: transaction.amount.toFixed(2),
-      voidedBy: transaction.voidedByUser 
-        ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
-        : '',
-      voidedAt: transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
-      reason: transaction.voidReason || ''
-    }))
-
-    const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
-
-    return response.ok({
-      success: true,
-      data: {
-        voidTransactions: voidTransactionsList,
-        totalRecords: voidTransactions.length,
-        totalAmount: totalAmount.toFixed(2)
+      if (!from || !to) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required'
+        })
       }
-    })
 
-  } catch (error) {
-    logger.error('Error generating void transaction report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Error generating void transaction report',
-      error: error.message
-    })
+      // Import models
+      const FolioTransaction = (await import('#models/folio_transaction')).default
+
+      // Build query for void charges
+      let query = FolioTransaction.query()
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('guest').preload('reservation')
+        })
+        .preload('voidedByUser')
+        .where('status', 'voided')
+        .where('category', TransactionCategory.ROOM)
+        .whereBetween('voidedDate', [from, to])
+
+
+      // Apply hotel filter
+      if (hotelId) {
+        query = query.whereHas('folio', (folioQuery) => {
+          folioQuery.where('hotel_id', hotelId)
+        })
+      }
+
+      // Apply user filter
+      if (by) {
+        query = query.where('voided_by_user_id', by)
+      }
+
+      const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
+
+      const voidCharges = voidTransactions.map(transaction => ({
+        folioNo: transaction.folio.folioNumber,
+        invoiceNo: transaction.folio.invoiceNumber || '',
+        guestName: transaction.folio.guest
+          ? `${transaction.folio.guest.firstName} ${transaction.folio.guest.lastName}`
+          : transaction.folio.folioName,
+        resNo: transaction.folio.reservation?.reservationNumber || '',
+        chargeDescription: transaction.description,
+        amount: transaction.amount,
+        voidedBy: transaction.voidedByUser
+          ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
+          : '',
+        voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
+        reason: transaction.voidReason || ''
+      }))
+
+      const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+
+      return response.ok({
+        success: true,
+        data: {
+          voidCharges,
+          totalRecords: voidTransactions.length,
+          totalAmount: totalAmount
+        }
+      })
+
+    } catch (error) {
+      logger.error('Error generating void charge report:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating void charge report',
+        error: error.message
+      })
+    }
   }
-}
 
-/**
- * Generate guest list report
- */
-async getGuestListReport({ request, response }: HttpContext) {
-  try {
-    const { 
-      startDate, 
-      endDate, 
-      status 
-    } = request.only(['startDate', 'endDate', 'status'])
+  /**
+   * Get void payment report
+   */
+  async getVoidPaymentReport({ request, response }: HttpContext) {
+    try {
+      const {
+        from,
+        to,
+        by = null,
+        hotelId
+      } = request.only(['from', 'to', 'by', 'hotelId'])
 
-    // Validate required parameters
-    if (!startDate || !endDate) {
-      return response.badRequest({
+      if (!from || !to) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required'
+        })
+      }
+
+      // Import models
+      const FolioTransaction = (await import('#models/folio_transaction')).default
+
+      // Build query for void payments
+      let query = FolioTransaction.query()
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('guest').preload('reservation')
+        })
+        .preload('voidedByUser')
+        .where('status', 'voided')
+        .where('category', TransactionCategory.PAYMENT)
+        .whereBetween('voidedDate', [from, to])
+
+      // Apply hotel filter
+      if (hotelId) {
+        query = query.whereHas('folio', (folioQuery) => {
+          folioQuery.where('hotel_id', hotelId)
+        })
+      }
+
+      // Apply user filter
+      if (by) {
+        query = query.where('voided_by_user_id', by)
+      }
+
+      const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
+
+      const voidPayments = voidTransactions.map(transaction => ({
+        folioNo: transaction.folio.folioNumber,
+        invoiceNo: transaction.folio.invoiceNumber || '',
+        guestName: transaction.folio.guest
+          ? `${transaction.folio.guest.firstName} ${transaction.folio.guest.lastName}`
+          : transaction.folio.folioName,
+        resNo: transaction.folio.reservation?.reservationNumber || '',
+        paymentDescription: transaction.description,
+        amount: transaction.amount,
+        voidedBy: transaction.voidedByUser
+          ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
+          : '',
+        voidedAt: transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
+        reason: transaction.voidReason || ''
+      }))
+
+      const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+
+      return response.ok({
+        success: true,
+        data: {
+          voidPayments,
+          totalRecords: voidTransactions.length,
+          totalAmount: totalAmount
+        }
+      })
+
+    } catch (error) {
+      logger.error('Error generating void payment report:', error)
+      return response.internalServerError({
         success: false,
-        message: 'Start date and end date are required'
+        message: 'Error generating void payment report',
+        error: error.message
       })
     }
+  }
 
-    // Build query for reservations
-    let query = Reservation.query()
-      .preload('guest')
-      .preload('reservationRooms', (roomQuery) => {
-        roomQuery.preload('room')
+  /**
+   * Get void transaction report
+   */
+  async getVoidTransactionReport({ request, response }: HttpContext) {
+    try {
+      const {
+        from,
+        to,
+        by = null,
+        hotelId
+      } = request.only(['from', 'to', 'by', 'hotelId'])
+
+      if (!from || !to) {
+        return response.badRequest({
+          success: false,
+          message: 'Date range is required'
+        })
+      }
+
+      // Import models
+      const FolioTransaction = (await import('#models/folio_transaction')).default
+
+      // Build query for all void transactions
+      let query = FolioTransaction.query()
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('guest').preload('reservation')
+        })
+        .preload('voidedByUser')
+        .where('status', 'voided')
+        .where('category', TransactionCategory.PAYMENT)
+        .whereBetween('voidedDate', [from, to])
+
+      // Apply hotel filter
+      if (hotelId) {
+        query = query.whereHas('folio', (folioQuery) => {
+          folioQuery.where('hotel_id', hotelId)
+        })
+      }
+
+      // Apply user filter
+      if (by) {
+        query = query.where('voided_by_user_id', by)
+      }
+
+      const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
+
+      const voidTransactionsList = voidTransactions.map(transaction => ({
+        folioNo: transaction.folio.folioNumber,
+        invoiceNo: transaction.folio.invoiceNumber || '',
+        guestName: transaction.folio.guest
+          ? `${transaction.folio.guest.firstName} ${transaction.folio.guest.lastName}`
+          : transaction.folio.folioName,
+        resNo: transaction.folio.reservation?.reservationNumber || '',
+        transactionType: transaction.transactionType,
+        description: transaction.description,
+        amount: transaction.amount,
+        voidedBy: transaction.voidedByUser
+          ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
+          : '',
+        voidedAt: transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
+        reason: transaction.voidReason || ''
+      }))
+
+      const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+
+      return response.ok({
+        success: true,
+        data: {
+          voidTransactions: voidTransactionsList,
+          totalRecords: voidTransactions.length,
+          totalAmount: totalAmount
+        }
       })
-      .whereBetween('scheduledArrivalDate', [startDate, endDate])
 
-    // Apply status filter if provided
-    if (status && status !== 'null') {
-      if (status === 'check_in') {
-        query = query.where('reservationStatus', 'Checked-In')
-      } else if (status === 'check_out') {
-        query = query.where('reservationStatus', 'Checked-Out')
-      }
+    } catch (error) {
+      logger.error('Error generating void transaction report:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating void transaction report',
+        error: error.message
+      })
     }
+  }
 
-    const reservations = await query.exec()
+  /**
+   * Generate guest list report
+   */
+  async getGuestListReport({ request, response }: HttpContext) {
+    try {
+      const {
+        startDate,
+        endDate,
+        status
+      } = request.only(['startDate', 'endDate', 'status'])
 
-    // Format the guest list data
-    const guestList = reservations.map(reservation => {
-      const primaryRoom = reservation.reservationRooms.find(room => room.isOwner) || reservation.reservationRooms[0]
-      
-      return {
-        guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
-        roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
-        checkInDate: reservation.scheduledArrivalDate.toFormat('dd/MM/yyyy'),
-        checkOutDate: reservation.scheduledDepartureDate.toFormat('dd/MM/yyyy'),
-        status: reservation.reservationStatus
+      // Validate required parameters
+      if (!startDate || !endDate) {
+        return response.badRequest({
+          success: false,
+          message: 'Start date and end date are required'
+        })
       }
-    })
 
-    return response.ok({
-      success: true,
-      data: {
-        guestList,
-        totalRecords: guestList.length,
-        filters: {
-          startDate,
-          endDate,
-          status: status || 'all'
+      // Build query for reservations
+      let query = Reservation.query()
+        .preload('guest')
+        .preload('reservationRooms', (roomQuery) => {
+          roomQuery.preload('room')
+        })
+        .whereBetween('scheduledArrivalDate', [startDate, endDate])
+
+      // Apply status filter if provided
+      if (status && status !== 'null') {
+        if (status === 'check_in') {
+          query = query.where('reservationStatus', 'Checked-In')
+        } else if (status === 'check_out') {
+          query = query.where('reservationStatus', 'Checked-Out')
         }
       }
-    })
 
-  } catch (error) {
-    logger.error('Error generating guest list report:', error)
-    return response.internalServerError({
-      success: false,
-      message: 'Error generating guest list report',
-      error: error.message
-    })
+      const reservations = await query.exec()
+
+      // Format the guest list data
+      const guestList = reservations.map(reservation => {
+        const primaryRoom = reservation.reservationRooms.find(room => room.isOwner) || reservation.reservationRooms[0]
+
+        return {
+          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
+          roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
+          checkInDate: reservation.scheduledArrivalDate.toFormat('dd/MM/yyyy'),
+          checkOutDate: reservation.scheduledDepartureDate.toFormat('dd/MM/yyyy'),
+          status: reservation.reservationStatus
+        }
+      })
+
+      return response.ok({
+        success: true,
+        data: {
+          guestList,
+          totalRecords: guestList.length,
+          filters: {
+            startDate,
+            endDate,
+            status: status || 'all'
+          }
+        }
+      })
+
+    } catch (error) {
+      logger.error('Error generating guest list report:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating guest list report',
+        error: error.message
+      })
+    }
   }
-}
 
   // Payment Summary Report
   async getPaymentSummary({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6814,7 +6818,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getPaymentSummaryReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -6832,7 +6836,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getRevenueByRateTypeSummary({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6840,7 +6844,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getRevenueByRateTypeSummaryReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -6857,7 +6861,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateRevenueByRateTypeSummaryPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6865,10 +6869,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateRevenueByRateTypeSummaryPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="revenue-by-rate-type-summary.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -6883,7 +6887,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getStatisticsByRoomType({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6891,7 +6895,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getStatisticsByRoomTypeReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -6908,7 +6912,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateStatisticsByRoomTypePdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6916,10 +6920,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateStatisticsByRoomTypePdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="statistics-by-room-type.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -6934,7 +6938,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getBusinessAnalysis({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6942,7 +6946,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getBusinessAnalysisReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -6959,7 +6963,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateBusinessAnalysisPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6967,10 +6971,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateBusinessAnalysisPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="business-analysis-report.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -6985,7 +6989,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getContributionAnalysisReport({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -6993,7 +6997,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getContributionAnalysisReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7010,7 +7014,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateContributionAnalysisReportPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7018,10 +7022,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateContributionAnalysisReportPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="contribution-analysis-report.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7036,7 +7040,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getMonthlyCountryWisePaxAnalysis({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7044,7 +7048,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getMonthlyCountryWisePaxAnalysisReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7061,7 +7065,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateMonthlyCountryWisePaxAnalysisPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7069,10 +7073,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyCountryWisePaxAnalysisPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="monthly-country-wise-pax-analysis.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7087,7 +7091,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getMonthlyRevenueByIncomeStream({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7095,7 +7099,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getMonthlyRevenueByIncomeStreamReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7112,7 +7116,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateMonthlyRevenueByIncomeStreamPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7120,10 +7124,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyRevenueByIncomeStreamPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="monthly-revenue-by-income-stream.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7138,7 +7142,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getMonthlyStatistics({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7146,7 +7150,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getMonthlyStatisticsReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7163,7 +7167,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateMonthlyStatisticsPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7171,10 +7175,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyStatisticsPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="monthly-statistics.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7189,7 +7193,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getMonthlySummary({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7197,7 +7201,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getMonthlySummaryReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7214,7 +7218,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateMonthlySummaryPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7222,10 +7226,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateMonthlySummaryPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="monthly-summary.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7240,7 +7244,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getMonthlyTax({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7248,7 +7252,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getMonthlyTaxReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7265,7 +7269,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateMonthlyTaxPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7273,10 +7277,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyTaxPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="monthly-tax-report.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7291,7 +7295,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getRoomSaleStatistics({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7299,7 +7303,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getRoomSaleStatisticsReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7316,7 +7320,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateRoomSaleStatisticsPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7324,10 +7328,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateRoomSaleStatisticsPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="room-sale-statistics.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7342,7 +7346,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getRoomStatistics({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7350,7 +7354,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getRoomStatisticsReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7367,7 +7371,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateRoomStatisticsPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7375,10 +7379,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateRoomStatisticsPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="room-statistics.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7393,7 +7397,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getRoomOnBooks({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7401,7 +7405,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getRoomOnBooksReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7418,7 +7422,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateRoomOnBooksPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7426,10 +7430,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateRoomOnBooksPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="room-on-books.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7444,7 +7448,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getYearlyStatistics({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7452,7 +7456,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getYearlyStatisticsReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7469,7 +7473,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateYearlyStatisticsPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7477,10 +7481,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateYearlyStatisticsPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="yearly-statistics.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7495,7 +7499,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getPerformanceAnalysisReport({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7503,7 +7507,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getPerformanceAnalysisReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7520,7 +7524,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generatePerformanceAnalysisReportPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7528,10 +7532,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generatePerformanceAnalysisReportPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="performance-analysis-report.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7546,7 +7550,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getIpReport({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7554,7 +7558,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getIpReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7571,7 +7575,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateIpReportPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7579,10 +7583,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateIpReportPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="ip-report.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7597,7 +7601,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getCityLedgerDetail({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7605,7 +7609,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getCityLedgerDetailReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7622,7 +7626,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateCityLedgerDetailPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7630,10 +7634,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateCityLedgerDetailPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="city-ledger-detail.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
@@ -7648,7 +7652,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async getCityLedgerSummary({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7656,7 +7660,7 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const data = await ReportsService.getCityLedgerSummaryReport(filters)
-      
+
       return response.ok({
         success: true,
         data
@@ -7673,7 +7677,7 @@ async getGuestListReport({ request, response }: HttpContext) {
   async generateCityLedgerSummaryPdf({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.body()
-      
+
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
@@ -7681,10 +7685,10 @@ async getGuestListReport({ request, response }: HttpContext) {
       }
 
       const pdfBuffer = await ReportsService.generateCityLedgerSummaryPdf(filters)
-      
+
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'attachment; filename="city-ledger-summary.pdf"')
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
