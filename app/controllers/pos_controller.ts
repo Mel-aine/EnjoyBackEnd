@@ -83,8 +83,9 @@ export default class PosController {
 
       // Get all checked-in reservation rooms for the hotel
       const inHouseReservations = await ReservationRoom.query()
-        .where('hotel_id', parseInt(hotelId))
-        .where('status', 'checked-in')
+        //.where('hotel_id', parseInt(hotelId))
+        //.where('status', 'checked-in')
+        .preload('guest')
         .preload('reservation', (reservationQuery) => {
           reservationQuery.preload('guest')
           reservationQuery.preload('folios')
@@ -95,14 +96,14 @@ export default class PosController {
       const formattedData = inHouseReservations.map(reservationRoom => {
         const guest = reservationRoom.reservation?.guest
         const room = reservationRoom.room
-        const folio = reservationRoom.folio
+        const folio = reservationRoom.reservation.folios?.[0]
 
         return {
-          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : 'Unknown Guest',
+          guestName: guest ? `${guest.fullName}`.trim() : 'Unknown Guest',
           roomId: room?.id || null,
           reservationRoomId: reservationRoom.id,
-          checkinDate: reservationRoom.checkinDate ? DateTime.fromJSDate(reservationRoom.checkinDate).toISODate() : null,
-          checkoutDate: reservationRoom.checkoutDate ? DateTime.fromJSDate(reservationRoom.checkoutDate).toISODate() : null,
+          checkinDate: reservationRoom.checkInDate ? reservationRoom.checkInDate.toISODate() : null,
+          checkoutDate: reservationRoom.checkOutDate ? reservationRoom.checkOutDate.toISODate() : null,
           hotelId: parseInt(hotelId),
           hotelNumber: room?.roomNumber || null,
           folioId: folio?.id || null

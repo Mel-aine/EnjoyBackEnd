@@ -9,6 +9,7 @@ import Guest from './guest.js'
 import RoomRate from './room_rate.js'
 import Folio from './folio.js'
 import PaymentMethod from './payment_method.js'
+import Hotel from './hotel.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -16,6 +17,9 @@ export default class ReservationRoom extends BaseModel {
 
   @column()
   declare reservationId: number
+
+  @column()
+  declare hotelId: number
 
   @column()
   declare roomId: number | null
@@ -626,6 +630,9 @@ export default class ReservationRoom extends BaseModel {
   declare updatedAt: DateTime
 
   // Relationships
+  @belongsTo(() => Hotel)
+  declare hotel: BelongsTo<typeof Hotel>
+
   @belongsTo(() => Room)
   declare room: BelongsTo<typeof Room>
 

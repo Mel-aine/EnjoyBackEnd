@@ -38,6 +38,8 @@ router.group(() => {
   // Get report statistics for dashboard
   router.get('/stats', [ReportsController, 'getReportStats'])
 
+
+
   // Specific report endpoints for direct access
 
   // Reservation Reports
@@ -124,8 +126,84 @@ router.group(() => {
     // Statistics By Room Type PDF report
     router.post('/statistics-by-room-type-pdf', [ReportsController, 'generateStatisticsByRoomTypePdf'])
 
+    // Business Analysis Report
+    router.get('/business-analysis', [ReportsController, 'getBusinessAnalysis'])
+    router.post('/business-analysis-pdf', [ReportsController, 'generateBusinessAnalysisPdf'])
+
+    // Contribution Analysis Report
+    router.get('/contribution-analysis-report', [ReportsController, 'getContributionAnalysisReport'])
+    router.post('/contribution-analysis-report-pdf', [ReportsController, 'generateContributionAnalysisReportPdf'])
+
+    // Monthly Country-wise PAX Analysis
+    router.get('/monthly-country-wise-pax-analysis', [ReportsController, 'getMonthlyCountryWisePaxAnalysis'])
+    router.post('/monthly-country-wise-pax-analysis-pdf', [ReportsController, 'generateMonthlyCountryWisePaxAnalysisPdf'])
+
+    // Monthly Revenue by Income Stream
+    router.get('/monthly-revenue-by-income-stream', [ReportsController, 'getMonthlyRevenueByIncomeStream'])
+    router.post('/monthly-revenue-by-income-stream-pdf', [ReportsController, 'generateMonthlyRevenueByIncomeStreamPdf'])
+
+    // Monthly Statistics
+    router.get('/monthly-statistics', [ReportsController, 'getMonthlyStatistics'])
+    router.post('/monthly-statistics-pdf', [ReportsController, 'generateMonthlyStatisticsPdf'])
+
+    // Monthly Summary
+    router.get('/monthly-summary', [ReportsController, 'getMonthlySummary'])
+    router.post('/monthly-summary-pdf', [ReportsController, 'generateMonthlySummaryPdf'])
+
+    // Monthly Tax Report
+    router.get('/monthly-tax', [ReportsController, 'getMonthlyTax'])
+    router.post('/monthly-tax-pdf', [ReportsController, 'generateMonthlyTaxPdf'])
+
+    // Room Sale Statistics
+    router.get('/room-sale-statistics', [ReportsController, 'getRoomSaleStatistics'])
+    router.post('/room-sale-statistics-pdf', [ReportsController, 'generateRoomSaleStatisticsPdf'])
+
+    // Room Statistics
+    router.get('/room-statistics', [ReportsController, 'getRoomStatistics'])
+    router.post('/room-statistics-pdf', [ReportsController, 'generateRoomStatisticsPdf'])
+
+    // Room on Books
+    router.get('/room-on-books', [ReportsController, 'getRoomOnBooks'])
+    router.post('/room-on-books-pdf', [ReportsController, 'generateRoomOnBooksPdf'])
+
+    // Yearly Statistics
+    router.get('/yearly-statistics', [ReportsController, 'getYearlyStatistics'])
+    router.post('/yearly-statistics-pdf', [ReportsController, 'generateYearlyStatisticsPdf'])
+
+    // Performance Analysis Report
+    router.get('/performance-analysis-report', [ReportsController, 'getPerformanceAnalysisReport'])
+    router.post('/performance-analysis-report-pdf', [ReportsController, 'generatePerformanceAnalysisReportPdf'])
+
+    // IP Report
+    router.get('/ip-report', [ReportsController, 'getIpReport'])
+    router.post('/ip-report-pdf', [ReportsController, 'generateIpReportPdf'])
+
+    // City Ledger Detail
+    router.get('/city-ledger-detail', [ReportsController, 'getCityLedgerDetail'])
+    router.post('/city-ledger-detail-pdf', [ReportsController, 'generateCityLedgerDetailPdf'])
+
+    // City Ledger Summary
+    router.get('/city-ledger-summary', [ReportsController, 'getCityLedgerSummary'])
+    router.post('/city-ledger-summary-pdf', [ReportsController, 'generateCityLedgerSummaryPdf'])
+
+    // Payment Summary (data endpoint)
+    router.get('/payment-summary', [ReportsController, 'getPaymentSummary'])
+
     // Daily Revenue PDF report
   router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
+  // New Report Endpoints
+  // Folio List Report
+  router.post('/folio-list', [ReportsController, 'getFolioListReport'])
+
+  // Audit Report
+  router.post('/audit', [ReportsController, 'getAuditReport'])
+
+  // Guest List Report
+  router.post('/guest-list', [ReportsController, 'getGuestListReport'])
+  // Void Reports
+  router.post('/void-charge', [ReportsController, 'getVoidChargeReport'])
+  router.post('/void-payment', [ReportsController, 'getVoidPaymentReport'])
+  router.post('/void-transaction', [ReportsController, 'getVoidTransactionReport'])
 }).prefix('/statistics')
 
 // New Report Endpoints

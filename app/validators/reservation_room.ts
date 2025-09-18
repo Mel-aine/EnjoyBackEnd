@@ -7,6 +7,7 @@ import vine from '@vinejs/vine'
 export const createReservationRoomValidator = vine.compile(
   vine.object({
     reservationId: vine.number().positive(),
+    hotelId: vine.number().positive(),
     roomId: vine.number().positive(),
     roomTypeId: vine.number().positive(),
     paymentMethodId: vine.number().positive().optional(),

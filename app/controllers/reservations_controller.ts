@@ -2631,6 +2631,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Create new reservation room record for the new room
       const newReservationRoom = await ReservationRoom.create({
         reservationId: reservation.id,
+        hotelId: reservation.hotelId,
         roomId: newRoomId,
         roomTypeId: newRoom.roomTypeId,
         checkInDate: moveDate,

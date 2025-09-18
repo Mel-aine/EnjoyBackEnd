@@ -424,6 +424,9 @@ export default class FolioTransaction extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
+  @belongsTo(() => User, { foreignKey: 'voidedBy' })
+  declare voidedByUser: BelongsTo<typeof User>
+
   @belongsTo(() => Discount)
   declare discount: BelongsTo<typeof Discount>
 
