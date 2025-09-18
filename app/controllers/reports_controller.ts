@@ -7,7 +7,7 @@ import logger from '@adonisjs/core/services/logger'
 import { ReservationStatus, TransactionCategory } from '#app/enums'
 import PaymentMethod from '#models/payment_method'
 import PdfService from '#services/pdf_service'
-
+import Reservation from '#models/reservation'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -6267,7 +6267,7 @@ async getFolioListReport({ request, response }: HttpContext) {
       .preload('reservation', (reservationQuery) => {
         reservationQuery.preload('bookingSource')
       })
-      .preload('folioTransactions')
+      .preload('transactions')
 
     // Apply hotel filter
     if (hotelId) {
@@ -6276,7 +6276,7 @@ async getFolioListReport({ request, response }: HttpContext) {
 
     // Apply date filter based on dateType
     if (dateType === 'transaction') {
-      query = query.whereHas('folioTransactions', (transactionQuery) => {
+      query = query.whereHas('transactions', (transactionQuery) => {
         transactionQuery.whereBetween('transaction_date', [dateFrom, dateTo])
       })
     } else {
