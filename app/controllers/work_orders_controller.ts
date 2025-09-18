@@ -93,14 +93,25 @@ export default class WorkOrdersController {
   /**
    * Create a new work order
    */
-  async store({ request, response, auth }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx
     try {
+      console.log('➡️ Début création WorkOrder')
+  
       const payload = await request.validateUsing(createWorkOrderValidator)
+      console.log('✅ Payload validé:', payload)
+  
       const user = auth.user!
-
+      console.log('👤 Utilisateur authentifié:', {
+        id: user?.id,
+        email: user?.email,
+        name: `${user?.firstName} ${user?.lastName}`
+      })
+  
       // Generate order number
       const orderNumber = WorkOrder.generateOrderNumber()
-
+      console.log('🆔 Numéro de WorkOrder généré:', orderNumber)
+  
       const workOrder = await WorkOrder.create({
         ...payload,
         orderNumber,
@@ -108,38 +119,48 @@ export default class WorkOrdersController {
         priority: payload.priority || 'medium',
         roomStatus: payload.roomStatus || 'dirty'
       })
-
+      console.log('📄 WorkOrder créé (avant save):', workOrder.toJSON())
+  
       // Add initial note
       workOrder.addNote(user.id, `Work order created by ${user.firstName} ${user.lastName}`)
       if (payload.assignedToUserId !== user.id) {
+        console.log(`✍️ Ajout d'une note: assigné à user ${payload.assignedToUserId}`)
         workOrder.addNote(user.id, `Work order assigned to user ${payload.assignedToUserId}`)
       }
       await workOrder.save()
-
+      console.log('💾 WorkOrder sauvegardé avec notes')
+  
       // Load relationships
       await workOrder.load('room')
       await workOrder.load('assignedToUser')
       await workOrder.load('hotel')
-
-      await LoggerService.log('info', 'Work order created', {
-        workOrderId: workOrder.id,
-        orderNumber: workOrder.orderNumber,
-        createdBy: user.id,
-        hotelId: workOrder.hotelId
+      console.log('🔗 Relations chargées: room, assignedToUser, hotel')
+  
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'CREATED',
+        entityType: 'Work Order',
+        entityId: workOrder.id,
+        description: 'Work order created',
+        hotelId: workOrder.hotelId,
+        ctx
       })
-
+      console.log('📝 LoggerService.log appelé avec succès')
+  
       return response.created({
         success: true,
         message: 'Work order created successfully',
         data: workOrder
       })
     } catch (error) {
+      console.error('❌ Erreur lors de la création WorkOrder:', error)
+  
       await LoggerService.log('error', 'Failed to create work order', {
         error: error.message,
         stack: error.stack,
         payload: request.body()
       })
-
+  
       return response.internalServerError({
         success: false,
         message: 'Failed to create work order',
@@ -147,6 +168,7 @@ export default class WorkOrdersController {
       })
     }
   }
+  
 
   /**
    * Show a specific work order
@@ -253,53 +275,74 @@ export default class WorkOrdersController {
    * Update work order status with logging
    */
   async updateStatus({ params, request, response, auth }: HttpContext) {
+    console.log('➡️ Début mise à jour du statut WorkOrder, ID:', params.id)
+  
     try {
       const payload = await request.validateUsing(updateWorkOrderStatusValidator)
+      console.log('✅ Payload validé:', payload)
+  
       const user = auth.user!
-
+      console.log('👤 Utilisateur authentifié:', {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+      })
+  
       const workOrder = await WorkOrder.findOrFail(params.id)
-      
+      console.log('📄 WorkOrder trouvé:', {
+        id: workOrder.id,
+        currentStatus: workOrder.status,
+        assignedTo: workOrder.assignedToUserId,
+      })
+  
       const oldStatus = workOrder.status
       workOrder.updateStatus(payload.status, user.id)
-      
+      console.log(`🔄 Statut mis à jour: ${oldStatus} ➡️ ${payload.status}`)
+  
       if (payload.notes) {
         workOrder.addNote(user.id, payload.notes)
+        console.log('📝 Note ajoutée par', user.id, ':', payload.notes)
       }
-
+  
       await workOrder.save()
-
-      // Load relationships
+      console.log('💾 WorkOrder sauvegardé avec nouveau statut')
+  
+      // Relations
       await workOrder.load('room')
       await workOrder.load('assignedToUser')
       await workOrder.load('hotel')
-
+      console.log('🔗 Relations chargées: room, assignedToUser, hotel')
+  
       await LoggerService.log('info', 'Work order status updated', {
         workOrderId: workOrder.id,
         oldStatus,
         newStatus: payload.status,
-        updatedBy: user.id
+        updatedBy: user.id,
       })
-
+      console.log('📝 Log enregistré pour la mise à jour du statut')
+  
       return response.ok({
         success: true,
         message: 'Work order status updated successfully',
-        data: workOrder
+        data: workOrder,
       })
     } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du statut WorkOrder:', error)
+  
       await LoggerService.log('error', 'Failed to update work order status', {
         workOrderId: params.id,
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       })
-
+  
       return response.internalServerError({
         success: false,
         message: 'Failed to update work order status',
-        error: error.message
+        error: error.message,
       })
     }
   }
-
+  
   /**
    * Assign work order to a user
    */
