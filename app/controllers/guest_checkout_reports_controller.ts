@@ -35,10 +35,10 @@ export default class GuestCheckoutReportsController {
           roomRatesQuery.preload('rateType')
         })// User who performed checkout
         .where('hotelId', hotelId)
-        .where('actualCheckOutTime', '>=', startDateTime.toSQLDate())
-        .where('actualCheckOutTime', '<=', endDateTime.toSQLDate())
+        .where('actualCheckOut', '>=', startDateTime.toSQLDate())
+        .where('actualCheckOut', '<=', endDateTime.toSQLDate())
         .where('status', ReservationStatus.CHECKED_OUT)
-        .orderBy('actualCheckOutTime', 'asc')
+        .orderBy('actualCheckOut', 'asc')
 
       // Process checkout data
 
