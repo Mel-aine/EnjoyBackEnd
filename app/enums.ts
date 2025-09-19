@@ -70,10 +70,12 @@ export enum TransactionType {
   REFUND = 'refund',
   TRANSFER = 'transfer',
   VOID = 'void',
-  CORRECTION = 'correction'
+  CORRECTION = 'correction',
+  ROOM_POSTING = 'room_posting',
 }
 
 export enum TransactionCategory {
+  POSTING = 'posting',
   TRANSFER_OUT = 'transfer_out',
   TRANSFER_IN = 'transfer_in',
   ROOM = 'room',

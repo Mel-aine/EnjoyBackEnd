@@ -168,9 +168,7 @@ export default class WorkOrderReportsController {
   private async getWorkOrdersByStatus(filters: any) {
     const query = WorkOrder.query()
       .preload('assignedToUser')
-      .preload('createdByUser')
       .preload('room')
-      .preload('department')
 
     this.applyFilters(query, filters)
 
@@ -204,9 +202,7 @@ export default class WorkOrderReportsController {
   private async getWorkOrdersByPriority(filters: any) {
     const query = WorkOrder.query()
       .preload('assignedToUser')
-      .preload('createdByUser')
       .preload('room')
-      .preload('department')
 
     this.applyFilters(query, filters)
 
@@ -240,9 +236,7 @@ export default class WorkOrderReportsController {
   private async getWorkOrdersByDepartment(filters: any) {
     const query = WorkOrder.query()
       .preload('assignedToUser')
-      .preload('createdByUser')
       .preload('room')
-      .preload('department')
 
     this.applyFilters(query, filters)
 
@@ -276,9 +270,7 @@ export default class WorkOrderReportsController {
   private async getWorkOrdersByAssignee(filters: any) {
     const query = WorkOrder.query()
       .preload('assignedToUser')
-      .preload('createdByUser')
       .preload('room')
-      .preload('department')
 
     this.applyFilters(query, filters)
 
@@ -314,9 +306,7 @@ export default class WorkOrderReportsController {
   private async getOverdueWorkOrders(filters: any) {
     const query = WorkOrder.query()
       .preload('assignedToUser')
-      .preload('createdByUser')
       .preload('room')
-      .preload('department')
       .where('dueDate', '<', DateTime.now().toJSDate())
       .whereNotIn('status', ['completed', 'cancelled'])
 
@@ -345,9 +335,7 @@ export default class WorkOrderReportsController {
   private async getCompletedWorkOrders(filters: any) {
     const query = WorkOrder.query()
       .preload('assignedToUser')
-      .preload('createdByUser')
       .preload('room')
-      .preload('department')
       .where('status', 'completed')
 
     this.applyFilters(query, filters)
@@ -435,16 +423,14 @@ export default class WorkOrderReportsController {
       query.where('priority', filters.priority)
     }
 
-    if (filters.departmentId) {
-      query.where('departmentId', filters.departmentId)
-    }
+
 
     if (filters.assignedTo) {
-      query.where('assignedTo', filters.assignedTo)
+      query.where('assignedToUserId', filters.assignedTo)
     }
 
     if (filters.createdBy) {
-      query.where('createdBy', filters.createdBy)
+  //    query.where('createdById', filters.createdBy)
     }
 
     if (filters.roomId) {
