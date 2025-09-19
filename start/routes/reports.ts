@@ -53,7 +53,7 @@ router.group(() => {
     router.post('/void', [ReportsController, 'generate']).where('reportType', 'voidReservations')
   }).prefix('/reservations')
 
-    // Reservation export
+  // Reservation export
   router.group(() => {
     router.post('/arrival-list', [ReportsController, 'export']).where('reportType', 'arrivalList')
     router.post('/departure-list', [ReportsController, 'export']).where('reportType', 'departureList')
@@ -190,52 +190,52 @@ router.group(() => {
     router.get('/payment-summary', [ReportsController, 'getPaymentSummary'])
 
     // Daily Revenue PDF report
-  router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
+    router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
+    // New Report Endpoints
+    // Folio List Report
+    router.post('/folio-list', [ReportsController, 'getFolioListReport'])
+
+    // Audit Report
+    router.post('/audit', [ReportsController, 'getAuditReport'])
+
+    // Guest List Report
+    router.post('/guest-list', [ReportsController, 'getGuestListReport'])
+    // Void Reports
+    router.post('/void-charge', [ReportsController, 'getVoidChargeReport'])
+    router.post('/void-payment', [ReportsController, 'getVoidPaymentReport'])
+    router.post('/void-transaction', [ReportsController, 'getVoidTransactionReport'])
+  }).prefix('/statistics')
+
   // New Report Endpoints
-  // Folio List Report
-  router.post('/folio-list', [ReportsController, 'getFolioListReport'])
+  router.group(() => {
+    // Pickup/Dropoff Guest Report
+    router.post('/pickup-dropoff', [PickupDropoffReportsController, 'generate'])
 
-  // Audit Report
-  router.post('/audit', [ReportsController, 'getAuditReport'])
+    // Guest Checkout Report
+    router.post('/guest-checkout', [GuestCheckoutReportsController, 'generate'])
 
-  // Guest List Report
-  router.post('/guest-list', [ReportsController, 'getGuestListReport'])
-  // Void Reports
-  router.post('/void-charge', [ReportsController, 'getVoidChargeReport'])
-  router.post('/void-payment', [ReportsController, 'getVoidPaymentReport'])
-  router.post('/void-transaction', [ReportsController, 'getVoidTransactionReport'])
-}).prefix('/statistics')
+    // Daily Receipt Reports
+    router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
+    router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
+  }).prefix('/statistics')
 
-// New Report Endpoints
-router.group(() => {
-  // Pickup/Dropoff Guest Report
-  router.post('/pickup-dropoff', [PickupDropoffReportsController, 'generate'])
+  // Work Order Reports
+  router.group(() => {
+    // Get available work order report types
+    router.get('/', [WorkOrderReportsController, 'index'])
 
-  // Guest Checkout Report
-  router.post('/guest-checkout', [GuestCheckoutReportsController, 'generate'])
+    // Generate work order reports
+    router.post('/generate', [WorkOrderReportsController, 'generate'])
 
-  // Daily Receipt Reports
-  router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
-  router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
-}).prefix('/statistics')
-
-// Work Order Reports
-router.group(() => {
-  // Get available work order report types
-  router.get('/', [WorkOrderReportsController, 'index'])
-
-  // Generate work order reports
-  router.post('/generate', [WorkOrderReportsController, 'generate'])
-
-  // Specific work order report endpoints
-  router.post('/by-status', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByStatus')
-  router.post('/by-priority', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByPriority')
-  router.post('/by-department', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByDepartment')
-  router.post('/by-assignee', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByAssignee')
-  router.post('/overdue', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersOverdue')
-  router.post('/completed', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersCompleted')
-  router.post('/summary', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersSummary')
-}).prefix('/work-orders')
+    // Specific work order report endpoints
+    router.post('/by-status', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByStatus')
+    router.post('/by-priority', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByPriority')
+    router.post('/by-department', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByDepartment')
+    router.post('/by-assignee', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersByAssignee')
+    router.post('/overdue', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersOverdue')
+    router.post('/completed', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersCompleted')
+    router.post('/summary', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersSummary')
+  }).prefix('/work-orders')
 
 }).prefix('/api/reports').use(middleware.auth())
 // Temporarily disabled auth for testing
