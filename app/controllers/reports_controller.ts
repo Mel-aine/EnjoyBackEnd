@@ -6757,7 +6757,7 @@ export default class ReportsController {
         .preload('reservationRooms', (roomQuery) => {
           roomQuery.preload('room')
         })
-        .whereBetween('scheduledArrivalDate', [startDate, endDate])
+        .whereBetween('arrivedDate', [startDate, endDate])
 
       // Apply status filter if provided
       if (status && status !== 'null') {
@@ -6775,10 +6775,10 @@ export default class ReportsController {
         const primaryRoom = reservation.reservationRooms.find(room => room.isOwner) || reservation.reservationRooms[0]
 
         return {
-          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
+          guestName: `${reservation.guest.displayName}`,
           roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
-          checkInDate: reservation.scheduledArrivalDate.toFormat('dd/MM/yyyy'),
-          checkOutDate: reservation.scheduledDepartureDate.toFormat('dd/MM/yyyy'),
+          checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+          checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
           status: reservation.reservationStatus
         }
       })
