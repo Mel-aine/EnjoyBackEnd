@@ -56,52 +56,66 @@ export default class ExtraChargesController {
   /**
    * Handle form submission for the create action
    */
-  public async store({ request, response, auth }: HttpContext) {
-    try {
-      const payload = await request.validateUsing(createExtraChargeValidator)
-      const user = auth.user!
+ public async store({ request, response, auth }: HttpContext) {
+  try {
+    const payload = await request.validateUsing(createExtraChargeValidator)
+    const user = auth.user!
 
-      const { taxRateIds, validFrom, validTo, ...extraChargeData } = payload
+    console.log('📥 Payload reçu:', payload)
+    console.log('👤 Utilisateur connecté:', user)
 
-      const extraCharge = await ExtraCharge.create({
-        ...extraChargeData,
-        validFrom: validFrom ? DateTime.fromJSDate(validFrom) : DateTime.now(),
-        validTo: validTo ? DateTime.fromJSDate(validTo) : DateTime.now().plus({ years: 1 }),
-        createdByUserId: user.id,
-        updatedByUserId: user.id,
-        rateInclusiveTax: payload.rateInclusiveTax || 0,
-        fixedPrice: payload.fixedPrice || false,
-        frontDeskSortKey: payload.frontDeskSortKey || 1,
-        publishOnWeb: payload.publishOnWeb || false,
-        voucherNo: payload.voucherNo || 'auto_general',
-        webResSortKey: payload.webResSortKey || 0,
-        chargeAppliesOn: payload.chargeAppliesOn || 'per_quantity',
-        applyChargeOn: payload.applyChargeOn || 'only_on_check_in',
-        applyChargeAlways: payload.applyChargeAlways || false,
-        isDeleted: false,
-      })
+    const { taxRateIds, validFrom, validTo, ...extraChargeData } = payload
 
-      // Attach tax rates if provided
-      if (taxRateIds && taxRateIds.length > 0) {
-        await extraCharge.related('taxRates').attach(taxRateIds)
-      }
-
-      await extraCharge.load('hotel')
-      await extraCharge.load('taxRates')
-      await extraCharge.load('createdByUser')
-
-      return response.created({
-        success: true,
-        message: 'Frais supplémentaire créé avec succès',
-        data: extraCharge,
-      })
-    } catch (error) {
-      return response.badRequest({
-        success: false,
-        message: error.message || 'Erreur lors de la création du frais supplémentaire',
-      })
+    const dataToSave = {
+      ...extraChargeData,
+      validFrom: validFrom ? DateTime.fromJSDate(validFrom) : DateTime.now(),
+      validTo: validTo ? DateTime.fromJSDate(validTo) : DateTime.now().plus({ years: 1 }),
+      createdByUserId: user.id,
+      updatedByUserId: user.id,
+      rateInclusiveTax: payload.rateInclusiveTax || 0,
+      fixedPrice: payload.fixedPrice || false,
+      frontDeskSortKey: payload.frontDeskSortKey || 1,
+      publishOnWeb: payload.publishOnWeb || false,
+      voucherNo: payload.voucherNo || 'auto_general',
+      webResSortKey: payload.webResSortKey || 0,
+      chargeAppliesOn: payload.chargeAppliesOn || 'per_quantity',
+      applyChargeOn: payload.applyChargeOn || 'only_on_check_in',
+      applyChargeAlways: payload.applyChargeAlways || false,
+      isDeleted: false,
     }
+
+    console.log('📝 Données préparées pour création:', dataToSave)
+
+    const extraCharge = await ExtraCharge.create(dataToSave)
+
+    console.log('✅ ExtraCharge créé:', extraCharge.toJSON())
+
+    // Attach tax rates if provided
+    if (taxRateIds && taxRateIds.length > 0) {
+      await extraCharge.related('taxRates').attach(taxRateIds)
+      console.log('🔗 Taxes attachées:', taxRateIds)
+    }
+
+    await extraCharge.load('hotel')
+    await extraCharge.load('taxRates')
+    await extraCharge.load('createdByUser')
+
+    console.log('📦 ExtraCharge complet avec relations:', extraCharge.toJSON())
+
+    return response.created({
+      success: true,
+      message: 'Frais supplémentaire créé avec succès',
+      data: extraCharge,
+    })
+  } catch (error) {
+    console.error('❌ Erreur lors de la création du frais supplémentaire:', error)
+    return response.badRequest({
+      success: false,
+      message: error.message || 'Erreur lors de la création du frais supplémentaire',
+    })
   }
+}
+
 
   /**
    * Show individual extra charge
