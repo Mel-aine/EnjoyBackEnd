@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
+import { TransactionCategory, TransactionStatus, TransactionType } from '../enums.js'
 
 export default class PosController {
   /**
@@ -10,7 +11,7 @@ export default class PosController {
   async getHotelInfo({ params, response }: HttpContext) {
     try {
       const { hotelId } = params
-      
+
       if (!hotelId) {
         return response.status(400).json({
           success: false,
@@ -20,10 +21,10 @@ export default class PosController {
 
       // Import Hotel model
       const { default: Hotel } = await import('#models/hotel')
-      console.log('reservation',hotelId)
+      console.log('reservation', hotelId)
       // Get hotel information
       const hotel = await Hotel.find(parseInt(hotelId))
-      
+
       if (!hotel) {
         return response.status(404).json({
           success: false,
@@ -70,7 +71,7 @@ export default class PosController {
   async getInHouseReservations({ params, response }: HttpContext) {
     try {
       const { hotelId } = params
-      
+
       if (!hotelId) {
         return response.status(400).json({
           success: false,
@@ -133,7 +134,7 @@ export default class PosController {
   async postRoomTransaction({ params, request, response }: HttpContext) {
     try {
       const { hotelId } = params
-      
+
       if (!hotelId) {
         return response.status(400).json({
           success: false,
@@ -152,7 +153,7 @@ export default class PosController {
         transactionDate
       } = request.only([
         'folioId',
-        'reservationRoomId', 
+        'reservationRoomId',
         'roomId',
         'amount',
         'description',
@@ -163,7 +164,7 @@ export default class PosController {
       // Validate required fields
       const requiredFields = ['folioId', 'reservationRoomId', 'roomId', 'amount', 'description', 'userName']
       const missingFields = requiredFields.filter(field => !request.input(field))
-      
+
       if (missingFields.length > 0) {
         return response.status(400).json({
           success: false,
@@ -181,31 +182,39 @@ export default class PosController {
 
       // Import FolioTransaction model
       const { default: FolioTransaction } = await import('#models/folio_transaction')
-      
+
       // Verify folio exists
       const { default: Folio } = await import('#models/folio')
       const folio = await Folio.find(parseInt(folioId))
-      
+
       if (!folio) {
         return response.status(404).json({
           success: false,
           message: 'Folio not found'
         })
       }
-
+      const transactionNumber = parseInt(Date.now().toString().slice(-9));
+      const transactionCode = `ROOMPOSTING`;
       // Create the transaction
       const transaction = await FolioTransaction.create({
         folioId: parseInt(folioId),
-        reservationRoomId: parseInt(reservationRoomId),
-        roomId: parseInt(roomId),
+        //  reservationRoomId: parseInt(reservationRoomId),
+        // roomId: parseInt(roomId),
         hotelId: parseInt(hotelId),
         amount: parseFloat(amount),
+        totalAmount:parseFloat(amount),
         description: description,
-        category: 'posting', // Fixed category as specified
-        type: 'Room Posting', // Fixed type as specified
-        transactionDate: transactionDate ? DateTime.fromISO(transactionDate).toJSDate() : new Date(),
-        createdBy: userName,
-        status: 'completed'
+        transactionCode: transactionCode,
+        transactionNumber: transactionNumber,
+        transaction_time: DateTime.now().toFormat('HH:mm:ss'),
+        category: TransactionCategory.POSTING, // Fixed category as specified
+        particular: 'Room Posting',
+        // type: 'Room Posting',
+        transactionType: TransactionType.ROOM_POSTING, // Fixed type as specified
+        transactionDate: transactionDate ? DateTime.fromISO(transactionDate) : DateTime.now(),
+        //  createdBy: userName,
+        posting_date: DateTime.now().toFormat('yyyy-MM-dd'),
+        status: TransactionStatus.COMPLETED
       })
 
       return response.status(201).json({
