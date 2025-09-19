@@ -10,7 +10,17 @@ export const createWorkOrderValidator = vine.compile(
     blockFromDate: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     blockToDate: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     roomId: vine.number().positive(),
-    dueDateTime: vine.date().transform((value) => DateTime.fromJSDate(value)),
+    dueDateTime: vine
+    .string()
+    .transform((value) => {
+      const dt = DateTime.fromFormat(value, 'yyyy-MM-dd HH:mm', { zone: 'utc' })
+      if (!dt.isValid) {
+        throw new Error('Invalid date format, expected yyyy-MM-dd HH:mm')
+      }
+      return dt
+    }),
+  
+
     description: vine.string().trim().minLength(1).maxLength(1000),
     category: vine.enum(['clean', 'repair', 'maintenance', 'others']),
     priority: vine.enum(['low', 'medium', 'high']).optional(),
@@ -32,7 +42,15 @@ export const updateWorkOrderValidator = vine.compile(
     blockFromDate: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     blockToDate: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     roomId: vine.number().positive().optional(),
-    dueDateTime: vine.date().transform((value) => DateTime.fromJSDate(value)).optional(),
+    dueDateTime: vine
+    .string()
+    .transform((value) => {
+      const dt = DateTime.fromFormat(value, 'yyyy-MM-dd HH:mm', { zone: 'utc' })
+      if (!dt.isValid) {
+        throw new Error('Invalid date format, expected yyyy-MM-dd HH:mm')
+      }
+      return dt
+    }),
     description: vine.string().trim().minLength(1).maxLength(1000).optional(),
     category: vine.enum(['clean', 'repair', 'maintenance', 'others']).optional(),
     priority: vine.enum(['low', 'medium', 'high']).optional(),
