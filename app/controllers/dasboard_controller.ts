@@ -19,50 +19,49 @@ export default class DashboardController {
       const stats = await RoomAvailabilityService.getHotelStats(serviceId)
 
       return response.ok({
-  success: true,
-  data: {
-    availableRooms: stats.available,
-    totalRooms: stats.total,
-    occupiedRooms: stats.total - stats.available,
-    occupancyRate: `${Math.round(((stats.total - stats.available) / stats.total) * 10000) / 100}%`,
-    reservedToday: stats.reservedToday,
-    reservationRateToday: `${stats.reservationRateToday}%`,
-    reservationRateLastWeek: `${stats.reservationRateLastWeek}%`,
-    totalReservationsThisMonth: stats.totalReservationsThisMonth,
-    totalRevenueThisMonth: stats.totalRevenueThisMonth,
-    revenueGrowthRate: `${stats.revenueGrowthRate}`
-  }
-})
-
+        success: true,
+        data: {
+          availableRooms: stats.available,
+          totalRooms: stats.total,
+          occupiedRooms: stats.total - stats.available,
+          occupancyRate: `${Math.round(((stats.total - stats.available) / stats.total) * 10000) / 100}%`,
+          reservedToday: stats.reservedToday,
+          reservationRateToday: `${stats.reservationRateToday}%`,
+          reservationRateLastWeek: `${stats.reservationRateLastWeek}%`,
+          totalReservationsThisMonth: stats.totalReservationsThisMonth,
+          totalRevenueThisMonth: stats.totalRevenueThisMonth,
+          revenueGrowthRate: `${stats.revenueGrowthRate}`,
+        },
+      })
     } catch (error) {
       return response.internalServerError({
         success: false,
-        message: error.message || 'Erreur lors de la récupération des données'
+        message: error.message || 'Erreur lors de la récupération des données',
       })
     }
   }
   public async averageStay({ params, response }: HttpContext) {
-  try {
-    const serviceId = parseInt(params.serviceId)
-    if (!serviceId || isNaN(serviceId)) {
-      return response.badRequest({ success: false, message: 'ID de service invalide' })
-    }
-
-    const averageStay = await RoomAnalyticsService.getAverageLengthOfStay(serviceId)
-
-    return response.ok({
-      success: true,
-      data: {
-        averageLengthOfStay: `${averageStay} jours`
+    try {
+      const serviceId = parseInt(params.serviceId)
+      if (!serviceId || isNaN(serviceId)) {
+        return response.badRequest({ success: false, message: 'ID de service invalide' })
       }
-    })
-  } catch (error) {
-    return response.internalServerError({
-      success: false,
-      message: error.message || 'Erreur lors du calcul de la durée moyenne de séjour'
-    })
+
+      const averageStay = await RoomAnalyticsService.getAverageLengthOfStay(serviceId)
+
+      return response.ok({
+        success: true,
+        data: {
+          averageLengthOfStay: `${averageStay} jours`,
+        },
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: error.message || 'Erreur lors du calcul de la durée moyenne de séjour',
+      })
+    }
   }
-}
 
   public async occupancyStats({ request, params, response }: HttpContext) {
     try {
@@ -72,7 +71,7 @@ export default class DashboardController {
       if (!['weekly', 'monthly', 'yearly'].includes(period)) {
         return response.badRequest({
           success: false,
-          message: 'Période invalide. Utilisez ?period=weekly|monthly|yearly'
+          message: 'Période invalide. Utilisez ?period=weekly|monthly|yearly',
         })
       }
 
@@ -80,68 +79,65 @@ export default class DashboardController {
 
       return response.ok({
         success: true,
-        data: stats
+        data: stats,
       })
-
     } catch (error) {
       return response.internalServerError({
         success: false,
-        message: error.message || 'Erreur serveur'
+        message: error.message || 'Erreur serveur',
       })
     }
   }
 
-public async getRevenueStats({ params, request, response }: HttpContext) {
-  try {
+  public async getRevenueStats({ params, request, response }: HttpContext) {
+    try {
+      const serviceId = parseInt(params.serviceId)
+      const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+
+      if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+        return response.badRequest({ success: false, message: 'Période invalide' })
+      }
+
+      return response.ok({ success: true, data: [] })
+    } catch (error) {
+      return response.internalServerError({ success: false, message: error.message })
+    }
+  }
+  public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
+    try {
+      const serviceId = parseInt(params.serviceId)
+      if (!serviceId || isNaN(serviceId)) {
+        return response.badRequest({ success: false, message: 'ID de service invalide' })
+      }
+
+      return response.ok({
+        success: true,
+        data: [],
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: error.message || 'Erreur serveur',
+      })
+    }
+  }
+
+  public async averageOccupancyRate({ params, request, response }: HttpContext) {
     const serviceId = parseInt(params.serviceId)
     const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
-    if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
-      return response.badRequest({ success: false, message: 'Période invalide' })
+    try {
+      const data = await HotelAnalyticsDashboardService.getAverageOccupancyRate(serviceId, period)
+
+      return response.ok({
+        success: true,
+        data,
+      })
+    } catch (error) {
+      return response.badRequest({ success: false, message: error.message })
     }
-
-
-    return response.ok({ success: true, data: [] })
-  } catch (error) {
-    return response.internalServerError({ success: false, message: error.message })
   }
-}
-public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
-  try {
-    const serviceId = parseInt(params.serviceId)
-    if (!serviceId || isNaN(serviceId)) {
-      return response.badRequest({ success: false, message: 'ID de service invalide' })
-    }
-
-
-    return response.ok({
-      success: true,
-      data: []
-    })
-  } catch (error) {
-    return response.internalServerError({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    })
-  }
-}
-
-public async averageOccupancyRate({ params, request, response }: HttpContext) {
-  const serviceId = parseInt(params.serviceId)
-  const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
-
-  try {
-    const data = await HotelAnalyticsDashboardService.getAverageOccupancyRate(serviceId, period)
-
-    return response.ok({
-      success: true,
-      data
-    })
-  } catch (error) {
-    return response.badRequest({ success: false, message: error.message })
-  }
-}
- public async monthlyOccupancy({ params, response }: HttpContext) {
+  public async monthlyOccupancy({ params, response }: HttpContext) {
     const { id } = params
 
     try {
@@ -170,69 +166,72 @@ public async averageOccupancyRate({ params, request, response }: HttpContext) {
 
       return response.ok({
         success: true,
-        data: result
+        data: result,
       })
     } catch (error) {
       return response.badRequest({
         success: false,
-        message: error.message
+        message: error.message,
       })
     }
   }
 
   public async nationalityStats({ params, response }: HttpContext) {
-  const serviceId = Number(params.serviceId)
+    const serviceId = Number(params.serviceId)
 
-  if (!serviceId) {
-    return response.badRequest({ success: false, message: 'Service ID invalide' })
+    if (!serviceId) {
+      return response.badRequest({ success: false, message: 'Service ID invalide' })
+    }
+
+    const data = await HotelAnalyticsDashboardService.getNationalityStats(serviceId)
+
+    return response.ok({ success: true, data })
   }
 
-  const data = await HotelAnalyticsDashboardService.getNationalityStats(serviceId)
-
-  return response.ok({ success: true, data })
-}
-
-public async customerTypeStats({ params, response }: HttpContext) {
-  const serviceId = Number(params.serviceId)
-  if (!serviceId) {
-    return response.badRequest({ success: false, message: 'Service ID invalide' })
+  public async customerTypeStats({ params, response }: HttpContext) {
+    const serviceId = Number(params.serviceId)
+    if (!serviceId) {
+      return response.badRequest({ success: false, message: 'Service ID invalide' })
+    }
+    const data = await HotelAnalyticsDashboardService.getCustomerTypeStats(serviceId)
+    return response.ok({ success: true, data })
   }
-  const data = await HotelAnalyticsDashboardService.getCustomerTypeStats(serviceId)
-  return response.ok({ success: true, data })
-}
 
+  public async stayDurationStats({ params, response }: HttpContext) {
+    try {
+      const { serviceId } = params
 
-public async stayDurationStats({ params, response }: HttpContext) {
-  try {
-    const { serviceId } = params
+      const result = await HotelAnalyticsDashboardService.getStayDurationDistribution(
+        Number(serviceId)
+      )
 
-    const result = await HotelAnalyticsDashboardService.getStayDurationDistribution(Number(serviceId))
-
-    return response.ok({
-      success: true,
-      data: result
-    })
-  } catch (error) {
-    return response.badRequest({
-      success: false,
-      message: error.message
-    })
+      return response.ok({
+        success: true,
+        data: result,
+      })
+    } catch (error) {
+      return response.badRequest({
+        success: false,
+        message: error.message,
+      })
+    }
   }
-}
-
 
   public async yearlyReservationTypes({ params, request, response }: HttpContext) {
-  const serviceId = Number(params.serviceId)
-  const year = Number(request.input('year')) || DateTime.now().year
+    const serviceId = Number(params.serviceId)
+    const year = Number(request.input('year')) || DateTime.now().year
 
-  if (!serviceId) {
-    return response.badRequest({ success: false, message: 'Service ID invalide' })
+    if (!serviceId) {
+      return response.badRequest({ success: false, message: 'Service ID invalide' })
+    }
+
+    const data = await HotelAnalyticsDashboardService.getYearlyReservationTypesStats(
+      serviceId,
+      year
+    )
+
+    return response.ok({ success: true, data })
   }
-
-  const data = await HotelAnalyticsDashboardService.getYearlyReservationTypesStats(serviceId, year)
-
-  return response.ok({ success: true, data })
-}
 
   public async getDailyOccupancyAndReservations({ params, request, response }: HttpContext) {
     const { serviceId } = params
@@ -279,102 +278,247 @@ public async stayDurationStats({ params, response }: HttpContext) {
    * - Notifications (work orders, bookings, payments, etc.)
    * - Activity feeds
    */
-  public async getFrontOfficeDashboard({ params, response }: HttpContext) {
+  public async getFrontOfficeDashboard({ params, response, request }: HttpContext) {
     try {
       const serviceId = parseInt(params.serviceId)
       if (!serviceId || isNaN(serviceId)) {
         return response.badRequest({ success: false, message: 'ID de service invalide' })
       }
 
-      const today = DateTime.now().startOf('day')
+      // Get date from query params or use today
+      const dateParam = request.qs().date
+      const selectedDate = dateParam ? DateTime.fromISO(dateParam) : DateTime.now()
+      const today = selectedDate.startOf('day')
       const tomorrow = today.plus({ days: 1 })
+      const yesterday = today.minus({ days: 1 })
+      const weekAgo = today.minus({ days: 7 })
 
-      // Arrival Statistics
-      const arrivalPending = await Reservation.query()
+      // Check if date is valid
+      if (!selectedDate.isValid) {
+        return response.badRequest({ success: false, message: 'Date invalide' })
+      }
+
+      // Arrival Statistics - Updated logic
+      const arrivalsQuery = Reservation.query()
         .where('hotel_id', serviceId)
+        .whereNotNull('hotel_id')
         .where('check_in_date', today.toSQLDate())
+        .whereIn('status', ['confirmed', 'checked_in'])
+
+      const arrivalPending = await arrivalsQuery
+        .clone()
         .where('status', 'confirmed')
         .count('* as total')
-
-      const arrivalCheckedIn = await Reservation.query()
-        .where('hotel_id', serviceId)
-        .where('check_in_date', today.toSQLDate())
+      const arrivalCheckedIn = await arrivalsQuery
+        .clone()
         .where('status', 'checked_in')
         .count('* as total')
+      const totalArrivals = await arrivalsQuery.count('* as total')
 
-      // Departure Statistics
-      const departurePending = await Reservation.query()
+      // Departure Statistics - Updated logic
+      const departuresQuery = Reservation.query()
         .where('hotel_id', serviceId)
+        .whereNotNull('hotel_id')
         .where('check_out_date', today.toSQLDate())
+        .whereIn('status', ['checked_in', 'checked_out'])
+
+      const departurePending = await departuresQuery
+        .clone()
         .where('status', 'checked_in')
         .count('* as total')
-
-      const departureCheckedOut = await Reservation.query()
-        .where('hotel_id', serviceId)
-        .where('check_out_date', today.toSQLDate())
+      const departureCheckedOut = await departuresQuery
+        .clone()
         .where('status', 'checked_out')
         .count('* as total')
+      const totalDepartures = await departuresQuery.count('* as total')
 
-      // Guest In House Statistics
-      const guestInHouseAdult = await Reservation.query()
+      // In-house guests (currently checked in)
+      const inHouseQuery = Reservation.query()
         .where('hotel_id', serviceId)
+        .whereNotNull('hotel_id')
         .where('status', 'checked_in')
-        .sum('adults as total')
+        .where('check_in_date', '<=', today.toSQLDate())
+        .where('check_out_date', '>', today.toSQLDate())
 
-      const guestInHouseChild = await Reservation.query()
-        .where('hotel_id', serviceId)
-        .where('status', 'checked_in')
-        .sum('children as total')
+      const guestInHouseAdult = await inHouseQuery.clone().sum('adults as total')
+      const guestInHouseChild = await inHouseQuery.clone().sum('children as total')
+      const totalInHouse = await inHouseQuery.count('* as total')
 
-      // Room Status Statistics
+      // Room Statistics with specific room numbers (101-106, 201-202)
+      const targetRooms = ['101', '102', '103', '104', '105', '106', '201', '202']
+
       const roomStatusVacant = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('status', 'available')
-        // .where('availability', true)
         .count('* as total')
 
       const roomStatusSold = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('status', 'occupied')
         .count('* as total')
 
       const roomStatusDayUse = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('status', 'day_use')
         .count('* as total')
 
       const roomStatusComplimentary = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('status', 'complimentary')
         .count('* as total')
 
       const roomStatusBlocked = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('status', 'blocked')
         .count('* as total')
 
-      // Housekeeping Status
+      // Maintenance rooms
+      // const roomsInMaintenance = await Room.query()
+      //   .where('hotel_id', serviceId)
+      //   .whereIn('room_number', targetRooms)
+      //   .where('maintenance_status', 'in_maintenance')
+      //   .count('* as total')
+
+      // Total rooms for occupancy calculation
+      const totalRoomsCount = await Room.query()
+        .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
+        .count('* as total')
+
+      const totalRooms = Number(totalRoomsCount[0].$extras.total || '0')
+      const occupiedRooms =
+        Number(roomStatusSold[0].$extras.total || '0') +
+        Number(roomStatusDayUse[0].$extras.total || '0') +
+        Number(roomStatusComplimentary[0].$extras.total || '0')
+
+      const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
+
+      // Revenue Statistics (BO vs BB rates)
+      const revenueBO = await Reservation.query()
+        .where('hotel_id', serviceId)
+        .where('check_in_date', today.toSQLDate())
+        .where('rate_type', 'BO') // Bed Only
+        .sum('total_amount as total')
+
+      const revenueBB = await Reservation.query()
+        .where('hotel_id', serviceId)
+        .where('check_in_date', today.toSQLDate())
+        .where('rate_type', 'BB') // Bed & Breakfast
+        .sum('total_amount as total')
+
+      // Suite-specific occupancy (Home Suite, Lifestyle Suite)
+      const homeSuiteOccupancy = await Reservation.query()
+        .where('hotel_id', serviceId)
+        .where('status', 'checked_in')
+        .whereHas('room', (query) => {
+          query.where('room_type', 'Home Suite')
+        })
+        .count('* as total')
+
+      const lifestyleSuiteOccupancy = await Reservation.query()
+        .where('hotel_id', serviceId)
+        .where('status', 'checked_in')
+        .whereHas('room', (query) => {
+          query.where('room_type', 'Lifestyle Suite')
+        })
+        .count('* as total')
+
+      // Housekeeping Status for target rooms
       const housekeepingClean = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('housekeeping_status', 'clean')
         .count('* as total')
 
       const housekeepingInspected = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('housekeeping_status', 'inspected')
         .count('* as total')
 
       const housekeepingDirty = await Room.query()
         .where('hotel_id', serviceId)
+        .whereIn('room_number', targetRooms)
         .where('housekeeping_status', 'dirty')
         .count('* as total')
 
-      const housekeepingBlocked = await Room.query()
+      const housekeepingToClean = await Room.query()
         .where('hotel_id', serviceId)
-        .where('housekeeping_status', 'blocked')
+        .whereIn('room_number', targetRooms)
+        .whereIn('housekeeping_status', ['dirty', 'checkout'])
         .count('* as total')
 
-      // Notifications
+      // Unpaid Folios
+      // const unpaidFolios = await Folio.query()
+      //   .where('hotel_id', serviceId)
+      //   .where('payment_status', 'unpaid')
+      //   .whereNotNull('total_amount')
+      //   .where('total_amount', '>', 0)
+      //   .count('* as total')
+
+      // Overbooked rooms alert
+      const overbookedRooms = await Reservation.query()
+        .where('hotel_id', serviceId)
+        .where('status', 'overbooked')
+        .where('check_in_date', today.toSQLDate())
+        .count('* as total')
+
+      // Weekly data (7 days)
+      const weeklyData = []
+      for (let i = 6; i >= 0; i--) {
+        const date = today.minus({ days: i })
+        const dayArrivals = await Reservation.query()
+          .where('hotel_id', serviceId)
+          .where('check_in_date', date.toSQLDate())
+          .whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+          .count('* as total')
+
+        const dayDepartures = await Reservation.query()
+          .where('hotel_id', serviceId)
+          .where('check_out_date', date.toSQLDate())
+          .whereIn('status', ['checked_out'])
+          .count('* as total')
+
+        weeklyData.push({
+          date: date.toFormat('yyyy-MM-dd'),
+          arrivals: Number(dayArrivals[0].$extras.total || '0'),
+          departures: Number(dayDepartures[0].$extras.total || '0'),
+        })
+      }
+
+      // Critical alerts
+      const alerts = []
+
+      if (Number(overbookedRooms[0].$extras.total || '0') > 0) {
+        alerts.push({
+          type: 'critical',
+          message: `${overbookedRooms[0].$extras.total} réservation(s) en surréservation`,
+          count: Number(overbookedRooms[0].$extras.total || '0'),
+        })
+      }
+
+      if (Number(unpaidFolios[0].$extras.total || '0') > 0) {
+        alerts.push({
+          type: 'warning',
+          message: `${unpaidFolios[0].$extras.total} folio(s) impayé(s)`,
+          count: Number(unpaidFolios[0].$extras.total || '0'),
+        })
+      }
+
+      if (Number(roomsInMaintenance[0].$extras.total || '0') > 0) {
+        alerts.push({
+          type: 'info',
+          message: `${roomsInMaintenance[0].$extras.total} chambre(s) en maintenance`,
+          count: Number(roomsInMaintenance[0].$extras.total || '0'),
+        })
+      }
+
+      // Notifications with updated counts
       const workOrders = await Task.query()
         .where('hotel_id', serviceId)
         .where('task_type', 'maintenance')
@@ -391,17 +535,10 @@ public async stayDurationStats({ params, response }: HttpContext) {
         .where('payment_status', 'failed')
         .count('* as total')
 
-      const overbooking = await Reservation.query()
-        .where('hotel_id', serviceId)
-        .where('status', 'overbooked')
-        .count('* as total')
-
       const guestPortal = await Guest.query()
         .whereHas('reservations', (query) => {
-          query.where('hotel_id', serviceId)
-            .where('status', 'checked_in')
+          query.where('hotel_id', serviceId).where('status', 'checked_in')
         })
-        // .where('portal_access_requested', true)
         .count('* as total')
 
       const guestMessage = await ActivityLog.query()
@@ -427,32 +564,40 @@ public async stayDurationStats({ params, response }: HttpContext) {
         .whereRaw('DATE(created_at) = ?', [today.toSQLDate()])
         .count('* as total')
 
-      // Recent Activity Feed
+      // Recent Activity Feed with current user info
       const recentActivities = await ActivityLog.query()
-        // .where('hotel_id', serviceId)
-        .where('username', 'Hotel')
+        .where('hotel_id', serviceId)
         .whereRaw('DATE(created_at) = ?', [today.toSQLDate()])
         .orderBy('created_at', 'desc')
         .limit(10)
         .preload('user')
 
+      // Performance metrics
+      const performanceStart = Date.now()
+      const performanceEnd = Date.now()
+      const loadTime = performanceEnd - performanceStart
+
       return response.ok({
         success: true,
         data: {
+          // Basic stats
           arrival: {
             pending: Number(arrivalPending[0].$extras.total || '0'),
             arrived: Number(arrivalCheckedIn[0].$extras.total || '0'),
-            total: Number(arrivalPending[0].$extras.total || '0') + Number(arrivalCheckedIn[0].$extras.total || '0')
+            total: Number(totalArrivals[0].$extras.total || '0'),
           },
-          checkedOut: {
+          departure: {
             pending: Number(departurePending[0].$extras.total || '0'),
             checkedOut: Number(departureCheckedOut[0].$extras.total || '0'),
-            total: Number(departurePending[0].$extras.total || '0') + Number(departureCheckedOut[0].$extras.total || '0')
+            total: Number(totalDepartures[0].$extras.total || '0'),
           },
           guestInHouse: {
             adult: Number(guestInHouseAdult[0].$extras.total || '0'),
             child: Number(guestInHouseChild[0].$extras.total || '0'),
-            total: Number(guestInHouseAdult[0].$extras.total || '0') + Number(guestInHouseChild[0].$extras.total || '0')
+            total: Number(totalInHouse[0].$extras.total || '0'),
+            totalGuests:
+              Number(guestInHouseAdult[0].$extras.total || '0') +
+              Number(guestInHouseChild[0].$extras.total || '0'),
           },
           roomStatus: {
             vacant: Number(roomStatusVacant[0].$extras.total || '0'),
@@ -460,59 +605,90 @@ public async stayDurationStats({ params, response }: HttpContext) {
             dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
             complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
             blocked: Number(roomStatusBlocked[0].$extras.total || '0'),
-            total:
-                Number(roomStatusVacant[0].$extras.total || '0') +
-                Number(roomStatusSold[0].$extras.total || '0') +
-                Number(roomStatusDayUse[0].$extras.total || '0') +
-                Number(roomStatusComplimentary[0].$extras.total || '0') +
-                Number(roomStatusBlocked[0].$extras.total || '0')
+            maintenance: Number(roomsInMaintenance[0].$extras.total || '0'),
+            total: totalRooms,
+            occupancyRate: occupancyRate,
           },
           housekeepingStatus: {
             clean: Number(housekeepingClean[0].$extras.total || '0'),
             inspected: Number(housekeepingInspected[0].$extras.total || '0'),
             dirty: Number(housekeepingDirty[0].$extras.total || '0'),
-            blocked: Number(housekeepingBlocked[0].$extras.total || '0')
+            toClean: Number(housekeepingToClean[0].$extras.total || '0'),
           },
+          // Revenue data
+          revenue: {
+            bo: Number(revenueBO[0].$extras.total || '0'),
+            bb: Number(revenueBB[0].$extras.total || '0'),
+            total:
+              Number(revenueBO[0].$extras.total || '0') + Number(revenueBB[0].$extras.total || '0'),
+          },
+          // Suite occupancy
+          suites: {
+            homeSuite: Number(homeSuiteOccupancy[0].$extras.total || '0'),
+            lifestyleSuite: Number(lifestyleSuiteOccupancy[0].$extras.total || '0'),
+          },
+          // Weekly trends
+          weeklyTrends: weeklyData,
+          // Alerts and notifications
+          alerts: alerts,
           notifications: {
             workOrder: Number(workOrders[0].$extras.total || '0'),
             bookingInquiry: Number(bookingInquiry[0].$extras.total || '0'),
             paymentFailed: Number(paymentFailed[0].$extras.total || '0'),
-            overbooking: Number(overbooking[0].$extras.total || '0'),
+            overbooking: Number(overbookedRooms[0].$extras.total || '0'),
             guestPortal: Number(guestPortal[0].$extras.total || '0'),
             guestMessage: Number(guestMessage[0].$extras.total || '0'),
             cardkeyFailed: Number(cardkeyFailed[0].$extras.total || '0'),
             tasks: Number(tasksCount[0].$extras.total || '0'),
-            review: Number(reviewCount[0].$extras.total || '0')
+            review: Number(reviewCount[0].$extras.total || '0'),
+            unpaidFolios: Number(unpaidFolios[0].$extras.total || '0'),
           },
-          activityFeeds: recentActivities.map(activity => ({
+          activityFeeds: recentActivities.map((activity) => ({
             id: activity.id,
             description: activity.description,
             action: activity.action,
             user: activity.user?.username || 'System',
             timestamp: activity.createdAt.toFormat('HH:mm'),
-            type: this.getActivityType(activity.action)
-          }))
-        }
+            type: this.getActivityType(activity.action),
+            date: activity.createdAt.toFormat('yyyy-MM-dd'),
+          })),
+          // Metadata
+          metadata: {
+            selectedDate: today.toFormat('yyyy-MM-dd'),
+            isToday: today.hasSame(DateTime.now(), 'day'),
+            isPastDate: today < DateTime.now().startOf('day'),
+            isFutureDate: today > DateTime.now().startOf('day'),
+            loadTime: loadTime,
+            targetRooms: targetRooms,
+            lastUpdated: DateTime.now().toISO(),
+          },
+        },
       })
     } catch (error) {
       console.error('Error fetching front office dashboard data:', error)
       return response.internalServerError({
         success: false,
-        message: error.message || 'Erreur lors de la récupération des données du dashboard'
+        message: error.message || 'Erreur lors de la récupération des données du dashboard',
       })
     }
   }
 
+  // Helper method for activity types
   private getActivityType(action: string): string {
-    const actionTypes: Record<string, string> = {
-      'checked_out': 'Checked Out',
-      'checked_in': 'Checked In',
-      'reservation_created': 'Reservation',
-      'payment_received': 'Payment',
-      'room_assigned': 'Room Assignment',
-      'guest_message': 'Message',
-      'maintenance_request': 'Maintenance'
+    const typeMap = {
+      check_in: 'arrival',
+      check_out: 'departure',
+      reservation_created: 'booking',
+      reservation_modified: 'modification',
+      reservation_cancelled: 'cancellation',
+      payment_received: 'payment',
+      maintenance_request: 'maintenance',
+      housekeeping_update: 'housekeeping',
+      guest_message: 'communication',
+      default: 'system',
     }
-    return actionTypes[action] || 'Activity'
+    return typeMap[action] || typeMap['default']
   }
+
+
 }
