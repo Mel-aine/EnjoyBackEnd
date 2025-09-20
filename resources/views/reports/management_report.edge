@@ -238,9 +238,9 @@
             @each(taxRate in ( content.tax.taxes || []))
             <tr>
                 <td>{{ taxRate.name }}</td>
-                <td class="currency">{{ formatCurrency(taxRate.today.total) }}</td>
-                <td class="currency">{{ formatCurrency(taxRate.ptd.total) }}</td>
-                <td class="currency">{{ formatCurrency(taxRate.ytd.total) }}</td>
+                <td class="currency">{{ formatCurrency(taxRate.today) }}</td>
+                <td class="currency">{{ formatCurrency(taxRate.ptd) }}</td>
+                <td class="currency">{{ formatCurrency(taxRate.ytd) }}</td>
             </tr>
             @endeach
 
@@ -427,72 +427,78 @@
         <tbody>
             <tr>
                 <td>Total Rooms</td>
-                <td class="currency">{{ content.roomSummary?.totalRooms?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.totalRooms?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.totalRooms?.ytd || 0 }}</td>
-            </tr>
-            <tr>
-                <td>Occupied Rooms</td>
-                <td class="currency">{{ content.roomSummary?.occupiedRooms?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.occupiedRooms?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.occupiedRooms?.ytd || 0 }}</td>
-            </tr>
-            <tr>
-                <td>Available Rooms</td>
-                <td class="currency">{{ content.roomSummary?.availableRooms?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.availableRooms?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.availableRooms?.ytd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalRoom?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalRoom?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalRoom?.ytd || 0 }}</td>
             </tr>
             <tr>
                 <td>Blocked Rooms</td>
-                <td class="currency">{{ content.roomSummary?.blockedRooms?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.blockedRooms?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.blockedRooms?.ytd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.blockedRoom?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.blockedRoom?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.blockedRoom?.ytd || 0 }}</td>
+            </tr>
+             <tr>
+                <td>No of Guest (Adult/Child)</td>
+                <td class="currency">{{ content.roomSummary?.noOfGuestAdult?.today || 0 }}/{{ content.roomSummary?.noOfGuestChild?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfGuestAdult?.ptd || 0 }}/{{ content.roomSummary?.noOfGuestChild?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfGuestAdult?.ytd || 0 }}/{{ content.roomSummary?.noOfGuestChild?.ytd || 0 }}</td>
             </tr>
             <tr>
-                <td>Out of Order Rooms</td>
-                <td class="currency">{{ content.roomSummary?.outOfOrderRooms?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.outOfOrderRooms?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.outOfOrderRooms?.ytd || 0 }}</td>
+                <td>Total Available Room nights</td>
+                <td class="currency">{{ content.roomSummary?.totalAvailableRoomNights?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalAvailableRoomNights?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.totalAvailableRoomNights?.ytd || 0 }}</td>
             </tr>
             <tr>
-                <td>Total Guests</td>
-                <td class="currency">{{ content.roomSummary?.totalGuests?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.totalGuests?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.totalGuests?.ytd || 0 }}</td>
+                <td>Sold Room</td>
+                <td class="currency">{{ content.roomSummary?.soldRoom?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.soldRoom?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.soldRoom?.ytd || 0 }}</td>
             </tr>
             <tr>
-                <td>Adult Guests</td>
-                <td class="currency">{{ content.roomSummary?.adultGuests?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.adultGuests?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.adultGuests?.ytd || 0 }}</td>
+                <td>Day Use Room</td>
+                <td class="currency">{{ content.roomSummary?.dayUseRoom?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.dayUseRoom?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.dayUseRoom?.ytd || 0 }}</td>
             </tr>
             <tr>
-                <td>Child Guests</td>
-                <td class="currency">{{ content.roomSummary?.childGuests?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.childGuests?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.childGuests?.ytd || 0 }}</td>
+                <td>Complimentary Room</td>
+                <td class="currency">{{ content.roomSummary?.complimentaryRoom?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.complimentaryRoom?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.complimentaryRoom?.ytd || 0 }}</td>
             </tr>
             <tr>
-                <td>Arrivals</td>
-                <td class="currency">{{ content.roomSummary?.arrivals?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.arrivals?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.arrivals?.ytd || 0 }}</td>
-            </tr>
-            <tr>
-                <td>Departures</td>
-                <td class="currency">{{ content.roomSummary?.departures?.today || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.departures?.ptd || 0 }}</td>
-                <td class="currency">{{ content.roomSummary?.departures?.ytd || 0 }}</td>
-            </tr>
-            <tr>
-                <td>No Shows</td>
+                <td>No Show Rooms</td>
                 <td class="currency">{{ content.roomSummary?.noShows?.today || 0 }}</td>
                 <td class="currency">{{ content.roomSummary?.noShows?.ptd || 0 }}</td>
                 <td class="currency">{{ content.roomSummary?.noShows?.ytd || 0 }}</td>
             </tr>
             <tr>
-                <td>Cancellations</td>
+                <td>Average Guest Per Room</td>
+                <td class="currency">{{ content.roomSummary?.averageGuestPerRoom?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.averageGuestPerRoom?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.averageGuestPerRoom?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>No of Reservations (Confirm)</td>
+                <td class="currency">{{ content.roomSummary?.noOfReservationsConfirm?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfReservationsConfirm?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfReservationsConfirm?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>No of Reservations (Unconfirm)</td>
+                <td class="currency">{{ content.roomSummary?.noOfReservationsUnconfirm?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfReservationsUnconfirm?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfReservationsUnconfirm?.ytd || 0 }}</td>
+            </tr>
+             <tr>
+                <td>No of Walkins</td>
+                <td class="currency">{{ content.roomSummary?.noOfWalkins?.today || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfWalkins?.ptd || 0 }}</td>
+                <td class="currency">{{ content.roomSummary?.noOfWalkins?.ytd || 0 }}</td>
+            </tr>
+            <tr>
+                <td>No of Reservation (cancellations)</td>
                 <td class="currency">{{ content.roomSummary?.cancellations?.today || 0 }}</td>
                 <td class="currency">{{ content.roomSummary?.cancellations?.ptd || 0 }}</td>
                 <td class="currency">{{ content.roomSummary?.cancellations?.ytd || 0 }}</td>
@@ -525,26 +531,7 @@
         </tbody>
     </table>
     
-    <!-- Section 12: POS Summary -->
-    <div class="section-title">POS Summary</div>
-    <table>
-        <tbody>
-            @each(outlet in Object.keys(content.posSummary?.outlets || {}))
-            <tr>
-                <td>{{ outlet }}</td>
-                <td class="currency">{{ formatCurrency(content.posSummary.outlets[outlet].today) }}</td>
-                <td class="currency">{{ formatCurrency(content.posSummary.outlets[outlet].ptd) }}</td>
-                <td class="currency">{{ formatCurrency(content.posSummary.outlets[outlet].ytd) }}</td>
-            </tr>
-            @endeach
-            <tr class="section-total">
-                <td><strong>Total POS Revenue</strong></td>
-                <td class="currency"><strong>{{ formatCurrency(content.posSummary?.total?.today) }}</strong></td>
-                <td class="currency"><strong>{{ formatCurrency(content.posSummary?.total?.ptd) }}</strong></td>
-                <td class="currency"><strong>{{ formatCurrency(content.posSummary?.total?.ytd) }}</strong></td>
-            </tr>
-        </tbody>
-    </table>
+
     <!-- Footer -->
     <div class="footer">
         <div class="footer-line"></div>
