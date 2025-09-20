@@ -459,29 +459,31 @@ export default class DashboardController {
       const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
 
       // Enhanced Revenue calculation with better error handling
-      // const revenueDataOptimized = (await ReservationRoom.query()
-      //   .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
-      //   .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
-      //   .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
-      //   .where('reservations.hotel_id', serviceId)
-      //   .whereBetween('reservations.check_in_date', [startDate.toSQLDate()!, endDate.toSQLDate()!])
-      //   .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
-      //   .groupBy('rate_types.id', 'rate_types.name')
-      //   .select('rate_types.name as rate_type_name')
-      //   .sum('room_rates.base_rate as total_revenue')) as any[]
+      const revenueDataOptimized = await ReservationRoom.query()
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
+        .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
+        .where('reservations.hotel_id', serviceId)
+        .whereBetween('reservations.check_in_date', [startDate.toSQLDate()!, endDate.toSQLDate()!])
+        .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
+        .groupBy('rate_types.id', 'rate_types.rate_type_name')
+        .select('rate_types.rate_type_name as rate_type_name')
+        .sum('room_rates.base_rate as total_revenue')
 
-      // // Process revenue data
-      // const revenueByRateType: { [key: string]: number } = {}
-      // let totalRevenue = 0
 
-      // for (const result of revenueDataOptimized) {
-      //   const revenue = Number(result.$extras.total_revenue || 0)
-      //   const rateTypeName = result.$extras.rate_type_name
-      //   revenueByRateType[rateTypeName] = revenue
-      //   totalRevenue += revenue
-      // }
 
-      // revenueByRateType['total'] = totalRevenue
+      // Process revenue data
+      const revenueByRateType: { [key: string]: number } = {}
+      let totalRevenue = 0
+
+      for (const result of revenueDataOptimized) {
+        const revenue = Number(result.$extras.total_revenue || 0)
+        const rateTypeName = result.$extras.rate_type_name
+        revenueByRateType[rateTypeName] = revenue
+        totalRevenue += revenue
+      }
+
+      revenueByRateType['total'] = totalRevenue
 
       // Enhanced Suite occupancy with dynamic room types
       // const suiteOccupancyData = await ReservationRoom.query()
@@ -744,12 +746,12 @@ export default class DashboardController {
                 : 0,
           },
           // Enhanced revenue data
-          // revenue: {
-          //   ...revenueByRateType,
-          //   averageRoomRate:
-          //     occupiedRooms > 0 ? Math.round((totalRevenue / occupiedRooms) * 100) / 100 : 0,
-          //   revpar: totalRooms > 0 ? Math.round((totalRevenue / totalRooms) * 100) / 100 : 0, // Revenue Per Available Room
-          // },
+          revenue: {
+            ...revenueByRateType,
+            averageRoomRate:
+              occupiedRooms > 0 ? Math.round((totalRevenue / occupiedRooms) * 100) / 100 : 0,
+            revpar: totalRooms > 0 ? Math.round((totalRevenue / totalRooms) * 100) / 100 : 0, // Revenue Per Available Room
+          },
           // Enhanced suite occupancy
           suites: suiteOccupancy,
           // Enhanced weekly trends with more data
