@@ -85,7 +85,7 @@ export default class ReservationRoom extends BaseModel {
   declare netAmount: number
 
   @column()
-  declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
+  declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked' | 'day_use'
 
   @column()
   declare stopMove: boolean

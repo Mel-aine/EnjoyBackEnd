@@ -54,7 +54,7 @@ export default class ReservationFolioService {
         .firstOrFail()
 
       // Get the primary guest for the reservation
-      let primaryGuest = reservation.guests.find(guest => guest.$extras.pivot_is_primary)
+      let primaryGuest = reservation.guests.find((guest) => guest.$extras.pivot_is_primary)
 
       // If no primary guest is found, get the first guest or fall back to the original guest_id
       if (!primaryGuest && reservation.guests.length > 0) {
@@ -92,7 +92,7 @@ export default class ReservationFolioService {
         folioType,
         creditLimit: data.creditLimit || 0,
         notes: data.notes || `Auto-created for reservation ${reservation.confirmationNumber}`,
-        createdBy: data.createdBy
+        createdBy: data.createdBy,
       }
 
       const folio = await FolioService.createFolio(folioData)
@@ -117,7 +117,7 @@ export default class ReservationFolioService {
       folioType: data.folioType!,
       creditLimit: data.creditLimit || 0,
       notes: data.notes || 'Walk-in guest folio',
-      createdBy: data.createdBy
+      createdBy: data.createdBy,
     }
 
     return await FolioService.createFolio(folioData)
@@ -144,12 +144,13 @@ export default class ReservationFolioService {
         reservationId,
         folioType: FolioType.MASTER,
         notes: `Master folio for group reservation ${reservation.confirmationNumber}`,
-        createdBy
+        createdBy,
       })
       folios.push(masterFolio)
 
       // Create individual guest folios for each guest in the reservation
-      const reservationGuestIds = guestIds.length > 0 ? guestIds : reservation.guests.map(g => g.id)
+      const reservationGuestIds =
+        guestIds.length > 0 ? guestIds : reservation.guests.map((g) => g.id)
 
       for (const guestId of reservationGuestIds) {
         const guestFolioData: CreateFolioData = {
@@ -159,7 +160,7 @@ export default class ReservationFolioService {
           groupId: reservation.groupId ?? undefined,
           folioType: FolioType.GUEST,
           notes: `Guest folio for group reservation ${reservation.confirmationNumber}`,
-          createdBy
+          createdBy,
         }
 
         const guestFolio = await FolioService.createFolio(guestFolioData)
@@ -183,15 +184,16 @@ export default class ReservationFolioService {
           roomQuery.preload('roomType')
         })
         query.preload('roomRates')
-      })//.preload('roomRate')
+      }) //.preload('roomRate')
       .firstOrFail()
 
     if (!reservation.folios || reservation.folios.length === 0) {
       throw new Error('No folio found for this reservation')
     }
 
-
-    const nights = reservation.nights ?? reservation.numberOfNights
+    const rawNights = reservation.nights ?? reservation.numberOfNights
+    // For day-use (0 nights), still post 1 charge
+    const effectiveNights = rawNights === 0 ? 1 : rawNights
 
     // Post room charges for each room
     for (const reservationRoom of reservation.reservationRooms) {
@@ -201,38 +203,76 @@ export default class ReservationFolioService {
       // Calculate extra charges only if occupancy exceeds room type base capacity
       //const extraAdults = Math.max(0, reservationRoom.adults - (roomType?.baseAdult ?? 0))
       //const extraChildren = Math.max(0, reservationRoom.children - (roomType?.baseChild ?? 0))
-      
+
       //const dailyExtraChildAmount = extraChildren * parseFloat(`${roomRate.extraChildRate ?? 0}`)
       //const dailyExtraAdultAmount = extraAdults * parseFloat(`${roomRate.extraAdultRate ?? 0}`)
-      
+
       // Post one transaction for each night
-      for (let night = 1; night <= nights; night++) {
+      // for (let night = 1; night <= nights; night++) {
+      //   const baseAmount = parseFloat(`${reservationRoom.roomRate}`)
+      //   const totalDailyAmount = baseAmount; // + dailyExtraChildAmount + dailyExtraAdultAmount
+
+      //   // Calculate daily tax amount from reservation room's total taxes amount
+      //   const dailyTaxAmount = reservationRoom.totalTaxesAmount ?
+      //     parseFloat(`${reservationRoom.totalTaxesAmount}`) / nights : 0
+
+      //   // Calculate transaction date for this specific night
+      //   const transactionDate = reservation.arrivedDate?.plus({ days: night - 1 })
+
+      //   await FolioService.postTransaction({
+      //     folioId: reservation.folios[0].id,
+      //     transactionType: TransactionType.CHARGE,
+      //     category: TransactionCategory.ROOM,
+      //     description: `Room ${reservationRoom.room?.roomNumber??''} - Night ${night}`,
+      //     amount: totalDailyAmount,
+      //     quantity: 1,
+      //     unitPrice: baseAmount,
+      //     taxAmount: dailyTaxAmount,
+      //     departmentId: 1, // Rooms department
+      //     revenueCenterId: 1, // Room revenue
+      //     glAccountCode: '4100', // Room revenue account
+      //     reference: `RES-${reservation.confirmationNumber}`,
+      //     notes: `Auto-posted room charge for reservation ${reservation.confirmationNumber} - Night ${night}`,
+      //     transactionDate: transactionDate,
+      //     postedBy
+      //   })
+      // }
+      for (let night = 1; night <= effectiveNights; night++) {
         const baseAmount = parseFloat(`${reservationRoom.roomRate}`)
-        const totalDailyAmount = baseAmount; // + dailyExtraChildAmount + dailyExtraAdultAmount
-        
-        // Calculate daily tax amount from reservation room's total taxes amount
-        const dailyTaxAmount = reservationRoom.totalTaxesAmount ? 
-          parseFloat(`${reservationRoom.totalTaxesAmount}`) / nights : 0
-        
-        // Calculate transaction date for this specific night
-        const transactionDate = reservation.arrivedDate?.plus({ days: night - 1 })
-        
+        const totalDailyAmount = baseAmount
+
+        // si day-use : répartir la taxe correctement
+        const dailyTaxAmount = reservationRoom.totalTaxesAmount
+          ? parseFloat(`${reservationRoom.totalTaxesAmount}`) / effectiveNights
+          : 0
+
+        // pour day-use : date = date d’arrivée
+        const transactionDate =
+          rawNights === 0
+            ? reservation.arrivedDate
+            : reservation.arrivedDate?.plus({ days: night - 1 })
+
         await FolioService.postTransaction({
           folioId: reservation.folios[0].id,
           transactionType: TransactionType.CHARGE,
           category: TransactionCategory.ROOM,
-          description: `Room ${reservationRoom.room?.roomNumber??''} - Night ${night}`,
+          description:
+            rawNights === 0
+              ? `Room ${reservationRoom.room?.roomNumber ?? ''} - Day use`
+              : `Room ${reservationRoom.room?.roomNumber ?? ''} - Night ${night}`,
           amount: totalDailyAmount,
           quantity: 1,
           unitPrice: baseAmount,
           taxAmount: dailyTaxAmount,
-          departmentId: 1, // Rooms department
-          revenueCenterId: 1, // Room revenue
-          glAccountCode: '4100', // Room revenue account
+          departmentId: 1,
+          revenueCenterId: 1,
+          glAccountCode: '4100',
           reference: `RES-${reservation.confirmationNumber}`,
-          notes: `Auto-posted room charge for reservation ${reservation.confirmationNumber} - Night ${night}`,
-          transactionDate: transactionDate,
-          postedBy
+          notes: `Auto-posted room charge for reservation ${reservation.confirmationNumber}${
+            rawNights === 0 ? ' - Day use' : ` - Night ${night}`
+          }`,
+          transactionDate,
+          postedBy,
         })
       }
     }
@@ -260,9 +300,12 @@ export default class ReservationFolioService {
     }
 
     // Check if reservation or folio is tax exempt
-    const primaryFolio = reservation.folios.find(f => f.folioType === 'master') || reservation.folios[0]
+    const primaryFolio =
+      reservation.folios.find((f) => f.folioType === 'master') || reservation.folios[0]
     if (primaryFolio.taxExempt) {
-      console.log(`Skipping tax calculation for reservation ${reservation.confirmationNumber} - folio is tax exempt: ${primaryFolio.taxExemptReason}`)
+      console.log(
+        `Skipping tax calculation for reservation ${reservation.confirmationNumber} - folio is tax exempt: ${primaryFolio.taxExemptReason}`
+      )
       return
     }
 
@@ -272,26 +315,25 @@ export default class ReservationFolioService {
     // Apply taxes to each room based on related tax rates
     for (const reservationRoom of reservation.reservationRooms) {
       const room = reservationRoom.room
-      
+
       if (room.taxRates && room.taxRates.length > 0) {
         // Calculate room charge amount for tax calculation
         const roomRate = reservationRoom.roomRates
         const baseAmount = parseFloat(`${roomRate.baseRate}`) * nights
 
-        
         // Calculate extra charges (already implemented above)
         const roomType = room.roomType
         const extraAdults = Math.max(0, reservationRoom.adults - (roomType?.baseAdult ?? 0))
         const extraChildren = Math.max(0, reservationRoom.children - (roomType?.baseChild ?? 0))
         const extraChildAmount = extraChildren * parseFloat(`${roomRate.extraChildRate ?? 0}`)
         const extraAdultAmount = extraAdults * parseFloat(`${roomRate.extraAdultRate ?? 0}`)
-        
+
         const totalRoomAmount = baseAmount + extraChildAmount + extraAdultAmount
-        
+
         // Apply each tax rate
         for (const taxRate of room.taxRates) {
           const taxAmount = totalRoomAmount * (taxRate.rate / 100)
-          
+
           await FolioService.postTransaction({
             folioId: primaryFolio.id,
             transactionType: TransactionType.CHARGE,
@@ -305,7 +347,7 @@ export default class ReservationFolioService {
             glAccountCode: '2200', // Tax payable account
             reference: `TAX-${reservation.confirmationNumber}`,
             notes: `Auto-posted ${taxRate.name} for reservation ${reservation.confirmationNumber}`,
-            postedBy
+            postedBy,
           })
         }
       }
@@ -328,9 +370,7 @@ export default class ReservationFolioService {
    * Check if reservation has folio created
    */
   static async hasReservationFolio(reservationId: number): Promise<boolean> {
-    const folio = await Folio.query()
-      .where('reservationId', reservationId)
-      .first()
+    const folio = await Folio.query().where('reservationId', reservationId).first()
 
     return !!folio
   }
@@ -346,7 +386,8 @@ export default class ReservationFolioService {
 
       // If this is set as primary guest, unset other primary guests
       if (data.isPrimary) {
-        await db.from('reservation_guests')
+        await db
+          .from('reservation_guests')
           .where('reservation_id', data.reservationId)
           .update({ is_primary: false })
       }
@@ -366,7 +407,7 @@ export default class ReservationFolioService {
         notes: data.notes,
         created_by: data.createdBy,
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
       })
     })
   }
@@ -374,11 +415,9 @@ export default class ReservationFolioService {
   /**
    * Remove a guest from a reservation
    */
-  static async removeGuestFromReservation(
-    reservationId: number,
-    guestId: number
-  ): Promise<void> {
-    await db.from('reservation_guests')
+  static async removeGuestFromReservation(reservationId: number, guestId: number): Promise<void> {
+    await db
+      .from('reservation_guests')
       .where('reservation_id', reservationId)
       .where('guest_id', guestId)
       .delete()
@@ -403,11 +442,12 @@ export default class ReservationFolioService {
         .firstOrFail()
 
       // Find the primary guest's folio
-      const primaryFolio = reservation.folios.find(folio => {
-        // Check if this folio belongs to the primary guest
-        const primaryGuest = reservation.guests.find(guest => guest.$extras.pivot_is_primary)
-        return primaryGuest && folio.guestId === primaryGuest.id
-      }) || reservation.folios[0] // Fallback to first folio if no primary found
+      const primaryFolio =
+        reservation.folios.find((folio) => {
+          // Check if this folio belongs to the primary guest
+          const primaryGuest = reservation.guests.find((guest) => guest.$extras.pivot_is_primary)
+          return primaryGuest && folio.guestId === primaryGuest.id
+        }) || reservation.folios[0] // Fallback to first folio if no primary found
 
       if (!primaryFolio) {
         throw new Error('No primary folio found for reservation')
@@ -432,7 +472,7 @@ export default class ReservationFolioService {
           folioType: FolioType.GUEST,
           creditLimit: 0,
           notes: `Individual folio for ${guest.firstName} ${guest.lastName} - Reservation ${reservation.confirmationNumber}`,
-          createdBy
+          createdBy,
         }
 
         const folio = await FolioService.createFolio(folioData)
@@ -457,7 +497,7 @@ export default class ReservationFolioService {
             //glAccountCode: transaction.glAccount,
             //reference: transaction.reference,
             notes: `Copied from primary guest folio - ${transaction.notes || ''}`,
-            postedBy: createdBy
+            postedBy: createdBy,
           })
         }
       }
@@ -493,9 +533,9 @@ export default class ReservationFolioService {
       }
 
       // Get primary guest
-      const primaryGuest = reservation.guests.find(guest => guest.$extras.pivot_is_primary) || 
-                          reservation.guests[0]
-      
+      const primaryGuest =
+        reservation.guests.find((guest) => guest.$extras.pivot_is_primary) || reservation.guests[0]
+
       if (!primaryGuest) {
         throw new Error('No guest found for this reservation')
       }
@@ -513,7 +553,7 @@ export default class ReservationFolioService {
           folioType: FolioType.GUEST,
           creditLimit: 0,
           notes: `Folio for room ${reservationRoom.id} - Reservation ${reservation.confirmationNumber}`,
-          createdBy: confirmedBy
+          createdBy: confirmedBy,
         }
 
         const folio = await FolioService.createFolio(folioData)
@@ -535,9 +575,15 @@ export default class ReservationFolioService {
       .where('id', reservationId)
       .preload('guests', (query) => {
         query.pivotColumns([
-          'is_primary', 'guest_type', 'room_assignment',
-          'special_requests', 'dietary_restrictions', 'accessibility',
-          'emergency_contact', 'emergency_phone', 'notes'
+          'is_primary',
+          'guest_type',
+          'room_assignment',
+          'special_requests',
+          'dietary_restrictions',
+          'accessibility',
+          'emergency_contact',
+          'emergency_phone',
+          'notes',
         ])
       })
       .firstOrFail()
@@ -557,25 +603,33 @@ export default class ReservationFolioService {
 
     if (updateData.isPrimary !== undefined) updateFields.is_primary = updateData.isPrimary
     if (updateData.guestType) updateFields.guest_type = updateData.guestType
-    if (updateData.roomAssignment !== undefined) updateFields.room_assignment = updateData.roomAssignment
-    if (updateData.specialRequests !== undefined) updateFields.special_requests = updateData.specialRequests
-    if (updateData.dietaryRestrictions !== undefined) updateFields.dietary_restrictions = updateData.dietaryRestrictions
-    if (updateData.accessibility !== undefined) updateFields.accessibility = updateData.accessibility
-    if (updateData.emergencyContact !== undefined) updateFields.emergency_contact = updateData.emergencyContact
-    if (updateData.emergencyPhone !== undefined) updateFields.emergency_phone = updateData.emergencyPhone
+    if (updateData.roomAssignment !== undefined)
+      updateFields.room_assignment = updateData.roomAssignment
+    if (updateData.specialRequests !== undefined)
+      updateFields.special_requests = updateData.specialRequests
+    if (updateData.dietaryRestrictions !== undefined)
+      updateFields.dietary_restrictions = updateData.dietaryRestrictions
+    if (updateData.accessibility !== undefined)
+      updateFields.accessibility = updateData.accessibility
+    if (updateData.emergencyContact !== undefined)
+      updateFields.emergency_contact = updateData.emergencyContact
+    if (updateData.emergencyPhone !== undefined)
+      updateFields.emergency_phone = updateData.emergencyPhone
     if (updateData.notes !== undefined) updateFields.notes = updateData.notes
 
     updateFields.updated_at = new Date()
 
     // If setting as primary, unset other primary guests first
     if (updateData.isPrimary) {
-      await db.from('reservation_guests')
+      await db
+        .from('reservation_guests')
         .where('reservation_id', reservationId)
         .where('guest_id', '!=', guestId)
         .update({ is_primary: false })
     }
 
-    await db.from('reservation_guests')
+    await db
+      .from('reservation_guests')
       .where('reservation_id', reservationId)
       .where('guest_id', guestId)
       .update(updateFields)
@@ -590,19 +644,21 @@ export default class ReservationFolioService {
     updatedBy: number
   ): Promise<void> {
     const trx = await db.transaction()
-    
+
     try {
       // Get the reservation room to find associated folio transactions
-      const reservationRoom = await db.from('reservation_rooms')
+      const reservationRoom = await db
+        .from('reservation_rooms')
         .where('id', reservationRoomId)
         .first()
-      
+
       if (!reservationRoom) {
         throw new Error('Reservation room not found')
       }
 
       // Find all room charge transactions for this reservation room
-      const folioTransactions = await db.from('folio_transactions')
+      const folioTransactions = await db
+        .from('folio_transactions')
         .join('folios', 'folio_transactions.folio_id', 'folios.id')
         .where('folios.reservation_id', reservationRoom.reservation_id)
         .where('folio_transactions.transaction_type', TransactionType.CHARGE)
@@ -615,16 +671,14 @@ export default class ReservationFolioService {
         // Extract the night number from the existing description
         const nightMatch = transaction.description.match(/Night (\d+)/)
         const nightNumber = nightMatch ? nightMatch[1] : ''
-        
+
         const newDescription = `Room ${roomNumber} - Night ${nightNumber}`
-        
-        await db.from('folio_transactions')
-          .where('id', transaction.id)
-          .update({
-            description: newDescription,
-            last_modified_by: updatedBy,
-            updated_at: new Date()
-          })
+
+        await db.from('folio_transactions').where('id', transaction.id).update({
+          description: newDescription,
+          last_modified_by: updatedBy,
+          updated_at: new Date(),
+        })
       }
 
       await trx.commit()
@@ -642,19 +696,21 @@ export default class ReservationFolioService {
     updatedBy: number
   ): Promise<void> {
     const trx = await db.transaction()
-    
+
     try {
       // Get the reservation room to find associated folio transactions
-      const reservationRoom = await db.from('reservation_rooms')
+      const reservationRoom = await db
+        .from('reservation_rooms')
         .where('id', reservationRoomId)
         .first()
-      
+
       if (!reservationRoom) {
         throw new Error('Reservation room not found')
       }
 
       // Find all room charge transactions for this reservation room that have room numbers
-      const folioTransactions = await db.from('folio_transactions')
+      const folioTransactions = await db
+        .from('folio_transactions')
         .join('folios', 'folio_transactions.folio_id', 'folios.id')
         .where('folios.reservation_id', reservationRoom.reservation_id)
         .where('folio_transactions.transaction_type', TransactionType.CHARGE)
@@ -667,16 +723,14 @@ export default class ReservationFolioService {
         // Extract the night number from the existing description
         const nightMatch = transaction.description.match(/Room .+ - Night (\d+)/)
         const nightNumber = nightMatch ? nightMatch[1] : ''
-        
+
         const newDescription = `Room  - Night ${nightNumber}`
-        
-        await db.from('folio_transactions')
-          .where('id', transaction.id)
-          .update({
-            description: newDescription,
-            last_modified_by: updatedBy,
-            updated_at: new Date()
-          })
+
+        await db.from('folio_transactions').where('id', transaction.id).update({
+          description: newDescription,
+          last_modified_by: updatedBy,
+          updated_at: new Date(),
+        })
       }
 
       await trx.commit()

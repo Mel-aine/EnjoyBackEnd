@@ -1834,7 +1834,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               totalTaxesAmount: numberOfNights === 0 ? room.taxes : (room.taxes * numberOfNights),
               netAmount: (numberOfNights === 0 ? room.room_rate : (room.room_rate * numberOfNights)) +
                 (numberOfNights === 0 ? room.taxes : (room.taxes * numberOfNights)),
-              status: 'reserved',
+                status: numberOfNights === 0 ? 'day_use' : 'reserved',
               isOwner: index === 0,
               reservedByUser: auth.user?.id,
               createdBy: data.created_by,
