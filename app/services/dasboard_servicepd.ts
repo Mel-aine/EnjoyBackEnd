@@ -1,6 +1,9 @@
 import { DateTime } from 'luxon'
 import Reservation from '#models/reservation'
 import ServiceProduct from '#models/room'
+import Room from '#models/room'
+import FolioTransaction from '../models/folio_transaction.js'
+import Database from '@adonisjs/lucid/services/db'
 
 type PeriodType = 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
@@ -37,7 +40,7 @@ export class HotelAnalyticsDashboardService {
     })
 
     // Nombre total de chambres
-    const totalRoomsResult = await ServiceProduct.query().where('service_id', serviceId).count('* as total')
+    const totalRoomsResult = await ServiceProduct.query().where('hotel_id', serviceId).count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
 
     if (totalRooms === 0) {
@@ -56,10 +59,10 @@ export class HotelAnalyticsDashboardService {
     // Récupération des réservations
     const [currentReservations, previousReservations] = await Promise.all([
       Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .whereBetween('arrivedDate', [current.toFormat('yyyy-MM-dd'), currentEnd.toFormat('yyyy-MM-dd')]),
       Reservation.query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .whereBetween('arrivedDate', [previous.toFormat('yyyy-MM-dd'), previousEnd.toFormat('yyyy-MM-dd')])
     ])
 
@@ -139,9 +142,9 @@ export class HotelAnalyticsDashboardService {
     const year = now.year
 
     // Nombre total de chambres
-    const totalRoomsResult = await ServiceProduct
+    const totalRoomsResult = await Room
       .query()
-      .where('service_id', serviceId)
+      .where('hotel_id', serviceId)
       .count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
 
@@ -159,7 +162,7 @@ export class HotelAnalyticsDashboardService {
 
       const reservations = await Reservation
         .query()
-        .where('service_id', serviceId)
+        .where('hotel_id', serviceId)
         .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
 
       const occupiedNights = reservations.reduce((sum, res) => {
@@ -193,283 +196,327 @@ export class HotelAnalyticsDashboardService {
     return results
   }
 
-public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
-  const validPeriods: PeriodType[] = ['monthly', 'quarterly', 'semester', 'yearly']
-  if (!validPeriods.includes(period)) {
-    throw new Error(`Invalid period: ${period}. Valid periods are: ${validPeriods.join(', ')}`)
+  public static async getAverageDailyRate(serviceId: number, period: PeriodType) {
+    const validPeriods: PeriodType[] = ['monthly', 'quarterly', 'semester', 'yearly']
+    if (!validPeriods.includes(period)) {
+      throw new Error(`Invalid period: ${period}. Valid periods are: ${validPeriods.join(', ')}`)
+    }
+
+    const now = DateTime.now()
+
+    // Configuration des périodes
+    const periodConfigs = {
+      monthly: { start: now.startOf('month'), subtract: { months: 1 } },
+      quarterly: { start: now.startOf('quarter'), subtract: { months: 3 } },
+      semester: {
+        start: DateTime.fromObject({ year: now.year, month: now.month <= 6 ? 1 : 7 }),
+        subtract: { months: 6 }
+      },
+      yearly: { start: now.startOf('year'), subtract: { years: 1 } }
+    }
+
+    const config = periodConfigs[period]
+    const current = config.start
+    const previous = current.minus(config.subtract)
+    const currentEnd = current.plus(config.subtract)
+    const previousEnd = previous.plus(config.subtract)
+
+    // Vérification des chambres
+    const totalRoomsResult = await ServiceProduct.query()
+      .where('hotel_id', serviceId)
+      .count('* as total')
+
+    if (Number(totalRoomsResult[0].$extras.total || '0') === 0) {
+      throw new Error('Aucune chambre trouvée pour ce service')
+    }
+
+    // Récupération des réservations
+    const getReservations = (start: DateTime, end: DateTime) =>
+      Reservation.query()
+        .where('hotel_id', serviceId)
+        .where('status', 'confirmed')
+        .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
+
+    const [currentReservations, previousReservations] = await Promise.all([
+      getReservations(current, currentEnd),
+      getReservations(previous, previousEnd)
+    ])
+
+    // Calcul de l'ADR
+    const calculateADR = (reservations: Reservation[], start: DateTime, end: DateTime) => {
+      let totalRevenue = 0
+      let totalNights = 0
+
+      for (const res of reservations) {
+        if (!res.arrivedDate || !res.departDate || !res.totalAmount) continue
+
+        // Normalisation des dates
+        const arrivalDate = res.arrivedDate instanceof Date
+          ? DateTime.fromJSDate(res.arrivedDate)
+          : typeof res.arrivedDate === 'string'
+            ? DateTime.fromISO(res.arrivedDate)
+            : res.arrivedDate as DateTime
+
+        const departDate = res.departDate instanceof Date
+          ? DateTime.fromJSDate(res.departDate)
+          : typeof res.departDate === 'string'
+            ? DateTime.fromISO(res.departDate)
+            : res.departDate as DateTime
+
+        if (!arrivalDate.isValid || !departDate.isValid) continue
+
+        // Calcul des nuits dans la période
+        const actualStart = arrivalDate < start ? start : arrivalDate
+        const actualEnd = departDate > end ? end : departDate
+        const nights = actualEnd.diff(actualStart, 'days').days
+
+        if (nights > 0) {
+          const totalStayNights = departDate.diff(arrivalDate, 'days').days
+          const proportionalRevenue = totalStayNights > 0
+            ? (Number(res.totalAmount) * nights) / totalStayNights
+            : Number(res.totalAmount)
+
+          totalRevenue += proportionalRevenue
+          totalNights += nights
+        }
+      }
+
+      return totalNights > 0 ? Math.round((totalRevenue / totalNights) * 100) / 100 : 0
+    }
+
+    const currentADR = calculateADR(currentReservations, current, currentEnd)
+    const previousADR = calculateADR(previousReservations, previous, previousEnd)
+
+    // Calcul de la variation
+    const variationPercentage = previousADR === 0
+      ? (currentADR > 0 ? 100 : 0)
+      : Math.round(((currentADR - previousADR) / previousADR) * 10000) / 100
+
+    return {
+      currentADR,
+      previousADR,
+      variationPercentage
+    }
+  }
+  public static async getNationalityStats(serviceId: number): Promise<{ nationality: string, count: number }[]> {
+    // Récupérer les réservations du service avec les utilisateurs associés
+    const reservations = await Reservation
+      .query()
+      .where('hotel_id', serviceId)
+      .preload('guest') // Assure-toi que la relation 'guest' est bien définie dans le modèle Reservation
+
+    const nationalityMap: Record<string, number> = {}
+
+    for (const reservation of reservations) {
+      const nationality = reservation.guest?.country || 'Inconnue'
+
+      nationalityMap[nationality] = (nationalityMap[nationality] || 0) + 1
+    }
+
+    return Object.entries(nationalityMap).map(([nationality, count]) => ({
+      nationality,
+      count
+    }))
   }
 
-  const now = DateTime.now()
+  public static async getStayDurationDistribution(serviceId: number) {
+    const reservations = await Reservation
+      .query()
+      .where('hotel_id', serviceId)
+      .select('number_of_nights')
 
-  // Configuration des périodes
-  const periodConfigs = {
-    monthly: { start: now.startOf('month'), subtract: { months: 1 } },
-    quarterly: { start: now.startOf('quarter'), subtract: { months: 3 } },
-    semester: {
-      start: DateTime.fromObject({ year: now.year, month: now.month <= 6 ? 1 : 7 }),
-      subtract: { months: 6 }
-    },
-    yearly: { start: now.startOf('year'), subtract: { years: 1 } }
-  }
-
-  const config = periodConfigs[period]
-  const current = config.start
-  const previous = current.minus(config.subtract)
-  const currentEnd = current.plus(config.subtract)
-  const previousEnd = previous.plus(config.subtract)
-
-  // Vérification des chambres
-  const totalRoomsResult = await ServiceProduct.query()
-    .where('service_id', serviceId)
-    .count('* as total')
-
-  if (Number(totalRoomsResult[0].$extras.total || '0') === 0) {
-    throw new Error('Aucune chambre trouvée pour ce service')
-  }
-
-  // Récupération des réservations
-  const getReservations = (start: DateTime, end: DateTime) =>
-    Reservation.query()
-      .where('service_id', serviceId)
-      .where('status', 'confirmed')
-      .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
-
-  const [currentReservations, previousReservations] = await Promise.all([
-    getReservations(current, currentEnd),
-    getReservations(previous, previousEnd)
-  ])
-
-  // Calcul de l'ADR
-  const calculateADR = (reservations: Reservation[], start: DateTime, end: DateTime) => {
-    let totalRevenue = 0
-    let totalNights = 0
+    let oneToTwo = 0
+    let threeToFive = 0
+    let sixToTen = 0
+    let overTen = 0
+    let total = 0
 
     for (const res of reservations) {
-      if (!res.arrivedDate || !res.departDate || !res.totalAmount) continue
+      const nights = res.numberOfNights
 
-      // Normalisation des dates
-      const arrivalDate = res.arrivedDate instanceof Date
-        ? DateTime.fromJSDate(res.arrivedDate)
-        : typeof res.arrivedDate === 'string'
-          ? DateTime.fromISO(res.arrivedDate)
-          : res.arrivedDate as DateTime
+      if (typeof nights !== 'number' || nights <= 0) continue
 
-      const departDate = res.departDate instanceof Date
-        ? DateTime.fromJSDate(res.departDate)
-        : typeof res.departDate === 'string'
-          ? DateTime.fromISO(res.departDate)
-          : res.departDate as DateTime
+      total++
 
-      if (!arrivalDate.isValid || !departDate.isValid) continue
-
-      // Calcul des nuits dans la période
-      const actualStart = arrivalDate < start ? start : arrivalDate
-      const actualEnd = departDate > end ? end : departDate
-      const nights = actualEnd.diff(actualStart, 'days').days
-
-      if (nights > 0) {
-        const totalStayNights = departDate.diff(arrivalDate, 'days').days
-        const proportionalRevenue = totalStayNights > 0
-          ? (Number(res.totalAmount) * nights) / totalStayNights
-          : Number(res.totalAmount)
-
-        totalRevenue += proportionalRevenue
-        totalNights += nights
-      }
+      if (nights <= 2) oneToTwo++
+      else if (nights <= 5) threeToFive++
+      else if (nights <= 10) sixToTen++
+      else overTen++
     }
 
-    return totalNights > 0 ? Math.round((totalRevenue / totalNights) * 100) / 100 : 0
+    const toPercentage = (count: number) =>
+      total > 0 ? Math.round((count / total) * 10000) / 100 : 0
+
+    return {
+      '1-2 nuits': toPercentage(oneToTwo),
+      '3-5 nuits': toPercentage(threeToFive),
+      '6-10 nuits': toPercentage(sixToTen),
+      '10+ nuits': toPercentage(overTen)
+    }
   }
 
-  const currentADR = calculateADR(currentReservations, current, currentEnd)
-  const previousADR = calculateADR(previousReservations, previous, previousEnd)
+  public static async getCustomerTypeStats(hotelId: number): Promise<{
+    customerTypes: { type: string, percentage: number }[]
+  }> {
 
-  // Calcul de la variation
-  const variationPercentage = previousADR === 0
-    ? (currentADR > 0 ? 100 : 0)
-    : Math.round(((currentADR - previousADR) / previousADR) * 10000) / 100
-
-  return {
-    currentADR,
-    previousADR,
-    variationPercentage
-  }
-}
-public static async getNationalityStats(serviceId: number): Promise<{ nationality: string, count: number }[]> {
-  // Récupérer les réservations du service avec les utilisateurs associés
-  const reservations = await Reservation
-    .query()
-    .where('service_id', serviceId)
-    .preload('user') // Assure-toi que la relation 'user' est bien définie dans le modèle Reservation
-
-  const nationalityMap: Record<string, number> = {}
-
-  for (const reservation of reservations) {
-    const nationality = reservation.user?.country || 'Inconnue'
-
-    nationalityMap[nationality] = (nationalityMap[nationality] || 0) + 1
-  }
-
-  return Object.entries(nationalityMap).map(([nationality, count]) => ({
-    nationality,
-    count
-  }))
-}
-
-public static async getStayDurationDistribution(serviceId: number) {
-  const reservations = await Reservation
-    .query()
-    .where('service_id', serviceId)
-    .select('number_of_nights')
-
-  let oneToTwo = 0
-  let threeToFive = 0
-  let sixToTen = 0
-  let overTen = 0
-  let total = 0
-
-  for (const res of reservations) {
-    const nights = res.numberOfNights
-
-    if (typeof nights !== 'number' || nights <= 0) continue
-
-    total++
-
-    if (nights <= 2) oneToTwo++
-    else if (nights <= 5) threeToFive++
-    else if (nights <= 10) sixToTen++
-    else overTen++
-  }
-
-  const toPercentage = (count: number) =>
-    total > 0 ? Math.round((count / total) * 10000) / 100 : 0
-
-  return {
-    '1-2 nuits': toPercentage(oneToTwo),
-    '3-5 nuits': toPercentage(threeToFive),
-    '6-10 nuits': toPercentage(sixToTen),
-    '10+ nuits': toPercentage(overTen)
-  }
-}
-
-public static async getCustomerTypeStats(hotelId: number): Promise<{
-  customerTypes: { type: string, percentage: number }[]
-}> {
-
-  const reservations = await Reservation
-    .query()
-    .where('hotel_id', hotelId)
-
-  const customerTypeMap: Record<string, number> = {}
-  let totalCustomerTypes = 0
-
-  for (const res of reservations) {
-    const type = res.numberOfNights || 'Inconnu'
-    customerTypeMap[type] = (customerTypeMap[type] || 0) + 1
-    totalCustomerTypes++
-  }
-
-  const customerTypes = Object.entries(customerTypeMap).map(([type, count]) => ({
-    type,
-    percentage: totalCustomerTypes > 0 ? Math.round((count / totalCustomerTypes) * 100) : 0
-  }))
-
-  return {
-    customerTypes
-  }
-}
-
-
-
-  public static async getYearlyReservationTypesStats(serviceId: number, year: number) {
-  const now = DateTime.now()
-  const currentYear = year || now.year
-
-  const results: {
-    month: string
-    weeks: { label: string, data: { type: string, count: number }[] }[]
-    summary: { type: string, count: number, progression: number }[]
-  }[] = []
-
-  for (let month = 1; month <= 12; month++) {
-    const startOfMonth = DateTime.fromObject({ year: currentYear, month }).startOf('month')
-    const endOfMonth = startOfMonth.endOf('month')
-
-    const startOfPrevMonth = startOfMonth.minus({ months: 1 })
-    const endOfPrevMonth = startOfPrevMonth.endOf('month')
-
-    // Récupération des types distincts pour le mois
-    const distinctReservations = await Reservation
+    const reservations = await Reservation
       .query()
-      .where('service_id', serviceId)
-      .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
-      .distinct('reservation_type')
+      .where('hotel_id', hotelId)
 
-    const types = distinctReservations.map(r => r.reservationType || 'Inconnu')
+    const customerTypeMap: Record<string, number> = {}
+    let totalCustomerTypes = 0
 
-    // Statistiques hebdomadaires (4 semaines)
-    const weeks: { label: string, data: { type: string, count: number }[] }[] = []
-
-    for (let i = 0; i < 4; i++) {
-      const weekStart = startOfMonth.plus({ days: i * 7 })
-      const weekEnd = i === 3 ? endOfMonth : weekStart.plus({ days: 6 })
-
-      const data: { type: string, count: number }[] = []
-
-      for (const type of types) {
-        const query = Reservation.query()
-          .where('service_id', serviceId)
-          .whereBetween('created_at', [weekStart.toSQL()!, weekEnd.toSQL()!])
-
-        type === 'Inconnu'
-          ? query.whereNull('reservation_type')
-          : query.where('reservation_type', type)
-
-        const result = await query.count('* as count')
-
-        data.push({
-          type,
-          count: Number(result[0].$extras.count || 0),
-        })
-      }
-
-      weeks.push({ label: `Semaine ${i + 1}`, data })
+    for (const res of reservations) {
+      const type = res.numberOfNights || 'Inconnu'
+      customerTypeMap[type] = (customerTypeMap[type] || 0) + 1
+      totalCustomerTypes++
     }
 
-    // Résumé du mois et progression
-    const summary = await Promise.all(types.map(async (type) => {
-      const currentQuery = Reservation.query()
-        .where('service_id', serviceId)
-        .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
-
-      const prevQuery = Reservation.query()
-        .where('service_id', serviceId)
-        .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
-
-      type === 'Inconnu'
-        ? (currentQuery.whereNull('reservation_type'), prevQuery.whereNull('reservation_type'))
-        : (currentQuery.where('reservation_type', type), prevQuery.where('reservation_type', type))
-
-      const currentCount = Number((await currentQuery.count('* as count'))[0].$extras.count || 0)
-      const previousCount = Number((await prevQuery.count('* as count'))[0].$extras.count || 0)
-
-      const progression = previousCount === 0
-        ? (currentCount > 0 ? 100 : 0)
-        : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
-
-      return { type, count: currentCount, progression }
+    const customerTypes = Object.entries(customerTypeMap).map(([type, count]) => ({
+      type,
+      percentage: totalCustomerTypes > 0 ? Math.round((count / totalCustomerTypes) * 100) : 0
     }))
 
-    results.push({
-      month: startOfMonth.toFormat('LLLL'), // Nom du mois (ex: Janvier)
-      weeks,
-      summary
-    })
+    return {
+      customerTypes
+    }
+  }
+  public static async getYearlyReservationTypesStats(serviceId: number, year: number) {
+    const now = DateTime.now()
+    const currentYear = year || now.year
+
+    const results: {
+      month: string
+      weeks: { label: string, data: { type: string, count: number }[] }[]
+      summary: { type: string, count: number, progression: number }[]
+    }[] = []
+
+    for (let month = 1; month <= 12; month++) {
+      const startOfMonth = DateTime.fromObject({ year: currentYear, month }).startOf('month')
+      const endOfMonth = startOfMonth.endOf('month')
+
+      const startOfPrevMonth = startOfMonth.minus({ months: 1 })
+      const endOfPrevMonth = startOfPrevMonth.endOf('month')
+
+      // Récupération des types distincts pour le mois
+      const distinctReservations = await Reservation
+        .query()
+        .where('hotel_id', serviceId)
+        .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+        .distinct('reservation_type')
+
+      const types = distinctReservations.map(r => r.reservationType || 'Inconnu')
+
+      // Statistiques hebdomadaires (4 semaines)
+      const weeks: { label: string, data: { type: string, count: number }[] }[] = []
+
+      for (let i = 0; i < 4; i++) {
+        const weekStart = startOfMonth.plus({ days: i * 7 })
+        const weekEnd = i === 3 ? endOfMonth : weekStart.plus({ days: 6 })
+
+        const data: { type: string, count: number }[] = []
+
+        for (const type of types) {
+          const query = Reservation.query()
+            .where('hotel_id', serviceId)
+            .whereBetween('created_at', [weekStart.toSQL()!, weekEnd.toSQL()!])
+
+          type === 'Inconnu'
+            ? query.whereNull('reservation_type')
+            : query.where('reservation_type', type)
+
+          const result = await query.count('* as count')
+
+          data.push({
+            type,
+            count: Number(result[0].$extras.count || 0),
+          })
+        }
+
+        weeks.push({ label: `Semaine ${i + 1}`, data })
+      }
+
+      // Résumé du mois et progression
+      const summary = await Promise.all(types.map(async (type) => {
+        const currentQuery = Reservation.query()
+          .where('hotel_id', serviceId)
+          .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+
+        const prevQuery = Reservation.query()
+          .where('hotel_id', serviceId)
+          .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
+
+        type === 'Inconnu'
+          ? (currentQuery.whereNull('reservation_type'), prevQuery.whereNull('reservation_type'))
+          : (currentQuery.where('reservation_type', type), prevQuery.where('reservation_type', type))
+
+        const currentCount = Number((await currentQuery.count('* as count'))[0].$extras.count || 0)
+        const previousCount = Number((await prevQuery.count('* as count'))[0].$extras.count || 0)
+
+        const progression = previousCount === 0
+          ? (currentCount > 0 ? 100 : 0)
+          : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
+
+        return { type, count: currentCount, progression }
+      }))
+
+      results.push({
+        month: startOfMonth.toFormat('LLLL'), // Nom du mois (ex: Janvier)
+        weeks,
+        summary
+      })
+    }
+
+    return results
+  }
+  public static async getMonthlyRevenueComparison(serviceId: number): Promise<{
+    currentYear: { month: string, totalRevenue: number }[]
+    previousYear: { month: string, totalRevenue: number }[]
+  }> {
+    const now = DateTime.now()
+    const currentYear = now.year
+    const previousYear = currentYear - 1
+
+    const currentYearResults = await this.getYearlyRevenueStats(serviceId, currentYear)
+    const previousYearResults = await this.getYearlyRevenueStats(serviceId, previousYear)
+
+    return {
+      currentYear: currentYearResults.map((r: any) => ({ month: r.month, totalRevenue: r.totalRevenue })),
+      previousYear: previousYearResults.map((r: any) => ({ month: r.month, totalRevenue: r.totalRevenue }))
+    }
   }
 
-  return results
-}
+public static async getYearlyRevenueStats(serviceId: number, year: number): Promise<{ month: string, totalRevenue: number }[]> {
+  const startOfYear = DateTime.fromObject({ year }).startOf('year').toSQLDate();
+  const endOfYear = DateTime.fromObject({ year }).endOf('year').toSQLDate();
 
+  // Query to group payments by month and calculate total revenue
+  const results = await Database
+    .from('folio_transactions')
+    .where('hotel_id', serviceId)
+    .where('transaction_type', 'payment')
+    .whereBetween('transaction_date', [startOfYear, endOfYear])
+    .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month")) // Extract month name
+    .sum('amount as totalRevenue') // Sum the payment amounts
+    .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')")) // Group by month name
+    .orderBy(Database.raw("MIN(transaction_date)")); // Ensure months are ordered chronologically
+
+  // Map the results to ensure all months are included, even if no data exists
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  const revenueByMonth = months.map((month) => {
+    const result = results.find((r) => r.month === month);
+    return {
+      month,
+      totalRevenue: result ? Number(result.totalRevenue) : 0, // Default to 0 if no data for the month
+    };
+  });
+
+  return revenueByMonth;
+}
 }
 
 

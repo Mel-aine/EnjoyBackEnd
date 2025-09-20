@@ -112,11 +112,11 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
     if (!serviceId || isNaN(serviceId)) {
       return response.badRequest({ success: false, message: 'ID de service invalide' })
     }
-
+    const data = await HotelAnalyticsDashboardService.getMonthlyRevenueComparison(serviceId)
 
     return response.ok({
       success: true,
-      data: []
+      data
     })
   } catch (error) {
     return response.internalServerError({

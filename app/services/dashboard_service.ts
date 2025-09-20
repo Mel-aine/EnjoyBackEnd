@@ -2,7 +2,9 @@ import ServiceProduct from '#models/room'
 import Reservation from '#models/reservation'
 import Service from '#models/hotel'
 import { DateTime } from 'luxon'
-import Payment from '#models/folio_transaction'
+import Room from '#models/room'
+import FolioTransaction from '#models/folio_transaction'
+import Hotel from '#models/hotel'
 
 export class RoomAvailabilityService {
   public static async getHotelStats(serviceId: number): Promise<{
@@ -20,11 +22,10 @@ export class RoomAvailabilityService {
       throw new Error('Ce service ne correspond pas à un hôtel')
     }
 
-    const totalResult = await ServiceProduct.query().where('service_id', serviceId).count('* as total')
-    const availableResult = await ServiceProduct
+    const totalResult = await Room.query().where('hotel_id', serviceId).count('* as total')
+    const availableResult = await Room
       .query()
-      .where('service_id', serviceId)
-      .where('availability', true)
+      .where('hotel_id', serviceId)
       .where('status', 'available')
       .count('* as available')
 
@@ -40,8 +41,8 @@ export class RoomAvailabilityService {
 
     const reservedTodayResult = await Reservation
       .query()
-      .where('service_id', serviceId)
-      .whereBetween('created_at', [todayStart, tomorrowStart])
+      .where('hotel_id', serviceId)
+      .whereBetween('bookingDate', [todayStart, tomorrowStart])
       .count('* as count')
 
     const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
@@ -49,8 +50,8 @@ export class RoomAvailabilityService {
 
     const reservedLastWeekResult = await Reservation
       .query()
-      .where('service_id', serviceId)
-      .whereBetween('created_at', [lastWeekStart, lastWeekEnd])
+      .where('hotel_id', serviceId)
+      .whereBetween('bookingDate', [lastWeekStart, lastWeekEnd])
       .count('* as count')
 
     const reservedLastWeek = Number(reservedLastWeekResult[0].$extras.count || '0')
@@ -61,17 +62,19 @@ export class RoomAvailabilityService {
 
     const totalReservationsThisMonthResult = await Reservation
       .query()
-      .where('service_id', serviceId)
-      .whereBetween('created_at', [startOfMonth, endOfMonth])
+      .where('hotel_id', serviceId)
+      .whereBetween('bookingDate', [startOfMonth, endOfMonth])
       .count('* as count')
 
     const totalReservationsThisMonth = Number(totalReservationsThisMonthResult[0].$extras.count || '0')
 
-    const totalRevenueThisMonthResult = await Payment
+    const totalRevenueThisMonthResult = await FolioTransaction
       .query()
-      .where('service_id', serviceId)
-      .whereBetween('payment_date', [startOfMonth, endOfMonth])
-      .sum('amount_paid as total')
+      .where('hotel_id', serviceId)
+      .whereBetween('transactionDate', [startOfMonth, endOfMonth])
+      .where('transactionType', 'payment')
+      .where('isVoided', false)
+      .sum('amount as total')
 
     const totalRevenueThisMonth = Number(totalRevenueThisMonthResult[0].$extras.total || '0')
 
@@ -79,11 +82,13 @@ export class RoomAvailabilityService {
     const startOfLastMonth = now.minus({ months: 1 }).startOf('month').toSQL()
     const endOfLastMonth = now.minus({ months: 1 }).endOf('month').toSQL()
 
-    const lastMonthRevenueResult = await Payment
+    const lastMonthRevenueResult = await FolioTransaction
       .query()
-      .where('service_id', serviceId)
-      .whereBetween('payment_date', [startOfLastMonth, endOfLastMonth])
-      .sum('amount_paid as total')
+      .where('hotel_id', serviceId)
+      .whereBetween('transactionDate', [startOfLastMonth, endOfLastMonth])
+      .where('transactionType', 'payment')
+      .where('isVoided', false)
+      .sum('amount as total')
 
     const lastMonthRevenue = Number(lastMonthRevenueResult[0].$extras.total || '0')
 
@@ -113,12 +118,12 @@ export class RoomAnalyticsService {
     current: { label: string; occupancyRate: number }[],
     previous: { label: string; occupancyRate: number }[]
   }> {
-    const service = await Service.find(serviceId)
-    if (!service) {
+    const hotel = await Hotel.find(serviceId)
+    if (!hotel) {
       throw new Error("Ce service n'est pas un hôtel")
     }
 
-    const totalRoomsResult = await ServiceProduct.query().where('service_id', serviceId).count('* as total')
+    const totalRoomsResult = await Room.query().where('hotel_id', serviceId).count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
     if (totalRooms === 0) return { current: [], previous: [] }
 
@@ -134,8 +139,8 @@ export class RoomAnalyticsService {
 
         const countResult = await Reservation
           .query()
-          .where('service_id', serviceId)
-          .whereBetween('created_at', [start, end])
+          .where('hotel_id', serviceId)
+          .whereBetween('bookingDate', [start, end])
           .count('* as count')
 
         const occupied = Number(countResult[0].$extras.count || '0')
@@ -159,7 +164,7 @@ export class RoomAnalyticsService {
         const start = date.startOf('day').toSQL()
         const end = date.endOf('day').toSQL()
 
-        const countResult = await Reservation.query().where('service_id', serviceId).whereBetween('created_at', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -175,7 +180,7 @@ export class RoomAnalyticsService {
         const start = date.startOf('day').toSQL()
         const end = date.endOf('day').toSQL()
 
-        const countResult = await Reservation.query().where('service_id', serviceId).whereBetween('created_at', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -188,7 +193,7 @@ export class RoomAnalyticsService {
         const start = now.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = now.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('service_id', serviceId).whereBetween('created_at', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -201,7 +206,7 @@ export class RoomAnalyticsService {
         const start = previousYear.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = previousYear.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('service_id', serviceId).whereBetween('created_at', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -214,7 +219,7 @@ export class RoomAnalyticsService {
   public static async getAverageLengthOfStay(serviceId: number): Promise<number> {
     const reservations = await Reservation
       .query()
-      .where('service_id', serviceId)
+      .where('hotel_id', serviceId)
       .select('arrived_date', 'depart_date')
 
     if (reservations.length === 0) return 0
