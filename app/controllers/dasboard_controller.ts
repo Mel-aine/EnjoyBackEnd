@@ -10,8 +10,7 @@ import ActivityLog from '#models/activity_log'
 import Guest from '#models/guest'
 import Folio from '#models/folio'
 import ReservationRoom from '#models/reservation_room'
-import RoomRate from '#models/room_rate'
-import RoomType from '#models/room_type'
+
 import RoomBlock from '#models/room_block'
 import WorkOrder from '#models/work_order'
 import db from '@adonisjs/lucid/services/db'
@@ -517,7 +516,7 @@ export default class DashboardController {
 
   // Enhanced helper method for activity types
   private getActivityType(action: string): string {
-    const typeMap = {
+    const typeMap : any = {
       check_in: 'arrival',
       CHECK_IN: 'arrival',
       check_out: 'departure',
@@ -870,56 +869,6 @@ export default class DashboardController {
     }
   }
 
-  private async getWeeklyData(serviceId: number, selectedDate: DateTime, trx: any) {
-    const weekStart = selectedDate.startOf('week')
-    const weekEnd = selectedDate.endOf('week')
-
-    const [weeklyArrivals, weeklyDepartures] = await Promise.all([
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .whereBetween('arrived_date', [weekStart.toSQLDate()!, weekEnd.toSQLDate()!])
-        .whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
-        .groupBy('arrived_date')
-        .select('arrived_date')
-        .count('* as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .whereBetween('depart_date', [weekStart.toSQLDate()!, weekEnd.toSQLDate()!])
-        .whereIn('status', ['checked_out'])
-        .groupBy('depart_date')
-        .select('depart_date')
-        .count('* as total'),
-    ])
-
-    const weeklyArrivalsMap = weeklyArrivals.reduce((acc: any, item: any) => {
-      if (item.arrived_date) {
-        acc[item.arrived_date] = Number(item.$extras.total)
-      }
-      return acc
-    }, {})
-
-    const weeklyDeparturesMap = weeklyDepartures.reduce((acc: any, item: any) => {
-      if (item.depart_date) {
-        acc[item.depart_date] = Number(item.$extras.total)
-      }
-      return acc
-    }, {})
-
-    const weeklyData = []
-    for (let i = 0; i < 7; i++) {
-      const date = weekStart.plus({ days: i })
-      const dateSQL = date.toSQLDate()!
-      weeklyData.push({
-        date: date.toFormat('yyyy-MM-dd'),
-        arrivals: weeklyArrivalsMap[dateSQL] || 0,
-        departures: weeklyDeparturesMap[dateSQL] || 0,
-        dayName: date.toFormat('cccc'),
-        shortDate: date.toFormat('dd/MM'),
-      })
-    }
-
-    return weeklyData
-  }
 
   private async getNotificationData(serviceId: number, targetDate: string, trx: any) {
     const [
