@@ -12,6 +12,7 @@ import Folio from '#models/folio'
 import ReservationRoom from '#models/reservation_room'
 import RoomRate from '#models/room_rate'
 import RoomType from '#models/room_type'
+import RoomBlock from '#models/room_block'
 import WorkOrder from '#models/work_order'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
@@ -416,19 +417,20 @@ export default class DashboardController {
         revenueData,
         suiteOccupancyData,
         housekeepingData,
-        weeklyDataResult,
         notificationData,
         recentActivities,
+        unpaidFoliosData
       ] = await Promise.all([
         this.getArrivalsData(serviceId, targetDate),
         this.getDeparturesData(serviceId, targetDate),
         this.getInHouseData(serviceId, targetDate),
-        this.getRoomStatusData(serviceId),
+        this.getRoomStatusData(serviceId, startDate),
         this.getRevenueData(serviceId, startDate, endDate),
         this.getSuiteOccupancyData(serviceId),
         this.getHousekeepingData(serviceId),
-        this.getWeeklyData(serviceId, selectedDate),
+        // this.getWeeklyData(serviceId, selectedDate),
         this.getNotificationData(serviceId, targetDate),
+        this.getUnpaidFoliosData(serviceId),
 
         ActivityLog.query()
           .where('hotel_id', serviceId)
@@ -437,12 +439,7 @@ export default class DashboardController {
           .limit(15)
           .preload('user'),
       ])
-      const revenueChartData = await this.generateRevenueChartData(
-        serviceId,
-        startDate,
-        endDate,
-        rangeParam
-      )
+
 
       const performanceEnd = Date.now()
       const loadTime = performanceEnd - performanceStart
@@ -476,10 +473,10 @@ export default class DashboardController {
           ...revenueData,
           ...suiteOccupancyData,
           ...housekeepingData,
-          weeklyTrends: weeklyDataResult,
+          unpaidFoliosData ,
           ...notificationData,
-          revenueChartData: revenueChartData,
-          activityFeeds: (recentActivities || []).map((activity: any) => ({
+
+          activityFeeds: Array.isArray(recentActivities) ? recentActivities.map((activity: any) => ({
             id: activity.id,
             description: activity.description,
             action: activity.action,
@@ -493,11 +490,11 @@ export default class DashboardController {
             priority: this.getActivityPriority(activity.action),
             entityType: activity.entityType,
             entityId: activity.entityId,
-          })),
+          })) : [],
           metadata: metadata,
           performance: {
             loadTime: loadTime,
-            queriesExecuted: 10, // Approximate number of queries
+            queriesExecuted: 12, // Approximate number of queries
             cacheHit: false,
             dataFreshness: 'real-time',
           },
@@ -666,55 +663,91 @@ export default class DashboardController {
     }
   }
 
-  private async getRoomStatusData(serviceId: number) {
-    const [roomStatusCounts, roomStatusDayUse, roomStatusComplimentary, totalRoomsCount] =
-      await Promise.all([
-        Room.query()
-          .where('hotel_id', serviceId)
-          .groupBy('status')
-          .select('status')
-          .count('* as total'),
-        ReservationRoom.query()
-          .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
-          .where('reservations.hotel_id', serviceId)
-          .where('reservation_rooms.status', 'day_use')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', serviceId)
-          .where('complimentary_room', 'true')
-          .count('* as total'),
-        Room.query().where('hotel_id', serviceId).count('* as total'),
-      ])
+  private async getRoomStatusData(serviceId: number, currentDate?: DateTime) {
+  const targetDate = currentDate || DateTime.now();
 
-    const totalRooms = Number(totalRoomsCount[0].$extras.total || '0')
-    const occupiedRooms =
-      (Number(roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total) || 0) +
-      Number(roomStatusDayUse[0].$extras.total || '0') +
-      Number(roomStatusComplimentary[0].$extras.total || '0')
-    const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
-    const roomsInMaintenanceCount =
-      Number(roomStatusCounts.find((item) => item.status === 'in_maintenance')?.$extras.total) || 0
+  const [
+    roomStatusCounts,
+    roomStatusDayUse,
+    roomStatusComplimentary,
+    totalRoomsCount,
+    roomBlocksForDate
+  ] = await Promise.all([
+    Room.query()
+      .where('hotel_id', serviceId)
+      .groupBy('status')
+      .select('status')
+      .count('* as total'),
+    ReservationRoom.query()
+      .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+      .where('reservations.hotel_id', serviceId)
+      .where('reservation_rooms.status', 'day_use')
+      .count('* as total'),
+    Reservation.query()
+      .where('hotel_id', serviceId)
+      .where('complimentary_room', 'true')
+      .count('* as total'),
+    Room.query().where('hotel_id', serviceId).count('* as total'),
+    // Récupération des chambres bloquées pour la date donnée
+    RoomBlock.query()
+      .where('hotel_id', serviceId)
+      .where('block_from_date', '<=', targetDate.toFormat('yyyy-MM-dd'))
+      .where('block_to_date', '>=', targetDate.toFormat('yyyy-MM-dd'))
+      .preload('room')
+  ])
 
-    return {
-      roomStatus: {
-        vacant: Number(
-          roomStatusCounts.find((item) => item.status === 'available')?.$extras.total || '0'
-        ),
-        sold: Number(
-          roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total || '0'
-        ),
-        dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
-        complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
-        blocked: Number(
-          roomStatusCounts.find((item) => item.status === 'blocked')?.$extras.total || '0'
-        ),
-        maintenance: roomsInMaintenanceCount,
-        total: totalRooms,
-        occupancyRate: occupancyRate,
-        availableRooms: totalRooms - occupiedRooms - roomsInMaintenanceCount,
-      },
+  // Créer un Set des IDs des chambres bloquées
+  const blockedRoomIds = new Set<number>()
+  roomBlocksForDate.forEach(block => {
+    if (block.room) {
+      blockedRoomIds.add(block.room.id)
     }
+  })
+
+  const totalRooms = Number(totalRoomsCount[0].$extras.total || '0')
+  const occupiedRooms =
+    (Number(roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total) || 0) +
+    Number(roomStatusDayUse[0].$extras.total || '0') +
+    Number(roomStatusComplimentary[0].$extras.total || '0')
+  const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
+  const roomsInMaintenanceCount =
+    Number(roomStatusCounts.find((item) => item.status === 'in_maintenance')?.$extras.total) || 0
+
+  // Nombre de chambres bloquées pour la date
+  const blockedRoomsCount = blockedRoomIds.size
+
+  return {
+    roomStatus: {
+      vacant: Number(
+        roomStatusCounts.find((item) => item.status === 'available')?.$extras.total || '0'
+      ),
+      sold: Number(
+        roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total || '0'
+      ),
+      dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
+      complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
+      blocked: Number(
+        roomStatusCounts.find((item) => item.status === 'blocked')?.$extras.total || '0'
+      ),
+      // Ajout des chambres bloquées par date
+      blockedForDate: blockedRoomsCount,
+      maintenance: roomsInMaintenanceCount,
+      total: totalRooms,
+      occupancyRate: occupancyRate,
+      availableRooms: totalRooms - occupiedRooms - roomsInMaintenanceCount - blockedRoomsCount,
+    },
+    // Détails des chambres bloquées
+    blockedRoomsDetails: roomBlocksForDate.map(block => ({
+      blockId: block.id,
+      roomId: block.room?.id,
+      roomNumber: block.room?.roomNumber,
+      blockFromDate: block.blockFromDate,
+      blockToDate: block.blockToDate,
+      blockReason: block.reason || 'Non spécifié',
+      notes: block.description || 'Aucune description',
+    }))
   }
+}
 
   private async getRevenueData(serviceId: number, startDate: DateTime, endDate: DateTime) {
     const revenueDataOptimized = await ReservationRoom.query()
@@ -785,205 +818,7 @@ export default class DashboardController {
     return { suites: suiteOccupancy }
   }
 
-  // Nouvelle méthode pour générer les données du graphique de revenus
-  // Méthode corrigée pour générer les données du graphique de revenus
-  private async generateRevenueChartData(
-    serviceId: number,
-    startDate: DateTime,
-    endDate: DateTime,
-    rangeParam: string
-  ) {
-    console.log('generateRevenueChartData called with:', {
-      serviceId,
-      startDate: startDate.toISO(),
-      endDate: endDate.toISO(),
-      rangeParam,
-    })
 
-    const chartData = []
-
-    if (rangeParam === 'thisWeek' || rangeParam === 'lastWeek') {
-      // Pour la semaine : données par jour (Lundi à Dimanche)
-      const weekStart = startDate.startOf('week')
-      console.log('Week mode - weekStart:', weekStart.toISO())
-
-      for (let i = 0; i < 7; i++) {
-        const date = weekStart.plus({ days: i })
-        console.log(`Processing day ${i + 1}/7:`, date.toISO())
-        const dayRevenue = await this.getDailyRevenueByRateType(serviceId, date)
-        console.log(`Revenue for ${date.toISO()}:`, dayRevenue)
-
-        chartData.push({
-          date: date.toFormat('yyyy-MM-dd'),
-          label: date.toFormat('cccc'), // Lundi, Mardi, etc.
-          ...dayRevenue,
-        })
-      }
-    } else if (rangeParam === 'thisMonth' || rangeParam === 'lastMonth') {
-      // Pour le mois : données par semaine
-      const monthStart = startDate.startOf('month')
-      const monthEnd = endDate.endOf('month')
-      console.log('Month mode:', { monthStart: monthStart.toISO(), monthEnd: monthEnd.toISO() })
-
-      let weekNumber = 1
-      let currentWeekStart = monthStart.startOf('week')
-
-      while (currentWeekStart <= monthEnd && weekNumber <= 5) {
-        const weekEnd = DateTime.min(currentWeekStart.endOf('week'), monthEnd)
-        console.log(`Processing week ${weekNumber}:`, {
-          start: currentWeekStart.toISO(),
-          end: weekEnd.toISO(),
-        })
-
-        const weekRevenue = await this.getWeeklyRevenueByRateType(
-          serviceId,
-          currentWeekStart,
-          weekEnd
-        )
-        console.log(`Revenue for week ${weekNumber}:`, weekRevenue)
-
-        chartData.push({
-          date: currentWeekStart.toFormat('yyyy-MM-dd'),
-          label: `S${weekNumber}`,
-          ...weekRevenue,
-        })
-
-        currentWeekStart = currentWeekStart.plus({ weeks: 1 })
-        weekNumber++
-      }
-    } else {
-      // Pour les autres plages : données par jour sur la période définie
-      console.log('Daily mode - processing from', startDate.toISO(), 'to', endDate.toISO())
-
-      let currentDate = startDate
-      while (currentDate <= endDate) {
-        console.log('Processing date:', currentDate.toISO())
-        const dayRevenue = await this.getDailyRevenueByRateType(serviceId, currentDate)
-        console.log(`Revenue for ${currentDate.toISO()}:`, dayRevenue)
-
-        chartData.push({
-          date: currentDate.toFormat('yyyy-MM-dd'),
-          label: currentDate.toFormat('dd/MM'),
-          ...dayRevenue,
-        })
-
-        currentDate = currentDate.plus({ days: 1 })
-      }
-    }
-
-    console.log('Final chartData:', chartData)
-    return chartData
-  }
-
-  private async getWeeklyRevenueByRateType(
-    serviceId: number,
-    weekStart: DateTime,
-    weekEnd: DateTime
-  ) {
-    const revenueQuery = await ReservationRoom.query()
-      .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
-      .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
-      .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
-      .where('reservations.hotel_id', serviceId)
-      .where(function (query) {
-        query
-          .where(function (subQuery) {
-            // Réservations qui commencent dans cette semaine
-            subQuery.whereBetween('reservations.arrived_date', [
-              weekStart.toSQLDate()!,
-              weekEnd.toSQLDate()!,
-            ])
-          })
-          .orWhere(function (subQuery) {
-            // Réservations qui chevauchent cette semaine
-            subQuery
-              .where('reservations.arrived_date', '<=', weekEnd.toSQLDate()!)
-              .where('reservations.depart_date', '>', weekStart.toSQLDate()!)
-          })
-      })
-      .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
-      .groupBy('rate_types.rate_type_name')
-      .select('rate_types.rate_type_name as rate_type_name')
-      .sum('room_rates.base_rate as total_revenue')
-
-    const revenues: { [key: string]: number } = {}
-    let totalRevenue = 0
-
-    for (const result of revenueQuery) {
-      const rateTypeName = result.$extras.rate_type_name
-      const revenue = Number(result.$extras.total_revenue || 0)
-      revenues[rateTypeName] = revenue
-      totalRevenue += revenue
-    }
-
-    revenues['total'] = totalRevenue
-
-    return { revenues }
-  }
-
-  private async getDailyRevenueByRateType(serviceId: number, date: DateTime) {
-    console.log(`getDailyRevenueByRateType for date: ${date.toISO()}`)
-
-    // Première requête : réservations avec check-in ce jour
-    const checkInRevenueQuery = await ReservationRoom.query()
-      .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
-      .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
-      .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
-      .where('reservations.hotel_id', serviceId)
-      .where('reservations.check_in_date', date.toSQLDate()!)
-      .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
-      .groupBy('rate_types.rate_type_name')
-      .select('rate_types.rate_type_name as rate_type_name')
-      .sum('room_rates.base_rate as total_revenue')
-
-    console.log(`Check-in reservations for ${date.toISO()}:`, checkInRevenueQuery.length)
-
-    // Deuxième requête : réservations actives ce jour (déjà check-in, pas encore check-out)
-    const activeRevenueQuery = await ReservationRoom.query()
-      .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
-      .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
-      .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
-      .where('reservations.hotel_id', serviceId)
-      .where('reservations.check_in_date', '<', date.toSQLDate()!)
-      .where('reservations.check_out_date', '>', date.toSQLDate()!)
-      .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
-      .groupBy('rate_types.rate_type_name')
-      .select('rate_types.rate_type_name as rate_type_name')
-      .sum('room_rates.base_rate as total_revenue')
-
-    console.log(`Active reservations for ${date.toISO()}:`, activeRevenueQuery.length)
-
-    const revenues: { [key: string]: number } = {}
-    let totalRevenue = 0
-
-    // Traiter les revenus du check-in
-    for (const result of checkInRevenueQuery) {
-      const rateTypeName = result.$extras.rate_type_name
-      const revenue = Number(result.$extras.total_revenue || 0)
-      if (!revenues[rateTypeName]) revenues[rateTypeName] = 0
-      revenues[rateTypeName] += revenue
-      totalRevenue += revenue
-    }
-
-    // Traiter les revenus des réservations actives (au prorata)
-    for (const result of activeRevenueQuery) {
-      const rateTypeName = result.$extras.rate_type_name
-      const revenue = Number(result.$extras.total_revenue || 0)
-
-      // Pour les réservations actives, on peut soit :
-      // 1. Compter le revenu total (comme ci-dessous)
-      // 2. Ou le diviser par le nombre de jours de séjour
-
-      if (!revenues[rateTypeName]) revenues[rateTypeName] = 0
-      revenues[rateTypeName] += revenue
-      totalRevenue += revenue
-    }
-
-    revenues['total'] = totalRevenue
-
-    console.log(`Final revenues for ${date.toISO()}:`, revenues)
-    return { revenues }
-  }
 
   private async getHousekeepingData(serviceId: number) {
     const housekeepingStatusCounts = await Room.query()
@@ -1197,4 +1032,47 @@ export default class DashboardController {
       },
     }
   }
+
+  private async getUnpaidFoliosData(serviceId: number) {
+  const unpaidFolios = await Folio.query()
+    .where('balance', '>', 0)
+    .where('settlement_status', '!=', 'settled')
+    .where('status', 'open')
+    .where('hotel_id', serviceId)
+    .preload('reservation', (query) => {
+      query.preload('guest')
+    })
+    .preload('guest')
+    .orderBy('created_at', 'desc')
+
+  const unpaidFoliosList = unpaidFolios.map(folio => ({
+    id: folio.id,
+    folioNumber: folio.folioNumber,
+    balance: folio.balance,
+    totalAmount: folio.totalCharges,
+    createdAt: folio.createdAt.toFormat('yyyy-MM-dd HH:mm'),
+    dueDate: folio.dueDate?.toFormat('yyyy-MM-dd'),
+    isOverdue: folio.dueDate ? folio.dueDate < DateTime.now() : false,
+    daysPastDue: folio.dueDate ? Math.max(0, DateTime.now().diff(folio.dueDate, 'days').days) : 0,
+    guestName: folio.guest?.fullName || folio.reservation?.guest?.fullName || 'N/A',
+    guestId: folio.guestId || folio.reservation?.guestId,
+    reservationId: folio.reservationId,
+    reservationNumber: folio.reservation?.reservationNumber,
+    settlementStatus: folio.settlementStatus,
+    paymentMethod: folio.paymentMethod
+  }))
+
+  const totalUnpaidAmount = unpaidFolios.reduce((sum, folio) => sum + (folio.balance || 0), 0)
+  const overdueCount = unpaidFoliosList.filter(folio => folio.isOverdue).length
+
+  return {
+    unpaidFolios: {
+      total: unpaidFolios.length,
+      totalAmount: totalUnpaidAmount,
+      overdueCount: overdueCount,
+      foliosList: unpaidFoliosList,
+      averageAmount: unpaidFolios.length > 0 ? Math.round((totalUnpaidAmount / unpaidFolios.length) * 100) / 100 : 0
+    }
+  }
+}
 }
