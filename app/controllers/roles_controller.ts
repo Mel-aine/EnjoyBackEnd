@@ -217,33 +217,44 @@ public async destroy({ params, response }: HttpContext) {
   /**
    * Récupère les rôles par hôtel
    */
-  public async getRolesByHotel({ params, response }: HttpContext) {
-    const hotelId = Number(params.hotelId)
+public async getRolesByHotel({ params, response }: HttpContext) {
+  const hotelId = Number(params.hotelId)
+  console.log(' hotelId reçu :', hotelId)
 
-    if (isNaN(hotelId)) {
-      return response.badRequest({ message: 'ID d\'hôtel invalide' })
-    }
-
-    try {
-      await Hotel.findOrFail(hotelId)
-
-      const roles = await Role.query()
-        .where((query) => {
-          query.where('hotel_id', hotelId)
-        })
-        .orWhere((query) => {
-          query.where('role_name', 'admin').andWhereNull('hotel_id').andWhereNull('category_id')
-        })
-        .preload('permissions')
-
-      return response.ok(roles)
-    } catch (error) {
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({ message: 'Hôtel non trouvé' })
-      }
-      return response.internalServerError({ message: 'Erreur lors de la récupération des rôles' })
-    }
+  if (isNaN(hotelId)) {
+    console.warn(' ID d\'hôtel invalide')
+    return response.badRequest({ message: 'ID d\'hôtel invalide' })
   }
+
+  try {
+    console.log(' Vérification de l\'hôtel...')
+    await Hotel.findOrFail(hotelId)
+    console.log(' Hôtel trouvé')
+
+    console.log('Récupération des rôles...')
+    const roles = await Role.query()
+      .where((query) => {
+        query.where('hotel_id', hotelId)
+      })
+
+
+    console.log(' Rôles trouvés :', roles)
+
+    return response.ok(roles)
+  } catch (error) {
+    console.error(' Erreur dans getRolesByHotel :', error)
+
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Hôtel non trouvé' })
+    }
+
+    return response.internalServerError({
+      message: 'Erreur lors de la récupération des rôles',
+      error: error.message,
+    })
+  }
+}
+
 
   /**
    * Récupère les rôles par service avec permissions

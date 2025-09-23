@@ -9,6 +9,7 @@ import CleaningStatus from './cleaning_status.js'
 import MaintenanceRequest from './maintenance_request.js'
 import User from './user.js'
 import TaxRate from './tax_rate.js'
+import RoomBlock from './room_block.js'
 
 export default class Room extends BaseModel {
   @column({ isPrimary: true })
@@ -41,6 +42,19 @@ export default class Room extends BaseModel {
   @column()
   declare amenities: object
 
+ @column({
+  consume: (value) => {
+    if (!value) return []
+    if (typeof value === 'string') return JSON.parse(value)
+    return value // déjà un array
+  },
+  prepare: (value) => JSON.stringify(value),
+})
+declare housekeepingRemarks: any[]
+
+
+
+
   @column()
   declare maxOccupancy: number
 
@@ -49,6 +63,9 @@ export default class Room extends BaseModel {
 
   @column()
   declare bedTypeId: number
+
+  @column()
+  declare assignedHousekeeperId: number | null
 
   @column()
   declare phoneExtension: string
@@ -176,11 +193,17 @@ export default class Room extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
+  @belongsTo(() => User, { foreignKey: 'assignedHousekeeperId' })
+  declare assignedHousekeeper: BelongsTo<typeof User>
+
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
   @hasMany(() => ReservationRoom)
   declare reservationRooms: HasMany<typeof ReservationRoom>
+
+   @hasMany(() => RoomBlock, { foreignKey: 'roomId' })
+  declare blocks: HasMany<typeof RoomBlock>
 
   @hasMany(() => CleaningStatus)
   declare cleaningStatuses: HasMany<typeof CleaningStatus>

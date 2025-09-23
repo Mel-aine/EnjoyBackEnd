@@ -47,7 +47,6 @@ export default class RoomsController {
 
       if (floor) {
         query.where('floor_number', floor)
-
       }
 
       if (status) {
@@ -87,12 +86,12 @@ export default class RoomsController {
 
       return response.ok({
         message: 'Rooms retrieved successfully',
-        data: rooms
+        data: rooms,
       })
     } catch (error) {
       return response.internalServerError({
         message: 'Failed to retrieve rooms',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -107,7 +106,7 @@ export default class RoomsController {
 
       const room = await Room.create({
         ...roomData,
-        createdBy: auth.user?.id
+        createdBy: auth.user?.id,
       })
 
       // Attach tax rates if provided
@@ -127,17 +126,17 @@ export default class RoomsController {
         hotelId: room.hotelId,
         description: `Room "${room.roomNumber}" created successfully`,
         changes: LoggerService.extractChanges({}, room.toJSON()),
-        ctx: { request, response, auth }
+        ctx: { request, response, auth },
       })
 
       return response.created({
         message: 'Room created successfully',
-        data: room
+        data: room,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to create room',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -158,12 +157,12 @@ export default class RoomsController {
 
       return response.ok({
         message: 'Room retrieved successfully',
-        data: room
+        data: room,
       })
     } catch (error) {
       return response.notFound({
         message: 'Room not found',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -180,7 +179,7 @@ export default class RoomsController {
 
       room.merge({
         ...roomData,
-        lastModifiedBy: auth.user?.id
+        lastModifiedBy: auth.user?.id,
       })
 
       await room.save()
@@ -208,18 +207,18 @@ export default class RoomsController {
           hotelId: room.hotelId,
           description: `Room "${room.roomNumber}" updated successfully`,
           changes: changes,
-          ctx: { request, response, auth }
+          ctx: { request, response, auth },
         })
       }
 
       return response.ok({
         message: 'Room updated successfully',
-        data: room
+        data: room,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to update room',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -232,14 +231,15 @@ export default class RoomsController {
       const room = await Room.findOrFail(params.id)
 
       // Check if there are any active reservations for this room
-      const activeReservations = await room.related('reservationRooms')
+      const activeReservations = await room
+        .related('reservationRooms')
         .query()
         .whereIn('status', ['confirmed', 'checked_in'])
         .count('* as total')
 
       if (activeReservations[0].$extras.total > 0) {
         return response.badRequest({
-          message: 'Cannot delete room with active reservations'
+          message: 'Cannot delete room with active reservations',
         })
       }
 
@@ -253,21 +253,19 @@ export default class RoomsController {
         hotelId: room.hotelId,
         description: `Room "${room.roomNumber}" deleted successfully`,
         changes: {},
-        ctx: { request: null, response, auth }
+        ctx: { request: null, response, auth },
       })
 
       return response.ok({
-        message: 'Room deleted successfully'
+        message: 'Room deleted successfully',
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to delete room',
-        error: error.message
+        error: error.message,
       })
     }
   }
-
-
 
   /**
    * Update maintenance status
@@ -275,7 +273,10 @@ export default class RoomsController {
   async updateMaintenanceStatus({ params, request, response }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
-      const { maintenanceNotes, nextMaintenanceDate } = request.only(['maintenanceNotes', 'nextMaintenanceDate'])
+      const { maintenanceNotes, nextMaintenanceDate } = request.only([
+        'maintenanceNotes',
+        'nextMaintenanceDate',
+      ])
 
       if (maintenanceNotes) {
         room.maintenanceNotes = maintenanceNotes
@@ -288,12 +289,12 @@ export default class RoomsController {
 
       return response.ok({
         message: 'Maintenance status updated successfully',
-        data: room
+        data: room,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to update maintenance status',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -307,7 +308,8 @@ export default class RoomsController {
       const { startDate, endDate } = request.only(['startDate', 'endDate'])
 
       // Check if room has any reservations in the given date range
-      const reservations = await room.related('reservationRooms')
+      const reservations = await room
+        .related('reservationRooms')
         .query()
         .where('check_in_date', '<=', endDate)
         .where('check_out_date', '>=', startDate)
@@ -322,13 +324,13 @@ export default class RoomsController {
           roomNumber: room.roomNumber,
           isAvailable,
           status: room.status,
-          reservations: reservations.length
-        }
+          reservations: reservations.length,
+        },
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to check room availability',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -355,8 +357,8 @@ export default class RoomsController {
       // If date range is provided, filter out rooms with reservations
       let availableRooms = rooms
       if (startDate && endDate) {
-        const availableRoomIds:any = []
-        
+        const availableRoomIds: any = []
+
         for (const room of rooms) {
           const reservations = await ReservationRoom.query()
             .where('room_id', room.id)
@@ -369,7 +371,7 @@ export default class RoomsController {
           }
         }
 
-        availableRooms = rooms.filter(room => availableRoomIds.includes(room.id))
+        availableRooms = rooms.filter((room) => availableRoomIds.includes(room.id))
       }
 
       return response.ok({
@@ -378,26 +380,26 @@ export default class RoomsController {
           roomType: {
             id: roomType.id,
             name: roomType.name,
-            description: roomType.description
+            description: roomType.description,
           },
           totalRooms: rooms.length,
           availableRooms: availableRooms.length,
           dateRange: startDate && endDate ? { startDate, endDate } : null,
-          rooms: availableRooms.map(room => ({
+          rooms: availableRooms.map((room) => ({
             id: room.id,
             roomNumber: room.roomNumber,
             roomName: room.roomName,
             floorNumber: room.floorNumber,
             status: room.status,
             housekeepingStatus: room.housekeepingStatus,
-            maintenanceStatus: room.maintenanceStatus
-          }))
-        }
+            maintenanceStatus: room.maintenanceStatus,
+          })),
+        },
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to retrieve available rooms',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -417,11 +419,26 @@ export default class RoomsController {
       const totalRooms = await query.clone().count('* as total')
       const availableRooms = await query.clone().where('status', 'available').count('* as total')
       const occupiedRooms = await query.clone().where('status', 'occupied').count('* as total')
-      const outOfOrderRooms = await query.clone().where('status', 'out_of_order').count('* as total')
-      const maintenanceRooms = await query.clone().where('status', 'maintenance').count('* as total')
-      const dirtyRooms = await query.clone().where('housekeeping_status', 'dirty').count('* as total')
-      const cleanRooms = await query.clone().where('housekeeping_status', 'clean').count('* as total')
-      const inspectedRooms = await query.clone().where('housekeeping_status', 'inspected').count('* as total')
+      const outOfOrderRooms = await query
+        .clone()
+        .where('status', 'out_of_order')
+        .count('* as total')
+      const maintenanceRooms = await query
+        .clone()
+        .where('status', 'maintenance')
+        .count('* as total')
+      const dirtyRooms = await query
+        .clone()
+        .where('housekeeping_status', 'dirty')
+        .count('* as total')
+      const cleanRooms = await query
+        .clone()
+        .where('housekeeping_status', 'clean')
+        .count('* as total')
+      const inspectedRooms = await query
+        .clone()
+        .where('housekeeping_status', 'inspected')
+        .count('* as total')
 
       const stats = {
         totalRooms: totalRooms[0].$extras.total,
@@ -432,18 +449,20 @@ export default class RoomsController {
         dirtyRooms: dirtyRooms[0].$extras.total,
         cleanRooms: cleanRooms[0].$extras.total,
         inspectedRooms: inspectedRooms[0].$extras.total,
-        occupancyRate: totalRooms[0].$extras.total > 0 ?
-          (occupiedRooms[0].$extras.total / totalRooms[0].$extras.total * 100).toFixed(2) : 0
+        occupancyRate:
+          totalRooms[0].$extras.total > 0
+            ? ((occupiedRooms[0].$extras.total / totalRooms[0].$extras.total) * 100).toFixed(2)
+            : 0,
       }
 
       return response.ok({
         message: 'Room statistics retrieved successfully',
-        data: stats
+        data: stats,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to retrieve statistics',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -490,95 +509,89 @@ export default class RoomsController {
   /**
    * Get rooms with details including reservations
    */
- public async getRoomsWithDetails({ params, response }: HttpContext) {
-  const { hotelId } = params
+  public async getRoomsWithDetails({ params, response }: HttpContext) {
+    const { hotelId } = params
 
-  try {
-    const rooms = await Room.query()
-      .where('hotel_id', hotelId)
-      .preload('roomType')
-      .preload('reservationRooms', (query) => {
-        query.preload('reservation', (reservationQuery) => {
-          reservationQuery
-            // 1. AJOUT: Inclure 'checkinDate' dans la sélection
-            .select(['id', 'status', 'departDate', 'guestId', 'checkInDate'])
-            .preload('guest', (guestQuery) => {
-              guestQuery.select(['id', 'firstName', 'lastName'])
-            })
+    try {
+      const rooms = await Room.query()
+        .where('hotel_id', hotelId)
+        .preload('roomType')
+        .preload('reservationRooms', (query) => {
+          query.preload('reservation', (reservationQuery) => {
+            reservationQuery
+              // 1. AJOUT: Inclure 'checkinDate' dans la sélection
+              .select(['id', 'status', 'departDate', 'guestId', 'checkInDate'])
+              .preload('guest', (guestQuery) => {
+                guestQuery.select(['id', 'firstName', 'lastName'])
+              })
+          })
         })
+
+      const detailedRooms = rooms.map((room) => {
+        const reservations = room.reservationRooms
+
+        const reservationData = reservations.map((rr) => ({
+          reservation: rr.reservation,
+          guest: rr.reservation?.guest ?? null,
+          status: rr.reservation?.status ?? null,
+        }))
+
+        const checkedInReservation = reservationData.find(
+          (r) => r.reservation?.status === 'checked-in' || r.reservation?.status === 'checked_in'
+        )
+
+        const guestName = checkedInReservation?.guest
+          ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() ||
+            null
+          : null
+
+        const checkInTime = checkedInReservation?.reservation?.checkInDate
+          ? typeof checkedInReservation.reservation.checkInDate === 'string'
+            ? checkedInReservation.reservation.checkInDate
+            : checkedInReservation.reservation.checkInDate.toString()
+          : null
+
+        const reservationsWithDepart = reservationData
+          .filter((r) => r.reservation?.departDate != null)
+          .sort((a, b) => {
+            const dateA = DateTime.fromISO(a.reservation?.departDate?.toString() || '')
+            const dateB = DateTime.fromISO(b.reservation?.departDate?.toString() || '')
+            // Tri descendant pour avoir la date de départ la plus récente en premier
+            return dateB.toMillis() - dateA.toMillis()
+          })
+
+        const latestDeparture = reservationsWithDepart[0]
+
+        const nextAvailable = latestDeparture?.reservation?.departDate
+          ? typeof latestDeparture.reservation.departDate === 'string'
+            ? latestDeparture.reservation.departDate
+            : latestDeparture.reservation.departDate.toString()
+          : null
+
+        const checkOutTime = nextAvailable
+
+        return {
+          ...room.serialize(),
+          roomType: room.roomType?.serialize(),
+          reservations: reservationData,
+          guestName,
+          nextAvailable,
+          checkOutTime,
+
+          checkInTime,
+          status: room.status || 'available',
+        }
       })
 
-    const detailedRooms = rooms.map((room) => {
-      const reservations = room.reservationRooms
-
-      const reservationData = reservations.map((rr) => ({
-        reservation: rr.reservation,
-        guest: rr.reservation?.guest ?? null,
-        status: rr.reservation?.status ?? null,
-      }))
-
-      const checkedInReservation = reservationData.find(
-        (r) =>
-          r.reservation?.status === 'checked-in' ||
-          r.reservation?.status === 'checked_in'
-      )
-
-      const guestName = checkedInReservation?.guest
-        ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() || null
-        : null
-
-      const checkInTime = checkedInReservation?.reservation?.checkInDate
-        ? (typeof checkedInReservation.reservation.checkInDate === 'string'
-            ? checkedInReservation.reservation.checkInDate
-            : checkedInReservation.reservation.checkInDate.toString())
-        : null
-
-      const reservationsWithDepart = reservationData
-        .filter((r) => r.reservation?.departDate != null)
-        .sort((a, b) => {
-          const dateA = DateTime.fromISO(
-            a.reservation?.departDate?.toString() || ''
-          )
-          const dateB = DateTime.fromISO(
-            b.reservation?.departDate?.toString() || ''
-          )
-          // Tri descendant pour avoir la date de départ la plus récente en premier
-          return dateB.toMillis() - dateA.toMillis()
-        })
-
-      const latestDeparture = reservationsWithDepart[0]
-
-      const nextAvailable = latestDeparture?.reservation?.departDate
-        ? (typeof latestDeparture.reservation.departDate === 'string'
-            ? latestDeparture.reservation.departDate
-            : latestDeparture.reservation.departDate.toString())
-        : null
-
-      const checkOutTime = nextAvailable
-
-      return {
-        ...room.serialize(),
-        roomType: room.roomType?.serialize(),
-        reservations: reservationData,
-        guestName,
-        nextAvailable,
-        checkOutTime,
-
-        checkInTime,
-        status: room.status || 'available',
-      }
-    })
-
-    return response.ok(detailedRooms)
-  } catch (err) {
-    console.error('Erreur getRoomsWithDetails:', err)
-    return response.status(500).json({
-      error: 'Erreur serveur',
-      message: err instanceof Error ? err.message : 'Erreur inconnue',
-    })
+      return response.ok(detailedRooms)
+    } catch (err) {
+      console.error('Erreur getRoomsWithDetails:', err)
+      return response.status(500).json({
+        error: 'Erreur serveur',
+        message: err instanceof Error ? err.message : 'Erreur inconnue',
+      })
+    }
   }
-}
-
 
   /**
    * Get recent bookings for a hotel
@@ -591,8 +604,7 @@ export default class RoomsController {
     }
 
     try {
-      const reservations = await ReservationRoom
-        .query()
+      const reservations = await ReservationRoom.query()
         .whereHas('room', (query) => {
           query.where('hotel_id', hotelId)
         })
@@ -611,7 +623,11 @@ export default class RoomsController {
         const room = res.room
 
         return {
-          guest: guest ? `${guest.firstName} ${guest.lastName}` : (user ? `${user.firstName} ${user.lastName}` : 'Inconnu'),
+          guest: guest
+            ? `${guest.firstName} ${guest.lastName}`
+            : user
+              ? `${user.firstName} ${user.lastName}`
+              : 'Inconnu',
           email: guest?.email ?? user?.email ?? '',
           room: room?.roomNumber ?? 'Non spécifié',
           checkin: res.checkInDate?.toFormat('dd/MM/yyyy') ?? '',
@@ -624,7 +640,9 @@ export default class RoomsController {
       return response.ok(formatted)
     } catch (error) {
       console.error(error)
-      return response.internalServerError({ message: 'Erreur lors de la récupération des réservations.' })
+      return response.internalServerError({
+        message: 'Erreur lors de la récupération des réservations.',
+      })
     }
   }
 
@@ -667,10 +685,10 @@ export default class RoomsController {
     }
   }
 
-/**
- *
- * Filter
- */
+  /**
+   *
+   * Filter
+   */
   public async filter({ request, response, params }: HttpContext) {
     try {
       const {
@@ -684,7 +702,7 @@ export default class RoomsController {
       const service_id = params.id
 
       const query = Room.query()
-        // .preload('RoomType')
+      // .preload('RoomType')
 
       if (service_id) {
         query.where('service_id', service_id)
@@ -723,12 +741,11 @@ export default class RoomsController {
 
       const rooms = await query
       return response.ok(rooms)
-
     } catch (error) {
       console.error('❌ Error filtering rooms:', error)
       return response.status(500).json({
         message: 'Server error',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -747,9 +764,10 @@ export default class RoomsController {
         .where('is_deleted', false)
         .preload('roomType')
         .preload('bedType')
-        // .preload('assignedHousekeeper', (housekeeperQuery) => {
-        //   housekeeperQuery.select('id', 'first_name', 'last_name')
-        // })
+        .preload('blocks')
+        .preload('assignedHousekeeper', (housekeeperQuery) => {
+          housekeeperQuery.select('id', 'first_name', 'last_name')
+        })
         .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
 
@@ -761,7 +779,7 @@ export default class RoomsController {
       const rooms = await query
 
       // Transformation des données avec logique métier
-      const transformedRooms = rooms.map(room => {
+      const transformedRooms = rooms.map((room) => {
         const actualHousekeepingStatus = this.getHousekeepingStatusFromRoomStatus(
           room.status,
           room.housekeepingStatus
@@ -773,14 +791,18 @@ export default class RoomsController {
           beds: room.maxOccupancy || 0,
           isChecked: false,
           section: this.getRoomSection(room.roomType?.roomTypeName || ''),
+          blocks: room.blocks,
           roomType: room.roomType?.roomTypeName || 'Unknown',
+          housekeepersRemarks: room.housekeepingRemarks || '',
+          roomTypeId: room.roomType?.id || 0,
           status: room.status,
           housekeepingStatus: actualHousekeepingStatus,
           tag: this.getRoomTag(room),
           statusType: this.getStatusType(actualHousekeepingStatus, room.status),
-        //   assignedHousekeeper: room.assignedHousekeeper ?
-        //     `${room.assignedHousekeeper.firstName} ${room.assignedHousekeeper.lastName}` : ''
-         }
+          assignedHousekeeper: room.assignedHousekeeper
+            ? `${room.assignedHousekeeper.firstName} ${room.assignedHousekeeper.lastName}`
+            : '',
+        }
       })
 
       // Récupération des types de chambres pour les filtres
@@ -792,38 +814,41 @@ export default class RoomsController {
       // Récupération des housekeepers
       const housekeepers = await User.query()
         .whereHas('role', (roleQuery) => {
-          roleQuery.where('role_name', 'housekeeper')
+          roleQuery
+            .where('role_name', 'Housekeeper')
+            .orWhere('role_name', 'housekeeping')
+            .orWhere('role_name', 'House Keeping')
+            .orWhere('role_name', 'housekeeper')
         })
         .where('hotel_id', hotelId)
         .select('id', 'first_name', 'last_name')
 
       return response.ok({
         rooms: transformedRooms,
-        roomTypes: roomTypes.map(rt => ({
+        roomTypes: roomTypes.map((rt) => ({
           value: rt.id,
-          label: rt.roomTypeName
+          label: rt.roomTypeName,
         })),
-        housekeepers: housekeepers.map(hk => ({
+        housekeepers: housekeepers.map((hk) => ({
           value: hk.id,
-          label: `${hk.firstName} ${hk.lastName}`
+          label: `${hk.firstName} ${hk.lastName}`,
         })),
         statusOptions: [
           { value: 'available', label: 'Available' },
           { value: 'occupied', label: 'Occupied' },
           { value: 'out_of_order', label: 'Out Of Order' },
-          { value: 'maintenance', label: 'Maintenance' }
+          { value: 'maintenance', label: 'Maintenance' },
         ],
         housekeepingStatusOptions: [
           { value: 'clean', label: 'Clean' },
           { value: 'dirty', label: 'Dirty' },
-          { value: 'out_of_order', label: 'Out Of Order' }
-        ]
+          { value: 'out_of_order', label: 'Out Of Order' },
+        ],
       })
-
     } catch (error) {
       console.error('Error fetching houseview data:', error)
       return response.internalServerError({
-        message: 'Error fetching houseview data'
+        message: 'Error fetching houseview data',
       })
     }
   }
@@ -838,26 +863,26 @@ export default class RoomsController {
         operation,
 
         housekeeper_id,
-        user_id
+        user_id,
       } = request.only([
         'room_ids',
         'operation',
         'housekeeping_status',
         'room_status',
         'housekeeper_id',
-        'user_id'
+        'user_id',
       ])
 
       // Validation des données d'entrée
       if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
         return response.badRequest({
-          message: 'Room IDs are required and must be an array'
+          message: 'Room IDs are required and must be an array',
         })
       }
 
       if (!operation) {
         return response.badRequest({
-          message: 'Operation is required'
+          message: 'Operation is required',
         })
       }
 
@@ -866,7 +891,7 @@ export default class RoomsController {
 
       if (roomsToUpdate.length !== room_ids.length) {
         return response.badRequest({
-          message: 'Some room IDs do not exist'
+          message: 'Some room IDs do not exist',
         })
       }
 
@@ -874,43 +899,44 @@ export default class RoomsController {
       switch (operation) {
         case 'set_clean_status':
           // Vérifier que toutes les chambres sont dirty
-          const invalidRoomsForCleaning = roomsToUpdate.filter(room =>
-            !(room.status === 'dirty' && room.housekeepingStatus === 'dirty')
+          const invalidRoomsForCleaning = roomsToUpdate.filter(
+            (room) => !(room.status === 'dirty' && room.housekeepingStatus === 'dirty')
           )
           if (invalidRoomsForCleaning.length > 0) {
             return response.badRequest({
-              message: 'Can only set clean status on dirty available rooms'
+              message: 'Can only set clean status on dirty available rooms',
             })
           }
           break
 
         case 'assign_housekeeper':
           // Vérifier que toutes les chambres sont dirty
-          const invalidRoomsForAssignment = roomsToUpdate.filter(room =>
-            !(room.status === 'dirty' && room.housekeepingStatus === 'dirty')
+          const invalidRoomsForAssignment = roomsToUpdate.filter(
+            (room) => !(room.status === 'dirty' && room.housekeepingStatus === 'dirty')
           )
           if (invalidRoomsForAssignment.length > 0) {
             return response.badRequest({
-              message: 'Can only assign housekeepers to dirty available rooms'
+              message: 'Can only assign housekeepers to dirty available rooms',
             })
           }
           if (!housekeeper_id) {
             return response.badRequest({
-              message: 'Housekeeper ID is required for assign_housekeeper operation'
+              message: 'Housekeeper ID is required for assign_housekeeper operation',
             })
           }
           break
 
         default:
           return response.badRequest({
-            message: 'Invalid operation. Supported operations: set_clean_status, assign_housekeeper'
+            message:
+              'Invalid operation. Supported operations: set_clean_status, assign_housekeeper',
           })
       }
 
       // Préparer les données de mise à jour
       const updateData: any = {
         last_modified_by: user_id,
-        updated_at: DateTime.now()
+        updated_at: DateTime.now(),
       }
 
       // Traitement selon le type d'opération
@@ -921,40 +947,36 @@ export default class RoomsController {
           break
 
         case 'assign_housekeeper':
-          updateData.assigned_housekeeper_id = housekeeper_id
+          updateData.assigned_housekeeper_id = housekeeper_id || null
           break
       }
 
       // Effectuer la mise à jour en lot
-      const updatedCount = await Room.query()
-        .whereIn('id', room_ids)
-        .update(updateData)
+      const updatedCount = await Room.query().whereIn('id', room_ids).update(updateData)
 
       // Log de l'activité pour audit
       console.log(`Bulk update: ${operation} applied to ${updatedCount} rooms by user ${user_id}`, {
         room_ids,
         operation,
         updateData,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
 
       return response.ok({
         message: `Successfully updated ${updatedCount} rooms`,
         updated_count: updatedCount,
         operation: operation,
-        affected_rooms: room_ids
+        affected_rooms: room_ids,
       })
-
     } catch (error) {
       console.error('Error in bulk update:', error)
 
       return response.internalServerError({
         message: 'Error updating rooms. Please try again later.',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       })
     }
   }
-
 
   /**
    * Update room status - WITH BUSINESS LOGIC
@@ -967,18 +989,21 @@ export default class RoomsController {
       room.status = status
 
       // Apply business logic for housekeeping status
-      room.housekeepingStatus = this.getHousekeepingStatusFromRoomStatus(status, room.housekeepingStatus)
+      room.housekeepingStatus = this.getHousekeepingStatusFromRoomStatus(
+        status,
+        room.housekeepingStatus
+      )
 
       await room.save()
 
       return response.ok({
         message: 'Room status updated successfully',
-        data: room
+        data: room,
       })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to update room status',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -986,37 +1011,70 @@ export default class RoomsController {
   /**
    * Update housekeeping status - WITH RESTRICTIONS
    */
-  async updateHousekeepingStatus({ params, request, response }: HttpContext) {
-    try {
-      const room = await Room.findOrFail(params.id)
-      const { housekeepingStatus, housekeeperId } = request.only(['housekeepingStatus', 'housekeeperId'])
 
-      // Business logic: Only allow certain transitions
+
+public async updateHousekeepingStatus({ params, request, response }: HttpContext) {
+  try {
+    const room = await Room.findOrFail(params.id)
+
+    const { housekeepingStatus, data, removeRemarkId } = request.only([
+      'housekeepingStatus',
+      'data',
+      'removeRemarkId',
+    ])
+
+    //  Vérification business rules pour le housekeepingStatus
+    if (housekeepingStatus) {
       if (!this.canUpdateHousekeepingStatus(room, housekeepingStatus)) {
         return response.badRequest({
-          message: 'Invalid housekeeping status transition. Can only clean dirty rooms.'
+          message: 'Invalid housekeeping status transition. Can only clean dirty rooms.',
         })
       }
-
       room.housekeepingStatus = housekeepingStatus
-
-      // if (housekeeperId) {
-      //   room.assignedHousekeeperId = housekeeperId
-      // }
-
-      await room.save()
-
-      return response.ok({
-        message: 'Housekeeping status updated successfully',
-        data: room
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Failed to update housekeeping status',
-        error: error.message
-      })
     }
+
+    //  Initialiser le tableau des remarques si nécessaire
+    let currentRemarks: any[] = Array.isArray(room.housekeepingRemarks)
+      ? room.housekeepingRemarks
+      : []
+
+    //  Supprimer une remarque si removeRemarkId est fourni
+    if (removeRemarkId) {
+      currentRemarks = currentRemarks.filter(r => r.id !== removeRemarkId)
+    }
+
+    //Ajouter une nouvelle remarque
+    if (data) {
+      const newRemark = {
+        id: Date.now().toString(),
+        ...data,
+        createdAt: new Date().toISOString(),
+      }
+      currentRemarks.push(newRemark)
+
+      // Mettre à jour le housekeeper si besoin
+      if (newRemark.housekeeper) {
+        room.assignedHousekeeperId = newRemark.housekeeper
+      }
+    }
+
+    //  Sauvegarder le tableau mis à jour
+    room.housekeepingRemarks = currentRemarks
+    await room.save()
+
+    return response.ok({
+      message: 'Housekeeping status updated successfully',
+      data: room,
+    })
+  } catch (error) {
+    console.error('❌ Error in updateHousekeepingStatus:', error)
+    return response.badRequest({
+      message: 'Failed to update housekeeping status',
+      error: error.message,
+    })
   }
+}
+
 
   /**
    * PRIVATE HELPER METHODS - BUSINESS LOGIC
@@ -1025,7 +1083,10 @@ export default class RoomsController {
   /**
    * Détermine le statut de ménage basé sur le statut de la chambre
    */
-  private getHousekeepingStatusFromRoomStatus(roomStatus: string, currentHousekeepingStatus: string): string {
+  private getHousekeepingStatusFromRoomStatus(
+    roomStatus: string,
+    currentHousekeepingStatus: string
+  ): string {
     switch (roomStatus?.toLowerCase()) {
       case 'occupied':
         return 'No Status' // Chambre occupée = pas de statut de ménage
@@ -1045,7 +1106,11 @@ export default class RoomsController {
    */
   private canUpdateHousekeepingStatus(room: any, newStatus: string): boolean {
     // Ne peut changer que de dirty à clean pour les chambres disponibles
-    if (room.status === 'available' && room.housekeepingStatus === 'dirty' && newStatus === 'clean') {
+    if (
+      room.status === 'available' &&
+      room.housekeepingStatus === 'dirty' &&
+      newStatus === 'clean'
+    ) {
       return true
     }
 
@@ -1091,7 +1156,10 @@ export default class RoomsController {
   /**
    * Détermine le type de statut pour la couleur
    */
-  private getStatusType(housekeepingStatus: string, occupancyStatus: string): 'red' | 'green' | 'gray' | 'yellow' {
+  private getStatusType(
+    housekeepingStatus: string,
+    occupancyStatus: string
+  ): 'red' | 'green' | 'gray' | 'yellow' {
     if (occupancyStatus?.toLowerCase() === 'occupied') {
       return 'red'
     }
@@ -1111,7 +1179,4 @@ export default class RoomsController {
         return 'gray'
     }
   }
-
-
-
 }
