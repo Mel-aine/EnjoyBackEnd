@@ -66,18 +66,19 @@ export default class FolioPrintController {
         reservationId,
         currencyId
       )
-
+      console.log('data.receive:', folioId, reservationId, currencyId)
+      console.log('folioPrintData@@@@@', folioPrintData)
       // Generate PDF from folio print data
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
       const pdfBuffer = await PdfGenerationService.generateFolioPdf(folioPrintData)
 
-
+      console.log('pdfBuffer@@@@@@', pdfBuffer)
       // Set response headers for PDF download
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="folio-${folioPrintData.folio.folioNumber}.pdf"`)
       response.header('Content-Length', pdfBuffer.length.toString())
 
-      return response.send(bookingPdf)
+      return response.send(pdfBuffer)
     } catch (error) {
       return response.status(500).json({
         success: false,
