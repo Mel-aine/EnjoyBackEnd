@@ -18,8 +18,13 @@ export default class GuestCheckoutReportsController {
       const payload = await request.validateUsing(createGuestCheckoutReportValidator)
       const { fromDate, toDate, hotelId } = payload
 
+      // Valider et parser les dates
       const startDateTime = DateTime.fromISO(fromDate)
       const endDateTime = DateTime.fromISO(toDate)
+      
+      if (!startDateTime.isValid || !endDateTime.isValid) {
+        throw new Error('Les dates fournies sont invalides')
+      }
 
       // Get hotel details
       const hotel = await Hotel.findOrFail(hotelId)
@@ -30,15 +35,16 @@ export default class GuestCheckoutReportsController {
         .preload('reservation', (reservationQuery) => {
           reservationQuery.preload('checkedOutByUser')
             .preload('bookingSource')
-            .preload('checkedOutByUser')
-        }).preload('roomRates', (roomRatesQuery) => {
+        })
+        .preload('roomRates', (roomRatesQuery) => {
           roomRatesQuery.preload('rateType')
-        })// User who performed checkout
+        })
+        .preload('room')
         .where('hotelId', hotelId)
-        .where('actualCheckOutTime', '>=', startDateTime.toSQLDate())
-        .where('actualCheckOutTime', '<=', endDateTime.toSQLDate())
+        .where('actualCheckOut', '>=', startDateTime.toSQL())
+        .where('actualCheckOut', '<=', endDateTime.toSQL())
         .where('status', ReservationStatus.CHECKED_OUT)
-        .orderBy('actualCheckOutTime', 'asc')
+        .orderBy('actualCheckOut', 'asc')
 
       // Process checkout data
 
