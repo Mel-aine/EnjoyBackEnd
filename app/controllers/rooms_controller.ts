@@ -944,6 +944,7 @@ export default class RoomsController {
         case 'set_clean_status':
           updateData.housekeeping_status = 'clean'
           updateData.status = 'available'
+           updateData.assigned_housekeeper_id = null
           break
 
         case 'assign_housekeeper':
