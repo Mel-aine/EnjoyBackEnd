@@ -478,13 +478,13 @@ export default class PdfGenerationService {
             <table>
                 <tr>
                     <td style="width: 85%; text-align: right;" class="label">Grand Total</td>
-                    <td style="width: 5%; text-align: right;">${total.totalCharges?.toLocaleString() || '0'}</td>
-                    <td style="width: 5%; text-align: right;">-${total.totalPayments?.toLocaleString() || '0'}</td>
+                    <td style="width: 5%; text-align: right;">${totals.totalCharges?.toLocaleString() || '0'}</td>
+                    <td style="width: 5%; text-align: right;">-${totals.totalPayments?.toLocaleString() || '0'}</td>
                     <td style="width: 5%;"></td>
                 </tr>
                 <tr>
                     <td style="text-align: right;" class="label">Tax</td>
-                    <td style="text-align: right;">${total.totalTaxes?.toLocaleString() || '0'}</td>
+                    <td style="text-align: right;">${totals.totalTax?.toLocaleString() || '0'}</td>
                     <td></td>
                     <td></td>
                 </tr>
@@ -499,12 +499,12 @@ export default class PdfGenerationService {
                     <td style="width: 30%;">${currency.code}</td>
                     <td style="width: 30%;">${amountInWords}</td>
                     <td style="width: 10%;" class="label">Total Paid</td>
-                    <td style="width: 10%; text-align: right;">${total.totalPayments.toLocaleString()}</td>
+                    <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
                 </tr>
                 <tr>
                     <td colspan="3"></td>
                     <td class="label">Balance</td>
-                    <td style="text-align: right;">${total.outstandingBalance.toLocaleString()}</td>
+                    <td style="text-align: right;">${totals.balance.toLocaleString()}</td>
                 </tr>
             </table>
         </div>
