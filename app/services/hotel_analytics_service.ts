@@ -379,22 +379,15 @@ export class HotelAnalyticsService {
                     if (reservationRoom.room && reservationRoom.room.roomType) {
                         const roomType = reservationRoom.room.roomType.roomTypeName
                         const isMaster = index === 0 && reservation.reservationRooms.length > 1 // First reservation room is the master
-                        const date = DateTime.fromISO(reservationRoom.checkInDate || reservation.arrivedDate)
-                        const time = reservationRoom.checkInTime || '00:00:00'
-                        const [hour, minute, second] = time.split(':').map(Number)
 
-                        // Fusionner date + heure
-                        const checkInDateTime = date.set({ hour, minute, second: second || 0 })
-
-                        const checkOutDateTime = DateTime.fromISO(reservationRoom.checkOutDate || reservation.departDate)
                         if (groupedDetails[roomType]) {
                             groupedDetails[roomType].reservations.push({
                                 reservation_id: reservation.id,
                                 reservation_room_id: reservationRoom.id,
                                 is_master: isMaster,
                                 guest_name: `${reservation.guest?.displayName}`.trim(),
-                                check_in_date: checkInDateTime.toISO(),
-                                check_out_date: checkOutDateTime.toISO(),
+                                check_in_date: reservationRoom.checkInDate || reservation.arrivedDate,
+                                check_out_date: reservationRoom.checkOutDate || reservation.departDate,
                                 reservation_status: getReservationStatus(reservation, today),
                                 is_checking_in_today: (reservationRoom.checkInDate || reservation.arrivedDate)?.hasSame(today, 'day') ?? false,
                                 is_checking_out_today: (reservationRoom.checkOutDate || reservation.departDate)?.hasSame(today, 'day') ?? false,
