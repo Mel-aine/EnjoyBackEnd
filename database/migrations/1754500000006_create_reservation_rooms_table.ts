@@ -27,7 +27,7 @@ export default class extends BaseSchema {
       table.decimal('total_amount', 10, 2).notNullable()
       table.enum('status', [
         'reserved', 'confirmed', 'checked_in', 'checked_out', 
-        'cancelled', 'no_show', 'moved'
+        'cancelled', 'no_show', 'moved','day_use'
       ]).defaultTo('reserved')
       table.json('room_preferences').nullable()
       table.json('guest_preferences').nullable()

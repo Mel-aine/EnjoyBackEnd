@@ -10,6 +10,7 @@ export const postTransactionValidator = vine.compile(
     category: vine.enum(Object.values(TransactionCategory)),
     description: vine.string().minLength(1),
     amount: vine.number(),
+    discountId:  vine.number().optional(),
     quantity: vine.number().positive().optional(),
     unitPrice: vine.number().optional(),
     taxAmount: vine.number().min(0).optional(),

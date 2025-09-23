@@ -244,6 +244,8 @@ export default class CompanyAccountService {
       methodName: `City Ledger - ${companyAccount.companyName}`,
       methodCode: this.generateShortCode(`CL-${companyAccount.companyName}`),
       methodType: PaymentMethodType.CITY_LEDGER,
+      shortCode: this.generateShortCode(`CL-${companyAccount.companyName}`),
+      type: PaymentMethodType.CITY_LEDGER,
       isActive: true,
       description: `City ledger payment method for ${companyAccount.companyName}`,
       createdBy: companyAccount.createdBy,

@@ -8,6 +8,7 @@ import { TransactionType, TransactionCategory, SettlementStatus, TransactionStat
 import { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import db from '@adonisjs/lucid/services/db'
 import LoggerService from '#services/logger_service'
+import logger from '@adonisjs/core/services/logger'
 
 export interface CreateFolioData {
   hotelId: number
@@ -157,7 +158,7 @@ export default class FolioService {
     return await db.transaction(async (trx) => {
       // Validate folio exists and can be modified
       const folio = await Folio.findOrFail(data.folioId)
-
+      logger.info(data)
       if (!folio.canBeModified) {
         throw new Error('Folio cannot be modified - it is finalized or closed')
       }
@@ -265,7 +266,7 @@ export default class FolioService {
         default:
           particular = 'Miscellaneous Charge'
       }
-
+      const totalAmount = parseFloat(`${data.quantity ?? 1}`) * parseFloat(`${data.amount}`)
       // Create transaction
       const transaction = await FolioTransaction.create({
         hotelId: folio.hotelId,
@@ -276,8 +277,8 @@ export default class FolioService {
         category: data.category,
         particular: particular,
         description: data.description,
-        amount: data.amount,
-        totalAmount: parseFloat(`${data.quantity ?? 1}`) * parseFloat(`${data.amount}`),
+        amount: totalAmount,
+        totalAmount: totalAmount,
         quantity: data.quantity || 1,
         unitPrice: data.unitPrice || data.amount,
         taxAmount: data.taxAmount || 0,

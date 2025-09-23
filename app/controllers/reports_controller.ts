@@ -4,10 +4,11 @@ import ReportsService, {
 } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
-import { ReservationStatus, TransactionCategory } from '#app/enums'
+import { ReservationStatus, TransactionCategory, TransactionType } from '#app/enums'
 import PaymentMethod from '#models/payment_method'
 import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
+import Database from '@adonisjs/lucid/services/db'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -383,7 +384,7 @@ export default class ReportsController {
         commonFields: {
           reservations: [
             'id', 'confirmation_code', 'reservation_status', 'scheduled_arrival_date',
-            'scheduled_departure_date', 'num_adults_total', 'num_children_total',
+            'scheduled_departure_date', 'adults', 'children',
             'total_estimated_revenue', 'special_notes', 'created_at', 'updated_at'
           ],
           guests: [
@@ -1380,14 +1381,7 @@ export default class ReportsController {
    * Generate all sections data for Night Audit Report
    */
   private async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
-    // Import required models
-    const { default: Reservation } = await import('#models/reservation')
-    const { default: Room } = await import('#models/room')
-    const { default: Folio } = await import('#models/folio')
-    const { default: Guest } = await import('#models/guest')
-    const { default: RoomRate } = await import('#models/room_rate')
-    const { default: Transaction } = await import('#models/folio_transaction')
-    const { default: User } = await import('#models/user')
+
 
     // Section 1: Room Charges
     const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
@@ -1438,7 +1432,7 @@ export default class ReportsController {
       .preload('folios')
       .preload('guest')
       .preload('businessSource')
-      .preload('checkedInByUser')
+    // .preload('checkedInByUser')
 
     const roomChargesData = []
     let totals = {
@@ -2540,16 +2534,9 @@ export default class ReportsController {
     const roomSummary = await this.getManagementRoomSummaryData(hotelId, reportDate)
 
     // Section 11: Statistics
-    const statistics = await this.getManagementStatisticsData(hotelId, reportDate, roomSummary)
-
-    // Section 12: POS Summary
-    const posSummary = await this.getManagementPOSSummaryData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
-
-    // Section 13: POS Payment Summary
-    const posPaymentSummary = await this.getManagementPOSPaymentSummaryData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
-
+    const statistics = await this.getManagementStatisticsData(hotelId, reportDate, roomCharges, roomSummary)
     // Section 14: Revenue Summary
-    const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges, posSummary)
+    const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
     return {
       roomCharges,
       extraCharges,
@@ -2562,8 +2549,6 @@ export default class ReportsController {
       guestLedger,
       roomSummary,
       statistics,
-      posSummary,
-      posPaymentSummary,
       revenueSummary
     }
   }
@@ -2791,14 +2776,17 @@ export default class ReportsController {
     const getExtraChargesByPeriod = async (startDate: DateTime, endDate: DateTime) => {
       // Get all folio transactions in the period
       const transactions = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.whereHas('reservation', (reservationQuery) => {
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
         .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .whereNot('isVoided', true)
         .whereNotNull('description')
+        .where('category', TransactionCategory.EXTRACT_CHARGE)
+        .where('transactionType', TransactionType.CHARGE)
         .select('description', 'amount')
 
       const extraChargeAmounts: any = {}
@@ -2815,11 +2803,10 @@ export default class ReportsController {
 
         extraCharges.forEach(extraCharge => {
           const extraChargeName = extraCharge.name?.toLowerCase() || ''
-          const extraChargeShortCode = extraCharge.shortCode?.toLowerCase() || ''
 
           // Check if transaction description contains the extra charge name or short code
-          if (description.includes(extraChargeName) ||
-            (extraChargeShortCode && description.includes(extraChargeShortCode))) {
+          if (description.includes(extraChargeName)) {
+            logger.info(`Extra charge found: ${extraCharge.name} - ${transaction.amount}`)
             const amount = Number(transaction.amount || 0)
             extraChargeAmounts[extraCharge.name] += amount
             totalExtraCharges += amount
@@ -2867,19 +2854,20 @@ export default class ReportsController {
     // Get all active discounts for the hotel
     const discounts = await Discount.query()
       .where('hotel_id', hotelId)
-
       .where('status', 'active')
 
     const getDiscountData = async (discount: any, startDate: DateTime, endDate: DateTime) => {
       const transactions = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.whereHas('reservation', (reservationQuery) => {
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
         .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('discount_id', discount.id)
         .where('status', 'posted')
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .whereNot('isVoided', true)
         .whereNotNull('discount_amount')
 
       return transactions.reduce((sum: number, t: any) => sum + Math.abs(Number(t.discountAmount || 0)), 0)
@@ -2894,24 +2882,20 @@ export default class ReportsController {
       const today = await getDiscountData(discount, reportDate, reportDate)
       const ptd = await getDiscountData(discount, ptdStartDate, reportDate)
       const ytd = await getDiscountData(discount, ytdStartDate, reportDate)
-
-      if (today > 0 || ptd > 0 || ytd > 0) {
-        discountData.push({
-          id: discount.id,
-          name: discount.name,
-          shortCode: discount.shortCode,
-          type: discount.type,
-          value: discount.value,
-          applyOn: discount.applyOn,
-          today,
-          ptd,
-          ytd
-        })
-
-        totalToday += today
-        totalPtd += ptd
-        totalYtd += ytd
-      }
+      discountData.push({
+        id: discount.id,
+        name: discount.name,
+        shortCode: discount.shortCode,
+        type: discount.type,
+        value: discount.value,
+        applyOn: discount.applyOn,
+        today,
+        ptd,
+        ytd
+      })
+      totalToday += today
+      totalPtd += ptd
+      totalYtd += ytd
     }
 
     return {
@@ -2936,22 +2920,24 @@ export default class ReportsController {
 
     const getAdjustmentData = async (startDate: DateTime, endDate: DateTime) => {
       const transactions = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.whereHas('reservation', (reservationQuery) => {
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
         .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('category', 'adjustment')
         .where('status', 'posted')
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .whereNot('isVoided', true)
         .select('description', 'particular', 'amount')
 
-      const adjustmentTypes = {}
+      const adjustmentTypes: any = {}
       let totalAmount = 0
 
       transactions.forEach((transaction: any) => {
         const amount = Number(transaction.amount || 0)
-        const description = transaction.description || transaction.particular || 'General Adjustment'
+        const description = transaction.particular
 
         // Check if it's a round off adjustment
         const isRoundOff = description.toLowerCase().includes('round') ||
@@ -3008,127 +2994,74 @@ export default class ReportsController {
    */
   private async getManagementTaxData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
-    const { default: TaxRate } = await import('#models/tax_rate')
-    const { TransactionCategory } = await import('#app/enums')
+    const { default: Tax } = await import('#models/tax_rate')
+    const taxs = await Tax.query().where('hotel_id', hotelId);
+    // logger.info(taxs)
 
-    const getTaxData = async (startDate: DateTime, endDate: DateTime) => {
+    const getTaxData = async (taxId: number, startDate: DateTime, endDate: DateTime) => {
       // Get all transactions with preloaded taxes relationship
       const transactions = await FolioTransaction.query()
         .whereNotNull('folio_id')
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.whereHas('reservation', (reservationQuery) => {
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
         .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('status', 'posted')
-        .preload('taxes', (taxQuery) => {
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .whereNot('isVoided', true)
+        .preload('taxes', (taxQuery: any) => {
           taxQuery.where('hotel_id', hotelId)
         })
         .select('id', 'category', 'tax_amount', 'tax_rate', 'description', 'particular')
 
-      const taxData: any = {
-        roomTaxes: 0,
-        extraTaxes: 0,
-        totalTaxes: 0,
-        breakdown: {}
-      }
+
+      let taxesAmount = 0
 
       transactions.forEach((transaction: any) => {
-        const isRoomCharge = transaction.category === TransactionCategory.ROOM
-
         // Process taxes from the relationship
         if (transaction.taxes && transaction.taxes.length > 0) {
-          transaction.taxes.forEach((tax: any) => {
-            const taxAmount = Number(tax.$pivot.taxAmount || 0)
-            const taxRate = Number(tax.$pivot.taxRatePercentage || tax.rate || 0)
-            const taxName = tax.taxName || `${taxRate}% Tax`
+          transaction.taxes.filter((tax: any) => tax.taxRateId === taxId).forEach((tax: any) => {
+            taxesAmount += Number(tax.$pivot.taxAmount || 0)
 
-            // Create breakdown by tax name
-            if (!taxData.breakdown[taxName]) {
-              taxData.breakdown[taxName] = {
-                roomTax: 0,
-                extraTax: 0,
-                total: 0,
-                rate: taxRate
-              }
-            }
-
-            if (isRoomCharge) {
-              taxData.roomTaxes += taxAmount
-              taxData.breakdown[taxName].roomTax += taxAmount
-            } else {
-              taxData.extraTaxes += taxAmount
-              taxData.breakdown[taxName].extraTax += taxAmount
-            }
-
-            taxData.breakdown[taxName].total += taxAmount
-            taxData.totalTaxes += taxAmount
           })
         }
       })
 
-      return taxData
+      return taxesAmount
     }
-
-    const todayData = await getTaxData(reportDate, reportDate)
-    const ptdData = await getTaxData(ptdStartDate, reportDate)
-    const ytdData = await getTaxData(ytdStartDate, reportDate)
-
-    // Combine all tax rate breakdowns
-    const allRates = new Set([
-      ...Object.keys(todayData.breakdown),
-      ...Object.keys(ptdData.breakdown),
-      ...Object.keys(ytdData.breakdown)
-    ])
-
-    const taxBreakdown = Array.from(allRates).map(rate => {
-      return {
-        taxRate: rate,
-        name: rate,
-        rate: todayData.breakdown[rate]?.rate || ptdData.breakdown[rate]?.rate || ytdData.breakdown[rate]?.rate || 0,
-        today: {
-          roomTax: todayData.breakdown[rate]?.roomTax || 0,
-          extraTax: todayData.breakdown[rate]?.extraTax || 0,
-          total: todayData.breakdown[rate]?.total || 0
-        },
-        ptd: {
-          roomTax: ptdData.breakdown[rate]?.roomTax || 0,
-          extraTax: ptdData.breakdown[rate]?.extraTax || 0,
-          total: ptdData.breakdown[rate]?.total || 0
-        },
-        ytd: {
-          roomTax: ytdData.breakdown[rate]?.roomTax || 0,
-          extraTax: ytdData.breakdown[rate]?.extraTax || 0,
-          total: ytdData.breakdown[rate]?.total || 0
-        }
-      }
-    }).filter(tax =>
-      tax.today.total !== 0 || tax.ptd.total !== 0 || tax.ytd.total !== 0
-    )
-
+    const taxsData = []
+    let totalToday = 0
+    let totalPtd = 0
+    let totalYtd = 0
+    for (const tax of taxs) {
+      const today = await getTaxData(tax.taxRateId, reportDate, reportDate)
+      const ptd = await getTaxData(tax.taxRateId, ptdStartDate, reportDate)
+      const ytd = await getTaxData(tax.taxRateId, ytdStartDate, reportDate)
+      taxsData.push({
+        name: tax.taxName,
+        today,
+        ptd,
+        ytd
+      })
+      totalToday += today
+      totalPtd += ptd
+      totalYtd += ytd
+    }
     return {
-      taxes: taxBreakdown,
+      taxes: taxsData,
       totals: {
-        today: todayData.totalTaxes,
-        ptd: ptdData.totalTaxes,
-        ytd: ytdData.totalTaxes
-      },
-      roomTaxes: {
-        today: todayData.roomTaxes,
-        ptd: ptdData.roomTaxes,
-        ytd: ytdData.roomTaxes
-      },
-      extraTaxes: {
-        today: todayData.extraTaxes,
-        ptd: ptdData.extraTaxes,
-        ytd: ytdData.extraTaxes
+        today: totalToday,
+        ptd: totalPtd,
+        ytd: totalYtd
       },
       // Backward compatibility
-      today: todayData.totalTaxes,
-      ptd: ptdData.totalTaxes,
-      ytd: ytdData.totalTaxes
+      today: totalToday,
+      ptd: totalPtd,
+      ytd: totalYtd
     }
+
   }
 
   /**
@@ -3140,19 +3073,17 @@ export default class ReportsController {
     const getPaymentsByMethod = async (startDate: DateTime, endDate: DateTime) => {
       const paymentMethods = await PaymentMethod.query().where('hotel_id', hotelId);
       const payments = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.whereHas('reservation', (reservationQuery) => {
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
         .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
-        .where('category', 'payment')
+        .where('transaction_type', TransactionType.PAYMENT)
         .whereNotIn('status', ['cancel', 'voided'])
-        .select('paymentMethodId')
-        .groupBy('paymentMethodId')
+        .whereNot('isVoided', true)
+        .select('paymentMethodId', 'totalAmount')
         .preload('paymentMethod')
-        .sum('amount as totalAmount')
-
       const paymentMethodsList: any = {}
       let totalPayments = 0
       paymentMethods.forEach(paymentMethod => {
@@ -3161,7 +3092,7 @@ export default class ReportsController {
       payments.filter(payment => payment.paymentMethod)?.forEach(payment => {
         const method: any = payment.paymentMethod.methodName
         const amount = Math.abs(payment.totalAmount || 0) // Payments are typically negative
-        paymentMethodsList[method] = amount
+        paymentMethodsList[method] += amount
         totalPayments += amount
       })
 
@@ -3230,7 +3161,7 @@ export default class ReportsController {
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('transaction_date', '<', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3384,7 +3315,7 @@ export default class ReportsController {
       // Get advance deposit payment methods
       const advanceDepositPaymentMethods = await PaymentMethod.query()
         .where('hotel_id', hotelId)
-        .where('method_type', PaymentMethodType.ADVANCE_DEPOSIT)
+        .where('method_type', PaymentMethodType.CASH)
         .where('is_active', true)
 
       const advanceDepositPaymentMethodIds = advanceDepositPaymentMethods.map(pm => pm.id)
@@ -3403,6 +3334,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('category', TransactionCategory.DEPOSIT)
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3735,11 +3667,64 @@ export default class ReportsController {
     }
   }
 
-  private async getManagementRoomSummaryData(hotelId: number, reportDate: DateTime) {
-    return { today: 0, ptd: 0, ytd: 0 }
-  }
+ private async getManagementStatisticsData(hotelId: number, reportDate: DateTime, roomCharges: any, roomSummary: any) {
+  try {
+    // Extract values from roomSummary
+    const totalAvailableRoomNights = roomSummary.totalAvailableRoomNights || { today: 0, ptd: 0, ytd: 0 };
+    const soldRooms = roomSummary.soldRoom || { today: 0, ptd: 0, ytd: 0 };
 
-  private async getManagementStatisticsData(hotelId: number, reportDate: DateTime, roomSummary: any) {
+    // Extract values from roomCharges
+    const roomRevenue = roomCharges.roomCharges || { today: 0, ptd: 0, ytd: 0 };
+
+    // Calculate Occupancy Rate
+    const occupancyRate = {
+      today: totalAvailableRoomNights.today > 0 ? (soldRooms.today / totalAvailableRoomNights.today) * 100 : 0,
+      ptd: totalAvailableRoomNights.ptd > 0 ? (soldRooms.ptd / totalAvailableRoomNights.ptd) * 100 : 0,
+      ytd: totalAvailableRoomNights.ytd > 0 ? (soldRooms.ytd / totalAvailableRoomNights.ytd) * 100 : 0,
+    };
+
+    // Calculate Average Daily Rate (ADR)
+    const averageDailyRate = {
+      today: soldRooms.today > 0 ? roomRevenue.today / soldRooms.today : 0,
+      ptd: soldRooms.ptd > 0 ? roomRevenue.ptd / soldRooms.ptd : 0,
+      ytd: soldRooms.ytd > 0 ? roomRevenue.ytd / soldRooms.ytd : 0,
+    };
+
+    // Calculate Revenue Per Available Room (RevPAR)
+    const revenuePerAvailableRoom = {
+      today: totalAvailableRoomNights.today > 0 ? roomRevenue.today / totalAvailableRoomNights.today : 0,
+      ptd: totalAvailableRoomNights.ptd > 0 ? roomRevenue.ptd / totalAvailableRoomNights.ptd : 0,
+      ytd: totalAvailableRoomNights.ytd > 0 ? roomRevenue.ytd / totalAvailableRoomNights.ytd : 0,
+    };
+
+    return {
+      occupancyRate: {
+        today: Math.round(occupancyRate.today * 100) / 100,
+        ptd: Math.round(occupancyRate.ptd * 100) / 100,
+        ytd: Math.round(occupancyRate.ytd * 100) / 100,
+      },
+      averageDailyRate: {
+        today: Math.round(averageDailyRate.today * 100) / 100,
+        ptd: Math.round(averageDailyRate.ptd * 100) / 100,
+        ytd: Math.round(averageDailyRate.ytd * 100) / 100,
+      },
+      revenuePerAvailableRoom: {
+        today: Math.round(revenuePerAvailableRoom.today * 100) / 100,
+        ptd: Math.round(revenuePerAvailableRoom.ptd * 100) / 100,
+        ytd: Math.round(revenuePerAvailableRoom.ytd * 100) / 100,
+      },
+    };
+  } catch (error) {
+    console.error('Error in getManagementStatisticsData:', error);
+    return {
+      occupancyRate: { today: 0, ptd: 0, ytd: 0 },
+      averageDailyRate: { today: 0, ptd: 0, ytd: 0 },
+      revenuePerAvailableRoom: { today: 0, ptd: 0, ytd: 0 },
+    };
+  }
+}
+
+  private async getManagementRoomSummaryData(hotelId: number, reportDate: DateTime) {
     try {
       const { default: Room } = await import('#models/room')
       const { default: Reservation } = await import('#models/reservation')
@@ -3751,10 +3736,9 @@ export default class ReportsController {
       const ytdStartDate = reportDate.startOf('year')
 
       // Get total rooms for the hotel
-      const totalRooms = await Room.query()
-        .where('hotel_id', hotelId)
-
-        .count('* as total')
+      const totalRooms: any = await Database.from('rooms').where('hotel_id', hotelId).count('* as total')
+      logger.info('total room ')
+      logger.info(JSON.stringify(totalRooms[0].total))
 
       // Get blocked rooms for each period
       const blockedRoomsToday = await RoomBlock.query()
@@ -3778,25 +3762,25 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('num_adults_total as adults')
-        .sum('num_children_total as children')
+        .sum('adults as adults')
+        .sum('children as children')
 
       const guestCountsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('num_adults_total as adults')
-        .sum('num_children_total as children')
+        .sum('adults as adults')
+        .sum('children as children')
 
       const guestCountsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('num_adults_total as adults')
-        .sum('num_children_total as children')
+        .sum('adults as adults')
+        .sum('children as children')
 
       // Calculate available room nights for each period
-      const totalRoomsCount = totalRooms[0].$extras.total
+      const totalRoomsCount = parseInt(totalRooms[0].total)
       const availableRoomNightsToday = totalRoomsCount - (blockedRoomsToday[0].$extras.total || 0)
       const availableRoomNightsPTD = totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) - (blockedRoomsPTD[0].$extras.total || 0)
       const availableRoomNightsYTD = totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) - (blockedRoomsYTD[0].$extras.total || 0)
@@ -3963,6 +3947,23 @@ export default class ReportsController {
         .where('customer_type', 'walk_in')
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
+      const cancelReservationsYTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .where('status', 'cancelled')
+        .count('* as total')
+
+      const cancelReservationsToday = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .where('status', 'cancelled')
+        .count('* as total')
+
+      const cancelReservationsPTD = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .where('status', 'cancelled')
+        .count('* as total')
 
       return {
         totalRoom: {
@@ -4005,7 +4006,7 @@ export default class ReportsController {
           ptd: complimentaryRoomsPTD[0].$extras.total || 0,
           ytd: complimentaryRoomsYTD[0].$extras.total || 0
         },
-        noShowRooms: {
+        noShows: {
           today: noShowRoomsToday[0].$extras.total || 0,
           ptd: noShowRoomsPTD[0].$extras.total || 0,
           ytd: noShowRoomsYTD[0].$extras.total || 0
@@ -4029,6 +4030,11 @@ export default class ReportsController {
           today: walkInReservationsToday[0].$extras.total || 0,
           ptd: walkInReservationsPTD[0].$extras.total || 0,
           ytd: walkInReservationsYTD[0].$extras.total || 0
+        },
+        cancellations: {
+          today: cancelReservationsToday[0].$extras.total || 0,
+          ptd: cancelReservationsPTD[0].$extras.total || 0,
+          ytd: cancelReservationsYTD[0].$extras.total || 0
         }
       }
     } catch (error) {
@@ -4046,145 +4052,19 @@ export default class ReportsController {
         averageGuestPerRoom: { today: 0, ptd: 0, ytd: 0 },
         noOfReservationsConfirm: { today: 0, ptd: 0, ytd: 0 },
         noOfReservationsUnconfirm: { today: 0, ptd: 0, ytd: 0 },
-        noOfWalkins: { today: 0, ptd: 0, ytd: 0 }
+        noOfWalkins: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
 
-  private async getManagementPOSSummaryData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
-    try {
-      const { default: Room } = await import('#models/room')
-      const { default: Reservation } = await import('#models/reservation')
-      const { default: ReservationRoom } = await import('#models/reservation_room')
-      const { default: FolioTransaction } = await import('#models/folio_transaction')
-
-      // Get total available rooms
-      const totalRooms = await Room.query()
-        .where('hotel_id', hotelId)
-
-        .count('* as total')
-
-      const totalRoomsCount = totalRooms[0].$extras.total
-
-      // Get occupied rooms for each period
-      const occupiedRoomsToday = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
-
-      const occupiedRoomsPTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
-
-      const occupiedRoomsYTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
-
-      // Calculate occupancy rates
-      const occupancyRateToday = totalRoomsCount > 0 ? ((occupiedRoomsToday[0].$extras.total || 0) / totalRoomsCount) * 100 : 0
-      const occupancyRatePTD = totalRoomsCount > 0 ? ((occupiedRoomsPTD[0].$extras.total || 0) / totalRoomsCount) * 100 : 0
-      const occupancyRateYTD = totalRoomsCount > 0 ? ((occupiedRoomsYTD[0].$extras.total || 0) / totalRoomsCount) * 100 : 0
-
-      // Get room revenue for each period
-      const roomRevenueToday = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.where('hotel_id', hotelId)
-        })
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('transaction_type', 'charge')
-        .where('category', 'room')
-        .where('currency', currency)
-        .sum('amount as total')
-
-      const roomRevenuePTD = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.where('hotel_id', hotelId)
-        })
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('transaction_type', 'charge')
-        .where('category', 'room')
-        .where('currency', currency)
-        .sum('amount as total')
-
-      const roomRevenueYTD = await FolioTransaction.query()
-        .whereHas('folio', (folioQuery) => {
-          folioQuery.where('hotel_id', hotelId)
-        })
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('transaction_type', 'charge')
-        .where('category', 'room')
-        .where('currency', currency)
-        .sum('amount as total')
-
-      // Calculate Average Daily Rate (ADR)
-      const adrToday = (occupiedRoomsToday[0].$extras.total || 0) > 0 ?
-        (roomRevenueToday[0].$extras.total || 0) / (occupiedRoomsToday[0].$extras.total || 1) : 0
-
-      const adrPTD = (occupiedRoomsPTD[0].$extras.total || 0) > 0 ?
-        (roomRevenuePTD[0].$extras.total || 0) / (occupiedRoomsPTD[0].$extras.total || 1) : 0
-
-      const adrYTD = (occupiedRoomsYTD[0].$extras.total || 0) > 0 ?
-        (roomRevenueYTD[0].$extras.total || 0) / (occupiedRoomsYTD[0].$extras.total || 1) : 0
-
-      // Calculate Revenue Per Available Room (RevPAR)
-      const revparToday = totalRoomsCount > 0 ? (roomRevenueToday[0].$extras.total || 0) / totalRoomsCount : 0
-      const revparPTD = totalRoomsCount > 0 ? (roomRevenuePTD[0].$extras.total || 0) / totalRoomsCount : 0
-      const revparYTD = totalRoomsCount > 0 ? (roomRevenueYTD[0].$extras.total || 0) / totalRoomsCount : 0
-
-      return {
-        occupancyRate: {
-          today: Math.round(occupancyRateToday * 100) / 100,
-          ptd: Math.round(occupancyRatePTD * 100) / 100,
-          ytd: Math.round(occupancyRateYTD * 100) / 100
-        },
-        averageDailyRate: {
-          today: Math.round(adrToday * 100) / 100,
-          ptd: Math.round(adrPTD * 100) / 100,
-          ytd: Math.round(adrYTD * 100) / 100
-        },
-        revenuePerAvailableRoom: {
-          today: Math.round(revparToday * 100) / 100,
-          ptd: Math.round(revparPTD * 100) / 100,
-          ytd: Math.round(revparYTD * 100) / 100
-        }
-      }
-    } catch (error) {
-      console.error('Error in getManagementPOSSummaryData:', error)
-      return {
-        occupancyRate: { today: 0, ptd: 0, ytd: 0 },
-        averageDailyRate: { today: 0, ptd: 0, ytd: 0 },
-        revenuePerAvailableRoom: { today: 0, ptd: 0, ytd: 0 }
-      }
-    }
-  }
-
-  private async getManagementPOSPaymentSummaryData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
-    return { today: 0, ptd: 0, ytd: 0 }
-  }
-
-  private async getManagementRevenueSummaryData(roomCharges: any, extraCharges: any, posSummary: any) {
+  private async getManagementRevenueSummaryData(roomCharges: any, extraCharges: any,) {
     const roomChargesTotal = roomCharges?.total || { today: 0, ptd: 0, ytd: 0 }
     const extraChargesTotal = extraCharges?.totals || { today: 0, ptd: 0, ytd: 0 }
-    const posTotal = posSummary || { today: 0, ptd: 0, ytd: 0 }
 
     return {
-      today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0) + (posTotal.today || 0),
-      ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0) + (posTotal.ptd || 0),
-      ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0) + (posTotal.ytd || 0)
+      today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0),
+      ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0),
+      ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0)
     }
   }
 
@@ -6275,13 +6155,13 @@ export default class ReportsController {
         query = query.whereHas('transactions', (transactionQuery) => {
           transactionQuery.whereBetween('transaction_date', [dateFrom, dateTo])
         })
-      } else if (dateType === 'Arrival')  {
+      } else if (dateType === 'Arrival') {
         query = query.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereBetween('arrivalDate', [dateFrom, dateTo])
 
         })
-      }else if (dateType === 'Arrival')  {
-          query = query.whereHas('reservation', (reservationQuery) => {
+      } else if (dateType === 'Arrival') {
+        query = query.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereBetween('departureDate', [dateFrom, dateTo])
 
         })
@@ -6757,7 +6637,7 @@ export default class ReportsController {
         .preload('reservationRooms', (roomQuery) => {
           roomQuery.preload('room')
         })
-        .whereBetween('scheduledArrivalDate', [startDate, endDate])
+        .whereBetween('arrivedDate', [startDate, endDate])
 
       // Apply status filter if provided
       if (status && status !== 'null') {
@@ -6775,10 +6655,10 @@ export default class ReportsController {
         const primaryRoom = reservation.reservationRooms.find(room => room.isOwner) || reservation.reservationRooms[0]
 
         return {
-          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
+          guestName: `${reservation.guest.displayName}`,
           roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
-          checkInDate: reservation.scheduledArrivalDate.toFormat('dd/MM/yyyy'),
-          checkOutDate: reservation.scheduledDepartureDate.toFormat('dd/MM/yyyy'),
+          checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+          checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
           status: reservation.reservationStatus
         }
       })

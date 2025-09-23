@@ -10,6 +10,7 @@ import RoomRate from './room_rate.js'
 import Folio from './folio.js'
 import PaymentMethod from './payment_method.js'
 import Hotel from './hotel.js'
+import RateType from './rate_type.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -32,6 +33,9 @@ export default class ReservationRoom extends BaseModel {
 
   @column()
   declare paymentMethodId: number | null
+
+  @column()
+  declare rateTypeId: number | null
 
   @column()
   declare isOwner: boolean
@@ -85,7 +89,7 @@ export default class ReservationRoom extends BaseModel {
   declare netAmount: number
 
   @column()
-  declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked'
+  declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked' | 'day_use'
 
   @column()
   declare stopMove: boolean
@@ -674,6 +678,9 @@ export default class ReservationRoom extends BaseModel {
 
   @belongsTo(() => PaymentMethod)
   declare paymentMethod: BelongsTo<typeof PaymentMethod>
+
+  @belongsTo(() => RateType,{ foreignKey : 'RateTypeId'})
+  declare rateType: BelongsTo<typeof RateType>
 
   // Computed properties
   get isCheckedIn() {

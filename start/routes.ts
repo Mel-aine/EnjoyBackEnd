@@ -1550,7 +1550,7 @@ router
         router.delete('/:id', workOrdersController.destroy.bind(workOrdersController)) // Delete work order
 
         // Work order status management
-        router.patch('/:id/status', workOrdersController.updateStatus.bind(workOrdersController)) // Update work order status with logging
+        router.put('/:id/status', workOrdersController.updateStatus.bind(workOrdersController)) // Update work order status with logging
         router.patch('/:id/assign', workOrdersController.assign.bind(workOrdersController)) // Assign work order to a user
       })
       .prefix('work_orders')

@@ -423,16 +423,14 @@ export default class WorkOrderReportsController {
       query.where('priority', filters.priority)
     }
 
-    if (filters.departmentId) {
-      query.where('departmentId', filters.departmentId)
-    }
+
 
     if (filters.assignedTo) {
-      query.where('assignedTo', filters.assignedTo)
+      query.where('assignedToUserId', filters.assignedTo)
     }
 
     if (filters.createdBy) {
-      query.where('createdBy', filters.createdBy)
+  //    query.where('createdById', filters.createdBy)
     }
 
     if (filters.roomId) {

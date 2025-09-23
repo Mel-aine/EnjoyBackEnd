@@ -115,7 +115,7 @@ export default class FolioTransactionsController {
       // Map category to particular description
       const category = payload.category as TransactionCategory || TransactionCategory.MISCELLANEOUS
       let particular = 'Miscellaneous Transaction'
-      
+
       switch (category) {
         case TransactionCategory.ROOM:
           particular = 'Room Charge'
@@ -542,18 +542,13 @@ export default class FolioTransactionsController {
         })
       }
 
-      if (!transaction.canBeVoided) {
-        return response.badRequest({
-          message: 'Transaction cannot be voided'
-        })
-      }
-
       transaction.isVoided = true
       transaction.voidedAt = DateTime.now()
       transaction.voidedBy = auth.user?.id || 0
       transaction.voidReason = reason
       transaction.lastModifiedBy = auth.user?.id || 0
-
+      transaction.status = TransactionStatus.VOIDED
+      transaction.notes += `\nVoid reason: ${reason || 'Transaction voided'}`
       await transaction.save()
 
       // Update folio totals
@@ -761,7 +756,7 @@ export default class FolioTransactionsController {
       // Map category to particular description for transfer
       let transferOutParticular = 'Transfer Out'
       let transferInParticular = 'Transfer In'
-      
+
       switch (transaction.category) {
         case TransactionCategory.ROOM:
           transferOutParticular = 'Room Charge Transfer Out'

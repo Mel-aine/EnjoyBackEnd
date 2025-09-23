@@ -41,8 +41,8 @@ export default class GuestCheckoutReportsController {
         })
         .preload('room')
         .where('hotelId', hotelId)
-        .where('actualCheckOut', '>=', startDateTime.toSQL())
-        .where('actualCheckOut', '<=', endDateTime.toSQL())
+        .where('actualCheckOut', '>=', startDateTime.toSQLDate())
+        .where('actualCheckOut', '<=', endDateTime.toSQLDate())
         .where('status', ReservationStatus.CHECKED_OUT)
         .orderBy('actualCheckOut', 'asc')
 
