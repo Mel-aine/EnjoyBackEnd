@@ -258,6 +258,7 @@ export default class CompanyFolioService {
           voucher: paymentData.voucher,
           //postedBy: paymentData.postedBy,
           isVoided: false,
+          transactionTime: paymentData.transactionDate?.toFormat('HH:mm:ss')??'00:00:00',
           assignedAmount: totalAssignedAmount,
           unassignedAmount: paymentAmount - totalAssignedAmount,
           assignmentHistory: {},

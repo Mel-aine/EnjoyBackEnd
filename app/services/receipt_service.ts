@@ -78,29 +78,8 @@ export default class ReceiptService {
           currency: data.currency
         }, { client: trx })
 
-        await LoggerService.log({
-          level: 'info',
-          message: 'Receipt created successfully',
-          data: {
-            receiptId: receipt.id,
-            receiptNumber: receipt.receiptNumber,
-            hotelId: data.hotelId,
-            amount: data.totalAmount,
-            createdBy: data.createdBy
-          }
-        })
-
         return receipt
       } catch (error) {
-        await LoggerService.log({
-          level: 'error',
-          message: 'Failed to create receipt',
-          data: {
-            error: error.message,
-            hotelId: data.hotelId,
-            folioTransactionId: data.folioTransactionId
-          }
-        })
         throw error
       }
     })

@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, computed } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
-import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus } from '#app/enums'
+import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionStatus, TransactionType } from '#app/enums'
 import Hotel from './hotel.js'
 import Guest from './guest.js'
 import FolioTransaction from './folio_transaction.js'
@@ -498,7 +498,7 @@ export default class Folio extends BaseModel {
   }
 
   get canBeModified() {
-    return this.workflowStatus !== 'finalized' && this.status === 'open'
+    return this.status === 'open' || this.status === 'closed'
   }
 
   get requiresSettlement() {
@@ -525,5 +525,27 @@ export default class Folio extends BaseModel {
       'disputed': 'purple'
     }
     return colors[this.status] || 'gray'
+  }
+
+  // Use a regular async method instead of @computed()
+  public async getOutstandingBalance(): Promise<number> {
+    const totalCharges = await this.related('transactions')
+      .query()
+      .whereNot("status", TransactionStatus.VOIDED)
+      .whereNot("isVoided", true)
+      .where('transactionType', TransactionType.CHARGE)
+      .sum('amount as total')
+
+    const totalPayments = await this.related('transactions')
+      .query()
+      .whereNot("status", TransactionStatus.VOIDED)
+      .whereNot("isVoided", true)
+      .where('transactionType', TransactionType.PAYMENT)
+      .sum('amount as total')
+
+    const charges = totalCharges[0].$extras.total || 0
+    const payments = totalPayments[0].$extras.total || 0
+
+    return charges - payments
   }
 }
