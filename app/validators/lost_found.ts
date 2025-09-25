@@ -23,7 +23,7 @@ export const createLostFoundValidator = vine.compile(
     country: vine.string().trim().maxLength(100).optional(),
     zipCode: vine.string().trim().maxLength(20).optional(),
     status: vine
-      .enum(['lost', 'found', 'returned', 'disposed'])
+      .enum(['lost', 'found', 'returned', 'disposed', 'discarded'])
       .optional(),
     additionalNotes: vine.string().trim().maxLength(1000).optional(),
     whoFound: vine.string().trim().maxLength(255).optional(),
@@ -53,7 +53,7 @@ export const updateLostFoundValidator = vine.compile(
     country: vine.string().trim().maxLength(100).optional(),
     zipCode: vine.string().trim().maxLength(20).optional(),
     status: vine
-      .enum(['lost', 'found', 'returned', 'disposed'])
+      .enum(['lost', 'found', 'returned', 'disposed', 'discarded'])
       .optional(),
     additionalNotes: vine.string().trim().maxLength(1000).optional(),
     whoFound: vine.string().trim().maxLength(255).optional(),

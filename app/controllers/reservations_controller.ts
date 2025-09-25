@@ -570,6 +570,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           query.preload('guest')
           query
             .preload('room')
+            .preload('paymentMethod')
             .preload('roomRates', (queryRoom) => {
               queryRoom.preload('rateType')
             })
