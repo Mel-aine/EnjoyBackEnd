@@ -54,7 +54,7 @@ export default class AuditTrailService {
 
     // Apply action filter if provided
     if (options.action) {
-      query = query.where('action', options.action)
+      query = query.where('action', options.action.toUpperCase())
     }
 
     // Apply relationships

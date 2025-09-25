@@ -6,6 +6,7 @@ import User from '#models/user'
 import ReservationRoom from '#models/reservation_room'
 import { createRoomValidator, updateRoomValidator } from '#validators/room'
 import LoggerService from '#services/logger_service'
+import RoomBlock from '#models/room_block'
 
 export default class RoomsController {
   /**
@@ -99,7 +100,8 @@ export default class RoomsController {
   /**
    * Create a new room
    */
-  async store({ request, response, auth }: HttpContext) {
+  async store(ctx : HttpContext) {
+    const { request, response, auth } = ctx
     try {
       const payload = await request.validateUsing(createRoomValidator)
       const { taxRateIds, ...roomData } = payload
@@ -126,7 +128,7 @@ export default class RoomsController {
         hotelId: room.hotelId,
         description: `Room "${room.roomNumber}" created successfully`,
         changes: LoggerService.extractChanges({}, room.toJSON()),
-        ctx: { request, response, auth },
+        ctx,
       })
 
       return response.created({
@@ -170,7 +172,8 @@ export default class RoomsController {
   /**
    * Update a room
    */
-  async update({ params, request, response, auth }: HttpContext) {
+  async update( ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     try {
       const room = await Room.findOrFail(params.id)
       const oldData = room.toJSON()
@@ -207,7 +210,7 @@ export default class RoomsController {
           hotelId: room.hotelId,
           description: `Room "${room.roomNumber}" updated successfully`,
           changes: changes,
-          ctx: { request, response, auth },
+          ctx,
         })
       }
 
@@ -226,7 +229,8 @@ export default class RoomsController {
   /**
    * Delete a room
    */
-  async destroy({ params, response, auth }: HttpContext) {
+  async destroy(ctx: HttpContext) {
+    const { params, response, auth } = ctx
     try {
       const room = await Room.findOrFail(params.id)
 
@@ -253,7 +257,7 @@ export default class RoomsController {
         hotelId: room.hotelId,
         description: `Room "${room.roomNumber}" deleted successfully`,
         changes: {},
-        ctx: { request: null, response, auth },
+        ctx,
       })
 
       return response.ok({
@@ -338,71 +342,166 @@ export default class RoomsController {
   /**
    * Get available rooms by room type ID
    */
-  async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) {
-    try {
-      const roomTypeId = params.roomTypeId
-      const { startDate, endDate } = request.only(['startDate', 'endDate'])
+  // async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) {
+  //   try {
+  //     const roomTypeId = params.roomTypeId
+  //     const { startDate, endDate } = request.only(['startDate', 'endDate'])
 
-      // Validate room type exists
-      const roomType = await RoomType.findOrFail(roomTypeId)
+  //     // Validate room type exists
+  //     const roomType = await RoomType.findOrFail(roomTypeId)
 
-      // Get all rooms of this type
-      const roomsQuery = Room.query()
-        .where('room_type_id', roomTypeId)
-        .where('status', 'available')
-        .preload('roomType')
+  //     // Get all rooms of this type
+  //     const roomsQuery = Room.query()
+  //       .where('room_type_id', roomTypeId)
+  //       .where('status', 'available')
+  //       .preload('roomType')
 
-      const rooms = await roomsQuery
 
-      // If date range is provided, filter out rooms with reservations
-      let availableRooms = rooms
-      if (startDate && endDate) {
-        const availableRoomIds: any = []
+  //     const rooms = await roomsQuery
 
-        for (const room of rooms) {
-          const reservations = await ReservationRoom.query()
-            .where('room_id', room.id)
-            .where('check_in_date', '<=', endDate)
-            .where('check_out_date', '>=', startDate)
-            .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
 
-          if (reservations.length === 0) {
-            availableRoomIds.push(room.id)
-          }
+
+  //     // If date range is provided, filter out rooms with reservations
+  //     let availableRooms = rooms
+  //     if (startDate && endDate) {
+  //       const availableRoomIds: any = []
+
+  //       for (const room of rooms) {
+  //         const reservations = await ReservationRoom.query()
+  //           .where('room_id', room.id)
+  //           .where('check_in_date', '<=', endDate)
+  //           .where('check_out_date', '>=', startDate)
+  //           .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
+
+  //         if (reservations.length === 0) {
+  //           availableRoomIds.push(room.id)
+  //         }
+  //       }
+
+
+  //       availableRooms = rooms.filter((room) => availableRoomIds.includes(room.id))
+  //     }
+
+  //     return response.ok({
+  //       message: 'Available rooms retrieved successfully',
+  //       data: {
+  //         roomType: {
+  //           id: roomType.id,
+  //           name: roomType.name,
+  //           description: roomType.description,
+  //         },
+  //         totalRooms: rooms.length,
+  //         availableRooms: availableRooms.length,
+  //         dateRange: startDate && endDate ? { startDate, endDate } : null,
+  //         rooms: availableRooms.map((room) => ({
+  //           id: room.id,
+  //           roomNumber: room.roomNumber,
+  //           roomName: room.roomName,
+  //           floorNumber: room.floorNumber,
+  //           status: room.status,
+  //           housekeepingStatus: room.housekeepingStatus,
+  //           maintenanceStatus: room.maintenanceStatus,
+  //         })),
+  //       },
+  //     })
+  //   } catch (error) {
+  //     return response.badRequest({
+  //       message: 'Failed to retrieve available rooms',
+  //       error: error.message,
+  //     })
+  //   }
+  // }
+
+async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) {
+  try {
+    const roomTypeId = params.roomTypeId
+    const { startDate, endDate } = request.only(['startDate', 'endDate'])
+    console.log('RoomTypeId:', roomTypeId)
+    console.log('Date range:', startDate, endDate)
+
+    // Validate room type exists
+    const roomType = await RoomType.findOrFail(roomTypeId)
+    console.log('Room type found:', roomType)
+
+    // Get all rooms of this type
+    const rooms = await Room.query()
+      .where('room_type_id', roomTypeId)
+      .where('status', 'available')
+      .preload('roomType')
+    console.log('All rooms of this type:', rooms.map(r => r.id))
+
+    // Si date fournie, créer objet DateTime Luxon pour comparaison
+    const date = startDate ? DateTime.fromISO(startDate) : DateTime.now()
+    console.log('Target date:', date.toISO())
+
+    // Récupérer les blocks pour ce type de chambre à la date cible
+   const blockedRoomsResult = await RoomBlock.query()
+    .where('room_type_id', roomTypeId)
+    .whereNot('status', 'completed')
+    .where(function (query) {
+      query
+        .where('block_from_date', '<=', endDate)
+        .where('block_to_date', '>=', startDate)
+    })
+    .select('room_id')
+
+    console.log('Blocked rooms (not completed):', blockedRoomsResult)
+
+    const blockedRoomIds = blockedRoomsResult.map((b) => b.roomId)
+    console.log('Blocked room IDs:', blockedRoomIds)
+
+    // Filter rooms based on blocked rooms
+    let availableRooms = rooms.filter((room) => !blockedRoomIds.includes(room.id))
+    console.log('Rooms after filtering blocked:', availableRooms.map(r => r.id))
+
+    // Filter rooms based on reservations if date range provided
+    if (startDate && endDate) {
+      const availableRoomIds: number[] = []
+
+      for (const room of availableRooms) {
+        const reservations = await ReservationRoom.query()
+          .where('room_id', room.id)
+          .where('check_in_date', '<=', endDate)
+          .where('check_out_date', '>=', startDate)
+          .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
+
+        if (reservations.length === 0) {
+          availableRoomIds.push(room.id)
         }
-
-        availableRooms = rooms.filter((room) => availableRoomIds.includes(room.id))
+        console.log(`Room ${room.id} reservations overlapping:`, reservations.length)
       }
 
-      return response.ok({
-        message: 'Available rooms retrieved successfully',
-        data: {
-          roomType: {
-            id: roomType.id,
-            name: roomType.name,
-            description: roomType.description,
-          },
-          totalRooms: rooms.length,
-          availableRooms: availableRooms.length,
-          dateRange: startDate && endDate ? { startDate, endDate } : null,
-          rooms: availableRooms.map((room) => ({
-            id: room.id,
-            roomNumber: room.roomNumber,
-            roomName: room.roomName,
-            floorNumber: room.floorNumber,
-            status: room.status,
-            housekeepingStatus: room.housekeepingStatus,
-            maintenanceStatus: room.maintenanceStatus,
-          })),
-        },
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Failed to retrieve available rooms',
-        error: error.message,
-      })
+      availableRooms = availableRooms.filter((room) => availableRoomIds.includes(room.id))
+      console.log('Rooms after filtering reservations:', availableRooms.map(r => r.id))
     }
+
+    return response.ok({
+      message: 'Available rooms retrieved successfully',
+      data: {
+        roomType: {
+          id: roomType.id,
+          name: roomType.roomTypeName,
+        },
+        totalRooms: rooms.length,
+        availableRooms: availableRooms.length,
+        dateRange: startDate && endDate ? { startDate, endDate } : null,
+        rooms: availableRooms.map((room) => ({
+          id: room.id,
+          roomNumber: room.roomNumber,
+          floorNumber: room.floorNumber,
+          status: room.status,
+          housekeepingStatus: room.housekeepingStatus,
+        })),
+      },
+    })
+  } catch (error) {
+    console.error('Error fetching available rooms:', error)
+    return response.badRequest({
+      message: 'Failed to retrieve available rooms',
+      error: error.message,
+    })
   }
+}
 
   /**
    * Get room statistics
@@ -909,6 +1008,18 @@ export default class RoomsController {
           }
           break
 
+          case 'set_dirty_status':
+          // Vérifier que toutes les chambres sont clean
+          const invalidRoomsForDirtying = roomsToUpdate.filter(
+            (room) => !(room.status === 'available' && room.housekeepingStatus === 'clean')
+          )
+          if (invalidRoomsForDirtying.length > 0) {
+            return response.badRequest({
+              message: 'Can only set dirty status on clean available rooms',
+            })
+          }
+          break
+
         case 'assign_housekeeper':
           // Vérifier que toutes les chambres sont dirty
           const invalidRoomsForAssignment = roomsToUpdate.filter(
@@ -944,6 +1055,12 @@ export default class RoomsController {
         case 'set_clean_status':
           updateData.housekeeping_status = 'clean'
           updateData.status = 'available'
+           updateData.assigned_housekeeper_id = null
+          break
+        case 'set_dirty_status':
+          updateData.housekeeping_status = 'dirty'
+          updateData.status = 'dirty'
+          updateData.assigned_housekeeper_id = null
           break
 
         case 'assign_housekeeper':

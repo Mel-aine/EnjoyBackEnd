@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, manyToMany, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
 import Hotel from './hotel.js'
@@ -9,6 +9,7 @@ import User from './user.js'
 import Discount from './discount.js'
 import Guest from './guest.js'
 import TaxRate from './tax_rate.js'
+import TransactionHook from '../hooks/transaction_hooks.js'
 
 export default class FolioTransaction extends BaseModel {
   @column({ isPrimary: true })
@@ -532,5 +533,14 @@ export default class FolioTransaction extends BaseModel {
     }
     return colors[this.status] || 'gray'
 
+  }
+  // Register the hook
+  @afterCreate()
+  public static afterCreate(transaction: FolioTransaction) {
+    TransactionHook.checkFolioStatus(transaction)
+  }
+  @afterUpdate()
+  public static afterUpdate(transaction: FolioTransaction) {
+    TransactionHook.checkFolioStatus(transaction)
   }
 }

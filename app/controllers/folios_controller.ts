@@ -6,9 +6,9 @@ import ReservationFolioService from '#services/reservation_folio_service'
 import CheckoutService from '#services/checkout_service'
 import FolioInquiryService from '#services/folio_inquiry_service'
 import LoggerService from '#services/logger_service'
-import { 
-  createFolioValidator, 
-  updateFolioValidator, 
+import {
+  createFolioValidator,
+  updateFolioValidator,
   postTransactionValidator,
   settleFolioValidator,
   transferChargesValidator,
@@ -27,7 +27,7 @@ import {
   forceCloseValidator
 } from '#validators/folio'
 import { addFolioAdjustmentValidator } from '#validators/folio_adjustment'
-import { FolioStatus } from '../enums.js'
+import { FolioStatus, ReservationStatus } from '../enums.js'
 
 export default class FoliosController {
   /**
@@ -125,13 +125,13 @@ export default class FoliosController {
    */
   async store({ request, response, auth }: HttpContext) {
     const payload = await request.validateUsing(createFolioServiceValidator)
-    
+
     try {
       const folio = await FolioService.createFolio({
         ...payload,
         createdBy: auth.user!.id
       })
-      
+
       await LoggerService.log({
         actorId: auth.user!.id,
         action: 'CREATE',
@@ -142,7 +142,7 @@ export default class FoliosController {
         changes: LoggerService.extractChanges({}, folio.toJSON()),
         ctx: { request, response, auth }
       })
-      
+
       return response.created({
         message: 'Folio created successfully',
         data: folio
@@ -228,7 +228,7 @@ export default class FoliosController {
   async destroy({ params, response, auth }: HttpContext) {
     try {
       const folio = await Folio.findOrFail(params.id)
-      
+
       // Check if folio has transactions
       const transactionCount = await folio.related('transactions').query().count('* as total')
       if (transactionCount[0].$extras.total > 0) {
@@ -268,7 +268,7 @@ export default class FoliosController {
     try {
       const folio = await Folio.findOrFail(params.id)
       const { notes } = request.only(['notes'])
-      
+
       if (folio.status === 'closed') {
         return response.badRequest({
           message: 'Folio is already closed'
@@ -286,7 +286,7 @@ export default class FoliosController {
       folio.closedBy = auth.user?.id || 0
       folio.internalNotes = notes
       folio.lastModifiedBy = auth.user?.id || 0
-      
+
       await folio.save()
 
       return response.ok({
@@ -308,7 +308,7 @@ export default class FoliosController {
     try {
       const folio = await Folio.findOrFail(params.id)
       const { reason } = request.only(['reason'])
-      
+
       if (folio.status !== 'closed') {
         return response.badRequest({
           message: 'Can only reopen closed folios'
@@ -320,7 +320,7 @@ export default class FoliosController {
       folio.closedBy = null
       folio.internalNotes = reason
       folio.lastModifiedBy = auth.user?.id || 0
-      
+
       await folio.save()
 
       return response.ok({
@@ -341,7 +341,7 @@ export default class FoliosController {
   async balance({ params, response }: HttpContext) {
     try {
       const folio = await Folio.findOrFail(params.id)
-      
+
       const balance = {
         folioNumber: folio.folioNumber,
         totalCharges: folio.totalCharges,
@@ -376,8 +376,8 @@ export default class FoliosController {
         .where('id', params.id)
         .preload('guest')
         .preload('transactions', (query) => {
-          query.preload('paymentMethod',(builder)=>{
-            builder.select('id','methodName')
+          query.preload('paymentMethod', (builder) => {
+            builder.select('id', 'methodName')
           })
           query.orderBy('transactionDate', 'asc')
         })
@@ -404,7 +404,7 @@ export default class FoliosController {
       const { toFolioId, amount } = request.only([
         'toFolioId', 'amount'
       ])
-      
+
       if (!toFolioId || !amount) {
         return response.badRequest({
           message: 'Destination folio ID and amount are required'
@@ -412,7 +412,7 @@ export default class FoliosController {
       }
 
       const toFolio = await Folio.findOrFail(toFolioId)
-      
+
       if (fromFolio.balance < amount) {
         return response.badRequest({
           message: 'Insufficient balance for transfer'
@@ -426,13 +426,13 @@ export default class FoliosController {
       if (auth.user?.id) {
         fromFolio.lastModifiedBy = auth.user.id
       }
-      
+
       toFolio.balance += amount
       toFolio.transferredFrom = fromFolio.id
       if (auth.user?.id) {
         toFolio.lastModifiedBy = auth.user.id
       }
-      
+
       await fromFolio.save()
       await toFolio.save()
 
@@ -507,12 +507,12 @@ export default class FoliosController {
   async overdue({ request, response }: HttpContext) {
     try {
       const { hotelId } = request.only(['hotelId'])
-      
+
       const query = Folio.query()
         .where('due_date', '<', new Date())
         .where('balance', '>', 0)
         .where('status', 'open')
-      
+
       if (hotelId) {
         query.where('hotel_id', hotelId)
       }
@@ -539,17 +539,97 @@ export default class FoliosController {
    */
   async unsettled({ request, response }: HttpContext) {
     try {
-      const { hotelId } = request.only(['hotelId'])
+      const {
+        hotelId,
+        search,
+        startDate,
+        endDate,
+        status
+      } = request.only([
+        'hotelId',
+        'search',
+        'startDate',
+        'endDate',
+        'status'
+      ])
+
       const page = request.input('page', 1)
       const limit = request.input('limit', 20)
-      
+
       const query = Folio.query()
         .where('balance', '>', 0)
-        .where('settlement_status', '!=', 'settled')
         .where('status', 'open')
-      
+
       if (hotelId) {
         query.where('hotel_id', hotelId)
+      }
+
+      // Filter by search term (folio number, reservation number, guest name, or room number)
+      if (search) {
+        query.where((searchQuery) => {
+          // Search in folio number
+          searchQuery.where('folio_number', 'LIKE', `%${search}%`)
+
+            // Search in reservation number or confirmation code
+            .orWhereHas('reservation', (reservationQuery) => {
+              reservationQuery.where('reservation_number', 'LIKE', `%${search}%`)
+                .orWhere('confirmation_code', 'LIKE', `%${search}%`)
+            })
+
+            // Search in guest name
+            .orWhereHas('guest', (guestQuery) => {
+              guestQuery.whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [`%${search}%`])
+                .orWhere('first_name', 'LIKE', `%${search}%`)
+                .orWhere('last_name', 'LIKE', `%${search}%`)
+            })
+
+            // Search in room number
+            .orWhereHas('reservationRoom', (roomQuery) => {
+              roomQuery.whereHas('room', (actualRoomQuery) => {
+                actualRoomQuery.where('room_number', 'LIKE', `%${search}%`)
+              })
+            })
+        })
+      }
+
+      // Exclude reservations that are confirmed or pending
+      query.whereHas('reservation', (reservationQuery) => {
+        reservationQuery.whereNotIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
+      })
+
+      // Filter by date range (arrival/departure dates)
+      if (startDate || endDate) {
+        query.whereHas('reservation', (reservationQuery) => {
+          if (startDate) {
+            reservationQuery.where('scheduled_arrival_date', '>=', startDate)
+          }
+          if (endDate) {
+            reservationQuery.where('scheduled_departure_date', '<=', endDate)
+          }
+        })
+      }
+
+      // Filter by reservation status
+      if (status) {
+        query.whereHas('reservation', (reservationQuery) => {
+          switch (status.toLowerCase()) {
+            case 'checkout':
+              reservationQuery.where('status', ReservationStatus.CHECKED_OUT)
+              break
+            case 'inhouse':
+              reservationQuery.where('status', ReservationStatus.CHECKED_IN)
+              break
+            case 'noshow':
+              reservationQuery.where('status', ReservationStatus.NOSHOW)
+              break
+            case 'cancelled':
+              reservationQuery.where('status', ReservationStatus.CANCELLED)
+              break
+            default:
+              // If status doesn't match expected values, don't filter
+              break
+          }
+        })
       }
 
       const unsettledFolios = await query
@@ -557,15 +637,63 @@ export default class FoliosController {
         .preload('reservation', (reservationQuery) => {
           reservationQuery.whereNotNull('id')
         })
+        .preload('reservationRoom', (roomQuery) => {
+          roomQuery.preload('room')
+        })
         .preload('transactions', (transactionQuery) => {
           transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc')
         })
         .orderBy('balance', 'desc')
         .paginate(page, limit)
 
+      // Format the response data according to requirements
+      const formattedData = {
+        ...unsettledFolios.toJSON(),
+        data: unsettledFolios.toJSON().data?.map((folio) => {
+          const reservation = folio.reservation
+          const guest = folio.guest
+          const reservationRoom = folio.reservationRoom
+
+          // Determine status based on reservation status
+          let displayStatus = reservation.status
+          if (reservation) {
+            switch (reservation.status) {
+              case ReservationStatus.CHECKED_OUT:
+                displayStatus = 'checkout'
+                break
+              case ReservationStatus.CHECKED_IN:
+                displayStatus = 'inhouse'
+                break
+              case 'checked_in':
+                displayStatus = 'inhouse'
+                break
+              case ReservationStatus.NOSHOW:
+                displayStatus = 'noshow'
+                break
+              case ReservationStatus.CANCELLED:
+                displayStatus = 'cancelled'
+                break
+            }
+          }
+
+          return {
+            folioNumber: folio.folioNumber,
+            id:folio.id,
+            reservationNumber: reservation?.reservationNumber || reservation?.confirmationCode || 'N/A',
+            guestName: guest ? `${guest.displayName}`.trim() : 'N/A',
+            arrival: reservation?.arrivedDate?.toFormat('yyyy-MM-dd') || 'N/A',
+            departure: reservation?.departDate?.toFormat('yyyy-MM-dd') || 'N/A',
+            status: displayStatus,
+            balance: folio.balance,
+            roomNumber: reservationRoom?.room?.roomNumber || 'N/A',
+            reservationId: reservation?.id,
+          }
+        })
+      }
+
       return response.ok({
         message: 'Unsettled folios retrieved successfully',
-        data: unsettledFolios
+        data: formattedData
       })
     } catch (error) {
       return response.badRequest({
@@ -581,7 +709,7 @@ export default class FoliosController {
   async stats({ request, response }: HttpContext) {
     try {
       const { hotelId, period } = request.only(['hotelId', 'period'])
-      
+
       const query = Folio.query()
       if (hotelId) {
         query.where('hotel_id', hotelId)
@@ -591,7 +719,7 @@ export default class FoliosController {
       if (period) {
         const now = new Date()
         let startDate: Date
-        
+
         switch (period) {
           case 'today':
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -608,7 +736,7 @@ export default class FoliosController {
           default:
             startDate = new Date(0)
         }
-        
+
         query.where('opened_date', '>=', startDate)
       }
 
@@ -620,7 +748,7 @@ export default class FoliosController {
         .where('due_date', '<', new Date())
         .where('balance', '>', 0)
         .count('* as total')
-      
+
       const totalRevenue = await query.clone().sum('total_charges as revenue')
       const totalPayments = await query.clone().sum('total_payments as payments')
       const outstandingBalance = await query.clone().sum('balance as balance')
@@ -654,12 +782,12 @@ export default class FoliosController {
   async postTransaction({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(postTransactionValidator)
-      
+
       const transaction = await FolioService.postTransaction({
         ...payload,
         postedBy: auth.user!.id
       })
-      
+
       return response.created({
         message: 'Transaction posted successfully',
         data: transaction
@@ -675,12 +803,12 @@ export default class FoliosController {
   async settle({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(settleFolioValidator)
-      
+
       const result = await FolioService.settleFolio({
         ...payload,
         settledBy: auth.user!.id
       })
-      
+
       return response.ok({
         message: 'Folio settled successfully',
         data: result
@@ -696,12 +824,12 @@ export default class FoliosController {
   async transferCharges({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(transferChargesValidator)
-      
+
       const result = await FolioService.transferCharges({
         ...payload,
         transferredBy: auth.user!.id
       })
-      
+
       return response.ok({
         message: 'Charges transferred successfully',
         data: result
@@ -717,7 +845,7 @@ export default class FoliosController {
   async statementWithService({ params, response }: HttpContext) {
     try {
       const folio = await FolioService.getFolioStatement(params.id)
-      
+
       return response.ok({
         message: 'Folio statement retrieved successfully',
         data: folio
@@ -733,7 +861,7 @@ export default class FoliosController {
   async closeWithService({ params, response, auth }: HttpContext) {
     try {
       const folio = await FolioService.closeFolio(params.id, auth.user!.id)
-      
+
       return response.ok({
         message: 'Folio closed successfully',
         data: folio
@@ -749,7 +877,7 @@ export default class FoliosController {
   async reopenWithService({ params, response, auth }: HttpContext) {
     try {
       const folio = await FolioService.reopenFolio(params.id, auth.user!.id)
-      
+
       return response.ok({
         message: 'Folio reopened successfully',
         data: folio
@@ -766,7 +894,7 @@ export default class FoliosController {
     try {
       const payload = await request.validateUsing(createReservationFolioValidator)
       const folio = await ReservationFolioService.createFolioForReservation(payload)
-      
+
       return response.created({
         message: 'Folio created successfully for reservation',
         data: folio
@@ -786,7 +914,7 @@ export default class FoliosController {
     try {
       const payload = await request.validateUsing(createWalkInFolioValidator)
       const folio = await ReservationFolioService.createFolioForWalkIn(payload)
-      
+
       return response.created({
         message: 'Folio created successfully for walk-in guest',
         data: folio
@@ -810,7 +938,7 @@ export default class FoliosController {
         payload.guestIds,
         payload.createdBy
       )
-      
+
       return response.created({
         message: 'Folios created successfully for group reservation',
         data: folios
@@ -830,7 +958,7 @@ export default class FoliosController {
     try {
       const payload = await request.validateUsing(postRoomChargesValidator)
       await ReservationFolioService.postRoomCharges(payload.reservationId, payload.postedBy)
-      
+
       return response.ok({
         message: 'Room charges posted successfully'
       })
@@ -849,7 +977,7 @@ export default class FoliosController {
     try {
       const payload = await request.validateUsing(postTaxesAndFeesValidator)
       await ReservationFolioService.postTaxesAndFees(payload.reservationId, payload.postedBy)
-      
+
       return response.ok({
         message: 'Taxes and fees posted successfully'
       })
@@ -867,7 +995,7 @@ export default class FoliosController {
   async getReservationFolios({ params, response }: HttpContext) {
     try {
       const folios = await ReservationFolioService.getFoliosForReservation(params.reservationId)
-      
+
       return response.ok({
         message: 'Reservation folios retrieved successfully',
         data: folios
@@ -886,7 +1014,7 @@ export default class FoliosController {
   async getSettlementSummary({ params, response }: HttpContext) {
     try {
       const summary = await CheckoutService.getSettlementSummary(params.id)
-      
+
       return response.ok({
         message: 'Settlement summary retrieved successfully',
         data: summary
@@ -905,7 +1033,7 @@ export default class FoliosController {
   async getCheckoutSummary({ params, response }: HttpContext) {
     try {
       const summary = await CheckoutService.getCheckoutSummary(params.id)
-      
+
       return response.ok({
         message: 'Checkout summary retrieved successfully',
         data: summary
@@ -925,7 +1053,7 @@ export default class FoliosController {
     try {
       const payload = await request.validateUsing(checkoutValidator)
       const result = await CheckoutService.processCheckout(payload)
-      
+
       return response.ok({
         message: result.message,
         data: result
@@ -949,7 +1077,7 @@ export default class FoliosController {
         payload.payments,
         payload.processedBy
       )
-      
+
       return response.ok({
         message: 'Reservation checkout processed successfully',
         data: results
@@ -974,7 +1102,7 @@ export default class FoliosController {
         payload.authorizedBy,
         payload.processedBy
       )
-      
+
       return response.ok({
         message: 'Folio force closed successfully',
         data: folio
@@ -993,7 +1121,7 @@ export default class FoliosController {
   async validateCheckout({ params, response }: HttpContext) {
     try {
       const validation = await CheckoutService.validateCheckoutEligibility(params.id)
-      
+
       return response.ok({
         message: 'Checkout validation completed',
         data: validation
@@ -1017,9 +1145,9 @@ export default class FoliosController {
           message: 'Guest ID is required'
         })
       }
-      
+
       const folioView = await FolioInquiryService.getGuestFolioView(params.id, guestId)
-      
+
       return response.ok({
         message: 'Guest folio view retrieved successfully',
         data: folioView
@@ -1038,7 +1166,7 @@ export default class FoliosController {
   async getStaffView({ params, response }: HttpContext) {
     try {
       const folioView = await FolioInquiryService.getStaffFolioView(params.id)
-      
+
       return response.ok({
         message: 'Staff folio view retrieved successfully',
         data: folioView
@@ -1061,12 +1189,12 @@ export default class FoliosController {
         'status', 'settlementStatus', 'workflowStatus', 'dateFrom', 'dateTo',
         'balanceMin', 'balanceMax', 'createdBy', 'hasOutstandingBalance'
       ])
-      
+
       const page = request.input('page', 1)
       const limit = request.input('limit', 20)
-      
+
       const result = await FolioInquiryService.searchFolios(filters, page, limit)
-      
+
       return response.ok({
         message: 'Folios retrieved successfully',
         data: result.data,
@@ -1090,7 +1218,7 @@ export default class FoliosController {
       const inhouse = request.input('inhouse')
       const reservation = request.input('reservation')
       const hotelId = request.input('hotelId')
-      
+
       // Validate hotelId is provided
       if (!hotelId) {
         return response.badRequest({
@@ -1152,10 +1280,10 @@ export default class FoliosController {
       // Get pagination parameters
       const page = Math.max(1, parseInt(request.input('page', '1')))
       const limit = Math.min(100, Math.max(1, parseInt(request.input('limit', '20'))))
-      
+
       // Perform search
       const result = await FolioInquiryService.comprehensiveFolioSearch(filters, page, limit)
-      
+
       return response.ok({
         message: 'Folio search completed successfully',
         data: result.data,
@@ -1188,12 +1316,12 @@ export default class FoliosController {
         'folioId', 'transactionType', 'category', 'dateFrom', 'dateTo',
         'amountMin', 'amountMax', 'postedBy', 'departmentId', 'isVoided'
       ])
-      
+
       const page = request.input('page', 1)
       const limit = request.input('limit', 50)
-      
+
       const result = await FolioInquiryService.searchTransactions(filters, page, limit)
-      
+
       return response.ok({
         message: 'Transactions retrieved successfully',
         data: result.data,
@@ -1213,7 +1341,7 @@ export default class FoliosController {
   async getTimeline({ params, response }: HttpContext) {
     try {
       const timeline = await FolioInquiryService.getFolioTimeline(params.id)
-      
+
       return response.ok({
         message: 'Folio timeline retrieved successfully',
         data: timeline
@@ -1234,9 +1362,9 @@ export default class FoliosController {
       const filters = request.only([
         'hotelId', 'dateFrom', 'dateTo', 'folioType', 'status'
       ])
-      
+
       const statistics = await FolioInquiryService.getFolioStatistics(filters)
-      
+
       return response.ok({
         message: 'Folio statistics retrieved successfully',
         data: statistics
@@ -1252,45 +1380,45 @@ export default class FoliosController {
   /**
     * Split folio by transaction type
     */
-   async splitByType({ request, response, auth }: HttpContext) {
-     try {
-       const payload = await request.validateUsing(splitFolioByTypeValidator)
- 
-       const result = await FolioService.splitFolioByType({
-         ...payload,
-         splitBy: auth.user!.id
-       })
- 
-       return response.ok({
-         message: 'Folio split by type completed successfully',
-         data: {
-           originalFolio: {
-             id: result.originalFolio.id,
-             folioNumber: result.originalFolio.folioNumber,
-             balance: result.originalFolio.balance
-           },
-           newFolios: result.newFolios.map(folio => ({
-             id: folio.id,
-             folioNumber: folio.folioNumber,
-             folioName: folio.folioName,
-             balance: folio.balance
-           })),
-           transferredTransactions: result.transferredTransactions.map(t => ({
-             id: t.id,
-             description: t.description,
-             amount: t.amount,
-             transactionType: t.transactionType,
-             category: t.category
-           }))
-         }
-       })
-     } catch (error) {
-       return response.badRequest({
-         message: 'Failed to split folio by type',
-         error: error.message
-       })
-     }
-   }
+  async splitByType({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(splitFolioByTypeValidator)
+
+      const result = await FolioService.splitFolioByType({
+        ...payload,
+        splitBy: auth.user!.id
+      })
+
+      return response.ok({
+        message: 'Folio split by type completed successfully',
+        data: {
+          originalFolio: {
+            id: result.originalFolio.id,
+            folioNumber: result.originalFolio.folioNumber,
+            balance: result.originalFolio.balance
+          },
+          newFolios: result.newFolios.map(folio => ({
+            id: folio.id,
+            folioNumber: folio.folioNumber,
+            folioName: folio.folioName,
+            balance: folio.balance
+          })),
+          transferredTransactions: result.transferredTransactions.map(t => ({
+            id: t.id,
+            description: t.description,
+            amount: t.amount,
+            transactionType: t.transactionType,
+            category: t.category
+          }))
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to split folio by type',
+        error: error.message
+      })
+    }
+  }
 
   /**
    * Add room charge to folio

@@ -10,6 +10,7 @@ import ActivityLog from '#models/activity_log'
 import Guest from '#models/guest'
 import Folio from '#models/folio'
 import ReservationRoom from '#models/reservation_room'
+import { FolioStatus, ReservationStatus } from '../enums.js'
 
 import RoomBlock from '#models/room_block'
 import WorkOrder from '#models/work_order'
@@ -439,7 +440,7 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
           .where('hotel_id', serviceId)
           .whereBetween('created_at', [startDate.toSQL()!, endDate.toSQL()!])
           .orderBy('created_at', 'desc')
-          .limit(15)
+          .limit(10)
           .preload('user'),
       ])
 
@@ -698,6 +699,7 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
       .where('hotel_id', serviceId)
       .where('block_from_date', '<=', targetDate.toFormat('yyyy-MM-dd'))
       .where('block_to_date', '>=', targetDate.toFormat('yyyy-MM-dd'))
+      .whereNot('status', 'completed')
       .preload('room')
   ])
 
@@ -797,41 +799,83 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
     }
   }
 
-  private async getSuiteOccupancyData(serviceId: number, trx: any) {
-    const suiteOccupancyResult = await Reservation.query({ client: trx })
-      .where('reservations.hotel_id', serviceId)
-      .where('reservations.status', 'checked_in')
-      .join('reservation_rooms', 'reservations.id', 'reservation_rooms.reservation_id')
-      .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
-      .join('room_types', 'rooms.room_type_id', 'room_types.id')
-      .groupBy('room_types.id', 'room_types.room_type_name')
-      .select('room_types.id')
-      .select('room_types.room_type_name')
-      .count('* as total')
+private async getSuiteOccupancyData(serviceId: number, trx: any) {
 
-    console.log('RAW suiteOccupancyResult:', suiteOccupancyResult)
+  const roomsByType = await Room.query({ client: trx })
+    .where('rooms.hotel_id', serviceId)
+    .join('room_types', 'rooms.room_type_id', 'room_types.id')
+    .groupBy('room_types.id', 'room_types.room_type_name')
+    .select('room_types.id')
+    .select('room_types.room_type_name')
+    .count('* as total_rooms')
 
-    const suiteOccupancy = suiteOccupancyResult.reduce((acc: any, item: any) => {
-      const roomTypeName = item.$extras.room_type_name
-      const total = Number(item.$extras.total || 0)
-      acc[roomTypeName] = total
-      return acc
-    }, {})
 
-    console.log('Final suiteOccupancy:', suiteOccupancy)
-
-    return { suites: suiteOccupancy }
-  }
+  const occupiedByType = await Reservation.query({ client: trx })
+    .where('reservations.hotel_id', serviceId)
+    .where('reservations.status', 'checked_in')
+    .join('reservation_rooms', 'reservations.id', 'reservation_rooms.reservation_id')
+    .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
+    .join('room_types', 'rooms.room_type_id', 'room_types.id')
+    .groupBy('room_types.id', 'room_types.room_type_name')
+    .select('room_types.id')
+    .select('room_types.room_type_name')
+    .count('* as occupied_rooms')
 
 
 
-  private async getHousekeepingData(serviceId: number, trx: any) {
+
+
+  const occupiedMap = occupiedByType.reduce((acc: any, item: any) => {
+    const typeId = item.id || item.room_types_id
+    acc[typeId] = Number(item.$extras?.occupied_rooms || 0)
+    return acc
+  }, {})
+
+
+
+  const result = roomsByType.map((item: any) => {
+    const typeId = item.id || item.room_types_id
+    const roomTypeName = item.$extras?.room_type_name || 'Inconnu'
+    const totalRooms = Number(item.$extras?.total_rooms || 0)
+    const occupied = occupiedMap[typeId] || 0
+    const free = totalRooms - occupied
+    const rate = totalRooms > 0 ? (occupied / totalRooms) * 100 : 0
+
+    return {
+      roomTypeId: typeId,
+      roomTypeName,
+      totalRooms,
+      occupied,
+      free,
+      occupancyRate: rate.toFixed(2) + '%',
+    }
+  })
+
+
+
+  return { suites: result }
+}
+
+
+
+
+  private async getHousekeepingData(serviceId: number, trx: any ,targetDate?: DateTime) {
+    const date = targetDate || DateTime.now()
     const housekeepingStatusCounts = await Room.query({ client: trx })
       .where('hotel_id', serviceId)
       .groupBy('housekeeping_status')
       .select('housekeeping_status')
       .count('* as total')
     const totalRooms = await Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total')
+
+     const blockedCountResult = await RoomBlock.query({ client: trx })
+    .where('hotel_id', serviceId)
+    .where('block_from_date', '<=', date.toFormat('yyyy-MM-dd'))
+    .where('block_to_date', '>=', date.toFormat('yyyy-MM-dd'))
+    .whereNot('status', 'completed')
+    .count('* as total')
+
+  const blockedCount = Number(blockedCountResult[0].$extras.total || 0)
 
     return {
       housekeepingStatus: {
@@ -847,6 +891,7 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
           housekeepingStatusCounts.find((item) => item.housekeepingStatus === 'dirty')?.$extras
             .total || '0'
         ),
+        blocked: blockedCount,
         toClean:
           (Number(
             housekeepingStatusCounts.find((item) => item.housekeepingStatus === 'dirty')?.$extras
@@ -890,6 +935,9 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
         .where('balance', '>', 0)
         .where('settlement_status', '!=', 'settled')
         .where('status', 'open')
+        .whereHas('reservation', (query) => {
+          query.whereNotIn('status', ['confirmed', 'pending'])
+        })
         .count('* as total'),
       Reservation.query({ client: trx })
         .where('hotel_id', serviceId)
@@ -988,46 +1036,90 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
     }
   }
 
-  private async getUnpaidFoliosData(serviceId: number, trx: any) {
-  const unpaidFolios = await Folio.query({ client: trx })
-    .where('balance', '>', 0)
-    .where('settlement_status', '!=', 'settled')
-    .where('status', 'open')
+private async getUnpaidFoliosData(serviceId: number, trx: any, startDate?: string, endDate?: string, status?: string) {
+  const query = Folio.query({ client: trx })
     .where('hotel_id', serviceId)
-    .preload('reservation', (query) => {
-      query.preload('guest')
+    .where('balance', '>', 0)
+    .where('status', 'open')
+    .whereHas('reservation', (reservationQuery) => {
+      reservationQuery.whereNotIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
+
+      if (startDate) reservationQuery.where('scheduled_arrival_date', '>=', startDate)
+      if (endDate) reservationQuery.where('scheduled_departure_date', '<=', endDate)
+
+      if (status) {
+        switch (status.toLowerCase()) {
+          case 'checkout':
+            reservationQuery.where('status', ReservationStatus.CHECKED_OUT)
+            break
+          case 'inhouse':
+            reservationQuery.where('status', ReservationStatus.CHECKED_IN)
+            break
+          case 'noshow':
+            reservationQuery.where('status', ReservationStatus.NOSHOW)
+            break
+          case 'cancelled':
+            reservationQuery.where('status', ReservationStatus.CANCELLED)
+            break
+        }
+      }
     })
+
+  const unpaidFolios = await query
     .preload('guest')
-    .orderBy('created_at', 'desc')
+    .preload('reservation', (reservationQuery) => reservationQuery.preload('guest'))
+    .preload('reservationRoom', (roomQuery) => roomQuery.preload('room'))
+    .preload('transactions', (transactionQuery) => transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc'))
+    .orderBy('balance', 'desc')
+    .limit(20)
 
-  const unpaidFoliosList = unpaidFolios.map(folio => ({
-    id: folio.id,
-    folioNumber: folio.folioNumber,
-    balance: folio.balance,
-    totalAmount: folio.totalCharges,
-    createdAt: folio.createdAt.toFormat('yyyy-MM-dd HH:mm'),
-    dueDate: folio.dueDate?.toFormat('yyyy-MM-dd'),
-    isOverdue: folio.dueDate ? folio.dueDate < DateTime.now() : false,
-    daysPastDue: folio.dueDate ? Math.max(0, DateTime.now().diff(folio.dueDate, 'days').days) : 0,
-    guestName: folio.guest?.fullName || folio.reservation?.guest?.fullName || 'N/A',
-    guestId: folio.guestId || folio.reservation?.guestId,
-    reservationId: folio.reservationId,
-    reservationNumber: folio.reservation?.reservationNumber,
-    settlementStatus: folio.settlementStatus,
-    paymentMethod: folio.paymentMethod
-  }))
+  const formattedData = unpaidFolios.map(folio => {
+    const reservation = folio.reservation
+    const guest = folio.guest
+    const reservationRoom = folio.reservationRoom
 
-  const totalUnpaidAmount = unpaidFolios.reduce((sum, folio) => sum + (folio.balance || 0), 0)
-  const overdueCount = unpaidFoliosList.filter(folio => folio.isOverdue).length
+    let displayStatus = reservation?.status
+    if (reservation) {
+      switch (reservation.status) {
+        case ReservationStatus.CHECKED_OUT:
+          displayStatus = 'checkout'
+          break
+        case ReservationStatus.CHECKED_IN:
+          displayStatus = 'inhouse'
+          break
+        case 'checked_in':
+          displayStatus = 'inhouse'
+          break
+        case ReservationStatus.NOSHOW:
+          displayStatus = 'noshow'
+          break
+        case ReservationStatus.CANCELLED:
+          displayStatus = 'cancelled'
+          break
+      }
+    }
+
+    return {
+      folioNumber: folio.folioNumber,
+      id: folio.id,
+      reservationNumber: reservation?.reservationNumber || reservation?.confirmationCode || 'N/A',
+      guestName: guest ? `${guest.displayName}`.trim() : 'N/A',
+      arrival: reservation?.arrivedDate?.toFormat('yyyy-MM-dd') || 'N/A',
+      departure: reservation?.departDate?.toFormat('yyyy-MM-dd') || 'N/A',
+      status: displayStatus,
+      balance: folio.balance,
+      roomNumber: reservationRoom?.room?.roomNumber || 'N/A',
+      reservationId: reservation?.id,
+    }
+  })
 
   return {
     unpaidFolios: {
-      total: unpaidFolios.length,
-      totalAmount: totalUnpaidAmount,
-      overdueCount: overdueCount,
-      foliosList: unpaidFoliosList,
-      averageAmount: unpaidFolios.length > 0 ? Math.round((totalUnpaidAmount / unpaidFolios.length) * 100) / 100 : 0
+      total: formattedData.length,
+      foliosList: formattedData
     }
   }
 }
+
+
 }
