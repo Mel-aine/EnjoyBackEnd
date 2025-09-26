@@ -17,6 +17,7 @@ const PickupDropoffReportsController = () => import('#controllers/pickup_dropoff
 const GuestCheckoutReportsController = () => import('#controllers/guest_checkout_reports_controller')
 const DailyReceiptReportsController = () => import('#controllers/daily_receipt_reports_controller')
 const WorkOrderReportsController = () => import('#controllers/work_order_reports_controller')
+const RoomStatusReportsController = () => import('#controllers/room_status_controller')
 
 // Group all report routes under /api/reports prefix
 router.group(() => {
@@ -74,7 +75,7 @@ router.group(() => {
 
     // PDF
     router.post('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
-
+    router.post('/rooms-status',[ RoomStatusReportsController, 'generateRoomsByStatus'])
 
   }).prefix('/front-office')
 

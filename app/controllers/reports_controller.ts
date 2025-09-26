@@ -42,7 +42,6 @@ export default class ReportsController {
           message: 'Le type de rapport est requis'
         })
       }
-
       const reportFilters: ReportFilters = {
         hotelId: filters.hotelId ? parseInt(filters.hotelId) : undefined,
         startDate: filters.startDate,
@@ -53,7 +52,27 @@ export default class ReportsController {
         status: filters.status,
         departmentId: filters.departmentId ? parseInt(filters.departmentId) : undefined,
         bookingSourceId: filters.bookingSourceId ? parseInt(filters.bookingSourceId) : undefined,
-        ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined
+        ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined,
+        
+        // AJOUTEZ TOUS CES CHAMPS MANQUANTS :
+        company: filters.company,
+        travelAgent: filters.travelAgent,
+        businessSource: filters.businessSource,
+        market: filters.market,
+        rateFrom: filters.rateFrom ? parseFloat(filters.rateFrom) : undefined,
+        rateTo: filters.rateTo ? parseFloat(filters.rateTo) : undefined,
+        reservationType: filters.reservationType,
+        taxInclusive: filters.taxInclusive !== undefined ? Boolean(filters.taxInclusive) : undefined,
+        selectedColumns: filters.selectedColumns,
+        showAmount: filters.showAmount as 'rent_per_night' | 'total_amount',
+        
+        // Ajoutez aussi ces champs si nécessaires :
+        arrivalFrom: filters.arrivalFrom,
+        arrivalTo: filters.arrivalTo,
+        roomType: filters.roomType,
+        rateType: filters.rateType,
+        user: filters.user,
+        checkin: filters.checkin
       }
 
       let reportData
