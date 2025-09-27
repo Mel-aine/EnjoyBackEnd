@@ -552,7 +552,51 @@ declare reservations: HasMany<typeof Reservation>
   }
 
   get displayName() {
-    return `${this.confirmationNumber || this.reservationNumber} - ${this.guest?.firstName || 'Guest'}`
+    return `${this.confirmationCode} - ${this.guest?.firstName} ${this.guest?.lastName}`
+  }
+
+  /**
+   * Détermine si la réservation est un dayuse (check-in et check-out le même jour)
+   */
+  get dayuse(): boolean {
+    if (!this.checkInDate || !this.checkOutDate) {
+      return false
+    }
+    
+    // Comparer seulement les dates (sans l'heure)
+    const checkInDateOnly = this.arrivedDate?.toFormat('yyyy-MM-dd')
+    const checkOutDateOnly = this.departDate?.toFormat('yyyy-MM-dd')
+    
+    return checkInDateOnly === checkOutDateOnly
+  }
+
+  /**
+   * Calcule la durée en heures pour un dayuse
+   */
+  get dayuseDuration(): number {
+    if (!this.dayuse || !this.checkInTime || !this.checkOutTime) {
+      return 0
+    }
+    
+    // Parser les heures au format hh:mm:ss
+    const parseTime = (timeStr: string) => {
+      const [hours, minutes, seconds] = timeStr.split(':').map(Number)
+      return hours + (minutes / 60) + (seconds / 3600)
+    }
+    
+    const checkInHours = parseTime(this.checkInTime)
+    const checkOutHours = parseTime(this.checkOutTime)
+    
+    // Calculer la différence en heures
+    let diffInHours = checkOutHours - checkInHours
+    
+    // Si le checkout est le lendemain (ex: checkin 23:00, checkout 02:00)
+    if (diffInHours < 0) {
+      diffInHours += 24
+    }
+    
+    // Arrondir à 2 décimales
+    return Math.round(diffInHours * 100) / 100
   }
 
 }

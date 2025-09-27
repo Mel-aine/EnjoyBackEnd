@@ -469,6 +469,9 @@ export default class FolioService {
           .orderBy('transactionDate', 'asc')
           .preload('paymentMethod')
       })
+      .preload('reservationRoom', (roomQuery) => {
+        roomQuery.preload('room')
+      })
       .firstOrFail()
   }
 
@@ -505,14 +508,11 @@ export default class FolioService {
       }
 
       // Validate source folio is not closed
-      if (sourceFolio.status === FolioStatus.CLOSED) {
+      /*if (sourceFolio.status === FolioStatus.CLOSED) {
         throw new Error('Cannot split transactions from a closed folio')
-      }
+      }*/
 
-      // Validate destination folio is not closed
-      if (destinationFolio.status === FolioStatus.CLOSED) {
-        throw new Error('Cannot split transactions to a closed folio')
-      }
+    
 
       // Validate transactions exist and belong to source folio
       const transactionsToMove = await FolioTransaction.query({ client: trx })

@@ -374,18 +374,30 @@ export default class FoliosController {
     try {
       const folio = await Folio.query()
         .where('id', params.id)
-        .preload('guest')
         .preload('transactions', (query) => {
-          query.preload('paymentMethod', (builder) => {
-            builder.select('id', 'methodName')
-          })
+          query.where('isVoided', false)
+          query.select(['id', 'transactionDate', 'description', 'amount'])
           query.orderBy('transactionDate', 'asc')
         })
+        .preload('reservationRoom', (roomQuery) => {
+          roomQuery.select(['id','roomId'])
+          roomQuery.preload('room')
+        }).select('id', 'folioNumber','reservationRoomId')
         .firstOrFail()
+
+      // Format the response with only necessary fields
+      const formattedTransactions = folio.transactions.map(transaction => ({
+        folio: folio.folioNumber,
+        id: transaction.id,
+        transactionDate: transaction.transactionDate,
+        room: folio.reservationRoom?.room?.roomNumber || null,
+        description: transaction.description,
+        amount: transaction.amount
+      }))
 
       return response.ok({
         message: 'Folio statement retrieved successfully',
-        data: folio
+        data: formattedTransactions
       })
     } catch (error) {
       return response.badRequest({
@@ -678,7 +690,7 @@ export default class FoliosController {
 
           return {
             folioNumber: folio.folioNumber,
-            id:folio.id,
+            id: folio.id,
             reservationNumber: reservation?.reservationNumber || reservation?.confirmationCode || 'N/A',
             guestName: guest ? `${guest.displayName}`.trim() : 'N/A',
             arrival: reservation?.arrivedDate?.toFormat('yyyy-MM-dd') || 'N/A',
@@ -1446,7 +1458,18 @@ export default class FoliosController {
         }
       })
     } catch (error) {
+      // Handle validation errors specifically
+      if (error.code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({
+          success: false,
+          message: 'Validation failed',
+          errors: error.messages,
+          details: 'Please check the following validation errors and correct the input data'
+        })
+      }
+
       return response.badRequest({
+        success: false,
         message: 'Failed to add room charge',
         error: error.message
       })

@@ -571,7 +571,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           query
             .preload('room')
             .preload('paymentMethod')
-            .preload('roomRates', (queryRoom) => {
+            .preload('roomRates', (queryRoom:any) => {
               queryRoom.preload('rateType')
             })
             .preload('roomType')
@@ -1490,10 +1490,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
             .orWhereHas('reservationRooms', (roomQuery) => {
               roomQuery
-                .whereHas('room', (roomSubQuery) => {
+                .whereHas('room', (roomSubQuery:any) => {
                   roomSubQuery.where('room_number', 'like', `%${searchText}%`)
                 })
-                .orWhereHas('roomType', (roomTypeQuery) => {
+                .orWhereHas('roomType', (roomTypeQuery:any) => {
                   roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
                 })
             })
@@ -1526,7 +1526,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 4. Filter by roomType (product name)
       if (roomType) {
         query.whereHas('reservationRooms', (rspQuery) => {
-          rspQuery.whereHas('room', (spQuery) => {
+          rspQuery.whereHas('room', (spQuery:any) => {
             spQuery.where('room_type_id', roomType)
           })
         })
@@ -1561,8 +1561,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
           JSON.parse(auth.user?.permisPrivileges || '[]')
         )
 
+        // Include computed fields from the reservation model
+        const reservationData = reservation.toJSON()
+        
         return {
-          ...reservation.toJSON(),
+          ...reservationData,
+          // Add computed fields explicitly
+          dayuse: reservation.dayuse,
+          dayuseDuration: reservation.dayuseDuration,
+          totalOccupancy: reservation.totalOccupancy,
+          averageRatePerNight: reservation.averageRatePerNight,
+          isConfirmed: reservation.isConfirmed,
+          isCheckedIn: reservation.isCheckedIn,
+          isCheckedOut: reservation.isCheckedOut,
+          isCancelled: reservation.isCancelled,
+          isActive: reservation.isActive,
+          hasBalance: reservation.hasBalance,
+          isFullyPaid: reservation.isFullyPaid,
+          displayName: reservation.displayName,
+          // Additional calculated fields
           balanceSummary,
           availableActions,
         }
@@ -1590,10 +1607,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
             .orWhereHas('reservationRooms', (roomQuery) => {
               roomQuery
-                .whereHas('room', (roomSubQuery) => {
+                .whereHas('room', (roomSubQuery:any) => {
                   roomSubQuery.where('room_number', 'like', `%${searchText}%`)
                 })
-                .orWhereHas('roomType', (roomTypeQuery) => {
+                .orWhereHas('roomType', (roomTypeQuery:any) => {
                   roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
                 })
             })
@@ -1617,7 +1634,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       if (roomType) {
         totalQuery.whereHas('reservationRooms', (rspQuery) => {
-          rspQuery.whereHas('room', (spQuery) => {
+          rspQuery.whereHas('room', (spQuery:any) => {
             spQuery.where('room_type_id', roomType)
           })
         })
