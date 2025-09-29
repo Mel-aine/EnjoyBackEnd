@@ -1325,6 +1325,7 @@ export default class ReportsController {
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
+        roomQuery.preload('checkedInByUser')
         roomQuery.preload('roomRates', (rateQuery) => {
           rateQuery.preload('rateType')
         })
@@ -1332,7 +1333,7 @@ export default class ReportsController {
       .preload('folios')
       .preload('guest')
       .preload('businessSource')
-    // .preload('checkedInByUser')
+    // 
 
     const roomChargesData = []
     let totals = {
