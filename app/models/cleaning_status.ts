@@ -21,7 +21,7 @@ export default class CleaningStatus extends BaseModel {
   @column()
   declare previousStatus: string
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'status_changed_at' })
   declare statusChangedAt: DateTime
 
   @column()
