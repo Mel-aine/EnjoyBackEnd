@@ -5,84 +5,155 @@ export default class DailySummaryFact extends BaseModel {
   public static table = 'daily_summary_facts'
 
   @column({ isPrimary: true })
-  public auditDate: DateTime
+  declare auditDate: DateTime
 
   @column()
-  public hotelId: number
+  declare hotelId: number
 
   // Revenue Fields
   @column()
-  public totalRoomRevenue: number
+  declare totalRoomRevenue: number
 
   @column()
-  public totalFoodBeverageRevenue: number
+  declare totalFoodBeverageRevenue: number
 
   @column()
-  public totalMiscellaneousRevenue: number
+  declare totalMiscellaneousRevenue: number
 
   @column()
-  public totalTaxes: number
+  declare totalTaxes: number
 
   @column()
-  public totalResortFees: number
+  declare totalResortFees: number
 
   @column()
-  public totalRevenue: number
+  declare totalRevenue: number
 
   @column()
-  public totalPayments: number
+  declare totalPayments: number
 
   @column()
-  public totalDiscounts: number
+  declare totalDiscounts: number
 
   // Occupancy Fields
   @column()
-  public occupiedRooms: number
+  declare occupiedRooms: number
 
   @column()
-  public totalAvailableRooms: number
+  declare totalAvailableRooms: number
 
   @column()
-  public occupancyRate: number
+  declare occupancyRate: number
 
   @column()
-  public revPAR: number // Revenue Per Available Room
+  declare revPAR: number // Revenue Per Available Room
 
   @column()
-  public adr: number // Average Daily Rate
+  declare adr: number // Average Daily Rate
 
   // Guest Activity Fields
   @column()
-  public numCheckedIn: number
+  declare numCheckedIn: number
 
   @column()
-  public numCheckedOut: number
+  declare numCheckedOut: number
 
   @column()
-  public numNoShows: number
+  declare numNoShows: number
 
   @column()
-  public numCancellations: number
+  declare numCancellations: number
 
   @column()
-  public numBookingsMade: number
+  declare numBookingsMade: number
 
   // Financial Fields
   @column()
-  public totalPaymentsReceived: number
+  declare totalPaymentsReceived: number
 
   @column()
-  public totalAccountsReceivable: number
+  declare totalAccountsReceivable: number
 
   @column()
-  public totalOutstandingFolios: number
+  declare totalOutstandingFolios: number
 
   @column()
-  public totalOutstandingFoliosBalance: number
+  declare totalOutstandingFoliosBalance: number
+
+  @column({
+    columnName: 'manager_report_data',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare managerReportData: object | null
+
+  @column({
+    columnName: 'night_audit_report_data',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare nightAuditReportData: object | null
+  @column({
+    columnName: 'daily_revenue_report_data',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare dailyRevenueReportData: object | null
+
+  @column({
+    columnName: 'room_status_report_data',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare roomStatusReportData: object | null
 
   @column.dateTime({ autoCreate: true })
-  public createdAt: DateTime
+  declare createdAt: DateTime
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
-  public updatedAt: DateTime
+  declare updatedAt: DateTime
 }

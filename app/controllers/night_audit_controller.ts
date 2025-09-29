@@ -8,7 +8,8 @@ export default class NightAuditController {
    * Calculate and store night audit data for a specific date
    * POST /api/night-audit
    */
-  public async calculateNightAudit({ request, response }: HttpContext) {
+  public async calculateNightAudit(ctx: HttpContext) {
+    const { request, response,auth } = ctx;
     try {
       const validationSchema = vine.object({
         auditDate: vine.string(),
@@ -33,7 +34,8 @@ export default class NightAuditController {
       // Calculate night audit
       const auditSummary = await NightAuditService.calculateNightAudit({
         auditDate: parsedAuditDate,
-        hotelId
+        hotelId: Number(hotelId),
+        userId: Number(auth.user?.id)
       })
 
       return response.ok({

@@ -7,10 +7,12 @@ import Folio from '#models/folio'
 import Database from '@adonisjs/lucid/services/db'
 import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
 import LoggerService from '#services/logger_service'
+import ReportsController from '#controllers/reports_controller'
 
 export interface NightAuditFilters {
   auditDate: DateTime
   hotelId: number
+  userId: number
 }
 
 export interface NightAuditSummary {
@@ -53,7 +55,7 @@ export default class NightAuditService {
    * Calculate and store night audit data for a specific date
    */
   static async calculateNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
-    const { auditDate, hotelId } = filters
+    const { auditDate, hotelId,userId } = filters
 
     // Calculate all metrics in parallel for better performance
     const [
@@ -77,8 +79,17 @@ export default class NightAuditService {
       ...financialMetrics
     }
 
-    // Store the calculated data
-    await this.storeDailySummary(summary)
+    // Generate all report data
+    const reportsController = new ReportsController()
+    const [sectionsData, nightAuditData, dailyRevenueData, roomStatusData] = await Promise.all([
+      reportsController.generateManagementReportSections(hotelId, auditDate, 'XAF'),
+      reportsController.generateNightAuditSections(hotelId, auditDate, 'XAF'),
+      reportsController.getDailyRevenueData(hotelId, auditDate, []),
+      reportsController.getRoomStatusReportData(hotelId, auditDate, 'XAF')
+    ])
+
+    // Store the calculated data with all report data
+    await this.storeDailySummary(summary, userId, sectionsData, nightAuditData, dailyRevenueData, roomStatusData)
 
     return summary
   }
@@ -293,7 +304,14 @@ export default class NightAuditService {
   /**
    * Store the calculated daily summary
    */
-  private static async storeDailySummary(summary: NightAuditSummary, userId?: number): Promise<DailySummaryFact> {
+  private static async storeDailySummary(
+    summary: NightAuditSummary, 
+    userId?: number, 
+    managerReportData?: any,
+    nightAuditReportData?: any,
+    dailyRevenueReportData?: any,
+    roomStatusReportData?: any
+  ): Promise<DailySummaryFact> {
     // Check if record already exists for this date and hotel
     const existing = await DailySummaryFact.query()
       .where('audit_date', summary.auditDate.toJSDate())
@@ -324,7 +342,11 @@ export default class NightAuditService {
       totalPaymentsReceived: summary.totalPaymentsReceived,
       totalAccountsReceivable: summary.totalAccountsReceivable,
       totalOutstandingFolios: summary.totalOutstandingFolios,
-      totalOutstandingFoliosBalance: summary.totalOutstandingFoliosBalance
+      totalOutstandingFoliosBalance: summary.totalOutstandingFoliosBalance,
+      managerReportData: managerReportData,
+      nightAuditReportData: nightAuditReportData,
+      dailyRevenueReportData: dailyRevenueReportData,
+      roomStatusReportData: roomStatusReportData
     }
 
     if (existing) {

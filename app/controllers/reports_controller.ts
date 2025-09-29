@@ -4,11 +4,12 @@ import ReportsService, {
 } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
-import { ReservationStatus, TransactionCategory, TransactionType } from '#app/enums'
+import { PaymentMethodType, ReservationStatus, TransactionCategory, TransactionType } from '#app/enums'
 import PaymentMethod from '#models/payment_method'
 import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
 import Database from '@adonisjs/lucid/services/db'
+import NightAuditService from '../services/night_audit_service.js'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -53,7 +54,7 @@ export default class ReportsController {
         departmentId: filters.departmentId ? parseInt(filters.departmentId) : undefined,
         bookingSourceId: filters.bookingSourceId ? parseInt(filters.bookingSourceId) : undefined,
         ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined,
-        
+
         // AJOUTEZ TOUS CES CHAMPS MANQUANTS :
         company: filters.company,
         travelAgent: filters.travelAgent,
@@ -65,7 +66,7 @@ export default class ReportsController {
         taxInclusive: filters.taxInclusive !== undefined ? Boolean(filters.taxInclusive) : undefined,
         selectedColumns: filters.selectedColumns,
         showAmount: filters.showAmount as 'rent_per_night' | 'total_amount',
-        
+
         // Ajoutez aussi ces champs si nécessaires :
         arrivalFrom: filters.arrivalFrom,
         arrivalTo: filters.arrivalTo,
@@ -618,139 +619,15 @@ export default class ReportsController {
 
       // Import models
       const { default: Hotel } = await import('#models/hotel')
-      const { default: Room } = await import('#models/room')
-      const { default: Reservation } = await import('#models/reservation')
-
       // Get hotel information
       const hotel = await Hotel.findOrFail(hotelId)
-
-      // Get all rooms for the hotel
-      const rooms = await Room.query()
-        .where('hotel_id', hotelId)
-
-        .preload('roomType')
-        .orderBy('floor_number', 'asc')
-        .orderBy('room_number', 'asc')
-
-      // Get reservations for the specific date
-      const reservations = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .where('arrived_date', '<=', reportDate.toSQLDate())
-        .where('depart_date', '>', reportDate.toSQLDate())
-        .whereNotIn('status', ['cancelled', 'voided'])
-        .preload('reservationRooms')
-        .preload('guest')
-
-      // Get room blocks for the specified date
-      const { default: RoomBlock } = await import('#models/room_block')
-      const roomBlocks = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
-        .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
-        .where('status', '!=', 'completed')
-
-      // Categorize rooms by status
-      const roomsByStatus = {
-        occupied: [] as any[],
-        dueOut: [] as any[],
-        vacant: [] as any[],
-        departed: [] as any[],
-        reserved: [] as any[],
-        blocked: [] as any[]
-      }
-
-      // Get reservations checking out today
-      const checkingOutToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .where('depart_date', reportDate.toSQLDate())
-        .where('status', 'checked_in')
-        .preload('reservationRooms')
-
-      // Get reservations arriving today
-      const arrivingToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .where('arrived_date', reportDate.toSQLDate())
-        .where('status', 'confirmed')
-        .preload('reservationRooms')
-
-      // Get departed rooms (checked out today)
-      const departedToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .where('depart_date', reportDate.toSQLDate())
-        .where('status', 'checked_out')
-        .preload('reservationRooms')
-
-      // Create sets for quick lookup
-      const occupiedRoomIds = new Set<number>()
-      const dueOutRoomIds = new Set<number>()
-      const reservedRoomIds = new Set<number>()
-      const departedRoomIds = new Set<number>()
-      const blockedRoomIds = new Set<number>()
-
-      // Process room blocks
-      roomBlocks.forEach((block: any) => {
-        blockedRoomIds.add(block.roomId)
-      })
-
-      // Process current reservations
-      reservations.forEach(reservation => {
-        reservation.reservationRooms.forEach(rr => {
-          if (rr.roomId) {
-            occupiedRoomIds.add(rr.roomId)
-          }
-        })
-      })
-
-      // Process due out rooms
-      checkingOutToday.forEach(reservation => {
-        reservation.reservationRooms.forEach(rr => {
-          if (rr.roomId) {
-            dueOutRoomIds.add(rr.roomId)
-          }
-        })
-      })
-
-      // Process arriving today (reserved)
-      arrivingToday.forEach(reservation => {
-        reservation.reservationRooms.forEach(rr => {
-          if (rr.roomId) {
-            reservedRoomIds.add(rr.roomId)
-          }
-        })
-      })
-
-      // Process departed rooms
-      departedToday.forEach(reservation => {
-        reservation.reservationRooms.forEach(rr => {
-          if (rr.roomId) {
-            departedRoomIds.add(rr.roomId)
-          }
-        })
-      })
-
-      // Categorize all rooms
-      rooms.forEach(room => {
-        const roomInfo = {
-          roomNumber: room.roomNumber,
-          roomType: room.roomType?.roomTypeName || 'Unknown',
-          floorNumber: room.floorNumber
-        }
-
-        if (departedRoomIds.has(room.id)) {
-          roomsByStatus.departed.push(roomInfo)
-        } else if (dueOutRoomIds.has(room.id)) {
-          roomsByStatus.dueOut.push(roomInfo)
-        } else if (occupiedRoomIds.has(room.id)) {
-          roomsByStatus.occupied.push(roomInfo)
-        } else if (reservedRoomIds.has(room.id)) {
-          roomsByStatus.reserved.push(roomInfo)
-        } else if (blockedRoomIds.has(room.id)) {
-          roomsByStatus.blocked.push(roomInfo)
-        } else {
-          roomsByStatus.vacant.push(roomInfo)
-        }
-      })
-
+// Generate all sections data
+      const auditDetails = await NightAuditService.getNightAuditDetails(
+        reportDate,
+        Number(hotelId)
+      )
+      const roomsByStatus = auditDetails?.roomStatusReportData;
+      logger.info(roomsByStatus)
       // Get authenticated user information
       const user = auth.user
       const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
@@ -1363,8 +1240,12 @@ export default class ReportsController {
       const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
 
       // Generate all sections data
-      const sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
-
+      const auditDetails = await NightAuditService.getNightAuditDetails(
+        reportDate,
+        Number(hotelId)
+      )
+      //const sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
+      const sectionsData = auditDetails?.nightAuditReportData;
       // Generate HTML content
       const htmlContent = this.generateNightAuditReportHtml(
         hotel.hotelName,
@@ -1399,7 +1280,7 @@ export default class ReportsController {
   /**
    * Generate all sections data for Night Audit Report
    */
-  private async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
+  public async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
 
 
     // Section 1: Room Charges
@@ -1916,6 +1797,141 @@ export default class ReportsController {
       reserved: reservedCount,
       blocked: blockedCount
     }
+  }
+
+  /**
+   * Get room status report data for daily summary fact
+   */
+  public async getRoomStatusReportData(hotelId: number, reportDate: DateTime, currency: string) {
+    // Import models
+    const { default: Room } = await import('#models/room')
+    const { default: Reservation } = await import('#models/reservation')
+    // Get all rooms for the hotel
+    const rooms = await Room.query()
+      .where('hotel_id', hotelId)
+      .preload('roomType')
+      .orderBy('floor_number', 'asc')
+      .orderBy('room_number', 'asc')
+
+    // Get reservations for the specific date
+    const reservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', '<=', reportDate.toSQLDate())
+      .where('depart_date', '>', reportDate.toSQLDate())
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .preload('reservationRooms')
+      .preload('guest')
+
+    // Get room blocks for the specified date
+    const { default: RoomBlock } = await import('#models/room_block')
+    const roomBlocks = await RoomBlock.query()
+      .where('hotel_id', hotelId)
+      .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+      .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
+      .where('status', '!=', 'completed')
+
+    // Categorize rooms by status
+    const roomsByStatus = {
+      occupied: [] as any[],
+      dueOut: [] as any[],
+      vacant: [] as any[],
+      departed: [] as any[],
+      reserved: [] as any[],
+      blocked: [] as any[]
+    }
+
+    // Get reservations checking out today
+    const checkingOutToday = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('depart_date', reportDate.toSQLDate())
+      .where('status', 'checked_in')
+      .preload('reservationRooms')
+
+    // Get reservations arriving today
+    const arrivingToday = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', reportDate.toSQLDate())
+      .where('status', 'confirmed')
+      .preload('reservationRooms')
+
+    // Get departed rooms (checked out today)
+    const departedToday = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('depart_date', reportDate.toSQLDate())
+      .where('status', 'checked_out')
+      .preload('reservationRooms')
+
+    // Create sets for quick lookup
+    const occupiedRoomIds = new Set<number>()
+    const dueOutRoomIds = new Set<number>()
+    const reservedRoomIds = new Set<number>()
+    const departedRoomIds = new Set<number>()
+    const blockedRoomIds = new Set<number>()
+
+    // Process room blocks
+    roomBlocks.forEach((block: any) => {
+      blockedRoomIds.add(block.roomId)
+    })
+
+    // Process current reservations
+    reservations.forEach(reservation => {
+      reservation.reservationRooms.forEach(rr => {
+        if (rr.roomId) {
+          occupiedRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    // Process due out rooms
+    checkingOutToday.forEach(reservation => {
+      reservation.reservationRooms.forEach(rr => {
+        if (rr.roomId) {
+          dueOutRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    // Process arriving today (reserved)
+    arrivingToday.forEach(reservation => {
+      reservation.reservationRooms.forEach(rr => {
+        if (rr.roomId) {
+          reservedRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    // Process departed rooms
+    departedToday.forEach(reservation => {
+      reservation.reservationRooms.forEach(rr => {
+        if (rr.roomId) {
+          departedRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    // Categorize all rooms
+    rooms.forEach(room => {
+      const roomInfo = {
+        roomNumber: room.roomNumber,
+        roomType: room.roomType?.roomTypeName || 'Unknown',
+        floorNumber: room.floorNumber
+      }
+
+      if (departedRoomIds.has(room.id)) {
+        roomsByStatus.departed.push(roomInfo)
+      } else if (dueOutRoomIds.has(room.id)) {
+        roomsByStatus.dueOut.push(roomInfo)
+      } else if (occupiedRoomIds.has(room.id)) {
+        roomsByStatus.occupied.push(roomInfo)
+      } else if (reservedRoomIds.has(room.id)) {
+        roomsByStatus.reserved.push(roomInfo)
+      } else if (blockedRoomIds.has(room.id)) {
+        roomsByStatus.blocked.push(roomInfo)
+      } else {
+        roomsByStatus.vacant.push(roomInfo)
+      }
+    })
+    return roomsByStatus;
   }
 
   /**
@@ -2479,8 +2495,12 @@ export default class ReportsController {
       const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
 
       // Generate all sections data
-      const sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
-
+      // const sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
+      const auditDetails = await NightAuditService.getNightAuditDetails(
+        reportDate,
+        Number(hotelId)
+      )
+      const sectionsData = auditDetails?.managerReportData;
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
         hotel.hotelName,
@@ -2515,7 +2535,7 @@ export default class ReportsController {
   /**
    * Generate all sections data for Management Report
    */
-  private async generateManagementReportSections(hotelId: number, reportDate: DateTime, currency: string) {
+  public async generateManagementReportSections(hotelId: number, reportDate: DateTime, currency: string) {
     // Calculate PTD (Period To Date) - first day of month to report date
     const ptdStartDate = reportDate.startOf('month')
 
@@ -2964,13 +2984,15 @@ export default class ReportsController {
           Math.abs(amount) < 1 // Small amounts are likely round offs
 
         const adjustmentType = isRoundOff ? 'Round Off' : description
+        if (isRoundOff) {
+          if (!adjustmentTypes[adjustmentType]) {
+            adjustmentTypes[adjustmentType] = 0
+          }
 
-        if (!adjustmentTypes[adjustmentType]) {
-          adjustmentTypes[adjustmentType] = 0
+          adjustmentTypes[adjustmentType] += amount
+          totalAmount += amount
         }
 
-        adjustmentTypes[adjustmentType] += amount
-        totalAmount += amount
       })
 
       return { types: adjustmentTypes, total: totalAmount }
@@ -3090,7 +3112,7 @@ export default class ReportsController {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
 
     const getPaymentsByMethod = async (startDate: DateTime, endDate: DateTime) => {
-      const paymentMethods = await PaymentMethod.query().where('hotel_id', hotelId);
+      const paymentMethods = await PaymentMethod.query().where('hotel_id', hotelId).where('methodType', PaymentMethodType.CASH);
       const payments = await FolioTransaction.query()
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
@@ -3187,14 +3209,14 @@ export default class ReportsController {
       const openingBalancePTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('transaction_date', '<', ptdStartDate)
+        .where('transaction_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalanceYTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('transaction_date', '<', ytdStartDate)
+        .where('transaction_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3203,7 +3225,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3211,7 +3233,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3219,7 +3241,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3228,7 +3250,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3236,7 +3258,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3244,7 +3266,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3253,7 +3275,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3261,7 +3283,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3269,7 +3291,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3335,7 +3357,6 @@ export default class ReportsController {
       const advanceDepositPaymentMethods = await PaymentMethod.query()
         .where('hotel_id', hotelId)
         .where('method_type', PaymentMethodType.CASH)
-        .where('is_active', true)
 
       const advanceDepositPaymentMethodIds = advanceDepositPaymentMethods.map(pm => pm.id)
 
@@ -3352,7 +3373,7 @@ export default class ReportsController {
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('transaction_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
         .where('category', TransactionCategory.DEPOSIT)
         .where('is_voided', false)
         .sum('amount as total')
@@ -3360,14 +3381,14 @@ export default class ReportsController {
       const openingBalancePTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_date', '<', ptdStartDate)
+        .where('transaction_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalanceYTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_date', '<', ytdStartDate)
+        .where('transaction_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3377,7 +3398,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3386,7 +3407,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3405,7 +3426,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3414,7 +3435,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3484,7 +3505,6 @@ export default class ReportsController {
       const guestFolios = await Folio.query()
         .where('hotel_id', hotelId)
         .where('folio_type', FolioType.GUEST)
-        .where('is_active', true)
 
       const guestFolioIds = guestFolios.map(f => f.id)
 
@@ -3518,7 +3538,7 @@ export default class ReportsController {
       const openingBalanceYTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('transaction_date', '<', ytdStartDate)
+        .where('transaction_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3528,7 +3548,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3537,7 +3557,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3546,7 +3566,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3555,7 +3575,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3563,7 +3583,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3571,7 +3591,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3581,7 +3601,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('transaction_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3590,7 +3610,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('transaction_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3599,24 +3619,24 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
       // Calculate outstanding payments (current balance on guest folios)
       const outstandingToday = await Folio.query()
         .whereIn('id', guestFolioIds)
-        .where('updated_at', '<=', reportDate.endOf('day'))
+        .where('updated_at', '<=', reportDate.endOf('day').toFormat('yyyy-MM-dd'))
         .sum('balance as total')
 
       const outstandingPTD = await Folio.query()
         .whereIn('id', guestFolioIds)
-        .where('updated_at', '<=', reportDate.endOf('day'))
+        .where('updated_at', '<=', reportDate.endOf('day').toFormat('yyyy-MM-dd'))
         .sum('balance as total')
 
       const outstandingYTD = await Folio.query()
         .whereIn('id', guestFolioIds)
-        .where('updated_at', '<=', reportDate.endOf('day'))
+        .where('updated_at', '<=', reportDate.endOf('day').toFormat('yyyy-MM-dd'))
         .sum('balance as total')
 
       // Calculate closing balance
@@ -3686,62 +3706,62 @@ export default class ReportsController {
     }
   }
 
- private async getManagementStatisticsData(hotelId: number, reportDate: DateTime, roomCharges: any, roomSummary: any) {
-  try {
-    // Extract values from roomSummary
-    const totalAvailableRoomNights = roomSummary.totalAvailableRoomNights || { today: 0, ptd: 0, ytd: 0 };
-    const soldRooms = roomSummary.soldRoom || { today: 0, ptd: 0, ytd: 0 };
+  private async getManagementStatisticsData(hotelId: number, reportDate: DateTime, roomCharges: any, roomSummary: any) {
+    try {
+      // Extract values from roomSummary
+      const totalAvailableRoomNights = roomSummary.totalAvailableRoomNights || { today: 0, ptd: 0, ytd: 0 };
+      const soldRooms = roomSummary.soldRoom || { today: 0, ptd: 0, ytd: 0 };
 
-    // Extract values from roomCharges
-    const roomRevenue = roomCharges.roomCharges || { today: 0, ptd: 0, ytd: 0 };
+      // Extract values from roomCharges
+      const roomRevenue = roomCharges.roomCharges || { today: 0, ptd: 0, ytd: 0 };
 
-    // Calculate Occupancy Rate
-    const occupancyRate = {
-      today: totalAvailableRoomNights.today > 0 ? (soldRooms.today / totalAvailableRoomNights.today) * 100 : 0,
-      ptd: totalAvailableRoomNights.ptd > 0 ? (soldRooms.ptd / totalAvailableRoomNights.ptd) * 100 : 0,
-      ytd: totalAvailableRoomNights.ytd > 0 ? (soldRooms.ytd / totalAvailableRoomNights.ytd) * 100 : 0,
-    };
+      // Calculate Occupancy Rate
+      const occupancyRate = {
+        today: totalAvailableRoomNights.today > 0 ? (soldRooms.today / totalAvailableRoomNights.today) * 100 : 0,
+        ptd: totalAvailableRoomNights.ptd > 0 ? (soldRooms.ptd / totalAvailableRoomNights.ptd) * 100 : 0,
+        ytd: totalAvailableRoomNights.ytd > 0 ? (soldRooms.ytd / totalAvailableRoomNights.ytd) * 100 : 0,
+      };
 
-    // Calculate Average Daily Rate (ADR)
-    const averageDailyRate = {
-      today: soldRooms.today > 0 ? roomRevenue.today / soldRooms.today : 0,
-      ptd: soldRooms.ptd > 0 ? roomRevenue.ptd / soldRooms.ptd : 0,
-      ytd: soldRooms.ytd > 0 ? roomRevenue.ytd / soldRooms.ytd : 0,
-    };
+      // Calculate Average Daily Rate (ADR)
+      const averageDailyRate = {
+        today: soldRooms.today > 0 ? roomRevenue.today / soldRooms.today : 0,
+        ptd: soldRooms.ptd > 0 ? roomRevenue.ptd / soldRooms.ptd : 0,
+        ytd: soldRooms.ytd > 0 ? roomRevenue.ytd / soldRooms.ytd : 0,
+      };
 
-    // Calculate Revenue Per Available Room (RevPAR)
-    const revenuePerAvailableRoom = {
-      today: totalAvailableRoomNights.today > 0 ? roomRevenue.today / totalAvailableRoomNights.today : 0,
-      ptd: totalAvailableRoomNights.ptd > 0 ? roomRevenue.ptd / totalAvailableRoomNights.ptd : 0,
-      ytd: totalAvailableRoomNights.ytd > 0 ? roomRevenue.ytd / totalAvailableRoomNights.ytd : 0,
-    };
+      // Calculate Revenue Per Available Room (RevPAR)
+      const revenuePerAvailableRoom = {
+        today: totalAvailableRoomNights.today > 0 ? roomRevenue.today / totalAvailableRoomNights.today : 0,
+        ptd: totalAvailableRoomNights.ptd > 0 ? roomRevenue.ptd / totalAvailableRoomNights.ptd : 0,
+        ytd: totalAvailableRoomNights.ytd > 0 ? roomRevenue.ytd / totalAvailableRoomNights.ytd : 0,
+      };
 
-    return {
-      occupancyRate: {
-        today: Math.round(occupancyRate.today * 100) / 100,
-        ptd: Math.round(occupancyRate.ptd * 100) / 100,
-        ytd: Math.round(occupancyRate.ytd * 100) / 100,
-      },
-      averageDailyRate: {
-        today: Math.round(averageDailyRate.today * 100) / 100,
-        ptd: Math.round(averageDailyRate.ptd * 100) / 100,
-        ytd: Math.round(averageDailyRate.ytd * 100) / 100,
-      },
-      revenuePerAvailableRoom: {
-        today: Math.round(revenuePerAvailableRoom.today * 100) / 100,
-        ptd: Math.round(revenuePerAvailableRoom.ptd * 100) / 100,
-        ytd: Math.round(revenuePerAvailableRoom.ytd * 100) / 100,
-      },
-    };
-  } catch (error) {
-    console.error('Error in getManagementStatisticsData:', error);
-    return {
-      occupancyRate: { today: 0, ptd: 0, ytd: 0 },
-      averageDailyRate: { today: 0, ptd: 0, ytd: 0 },
-      revenuePerAvailableRoom: { today: 0, ptd: 0, ytd: 0 },
-    };
+      return {
+        occupancyRate: {
+          today: Math.round(occupancyRate.today * 100) / 100,
+          ptd: Math.round(occupancyRate.ptd * 100) / 100,
+          ytd: Math.round(occupancyRate.ytd * 100) / 100,
+        },
+        averageDailyRate: {
+          today: Math.round(averageDailyRate.today * 100) / 100,
+          ptd: Math.round(averageDailyRate.ptd * 100) / 100,
+          ytd: Math.round(averageDailyRate.ytd * 100) / 100,
+        },
+        revenuePerAvailableRoom: {
+          today: Math.round(revenuePerAvailableRoom.today * 100) / 100,
+          ptd: Math.round(revenuePerAvailableRoom.ptd * 100) / 100,
+          ytd: Math.round(revenuePerAvailableRoom.ytd * 100) / 100,
+        },
+      };
+    } catch (error) {
+      console.error('Error in getManagementStatisticsData:', error);
+      return {
+        occupancyRate: { today: 0, ptd: 0, ytd: 0 },
+        averageDailyRate: { today: 0, ptd: 0, ytd: 0 },
+        revenuePerAvailableRoom: { today: 0, ptd: 0, ytd: 0 },
+      };
+    }
   }
-}
 
   private async getManagementRoomSummaryData(hotelId: number, reportDate: DateTime) {
     try {
@@ -3779,21 +3799,21 @@ export default class ReportsController {
       // Get guest counts (adults and children) for each period
       const guestCountsToday = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('arrived_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .sum('adults as adults')
         .sum('children as children')
 
       const guestCountsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('arrived_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .sum('adults as adults')
         .sum('children as children')
 
       const guestCountsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('arrived_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .sum('adults as adults')
         .sum('children as children')
@@ -3860,21 +3880,21 @@ export default class ReportsController {
       // Get complimentary rooms for each period
       const complimentaryRoomsToday = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('arrived_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('complimentary_room', true)
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
 
       const complimentaryRoomsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('arrived_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('complimentary_room', true)
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
 
       const complimentaryRoomsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('arrived_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('complimentary_room', true)
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
@@ -3882,19 +3902,19 @@ export default class ReportsController {
       // Get no show rooms for each period
       const noShowRoomsToday = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+        .whereBetween('arrived_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('status', 'no_show')
         .count('* as total')
 
       const noShowRoomsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+        .whereBetween('arrived_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('status', 'no_show')
         .count('* as total')
 
       const noShowRoomsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('arrived_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('status', 'no_show')
         .count('* as total')
 
@@ -5116,9 +5136,8 @@ export default class ReportsController {
   /**
    * Get daily revenue data by different revenue types
    */
-  private async getDailyRevenueData(hotelId: number, reportDate: DateTime, revenueTypes: string[]) {
+  public async getDailyRevenueData(hotelId: number, reportDate: DateTime, revenueTypes: string[]) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
-    const { default: Reservation } = await import('#models/reservation')
 
     // Get all transactions for the specific date
     const transactions = await FolioTransaction.query()
@@ -5481,7 +5500,11 @@ export default class ReportsController {
       ]
 
       // Get daily revenue data
-      const revenueData = await this.getDailyRevenueData(parseInt(hotelId), reportDate, revenueTypes)
+       const auditDetails = await NightAuditService.getNightAuditDetails(
+        reportDate,
+        Number(hotelId)
+      )
+      const revenueData = auditDetails?.dailyRevenueReportData
 
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
