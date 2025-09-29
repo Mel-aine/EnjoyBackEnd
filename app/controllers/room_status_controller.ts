@@ -206,12 +206,12 @@ export default class RoomStatusReportsController {
           totalWithObservations,
           statusBreakdown: statsCount,
           legend: [
-            `OP : OCCUPE PROPRE${'.'.repeat(50)}${statsCount.OP.toString().padStart(2, '0')}     OS : OCCUPER SALE${'.'.repeat(50)}${statsCount.OS.toString().padStart(2, '0')}`,
-            `LP : LIBRE PROPRE${'.'.repeat(51)}${statsCount.LP.toString().padStart(2, '0')}     LS : LIBRE SALE${'.'.repeat(54)}${statsCount.LS.toString().padStart(2, '0')}`,
-            `AR : Arrivée${'.'.repeat(58)}${statsCount.AR.toString().padStart(2, '0')}     DP : Départ${'.'.repeat(58)}${statsCount.DP.toString().padStart(2, '0')}`,
-            `DT : Départ tardif${'.'.repeat(52)}${statsCount.DT.toString().padStart(2, '0')}     DL : Délogement${'.'.repeat(54)}${statsCount.DL.toString().padStart(2, '0')}`,
-            `RS : Réservation${'.'.repeat(54)}${statsCount.RS.toString().padStart(2, '0')}     HS : HORS SERVICE${'.'.repeat(52)}${statsCount.HS.toString().padStart(2, '0')}`,
-            `RM : Refus ménage${'.'.repeat(53)}${statsCount.RM.toString().padStart(2, '0')}     DG : Autre statut${'.'.repeat(52)}${statsCount.DG.toString().padStart(2, '0')}`
+            `OP : OCCUPE PROPRE${'.'.repeat(50)}${statsCount.OP.toString().padStart(1, '0')}     OS : OCCUPER SALE${'.'.repeat(50)}${statsCount.OS.toString().padStart(1, '0')}`,
+            `LP : LIBRE PROPRE${'.'.repeat(51)}${statsCount.LP.toString().padStart(1, '0')}     LS : LIBRE SALE${'.'.repeat(54)}${statsCount.LS.toString().padStart(1, '0')}`,
+            `AR : Arrivée${'.'.repeat(58)}${statsCount.AR.toString().padStart(1, '0')}     DP : Départ${'.'.repeat(58)}${statsCount.DP.toString().padStart(1, '0')}`,
+            `DT : Départ tardif${'.'.repeat(52)}${statsCount.DT.toString().padStart(1, '0')}     DL : Délogement${'.'.repeat(54)}${statsCount.DL.toString().padStart(1, '0')}`,
+            `RS : Réservation${'.'.repeat(54)}${statsCount.RS.toString().padStart(1, '0')}     HS : HORS SERVICE${'.'.repeat(52)}${statsCount.HS.toString().padStart(1, '0')}`,
+            `RM : Refus ménage${'.'.repeat(53)}${statsCount.RM.toString().padStart(1, '0')}     DG : Autre statut${'.'.repeat(52)}${statsCount.DG.toString().padStart(1, '0')}`
           ],
          /*  legend: {
             OP: 'Occupé Propre',
