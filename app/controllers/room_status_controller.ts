@@ -63,7 +63,6 @@ export default class RoomStatusReportsController {
             return 'None'
           
           case 'available':
-          case 'vacant':
             if (isClean) return 'LP'
             if (isDirty) return 'LS'
             return 'None'
@@ -88,7 +87,7 @@ export default class RoomStatusReportsController {
           case 'reservation':
             return 'RS'
           
-          case 'out_of_order':
+          case 'out_of_order':        
           case 'out_of_service':
             return 'HS'
           
@@ -214,14 +213,14 @@ export default class RoomStatusReportsController {
             hshLs: cumulHshLs
           },
           // Format exact comme demandé
-          legend: {
-            line1: `OP : OCCUPE PROPRE…………………………………………………….${statsCount.OP.toString().padStart(2, '0')}      OS : OCCUPER SALE………..……….………………………………..………….${statsCount.OS.toString().padStart(2, '0')}`,
-            line2: `LP : LIBRE PROPRE……………………….……………………………….…${statsCount.LP.toString().padStart(2, '0')}      LS : LIBRE SALE……………….………….…….......................................${statsCount.LS.toString().padStart(2, '0')}`,
-            line3: `AR : Arrivée…………………………………………………………….………${statsCount.AR.toString().padStart(2, '0')}      DP : Départ……...…….………..….………………..…..…..…..……….….…...${statsCount.DP.toString().padStart(2, '0')}`,
-            line4: `DT : Départ tardif …………………………………………..………………${statsCount.DT.toString().padStart(2, '0')}       DL : Délogement : ……….……………………………………………………...…${statsCount.DL.toString().padStart(2, '0')}`,
-            line5: `RS :  Réservation……………….....…………………………….………...${statsCount.RS.toString().padStart(2, '0')}       HS : HORS SERVICE….…….…….……..………………..…….……..………....${statsCount.HS.toString().padStart(2, '0')}`,
-            line6: `CN : CUMULE Nuitée……………………........${totalRooms} HSH-LS ${cumulHshLs}       RM : Refus ménage…………..………………...……..…..….………...…….${statsCount.RM.toString().padStart(2, '0')}`
-          }
+          legend: [
+            `OP : OCCUPE PROPRE ${statsCount.OP.toString().padStart(2, '0')}  OS : OCCUPER SALE ${statsCount.OS.toString().padStart(2, '0')}`,
+            `LP : LIBRE PROPRE ${statsCount.LP.toString().padStart(2, '0')}  LS : LIBRE SALE ${statsCount.LS.toString().padStart(2, '0')}`,
+            `AR : Arrivée ${statsCount.AR.toString().padStart(2, '0')}  DP : Départ ${statsCount.DP.toString().padStart(2, '0')}`,
+            `DT : Départ tardif ${statsCount.DT.toString().padStart(2, '0')}  DL : Délogement ${statsCount.DL.toString().padStart(2, '0')}`,
+            `RS :  Réservation ${statsCount.RS.toString().padStart(2, '0')}  HS : HORS SERVICE ${statsCount.HS.toString().padStart(2, '0')}`,
+            `CN : CUMULE Nuitée ${totalRooms} HSH-LS ${cumulHshLs}  RM : Refus ménage ${statsCount.RM.toString().padStart(2, '0')}`
+          ]
         }
       }
 
