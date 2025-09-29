@@ -416,9 +416,6 @@ async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) 
   try {
     const roomTypeId = params.roomTypeId
     const { startDate, endDate } = request.only(['startDate', 'endDate'])
-    console.log('RoomTypeId:', roomTypeId)
-    console.log('Date range:', startDate, endDate)
-
     // Validate room type exists
     const roomType = await RoomType.findOrFail(roomTypeId)
     console.log('Room type found:', roomType)
@@ -437,7 +434,7 @@ async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) 
     // Récupérer les blocks pour ce type de chambre à la date cible
    const blockedRoomsResult = await RoomBlock.query()
     .where('room_type_id', roomTypeId)
-    .whereNot('status', 'completed')
+   // .whereNot('status', 'completed')
     .where(function (query) {
       query
         .where('block_from_date', '<=', endDate)
