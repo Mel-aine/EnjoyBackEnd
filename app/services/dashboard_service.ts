@@ -140,7 +140,7 @@ export class RoomAnalyticsService {
         const countResult = await Reservation
           .query()
           .where('hotel_id', serviceId)
-          .whereBetween('bookingDate', [start, end])
+          .whereBetween('createdAt', [start, end])
           .count('* as count')
 
         const occupied = Number(countResult[0].$extras.count || '0')
@@ -193,7 +193,7 @@ export class RoomAnalyticsService {
         const start = now.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = now.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('createdAt', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -206,7 +206,7 @@ export class RoomAnalyticsService {
         const start = previousYear.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = previousYear.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('createdAt', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
