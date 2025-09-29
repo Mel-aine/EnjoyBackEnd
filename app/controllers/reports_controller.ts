@@ -1326,7 +1326,7 @@ export default class ReportsController {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
         roomQuery.preload('checkedInByUser')
-        roomQuery.preload('roomRates', (rateQuery) => {
+        roomQuery.preload('roomRates', (rateQuery:any) => {
           rateQuery.preload('rateType')
         })
       })
@@ -1367,7 +1367,7 @@ export default class ReportsController {
             totalTax: taxAmount,
             totalRent,
             variance: variance,
-            checkinBy: reservation.checkedInByUser ? `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : 'System'
+            checkinBy: reservationRoom.checkedInByUser ? `${reservationRoom.checkedInByUser.firstName} ${reservationRoom.checkedInByUser.lastName}` : 'N/A'
           })
 
           totals.normalTariff += Number(normalTariff)
@@ -2168,10 +2168,10 @@ export default class ReportsController {
                     <th>Company</th>
                     <th>Rent Date</th>
                     <th>Rate Type</th>
-                    <th>Nrml. Tariff (${currency})</th>
-                    <th>Ofrd.Tariff (${currency})</th>
-                    <th>Total Tax (${currency})</th>
-                    <th>Total Rent (${currency})</th>
+                    <th>Nrml.Tariff</th>
+                    <th>Ofrd.Tariff</th>
+                    <th>Total Tax</th>
+                    <th>Total Rent</th>
                     <th>Var %</th>
                     <th>Checkin By</th>
                 </tr>
