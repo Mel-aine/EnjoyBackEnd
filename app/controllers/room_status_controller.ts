@@ -60,13 +60,13 @@ export default class RoomStatusReportsController {
           case 'occupied':
             if (isClean) return 'OP'
             if (isDirty) return 'OS'
-            return 'DG' // Ni propre ni sale
+            return 'None'
           
           case 'available':
           case 'vacant':
             if (isClean) return 'LP'
             if (isDirty) return 'LS'
-            return 'DG' // Ni propre ni sale
+            return 'None'
           
           case 'arrival':
           case 'arriving':
@@ -93,11 +93,12 @@ export default class RoomStatusReportsController {
             return 'HS'
           
           default:
-            return 'DG'
+            return 'None'
         }
       }
 
       // Compteurs pour les statistiques globales
+      // IMPORTANT: On compte CHAQUE apparition du statut (matin ET soir)
       let statsCount = {
         OP: 0,  // Occupé Propre
         OS: 0,  // Occupé Sale
@@ -109,8 +110,7 @@ export default class RoomStatusReportsController {
         DL: 0,  // Délogement
         RS: 0,  // Réservation
         HS: 0,  // Hors Service
-        RM: 0,  // Refus Ménage
-        DG: 0   // Autre statut
+        RM: 0   // Refus Ménage
       }
 
       // Construire les données par type de chambre
@@ -140,11 +140,12 @@ export default class RoomStatusReportsController {
           const etatMatin = cleaningStatus?.morningStatus || getStatusCode(room.status, room.housekeepingStatus)
           const etatSoir = cleaningStatus?.eveningStatus || getStatusCode(room.status, room.housekeepingStatus)
           
-          // Compter les statuts pour les statistiques (matin et soir)
-          if (statsCount.hasOwnProperty(etatMatin)) {
+          // CORRECTION: Compter CHAQUE apparition séparément (matin ET soir)
+          // On ne vérifie plus si etatMatin !== etatSoir
+          if (statsCount.hasOwnProperty(etatMatin) && etatMatin !== 'None') {
             statsCount[etatMatin]++
           }
-          if (statsCount.hasOwnProperty(etatSoir) && etatMatin !== etatSoir) {
+          if (statsCount.hasOwnProperty(etatSoir) && etatSoir !== 'None') {
             statsCount[etatSoir]++
           }
           
@@ -189,6 +190,9 @@ export default class RoomStatusReportsController {
         sum + type.rooms.filter(room => room.observations !== '').length, 0
       )
 
+      // Calculer le cumul HSH-LS (Hors Service + Libre Sale)
+      const cumulHshLs = statsCount.HS + statsCount.LS
+
       // Préparer la réponse avec toutes les données
       const responseData = {
         hotelDetails: {
@@ -205,28 +209,19 @@ export default class RoomStatusReportsController {
           totalRooms,
           totalWithObservations,
           statusBreakdown: statsCount,
-          legend: [
-            `OP : OCCUPE PROPRE${'.'.repeat(50)}${statsCount.OP.toString().padStart(2, '0')}     OS : OCCUPER SALE${'.'.repeat(50)}${statsCount.OS.toString().padStart(2, '0')}`,
-            `LP : LIBRE PROPRE${'.'.repeat(51)}${statsCount.LP.toString().padStart(2, '0')}     LS : LIBRE SALE${'.'.repeat(54)}${statsCount.LS.toString().padStart(2, '0')}`,
-            `AR : Arrivée${'.'.repeat(58)}${statsCount.AR.toString().padStart(2, '0')}     DP : Départ${'.'.repeat(58)}${statsCount.DP.toString().padStart(2, '0')}`,
-            `DT : Départ tardif${'.'.repeat(52)}${statsCount.DT.toString().padStart(2, '0')}     DL : Délogement${'.'.repeat(54)}${statsCount.DL.toString().padStart(2, '0')}`,
-            `RS : Réservation${'.'.repeat(54)}${statsCount.RS.toString().padStart(2, '0')}     HS : HORS SERVICE${'.'.repeat(52)}${statsCount.HS.toString().padStart(2, '0')}`,
-            `RM : Refus ménage${'.'.repeat(53)}${statsCount.RM.toString().padStart(2, '0')}     DG : Autre statut${'.'.repeat(52)}${statsCount.DG.toString().padStart(2, '0')}`
-          ],
-         /*  legend: {
-            OP: 'Occupé Propre',
-            OS: 'Occupé Sale',
-            LP: 'Libre Propre',
-            LS: 'Libre Sale',
-            AR: 'Arrivée',
-            DP: 'Départ',
-            DT: 'Départ Tardif',
-            DL: 'Délogement',
-            RS: 'Réservation',
-            HS: 'Hors Service',
-            RM: 'Refus Ménage',
-            DG: 'Autre'
-          }, */
+          cumulNuitee: {
+            total: totalRooms,
+            hshLs: cumulHshLs
+          },
+          // Format exact comme demandé
+          legend: {
+            line1: `OP : OCCUPE PROPRE…………………………………………………….${statsCount.OP.toString().padStart(2, '0')}      OS : OCCUPER SALE………..……….………………………………..………….${statsCount.OS.toString().padStart(2, '0')}`,
+            line2: `LP : LIBRE PROPRE……………………….……………………………….…${statsCount.LP.toString().padStart(2, '0')}      LS : LIBRE SALE……………….………….…….......................................${statsCount.LS.toString().padStart(2, '0')}`,
+            line3: `AR : Arrivée…………………………………………………………….………${statsCount.AR.toString().padStart(2, '0')}      DP : Départ……...…….………..….………………..…..…..…..……….….…...${statsCount.DP.toString().padStart(2, '0')}`,
+            line4: `DT : Départ tardif …………………………………………..………………${statsCount.DT.toString().padStart(2, '0')}       DL : Délogement : ……….……………………………………………………...…${statsCount.DL.toString().padStart(2, '0')}`,
+            line5: `RS :  Réservation……………….....…………………………….………...${statsCount.RS.toString().padStart(2, '0')}       HS : HORS SERVICE….…….…….……..………………..…….……..………....${statsCount.HS.toString().padStart(2, '0')}`,
+            line6: `CN : CUMULE Nuitée……………………........${totalRooms} HSH-LS ${cumulHshLs}       RM : Refus ménage…………..………………...……..…..….………...…….${statsCount.RM.toString().padStart(2, '0')}`
+          }
         }
       }
 
