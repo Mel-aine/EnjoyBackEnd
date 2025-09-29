@@ -563,7 +563,7 @@ export default class PdfGenerationService {
         </div>
     </div>
 </body>
-</html>`
+    </html>`
   }
 
   /**

@@ -681,43 +681,82 @@ export class FolioPrintService {
     let totalServiceCharges = 0
     let totalDiscounts = 0
     let totalAdjustments = 0
-
+  
     transactions.forEach(transaction => {
-      if (transaction.transactionType === 'charge') {
-        totalCharges += transaction.amount
-
-        // Calculate tax based on room tax rates if not already calculated
-        if (!transaction.taxAmount && taxRates.length > 0) {
+      // CRITIQUE : Convertir TOUJOURS en nombre avec parseFloat
+      const amount = parseFloat(transaction.amount.toString()) || 0
+      const taxAmount = parseFloat(transaction.taxAmount?.toString() || '0')
+      const serviceChargeAmount = parseFloat(transaction.serviceChargeAmount?.toString() || '0')
+      const discountAmount = parseFloat(transaction.discountAmount?.toString() || '0')
+      
+      // Déterminer le type de transaction basé sur la description ou la catégorie
+      // puisque transactionType n'est pas disponible dans vos logs
+      const description = transaction.description?.toLowerCase() || ''
+      
+      if (description.includes('payment') || description.includes('paiement')) {
+        // C'est un paiement
+        totalPayments += Math.abs(amount)
+      } else if (description.includes('adjustment') || description.includes('ajustement')) {
+        // C'est un ajustement - traiter comme une charge
+        totalCharges += amount
+        
+        // Calculer la taxe si nécessaire
+        if (taxAmount === 0 && taxRates.length > 0) {
           const calculatedTax = this.calculateTaxForTransaction(transaction, taxRates)
           totalTax += calculatedTax
         } else {
-          totalTax += transaction.taxAmount || 0
+          totalTax += taxAmount
         }
-      } else if (transaction.transactionType === 'payment') {
-        totalPayments += Math.abs(transaction.amount)
-      } else if (transaction.transactionType === 'adjustment') {
-        totalAdjustments += transaction.amount
+      } else if (transaction.category === 'room' && !description.includes('payment')) {
+        // Charge de chambre
+        totalCharges += amount
+        
+        // Calculer la taxe si nécessaire
+        if (taxAmount === 0 && taxRates.length > 0) {
+          const calculatedTax = this.calculateTaxForTransaction(transaction, taxRates)
+          totalTax += calculatedTax
+        } else {
+          totalTax += taxAmount
+        }
+      } else if (transaction.category === 'extract_charge') {
+        // Transfert de charges
+        totalCharges += amount
+        totalTax += taxAmount
       } else {
-        totalTax += transaction.taxAmount || 0
+        // Autres transactions
+        totalCharges += amount
+        totalTax += taxAmount
       }
-
-      totalServiceCharges += transaction.serviceChargeAmount || 0
-      totalDiscounts += transaction.discountAmount || 0
+  
+      // Ajouter les frais de service et réductions
+      totalServiceCharges += serviceChargeAmount
+      totalDiscounts += discountAmount
     })
-
+  
+    // Calcul du total général - TOUS LES CALCULS SONT MAINTENANT NUMÉRIQUES
     const grandTotal = totalCharges + totalTax + totalServiceCharges - totalDiscounts
     const balance = grandTotal - totalPayments - totalAdjustments
-
-    return {
-      grandTotal,
-      totalTax,
-      totalPaid: totalPayments,
-      balance,
+  
+    console.log('DEBUG TOTALS:', {
       totalCharges,
-      totalPayments,
-      totalAdjustments,
+      totalTax,
+      totalServiceCharges,
       totalDiscounts,
-      totalServiceCharges
+      grandTotal,
+      totalPayments,
+      balance
+    })
+  
+    return {
+      grandTotal: parseFloat(grandTotal.toFixed(2)),
+      totalTax: parseFloat(totalTax.toFixed(2)),
+      totalPaid: parseFloat(totalPayments.toFixed(2)),
+      balance: parseFloat(balance.toFixed(2)),
+      totalCharges: parseFloat(totalCharges.toFixed(2)),
+      totalPayments: parseFloat(totalPayments.toFixed(2)),
+      totalAdjustments: parseFloat(totalAdjustments.toFixed(2)),
+      totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
+      totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2))
     }
   }
 }
