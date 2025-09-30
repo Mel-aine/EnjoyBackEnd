@@ -148,12 +148,12 @@
             <div class="detail-row">
                 <div class="detail-item">
                     <span class="detail-label">Room</span>
-                    <span class="detail-value dotted-line">302-SILX</span>
+                    <span class="detail-value dotted-line">{{room.roomNumber}}-{{roomType.roomTypeName}}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Receipt No.</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value">5465670</span>
+                    <span class="detail-value">{{transaction.transactionNumber}}</span>
                 </div>
             </div>
 
@@ -162,12 +162,12 @@
                 <div class="detail-item">
                     <span class="detail-label">Guest Name</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value">Mr Bob</span>
+                    <span class="detail-value">{{ guest.firstName}} {{guest.lastName}}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Folio No.</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value">165</span>
+                    <span class="detail-value">{{ folio.folioNumber}}</span>
                 </div>
             </div>
 
@@ -190,12 +190,12 @@
                 <div class="detail-item">
                     <span class="detail-label">Pay Method</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value">Cash</span>
+                    <span class="detail-value"></span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Amount</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value font-bold">13,440.00 $</span>
+                    <span class="detail-value font-bold">{{transaction.amount}}</span>
                 </div>
             </div>
             
