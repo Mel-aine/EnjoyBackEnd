@@ -379,7 +379,7 @@
         
         <!-- HEADER (Informations de l'hôtel) -->
         <header class="mb-6 text-sm">
-            <h1 class="text-lg font-bold">TAMISARL ({{ hotel.hotelName }})</h1>
+            <h1 class="text-lg font-bold">{{ hotel.hotelName }}</h1>
             <p>{{ hotel.address }}, {{ hotel.city }},{{ hotel.stateProvince }}, {{ hotel.country }}</p>
             <p>Phone: {{ hotel.phoneNumber }} | Email: {{ hotel.email }}</p>
             <p>URL: {{ hotel.website }}</p>
@@ -460,8 +460,8 @@
             <div class="table-header">
                 <div class="table-cell-desc font-bold">Particulars</div>
                 <div class="table-cell-qty font-bold">Quantity</div>
-                <div class="table-cell-rate font-bold">Rate ({{ transaction.currencyCode }})</div>
-                <div class="table-cell-amount font-bold">Amount ({{ transaction.currencyCode }})</div>
+                <div class="table-cell-rate font-bold">Rate ({{ transaction }})</div>
+                <div class="table-cell-amount font-bold">Amount ({{ transaction }})</div>
             </div>
 
             <div class="table-data">
