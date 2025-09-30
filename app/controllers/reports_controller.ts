@@ -7824,7 +7824,6 @@ export default class ReportsController {
         .preload('reservationRoom', (reservationRoomQuery) => {
           reservationRoomQuery.preload('room')
           reservationRoomQuery.preload('roomType')
-      
         })
         .preload('paymentMethod')
         .first()
