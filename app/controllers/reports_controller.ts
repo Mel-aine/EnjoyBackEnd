@@ -7754,7 +7754,6 @@ export default class ReportsController {
         .preload('folio', (folioQuery) => {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
-          folioQuery.preload('paymentMethod')
           folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
               reservationRoomQuery.preload('room',(roomQuery:any)=>{
                 roomQuery.preload('roomType')
