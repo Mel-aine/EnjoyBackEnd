@@ -7817,11 +7817,11 @@ export default class ReportsController {
       // Get the transaction with related data
       const transaction = await FolioTransaction.query()
         .where('id', transactionId)
-        .preload('folio', (folioQuery) => {
+        .preload('folio', (folioQuery:any) => {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
         })
-        .preload('reservationRoom', (reservationRoomQuery) => {
+        .preload('reservationRoom', (reservationRoomQuery : any) => {
           reservationRoomQuery.preload('room')
           reservationRoomQuery.preload('roomType')
         })
