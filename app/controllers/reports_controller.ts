@@ -10,6 +10,8 @@ import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
 import Database from '@adonisjs/lucid/services/db'
 import NightAuditService from '../services/night_audit_service.js'
+import FolioTransaction from '#models/folio_transaction'
+import Hotel from '#models/hotel'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -7736,5 +7738,143 @@ export default class ReportsController {
       }
     }
 
+  }
+
+  /**
+   * Print receipt for a transaction
+   */
+  async printReceipt({ params, response, auth }: HttpContext) {
+    try {
+      const transactionId = parseInt(params.transactionId)
+      
+      // Get the transaction with related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+        })
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      // Prepare data for the receipt template
+      const receiptData = {
+        transaction,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        folio: transaction.folio,
+        paymentMethod: transaction.paymentMethod,
+        printedBy: auth.user?.fullName || 'System',
+        printedAt: DateTime.now()
+      }
+
+      // Generate PDF using Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the template
+      const html = await edge.render('reports/receipt', receiptData)
+      
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="receipt-${transaction.transactionNumber}.pdf"`)
+      
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating receipt PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating receipt PDF',
+        error: error.message
+      })
+    }
+  }
+   async printInvoice({ params, response, auth }: HttpContext) {
+    try {
+      const transactionId = parseInt(params.transactionId)
+      
+      // Get the transaction with related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+        })
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      // Prepare data for the receipt template
+      const receiptData = {
+        transaction,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        folio: transaction.folio,
+        paymentMethod: transaction.paymentMethod,
+        printedBy: auth.user?.fullName || 'System',
+        printedAt: DateTime.now()
+      }
+
+      // Generate PDF using Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the template
+      const html = await edge.render('reports/invoice', receiptData)
+      
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="invoice-${transaction.transactionNumber}.pdf"`)
+      
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating receipt PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating receipt PDF',
+        error: error.message
+      })
+    }
   }
 }

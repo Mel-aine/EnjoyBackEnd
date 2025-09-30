@@ -39,6 +39,14 @@ router.group(() => {
   // Get report statistics for dashboard
   router.get('/stats', [ReportsController, 'getReportStats'])
 
+  // Receipt printing route
+  router.get('/receipt/:transactionId', [ReportsController, 'printReceipt'])
+
+  router.get('/invoice/:transactionId', [ReportsController, 'printInvoice'])
+
+
+
+
 
 
   // Specific report endpoints for direct access
@@ -75,7 +83,7 @@ router.group(() => {
 
     // PDF
     router.post('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
-    router.post('/rooms-status',[ RoomStatusReportsController, 'generateRoomsByStatus'])
+    router.post('/rooms-status', [RoomStatusReportsController, 'generateRoomsByStatus'])
 
   }).prefix('/front-office')
 
