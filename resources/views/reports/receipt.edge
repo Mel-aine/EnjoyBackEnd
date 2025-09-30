@@ -131,10 +131,12 @@
         
         <!-- HEADER (Informations de l'hôtel) -->
         <header class="header text-center">
-            <h1 class="header-title">Demo Hotel Royal Rituals</h1>
-            <p class="header-address">Near Surat RTO, Surat, Gujarat, 395007, India</p>
-            <p class="text-sm">Phone: 0011223344, Email: sujal.jain@ezeetechnosys.com</p>
-        </header>
+            <h1 class="header-title">Hotel Royal{{ hotel.hotelName}} </h1>
+            <p class="header-address">{{ hotel.address}},{{ hotel.city}},{{ hotel.stateProvince}}, {{ hotel.country}}</p>
+            <p class="text-sm">Phone: {{ hotel.phoneNumber}}, Email: {{ hotel.email}}</p>
+        </header> 
+
+       
 
         <!-- TITRE DU REÇU -->
         <h2 class="receipt-title">Receipt</h2>
