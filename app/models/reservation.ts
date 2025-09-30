@@ -16,6 +16,7 @@ import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
 import ReservationType from './reservation_type.js'
 import PaymentMethod from './payment_method.js'
+import MarketCode from './market_code.js'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -82,6 +83,15 @@ export default class Reservation extends BaseModel {
 
   @column({ columnName: 'special_notes' })
   declare specialNotes: string | null
+
+   @column({ columnName: 'bill_to' })
+  declare billTo: string | null
+
+   @column({ columnName: 'payment_type' })
+  declare paymentType: string | null
+
+   @column({ columnName: 'market_code_id' })
+  declare marketCodeId: number | null
 
   @column({ columnName: 'source_of_business' })
   declare sourceOfBusiness: string | null
@@ -435,6 +445,9 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'created_by' })
   declare creator: BelongsTo<typeof User>
 
+   @belongsTo(() => MarketCode, { foreignKey: 'marketCodeId' })
+  declare marketCode: BelongsTo<typeof MarketCode>
+
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
 
@@ -562,11 +575,11 @@ declare reservations: HasMany<typeof Reservation>
     if (!this.checkInDate || !this.checkOutDate) {
       return false
     }
-    
+
     // Comparer seulement les dates (sans l'heure)
     const checkInDateOnly = this.arrivedDate?.toFormat('yyyy-MM-dd')
     const checkOutDateOnly = this.departDate?.toFormat('yyyy-MM-dd')
-    
+
     return checkInDateOnly === checkOutDateOnly
   }
 
@@ -577,24 +590,24 @@ declare reservations: HasMany<typeof Reservation>
     if (!this.dayuse || !this.checkInTime || !this.checkOutTime) {
       return 0
     }
-    
+
     // Parser les heures au format hh:mm:ss
     const parseTime = (timeStr: string) => {
       const [hours, minutes, seconds] = timeStr.split(':').map(Number)
       return hours + (minutes / 60) + (seconds / 3600)
     }
-    
+
     const checkInHours = parseTime(this.checkInTime)
     const checkOutHours = parseTime(this.checkOutTime)
-    
+
     // Calculer la différence en heures
     let diffInHours = checkOutHours - checkInHours
-    
+
     // Si le checkout est le lendemain (ex: checkin 23:00, checkout 02:00)
     if (diffInHours < 0) {
       diffInHours += 24
     }
-    
+
     // Arrondir à 2 décimales
     return Math.round(diffInHours * 100) / 100
   }

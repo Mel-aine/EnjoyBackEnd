@@ -154,166 +154,262 @@ export default class FolioService {
   /**
    * Post a transaction to a folio
    */
-  static async postTransaction(data: PostTransactionData): Promise<FolioTransaction> {
-    return await db.transaction(async (trx) => {
-      // Validate folio exists and can be modified
-      const folio = await Folio.findOrFail(data.folioId)
-      logger.info(data)
-      if (!folio.canBeModified) {
-        throw new Error('Folio cannot be modified - it is finalized or closed')
-      }
+  // static async postTransaction(data: PostTransactionData): Promise<FolioTransaction> {
+  //   return await db.transaction(async (trx) => {
+  //     // Validate folio exists and can be modified
+  //     const folio = await Folio.findOrFail(data.folioId)
+  //     logger.info(data)
+  //     if (!folio.canBeModified) {
+  //       throw new Error('Folio cannot be modified - it is finalized or closed')
+  //     }
 
-      // Calculate discount amount if discountId is provided
-      let calculatedDiscountAmount = data.discountAmount || 0
-      if (data.discountId) {
-        const discount = await Discount.findOrFail(data.discountId)
-        
-        // Validate discount is active
-        if (discount.status !== 'active' || discount.isDeleted) {
-          throw new Error('Discount is not active or has been deleted')
-        }
-        
-        // Calculate discount amount based on type
-        if (discount.type === 'percentage') {
-          calculatedDiscountAmount = data.amount * (discount.value / 100)
-        } else if (discount.type === 'flat') {
-          calculatedDiscountAmount = Math.min(discount.value, data.amount)
-        }
-      }
+  //     // Calculate discount amount if discountId is provided
+  //     let calculatedDiscountAmount = data.discountAmount || 0
+  //     if (data.discountId) {
+  //       const discount = await Discount.findOrFail(data.discountId)
 
-      // Generate transaction number
-      const transactionNumber = await this.generateTransactionNumber(folio.hotelId, trx)
+  //       // Validate discount is active
+  //       if (discount.status !== 'active' || discount.isDeleted) {
+  //         throw new Error('Discount is not active or has been deleted')
+  //       }
 
-      // Map category to particular description
-      let particular = 'Miscellaneous Transaction'
+  //       // Calculate discount amount based on type
+  //       if (discount.type === 'percentage') {
+  //         calculatedDiscountAmount = data.amount * (discount.value / 100)
+  //       } else if (discount.type === 'flat') {
+  //         calculatedDiscountAmount = Math.min(discount.value, data.amount)
+  //       }
+  //     }
 
-      switch (data.category) {
-        case TransactionCategory.ROOM:
-          particular = 'Room Charge'
-          break
-        case TransactionCategory.FOOD_BEVERAGE:
-          particular = 'Food & Beverage'
-          break
-        case TransactionCategory.TELEPHONE:
-          particular = 'Telephone Charge'
-          break
-        case TransactionCategory.LAUNDRY:
-          particular = 'Laundry Service'
-          break
-        case TransactionCategory.MINIBAR:
-          particular = 'Minibar Charge'
-          break
-        case TransactionCategory.SPA:
-          particular = 'Spa Service'
-          break
-        case TransactionCategory.BUSINESS_CENTER:
-          particular = 'Business Center'
-          break
-        case TransactionCategory.PARKING:
-          particular = 'Parking Fee'
-          break
-        case TransactionCategory.INTERNET:
-          particular = 'Internet Service'
-          break
-        case TransactionCategory.PAYMENT:
-          particular = 'Payment Received'
-          break
-        case TransactionCategory.ADJUSTMENT:
-          particular = 'Folio Adjustment'
-          break
-        case TransactionCategory.TAX:
-          particular = 'Tax Charge'
-          break
-        case TransactionCategory.SERVICE_CHARGE:
-          particular = 'Service Charge'
-          break
-        case TransactionCategory.CANCELLATION_FEE:
-          particular = 'Cancellation Fee'
-          break
-        case TransactionCategory.NO_SHOW_FEE:
-          particular = 'No Show Fee'
-          break
-        case TransactionCategory.EARLY_DEPARTURE_FEE:
-          particular = 'Early Departure Fee'
-          break
-        case TransactionCategory.LATE_CHECKOUT_FEE:
-          particular = 'Late Checkout Fee'
-          break
-        case TransactionCategory.EXTRA_BED:
-          particular = 'Extra Bed Charge'
-          break
-        case TransactionCategory.CITY_TAX:
-          particular = 'City Tax'
-          break
-        case TransactionCategory.RESORT_FEE:
-          particular = 'Resort Fee'
-          break
-        case TransactionCategory.TRANSFER_IN:
-          particular = 'Transfer In'
-          break
-        case TransactionCategory.TRANSFER_OUT:
-          particular = 'Transfer Out'
-          break
-        case TransactionCategory.VOID:
-          particular = 'Void Transaction'
-          break
-        case TransactionCategory.REFUND:
-          particular = 'Refund'
-          break
-        case TransactionCategory.EXTRACT_CHARGE:
-          particular = 'Extra Charge'
-          break
-        default:
-          particular = 'Miscellaneous Charge'
-      }
-      const totalAmount = parseFloat(`${data.quantity ?? 1}`) * parseFloat(`${data.amount}`)
-      // Create transaction
-      const transaction = await FolioTransaction.create({
-        hotelId: folio.hotelId,
-        folioId: data.folioId,
-        reservationId: folio.reservationId ?? undefined,
-        transactionNumber,
-        transactionType: data.transactionType,
-        category: data.category,
-        particular: particular,
-        description: data.description,
-        amount: totalAmount,
-        totalAmount: totalAmount,
-        quantity: data.quantity || 1,
-        unitPrice: data.unitPrice || data.amount,
-        taxAmount: data.taxAmount || 0,
-        serviceChargeAmount: data.serviceChargeAmount || 0,
-        discountAmount: calculatedDiscountAmount,
-        discountId: data.discountId,
-        netAmount: data.amount - calculatedDiscountAmount,
-        grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
-        transactionCode: transactionNumber,
-        transactionTime: DateTime.now().toISOTime(),
-        postingDate: DateTime.now(),
-        //departmentId: data.departmentId,
-        //revenueCenterId: data.revenueCenterId,
-        //costCenterId: data.costCenterId,
-        //glAccountCode: data.glAccountCode,
-        paymentMethodId: data.paymentMethodId,
-        //reference: data.reference,
-        //descriptions: data.notes,
-        transactionDate: data.transactionDate || DateTime.now(),
-        //businessDate: DateTime.now(),
-        // auditDate: DateTime.now(),
-        status: TransactionStatus.POSTED,
-        // isPosted: true,
-        //postedDate: DateTime.now(),
-        //postedBy: data.postedBy,
-        createdBy: data.postedBy,
-        lastModifiedBy: data.postedBy
-      }, { client: trx })
+  //     // Generate transaction number
+  //     const transactionNumber = await this.generateTransactionNumber(folio.hotelId, trx)
 
-      // Update folio totals
-      await this.updateFolioTotals(data.folioId, trx)
+  //     // Map category to particular description
+  //     let particular = 'Miscellaneous Transaction'
 
-      return transaction
+  //     switch (data.category) {
+  //       case TransactionCategory.ROOM:
+  //         particular = 'Room Charge'
+  //         break
+  //       case TransactionCategory.FOOD_BEVERAGE:
+  //         particular = 'Food & Beverage'
+  //         break
+  //       case TransactionCategory.TELEPHONE:
+  //         particular = 'Telephone Charge'
+  //         break
+  //       case TransactionCategory.LAUNDRY:
+  //         particular = 'Laundry Service'
+  //         break
+  //       case TransactionCategory.MINIBAR:
+  //         particular = 'Minibar Charge'
+  //         break
+  //       case TransactionCategory.SPA:
+  //         particular = 'Spa Service'
+  //         break
+  //       case TransactionCategory.BUSINESS_CENTER:
+  //         particular = 'Business Center'
+  //         break
+  //       case TransactionCategory.PARKING:
+  //         particular = 'Parking Fee'
+  //         break
+  //       case TransactionCategory.INTERNET:
+  //         particular = 'Internet Service'
+  //         break
+  //       case TransactionCategory.PAYMENT:
+  //         particular = 'Payment Received'
+  //         break
+  //       case TransactionCategory.ADJUSTMENT:
+  //         particular = 'Folio Adjustment'
+  //         break
+  //       case TransactionCategory.TAX:
+  //         particular = 'Tax Charge'
+  //         break
+  //       case TransactionCategory.SERVICE_CHARGE:
+  //         particular = 'Service Charge'
+  //         break
+  //       case TransactionCategory.CANCELLATION_FEE:
+  //         particular = 'Cancellation Fee'
+  //         break
+  //       case TransactionCategory.NO_SHOW_FEE:
+  //         particular = 'No Show Fee'
+  //         break
+  //       case TransactionCategory.EARLY_DEPARTURE_FEE:
+  //         particular = 'Early Departure Fee'
+  //         break
+  //       case TransactionCategory.LATE_CHECKOUT_FEE:
+  //         particular = 'Late Checkout Fee'
+  //         break
+  //       case TransactionCategory.EXTRA_BED:
+  //         particular = 'Extra Bed Charge'
+  //         break
+  //       case TransactionCategory.CITY_TAX:
+  //         particular = 'City Tax'
+  //         break
+  //       case TransactionCategory.RESORT_FEE:
+  //         particular = 'Resort Fee'
+  //         break
+  //       case TransactionCategory.TRANSFER_IN:
+  //         particular = 'Transfer In'
+  //         break
+  //       case TransactionCategory.TRANSFER_OUT:
+  //         particular = 'Transfer Out'
+  //         break
+  //       case TransactionCategory.VOID:
+  //         particular = 'Void Transaction'
+  //         break
+  //       case TransactionCategory.REFUND:
+  //         particular = 'Refund'
+  //         break
+  //       case TransactionCategory.EXTRACT_CHARGE:
+  //         particular = 'Extra Charge'
+  //         break
+  //       default:
+  //         particular = 'Miscellaneous Charge'
+  //     }
+  //     const totalAmount = parseFloat(`${data.quantity ?? 1}`) * parseFloat(`${data.amount}`)
+  //     // Create transaction
+  //     const transaction = await FolioTransaction.create({
+  //       hotelId: folio.hotelId,
+  //       folioId: data.folioId,
+  //       reservationId: folio.reservationId ?? undefined,
+  //       transactionNumber,
+  //       transactionType: data.transactionType,
+  //       category: data.category,
+  //       particular: particular,
+  //       description: data.description,
+  //       amount: totalAmount,
+  //       totalAmount: totalAmount,
+  //       quantity: data.quantity || 1,
+  //       unitPrice: data.unitPrice || data.amount,
+  //       taxAmount: data.taxAmount || 0,
+  //       serviceChargeAmount: data.serviceChargeAmount || 0,
+  //       discountAmount: calculatedDiscountAmount,
+  //       discountId: data.discountId,
+  //       netAmount: data.amount - calculatedDiscountAmount,
+  //       grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
+  //       transactionCode: transactionNumber,
+  //       transactionTime: DateTime.now().toISOTime(),
+  //       postingDate: DateTime.now(),
+  //       //departmentId: data.departmentId,
+  //       //revenueCenterId: data.revenueCenterId,
+  //       //costCenterId: data.costCenterId,
+  //       //glAccountCode: data.glAccountCode,
+  //       paymentMethodId: data.paymentMethodId,
+  //       //reference: data.reference,
+  //       //descriptions: data.notes,
+  //       transactionDate: data.transactionDate || DateTime.now(),
+  //       //businessDate: DateTime.now(),
+  //       // auditDate: DateTime.now(),
+  //       status: TransactionStatus.POSTED,
+  //       // isPosted: true,
+  //       //postedDate: DateTime.now(),
+  //       //postedBy: data.postedBy,
+  //       createdBy: data.postedBy,
+  //       lastModifiedBy: data.postedBy
+  //     }, { client: trx })
+
+  //     // Update folio totals
+  //     await this.updateFolioTotals(data.folioId, trx)
+
+  //     return transaction
+  //   })
+  // }
+  static async postTransaction(data: PostTransactionData, trx?: any): Promise<FolioTransaction> {
+  // Si un trx est fourni, on l'utilise, sinon on crée une transaction interne
+  if (trx) {
+    return await this._executePostTransaction(data, trx)
+  } else {
+    return await db.transaction(async (internalTrx) => {
+      return await this._executePostTransaction(data, internalTrx)
     })
   }
+}
+
+private static async _executePostTransaction(data: PostTransactionData, trx: any): Promise<FolioTransaction> {
+  const folio = await Folio.findOrFail(data.folioId)
+  logger.info(data)
+  if (!folio.canBeModified) {
+    throw new Error('Folio cannot be modified - it is finalized or closed')
+  }
+
+  let calculatedDiscountAmount = data.discountAmount || 0
+  if (data.discountId) {
+    const discount = await Discount.findOrFail(data.discountId)
+    if (discount.status !== 'active' || discount.isDeleted) {
+      throw new Error('Discount is not active or has been deleted')
+    }
+    if (discount.type === 'percentage') {
+      calculatedDiscountAmount = data.amount * (discount.value / 100)
+    } else if (discount.type === 'flat') {
+      calculatedDiscountAmount = Math.min(discount.value, data.amount)
+    }
+  }
+
+  const transactionNumber = await this.generateTransactionNumber(folio.hotelId, trx)
+
+  let particular = 'Miscellaneous Transaction'
+  switch (data.category) {
+    case TransactionCategory.ROOM: particular = 'Room Charge'; break
+    case TransactionCategory.FOOD_BEVERAGE: particular = 'Food & Beverage'; break
+    case TransactionCategory.TELEPHONE: particular = 'Telephone Charge'; break
+    case TransactionCategory.LAUNDRY: particular = 'Laundry Service'; break
+    case TransactionCategory.MINIBAR: particular = 'Minibar Charge'; break
+    case TransactionCategory.SPA: particular = 'Spa Service'; break
+    case TransactionCategory.BUSINESS_CENTER: particular = 'Business Center'; break
+    case TransactionCategory.PARKING: particular = 'Parking Fee'; break
+    case TransactionCategory.INTERNET: particular = 'Internet Service'; break
+    case TransactionCategory.PAYMENT: particular = 'Payment Received'; break
+    case TransactionCategory.ADJUSTMENT: particular = 'Folio Adjustment'; break
+    case TransactionCategory.TAX: particular = 'Tax Charge'; break
+    case TransactionCategory.SERVICE_CHARGE: particular = 'Service Charge'; break
+    case TransactionCategory.CANCELLATION_FEE: particular = 'Cancellation Fee'; break
+    case TransactionCategory.NO_SHOW_FEE: particular = 'No Show Fee'; break
+    case TransactionCategory.EARLY_DEPARTURE_FEE: particular = 'Early Departure Fee'; break
+    case TransactionCategory.LATE_CHECKOUT_FEE: particular = 'Late Checkout Fee'; break
+    case TransactionCategory.EXTRA_BED: particular = 'Extra Bed Charge'; break
+    case TransactionCategory.CITY_TAX: particular = 'City Tax'; break
+    case TransactionCategory.RESORT_FEE: particular = 'Resort Fee'; break
+    case TransactionCategory.TRANSFER_IN: particular = 'Transfer In'; break
+    case TransactionCategory.TRANSFER_OUT: particular = 'Transfer Out'; break
+    case TransactionCategory.VOID: particular = 'Void Transaction'; break
+    case TransactionCategory.REFUND: particular = 'Refund'; break
+    case TransactionCategory.EXTRACT_CHARGE: particular = 'Extra Charge'; break
+    default: particular = 'Miscellaneous Charge';
+  }
+
+  const totalAmount = parseFloat(`${data.quantity ?? 1}`) * parseFloat(`${data.amount}`)
+  const transaction = await FolioTransaction.create({
+    hotelId: folio.hotelId,
+    folioId: data.folioId,
+    reservationId: folio.reservationId ?? undefined,
+    transactionNumber,
+    transactionType: data.transactionType,
+    category: data.category,
+    particular,
+    description: data.description,
+    amount: totalAmount,
+    totalAmount: totalAmount,
+    quantity: data.quantity || 1,
+    unitPrice: data.unitPrice || data.amount,
+    taxAmount: data.taxAmount || 0,
+    serviceChargeAmount: data.serviceChargeAmount || 0,
+    discountAmount: calculatedDiscountAmount,
+    discountId: data.discountId,
+    netAmount: data.amount - calculatedDiscountAmount,
+    grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
+    transactionCode: transactionNumber,
+    transactionTime: DateTime.now().toISOTime(),
+    postingDate: DateTime.now(),
+    paymentMethodId: data.paymentMethodId,
+    transactionDate: data.transactionDate || DateTime.now(),
+    status: TransactionStatus.POSTED,
+    createdBy: data.postedBy,
+    lastModifiedBy: data.postedBy
+  }, { client: trx })
+
+  await this.updateFolioTotals(data.folioId, trx)
+  return transaction
+}
 
   /**
    * Settle a folio (process payment)
@@ -512,7 +608,7 @@ export default class FolioService {
         throw new Error('Cannot split transactions from a closed folio')
       }*/
 
-    
+
 
       // Validate transactions exist and belong to source folio
       const transactionsToMove = await FolioTransaction.query({ client: trx })
@@ -527,11 +623,11 @@ export default class FolioService {
       }
 
       // Validate transactions can be moved (not settled, not voided)
-      /* const unmovableTransactions = transactionsToMove.filter(t => 
-       //  t.status === TransactionStatus.SETTLED || 
+      /* const unmovableTransactions = transactionsToMove.filter(t =>
+       //  t.status === TransactionStatus.SETTLED ||
          t.status === TransactionStatus.VOIDED
        )
-       
+
        if (unmovableTransactions.length > 0) {
          const unmovableIds = unmovableTransactions.map(t => t.id)
          throw new Error(`Transactions with IDs [${unmovableIds.join(', ')}] cannot be moved (settled or voided)`)
@@ -1162,27 +1258,27 @@ export default class FolioService {
     // Use a more robust approach to ensure uniqueness
     let attempts = 0
     const maxAttempts = 10
-    
+
     while (attempts < maxAttempts) {
        let query = Folio.query({ client: trx })
          .where('hotelId', hotelId)
-       
+
        // If we have a reservation room ID, look for folios with the same pattern
        if (reservationRoomId) {
          query = query.where('folioNumber', 'like', `F-${hotelId}-${reservationRoomId}-%`)
        }
-       
+
        const lastFolio = await query
          .orderBy('id', 'desc')
          .first()
-         
+
        let nextNumber = 1
 
        if (lastFolio && lastFolio.folioNumber) {
           // Handle both old format F-hotelId-number and new format F-hotelId-roomId-number
           const oldFormatMatch = lastFolio.folioNumber.match(/^F-(\d+)-(\d+)$/)
           const newFormatMatch = lastFolio.folioNumber.match(/^F-(\d+)-(\d+)-(\d+)$/)
-          
+
           if (newFormatMatch) {
             nextNumber = parseInt(newFormatMatch[3]) + 1
           } else if (oldFormatMatch) {
@@ -1191,27 +1287,27 @@ export default class FolioService {
         }
 
       // Include reservation room ID in folio number if available to ensure uniqueness
-       const candidateNumber = reservationRoomId 
+       const candidateNumber = reservationRoomId
          ? `F-${hotelId}-${reservationRoomId}-${nextNumber.toString().padStart(6, '0')}`
          : `F-${hotelId}-${nextNumber.toString().padStart(8, '0')}`
-      
+
       // Check if this number already exists
       const existingFolio = await Folio.query({ client: trx })
         .where('folioNumber', candidateNumber)
         .first()
-      
+
       if (!existingFolio) {
         return candidateNumber
       }
-      
+
       attempts++
       // Add a small delay to reduce contention
       await new Promise(resolve => setTimeout(resolve, 10))
     }
-    
+
     // Fallback: use timestamp-based number if we can't find a unique sequential number
      const timestamp = Date.now()
-     return reservationRoomId 
+     return reservationRoomId
        ? `F-${hotelId}-${reservationRoomId}-${timestamp.toString().padStart(6, '0')}`
        : `F-${hotelId}-${timestamp.toString().padStart(8, '0')}`
   }

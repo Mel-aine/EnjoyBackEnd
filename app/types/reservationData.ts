@@ -94,6 +94,8 @@ export interface ReservationData {
   is_complementary?: boolean
   bill_to?: string
   payment_mod?: number
+  market_code_id?: number
+  payment_type?: string
   credit_type?: string
   tax_exempt?: boolean
 
