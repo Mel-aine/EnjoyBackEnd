@@ -12,6 +12,7 @@ import Database from '@adonisjs/lucid/services/db'
 import NightAuditService from '../services/night_audit_service.js'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
+import RoomType from '#models/room_type'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -7753,7 +7754,13 @@ export default class ReportsController {
         .preload('folio', (folioQuery) => {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+              reservationRoomQuery.preload('room',(roomQuery:any)=>{
+                roomQuery.preload('roomType')
+              })
+            })
         })
+        
         .preload('paymentMethod')
         .first()
 
@@ -7770,6 +7777,8 @@ export default class ReportsController {
         hotel: transaction.folio.hotel,
         guest: transaction.folio.guest,
         folio: transaction.folio,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
         printedBy: auth.user?.fullName || 'System',
         printedAt: DateTime.now()
@@ -7843,6 +7852,8 @@ export default class ReportsController {
         hotel: transaction.folio.hotel,
         guest: transaction.folio.guest,
         folio: transaction.folio,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
         printedBy: auth.user?.fullName || 'System',
         printedAt: DateTime.now()
