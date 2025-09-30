@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reçu de Vente Détaillé</title>
+    <style>
+        /* Base Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Aligner en haut pour ne pas forcer le centre vertical */
+            padding: 40px 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        /* Conteneur principal du reçu */
+        .receipt-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            padding: 20px;
+            border: 1px solid black;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            font-size: 0.875rem; /* text-sm par défaut */
+        }
+
+        /* Helpers */
+        .text-sm { font-size: 0.875rem; }
+        .text-lg { font-size: 1.125rem; }
+        .font-bold { font-weight: 700; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-6 { margin-top: 1.5rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .pb-1 { padding-bottom: 0.25rem; }
+        .border-b { border-bottom: 1px solid black; }
+
+        /* Header (En-tête de l'hôtel) */
+        .header {
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+        }
+        .header-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        /* Section Informations (Tableau) */
+        .info-section {
+            display: flex;
+            flex-wrap: no-wrap;
+            border-bottom: 1px solid black;
+            border-top: 1px solid black;
+            margin-bottom: 1rem;
+            padding: 8px 12px;
+        }
+
+        .info-col-left {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-col-right {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            padding-left: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: flex-start;
+            line-height: 1.5;
+        }
+
+        .info-label {
+            font-weight: 700;
+            width: 30%; /* Largeur fixe pour les étiquettes de gauche */
+        }
+        .info-value {
+            width: 70%; /* Largeur fixe pour les étiquettes de gauche */
+        }
+        
+        /* Tableau des articles (Item List) */
+        .item-table {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .table-header-row {
+            display: flex;
+            font-weight: 700;
+            border-bottom: 1px solid black;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+
+        .item-row {
+            display: flex;
+            padding: 2px 0;
+            line-height: 1.4;
+        }
+
+        .item-name {
+            width: 30%;
+            text-align: left;
+        }
+        .item-category {
+            width: 25%;
+            text-align: left;
+        }
+        .item-qty, .item-unit, .item-amount {
+            width: 15%;
+            text-align: right;
+        }
+        .item-amount {
+            font-weight: 500;
+        }
+
+        /* Section Totaux (Bill Details) */
+        .bill-details {
+            display: flex;
+            flex-direction: column;
+            width: 50%; /* Colonne de droite */
+            margin-left: 50%; /* Décaler vers la droite */
+            margin-top: 15px;
+            padding-top: 5px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            line-height: 1.6;
+        }
+
+        .total-label {
+            text-align: left;
+            width: 60%;
+        }
+
+        .total-value {
+            text-align: right;
+            width: 40%;
+        }
+
+        .total-payable {
+            font-weight: 700;
+            border-top: 1px solid black;
+            padding-top: 5px;
+            margin-top: 5px;
+            font-size: 1rem;
+        }
+        .total-payable .total-value {
+            font-size: 1rem;
+        }
+
+        /* Section TVA / Taxe (au milieu) */
+        .tax-section {
+            border-top: 1px solid black;
+            margin-top: 25px;
+            padding-top: 15px;
+        }
+
+        .tax-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            border-bottom: 1px solid black;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+
+        .tax-col-desc { width: 50%; }
+        .tax-col-taxable { width: 25%; text-align: right; }
+        .tax-col-tax { width: 25%; text-align: right; }
+
+        .tax-data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+        
+        /* Footer/Signatures */
+        .footer {
+            margin-top: 80px;
+            text-align: center;
+        }
+
+        .signature-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+            font-size: 0.8rem;
+        }
+
+        .signature-line {
+            width: 45%;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        
+        <!-- HEADER (Informations de l'hôtel) -->
+        <header class="header text-center text-sm">
+            <h1 class="header-title">TAMISARL (SUITA HOTEL)</h1>
+            <p>Carrefour Bastos, Yaounde, Centre, 2723, Cameroon</p>
+            <p>Phone: 658858585 | Email: reservation@suita-hotel.com</p>
+            <p>URL: www.suita-hotel.com</p>
+        </header>
+
+        <!-- INFORMATIONS DE LA TRANSACTION ET DU CLIENT (Tableau d'informations) -->
+        <section class="info-section text-sm">
+            <div class="info-col-left">
+                <div class="info-item">
+                    <span class="info-label">Receipt:</span> <span class="info-value">REC-7659</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Table:</span> <span class="info-value">table 9</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Guests:</span> <span class="info-value">Mr.GUNDAS KUNTAY // MOUHDJAF MINIG TR</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Room Nos:</span> <span class="info-value">504 - Lifestyle Suite</span>
+                </div>
+            </div>
+            
+            <div class="info-col-right">
+                <div class="info-item">
+                    <span class="info-label">Dates:</span> <span class="info-value">05-08-2025</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Times:</span> <span class="info-value">15:03:49</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- TABLEAU DES ARTICLES -->
+        <section class="item-table text-sm border-b">
+            <!-- EN-TÊTE DU TABLEAU -->
+            <div class="table-header-row">
+                <div class="item-name">Item Name</div>
+                <div class="item-category">Category</div>
+                <div class="item-qty text-right">Quantity</div>
+                <div class="item-unit text-right">Unit</div>
+                <div class="item-amount text-right">Amount</div>
+            </div>
+
+            <!-- LIGNE 1 -->
+            <div class="item-row">
+                <div class="item-name">JUS DE BAOBAB</div>
+                <div class="item-category">Boissons</div>
+                <div class="item-qty">1</div>
+                <div class="item-unit">1</div>
+                <div class="item-amount">1 677</div>
+            </div>
+            
+            <!-- LIGNE 2 -->
+            <div class="item-row">
+                <div class="item-name">DOUBLE ESPRESSO+EAU 25CL</div>
+                <div class="item-category">Boissons</div>
+                <div class="item-qty">1</div>
+                <div class="item-unit">1</div>
+                <div class="item-amount">2 515</div>
+            </div>
+
+            <!-- LIGNE 3 -->
+            <div class="item-row">
+                <div class="item-name">Supermont 1,5L</div>
+                <div class="item-category">Boissons</div>
+                <div class="item-qty">1</div>
+                <div class="item-unit">1</div>
+                <div class="item-amount">1 257</div>
+            </div>
+        </section>
+
+        <!-- SECTION DÉTAILS DE LA FACTURE ET TOTAL -->
+        <section class="bill-details text-sm">
+            
+            <div class="total-row">
+                <div class="total-label">Bill Amount</div>
+                <div class="total-value">5 450</div>
+            </div>
+            <div class="total-row">
+                <div class="total-label">Surcharge</div>
+                <div class="total-value">0</div>
+            </div>
+            <div class="total-row">
+                <div class="total-label">Tax</div>
+                <div class="total-value">1 049</div>
+            </div>
+            <div class="total-row">
+                <div class="total-label">Discount</div>
+                <div class="total-value">0</div>
+            </div>
+            <div class="total-row">
+                <div class="total-label">Adjustment</div>
+                <div class="total-value">0</div>
+            </div>
+            <div class="total-row">
+                <div class="total-label">Tip</div>
+                <div class="total-value">0</div>
+            </div>
+            
+            <div class="total-row total-payable">
+                <div class="total-label">Payable</div>
+                <div class="total-value">6 500</div>
+            </div>
+        </section>
+        
+        <!-- SECTION TVA DÉTAILLÉE -->
+        <section class="tax-section text-sm">
+            <div class="tax-header">
+                <div class="tax-col-desc">Description</div>
+                <div class="tax-col-taxable">Taxable</div>
+                <div class="tax-col-tax">Tax</div>
+            </div>
+            <div class="tax-data-row">
+                <div class="tax-col-desc">TVA</div>
+                <div class="tax-col-taxable">5 450</div>
+                <div class="tax-col-tax">1 049</div>
+            </div>
+        </section>
+
+        <!-- FOOTER ET SIGNATURES -->
+        <footer class="footer">
+            <h3 class="font-bold text-center">Thank You</h3>
+            <div class="signature-area">
+                <div class="signature-line">
+                    Guest Signature
+                </div>
+                <div class="signature-line text-right">
+                    Page 1 of 1
+                </div>
+            </div>
+        </footer>
+
+    </div>
+</body>
+</html>

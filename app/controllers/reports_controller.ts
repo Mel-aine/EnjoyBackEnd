@@ -10,6 +10,9 @@ import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
 import Database from '@adonisjs/lucid/services/db'
 import NightAuditService from '../services/night_audit_service.js'
+import FolioTransaction from '#models/folio_transaction'
+import Hotel from '#models/hotel'
+import RoomType from '#models/room_type'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -621,7 +624,7 @@ export default class ReportsController {
       const { default: Hotel } = await import('#models/hotel')
       // Get hotel information
       const hotel = await Hotel.findOrFail(hotelId)
-// Generate all sections data
+      // Generate all sections data
       const auditDetails = await NightAuditService.getNightAuditDetails(
         reportDate,
         Number(hotelId)
@@ -1326,7 +1329,7 @@ export default class ReportsController {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
         roomQuery.preload('checkedInByUser')
-        roomQuery.preload('roomRates', (rateQuery:any) => {
+        roomQuery.preload('roomRates', (rateQuery: any) => {
           rateQuery.preload('rateType')
         })
       })
@@ -2496,12 +2499,17 @@ export default class ReportsController {
       const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
 
       // Generate all sections data
-      // const sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
+      let sectionsData: any = {}
       const auditDetails = await NightAuditService.getNightAuditDetails(
         reportDate,
         Number(hotelId)
       )
-      const sectionsData = auditDetails?.managerReportData;
+      if (auditDetails && auditDetails?.managerReportData) {
+        sectionsData = auditDetails?.managerReportData;
+      } else {
+        sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
+      }
+
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
         hotel.hotelName,
@@ -2575,8 +2583,13 @@ export default class ReportsController {
 
     // Section 11: Statistics
     const statistics = await this.getManagementStatisticsData(hotelId, reportDate, roomCharges, roomSummary)
+    // section 12
+    const posSummary = await this.getManagementPosSummaryData(hotelId, reportDate);
+    // section 13
+    const posPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate);
     // Section 14: Revenue Summary
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
+
     return {
       roomCharges,
       extraCharges,
@@ -2589,6 +2602,8 @@ export default class ReportsController {
       guestLedger,
       roomSummary,
       statistics,
+      posSummary,
+      posPayment,
       revenueSummary
     }
   }
@@ -4102,6 +4117,13 @@ export default class ReportsController {
     const extraChargesTotal = extraCharges?.totals || { today: 0, ptd: 0, ytd: 0 }
 
     return {
+      roomRevenue: roomChargesTotal,
+      extraRevenue: extraChargesTotal,
+      pmsRevenue: {
+        today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0),
+        ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0),
+        ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0)
+      },
       today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0),
       ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0),
       ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0)
@@ -4115,7 +4137,7 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const rateTypeId = request.input('rateTypeId') // Optional - if empty, get all rate types
+      const rateTypeId = request.input('rateTypeId') // Optional - if emptd, get all rate types
 
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
@@ -4184,7 +4206,7 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
+      const roomTypeId = request.input('roomTypeId') // Optional - if emptd, get all room types
 
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
@@ -4210,7 +4232,7 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
+      const roomTypeId = request.input('roomTypeId') // Optional - if emptd, get all room types
       const currency = request.input('currency', 'XAF') // Default currency is XAF
 
       const reportDate = DateTime.fromISO(asOnDate)
@@ -5501,11 +5523,11 @@ export default class ReportsController {
       ]
 
       // Get daily revenue data
-       const auditDetails = await NightAuditService.getNightAuditDetails(
+      const auditDetails = await NightAuditService.getNightAuditDetails(
         reportDate,
         Number(hotelId)
       )
-      const revenueData = auditDetails?.dailyRevenueReportData
+      let revenueData = auditDetails?.dailyRevenueReportData
 
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
@@ -7617,6 +7639,257 @@ export default class ReportsController {
       return response.internalServerError({
         success: false,
         message: 'Error generating city ledger summary PDF',
+        error: error.message
+      })
+    }
+  }
+
+  async getManagementPosSummaryData(hotelId: number, reportDate: DateTime) {
+    return {
+      outlets: [
+        {
+          outlet: "Restaurant Chez Madeleine",
+          categories: [
+            {
+              name: "Category - Boissons",
+              today: 0,
+              ptd: 0,
+              ytd: 0,
+
+            }
+          ],
+          totalWithTax: {
+            today: 0,
+            ptd: 0,
+            ytd: 0,
+          },
+          totalWithoutTax: {
+            today: 0,
+            ptd: 0,
+            ytd: 0,
+          }
+        },
+        {
+          outlet: "TERRACINA",
+          categories: [
+            {
+              name: "Category - autres",
+              today: 0,
+              ptd: 0,
+              ytd: 0,
+
+            },
+            {
+              name: "Category - Boissons",
+              today: 0,
+              ptd: 0,
+              ytd: 0,
+
+            }
+          ],
+          totalWithTax: {
+            today: 0,
+            ptd: 0,
+            ytd: 0,
+          },
+          totalWithoutTax: {
+            today: 0,
+            ptd: 0,
+            ytd: 0,
+          }
+        },
+
+      ], totalWithTax: {
+        today: 0,
+        ptd: 0,
+        ytd: 0,
+      },
+      totalWithoutTax: {
+        today: 0,
+        ptd: 0,
+        ytd: 0,
+      }
+    }
+  }
+
+  async getManagementPosPaymentSummaryData(hotelId: number, reportDate: DateTime) {
+    return {
+      outlets: [
+        {
+          outlet: "Restaurant Chez Madeleine",
+          payments: [
+            {
+              name: "Payment - Espèce",
+              today: 0,
+              ptd: 0,
+              ytd: 0,
+            }
+          ],
+          total: {
+            today: 0,
+            ptd: 0,
+            ytd: 0,
+          }
+        }
+      ],
+      total: {
+        today: 0,
+        ptd: 0,
+        ytd: 0,
+      }
+    }
+
+  }
+
+  /**
+   * Print receipt for a transaction
+   */
+  async printReceipt({ params, response, auth }: HttpContext) {
+    try {
+      const transactionId = parseInt(params.transactionId)
+
+      // Get the transaction with related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+              reservationRoomQuery.preload('room',(roomQuery:any)=>{
+                roomQuery.preload('roomType')
+              })
+            })
+        })
+        
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      // Prepare data for the receipt template
+      const receiptData = {
+        transaction,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        folio: transaction.folio,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room.roomType,
+        paymentMethod: transaction.paymentMethod,
+        printedBy: auth.user?.fullName || 'System',
+        printedAt: DateTime.now()
+      }
+      console.log(receiptData)
+      // Generate PDF using Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the template
+      const html = await edge.render('reports/receipt', receiptData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="receipt-${transaction.transactionNumber}.pdf"`)
+
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating receipt PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating receipt PDF',
+        error: error.message
+      })
+    }
+  }
+  async printInvoice({ params, response, auth }: HttpContext) {
+    try {
+      const transactionId = parseInt(params.transactionId)
+
+      // Get the transaction with related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+              reservationRoomQuery.preload('room',(roomQuery:any)=>{
+                roomQuery.preload('roomType')
+              })
+            })
+        })
+
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      // Prepare data for the receipt template
+      const receiptData = {
+        transaction,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        folio: transaction.folio,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room.roomType,
+        paymentMethod: transaction.paymentMethod,
+        printedBy: auth.user?.fullName || 'System',
+        printedAt: DateTime.now()
+      }
+      console.log('invoiceData.receipt', receiptData)
+      // Generate PDF using Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the template
+      const html = await edge.render('reports/invoice', receiptData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="invoice-${transaction.transactionNumber}.pdf"`)
+
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating receipt PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating receipt PDF',
         error: error.message
       })
     }
