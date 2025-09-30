@@ -7774,7 +7774,7 @@ export default class ReportsController {
         printedBy: auth.user?.fullName || 'System',
         printedAt: DateTime.now()
       }
-
+      console.log(receiptData)
       // Generate PDF using Edge template
       const { default: edge } = await import('edge.js')
       const path = await import('path')
@@ -7841,7 +7841,7 @@ export default class ReportsController {
         printedBy: auth.user?.fullName || 'System',
         printedAt: DateTime.now()
       }
-
+      console.log('invoiceData.receipt', receiptData)
       // Generate PDF using Edge template
       const { default: edge } = await import('edge.js')
       const path = await import('path')

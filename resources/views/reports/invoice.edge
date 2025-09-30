@@ -232,16 +232,16 @@
 </head>
 <body>
    
-    <div class="container">
+<div class="container">
     <div class="double-border">
     <div class="voucher-container">
         
         <!-- HEADER (Informations de l'hôtel) -->
         <header class="mb-6 text-sm">
-            <h1 class="text-lg font-bold">TAMISARL (SUITA HOTEL)</h1>
-            <p>Carrefour Bastos, Yaounde, Centre, 2723, Cameroon</p>
-            <p>Phone: 658858585 | Email: reservation@suita-hotel.com</p>
-            <p>URL: www.suita-hotel.com</p>
+            <h1 class="text-lg font-bold">TAMISARL ({{ hotel.hotelName }})</h1>
+            <p>{{ hotel.address }}, {{ hotel.city }},{{ hotel.stateProvince }}, {{ hotel.country }}</p>
+            <p>Phone: {{ hotel.phoneNumber }} | Email: {{ hotel.email }}</p>
+            <p>URL: {{ hotel.website }}</p>
         </header>
 
         <!-- TITRE PRINCIPAL -->
@@ -249,84 +249,86 @@
         
         <div class="separator-line mb-6"></div>
 
-        <!-- BLOC D'INFORMATIONS PRINCIPALES (Chambre, Hôte, Dates, etc.) -->
+        <!-- BLOC D'INFORMATIONS PRINCIPALES -->
         <section class="mt-4">
             
-            <!-- LIGNE 1: Chambre et Entré le / Posting Date -->
+            <!-- LIGNE 1: Chambre et Entré le -->
             <div class="info-row">
-                <!-- COLONNE GAUCHE (Room) -->
                 <div class="info-item">
                     <label for="room" class="font-bold text-sm label-line">Room</label>
                     <div class="value-line">
-                        <span class="mr-2 dotted-line-bottom">504 - Lifestyle Suite</span>
+                        <span class="mr-2 dotted-line-bottom">
+                            {{ folio.room?.roomNumber || 'N/A' }} - {{ folio.room?.roomType?.name || 'N/A' }}
+                        </span>
                     </div>
                 </div>
-                <!-- COLONNE DROITE (Entered On) -->
                 <div class="info-item">
                     <label for="entered_on" class="font-bold text-sm label-line">Entered On</label>
                     <div class="value-line">
-                        <span class="mr-2 dotted-line-bottom">05-08-2025 15:03:50</span>
+                        <span class="mr-2 dotted-line-bottom">
+                            {{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}
+                        </span>
                     </div>
                 </div>
             </div>
 
             <!-- LIGNE 2: Guest et Posting Date -->
             <div class="info-row">
-                <!-- COLONNE GAUCHE (Guest) -->
                 <div class="info-item">
                     <label for="guest" class="font-bold text-sm label-line">Guest</label>
                     <div class="value-line">
-                        <span class="mr-2 dotted-line-bottom">Mr.GUNDAS KUNTAY // MOUHDJAF MINIG TR</span>
+                        <span class="mr-2 dotted-line-bottom">
+                            {{ guest.firstName }} {{ guest.lastName }}
+                        </span>
                     </div>
                 </div>
-                <!-- COLONNE DROITE (Posting Date) -->
                 <div class="info-item">
                     <label for="posting_date" class="font-bold text-sm label-line">Posting Date</label>
                     <div class="value-line">
-                        <span class="mr-2 dotted-line-bottom">05-08-2025</span>
+                        <span class="mr-2 dotted-line-bottom">
+                            {{ transaction.postingDate.toFormat('dd-MM-yyyy') }}
+                        </span>
                     </div>
                 </div>
             </div>
 
             <!-- LIGNE 3: Folio No. et Voucher No. -->
             <div class="info-row">
-                <!-- COLONNE GAUCHE (Folio No.) -->
                 <div class="info-item">
                     <label for="folio_no" class="font-bold text-sm label-line">Folio No.</label>
                     <div class="value-line">
-                        <span class="mr-2 dotted-line-bottom">1577</span>
+                        <span class="mr-2 dotted-line-bottom">
+                            {{ folio.folioNumber || transaction.folioId }}
+                        </span>
                     </div>
                 </div>
-                <!-- COLONNE DROITE (Voucher No.) -->
                 <div class="info-item">
                     <label for="voucher_no" class="font-bold text-sm label-line">Voucher No.</label>
                     <div class="value-line">
-                        <span class="mr-2 dotted-line-bottom">19103</span>
+                        <span class="mr-2 dotted-line-bottom">
+                            {{ transaction.transactionNumber }}
+                        </span>
                     </div>
                 </div>
             </div>
 
         </section>
 
-        <!-- TABLEAU DES POSTES (PARTICULARS) -->
+        <!-- TABLEAU DES POSTES -->
         <section class="mt-4 text-sm">
-            <!-- EN-TÊTE DU TABLEAU -->
             <div class="table-header">
                 <div class="table-cell-desc font-bold">Particulars</div>
                 <div class="table-cell-qty font-bold">Quantity</div>
-                <div class="table-cell-rate font-bold">Rate (XAF)</div>
-                <div class="table-cell-amount font-bold">Amount (XAF)</div>
+                <div class="table-cell-rate font-bold">Rate ({{ transaction.currencyCode }})</div>
+                <div class="table-cell-amount font-bold">Amount ({{ transaction.currencyCode }})</div>
             </div>
 
-            <!-- LIGNE DE POSTE (exemple) -->
             <div class="table-data">
-                <div class="table-cell-desc">Transfert de Charges</div>
-                <div class="table-cell-qty">1</div>
-                <div class="table-cell-rate">6 500</div>
-                <div class="table-cell-amount">6 500</div>
+                <div class="table-cell-desc">{{ transaction.description }}</div>
+                <div class="table-cell-qty">{{ transaction.quantity || 1 }}</div>
+                <div class="table-cell-rate">{{ transaction.unitPrice || transaction.amount | formatCurrency }}</div>
+                <div class="table-cell-amount">{{ transaction.totalAmount | formatCurrency }}</div>
             </div>
-            
-            <!-- Vous pouvez ajouter d'autres lignes ici si nécessaire -->
 
         </section>
 
@@ -334,7 +336,7 @@
         <section class="mt-4 text-sm">
             <div class="total-row">
                 <div class="total-label">Total</div>
-                <div class="total-amount">6 500</div>
+                <div class="total-amount">{{ transaction.totalAmount | formatCurrency }}</div>
             </div>
         </section>
 
@@ -352,7 +354,7 @@
             <div class="info-row ">
                 <div class="w-1\/5 font-bold text-sm">User</div>
                 <div class="remak-line">
-                    <span class="mr-2 dotted-line-bottom">admin</span>
+                    <span class="mr-2 dotted-line-bottom">{{ printedBy }}</span>
                 </div>
             </div>
         </section>
