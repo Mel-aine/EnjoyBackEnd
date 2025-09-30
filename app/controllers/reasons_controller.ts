@@ -56,6 +56,7 @@ export default class ReasonsController {
         ...payload,
         createdByUserId: user.id,
         updatedByUserId: user.id,
+        status: payload.status || 'active',
       })
 
       await reason.load('hotel')

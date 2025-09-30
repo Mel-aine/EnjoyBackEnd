@@ -296,18 +296,18 @@ router.get('/swagger/json', async ({ response }) => {
                      serviceFeeRate: { type: 'number', example: 5.0 },
                      cancellationPolicy: { type: 'string', example: 'Annulation gratuite jusqu\'à 24h avant l\'arrivée' },
                      policies: { type: 'string', example: 'Politique de l\'hôtel concernant les animaux, fumeurs, etc.' },
-                     amenities: { 
-                       type: 'array', 
+                     amenities: {
+                       type: 'array',
                        items: { type: 'string' },
                        example: ['WiFi gratuit', 'Piscine', 'Spa', 'Restaurant', 'Bar']
                      },
-                     facilities: { 
-                       type: 'array', 
+                     facilities: {
+                       type: 'array',
                        items: { type: 'string' },
                        example: ['Parking', 'Salle de sport', 'Centre d\'affaires']
                      },
-                     languages: { 
-                       type: 'array', 
+                     languages: {
+                       type: 'array',
                        items: { type: 'string' },
                        example: ['Français', 'Anglais', 'Espagnol']
                      },
@@ -1136,7 +1136,7 @@ router
             router.put('/:id', emailTemplateController.update.bind(emailTemplateController)) // Update email template information
             router.delete('/:id', emailTemplateController.delete.bind(emailTemplateController)) // Soft delete email template
             router.patch('/:id/restore', emailTemplateController.restore.bind(emailTemplateController)) // Restore soft deleted email template
-            
+
             // Filter operations for email templates
             router.get('/by-auto-send/:hotelId', emailTemplateController.getByAutoSendType.bind(emailTemplateController)) // Get templates by auto send type
             router.get('/by-category/:hotelId', emailTemplateController.getByTemplateCategory.bind(emailTemplateController)) // Get templates by category
@@ -1300,7 +1300,7 @@ router
             router.get('/:id', bookingSourcesController.show.bind(bookingSourcesController)) // Get specific booking source details
             router.put('/:id', bookingSourcesController.update.bind(bookingSourcesController)) // Update booking source information
             router.delete('/:id', bookingSourcesController.destroy.bind(bookingSourcesController)) // Soft delete booking source
-            
+
             // Additional booking source operations
             router.get('/list', bookingSourcesController.list.bind(bookingSourcesController)) // Get all booking sources without pagination
             router.get('/hotel/:hotelId', bookingSourcesController.getByHotelId.bind(bookingSourcesController)) // Get booking sources by hotel ID
@@ -1456,6 +1456,8 @@ router
       reservationsController.getReservationDetails.bind(reservationsController)
     )
 
+    router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
+
     //Payment Method routes
     router
       .group(() => {
@@ -1560,7 +1562,7 @@ router
  .use(
     middleware.auth({
       guards: ['api'],
-    }) 
+    })
   )
 
 // Import reports routes
