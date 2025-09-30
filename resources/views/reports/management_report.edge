@@ -14,17 +14,7 @@
         color: #333;
       }
       
-      .header {
-        position: fixed;
-        top: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        font-weight: bold;
-        font-size: 14px;
-      }
-      
+     
       .horizontal-line {
         border-top: 1px solid #333;
         margin: 10px 0;
@@ -54,7 +44,7 @@
       }
       
       .section-title {
-        font-weight: bold;
+        font-weight: bold; 
         margin: 15px 0 5px 0;
         font-size: 12px;
       }
@@ -88,13 +78,7 @@
         text-align: right;
       }
       
-      .footer {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        right: 20px;
-        font-size: 10px;
-      }
+    
       
       .footer-line {
         border-top: 1px solid #333;
@@ -116,34 +100,21 @@
           page-break-before: always;
         }
       
-        /* Ensure header is at the top */
-      
-        .header {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 50px;
-          padding: 10px 20px;
-          /* Adjust height as needed */
-          background-color: white;
-          /* To prevent background show-through */
-        }
-      
-        /* Ensure footer is at the bottom */
-      
-        .footer {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 50px;
-          padding: 10px 20px;
-          /* Adjust height as needed */
-          background-color: white;
-          /* To prevent background show-through */
-        }
-      
+        @page { 
+                    size: A4;
+                	margin-top: 80px; 
+                	@bottom-right-corner{content: counter(page);}
+                	@top-left{ content: element(header);}
+                }
+                
+                @page :first {
+               	   margin-bottom: 100px;
+                   @bottom-right{content: element(footer);}
+                   @bottom-right-corner{content: counter(page); padding-top:50px;}
+                }
+                
+				.header{ position: running(header);}
+                .footer{ position: running(footer);}
         /* Optional: Add padding to the body to prevent content overlap */
       
         .main {
@@ -1284,9 +1255,9 @@
           </tbody>
         </table>
       </div>
-
       <div class="horizontal-line">
       </div>
+
     </div>
     <!-- Footer -->
     <div class="footer">
