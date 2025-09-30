@@ -12,6 +12,7 @@ import Database from '@adonisjs/lucid/services/db'
 import NightAuditService from '../services/night_audit_service.js'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
+import RoomType from '#models/room_type'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -7746,14 +7747,20 @@ export default class ReportsController {
   async printReceipt({ params, response, auth }: HttpContext) {
     try {
       const transactionId = parseInt(params.transactionId)
-      
+
       // Get the transaction with related data
       const transaction = await FolioTransaction.query()
         .where('id', transactionId)
         .preload('folio', (folioQuery) => {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+              reservationRoomQuery.preload('room',(roomQuery:any)=>{
+                roomQuery.preload('roomType')
+              })
+            })
         })
+        
         .preload('paymentMethod')
         .first()
 
@@ -7770,11 +7777,13 @@ export default class ReportsController {
         hotel: transaction.folio.hotel,
         guest: transaction.folio.guest,
         folio: transaction.folio,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
         printedBy: auth.user?.fullName || 'System',
         printedAt: DateTime.now()
       }
-
+      console.log(receiptData)
       // Generate PDF using Edge template
       const { default: edge } = await import('edge.js')
       const path = await import('path')
@@ -7784,7 +7793,7 @@ export default class ReportsController {
 
       // Render the template
       const html = await edge.render('reports/receipt', receiptData)
-      
+
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: {
@@ -7798,7 +7807,7 @@ export default class ReportsController {
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `inline; filename="receipt-${transaction.transactionNumber}.pdf"`)
-      
+
       return response.send(pdfBuffer)
 
     } catch (error) {
@@ -7810,17 +7819,23 @@ export default class ReportsController {
       })
     }
   }
-   async printInvoice({ params, response, auth }: HttpContext) {
+  async printInvoice({ params, response, auth }: HttpContext) {
     try {
       const transactionId = parseInt(params.transactionId)
-      
+
       // Get the transaction with related data
       const transaction = await FolioTransaction.query()
         .where('id', transactionId)
-        .preload('folio', (folioQuery) => {
+        .preload('folio', (folioQuery: any) => {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+              reservationRoomQuery.preload('room',(roomQuery:any)=>{
+                roomQuery.preload('roomType')
+              })
+            })
         })
+
         .preload('paymentMethod')
         .first()
 
@@ -7837,11 +7852,13 @@ export default class ReportsController {
         hotel: transaction.folio.hotel,
         guest: transaction.folio.guest,
         folio: transaction.folio,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
         printedBy: auth.user?.fullName || 'System',
         printedAt: DateTime.now()
       }
-
+      console.log('invoiceData.receipt', receiptData)
       // Generate PDF using Edge template
       const { default: edge } = await import('edge.js')
       const path = await import('path')
@@ -7851,7 +7868,7 @@ export default class ReportsController {
 
       // Render the template
       const html = await edge.render('reports/invoice', receiptData)
-      
+
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: {
@@ -7865,7 +7882,7 @@ export default class ReportsController {
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `inline; filename="invoice-${transaction.transactionNumber}.pdf"`)
-      
+
       return response.send(pdfBuffer)
 
     } catch (error) {
