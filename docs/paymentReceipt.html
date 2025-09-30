@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Receipt - Demo Hotel</title>
+    <style>
+        /* Base Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        /* Conteneur principal du reçu */
+        .receipt-container {
+            width: 100%;
+            max-width: 700px; /* Légèrement plus étroit pour coller à l'image */
+            background-color: white;
+            padding: 30px;
+            border: 1px solid black; /* Bordure simple */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+        }
+
+        /* Helpers */
+        .text-sm { font-size: 0.85rem; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: 700; }
+        .mt-8 { margin-top: 2rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .pb-1 { padding-bottom: 0.25rem; }
+
+        /* Header (En-tête de l'hôtel) */
+        .header {
+            margin-bottom: 2rem;
+            line-height: 1.4;
+            font-size: 0.9rem;
+        }
+        .header-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .header-address {
+            margin-bottom: 5px;
+        }
+
+        /* Titre du reçu */
+        .receipt-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid black;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+
+        /* Section des détails clés (Room, Guest Name, Folio No, etc.) */
+        .detail-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Espacement vertical entre les lignes de détail */
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            line-height: 1.1;
+            gap: 15px;
+        }
+
+        .detail-item {
+            width: 50%;
+            display: flex;
+            justify-content: space-between;
+            
+        }
+
+        .detail-label {
+            font-weight: 400; /* Normal weight for label */
+            padding-right: 10px;
+            white-space: nowrap; /* Empêche le wrap du label */
+            width: 30%
+        }
+
+       
+
+        .detail-value {
+            font-weight: 500;
+            text-align: left;
+            white-space: nowrap; /* Empêche le wrap de la valeur */
+             border-bottom: 1px dotted black;
+             width: 70%
+        }
+        
+        /* Ajustements pour les montants (plus gras) */
+        .amount-row .detail-value {
+            font-weight: 700;
+        }
+
+        /* Section Notice */
+        .notice-section {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px dotted black; /* Séparation fine */
+        }
+
+        /* Footer/Signatures */
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 100px;
+            border-top: 1px solid black;
+            padding-top: 5px;
+            font-size: 0.8rem;
+        }
+
+        .signature-item {
+            width: 30%;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .page-info {
+            font-size: 0.8rem;
+            text-align: right;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        
+        <!-- HEADER (Informations de l'hôtel) -->
+        <header class="header text-center">
+            <h1 class="header-title">Demo Hotel Royal Rituals</h1>
+            <p class="header-address">Near Surat RTO, Surat, Gujarat, 395007, India</p>
+            <p class="text-sm">Phone: 0011223344, Email: sujal.jain@ezeetechnosys.com</p>
+        </header>
+
+        <!-- TITRE DU REÇU -->
+        <h2 class="receipt-title">Receipt</h2>
+        
+        <!-- SECTION DÉTAILS -->
+        <section class="detail-section">
+            
+            <!-- Room & Receipt No. -->
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="detail-label">Room</span>
+                    <span class="detail-value dotted-line">302-SILX</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Receipt No.</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value">5465670</span>
+                </div>
+            </div>
+
+            <!-- Guest Name & Folio No. -->
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="detail-label">Guest Name</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value">Mr Bob</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Folio No.</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value">165</span>
+                </div>
+            </div>
+
+            <!-- Payment Date & Entered On -->
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="detail-label">Payment Date</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value">10/04/2024</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Entered On</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value">14/02/2025 12:21:11 PM</span>
+                </div>
+            </div>
+
+            <!-- Pay Method & Amount -->
+            <div class="detail-row amount-row">
+                <div class="detail-item">
+                    <span class="detail-label">Pay Method</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value">Cash</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Amount</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value font-bold">13,440.00 $</span>
+                </div>
+            </div>
+            
+            <!-- Remark -->
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="detail-label">Remark</span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value"></span>
+                </div>
+                <!-- Espace vide pour aligner -->
+                <div class="detail-item">
+                    <span class="detail-label"></span>
+                    <span class="dotted-line"></span>
+                    <span class="detail-value"></span>
+                </div>
+            </div>
+
+        </section>
+        
+        <!-- SECTION NOTICE -->
+        <section class="notice-section text-sm">
+            <div class="detail-row">
+                <div class="detail-item" style="width: 100%;">
+                    <span class="detail-label">Notice</span>
+                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
+                    <span class="detail-value" style="text-align: left; width: 70%;">Receipt NOTICE</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-item" style="width: 100%;">
+                    <span class="detail-label"></span>
+                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
+                    <span class="detail-value" style="text-align: left; width: 70%;">Receipt NOTICE</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER ET SIGNATURES -->
+        <footer class="signature-section">
+            <div class="signature-item">
+                User
+                <div class="font-bold">helpdesksupport</div>
+            </div>
+            <div class="signature-item">
+                Guest Signature
+            </div>
+            <div class="signature-item">
+                Authorized Signatory
+            </div>
+        </footer>
+        
+        <div class="page-info">
+            Page 1 of 1
+        </div>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voucher Hôtelier</title>
+    <style>
+        /* Configuration de la police Inter par défaut et du corps */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+
+        /* Conteneur principal du voucher pour simuler une feuille de papier */
+        .voucher-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            padding: 8px;
+            border: 1px solid black; /* Bordure noire comme sur l'image */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Styles généraux pour le texte */
+        .text-sm {
+            font-size: 0.875rem; /* 14px */
+        }
+
+        .text-lg {
+            font-size: 1rem; /* 18px */
+        }
+
+        .text-xl {
+            font-size: 1.25rem; /* 20px */
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .font-normal {
+            font-weight: 400;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mb-6 {
+            margin-bottom: 1.5rem; /* 24px */
+        }
+
+        .my-4 {
+            margin-top: 1rem; /* 16px */
+            margin-bottom: 1rem;
+        }
+
+        .mt-4 {
+            margin-top: 1rem; /* 16px */
+        }
+
+        .mt-8 {
+            margin-top: 2rem; /* 32px */
+        }
+
+        .mr-2 {
+            margin-right: 0.5rem; /* 8px */
+        }
+
+        .w-1\/5 {
+            width: 10%;
+        }
+
+        .w-4\/5 {
+            width: 90%;
+        }
+
+        /* Style pour les lignes de séparation */
+        .separator-line {
+            border-bottom: 1px solid black;
+            height: 1px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* Style pour simuler l'effet pointillé avec une bordure en bas */
+        .dotted-line-bottom {
+            border-bottom: 1px dotted #333;
+            flex-grow: 1; /* Permet à la ligne de prendre tout l'espace restant */
+        }
+
+        /* Flexbox pour les lignes d'information clés (Room, Guest, Folio) */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end; /* Alignement en bas pour les lignes pointillées */
+            margin-bottom: 15px;
+            gap: 20px;
+        }
+
+        /* Correction pour !mb-2 */
+        .info-row.no-margin-bottom {
+            margin-bottom: 0.5rem !important; /* !mb-2 */
+        }
+
+        /* Conteneur pour une seule paire label/valeur dans la ligne d'information */
+        .info-item {
+            display: flex;
+            flex-direction: row;
+            width: 50%; /* Chaque item prend la moitié de la largeur */
+        }
+
+        /* Styles pour la colonne label */
+        .label-line {
+            width: 30%;
+            text-align: left;
+        }
+        
+        /* Conteneur pour la valeur et la ligne pointillée, alignés horizontalement */
+        .value-line {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            padding-bottom: 2px;
+            width: 70%;
+        }
+   .remak-line {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            padding-bottom: 2px;
+            width: 85%;
+        }
+        .value-line span {
+            display: block; /* S'assurer que le span a une largeur pour la ligne pointillée */
+            flex-grow: 1; /* Permet à la ligne pointillée de s'étendre */
+        }
+        
+        /* Styles spécifiques au tableau des postes */
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            border-top: 1px solid black;
+            border-bottom: 1px solid black;
+            padding: 8px 0;
+            margin-top: 20px;
+        }
+
+        .table-data {
+             display: flex;
+            justify-content: space-between;
+            margin-top: 7px;
+            padding: 8px 0;
+        }
+
+        .table-cell-desc {
+            width: 40%;
+            text-align: left;
+        }
+
+        .table-cell-qty, .table-cell-rate, .table-cell-amount {
+            width: 20%;
+            text-align: right;
+        }
+
+        /* Styles pour la section Total */
+        .total-row {
+            display: flex;
+            justify-content: flex-end;
+            font-weight: bold;
+            border-top: 1px solid black;
+            padding: 5px 0;
+            border-bottom: 1px solid black; /* border-b border-black */
+        }
+        
+        .total-label {
+            width: 80%;
+            text-align: left;
+            padding-right: 20px;
+        }
+        
+        .total-amount {
+            width: 20%;
+            text-align: right;
+        }
+        
+        /* Section signature */
+        .signature-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px; /* Espace pour les signatures */
+            padding-top: 5px;
+            margin-bottom: 40px; /* Espace pour les signatures */
+        }
+
+        .signature-line {
+            width: 40%;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .double-border{
+            border: 1px solid black;
+            padding: 1px
+        }
+        .container{
+            display: flex;
+            flex-direction: column; /* Ajout de flex-direction */
+            gap: 5px; /* Ajout de gap */
+        }
+        /* Media Query pour l'impression */
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .voucher-container {
+                border: 1px solid black;
+                box-shadow: none;
+                margin: 0;
+                max-width: none;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+   
+    <div class="container">
+    <div class="double-border">
+    <div class="voucher-container">
+        
+        <!-- HEADER (Informations de l'hôtel) -->
+        <header class="mb-6 text-sm">
+            <h1 class="text-lg font-bold">TAMISARL (SUITA HOTEL)</h1>
+            <p>Carrefour Bastos, Yaounde, Centre, 2723, Cameroon</p>
+            <p>Phone: 658858585 | Email: reservation@suita-hotel.com</p>
+            <p>URL: www.suita-hotel.com</p>
+        </header>
+
+        <!-- TITRE PRINCIPAL -->
+        <h2 class="text-xl font-bold text-center my-4">Voucher</h2>
+        
+        <div class="separator-line mb-6"></div>
+
+        <!-- BLOC D'INFORMATIONS PRINCIPALES (Chambre, Hôte, Dates, etc.) -->
+        <section class="mt-4">
+            
+            <!-- LIGNE 1: Chambre et Entré le / Posting Date -->
+            <div class="info-row">
+                <!-- COLONNE GAUCHE (Room) -->
+                <div class="info-item">
+                    <label for="room" class="font-bold text-sm label-line">Room</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">504 - Lifestyle Suite</span>
+                    </div>
+                </div>
+                <!-- COLONNE DROITE (Entered On) -->
+                <div class="info-item">
+                    <label for="entered_on" class="font-bold text-sm label-line">Entered On</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">05-08-2025 15:03:50</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIGNE 2: Guest et Posting Date -->
+            <div class="info-row">
+                <!-- COLONNE GAUCHE (Guest) -->
+                <div class="info-item">
+                    <label for="guest" class="font-bold text-sm label-line">Guest</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">Mr.GUNDAS KUNTAY // MOUHDJAF MINIG TR</span>
+                    </div>
+                </div>
+                <!-- COLONNE DROITE (Posting Date) -->
+                <div class="info-item">
+                    <label for="posting_date" class="font-bold text-sm label-line">Posting Date</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">05-08-2025</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIGNE 3: Folio No. et Voucher No. -->
+            <div class="info-row">
+                <!-- COLONNE GAUCHE (Folio No.) -->
+                <div class="info-item">
+                    <label for="folio_no" class="font-bold text-sm label-line">Folio No.</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">1577</span>
+                    </div>
+                </div>
+                <!-- COLONNE DROITE (Voucher No.) -->
+                <div class="info-item">
+                    <label for="voucher_no" class="font-bold text-sm label-line">Voucher No.</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">19103</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TABLEAU DES POSTES (PARTICULARS) -->
+        <section class="mt-4 text-sm">
+            <!-- EN-TÊTE DU TABLEAU -->
+            <div class="table-header">
+                <div class="table-cell-desc font-bold">Particulars</div>
+                <div class="table-cell-qty font-bold">Quantity</div>
+                <div class="table-cell-rate font-bold">Rate (XAF)</div>
+                <div class="table-cell-amount font-bold">Amount (XAF)</div>
+            </div>
+
+            <!-- LIGNE DE POSTE (exemple) -->
+            <div class="table-data">
+                <div class="table-cell-desc">Transfert de Charges</div>
+                <div class="table-cell-qty">1</div>
+                <div class="table-cell-rate">6 500</div>
+                <div class="table-cell-amount">6 500</div>
+            </div>
+            
+            <!-- Vous pouvez ajouter d'autres lignes ici si nécessaire -->
+
+        </section>
+
+        <!-- TOTAL GÉNÉRAL -->
+        <section class="mt-4 text-sm">
+            <div class="total-row">
+                <div class="total-label">Total</div>
+                <div class="total-amount">6 500</div>
+            </div>
+        </section>
+
+        <!-- SECTION REMARQUE ET UTILISATEUR -->
+        <section class="text-sm mt-4">
+            <!-- Remarque -->
+            <div class="info-row">
+                <div class="w-1\/5 font-bold text-sm">Remark</div>
+                <div class="remak-line">
+                    <span class="mr-2 dotted-line-bottom">Outlet : TERRACINA, Charge : Restaurant Charges, Voucher no : REC-7659, POS User : EDOUA SALOME, Table : table 9</span>
+                </div>
+            </div>
+
+            <!-- User -->
+            <div class="info-row ">
+                <div class="w-1\/5 font-bold text-sm">User</div>
+                <div class="remak-line">
+                    <span class="mr-2 dotted-line-bottom">admin</span>
+                </div>
+            </div>
+        </section>
+        
+        <!-- SIGNATURES -->
+        <section class="signature-row">
+            <div class="signature-line">
+                Guest Signature
+            </div>
+            <div class="signature-line">
+                Authorized Signatory
+            </div>
+        </section>
+
+    </div>
+    </div>
+
+
+    <!--double -->
+    <div class="double-border">
+    <div class="voucher-container">
+        
+        <!-- HEADER (Informations de l'hôtel) -->
+        <header class="mb-6 text-sm">
+            <h1 class="text-lg font-bold">TAMISARL (SUITA HOTEL)</h1>
+            <p>Carrefour Bastos, Yaounde, Centre, 2723, Cameroon</p>
+            <p>Phone: 658858585 | Email: reservation@suita-hotel.com</p>
+            <p>URL: www.suita-hotel.com</p>
+        </header>
+
+        <!-- TITRE PRINCIPAL -->
+        <h2 class="text-xl font-bold text-center my-4">Voucher - Duplicate Copy</h2>
+        
+        <div class="separator-line mb-6"></div>
+
+        <!-- BLOC D'INFORMATIONS PRINCIPALES (Chambre, Hôte, Dates, etc.) -->
+        <section class="mt-4">
+            
+            <!-- LIGNE 1: Chambre et Entré le / Posting Date -->
+            <div class="info-row">
+                <!-- COLONNE GAUCHE (Room) -->
+                <div class="info-item">
+                    <label for="room" class="font-bold text-sm label-line">Room</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">504 - Lifestyle Suite</span>
+                    </div>
+                </div>
+                <!-- COLONNE DROITE (Entered On) -->
+                <div class="info-item">
+                    <label for="entered_on" class="font-bold text-sm label-line">Entered On</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">05-08-2025 15:03:50</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIGNE 2: Guest et Posting Date -->
+            <div class="info-row">
+                <!-- COLONNE GAUCHE (Guest) -->
+                <div class="info-item">
+                    <label for="guest" class="font-bold text-sm label-line">Guest</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">Mr.GUNDAS KUNTAY // MOUHDJAF MINIG TR</span>
+                    </div>
+                </div>
+                <!-- COLONNE DROITE (Posting Date) -->
+                <div class="info-item">
+                    <label for="posting_date" class="font-bold text-sm label-line">Posting Date</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">05-08-2025</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIGNE 3: Folio No. et Voucher No. -->
+            <div class="info-row">
+                <!-- COLONNE GAUCHE (Folio No.) -->
+                <div class="info-item">
+                    <label for="folio_no" class="font-bold text-sm label-line">Folio No.</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">1577</span>
+                    </div>
+                </div>
+                <!-- COLONNE DROITE (Voucher No.) -->
+                <div class="info-item">
+                    <label for="voucher_no" class="font-bold text-sm label-line">Voucher No.</label>
+                    <div class="value-line">
+                        <span class="mr-2 dotted-line-bottom">19103</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TABLEAU DES POSTES (PARTICULARS) -->
+        <section class="mt-4 text-sm">
+            <!-- EN-TÊTE DU TABLEAU -->
+            <div class="table-header">
+                <div class="table-cell-desc font-bold">Particulars</div>
+                <div class="table-cell-qty font-bold">Quantity</div>
+                <div class="table-cell-rate font-bold">Rate (XAF)</div>
+                <div class="table-cell-amount font-bold">Amount (XAF)</div>
+            </div>
+
+            <!-- LIGNE DE POSTE (exemple) -->
+            <div class="table-data">
+                <div class="table-cell-desc">Transfert de Charges</div>
+                <div class="table-cell-qty">1</div>
+                <div class="table-cell-rate">6 500</div>
+                <div class="table-cell-amount">6 500</div>
+            </div>
+            
+            <!-- Vous pouvez ajouter d'autres lignes ici si nécessaire -->
+
+        </section>
+
+        <!-- TOTAL GÉNÉRAL -->
+        <section class="mt-4 text-sm">
+            <div class="total-row">
+                <div class="total-label">Total</div>
+                <div class="total-amount">6 500</div>
+            </div>
+        </section>
+
+        <!-- SECTION REMARQUE ET UTILISATEUR -->
+        <section class="text-sm mt-4">
+            <!-- Remarque -->
+            <div class="info-row">
+                <div class="w-1\/5 font-bold text-sm">Remark</div>
+                <div class="remak-line">
+                    <span class="mr-2 dotted-line-bottom">Outlet : TERRACINA, Charge : Restaurant Charges, Voucher no : REC-7659, POS User : EDOUA SALOME, Table : table 9</span>
+                </div>
+            </div>
+
+            <!-- User -->
+            <div class="info-row ">
+                <div class="w-1\/5 font-bold text-sm">User</div>
+                <div class="remak-line">
+                    <span class="mr-2 dotted-line-bottom">admin</span>
+                </div>
+            </div>
+        </section>
+        
+        <!-- SIGNATURES -->
+        <section class="signature-row">
+            <div class="signature-line">
+                Guest Signature
+            </div>
+            <div class="signature-line">
+                Authorized Signatory
+            </div>
+        </section>
+
+    </div>
+    </div>
+    </div>
+</body>
+</html>
