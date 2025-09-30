@@ -15,6 +15,8 @@ export const createReservationValidator = vine.compile(
     booking_reference: vine.string().optional(),
     booking_agent: vine.string().optional(),
     booking_agent_commission: vine.number().min(0).optional(),
+    market_code_id : vine.number().positive().optional(),
+    payment_type : vine.string().optional(),
 
     // Dates
     check_in_date: vine.date(),
@@ -153,6 +155,7 @@ export const createReservationValidator = vine.compile(
 
     // Billing
     billing_address: vine.string().optional(),
+    bill_to: vine.string().optional(),
     billing_city: vine.string().optional(),
     billing_state: vine.string().optional(),
     billing_country: vine.string().optional(),

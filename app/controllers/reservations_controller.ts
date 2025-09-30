@@ -2022,6 +2022,9 @@ public async getReservationById({ request, response, auth, params }: HttpContext
             complimentaryRoom: data.complimentary_room,
             paymentStatus: 'pending',
             paymentMethodId: data.payment_mod,
+            billTo : data.bill_to,
+            marketCodeId : data.market_code_id,
+            paymentType : data.payment_type,
             taxExempt: data.tax_exempt,
             isHold: data.isHold,
             holdReleaseDate:
@@ -5299,4 +5302,91 @@ public async getReservationById({ request, response, auth, params }: HttpContext
     </html>
     `
   }
+
+
+
+public async updateBookingDetails(ctx: HttpContext) {
+  const { params, request, response, auth } = ctx
+  const trx = await db.transaction()
+
+  try {
+    const { reservationId } = params
+    const payload = request.body()
+
+    // Log pour déboguer
+    console.log('Received payload:', payload)
+
+    // Get reservation
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', reservationId)
+      .first()
+
+    if (!reservation) {
+      await trx.rollback()
+      return response.notFound({ message: 'Reservation not found' })
+    }
+
+    // Mettre à jour avec les bons noms de champs
+    if (payload.billTo !== undefined) {
+      reservation.billTo = payload.billTo
+    }
+    if (payload.businessSourceId !== undefined) {
+      reservation.businessSourceId = payload.businessSourceId
+    }
+
+    if (payload.paymentMethodId !== undefined) {
+      reservation.paymentMethodId = payload.paymentMethodId
+    }
+    if (payload.paymentType !== undefined) {
+      reservation.paymentType = payload.paymentType
+    }
+    if (payload.marketCodeId !== undefined) {
+      reservation.marketCodeId = payload.marketCodeId
+    }
+    // CORRECTION: reservationType -> reservationTypeId
+    if (payload.reservationTypeId !== undefined) {
+      reservation.reservationTypeId = payload.reservationTypeId
+    }
+    if (payload.companyName !== undefined) {
+      reservation.companyName = payload.companyName
+    }
+
+    reservation.lastModifiedBy = auth?.user?.id!
+
+    // Sauvegarder les changements
+    await reservation.useTransaction(trx).save()
+
+    // Log après sauvegarde
+    console.log('Reservation updated:', reservation.$attributes)
+
+    // Audit log
+    await LoggerService.log({
+      actorId: auth.user?.id!,
+      action: 'UPDATED',
+      entityType: 'Reservation',
+      entityId: reservationId,
+      hotelId: reservation.hotelId,
+      description: `Updated booking details for reservation #${reservation.reservationNumber}`,
+      ctx,
+    })
+
+    await trx.commit()
+
+    // Retourner les données mises à jour
+    return response.ok({
+      message: 'Update Booking Details successfully',
+      data: reservation,
+    })
+  } catch (error) {
+    await trx.rollback()
+    logger.error('Error updating booking details:', error)
+    return response.badRequest({
+      message: 'Failed to update booking details',
+      error: error.message,
+    })
+  }
+}
+
+
+
 }

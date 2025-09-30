@@ -1000,6 +1000,7 @@ router
         router.post('/:reservationId/checkin', [ReservationsController, 'checkIn'])
         router.post('/:reservationId/payment', [ReservationsController, 'addPayment'])
         router.put('/:reservationId/amend-stay', [ReservationsController, 'amendStay'])
+        router.put('/:reservationId/booking-detail', [ReservationsController, 'updateBookingDetails'])
         router.post('/:reservationId/room-move', [ReservationsController, 'roomMove'])
         router.post('/:reservationId/exchange-room', [ReservationsController, 'exchangeRoom'])
         router.post('/:reservationId/stop-room-move', [ReservationsController, 'stopRoomMove'])
