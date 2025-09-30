@@ -7821,10 +7821,10 @@ export default class ReportsController {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
         })
-        .preload('reservationRoom', (reservationRoomQuery : any) => {
+       .preload('reservationRoom', (reservationRoomQuery : any) => {
           reservationRoomQuery.preload('room')
           reservationRoomQuery.preload('roomType')
-        })
+        }) 
         .preload('paymentMethod')
         .first()
 
