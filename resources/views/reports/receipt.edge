@@ -190,12 +190,12 @@
                 <div class="detail-item">
                     <span class="detail-label">Pay Method</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value">{{transaction.paymentMethodId |N/A}}</span>
+                    <span class="detail-value">{{ transaction.paymentMethodId || 'NAN' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Amount</span>
                     <span class="dotted-line"></span>
-                    <span class="detail-value font-bold">{{transaction.amount}}</span>
+                    <span class="detail-value font-bold">{{transaction.amount}}(XAF)</span>
                 </div>
             </div>
             
@@ -204,7 +204,7 @@
                 <div class="detail-item" style="width: 100%;">
                     <span class="detail-label">Remark</span>
                     <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span class="detail-value" style="text-align: left;padding-right: 350px; width: 70%;"></span>
+                    <span class="detail-value" style="text-align: left;padding-right: 350px; width: 70%;"> {{ transaction.description}}</span>
                 </div>
             </div>
 
