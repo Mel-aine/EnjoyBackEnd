@@ -4379,84 +4379,101 @@ public async getReservationById({ request, response, auth, params }: HttpContext
   }
 
   public async unassignRoom(ctx: HttpContext) {
-    const trx = await db.transaction()
-    const { params, request, response, auth } = ctx
-    try {
-      const { reservationId } = params
-      const { reservationRooms, actualCheckInTime } = request.body()
+  const trx = await db.transaction()
+  const { params, request, response, auth } = ctx
+  try {
+    const { reservationId } = params
+    const { reservationRooms, actualCheckInTime } = request.body()
 
-      // Validate required fields
-      if (!reservationRooms) {
-        await trx.rollback()
-        return response.badRequest({ message: 'Room ID is required' })
-      }
+    console.log('--- Début unassignRoom ---')
+    console.log('Params:', params)
+    console.log('Body reçu:', request.body())
+    console.log('User connecté:', auth?.user)
 
-      // Get reservation with related data
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.whereIn('id', reservationRooms).where('status', 'reserved')
-        })
-        .first()
-      console.log('Reservation trouvée:', reservation)
-
-      if (!reservation) {
-        console.log('Erreur : réservation non trouvée')
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
-
-      // Check if reservation allows room unassignment
-      const allowedStatuses = ['confirmed', 'pending']
-      if (!allowedStatuses.includes(reservation.status)) {
-        console.log('Erreur : statut non autorisé', reservation.status)
-        await trx.rollback()
-        return response.badRequest({
-          message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
-        })
-      }
-
-      for (const reservationRoom of reservation.reservationRooms) {
-        // Store the reservation room ID before unassigning
-        const reservationRoomId = reservationRoom.id
-
-        reservationRoom.roomId = null
-        reservationRoom.lastModifiedBy = auth?.user?.id!
-        await reservationRoom.useTransaction(trx).save()
-
-        // Remove room number from folio transaction descriptions
-        await ReservationFolioService.removeRoomChargeDescriptions(
-          reservationRoomId,
-          auth?.user?.id!
-        )
-      }
-
-      // Create audit log
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'ROOM_UNASSIGNED',
-        entityType: 'ReservationRoom',
-        entityId: reservationId,
-        hotelId: reservation.hotelId,
-        description: `Room unassigned from reservation #${reservation.reservationNumber}`,
-        ctx: ctx,
-      })
-
-      await trx.commit()
-      console.log('Room désaffectée avec succès')
-
-      return response.ok({
-        message: 'Room unassigned successfully',
-        reservationId,
-      })
-    } catch (error) {
+    // Validate required fields
+    if (!reservationRooms) {
+      console.log('Erreur : reservationRooms manquant')
       await trx.rollback()
-      logger.error('Error unassigning room:', error)
+      return response.badRequest({ message: 'Room ID is required' })
+    }
+
+    // Get reservation with related data
+    console.log('Recherche de la réservation ID:', reservationId, 'avec rooms:', reservationRooms)
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', reservationId)
+      .preload('reservationRooms', (query) => {
+        query.whereIn('id', reservationRooms)
+      })
+      .first()
+
+    console.log('Résultat de la requête Reservation:', reservation)
+
+    if (!reservation) {
+      console.log('Erreur : réservation non trouvée')
+      await trx.rollback()
+      return response.notFound({ message: 'Reservation not found' })
+    }
+
+    // Check if reservation allows room unassignment
+    const allowedStatuses = ['confirmed', 'pending']
+    console.log('Statut réservation:', reservation.status)
+    if (!allowedStatuses.includes(reservation.status)) {
+      console.log('Erreur : statut non autorisé', reservation.status)
+      await trx.rollback()
       return response.badRequest({
-        message: 'Failed to unassign room',
-        error: error.message,
+        message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
       })
     }
+
+    console.log('Nombre de reservationRooms trouvées:', reservation.reservationRooms.length)
+
+    for (const reservationRoom of reservation.reservationRooms) {
+      console.log('Traitement reservationRoom:', reservationRoom.id, '-> actuel roomId:', reservationRoom.roomId)
+
+      // Store the reservation room ID before unassigning
+      const reservationRoomId = reservationRoom.id
+
+      reservationRoom.roomId = null
+      reservationRoom.lastModifiedBy = auth?.user?.id!
+      await reservationRoom.useTransaction(trx).save()
+      console.log('Room désaffectée pour reservationRoom:', reservationRoomId)
+
+      // Remove room number from folio transaction descriptions
+      await ReservationFolioService.removeRoomChargeDescriptions(
+        reservationRoomId,
+        auth?.user?.id!
+      )
+      console.log('Descriptions folio mises à jour pour reservationRoom:', reservationRoomId)
+    }
+
+    // Create audit log
+    console.log('Création du log audit...')
+    await LoggerService.log({
+      actorId: auth.user?.id!,
+      action: 'ROOM_UNASSIGNED',
+      entityType: 'ReservationRoom',
+      entityId: reservationId,
+      hotelId: reservation.hotelId,
+      description: `Room unassigned from reservation #${reservation.reservationNumber}`,
+      ctx: ctx,
+    })
+
+    await trx.commit()
+    console.log('--- SUCCESS: Room désaffectée avec succès ---')
+
+    return response.ok({
+      message: 'Room unassigned successfully',
+      reservationId,
+    })
+  } catch (error) {
+    await trx.rollback()
+    console.log('--- ERROR ---')
+    console.error('Error unassigning room:', error)
+    return response.badRequest({
+      message: 'Failed to unassign room',
+      error: error.message,
+    })
+  }
   }
 
   /**
