@@ -28,7 +28,7 @@ export default class PdfGenerationService {
         format: 'A4',
         orientation: 'portrait',
         margin: {
-          top: '10mm',
+          top: '30mm',
           right: '10mm',
           bottom: '10mm',
           left: '10mm'
@@ -84,7 +84,7 @@ export default class PdfGenerationService {
           bottom: '10mm',
           left: '10mm'
         },
-        displayHeaderFooter: false,
+        displayHeaderFooter: true,
         printBackground: true,
         ...options
       }

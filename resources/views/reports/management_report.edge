@@ -14,7 +14,17 @@
         color: #333;
       }
       
-     
+      .header {
+        position: fixed;
+        top: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        font-weight: bold;
+        font-size: 14px;
+      }
+      
       .horizontal-line {
         border-top: 1px solid #333;
         margin: 10px 0;
@@ -44,7 +54,7 @@
       }
       
       .section-title {
-        font-weight: bold; 
+        font-weight: bold;
         margin: 15px 0 5px 0;
         font-size: 12px;
       }
@@ -78,8 +88,7 @@
         text-align: right;
       }
       
-    
-      
+     
       .footer-line {
         border-top: 1px solid #333;
         margin-bottom: 5px;
@@ -91,34 +100,44 @@
         align-items: center;
       }
       
-      .page-break {
-        page-break-before: always;
-      }
       
+      .font-bold{
+        font-weight: 900;
+      }
       @media print {
         .page-break {
+          padding-top:20px
           page-break-before: always;
         }
       
-        @page { 
-                    size: A4;
-                	margin-top: 80px; 
-                	@bottom-right-corner{content: counter(page);}
-                	@top-left{ content: element(header);}
-                }
-                
-                @page :first {
-               	   margin-bottom: 100px;
-                   @bottom-right{content: element(footer);}
-                   @bottom-right-corner{content: counter(page); padding-top:50px;}
-                }
-                
-				.header{ position: running(header);}
-                .footer{ position: running(footer);}
+        /* Ensure header is at the top */
+      
+        .header {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 50px;
+          padding: 10px 20px;
+          /* Adjust height as needed */
+          background-color: white;
+          /* To prevent background show-through */
+        }
+      
+        /* Ensure footer is at the bottom */
+      
+        .footer {
+          height: 50px;
+          /* Adjust height as needed */
+          background-color: white;
+          /* To prevent background show-through */
+        }
+      
         /* Optional: Add padding to the body to prevent content overlap */
       
         .main {
-          padding-top: 80px;
+          position:absolute
+          padding-top: 20px;
           /* Add space for the header */
           padding-bottom: 80px;
           /* Add space for the footer */
@@ -1218,7 +1237,7 @@
               </td>
             </tr>
           @endeach
-          <tr class="section-total-top">
+          <tr class="section-total">
             <td>
               <strong>POS Revenue</strong>
             </td>
@@ -1238,17 +1257,17 @@
       <div class="horizontal-line">
         <table>
           <tbody>
-            <tr class="section-total-top">
-              <td class="">
+            <tr class="font-bold">
+              <td style="width: 40%;">
                 Total Revenue
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.revenueSummary.today) }}
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.revenueSummary.ptd) }}
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.revenueSummary.ytd) }}
               </td>
             </tr>
@@ -1257,7 +1276,13 @@
       </div>
       <div class="horizontal-line">
       </div>
-
+      <p>*Guest Ledger Closing Balance = Opening Balance - Carry Forwarded Advance Deposit + Charge Posted to Guest Ledger - Settlement by Guest</p>
+      <p>*Transfer From Advance Deposit = Balance Transfer to Guest Ledger</p>
+      <p>*PMS Revenue = Total Revenue without Tax (PMS)</p>
+      <p>*POS Revenue = All Outlet's Total Revenue without Tax</p>
+      <p>*Total Revenue = PMS Revenue + POS Revenue</p>
+ <div class="horizontal-line">
+      </div>
     </div>
     <!-- Footer -->
     <div class="footer">
