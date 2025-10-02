@@ -679,7 +679,7 @@ export default class ReservationRoom extends BaseModel {
   @belongsTo(() => PaymentMethod)
   declare paymentMethod: BelongsTo<typeof PaymentMethod>
 
-  @belongsTo(() => RateType,{ foreignKey : 'RateTypeId'})
+  @belongsTo(() => RateType, { foreignKey: 'rateTypeId' })
   declare rateType: BelongsTo<typeof RateType>
 
   // Computed properties
