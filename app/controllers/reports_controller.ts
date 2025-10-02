@@ -13,6 +13,7 @@ import NightAuditService from '../services/night_audit_service.js'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import RoomType from '#models/room_type'
+import numberToWords from 'number-to-words'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -7781,13 +7782,18 @@ export default class ReportsController {
           message: 'Transaction not found'
         })
       }
+      console.log('transaction.totalAmount', transaction.totalAmount)
+      const totalAmountNumber = parseFloat(transaction.totalAmount?.toString() || '0')
+      const amountInWords = this.calculateAmountInWords(totalAmountNumber)
 
       // Prepare data for the receipt template
       const receiptData = {
         transaction,
+        amountInWords,
         hotel: transaction.folio.hotel,
         guest: transaction.folio.guest,
         folio: transaction.folio,
+        reservations: transaction.folio.reservationRoom,
         room: transaction.folio.reservationRoom?.room,
         roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
@@ -7823,10 +7829,11 @@ export default class ReportsController {
 
     } catch (error) {
       logger.error('Error generating receipt PDF:', error)
+      
+      console.log('Error generating receipt PDF:', error)
       return response.internalServerError({
         success: false,
-        message: 'Error generating receipt PDF',
-        error: error.message
+        error: error
       })
     }
   }
@@ -7985,5 +7992,33 @@ export default class ReportsController {
         error: error.message
       })
     }
+  }
+  private calculateAmountInWords(amount: Float16Array | number) {
+    // Vérifier que le montant est un nombre
+    if (typeof amount !== 'number' || Number.isNaN(amount)) {
+      throw new Error('Le montant doit être un nombre');
+    }
+
+    // Gérer les montants négatifs
+    const isNegative = amount < 0
+    const absoluteAmount = Math.abs(amount)
+
+    // Séparer les parties entière et décimale (arrondies à 2 décimales)
+    const integerPart = Math.floor(absoluteAmount)
+    const fractionalPart = Math.round((absoluteAmount - integerPart) * 100) // 0..99
+
+    let words = numberToWords.toWords(integerPart)
+
+    // Ajouter la partie décimale si présente, au format XX/100
+    if (fractionalPart > 0) {
+      words = `${words} and ${fractionalPart.toString().padStart(2, '0')}/100`
+    }
+
+    if (isNegative) {
+      words = `minus ${words}`
+    }
+
+    // Mettre une majuscule initiale pour une meilleure présentation
+    return words.charAt(0).toUpperCase() + words.slice(1)
   }
 }
