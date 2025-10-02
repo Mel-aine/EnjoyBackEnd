@@ -262,9 +262,10 @@
         <div class="voucher-container">
             
             <header class="text-sm">
-                <h1 class="text-lg font-bold">TAMISARL ({{ hotel.hotelName }})</h1>
+                <h1 class="text-lg font-bold">{{ hotel.hotelName }}</h1>
                 <p>{{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }}, {{ hotel.country }}</p>
-                <p>Phone: {{ hotel.phoneNumber }} | Email: {{ hotel.email }} | URL: {{ hotel.website }}</p>
+                <p>Phone: {{ hotel.phoneNumber }}  Email: {{ hotel.email }}</p>
+                <p>URL: {{ hotel.website }}</p>
             </header>
 
             <h2 class="text-xl font-bold text-center my-2">Voucher</h2>
@@ -336,8 +337,8 @@
                 <div class="table-header">
                     <div class="table-cell-desc font-bold">Particulars</div>
                     <div class="table-cell-qty font-bold">Quantity</div>
-                    <div class="table-cell-rate font-bold">Rate ({{ transaction.currencyCode }})</div>
-                    <div class="table-cell-amount font-bold">Amount ({{ transaction.currencyCode }})</div>
+                    <div class="table-cell-rate font-bold">Rate (XAF)</div>
+                    <div class="table-cell-amount font-bold">Amount (XAF)</div>
                 </div>
 
                 <div class="table-data">
@@ -387,7 +388,8 @@
             <header class="text-sm">
                 <h1 class="text-lg font-bold">{{ hotel.hotelName }}</h1>
                 <p>{{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }}, {{ hotel.country }}</p>
-                <p>Phone: {{ hotel.phoneNumber }} | Email: {{ hotel.email }} | URL: {{ hotel.website }}</p>
+                <p>Phone: {{ hotel.phoneNumber }}  Email: {{ hotel.email }}</p>
+                <p>URL: {{ hotel.website }}</p>
             </header>
 
             <h2 class="text-xl font-bold text-center my-2">Voucher - Duplicate Copy</h2>
@@ -460,11 +462,11 @@
                     <div class="table-cell-desc font-bold">Particulars</div>
                     <div class="table-cell-qty font-bold">Quantity</div>
                     <div class="table-cell-rate font-bold">Rate (XAF)</div>
-                    <div class="table-cell-amount font-bold">Amount ()</div>
+                    <div class="table-cell-amount font-bold">Amount (XAF)</div>
                 </div>
 
                 <div class="table-data">
-                    <div class="table-cell-desc">{{ transaction.particular }}</div>
+                    <div class="table-cell-desc">{{ transaction.particular|| 'NAN' }}</div>
                     <div class="table-cell-qty">{{ transaction.quantity || 1 }}</div>
                     <div class="table-cell-rate">{{ transaction.amount | formatCurrency }}</div>
                     <div class="table-cell-amount">{{ transaction.totalAmount | formatCurrency }}</div>
@@ -483,7 +485,7 @@
                 <div class="info-row">
                     <div class="w-1\/5 font-bold text-sm">Remark</div>
                     <div class="remark-line">
-                        <span class="mr-2 dotted-line-bottom">Outlet : TERRACINA, Charge : Restaurant Charges, Voucher no : REC-7659, POS User : EDOUA SALOME, Table : table 9</span>
+                        <span class="mr-2 dotted-line-bottom">{{ transaction.description}}</span>
                     </div>
                 </div>
 

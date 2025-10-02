@@ -3,249 +3,508 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt</title>
+    <title>Voucher Hôtelier</title>
     <style>
-        /* Base Styles */
-    
-
-        /* Conteneur principal du reçu */
-        .receipt-container {
-            width: 100%;
-            max-width: 700px; /* Légèrement plus étroit pour coller à l'image */
-            background-color: white;
-            padding: 30px;
-            border: 1px solid black; /* Bordure simple */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            font-size: 0.9rem;
+        * {
+            box-sizing: border-box;
         }
 
-        /* Helpers */
-        .text-sm { font-size: 0.85rem; }
-        .text-center { text-align: center; }
-        .font-bold { font-weight: 700; }
-        .mt-8 { margin-top: 2rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .pb-1 { padding-bottom: 0.25rem; }
-
-        /* Header (En-tête de l'hôtel) */
-        .header {
-            margin-bottom: 2rem;
-            line-height: 1.4;
-            font-size: 0.9rem;
-        }
-        .header-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-        }
-        .header-address {
-            margin-bottom: 5px;
-        }
-
-        /* Titre du reçu */
-        .receipt-title {
-            font-size: 1.15rem;
-            font-weight: 700;
-            text-align: center;
-            border-bottom: 1px solid black;
-            padding-bottom: 5px;
-            margin-bottom: 20px;
-        }
-
-        /* Section des détails clés (Room, Guest Name, Folio No, etc.) */
-        .detail-section {
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
             display: flex;
-            flex-direction: column;
-            gap: 15px; /* Espacement vertical entre les lignes de détail */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+            margin: 0;
         }
 
-        .detail-row {
+        .voucher-container {
+            width: 100%;
+            background-color: white;
+            padding: 6px;
+            border: 2px solid black;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+        }
+
+        .text-sm {
+            font-size: 0.75rem; /* Réduit de 14px à 12px */
+            line-height: 1.3;
+        }
+
+        .text-lg {
+            font-size: 0.9rem; /* Réduit de 18px à ~14px */
+        }
+
+        .text-xl {
+            font-size: 1rem; /* Réduit de 20px à 16px */
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mb-4 {
+            margin-bottom: 0.75rem; /* Réduit */
+        }
+
+        .my-2 {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .mt-2 {
+            margin-top: 0.5rem;
+        }
+
+        .mt-3 {
+            margin-top: 0.75rem;
+        }
+
+        .mr-2 {
+            margin-right: 0.5rem;
+        }
+
+        .w-1\/5 {
+            width: 15%;
+        }
+
+        .separator-line {
+            border-bottom: 1px solid black;
+            height: 1px;
+            margin-top: 3px;
+            margin-bottom: 3px;
+        }
+
+        .dotted-line-bottom {
+            border-bottom: 1px dotted #333;
+            flex-grow: 1;
+        }
+
+        .info-row {
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            line-height: 1.1;
+            margin-bottom: 8px; /* Réduit */
             gap: 15px;
         }
 
-        .detail-item {
+        .info-item {
+            display: flex;
+            flex-direction: row;
             width: 50%;
-            display: flex;
-            justify-content: space-between;
-            
         }
 
-        .detail-label {
-            font-weight: 400; /* Normal weight for label */
-            padding-right: 10px;
-            white-space: nowrap; /* Empêche le wrap du label */
-            width: 30%
-        }
-
-       
-
-        .detail-value {
-            font-weight: 500;
-            text-align: left;
-            white-space: nowrap; /* Empêche le wrap de la valeur */
-             border-bottom: 1px dotted black;
-             width: 70%
-        }
-        
-        /* Ajustements pour les montants (plus gras) */
-        .amount-row .detail-value {
-            font-weight: 700;
-        }
-
-        /* Section Notice */
-        .notice-section {
-            margin-top: 30px;
-            padding-top: 10px;
-            border-top: 1px dotted black; /* Séparation fine */
-        }
-
-        /* Footer/Signatures */
-        .signature-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-top: 100px;
-            border-top: 1px solid black;
-            padding-top: 5px;
-            font-size: 0.8rem;
-        }
-
-        .signature-item {
+        .label-line {
             width: 30%;
-            text-align: center;
-            line-height: 1.4;
+            text-align: left;
+            white-space: nowrap;
         }
         
-        .page-info {
-            font-size: 0.8rem;
+        .value-line {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            padding-bottom: 2px;
+            width: 70%;
+        }
+
+        .remark-line {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            padding-bottom: 2px;
+            width: 85%;
+        }
+
+        .value-line span {
+            display: block;
+            flex-grow: 1;
+        }
+        
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            border-top: 1px solid black;
+            border-bottom: 1px solid black;
+            padding: 5px 0; /* Réduit */
+            margin-top: 10px; /* Réduit */
+        }
+
+        .table-data {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px; /* Réduit */
+            padding: 5px 0; /* Réduit */
+        }
+
+        .table-cell-desc {
+            width: 40%;
+            text-align: left;
+        }
+
+        .table-cell-qty, .table-cell-rate, .table-cell-amount {
+            width: 20%;
             text-align: right;
-            margin-top: 20px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: flex-end;
+            font-weight: bold;
+            border-top: 1px solid black;
+            padding: 4px 0; /* Réduit */
+            border-bottom: 1px solid black;
+        }
+        
+        .total-label {
+            width: 80%;
+            text-align: left;
+            padding-right: 20px;
+        }
+        
+        .total-amount {
+            width: 20%;
+            text-align: right;
+        }
+        
+        .signature-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px; /* Réduit */
+            padding-top: 3px;
+            margin-bottom: 12px; /* Réduit */
+        }
+
+        .signature-line {
+            width: 40%;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        .double-border {
+            border: 2px solid black;
+            padding: 3px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            overflow: visible;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-width: 820px;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        header {
+            margin-bottom: 8px;
+        }
+
+        header p {
+            margin: 2px 0;
+        }
+
+        header h1 {
+            margin: 0 0 4px 0;
+        }
+
+        /* Media Query pour l'impression */
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .container {
+                max-width: 100%;
+                padding: 0;
+                gap: 5px;
+            }
+
+            .voucher-container {
+                border: 2px solid black;
+                box-shadow: none;
+                margin: 0;
+                max-width: none;
+                width: 100%;
+                page-break-inside: avoid;
+            }
+
+            .double-border {
+                page-break-inside: avoid;
+                margin-bottom: 8px;
+            }
+
+            @page {
+                margin: 10mm;
+                size: A4;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="receipt-container">
-        
-        <!-- HEADER (Informations de l'hôtel) -->
-        <header class="header text-center">
-            <h1 class="header-title">Hotel Royal{{ hotel.hotelName}} </h1>
-            <p class="header-address">{{ hotel.address}},{{ hotel.city}},{{ hotel.stateProvince}}, {{ hotel.country}}</p>
-            <p class="text-sm">Phone: {{ hotel.phoneNumber}}, Email: {{ hotel.email}}</p>
-        </header> 
-
-       
-
-        <!-- TITRE DU REÇU -->
-        <h2 class="receipt-title">Receipt</h2>
-        
-        <!-- SECTION DÉTAILS -->
-        <section class="detail-section">
+   
+<div class="container">
+    <!-- ORIGINAL -->
+    <div class="double-border">
+        <div class="voucher-container">
             
-            <!-- Room & Receipt No. -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="detail-label">Room</span>
-                    <span class="detail-value dotted-line">{{room.roomNumber}}-{{roomType.roomTypeName}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Receipt No.</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{transaction.transactionNumber}}</span>
-                </div>
-            </div>
+            <header class="text-sm">
+                <h1 class="text-lg font-bold">{{ hotel.hotelName }}</h1>
+                <p>{{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }}, {{ hotel.country }}</p>
+                <p>Phone: {{ hotel.phoneNumber }},  Email: {{ hotel.email }}</p>
+                <p>Website: {{ hotel.website }}</p>
+            </header>
 
-            <!-- Guest Name & Folio No. -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="detail-label">Guest Name</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ guest.firstName}} {{guest.lastName}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Folio No.</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ folio.folioNumber}}</span>
-                </div>
-            </div>
-
-            <!-- Payment Date & Entered On -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="detail-label">Payment Date</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Entered On</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}</span>
-                </div>
-            </div>
-
-            <!-- Pay Method & Amount -->
-            <div class="detail-row amount-row">
-                <div class="detail-item">
-                    <span class="detail-label">Pay Method</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ transaction.paymentMethodId || 'NAN' }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Amount</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value font-bold">{{transaction.amount}}(XAF)</span>
-                </div>
-            </div>
+            <h2 class="text-xl font-bold text-center my-2">Receipt</h2>
             
-            <!-- Remark -->
-            <div class="detail-row">
-                <div class="detail-item" style="width: 100%;">
-                    <span class="detail-label">Remark</span>
-                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span class="detail-value" style="text-align: left;padding-right: 350px; width: 70%;"> {{ transaction.description}}</span>
-                </div>
-            </div>
+            <div class="separator-line mb-4"></div>
 
-        </section>
-        
-        <!-- SECTION NOTICE -->
-        <div style="margin-top: 30px;" >
-            <div class="detail-row">
-                <div class="detail-item" style="width: 100%;">
-                    <span class="detail-label">Notice</span>
-                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span  style="text-align: left;padding-right: 350px; width: 70%;">Receipt NOTICE</span>
+            <section class="mt-2">
+                
+                <div class="info-row">
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Room</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ room.roomNumber }} - {{roomType.roomTypeName}}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Entered On</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-item" style="width: 100%;">
-                    <span class="detail-label"></span>
-                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span  style="text-align: left;padding-right: 350px; width: 70%;">Receipt NOTICE</span>
+
+                <div class="info-row">
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Guest</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ guest.firstName }} {{ guest.lastName }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Posting Date</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ transaction.postingDate.toFormat('dd-MM-yyyy') }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
-            </div>
+
+                <div class="info-row">
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Folio No.</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ folio.folioNumber || transaction.folioId }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Voucher No.</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ transaction.transactionNumber }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <section class="mt-2 text-sm">
+                <div class="table-header">
+                    <div class="table-cell-desc font-bold">Particulars</div>
+                    <div class="table-cell-qty font-bold">Quantity</div>
+                    <div class="table-cell-rate font-bold">Rate (XAF)</div>
+                    <div class="table-cell-amount font-bold">Amount (XAF)</div>
+                </div>
+
+                <div class="table-data">
+                    <div class="table-cell-desc">{{ transaction.particular || 'NAN' }}  </div>
+                    <div class="table-cell-qty">{{ transaction.quantity || 1 }}</div>
+                    <div class="table-cell-rate">{{ transaction.amount | formatCurrency }}</div>
+                    <div class="table-cell-amount">{{ transaction.totalAmount | formatCurrency }}</div>
+                </div>
+
+            </section>
+
+            <section class="mt-2 text-sm">
+                <div class="total-row">
+                    <div class="total-label">Total</div>
+                    <div class="total-amount">{{ transaction.totalAmount | formatCurrency }}</div>
+                </div>
+            </section>
+
+            <section class="text-sm mt-2">
+                <div class="info-row">
+                    <div class="w-1\/5 font-bold text-sm">Remark</div>
+                    <div class="remark-line">
+                        <span class="mr-2 dotted-line-bottom">{{transaction.description}}</span>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="w-1\/5 font-bold text-sm">User</div>
+                    <div class="remark-line">
+                        <span class="mr-2 dotted-line-bottom">{{ printedBy }}</span>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="signature-row">
+                <div class="signature-line">Guest Signature</div>
+                <div class="signature-line">Authorized Signatory</div>
+            </section>
+
         </div>
-
-        <!-- FOOTER ET SIGNATURES -->
-
-        <footer class="signature-section" style="margin-top: 40px;">
-            <div class="signature-item">
-                User
-            </div>
-            <div class="signature-item">
-               {{ printedBy }}
-            </div>
-            <div class="signature-item">
-                Guest Signature
-            </div>
-            <div class="signature-item">
-                Authorized Signatory
-            </div>  
-        </footer>
-        <hr style="width: 100%; height: 1px;margin-top: 4px; margin-bottom: 100px; background-color: black; border: none;"><br>
-        
     </div>
+
+    <!-- DUPLICATA -->
+    <div class="double-border">
+        <div class="voucher-container">
+            
+            <header class="text-sm">
+                <h1 class="text-lg font-bold">{{ hotel.hotelName }}</h1>
+                <p>{{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }}, {{ hotel.country }}</p>
+                <p>Phone: {{ hotel.phoneNumber }},  Email: {{ hotel.email }}</p>
+                <p>WebSite: {{ hotel.website }}</p>
+            </header>
+
+            <h2 class="text-xl font-bold text-center my-2">Receipt - Duplicate Copy</h2>
+            
+            <div class="separator-line mb-4"></div>
+
+            <section class="mt-2">
+                
+                <div class="info-row">
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Room</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ room.roomNumber }} - {{roomType.roomTypeName}}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Entered On</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Guest</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ guest.firstName }} {{ guest.lastName }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Posting Date</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ transaction.postingDate.toFormat('dd-MM-yyyy') }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Folio No.</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ folio.folioNumber || transaction.folioId }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label class="font-bold text-sm label-line">Voucher No.</label>
+                        <div class="value-line">
+                            <span class="mr-2 dotted-line-bottom">
+                                {{ transaction.transactionNumber }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <section class="mt-2 text-sm">
+                <div class="table-header">
+                    <div class="table-cell-desc font-bold">Particulars</div>
+                    <div class="table-cell-qty font-bold">Quantity</div>
+                    <div class="table-cell-rate font-bold">Rate (XAF)</div>
+                    <div class="table-cell-amount font-bold">Amount (XAF)</div>
+                </div>
+
+                <div class="table-data">
+                    <div class="table-cell-desc">{{ transaction.particular|| 'NAN' }}</div>
+                    <div class="table-cell-qty">{{ transaction.quantity || 1 }}</div>
+                    <div class="table-cell-rate">{{ transaction.amount | formatCurrency }}</div>
+                    <div class="table-cell-amount">{{ transaction.totalAmount | formatCurrency }}</div>
+                </div>
+
+            </section>
+
+            <section class="mt-2 text-sm">
+                <div class="total-row">
+                    <div class="total-label">Total</div>
+                    <div class="total-amount">{{ transaction.totalAmount | formatCurrency }}</div>
+                </div>
+            </section>
+
+            <section class="text-sm mt-2">
+                <div class="info-row">
+                    <div class="w-1\/5 font-bold text-sm">Remark</div>
+                    <div class="remark-line">
+                        <span class="mr-2 dotted-line-bottom">{{ transaction.description}}</span>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="w-1\/5 font-bold text-sm">User</div>
+                    <div class="remark-line">
+                        <span class="mr-2 dotted-line-bottom">{{ printedBy }}</span>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="signature-row">
+                <div class="signature-line">Guest Signature</div>
+                <div class="signature-line">Authorized Signatory</div>
+            </section>
+
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

@@ -625,11 +625,16 @@ export default class ReportsController {
       // Get hotel information
       const hotel = await Hotel.findOrFail(hotelId)
       // Generate all sections data
-      const auditDetails = await NightAuditService.getNightAuditDetails(
+      let auditDetails = await NightAuditService.getNightAuditDetails(
         reportDate,
         Number(hotelId)
       )
-      const roomsByStatus = auditDetails?.roomStatusReportData;
+      let roomsByStatus: any = {};
+      if (auditDetails && auditDetails?.roomStatusReportData) {
+        roomsByStatus = auditDetails?.roomStatusReportData
+      } else {
+        roomsByStatus = this.generateNightAuditSections(hotelId, reportDate, 'XAF')
+      }
       logger.info(roomsByStatus)
       // Get authenticated user information
       const user = auth.user
@@ -5527,7 +5532,12 @@ export default class ReportsController {
         reportDate,
         Number(hotelId)
       )
-      let revenueData = auditDetails?.dailyRevenueReportData
+      let revenueData: any = {};
+      if (auditDetails && auditDetails?.dailyRevenueReportData) {
+        revenueData = auditDetails?.dailyRevenueReportData || {}
+      } else {
+        revenueData = await this.getDailyRevenueData(hotelId, reportDate, revenueTypes)
+      }
 
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
@@ -5554,6 +5564,7 @@ export default class ReportsController {
 
     } catch (error) {
       logger.error('Error generating daily revenue PDF:', error)
+      logger.error(error)
       return response.status(500).json({
         success: false,
         error: error.message
@@ -7755,12 +7766,12 @@ export default class ReportsController {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
           folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
-              reservationRoomQuery.preload('room',(roomQuery:any)=>{
-                roomQuery.preload('roomType')
-              })
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
             })
+          })
         })
-        
+
         .preload('paymentMethod')
         .first()
 
@@ -7830,10 +7841,10 @@ export default class ReportsController {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
           folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
-              reservationRoomQuery.preload('room',(roomQuery:any)=>{
-                roomQuery.preload('roomType')
-              })
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
             })
+          })
         })
 
         .preload('paymentMethod')
@@ -7890,6 +7901,87 @@ export default class ReportsController {
       return response.internalServerError({
         success: false,
         message: 'Error generating receipt PDF',
+        error: error.message
+      })
+    }
+  }
+
+  async printPosReceipt({ request, response }: HttpContext) {
+    try {
+      const { transactionId } = request.params()
+
+      if (!transactionId) {
+        return response.badRequest({
+          success: false,
+          message: 'Transaction ID is required'
+        })
+      }
+
+      // Get transaction with all related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
+            })
+          })
+        })
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      // Prepare receipt data for the template
+      const receiptData = {
+        transaction,
+        folio: transaction.folio,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room?.roomType,
+        paymentMethod: transaction.paymentMethod,
+        currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
+        formattedAmount: transaction.amount,
+        currency: 'XAF'
+      }
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the POS receipt template
+      const html = await edge.render('reports/pos-receipt', receiptData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '10px',
+          right: '10px',
+          bottom: '10px',
+          left: '10px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="pos-receipt-${transaction.transactionNumber}.pdf"`)
+
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating POS receipt PDF:')
+      logger.info(error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating POS receipt PDF',
         error: error.message
       })
     }
