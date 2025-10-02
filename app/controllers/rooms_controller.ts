@@ -423,7 +423,7 @@ async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) 
     // Get all rooms of this type
     const rooms = await Room.query()
       .where('room_type_id', roomTypeId)
-      .where('status', 'available')
+    //  .where('status', 'available')
       .preload('roomType')
     console.log('All rooms of this type:', rooms.map(r => r.id))
 
@@ -458,8 +458,8 @@ async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) 
       for (const room of availableRooms) {
         const reservations = await ReservationRoom.query()
           .where('room_id', room.id)
-          .where('check_in_date', '<=', endDate)
-          .where('check_out_date', '>=', startDate)
+          .where('check_in_date', '<=', startDate)
+          .where('check_out_date', '>=', endDate)
           .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
 
         if (reservations.length === 0) {

@@ -56,6 +56,7 @@ import EmailAccountsController from '#controllers/email_accounts_controller'
 import EmailTemplateController from '#controllers/email_template_controller'
 import TransportRequestsController from '#controllers/transport_requests_controller'
 import WorkOrdersController from '#controllers/work_orders_controller'
+import HouseKeepersController from '#controllers/house_keepers_controller'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -133,6 +134,7 @@ const emailAccountsController = new EmailAccountsController()
 const emailTemplateController = new EmailTemplateController()
 const transportRequestsController = new TransportRequestsController()
 const workOrdersController = new WorkOrdersController()
+const houseKeepersController = new HouseKeepersController()
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
@@ -449,6 +451,15 @@ router
       router.post('/roles', rolesController.store.bind(rolesController))
       router.put('/roles/:id', rolesController.update.bind(rolesController))
       router.delete('/roles/:id', rolesController.destroy.bind(rolesController))
+    })
+
+    router.group(() => {
+      // HouseKeepers (Configuration)
+      router.get('/configuration/housekeepers', houseKeepersController.index.bind(houseKeepersController))
+      router.get('/configuration/housekeepers/:id', houseKeepersController.show.bind(houseKeepersController))
+      router.post('/configuration/housekeepers', houseKeepersController.store.bind(houseKeepersController))
+      router.put('/configuration/housekeepers/:id', houseKeepersController.update.bind(houseKeepersController))
+      router.delete('/configuration/housekeepers/:id', houseKeepersController.destroy.bind(houseKeepersController))
     })
 
     router.group(() => {
