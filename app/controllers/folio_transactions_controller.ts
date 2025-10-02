@@ -557,9 +557,10 @@ export default class FolioTransactionsController {
       // Void related receipt if this is a payment transaction
       if (transaction.transactionType === TransactionType.PAYMENT) {
         try {
-          await ReceiptService.voidReceipt(transaction.id, {
-            voidedBy: auth.user?.id || 0,
-            voidReason: reason || 'Transaction voided'
+          await ReceiptService.voidReceipt({
+            transactionId: transaction.id,
+            voidedBy: auth.user?.id!,
+            voidReason: reason
           })
 
           await LoggerService.log({
