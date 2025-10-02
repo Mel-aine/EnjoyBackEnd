@@ -1736,6 +1736,135 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
 
+  /**
+   * List in-house reservations filtered by roomId and roomTypeId
+   * Returns ReservationRoom rows with related reservation, guest, room, roomType, rateType
+   */
+  async getInHouseReservations({ request, response }: HttpContext) {
+    try {
+      const hotelIdRaw = request.input('hotelId') ?? request.qs().hotelId
+      const roomIdRaw = request.input('roomId') ?? request.qs().roomId
+      const roomTypeIdRaw = request.input('roomTypeId') ?? request.qs().roomTypeId
+
+      const hotelId = hotelIdRaw ? parseInt(hotelIdRaw) : NaN
+      const roomId = roomIdRaw ? parseInt(roomIdRaw) : undefined
+      const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw) : undefined
+
+      if (!hotelId || Number.isNaN(hotelId)) {
+        return response.badRequest({ success: false, message: 'hotelId is required and must be a number' })
+      }
+
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+
+      let query = ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .where('status', 'checked_in')
+
+      if (roomId && !Number.isNaN(roomId)) {
+        query = query.where('room_id', roomId)
+      }
+      if (roomTypeId && !Number.isNaN(roomTypeId)) {
+        query = query.where('room_type_id', roomTypeId)
+      }
+
+      query
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest').preload('bookingSource')
+        })
+        .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('roomType')
+        .preload('rateType')
+
+      const rows = await query
+
+      const data = rows.map((rr) => {
+        const res = rr.reservation
+        const guest = res?.guest || rr.guest
+        return {
+          reservationRoomId: rr.id,
+          reservationId: res?.id || rr.reservationId,
+          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+          roomId: rr.roomId,
+          roomNumber: rr.room?.roomNumber,
+          roomTypeId: rr.roomTypeId,
+          roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+          checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+          checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+          nights: rr.nights,
+          rateTypeId: rr.rateTypeId,
+          rateTypeName: rr.rateType?.rateTypeName,
+          bookingSource: res?.bookingSource?.sourceName,
+          status: rr.status,
+        }
+      })
+
+      return response.ok({ success: true, count: data.length, data })
+    } catch (error) {
+      logger.error('Error fetching in-house reservations:', error)
+      return response.status(500).json({ success: false, message: 'Failed to fetch in-house reservations', error: error.message })
+    }
+  }
+
+  /**
+   * List occupied rooms with rate type relation
+   * Returns ReservationRoom rows currently checked-in, grouped by room with rate type.
+   */
+  async getOccupiedRooms({ request, response }: HttpContext) {
+    try {
+      const hotelIdRaw = request.input('hotelId') ?? request.qs().hotelId
+      const roomTypeIdRaw = request.input('roomTypeId') ?? request.qs().roomTypeId
+
+      const hotelId = hotelIdRaw ? parseInt(hotelIdRaw) : NaN
+      const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw) : undefined
+
+      if (!hotelId || Number.isNaN(hotelId)) {
+        return response.badRequest({ success: false, message: 'hotelId is required and must be a number' })
+      }
+
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+
+      let query = ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .where('status', 'checked_in')
+
+      if (roomTypeId && !Number.isNaN(roomTypeId)) {
+        query = query.where('room_type_id', roomTypeId)
+      }
+
+      query
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest')
+        })
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('rateType')
+
+      const rows = await query
+
+      const data = rows.map((rr) => ({
+        roomId: rr.roomId,
+        roomNumber: rr.room?.roomNumber,
+        roomTypeId: rr.roomTypeId || rr.room?.roomType?.id,
+        roomTypeName: rr.room?.roomType?.roomTypeName,
+        reservationRoomId: rr.id,
+        reservationId: rr.reservationId,
+        guestName: rr.reservation?.guest ? `${rr.reservation.guest.firstName || ''} ${rr.reservation.guest.lastName || ''}`.trim() : '—',
+        rateTypeId: rr.rateTypeId,
+        rateTypeName: rr.rateType?.rateTypeName,
+        checkInDate: rr.checkInDate?.toISODate?.(),
+        checkOutDate: rr.checkOutDate?.toISODate?.(),
+      }))
+
+      return response.ok({ success: true, count: data.length, data })
+    } catch (error) {
+      logger.error('Error fetching occupied rooms:', error)
+      return response.status(500).json({ success: false, message: 'Failed to fetch occupied rooms', error: error.message })
+    }
+  }
 public async getReservationById({ request, response, auth, params }: HttpContext) {
   try {
     const reservationId = params.id
