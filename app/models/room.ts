@@ -11,6 +11,7 @@ import User from './user.js'
 import TaxRate from './tax_rate.js'
 import RoomBlock from './room_block.js'
 import WorkOrder from './work_order.js'
+import HouseKeeper from './house_keeper.js'
 
 export default class Room extends BaseModel {
   @column({ isPrimary: true })
@@ -194,8 +195,8 @@ declare housekeepingRemarks: any[]
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'assignedHousekeeperId' })
-  declare assignedHousekeeper: BelongsTo<typeof User>
+  @belongsTo(() => HouseKeeper, { foreignKey: 'assignedHousekeeperId' })
+  declare assignedHousekeeper: BelongsTo<typeof HouseKeeper>
 
   @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>

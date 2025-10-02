@@ -432,7 +432,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Update associated room status to dirty
         if (reservationRoom.room) {
           console.log(`🧹 Marking room ${reservationRoom.room.id} as dirty`)
-          reservationRoom.room.status = 'dirty'
+          reservationRoom.room.status = 'available'
           reservationRoom.room.housekeepingStatus = 'dirty'
           await reservationRoom.room.useTransaction(trx).save()
           updatedRooms.push(reservationRoom.room.id)
