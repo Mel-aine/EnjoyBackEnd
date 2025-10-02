@@ -2,182 +2,213 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>
-      Manager Report
-    </title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        font-size: 12px;
-        margin: 0;
-        padding: 20px;
-        color: #333;
-      }
-      
-     
-      .horizontal-line {
-        border-top: 1px solid #333;
-        margin: 10px 0;
-      }
-      
-      .report-info {
-        margin-bottom: 20px;
-        font-size: 11px;
-      }
-      
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 15px;
-      }
-      
-      th,
-      td {
-        text-align: left;
-        padding: 4px 0px;
-        font-size: 11px;
-      }
-      
-      th {
-        font-weight: bold;
-        background-color: #f5f5f5;
-      }
-      
-      .section-title {
-        font-weight: bold; 
-        margin: 15px 0 5px 0;
-        font-size: 12px;
-      }
-      
-      .section-total {
-        font-weight: bold;
-        border-top: 1px dotted #333;
-        border-bottom: 1px dotted #333;
-      }
-      
-      .section-total-top {
-        font-weight: bold;
-        border-top: 1px dotted #333;
-      }
-      
-      .section-total-bottom {
-        font-weight: bold;
-        border-bottom: 1px dotted #333;
-      }
-      
-      .section-subtotal {
-        font-weight: bold;
-        border-top: 1px solid #ddd;
-      }
-      
-      .bold-section {
-        font-weight: bold;
-      }
-      
-      .currency {
-        text-align: right;
-      }
-      
+    <title>Manager Report</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    margin: 0;
+    padding: 0;
+    color: #333;
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  header.header {
+    position: static;
+    padding: 10px 20px;
+    background: white;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #333;
+    box-sizing: border-box;
+  }
+  
+  footer.footer {
+    position: static;
+    padding: 10px 20px;
+    background: white;
+    box-sizing: border-box;
+    border-top: 1px solid #333;
+  }
+  
+  .horizontal-line {
+    border-top: 1px solid #333;
+    margin: 10px 0;
+  }
+  
+  .report-info {
+    margin-bottom: 20px;
+    font-size: 11px;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+  }
+  
+  th,
+  td {
+    text-align: left;
+    padding: 4px 0px;
+    font-size: 11px;
+  }
+  
+  th {
+    font-weight: bold;
+    background-color: #f5f5f5;
+  }
+  
+  .section-title {
+    font-weight: bold; 
+    margin: 15px 0 5px 0;
+    font-size: 12px;
+  }
+  
+  .section-total {
+    font-weight: bold;
+    border-top: 1px dotted #333;
+    border-bottom: 1px dotted #333;
+  }
+  
+  .section-total-top {
+    font-weight: bold;
+    border-top: 1px dotted #333;
+  }
+  
+  .section-total-bottom {
+    font-weight: bold;
+    border-bottom: 1px dotted #333;
+  }
+  
+  .section-subtotal {
+    font-weight: bold;
+    border-top: 1px solid #ddd;
+  }
+  
+  .bold-section {
+    font-weight: bold;
+  }
+  
+  .currency {
+    text-align: right;
+  }
+  
+  .footer-line {
+    border-top: 1px solid #333;
+    margin-bottom: 5px;
+  }
+  
+  .footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+  }
+
+  .brand-name {
+    color: #0a2a66; /* Bleu foncé */
+    font-size: 18px;
+    font-weight: 700;
+  }
+  
+  .report-title {
+    color: #7b001c; /* Rouge bordeaux */
+    font-size: 16px;
+    font-weight: 700;
+  }
+  
+.main {
+    padding: 0 20px;
+    flex: 1 0 auto; /* Push footer to bottom on screen when content is short */
+}
+  
+  .page-break {
+    page-break-before: always;
+  }
+  
+  @media print {
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      position: relative;
+    }
     
-      
-      .footer-line {
-        border-top: 1px solid #333;
-        margin-bottom: 5px;
-      }
-      
-      .footer-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      
-      .page-break {
-        page-break-before: always;
-      }
-      
-      @media print {
-        .page-break {
-          page-break-before: always;
-        }
-      
-        @page { 
-                    size: A4;
-                	margin-top: 80px; 
-                	@bottom-right-corner{content: counter(page);}
-                	@top-left{ content: element(header);}
-                }
-                
-                @page :first {
-               	   margin-bottom: 100px;
-                   @bottom-right{content: element(footer);}
-                   @bottom-right-corner{content: counter(page); padding-top:50px;}
-                }
-                
-				.header{ position: running(header);}
-                .footer{ position: running(footer);}
-        /* Optional: Add padding to the body to prevent content overlap */
-      
-        .main {
-          padding-top: 80px;
-          /* Add space for the header */
-          padding-bottom: 80px;
-          /* Add space for the footer */
-        }
-      }
-    </style>
+    footer.footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+    
+    .main {
+      margin: 0;
+      padding: 0 20mm 18mm 15mm; /* bottom padding (~footer height) to avoid overlap */
+    }
+    
+    @page {
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm; /* bottom margin reserves space for fixed footer */
+    }
+    
+    .page-break {
+      page-break-before: always;
+    }
+  }
+</style>
   </head>
   <body>
     <!-- Header -->
-    <div class="header">
-      <span>{{ hotelName }}</span>
-      <span>Manager Report</span>
-    </div>
-    <div class="main">
-      <div class="horizontal-line">
+    <header class="header" role="banner">
+      <span class="brand-name">{{ hotelName }}</span>
+      <span class="report-title">Manager Report</span>
+    </header>
+
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+      <div class="footer-line"></div>
+      <div class="footer-content">
+        <span>Printed On: {{ printedOn }}</span>
+        <span>Printed By: {{ printedBy }}</span>
+        <span>Page {{ currentPage }} of {{ totalPages }}</span>
       </div>
+    </footer>
+
+    <div class="main">
+      <div class="horizontal-line"></div>
 
       <!-- Report Info -->
       <div class="report-info">
-        <span>          <strong>As On Date:</strong>{{ asOnDate }}</span>
-        <span>          <strong>PTD:</strong>{{ ptdDate }}</span>
-        <span>          <strong>YTD:</strong>{{ ytdDate }}</span>
-        <span>          <strong>Currency:</strong>{{ currency }}</span>
+        <span><strong>As On Date:</strong>{{ asOnDate }}</span>
+        <span><strong>PTD:</strong>{{ ptdDate }}</span>
+        <span><strong>YTD:</strong>{{ ytdDate }}</span>
+        <span><strong>Currency:</strong>{{ currency }}</span>
       </div>
-      <div class="horizontal-line">
-      </div>
+      <div class="horizontal-line"></div>
 
       <!-- Column Headers -->
       <table>
         <thead>
           <tr>
-            <th style="width: 40%;">
-              Particulars
-            </th>
-            <th class="currency" style="width: 20%;">
-              Today
-            </th>
-            <th class="currency" style="width: 20%;">
-              PTD
-            </th>
-            <th class="currency" style="width: 20%;">
-              YTD
-            </th>
+            <th style="width: 40%;">Particulars</th>
+            <th class="currency" style="width: 20%;">Today</th>
+            <th class="currency" style="width: 20%;">PTD</th>
+            <th class="currency" style="width: 20%;">YTD</th>
           </tr>
         </thead>
       </table>
-      <div class="horizontal-line">
-      </div>
+      <div class="horizontal-line"></div>
 
       <!-- Section 1: Room Charges -->
-      <div class="section-title">
-        Room Charges
-      </div>
+      <div class="section-title">Room Charges</div>
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
-              Room Charges
-            </td>
+            <td style="width: 40%;">Room Charges</td>
             <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.roomCharges?.roomCharges?.today) }}
             </td>
@@ -189,9 +220,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Cancellation Revenue
-            </td>
+            <td>Cancellation Revenue</td>
             <td class="currency">
               {{ formatCurrency(content.roomCharges?.cancellationRevenue.today) }}
             </td>
@@ -203,9 +232,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No Show Revenue
-            </td>
+            <td>No Show Revenue</td>
             <td class="currency">
               {{ formatCurrency(content.roomCharges?.noShowRevenue.today) }}
             </td>
@@ -217,9 +244,7 @@
             </td>
           </tr>
           <tr class="section-total">
-            <td>
-              <strong>Total Room Charges</strong>
-            </td>
+            <td><strong>Total Room Charges</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.roomCharges?.total.today) }}</strong>
             </td>
@@ -234,31 +259,25 @@
       </table>
 
       <!-- Section 2: Extra Charges -->
-      <div class="section-title">
-        Extra Charges
-      </div>
+      <div class="section-title">Extra Charges</div>
       <table>
         <tbody>
           @each(extraCharge in Object.keys(content.extraCharges.extraCharges || {}))
             <tr>
-              <td style="width: 40%;">
-                {{ extraCharge }}
-              </td>
+              <td style="width: 40%;">{{ extraCharge }}</td>
               <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].today) }}
               </td>
               <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ptd) }}
               </td>
-              <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ytd) }}
               </td>
             </tr>
           @endeach
           <tr class="section-total">
-            <td>
-              <strong>Total Extra Charges</strong>
-            </td>
+            <td><strong>Total Extra Charges</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.extraCharges.totals?.today || content.extraCharges.today) }}</strong>
             </td>
@@ -273,9 +292,7 @@
       </table>
 
       <!-- Section 3: Discount -->
-      <div class="section-title">
-        Discount
-      </div>
+      <div class="section-title">Discount</div>
       <table>
         <tbody>
           @each(discount in (content.discounts.discounts || []))
@@ -295,9 +312,7 @@
             </tr>
           @endeach
           <tr class="section-total">
-            <td>
-              <strong>Total Discount</strong>
-            </td>
+            <td><strong>Total Discount</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.discounts.totals?.today || content.discounts.today) }}</strong>
             </td>
@@ -312,16 +327,12 @@
       </table>
 
       <!-- Section 4: Adjustments -->
-      <div class="section-title">
-        Adjustments
-      </div>
+      <div class="section-title">Adjustments</div>
       <table>
         <tbody>
           @each(adjustment in (content.adjustments.adjustments || []))
             <tr>
-              <td style="width: 40%;">
-                {{ adjustment.name }}
-              </td>
+              <td style="width: 40%;">{{ adjustment.name }}</td>
               <td class="currency" style="width: 20%;">
                 {{ formatCurrency(adjustment.today) }}
               </td>
@@ -334,9 +345,7 @@
             </tr>
           @endeach
           <tr class="section-total">
-            <td>
-              <strong>Total Adjustments</strong>
-            </td>
+            <td><strong>Total Adjustments</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.adjustments.totals?.today || content.adjustments.today) }}</strong>
             </td>
@@ -351,16 +360,12 @@
       </table>
 
       <!-- Section 5: Tax -->
-      <div class="section-title">
-        Tax
-      </div>
+      <div class="section-title">Tax</div>
       <table>
         <tbody>
           @each(taxRate in ( content.tax.taxes || []))
             <tr>
-              <td style="width: 40%;">
-                {{ taxRate.name }}
-              </td>
+              <td style="width: 40%;">{{ taxRate.name }}</td>
               <td class="currency" style="width: 20%;">
                 {{ formatCurrency(taxRate.today) }}
               </td>
@@ -374,9 +379,7 @@
           @endeach
           
           <tr class="section-total">
-            <td>
-              <strong>Total Tax</strong>
-            </td>
+            <td><strong>Total Tax</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.tax.totals?.today || content.tax.today) }}</strong>
             </td>
@@ -408,9 +411,7 @@
             </td>
           </tr>
           <tr class="bold-section">
-            <td>
-              <strong>Total Revenue with Tax</strong>
-            </td>
+            <td><strong>Total Revenue with Tax</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.totals.revenueWithTax.today) }}</strong>
             </td>
@@ -422,9 +423,7 @@
             </td>
           </tr>
           <tr class="bold-section">
-            <td>
-              <strong>POS to PMS Posting</strong>
-            </td>
+            <td><strong>POS to PMS Posting</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.totals.posToPs.today) }}</strong>
             </td>
@@ -436,9 +435,7 @@
             </td>
           </tr>
           <tr class="bold-section">
-            <td>
-              <strong>Transfer Charges to Guest Ledger</strong>
-            </td>
+            <td><strong>Transfer Charges to Guest Ledger</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.totals.transferToGuestLedger.today) }}</strong>
             </td>
@@ -453,16 +450,12 @@
       </table>
 
       <!-- Section 6: Payment -->
-      <div class="section-title">
-        Payment
-      </div>
+      <div class="section-title">Payment</div>
       <table>
         <tbody>
           @each(method in Object.keys(content.payments.methods))
             <tr>
-              <td style="width: 40%;">
-                {{ method }}
-              </td>
+              <td style="width: 40%;">{{ method }}</td>
               <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.payments.methods[method].today) }}
               </td>
@@ -475,9 +468,7 @@
             </tr>
           @end
           <tr class="section-total">
-            <td>
-              <strong>Total Payment</strong>
-            </td>
+            <td><strong>Total Payment</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.payments.total.today) }}</strong>
             </td>
@@ -492,15 +483,11 @@
       </table>
 
       <!-- Section 7: City Ledger -->
-      <div class="section-title">
-        City Ledger
-      </div>
+      <div class="section-title">City Ledger</div>
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
-              Opening Balance
-            </td>
+            <td style="width: 40%;">Opening Balance</td>
             <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.cityLedger?.openingBalance?.today) }}
             </td>
@@ -512,9 +499,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Payment Received
-            </td>
+            <td>Payment Received</td>
             <td class="currency">
               {{ formatCurrency(content.cityLedger?.paymentReceived?.today) }}
             </td>
@@ -526,9 +511,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Charges Raised
-            </td>
+            <td>Charges Raised</td>
             <td class="currency">
               {{ formatCurrency(content.cityLedger?.chargesRaised?.today) }}
             </td>
@@ -540,9 +523,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Outstanding Commission
-            </td>
+            <td>Outstanding Commission</td>
             <td class="currency">
               {{ formatCurrency(content.cityLedger?.outstandingCommission?.today) }}
             </td>
@@ -554,9 +535,7 @@
             </td>
           </tr>
           <tr class="section-total">
-            <td>
-              <strong>Closing Balance</strong>
-            </td>
+            <td><strong>Closing Balance</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.cityLedger?.closingBalance?.today) }}</strong>
             </td>
@@ -571,15 +550,11 @@
       </table>
 
       <!-- Section 8: Advance Deposit Ledger -->
-      <div class="section-title">
-        Advance Deposit Ledger
-      </div>
+      <div class="section-title">Advance Deposit Ledger</div>
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
-              Opening Balance
-            </td>
+            <td style="width: 40%;">Opening Balance</td>
             <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.advanceDepositLedger?.openingBalance?.today) }}
             </td>
@@ -591,9 +566,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Advance Deposit Collected
-            </td>
+            <td>Advance Deposit Collected</td>
             <td class="currency">
               {{ formatCurrency(content.advanceDepositLedger?.advanceDepositCollected?.today) }}
             </td>
@@ -605,9 +578,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Balance Transfer to Guest Ledger
-            </td>
+            <td>Balance Transfer to Guest Ledger</td>
             <td class="currency">
               {{ formatCurrency(content.advanceDepositLedger?.balanceTransferToGuestLedger?.today) }}
             </td>
@@ -619,9 +590,7 @@
             </td>
           </tr>
           <tr class="section-total">
-            <td>
-              <strong>Closing Balance</strong>
-            </td>
+            <td><strong>Closing Balance</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.advanceDepositLedger?.closingBalance?.today) }}</strong>
             </td>
@@ -636,15 +605,11 @@
       </table>
 
       <!-- Section 9: Guest Ledger -->
-      <div class="section-title">
-        Guest Ledger
-      </div>
+      <div class="section-title">Guest Ledger</div>
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
-              Opening Balance
-            </td>
+            <td style="width: 40%;">Opening Balance</td>
             <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.guestLedger?.openingBalance?.today) }}
             </td>
@@ -656,9 +621,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Carry Forwarded Advance Deposit
-            </td>
+            <td>Carry Forwarded Advance Deposit</td>
             <td class="currency">
               {{ formatCurrency(content.guestLedger?.carryForwardedAdvanceDeposit?.today) }}
             </td>
@@ -670,9 +633,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Charge Posted to Guest Ledger
-            </td>
+            <td>Charge Posted to Guest Ledger</td>
             <td class="currency">
               {{ formatCurrency(content.guestLedger?.chargePostedToGuestLedger?.today) }}
             </td>
@@ -684,9 +645,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Settlement by Guest
-            </td>
+            <td>Settlement by Guest</td>
             <td class="currency">
               {{ formatCurrency(content.guestLedger?.settlementByGuest?.today) }}
             </td>
@@ -698,9 +657,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Outstanding Payment on Charges
-            </td>
+            <td>Outstanding Payment on Charges</td>
             <td class="currency">
               {{ formatCurrency(content.guestLedger?.outstandingPaymentOnCharges?.today) }}
             </td>
@@ -712,9 +669,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Transfer from Advance Deposit
-            </td>
+            <td>Transfer from Advance Deposit</td>
             <td class="currency">
               {{ formatCurrency(content.guestLedger?.transferFromAdvanceDeposit?.today) }}
             </td>
@@ -726,9 +681,7 @@
             </td>
           </tr>
           <tr class="section-total">
-            <td>
-              <strong>Closing Balance</strong>
-            </td>
+            <td><strong>Closing Balance</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.guestLedger?.closingBalance?.today) }}</strong>
             </td>
@@ -743,15 +696,11 @@
       </table>
 
       <!-- Section 10: Room Summary -->
-      <div class="section-title">
-        Room Summary
-      </div>
+      <div class="section-title">Room Summary</div>
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
-              Total Rooms
-            </td>
+            <td style="width: 40%;">Total Rooms</td>
             <td class="currency" style="width: 20%;">
               {{ content.roomSummary?.totalRoom?.today || 0 }}
             </td>
@@ -763,9 +712,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Blocked Rooms
-            </td>
+            <td>Blocked Rooms</td>
             <td class="currency">
               {{ content.roomSummary?.blockedRoom?.today || 0 }}
             </td>
@@ -777,9 +724,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No of Guest (Adult/Child)
-            </td>
+            <td>No of Guest (Adult/Child)</td>
             <td class="currency">
               {{ content.roomSummary?.noOfGuestAdult?.today || 0 }}/{{ content.roomSummary?.noOfGuestChild?.today || 0 }}
             </td>
@@ -791,9 +736,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Total Available Room nights
-            </td>
+            <td>Total Available Room nights</td>
             <td class="currency">
               {{ content.roomSummary?.totalAvailableRoomNights?.today || 0 }}
             </td>
@@ -805,9 +748,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Sold Room
-            </td>
+            <td>Sold Room</td>
             <td class="currency">
               {{ content.roomSummary?.soldRoom?.today || 0 }}
             </td>
@@ -819,9 +760,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Day Use Room
-            </td>
+            <td>Day Use Room</td>
             <td class="currency">
               {{ content.roomSummary?.dayUseRoom?.today || 0 }}
             </td>
@@ -833,9 +772,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Complimentary Room
-            </td>
+            <td>Complimentary Room</td>
             <td class="currency">
               {{ content.roomSummary?.complimentaryRoom?.today || 0 }}
             </td>
@@ -847,9 +784,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No Show Rooms
-            </td>
+            <td>No Show Rooms</td>
             <td class="currency">
               {{ content.roomSummary?.noShows?.today || 0 }}
             </td>
@@ -860,10 +795,7 @@
               {{ content.roomSummary?.noShows?.ytd || 0 }}
             </td>
           </tr>
-          <tr>
-            <td>
-              Average Guest Per Room
-            </td>
+          <tr><td>Average Guest Per Room</td>
             <td class="currency">
               {{ content.roomSummary?.averageGuestPerRoom?.today || 0 }}
             </td>
@@ -875,9 +807,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No of Reservations (Confirm)
-            </td>
+            <td>No of Reservations (Confirm)</td>
             <td class="currency">
               {{ content.roomSummary?.noOfReservationsConfirm?.today || 0 }}
             </td>
@@ -889,9 +819,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No of Reservations (Unconfirm)
-            </td>
+            <td>No of Reservations (Unconfirm)</td>
             <td class="currency">
               {{ content.roomSummary?.noOfReservationsUnconfirm?.today || 0 }}
             </td>
@@ -903,9 +831,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No of Walkins
-            </td>
+            <td>No of Walkins</td>
             <td class="currency">
               {{ content.roomSummary?.noOfWalkins?.today || 0 }}
             </td>
@@ -917,9 +843,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              No of Reservation (cancellations)
-            </td>
+            <td>No of Reservation (cancellations)</td>
             <td class="currency">
               {{ content.roomSummary?.cancellations?.today || 0 }}
             </td>
@@ -934,15 +858,11 @@
       </table>
 
       <!-- Section 11: Statistics -->
-      <div class="section-title">
-        Statistics
-      </div>
+      <div class="section-title">Statistics</div>
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
-              Occupancy Rate (%)
-            </td>
+            <td style="width: 40%;">Occupancy Rate (%)</td>
             <td class="currency" style="width: 20%;">
               {{ (content.statistics?.occupancyRate?.today || 0).toFixed(2) }}%
             </td>
@@ -954,9 +874,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Average Daily Rate (ADR)
-            </td>
+            <td>Average Daily Rate (ADR)</td>
             <td class="currency">
               {{ formatCurrency(content.statistics?.averageDailyRate?.today) }}
             </td>
@@ -968,9 +886,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Revenue Per Available Room (RevPAR)
-            </td>
+            <td>Revenue Per Available Room (RevPAR)</td>
             <td class="currency">
               {{ formatCurrency(content.statistics?.revenuePerAvailableRoom?.today) }}
             </td>
@@ -983,34 +899,24 @@
           </tr>
         </tbody>
       </table>
+
       <!-- Section 12: POS Summary -->
-      <div class="horizontal-line">
-      </div>
-      <div class="section-title">
-        POS Summary
-      </div>
-      <div class="horizontal-line">
-      </div>
+      <div class="horizontal-line"></div>
+      <div class="section-title">POS Summary</div>
+      <div class="horizontal-line"></div>
 
       <table>
         <tbody>
           @each(outlet in content.posSummary?.outlets)
             <tr>
-              <td class="section-title">
-                {{ outlet.outlet }}
-              </td>
-              <td>
-              </td>
-              <td>
-              </td>
-              <td>
-              </td>
+              <td class="section-title">{{ outlet.outlet }}</td>
+              <td></td>
+              <td></td>
+              <td></td>
             </tr>
             @each(category in outlet.categories)
               <tr>
-                <td>
-                  {{ category.name }}
-                </td>
+                <td>{{ category.name }}</td>
                 <td class="currency">
                   {{ formatCurrency(category?.today) }}
                 </td>
@@ -1023,9 +929,7 @@
               </tr>
             @endeach
             <tr class="section-total-top">
-              <td class="section-title">
-                Total Revenue without Tax
-              </td>
+              <td class="section-title">Total Revenue without Tax</td>
               <td class="currency">
                 {{ formatCurrency(outlet.totalWithoutTax.today) }}
               </td>
@@ -1037,24 +941,20 @@
               </td>
             </tr>
             <tr class="section-total-bottom">
-              <td class="section-title">
-                Total Revenue with Tax
+              <td class="section-title">Total Revenue with Tax</td>
+              <td class="currency">
+                {{ formatCurrency(outlet.totalWithTax.today) }}
               </td>
               <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.today) }}
+                {{ formatCurrency(outlet.totalWithTax.ptd) }}
               </td>
               <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.ptd) }}
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.ytd) }}
+                {{ formatCurrency(outlet.totalWithTax.ytd) }}
               </td>
             </tr>
           @endeach
           <tr class="">
-            <td>
-              <strong>All Outlet's Total Revenue without Tax</strong>
-            </td>
+            <td><strong>All Outlet's Total Revenue without Tax</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.today) }}</strong>
             </td>
@@ -1066,9 +966,7 @@
             </td>
           </tr>
           <tr class="section-total-bottom">
-            <td>
-              <strong>All Outlet's Total Revenue with Tax</strong>
-            </td>
+            <td><strong>All Outlet's Total Revenue with Tax</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.posSummary?.totalWithTax.today) }}</strong>
             </td>
@@ -1083,33 +981,22 @@
       </table>
 
       <!-- Section 13: POS Payment Summary -->
-      <div class="horizontal-line">
-      </div>
-      <div class="section-title">
-        POS Payment Summary
-      </div>
-      <div class="horizontal-line">
-      </div>
+      <div class="horizontal-line"></div>
+      <div class="section-title">POS Payment Summary</div>
+      <div class="horizontal-line"></div>
 
       <table>
         <tbody>
           @each(outlet in content.posPayment?.outlets)
             <tr>
-              <td class="section-title">
-                {{ outlet.outlet }}
-              </td>
-              <td>
-              </td>
-              <td>
-              </td>
-              <td>
-              </td>
+              <td class="section-title">{{ outlet.outlet }}</td>
+              <td></td>
+              <td></td>
+              <td></td>
             </tr>
             @each(payment in outlet.payments)
               <tr>
-                <td>
-                  {{ payment.name }}
-                </td>
+                <td>{{ payment.name }}</td>
                 <td class="currency">
                   {{ formatCurrency(payment?.today) }}
                 </td>
@@ -1122,9 +1009,7 @@
               </tr>
             @endeach
             <tr class="section-total">
-              <td class="section-title">
-                Total
-              </td>
+              <td class="section-title">Total</td>
               <td class="currency">
                 {{ formatCurrency(outlet.total.today) }}
               </td>
@@ -1137,9 +1022,7 @@
             </tr>
           @endeach
           <tr class="">
-            <td>
-              <strong>All Outlet's Payment Total</strong>
-            </td>
+            <td><strong>All Outlet's Payment Total</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.posPayment?.total.today) }}</strong>
             </td>
@@ -1152,18 +1035,13 @@
           </tr>
         </tbody>
       </table>
-      <div class="horizontal-line">
-      </div>
+      <div class="horizontal-line"></div>
 
-      <div class="section-title">
-        Revenue Summary (without tax)
-      </div>
+      <div class="section-title">Revenue Summary (without tax)</div>
       <table>
         <tbody>
           <tr class="">
-            <td class="">
-              Room Revenue
-            </td>
+            <td class="">Room Revenue</td>
             <td class="currency">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.today) }}
             </td>
@@ -1175,9 +1053,7 @@
             </td>
           </tr>
           <tr class="">
-            <td class="">
-              Extra Revenue
-            </td>
+            <td class="">Extra Revenue</td>
             <td class="currency">
               {{ formatCurrency(content.revenueSummary?.extraRevenue.today) }}
             </td>
@@ -1189,9 +1065,7 @@
             </td>
           </tr>
           <tr class="section-total">
-            <td class="">
-              PMS Revenue
-            </td>
+            <td class="">PMS Revenue</td>
             <td class="currency">
               {{ formatCurrency(content.revenueSummary?.pmsRevenue.today) }}
             </td>
@@ -1204,9 +1078,7 @@
           </tr>
           @each(outlet in content.posSummary?.outlets)
             <tr class="">
-              <td class="">
-                {{ outlet.outlet }}
-              </td>
+              <td class="">{{ outlet.outlet }}</td>
               <td class="currency">
                 {{ formatCurrency(outlet.totalWithoutTax.today) }}
               </td>
@@ -1219,9 +1091,7 @@
             </tr>
           @endeach
           <tr class="section-total-top">
-            <td>
-              <strong>POS Revenue</strong>
-            </td>
+            <td><strong>POS Revenue</strong></td>
             <td class="currency">
               <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.today) }}</strong>
             </td>
@@ -1234,14 +1104,13 @@
           </tr>
         </tbody>
       </table>
-      <!-- total -->
+
+      <!-- Total -->
       <div class="horizontal-line">
         <table>
           <tbody>
             <tr class="section-total-top">
-              <td class="">
-                Total Revenue
-              </td>
+              <td class="">Total Revenue</td>
               <td class="currency">
                 {{ formatCurrency(content.revenueSummary.today) }}
               </td>
@@ -1255,19 +1124,8 @@
           </tbody>
         </table>
       </div>
-      <div class="horizontal-line">
-      </div>
+      <div class="horizontal-line"></div>
 
-    </div>
-    <!-- Footer -->
-    <div class="footer">
-      <div class="footer-line">
-      </div>
-      <div class="footer-content">
-        <span>Printed On: {{ printedOn }}</span>
-        <span>Printed By: {{ printedBy }}</span>
-        <span>Page {{ currentPage }} of {{ totalPages }}</span>
-      </div>
     </div>
   </body>
 </html>

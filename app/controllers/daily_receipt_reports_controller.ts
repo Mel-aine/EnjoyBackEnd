@@ -53,7 +53,7 @@ export default class DailyReceiptReportsController {
         const userName = `${receipt.creator?.fullName}`
         const paymentMethodId = receipt.paymentMethodId
         const paymentMethodName = receipt.paymentMethod?.methodName
-        const amount = receipt.totalAmount
+        const amount = Number(receipt.totalAmount)
         const isVoided = receipt.isVoided
 
         // User summary
@@ -69,7 +69,7 @@ export default class DailyReceiptReportsController {
         }
 
         const userSummary = userSummaries.get(userId)
-        
+
         // Payment method within user
         if (!userSummary.paymentMethods.has(paymentMethodId)) {
           userSummary.paymentMethods.set(paymentMethodId, {
@@ -86,19 +86,19 @@ export default class DailyReceiptReportsController {
 
         if (isVoided) {
           methodSummary.totalVoid += 1
-          methodSummary.voidAmount += amount
+          methodSummary.voidAmount += Number(amount)
           userSummary.totalVoid += 1
-          userSummary.voidAmount += amount
+          userSummary.voidAmount += Number(amount)
           grandTotalVoid += 1
-          grandVoidAmount += amount
-        } else {
-          methodSummary.totalTransactions += 1
-          methodSummary.amount += amount
-          userSummary.totalTransactions += 1
-          userSummary.totalAmount += amount
-          grandTotalTransactions += 1
-          grandTotalAmount += amount
+          grandVoidAmount += Number(amount)
         }
+        methodSummary.totalTransactions += 1
+        methodSummary.amount += Number(amount)
+        userSummary.totalTransactions += 1
+        userSummary.totalAmount += Number(amount)
+        grandTotalTransactions += 1
+        grandTotalAmount += Number(amount)
+
 
         methodSummary.total = methodSummary.amount - methodSummary.voidAmount
 
@@ -115,14 +115,14 @@ export default class DailyReceiptReportsController {
         }
 
         const globalMethodSummary = paymentMethodSummaries.get(paymentMethodId)
-        
+
         if (isVoided) {
           globalMethodSummary.totalVoid += 1
-          globalMethodSummary.voidAmount += amount
-        } else {
+          globalMethodSummary.voidAmount += Number(amount)
+        } 
           globalMethodSummary.totalTransactions += 1
-          globalMethodSummary.amount += amount
-        }
+          globalMethodSummary.amount += Number(amount)
+        
 
         globalMethodSummary.total = globalMethodSummary.amount - globalMethodSummary.voidAmount
       })
@@ -192,7 +192,7 @@ export default class DailyReceiptReportsController {
       })
 
     } catch (error) {
-    
+
       return response.badRequest({
         success: false,
         message: 'Failed to generate daily receipt summary report',
@@ -224,6 +224,7 @@ export default class DailyReceiptReportsController {
         .preload('hotel')
         .preload('tenant') // Guest
         .where('hotelId', hotelId)
+        .where('isVoided',false)
         .where('paymentDate', '>=', startDateTime.toSQLDate())
         .where('paymentDate', '<=', endDateTime.toSQLDate())
 
@@ -257,21 +258,36 @@ export default class DailyReceiptReportsController {
 
       receipts.forEach(receipt => {
         const methodId = receipt.paymentMethodId
-        const methodName = receipt.paymentMethod?.methodName || 'Unknown Method'
+        const methodName = receipt.paymentMethod?.methodName 
         const amount = receipt.isVoided ? 0 : receipt.totalAmount
 
         if (!paymentMethodTotals.has(methodId)) {
           paymentMethodTotals.set(methodId, {
             methodName,
             total: 0,
-            count: 0
+            count: 0,
+            receipts: []
           })
         }
 
         const methodTotal = paymentMethodTotals.get(methodId)
-        methodTotal.total += amount
+        methodTotal.total += Number(amount)
         methodTotal.count += receipt.isVoided ? 0 : 1
-        grandTotalAmount += amount
+        
+        // Add receipt details to the payment method's receipts array
+        methodTotal.receipts.push({
+          date: receipt.paymentDate.toFormat('yyyy-MM-dd HH:mm:ss'),
+          receiptNumber: receipt.receiptNumber,
+          summary: receipt.description,
+          amount: receipt.totalAmount,
+          user: receipt.creator.fullName,
+          enteredOn: receipt.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
+          isVoided: receipt.isVoided,
+          currency: receipt.currency,
+          guest: receipt.tenant.displayName
+        })
+        
+        grandTotalAmount += Number(amount)
       })
 
       const responseData = {
