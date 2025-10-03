@@ -14,6 +14,12 @@
         color: #333;
       }
       
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
      
       .horizontal-line {
         border-top: 1px solid #333;
@@ -99,39 +105,12 @@
         .page-break {
           page-break-before: always;
         }
-      
-        @page { 
-                    size: A4;
-                	margin-top: 80px; 
-                	@bottom-right-corner{content: counter(page);}
-                	@top-left{ content: element(header);}
-                }
-                
-                @page :first {
-               	   margin-bottom: 100px;
-                   @bottom-right{content: element(footer);}
-                   @bottom-right-corner{content: counter(page); padding-top:50px;}
-                }
-                
-				.header{ position: running(header);}
-                .footer{ position: running(footer);}
-        /* Optional: Add padding to the body to prevent content overlap */
-      
-        .main {
-          padding-top: 80px;
-          /* Add space for the header */
-          padding-bottom: 80px;
-          /* Add space for the footer */
-        }
       }
     </style>
   </head>
   <body>
     <!-- Header -->
-    <div class="header">
-      <span>{{ hotelName }}</span>
-      <span>Manager Report</span>
-    </div>
+    
     <div class="main">
       <div class="horizontal-line">
       </div>

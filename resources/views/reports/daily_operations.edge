@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Operations Report - {{ hotel.hotelName }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            border: 2px solid #666;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #999;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: bold;
+            color: #003d99;
+        }
+
+        .section-badge { display: none; }
+
+        .report-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .report-info div {
+            margin-bottom: 4px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            page-break-inside: avoid;
+        }
+
+        .section-divider {
+            border-bottom: 1px solid #000;
+            margin: 12px 0;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #000;
+            margin: 6px 0 8px 0;
+        }
+
+        .business-source-group {
+            margin-bottom: 30px;
+        }
+
+        .business-source-header {
+            background-color: #e9ecef;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: none;
+        }
+
+        .business-source-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .date-info {
+            color: #666;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+
+        table th {
+            background-color: transparent;
+            border: none;
+            border-top: 1px solid #999;
+            border-bottom: 1px solid #999;
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        table td {
+            border: none;
+            border-bottom: 1px solid #ddd;
+            padding: 8px 6px;
+            font-size: 11px;
+        }
+
+        .res-number {
+            color: #000;
+            font-weight: 500;
+        }
+
+        .rate-cell, .total-cell {
+            text-align: right;
+        }
+
+        .footer-row {
+            background-color: #fff;
+            font-weight: bold;
+            border-top: 2px solid #999;
+        }
+
+        .no-data {
+            text-align: left;
+            margin: 4px 0 12px 0;
+            color: #666;
+            font-size: 10px;
+        }
+
+        .section-total {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .footer {
+            border-top: 1px solid #999;
+            margin-top: 10px;
+            padding-top: 6px;
+            font-size: 10px;
+        }
+        .footer .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        @media print {
+            body {
+                background-color: white;
+                padding: 10px;
+            }
+            .container {
+                border: none;
+                padding: 0;
+            }
+            .section { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {{-- Boucle à travers chaque section --}}
+        @each(sectionData in sections)
+            <div class="section">
+                {{-- Titre de section au-dessus des Business Sources --}}
+                <div class="section-title">{{ sectionData.title }}</div>
+
+                
+                
+                {{-- Vérifier si la section a des données --}}
+                @if(sectionData.groups.length === 0)
+                    <div class="no-data">
+No records found for this section</div>
+                @else
+                    {{-- Boucle à travers chaque groupe de Business Source dans cette section --}}
+                    @each(group in sectionData.groups)
+                        <div class="business-source-group">
+                            <div class="business-source-header">
+                                <div class="business-source-name">Business Source: {{ group.sourceName }}</div>
+                                <div class="date-info">Report date: {{ reportDate }}</div>
+                            </div>
+
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Reservation #</th>
+                                        <th>Guest name</th>
+                                        <th>Arrival</th>
+                                        <th>Departure</th>
+                                        <th>Nights</th>
+                                        <th>Room</th>
+                                        <th>Folio #</th>
+                                        <th>Rate</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{-- Boucle à travers chaque ligne dans ce groupe de Business Source --}}
+                                    @each(row in group.rows)
+                                        <tr>
+                                            <td class="res-number">{{ row.reservationNumber }}</td>
+                                            <td>{{ row.guestName }}</td>
+                                            <td>{{ row.arrival }}</td>
+                                            <td>{{ row.departure }}</td>
+                                            <td>{{ row.nights }}</td>
+                                            <td>{{ (row.room || '').replace(/\s*\(([^)]+)\)/, ' - $1') }}</td>
+                                            <td>{{ row.folioNumber }}</td>
+                                            <td class="rate-cell">{{ Number(row.roomRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</td>
+                                            <td class="total-cell">{{ Number(row.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</td>
+                                        </tr>
+                                    @end
+
+                                    
+                                </tbody>
+                            </table>
+                        </div>
+                    @end
+
+                    
+                @endif
+            </div>
+            <div class="section-divider"></div>
+        @end
+    </div>
+
+    
+</body>
+</html>

@@ -5068,21 +5068,20 @@ export default class ReportsController {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate') || DateTime.now().toFormat('yyyy-MM-dd')
       const reportDate = DateTime.fromISO(asOnDate)
-
+  
       // Imports (use dynamic to avoid circular deps)
       const { default: Hotel } = await import('#models/hotel')
-      const { default: Reservation } = await import('#models/reservation')
       const { default: ReservationRoom } = await import('#models/reservation_room')
-
+  
       const hotel = await Hotel.find(hotelId)
       if (!hotel) {
         return response.badRequest({ success: false, message: 'Invalid hotelId' })
       }
-
+  
       const nextDate = reportDate.plus({ days: 1 })
       const dateISO = reportDate.toISODate()
       const nextISO = nextDate.toISODate()
-
+  
       // Helper to build rows from ReservationRoom with preloaded relations
       const buildRows = (items: ReservationRoom[]) => {
         return items.map((rr) => {
@@ -5098,7 +5097,7 @@ export default class ReportsController {
           const nights = rr.nights ?? res?.numberOfNights ?? 0
           const roomRate = rr.roomRate ?? res?.roomRate ?? 0
           const total = rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
-
+  
           return {
             businessSource: businessSourceName,
             reservationNumber: res?.reservationNumber || res?.confirmationNumber || String(res?.id || rr.reservationId),
@@ -5115,7 +5114,7 @@ export default class ReportsController {
           }
         })
       }
-
+  
       // Query helper
       const basePreload = (q: ReturnType<typeof ReservationRoom.query>) => {
         return q
@@ -5130,251 +5129,168 @@ export default class ReportsController {
           .preload('roomType')
           .preload('rateType')
       }
-
-      // Sections
-      const sections: Record<string, Map<string, any[]>> = {
-        todayConfirmCheckin: new Map(),
-        stayoverInHouse: new Map(),
-        todayCheckout: new Map(),
-        todayNoShow: new Map(),
-        todayCancellation: new Map(),
-        tomorrowConfirmBooking: new Map(),
-        tomorrowCheckout: new Map(),
-        stayoverContinuedInHouse: new Map(),
-      }
-
-      // Today Confirm Check-in (Arrivals today with reserved status)
-      {
-        const rows = buildRows(
-          await basePreload(
+  
+      // Define sections with their queries
+      const sectionDefinitions = [
+        {
+          key: 'todayConfirmCheckin',
+          title: 'Today Confirm Check-in',
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'reserved')
               .where('checkInDate', '=', dateISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.todayConfirmCheckin.has(key)) sections.todayConfirmCheckin.set(key, [])
-          sections.todayConfirmCheckin.get(key)!.push(r)
-        })
-      }
-
-      // Stayover (In-House Guests) - checked in, departure after today
-      {
-        const rows = buildRows(
-          await basePreload(
+        },
+        {
+          key: 'stayoverInHouse',
+          title: 'Stayover In House',
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'checked_in')
               .where('checkOutDate', '>', dateISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.stayoverInHouse.has(key)) sections.stayoverInHouse.set(key, [])
-          sections.stayoverInHouse.get(key)!.push(r)
-        })
-      }
-
-      // Today Checkout - checked in, departure equals today
-      {
-        const rows = buildRows(
-          await basePreload(
+        },
+        {
+          key: 'todayCheckout',
+          title: "Today Checkout",
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'checked_in')
               .where('checkOutDate', '=', dateISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.todayCheckout.has(key)) sections.todayCheckout.set(key, [])
-          sections.todayCheckout.get(key)!.push(r)
-        })
-      }
-
-      // Today No show - no_show with check-in date today
-      {
-        const rows = buildRows(
-          await basePreload(
+        },
+        {
+          key: 'todayNoShow',
+          title: 'Today No Show',
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'no_show')
               .where('checkInDate', '=', dateISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.todayNoShow.has(key)) sections.todayNoShow.set(key, [])
-          sections.todayNoShow.get(key)!.push(r)
-        })
-      }
-
-      // Today Cancellation - cancelled with cancelledAt today or reservation.cancellationDate today
-      {
-        const cancelledRooms = await basePreload(
-          ReservationRoom.query()
-            .where('hotelId', hotelId)
-            .where('status', 'cancelled')
-            .whereRaw('DATE(cancelled_at) = ?', [dateISO])
-        )
-        const rows = buildRows(cancelledRooms)
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.todayCancellation.has(key)) sections.todayCancellation.set(key, [])
-          sections.todayCancellation.get(key)!.push(r)
-        })
-      }
-
-      // Tomorrow Confirm Booking - arrivals tomorrow with reserved status
-      {
-        const rows = buildRows(
-          await basePreload(
+        },
+        {
+          key: 'todayCancellation',
+          title: 'Today Cancellation',
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'cancelled')
+              //.whereRaw('DATE(updatedAt) = ?', [dateISO])
+          )
+        },
+        {
+          key: 'tomorrowConfirmBooking',
+          title: "Tomorrow Confirm Booking ",
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'reserved')
               .where('checkInDate', '=', nextISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.tomorrowConfirmBooking.has(key)) sections.tomorrowConfirmBooking.set(key, [])
-          sections.tomorrowConfirmBooking.get(key)!.push(r)
-        })
-      }
-
-      // Tomorrow Checkout - checked in, departure equals tomorrow
-      {
-        const rows = buildRows(
-          await basePreload(
+        },
+        {
+          key: 'tomorrowCheckout',
+          title: "Tomorrow Checkout",
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'checked_in')
               .where('checkOutDate', '=', nextISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.tomorrowCheckout.has(key)) sections.tomorrowCheckout.set(key, [])
-          sections.tomorrowCheckout.get(key)!.push(r)
-        })
-      }
-
-      // Stayover (Continued In-House Guests) - checked in, departure after tomorrow
-      {
-        const rows = buildRows(
-          await basePreload(
+        },
+        {
+          key: 'stayoverContinuedInHouse',
+          title: 'Stayover Continued In House',
+          query: () => basePreload(
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'checked_in')
               .where('checkOutDate', '>', nextISO)
           )
-        )
-        rows.forEach((r) => {
-          const key = r.businessSource
-          if (!sections.stayoverContinuedInHouse.has(key)) sections.stayoverContinuedInHouse.set(key, [])
-          sections.stayoverContinuedInHouse.get(key)!.push(r)
+        }
+      ]
+      // Execute queries and organize data by business source
+      const sections = []
+  
+      for (const sectionDef of sectionDefinitions) {
+        const items = await sectionDef.query()
+        const rows = buildRows(items)
+        
+        // Group by business source
+        const groupsMap = new Map()
+        rows.forEach((row) => {
+          const key = row.businessSource
+          if (!groupsMap.has(key)) {
+            groupsMap.set(key, [])
+          }
+          groupsMap.get(key).push(row)
+        })
+  
+        // Convert Map to array for template
+        const groups = Array.from(groupsMap.entries()).map(([sourceName, rows]) => ({
+          sourceName,
+          rows
+        }))
+  
+        sections.push({
+          title: sectionDef.title,
+          groups
         })
       }
-
-      // Build HTML
+  
+      // Prepare data for template
       const user = auth?.user
       const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
-
-      const sectionTitles: Record<keyof typeof sections, string> = {
-        todayConfirmCheckin: 'Today Confirm Check-in',
-        stayoverInHouse: 'Stayover (In-House Guests)',
-        todayCheckout: "Today Checkout (Today's Departures)",
-        todayNoShow: 'Today No Show',
-        todayCancellation: 'Today Cancellation',
-        tomorrowConfirmBooking: "Tomorrow Confirm Booking (Tomorrow's Arrivals)",
-        tomorrowCheckout: "Tomorrow Checkout (Tomorrow's Departures)",
-        stayoverContinuedInHouse: 'Stayover (Continued In-House Guests)'
+  
+      const reportData = {
+        hotel,
+        reportDate: reportDate.toFormat('yyyy-MM-dd'),
+        printedBy,
+        sections,
+        currentDateTime: new Date().toLocaleString('fr-FR') // Ajoutez cette ligne
       }
-
-      const tableHeader = `
-        <tr>
-          <th>Sr. No</th>
-          <th>Guest Name</th>
-          <th>Source</th>
-          <th>Arrival</th>
-          <th>Departure</th>
-          <th>Nights</th>
-          <th>Room</th>
-          <th>Vou. No</th>
-          <th>Rate Type</th>
-          <th>Folio No</th>
-          <th>Room Rate</th>
-          <th>Total</th>
-        </tr>
-      `
-
-      const renderRows = (rows: any[]) => {
-        return rows.map((r) => `
-          <tr>
-            <td>${r.reservationNumber}</td>
-            <td>${r.guestName}</td>
-            <td>${r.businessSource}</td>
-            <td>${r.arrival}</td>
-            <td>${r.departure}</td>
-            <td style="text-align:right">${r.nights}</td>
-            <td>${r.room}</td>
-            <td>${r.voucherNumber}</td>
-            <td>${r.rateType}</td>
-            <td>${r.folioNumber}</td>
-            <td style="text-align:right">${(r.roomRate ?? 0).toFixed(2)}</td>
-            <td style="text-align:right">${(r.total ?? 0).toFixed(2)}</td>
-          </tr>
-        `).join('')
-      }
-
-      const htmlParts: string[] = []
-      htmlParts.push(`
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; font-size: 12px; }
-            h1 { margin: 0 0 8px 0; }
-            h2 { margin: 16px 0 8px 0; }
-            h3 { margin: 12px 0 6px 0; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-            th, td { border: 1px solid #ccc; padding: 6px; }
-            th { background: #f5f5f5; }
-            .meta { margin-bottom: 12px; }
-          </style>
-        </head>
-        <body>
-          <h1>Daily Operations Summary</h1>
-          <div class="meta">
-            <div><strong>Hotel:</strong> ${hotel.hotelName}</div>
-            <div><strong>Date:</strong> ${reportDate.toFormat('yyyy-MM-dd')}</div>
-            <div><strong>Printed By:</strong> ${printedBy}</div>
-          </div>
-      `)
-
-      // Render each section grouped by business source
-      for (const key of Object.keys(sections) as (keyof typeof sections)[]) {
-        const groups = sections[key]
-        htmlParts.push(`<h2>${sectionTitles[key]}</h2>`)
-        if (groups.size === 0) {
-          htmlParts.push('<p>No records.</p>')
-          continue
-        }
-        for (const [sourceName, rows] of groups.entries()) {
-          htmlParts.push(`<h3>Business Source: ${sourceName}</h3>`)
-          htmlParts.push('<table><thead>' + tableHeader + '</thead><tbody>')
-          htmlParts.push(renderRows(rows))
-          htmlParts.push('</tbody></table>')
-        }
-      }
-
-      htmlParts.push('</body></html>')
-      const htmlContent = htmlParts.join('')
-
+      console.log('reportData', reportData)
+  
+      // Generate PDF using Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+  
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+  
+      // Render the template
+      const html = await edge.render('reports/daily_operations', reportData)
+  
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
-
+      const headerTemplate = `
+        <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:600; color:#1e40af; font-size:12px;">${hotel.hotelName}</div>
+          <div style="font-size:9px; color:#555;">Daily Operations Report - ${reportDate.toFormat('yyyy-MM-dd')}</div>
+        </div>`
+      const footerTemplate = `
+        <div style="font-size:9px; width:100%; padding:6px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+          <div>Report date: ${reportDate.toFormat('yyyy-MM-dd')}</div>
+          <div>Printed by: ${printedBy}</div>
+          <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
+        </div>`
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '60px',
+          right: '20px',
+          bottom: '60px',
+          left: '20px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
+  
       const filename = `daily-operations-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
       return response
         .header('Content-Type', 'application/pdf')
@@ -5382,10 +5298,11 @@ export default class ReportsController {
         .send(pdfBuffer)
     } catch (error) {
       logger.error('Error generating daily operations report PDF:', error)
+      console.log('Error generating daily operations report PDF:', error)
       return response.status(500).json({
         success: false,
-        message: 'Failed to generate daily operations report PDF',
-        error: error.message
+        //message: 'Failed to generate daily operations report PDF',
+        error: error
       })
     }
   }

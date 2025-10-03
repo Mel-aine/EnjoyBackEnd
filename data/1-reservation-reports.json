@@ -33,6 +33,10 @@
       {
         "id": "void_reservations",
         "name": "Void Reservations"
+      },
+      {
+        "id": "daily_operations_report",
+        "name": "Daily Operations Report"
       }
     ]
   },
