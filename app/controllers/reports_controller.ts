@@ -2540,7 +2540,7 @@ export default class ReportsController {
       <!-- Hotel name and report title -->
       <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
         <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
-        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Management Report</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
       </div>
       
       <!-- Report Info -->
