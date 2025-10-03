@@ -2461,7 +2461,7 @@ export default class ReportsController {
   async generateManagementReportPdf({ request, response, auth }: HttpContext) {
     try {
       const { hotelId, asOnDate, currency } = request.only(['hotelId', 'asOnDate', 'currency'])
-  
+
       // Validate required parameters
       if (!hotelId) {
         return response.badRequest({
@@ -2469,21 +2469,21 @@ export default class ReportsController {
           message: 'Hotel ID is required'
         })
       }
-  
+
       if (!asOnDate) {
         return response.badRequest({
           success: false,
           message: 'As On Date is required'
         })
       }
-  
+
       if (!currency) {
         return response.badRequest({
           success: false,
           message: 'Currency is required'
         })
       }
-  
+
       // Parse and validate date
       const reportDate = DateTime.fromISO(asOnDate)
       if (!reportDate.isValid) {
@@ -2492,19 +2492,19 @@ export default class ReportsController {
           message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
         })
       }
-  
+
       // Import required models
       const { default: Hotel } = await import('#models/hotel')
-  
+
       // Get hotel information
       const hotel = await Hotel.findOrFail(hotelId)
-  
+
       // Get authenticated user information
       const user = auth.user
       const printedBy = user 
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
         : 'System'
-  
+
       // Generate all sections data
       let sectionsData: any = {}
       const auditDetails = await NightAuditService.getNightAuditDetails(
@@ -2516,7 +2516,7 @@ export default class ReportsController {
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
-  
+
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
         hotel.hotelName,
@@ -2525,10 +2525,10 @@ export default class ReportsController {
         sectionsData,
         printedBy
       )
-  
+
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-  
+
       // Format dates for display
       const formattedDate = reportDate.toFormat('dd/MM/yyyy')
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
@@ -2536,11 +2536,12 @@ export default class ReportsController {
       // Create header template
     // Create header template
     const headerTemplate = `
-      <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
-        <div style="font-weight:600; color:#1e40af; font-size:12px;">${hotel.hotelName}</div>
-        <div style="font-size:9px; color:#555;">Management Report - ${formattedDate} | Currency: ${currency}</div>
-      </div>`
-
+    <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold; color:#00008B; font-size:14px;">${hotel.hotelName}</div>
+      <div style="font-size:14px; color:#8B0000; font-weight:bold;">Management Report</div>
+      
+    </div>
+    `
     // Create footer template
     const footerTemplate = `
       <div style="font-size:9px; width:100%; padding:6px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
@@ -2563,12 +2564,12 @@ export default class ReportsController {
         footerTemplate,
         printBackground: true
       })
-  
+
       // Set response headers
       const fileName = `management-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${fileName}"`)
-  
+
       return response.send(pdfBuffer)
     } catch (error) {
       console.error('Error generating management report PDF:', error)
