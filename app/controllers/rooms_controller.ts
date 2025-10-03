@@ -920,6 +920,7 @@ export default class RoomsController {
           housekeepingStatus: actualHousekeepingStatus,
           tag: this.getRoomTag(room),
           statusType: this.getStatusType(actualHousekeepingStatus, room.status),
+          assignedHousekeeperId:room.assignedHousekeeper? room.assignedHousekeeper.id : null,
           assignedHousekeeper: room.assignedHousekeeper
             ? `${room.assignedHousekeeper.name}`
             : '',
