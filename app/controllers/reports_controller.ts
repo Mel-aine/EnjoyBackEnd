@@ -2461,7 +2461,7 @@ export default class ReportsController {
   async generateManagementReportPdf({ request, response, auth }: HttpContext) {
     try {
       const { hotelId, asOnDate, currency } = request.only(['hotelId', 'asOnDate', 'currency'])
-
+  
       // Validate required parameters
       if (!hotelId) {
         return response.badRequest({
@@ -2469,21 +2469,21 @@ export default class ReportsController {
           message: 'Hotel ID is required'
         })
       }
-
+  
       if (!asOnDate) {
         return response.badRequest({
           success: false,
           message: 'As On Date is required'
         })
       }
-
+  
       if (!currency) {
         return response.badRequest({
           success: false,
           message: 'Currency is required'
         })
       }
-
+  
       // Parse and validate date
       const reportDate = DateTime.fromISO(asOnDate)
       if (!reportDate.isValid) {
@@ -2492,17 +2492,19 @@ export default class ReportsController {
           message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
         })
       }
-
+  
       // Import required models
       const { default: Hotel } = await import('#models/hotel')
-
+  
       // Get hotel information
       const hotel = await Hotel.findOrFail(hotelId)
-
+  
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
-
+      const printedBy = user 
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
+        : 'System'
+  
       // Generate all sections data
       let sectionsData: any = {}
       const auditDetails = await NightAuditService.getNightAuditDetails(
@@ -2510,11 +2512,11 @@ export default class ReportsController {
         Number(hotelId)
       )
       if (auditDetails && auditDetails?.managerReportData) {
-        sectionsData = auditDetails?.managerReportData;
+        sectionsData = auditDetails?.managerReportData
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
-
+  
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
         hotel.hotelName,
@@ -2523,18 +2525,50 @@ export default class ReportsController {
         sectionsData,
         printedBy
       )
-
+  
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+  
+      // Format dates for display
+      const formattedDate = reportDate.toFormat('dd/MM/yyyy')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+  
+      // Create header template
+    // Create header template
+    const headerTemplate = `
+      <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:600; color:#1e40af; font-size:12px;">${hotel.hotelName}</div>
+        <div style="font-size:9px; color:#555;">Management Report - ${formattedDate} | Currency: ${currency}</div>
+      </div>`
 
-      // Generate PDF
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
-
+    // Create footer template
+    const footerTemplate = `
+      <div style="font-size:9px; width:100%; padding:6px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+        <div>Printed On: ${printedOn}</div>
+        <div>Printed By: ${printedBy}</div>
+        <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
+      </div>`
+  
+      // Generate PDF with header and footer
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4', 
+        margin: {
+          top: '60px',
+          right: '20px',
+          bottom: '60px',
+          left: '20px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
+  
       // Set response headers
       const fileName = `management-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${fileName}"`)
-
+  
       return response.send(pdfBuffer)
     } catch (error) {
       console.error('Error generating management report PDF:', error)
@@ -2545,7 +2579,6 @@ export default class ReportsController {
       })
     }
   }
-
   /**
    * Generate all sections data for Management Report
    */
@@ -2626,16 +2659,16 @@ export default class ReportsController {
     const { default: edge } = await import('edge.js')
     const path = await import('path')
     logger.info(sectionsData)
-
+  
     // Configure Edge with views directory
     edge.mount(path.join(process.cwd(), 'resources/views'))
-
+  
     // Format dates
     const asOnDate = reportDate.toFormat('dd/MM/yyyy')
     const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
     const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-
+  
     // Helper function for currency formatting
     const formatCurrency = (amount: number | null | undefined): string => {
       if (amount === null || amount === undefined || isNaN(amount)) {
@@ -2646,7 +2679,7 @@ export default class ReportsController {
         maximumFractionDigits: 2
       })
     }
-
+  
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
@@ -2655,28 +2688,30 @@ export default class ReportsController {
         ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges?.ytd || 0) - (sectionsData.discounts?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
       },
       revenueWithTax: {
-        today: 0, // Will be calculated with tax
+        today: 0,
         ptd: 0,
         ytd: 0
       },
       posToPs: {
-        today: 0, // Placeholder
+        today: 0,
         ptd: 0,
         ytd: 0
       },
       transferToGuestLedger: {
-        today: 0, // Placeholder
+        today: 0,
         ptd: 0,
         ytd: 0
       }
     }
-
+  
     // Calculate revenue with tax
     totals.revenueWithTax.today = totals.revenueWithoutTax.today + (sectionsData.tax?.today || 0)
     totals.revenueWithTax.ptd = totals.revenueWithoutTax.ptd + (sectionsData.tax?.ptd || 0)
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
+    
     logger.info(sectionsData)
-    // Prepare template data
+  
+    // Prepare template data with header and footer info
     const templateData = {
       hotelName,
       asOnDate,
@@ -2691,9 +2726,22 @@ export default class ReportsController {
         ...sectionsData,
         totals
       },
-      formatCurrency
+      formatCurrency,
+      // Header specific data
+      header: {
+        hotelName,
+        reportTitle: 'Management Report',
+        reportDate: asOnDate,
+        currency
+      },
+      // Footer specific data
+      footer: {
+        printedBy,
+        printedOn,
+        pageInfo: 'Page {currentPage} of {totalPages}'
+      }
     }
-
+  
     // Render template
     return await edge.render('reports/management_report', templateData)
   }
