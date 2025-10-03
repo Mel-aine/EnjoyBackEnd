@@ -2532,7 +2532,8 @@ export default class ReportsController {
       // Format dates for display
       const formattedDate = reportDate.toFormat('dd/MM/yyyy')
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-  
+    const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+    const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
       // Create header template
     // Create header template
     const headerTemplate = `
@@ -2546,8 +2547,8 @@ export default class ReportsController {
       <!-- Report Info -->
       <div style="font-size:10px; margin-bottom:3px;">
         <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
-        <span style="margin-right:10px;"><strong>PTD:</strong> ${reportDate.startOf('month').toFormat('dd/MM/yyyy')} - ${formattedDate}</span>
-        <span style="margin-right:10px;"><strong>YTD:</strong> ${reportDate.startOf('year').toFormat('dd/MM/yyyy')} - ${formattedDate}</span>
+        <span style="margin-right:10px;"><strong>PTD:</strong> ${ ptdDate }</span>
+        <span style="margin-right:10px;"><strong>YTD:</strong> ${ ytdDate }</span>
         <span><strong>Currency:</strong> ${currency}</span>
       </div>
       
@@ -2570,11 +2571,11 @@ export default class ReportsController {
     `
     // Create footer template
     const footerTemplate = `
-      <div style="font-size:9px; width:100%; padding:6px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
-        <div>Printed On: ${printedOn}</div>
-        <div>Printed By: ${printedBy}</div>
-        <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
-      </div>`
+    <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
   
       // Generate PDF with header and footer
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
@@ -2582,7 +2583,7 @@ export default class ReportsController {
         margin: {
           top: '100px',
           right: '10px',
-          bottom: '20px',
+          bottom: '70px',
           left: '10px'
         },
         displayHeaderFooter: true,
