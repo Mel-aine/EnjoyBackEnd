@@ -621,7 +621,7 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare cancellationReason: string
 
-  @column.dateTime()
+  @column.dateTime({columnName: 'cancelled_at'})
   declare cancelledAt: DateTime
 
   @column()
