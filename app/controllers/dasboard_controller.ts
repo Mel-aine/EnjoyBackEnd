@@ -10,6 +10,8 @@ import ActivityLog from '#models/activity_log'
 import Guest from '#models/guest'
 import Folio from '#models/folio'
 import ReservationRoom from '#models/reservation_room'
+import FolioTransaction from '#models/folio_transaction'
+import Database from '@adonisjs/lucid/services/db'
 import { FolioStatus, ReservationStatus } from '../enums.js'
 
 import RoomBlock from '#models/room_block'
@@ -59,7 +61,10 @@ export default class DashboardController {
       return response.ok({
         success: true,
         data: {
-          averageLengthOfStay: `${averageStay} jours`,
+          currentYear: averageStay.currentYear,
+          currentALOS: `${averageStay.currentALOS}`,
+          previousYear: averageStay.previousYear,
+          previousALOS: `${averageStay.previousALOS}`,
         },
       })
     } catch (error) {
@@ -96,21 +101,239 @@ export default class DashboardController {
     }
   }
 
-  public async getRevenueStats({ params, request, response }: HttpContext) {
-    try {
-      const serviceId = parseInt(params.serviceId)
-      const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+//   public async getRevenueStats({ params, request, response }: HttpContext) {
+//     try {
+//       const serviceId = parseInt(params.serviceId)
+//       const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
-      if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
-        return response.badRequest({ success: false, message: 'Période invalide' })
-      }
+//       if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+//         return response.badRequest({ success: false, message: 'Période invalide' })
+//       }
 
 
-    return response.ok({ success: true, data: [] })
+//     return response.ok({ success: true, data: [] })
+//   } catch (error) {
+//     return response.internalServerError({ success: false, message: error.message })
+//   }
+// }
+public async getRevenueStats({ params, request, response }: HttpContext) {
+  try {
+    const serviceId = parseInt(params.serviceId)
+    const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+
+    if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+      return response.badRequest({ success: false, message: 'Période invalide' })
+    }
+
+    const now = DateTime.now()
+    const year = now.year
+    const startOfYear = DateTime.local(year, 1, 1).startOf('day').toSQL()
+    const endOfYear = DateTime.local(year, 12, 31).endOf('day').toSQL()
+
+    const previousYear = year - 1
+    const startOfPrevYear = DateTime.local(previousYear, 1, 1).startOf('day').toSQL()
+    const endOfPrevYear = DateTime.local(previousYear, 12, 31).endOf('day').toSQL()
+
+    // Fonction pour calculer progression
+    const calcProgression = (current: number, previous: number) => {
+      return previous === 0 ? (current > 0 ? 100 : 0) : Math.round(((current - previous) / previous) * 100)
+    }
+
+   if (period === 'monthly') {
+      const currentMonthName = now.toFormat('MMM')
+
+      // Revenu de tous les mois
+      const results = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+        .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
+        .sum('amount as totalRevenue')
+        .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
+        .orderByRaw('MIN(transaction_date)')
+
+      const prevResults = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+        .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
+        .sum('amount as totalRevenue')
+        .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
+
+      // On ne garde que le mois courant
+      const currentMonthResult = results.find(r => r.month === currentMonthName)
+      const prevMonthResult = prevResults.find(r => r.month === currentMonthName)
+
+      const progression = calcProgression(currentMonthResult?.totalRevenue || 0, prevMonthResult?.totalRevenue || 0)
+
+      return response.ok({
+        success: true,
+        data: [{
+          month: currentMonthName,
+          totalRevenue: currentMonthResult?.totalRevenue || 0,
+          progression
+        }]
+      })
+    }
+
+
+    if (period === 'quarterly') {
+      const results = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+        .select(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 7 AND 9 THEN 'Q3'
+            ELSE 'Q4'
+          END AS quarter
+        `))
+        .sum('amount as totalRevenue')
+        .groupByRaw(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 7 AND 9 THEN 'Q3'
+            ELSE 'Q4'
+          END
+        `))
+        .orderByRaw('MIN(transaction_date)')
+
+      const prevResults = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+        .select(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 7 AND 9 THEN 'Q3'
+            ELSE 'Q4'
+          END AS quarter
+        `))
+        .sum('amount as totalRevenue')
+        .groupByRaw(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 7 AND 9 THEN 'Q3'
+            ELSE 'Q4'
+          END
+        `))
+
+     const currentMonth = now.month
+      let currentQuarter = ''
+      if (currentMonth >= 1 && currentMonth <= 3) currentQuarter = 'Q1'
+      else if (currentMonth >= 4 && currentMonth <= 6) currentQuarter = 'Q2'
+      else if (currentMonth >= 7 && currentMonth <= 9) currentQuarter = 'Q3'
+      else currentQuarter = 'Q4'
+
+      const data = results.map(r => {
+        const prev = prevResults.find(p => p.quarter === r.quarter)
+        const progression = calcProgression(r.totalRevenue || 0, prev?.totalRevenue || 0)
+        return { ...r, progression }
+      })
+
+      // On garde seulement le trimestre courant
+      const currentQuarterData = data.find(d => d.quarter === currentQuarter)
+
+      return response.ok({ success: true, data: [currentQuarterData] })
+    }
+
+    if (period === 'semester') {
+      const results = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+        .select(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
+            ELSE 'S2'
+          END AS semester
+        `))
+        .sum('amount as totalRevenue')
+        .groupByRaw(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
+            ELSE 'S2'
+          END
+        `))
+        .orderByRaw('MIN(transaction_date)')
+
+      const prevResults = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+        .select(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
+            ELSE 'S2'
+          END AS semester
+        `))
+        .sum('amount as totalRevenue')
+        .groupByRaw(Database.raw(`
+          CASE
+            WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
+            ELSE 'S2'
+          END
+        `))
+
+      const data = results.map(r => {
+        const prev = prevResults.find(p => p.semester === r.semester)
+        const progression = calcProgression(r.totalRevenue || 0, prev?.totalRevenue || 0)
+        return { ...r, progression }
+      })
+
+      return response.ok({ success: true, data })
+    }
+
+    if (period === 'yearly') {
+      const result = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+        .sum('amount as totalRevenue')
+        .first()
+
+      const prevResult = await Database
+        .from('folio_transactions')
+        .where('hotel_id', serviceId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+        .sum('amount as totalRevenue')
+        .first()
+
+      const progression = calcProgression(result?.totalRevenue || 0, prevResult?.totalRevenue || 0)
+
+      return response.ok({
+        success: true,
+        data: [{ year: year.toString(), totalRevenue: result?.totalRevenue || 0, progression }]
+      })
+    }
+
   } catch (error) {
     return response.internalServerError({ success: false, message: error.message })
   }
 }
+
+
 public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
   try {
     const serviceId = parseInt(params.serviceId)
