@@ -825,6 +825,7 @@ router
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
         router.get('/:hotelId/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
         router.get('/houseview/:hotelId', roomsController.getHouseStatus.bind(roomsController))
+        router.get('/recentBooking/:hotelId', roomsController.getRecentBookings.bind(roomsController))
 
 
         // Room status management

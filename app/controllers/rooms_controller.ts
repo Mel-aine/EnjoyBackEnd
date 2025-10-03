@@ -717,9 +717,6 @@ export default class RoomsController {
         .whereHas('room', (query) => {
           query.where('hotel_id', hotelId)
         })
-        .preload('reservation', (resQuery) => {
-          resQuery.preload('user')
-        })
         .preload('room')
         .preload('guest')
         .orderBy('checkInDate', 'desc')
@@ -733,16 +730,14 @@ export default class RoomsController {
 
         return {
           guest: guest
-            ? `${guest.firstName} ${guest.lastName}`
-            : user
-              ? `${user.firstName} ${user.lastName}`
-              : 'Inconnu',
+            ? guest.displayName
+            : 'Inconnu',
           email: guest?.email ?? user?.email ?? '',
           room: room?.roomNumber ?? 'Non spécifié',
           checkin: res.checkInDate?.toFormat('dd/MM/yyyy') ?? '',
           checkout: res.checkOutDate?.toFormat('dd/MM/yyyy') ?? '',
-          status: reservation?.status ?? '',
-          amount: reservation?.finalAmount ?? 0,
+          status: res.status ?? '',
+          amount: res.totalAmount ?? 0,
         }
       })
 
