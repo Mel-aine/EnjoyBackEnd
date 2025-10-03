@@ -2536,10 +2536,36 @@ export default class ReportsController {
       // Create header template
     // Create header template
     const headerTemplate = `
-    <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
-      <div style="font-weight:bold; color:#00008B; font-size:14px;">${hotel.hotelName}</div>
-      <div style="font-size:14px; color:#8B0000; font-weight:bold;">Manager Report</div>
+    <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+      <!-- Hotel name and report title -->
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Management Report</div>
+      </div>
       
+      <!-- Report Info -->
+      <div style="font-size:10px; margin-bottom:3px;">
+        <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
+        <span style="margin-right:10px;"><strong>PTD:</strong> ${reportDate.startOf('month').toFormat('dd/MM/yyyy')} - ${formattedDate}</span>
+        <span style="margin-right:10px;"><strong>YTD:</strong> ${reportDate.startOf('year').toFormat('dd/MM/yyyy')} - ${formattedDate}</span>
+        <span><strong>Currency:</strong> ${currency}</span>
+      </div>
+      
+      <div style="border-top:1px solid #333; margin:0 ;"></div>
+      
+      <!-- Column Headers -->
+      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5;">
+            <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
+          </tr>
+        </thead>
+      </table>
+      
+      <div style="border-top:1px solid #333; margin-top:2px;"></div>
     </div>
     `
     // Create footer template
@@ -2554,10 +2580,10 @@ export default class ReportsController {
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4', 
         margin: {
-          top: '60px',
-          right: '20px',
-          bottom: '60px',
-          left: '20px'
+          top: '100px',
+          right: '10px',
+          bottom: '20px',
+          left: '10px'
         },
         displayHeaderFooter: true,
         headerTemplate,
