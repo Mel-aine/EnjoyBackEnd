@@ -2538,7 +2538,7 @@ export default class ReportsController {
     const headerTemplate = `
     <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
       <div style="font-weight:bold; color:#00008B; font-size:14px;">${hotel.hotelName}</div>
-      <div style="font-size:14px; color:#8B0000; font-weight:bold;">Management Report</div>
+      <div style="font-size:14px; color:#8B0000; font-weight:bold;">Manager Report</div>
       
     </div>
     `
