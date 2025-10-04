@@ -15,7 +15,7 @@ export default class RoomsController {
   async index({ request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
-      const limit = request.input('limit', 10)
+      const limit = request.input('limit', 100)
       const search = request.input('search')
       const hotelId = request.input('hotel_id')
       const roomTypeId = request.input('room_type_id')

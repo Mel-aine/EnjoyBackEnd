@@ -772,7 +772,7 @@ router
         router.get('/:id/availability', roomTypesController.availability.bind(roomTypesController)) // Check availability for date range
 
         // Sort order management
-        router.patch('/sort-order', roomTypesController.updateSortOrder.bind(roomTypesController)) // Update sort order for multiple room types
+        router.post('/sort/sort-order', roomTypesController.updateSortOrder.bind(roomTypesController)) // Update sort order for multiple room types
       })
       .prefix('configuration/room_types')
 
