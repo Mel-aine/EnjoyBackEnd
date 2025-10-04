@@ -57,6 +57,17 @@ import EmailTemplateController from '#controllers/email_template_controller'
 import TransportRequestsController from '#controllers/transport_requests_controller'
 import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+// Root route that presents Enjoys API documentation and test examples
+router.get('/', async ({ request, response }) => {
+  const baseUrl = `${request.protocol()}://${request.host()}`
+  const filePath = join(process.cwd(), 'resources', 'views', 'api_home.html')
+  let html = readFileSync(filePath, 'utf-8')
+  html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
+  response.type('html')
+  return response.send(html)
+})
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
