@@ -154,9 +154,9 @@ router.get('/swagger/json', async ({ response }) => {
   const basicSpec = {
     swagger: '2.0',
     info: swagger.info,
-    host: 'https://enjoybackend-4udk.onrender.com',
+    host: 'enjoybackend-4udk.onrender.com',
     basePath: '/',
-    schemes: ['http'],
+    schemes: ['https'],
     securityDefinitions: {
       Bearer: {
         type: 'apiKey',
