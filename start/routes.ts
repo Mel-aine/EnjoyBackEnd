@@ -154,7 +154,7 @@ router.get('/swagger/json', async ({ response }) => {
   const basicSpec = {
     swagger: '2.0',
     info: swagger.info,
-    host: '127.0.0.1:3333',
+    host: 'https://enjoybackend-4udk.onrender.com',
     basePath: '/',
     schemes: ['http'],
     securityDefinitions: {
