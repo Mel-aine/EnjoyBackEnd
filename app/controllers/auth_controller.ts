@@ -89,35 +89,55 @@ export default class AuthController {
       const token = await User.accessTokens.create(user, ['*'], { name: email })
       console.log('🪪 Token généré:', token)
 
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'LOGIN',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Connexion de l'utilisateur ${email}`,
+        ctx: ctx,
+      })
+      console.log('📝 Log enregistré dans LoggerService')
+
+      return response.ok({
+        message: 'Login successful',
+        data: {
+          user,
+          user_token: token,
+        },
+      })
+    } catch (error) {
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        console.warn('❌ Utilisateur introuvable:', email)
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
+      console.error('🔥 Erreur lors de la connexion:', error)
+      return response.badRequest({ message: 'Login failed' })
+    }
+  }
+
+  public async initSpace(ctx: HttpContext) {
+    const { request, response } = ctx
+    const { userId } = request.only(['userId']);
+    try {
+      const user = await User.query().where('id', userId).preload('role').firstOrFail()
       const assignments = await user
         .related('serviceAssignments')
         .query()
         .preload('role')
         .preload('hotel')
-      for (const assignment of assignments) {
-        console.log('➡️ Assignment details:', assignment.toJSON())
-      }
 
-
-      console.log('📌 Assignations récupérées:', assignments.length)
 
       const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
         const hotel = assignment.hotel
         const role = assignment.role
-        console.log('➡️ Traitement assignment:', { hotel: hotel?.id, role: role?.id })
-
-        if (!hotel || !role) {
-          console.warn('⚠️ Assignment invalide (hotel ou role manquant)')
-          return null
-        }
 
         const rolePermissions = await RolePermission
           .query()
           .where('role_id', role.id)
           .andWhere('hotel_id', hotel.id)
           .preload('permission')
-
-        console.log(`🔒 Permissions trouvées pour role ${role.roleName} à l’hôtel ${hotel.hotelName}:`, rolePermissions.length)
 
         const permissions = rolePermissions.map((rp) => ({
           id: rp.permission.id,
@@ -146,28 +166,23 @@ export default class AuthController {
         .map((assignment) => assignment.hotel)
         .filter((service) => service !== null)
 
-      console.log('🏨 Services utilisateurs:', userServices.map(s => s.id))
 
       const hotelIds = userServices.map(h => h.id)
-      console.log('📊 IDs des hôtels liés:', hotelIds)
 
       const bookingSources = await BookingSource.query()
         .whereIn('hotel_id', hotelIds)
 
 
-      console.log('📚 BookingSources:', bookingSources.length)
 
       const businessSources = await BusinessSource.query()
         .whereIn('hotel_id', hotelIds)
         .where('isDeleted', false)
 
-      console.log('💼 BusinessSources:', businessSources.length)
 
       const reservationTypes = await ReservationType.query()
         .whereIn('hotel_id', hotelIds)
         .where('isDeleted', false)
 
-      console.log('📑 ReservationTypes:', reservationTypes.length)
 
       const currencies = await Currency.query()
         .whereIn('hotel_id', hotelIds)
@@ -177,19 +192,18 @@ export default class AuthController {
 
       await LoggerService.log({
         actorId: user.id,
-        action: 'LOGIN',
+        action: 'SETUP',
         entityType: 'User',
         entityId: user.id.toString(),
-        description: `Connexion de l'utilisateur ${email}`,
+        description: `Connexion de l'utilisateur ${user.email}`,
         ctx: ctx,
       })
       console.log('📝 Log enregistré dans LoggerService')
 
       return response.ok({
-        message: 'Login successful',
+        message: 'Space initialized successfully',
         data: {
           user,
-          user_token: token,
           userServices,
           permissions: filteredPermissions,
           bookingSources,
@@ -198,9 +212,9 @@ export default class AuthController {
           currencies
         },
       })
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 'E_ROW_NOT_FOUND') {
-        console.warn('❌ Utilisateur introuvable:', email)
+        console.warn('❌ Utilisateur introuvable:', userId)
         return response.unauthorized({ message: 'Invalid credentials' })
       }
       console.error('🔥 Erreur lors de la connexion:', error)

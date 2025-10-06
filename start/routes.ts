@@ -384,6 +384,7 @@ router
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
+router.post('api/initSpace', [AuthController, 'initSpace'])
 router.post('api/authLogout', [AuthController, 'logout'])
 router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
@@ -415,7 +416,7 @@ router
       )
     })
 
-    router.group(() => {
+   /* router.group(() => {
       router.get(
         '/employment_contracts',
         employmentContractController.getMultiple.bind(employmentContractController)
@@ -436,7 +437,7 @@ router
         '/employment_contracts/:id/terminate',
         employmentContractController.terminate.bind(employmentContractController)
       )
-    })
+    })*/
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
       router.get('/payroll/:id', payrollController.getOne.bind(payrollController))
@@ -1485,7 +1486,9 @@ router
       reservationsController.getReservationDetails.bind(reservationsController)
     )
 
-    router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
+router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
+  router.post('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
+  router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
 
     //Payment Method routes
     router
