@@ -242,6 +242,7 @@ router.group(() => {
     // Daily Receipt Reports
     router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
     router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
+    router.post('/daily-receipt-summary-pdf', [DailyReceiptReportsController, 'generateSummaryPdf'])
   }).prefix('/statistics')
 
   // Work Order Reports
