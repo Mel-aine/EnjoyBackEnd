@@ -532,7 +532,7 @@ export default class DailyReceiptReportsController {
         </div>
         
         <!-- Report Info -->
-        <div style="font-size:10px; margin-bottom:3px;">
+        <div style="font-size:8px; margin-bottom:3px;">
           <span style="margin-right:10px;"><strong>From Date:</strong> ${formattedFromDate}</span>
           <span style="margin-right:10px;"><strong>To Date:</strong> ${formattedToDate}</span>
           <span><strong>Currency:</strong> ${currencyId || 'XAF'}</span>
@@ -555,7 +555,7 @@ export default class DailyReceiptReportsController {
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         margin: {
-          top: '90px',
+          top: '70px',
           right: '10px',
           bottom: '70px',
           left: '10px'
@@ -582,7 +582,194 @@ export default class DailyReceiptReportsController {
       })
     }
   }
-    
+  /**
+ * Generate PDF for Detailed Receipt Report
+ */
+/**
+ * Generate PDF for Detailed Receipt Report
+ */
+async generateDetailPdf({ request, response, auth }: HttpContext) {
+  try {
+    const payload = await request.validateUsing(createDailyReceiptReportValidator)
+    const { fromDate, toDate, hotelId, receiptByUserId, currencyId, paymentMethodId } = payload
+
+    const startDateTime = DateTime.fromISO(fromDate)
+    const endDateTime = DateTime.fromISO(toDate)
+
+    // Get hotel details
+    const hotel = await Hotel.findOrFail(hotelId)
+
+    // Get authenticated user information
+    const user = auth.user
+    const printedBy = user 
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
+      : 'System'
+
+    // Build query for receipts (same as generateDetail method)
+    let query = Receipt.query()
+      .preload('creator')
+      .preload('paymentMethod')
+      .preload('hotel')
+      .preload('tenant')
+      .where('hotelId', hotelId)
+      .where('isVoided', false)
+      .where('paymentDate', '>=', startDateTime.toSQLDate())
+      .where('paymentDate', '<=', endDateTime.toSQLDate())
+
+    if (receiptByUserId) {
+      query = query.where('createdBy', receiptByUserId)
+    }
+
+    if (paymentMethodId) {
+      query = query.where('paymentMethodId', paymentMethodId)
+    }
+
+    const receipts = await query.orderBy('paymentDate', 'asc')
+
+    // Process receipt details (same as generateDetail method)
+    const receiptList = receipts.map(receipt => ({
+      date: receipt.paymentDate.toFormat('yyyy-MM-dd HH:mm:ss'),
+      receiptNumber: receipt.receiptNumber,
+      summary: receipt.description,
+      amount: receipt.totalAmount,
+      user: receipt.creator.fullName,
+      enteredOn: receipt.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
+      paymentMethod: receipt.paymentMethod?.methodName,
+      isVoided: receipt.isVoided,
+      currency: receipt.currency,
+      guest: receipt.tenant.displayName
+    }))
+
+    // Calculate totals by payment method - CORRECTION APPLIQUÉE
+    const paymentMethodTotals = new Map()
+    let grandTotalAmount = 0
+
+    receipts.forEach(receipt => {
+      const methodId = receipt.paymentMethodId
+      const methodName = receipt.paymentMethod?.methodName 
+      const amount = receipt.isVoided ? 0 : receipt.totalAmount
+
+      if (!paymentMethodTotals.has(methodId)) {
+        paymentMethodTotals.set(methodId, {
+          methodName,
+          total: 0,
+          count: 0,
+          receipts: []  // ← CORRECTION: Ajout du tableau receipts
+        })
+      }
+
+      const methodTotal = paymentMethodTotals.get(methodId)
+      methodTotal.total += Number(amount)
+      methodTotal.count += receipt.isVoided ? 0 : 1
+      
+      // ← CORRECTION: Remplir le tableau receipts
+      methodTotal.receipts.push({
+        date: receipt.paymentDate.toFormat('yyyy-MM-dd HH:mm:ss'),
+        receiptNumber: receipt.receiptNumber,
+        summary: receipt.description,
+        amount: receipt.totalAmount,
+        user: receipt.creator.fullName,
+        enteredOn: receipt.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
+        isVoided: receipt.isVoided,
+        currency: receipt.currency,
+        guest: receipt.tenant.displayName
+      })
+      
+      grandTotalAmount += Number(amount)
+    })
+
+    const reportData = {
+      hotelInformation: {
+        hotelId: hotel.id,
+        hotelName: hotel.hotelName,
+        address: hotel.address,
+        email: hotel.email
+      },
+      dateRange: {
+        fromDate: startDateTime.toFormat('yyyy-MM-dd'),
+        toDate: endDateTime.toFormat('yyyy-MM-dd')
+      },
+      receiptList,
+      paymentMethodTotals: Array.from(paymentMethodTotals.values()),
+      grandTotalAmount
+    }
+
+    // Generate HTML content using Edge template
+    const htmlContent = await this.generateDetailHtml(
+      hotel.hotelName,
+      startDateTime,
+      endDateTime,
+      currencyId || 'XAF',
+      reportData,
+      printedBy
+    )
+
+    // Import PDF generation service
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+    // Format dates for display
+    const formattedFromDate = startDateTime.toFormat('dd/MM/yyyy')
+    const formattedToDate = endDateTime.toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+    // Create header template
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Daily Receipt - Detail</div>
+      </div>
+      
+      <div style="font-size:8px; margin-bottom:3px;">
+        <span style="margin-right:10px;"><strong>From Date:</strong> ${formattedFromDate}</span>
+        <span style="margin-right:10px;"><strong>To Date:</strong> ${formattedToDate}</span>
+        <span><strong>Currency:</strong> ${currencyId || 'XAF'}</span>
+      </div>
+      
+      <div style="border-top:1px solid #333; margin:0;"></div>
+    </div>
+    `
+
+    // Create footer template
+    const footerTemplate = `
+    <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>
+    `
+
+    // Generate PDF with header and footer
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      margin: {
+        top: '70px',
+        right: '10px',
+        bottom: '70px',
+        left: '10px'
+      },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      printBackground: true
+    })
+
+    // Set response headers
+    const fileName = `daily-receipt-detail-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+
+    return response.send(pdfBuffer)
+
+  } catch (error) {
+    console.error('Error generating daily receipt detail PDF:', error)
+    return response.internalServerError({
+      success: false,
+      message: 'Failed to generate daily receipt detail PDF',
+      error: error.message
+    })
+  }
+}
     /**
      * Generate HTML content for Daily Receipt Summary Report using Edge template
      */
@@ -647,4 +834,109 @@ export default class DailyReceiptReportsController {
     // Render template (créez ce fichier: resources/views/reports/daily_receipt_summary.edge)
     return await edge.render('reports/daily_receipt_summary', templateData)
   }
+  /**
+ * Generate HTML content for Daily Receipt Detail Report using Edge template
+ */
+/**
+ * Generate HTML content for Daily Receipt Detail Report using Edge template
+ */
+private async generateDetailHtml(
+  hotelName: string,
+  fromDate: DateTime,
+  toDate: DateTime,
+  currency: string,
+  reportData: any,
+  printedBy: string = 'System'
+): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('path')
+
+  // Configure Edge with views directory
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  // Format dates
+  const formattedFromDate = fromDate.toFormat('dd/MM/yyyy')
+  const formattedToDate = toDate.toFormat('dd/MM/yyyy')
+  const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+  // Helper function for currency formatting
+  const formatCurrency = (amount: number | null | undefined): string => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '0.00'
+    }
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
+  }
+
+  // Helper function to calculate method total
+  const calculateMethodTotal = (receipts: any[]): number => {
+    if (!receipts || !Array.isArray(receipts)) return 0
+    return receipts.reduce((sum, receipt) => sum + (parseFloat(receipt.amount) || 0), 0)
+  }
+
+  // Helper function to format date like in Vue template
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return ''
+    try {
+      // Si la date est déjà au bon format, la retourner telle quelle
+      if (dateString.includes('/') && dateString.includes(':')) {
+        return dateString
+      }
+      
+      // Sinon, convertir le format de date
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return dateString
+      }
+      
+      return date.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).replace(',', '')
+    } catch (error) {
+      return dateString
+    }
+  }
+
+  // Calculate total entries
+  const totalEntries = reportData.receiptList?.length || 0
+
+  // Prepare template data
+  const templateData = {
+    hotelName,
+    fromDate: formattedFromDate,
+    toDate: formattedToDate,
+    currency,
+    printedOn,
+    printedBy,
+    currentPage: 1,
+    totalPages: 1,
+    data: reportData,
+    formatCurrency,
+    calculateMethodTotal,
+    formatDate,
+    totalEntries,
+    // Header specific data
+    header: {
+      hotelName,
+      reportTitle: 'Daily Receipt Detailed Report',
+      fromDate: formattedFromDate,
+      toDate: formattedToDate,
+      currency
+    },
+    // Footer specific data
+    footer: {
+      printedBy,
+      printedOn,
+      pageInfo: 'Page {currentPage} of {totalPages}'
+    }
+  }
+
+  return await edge.render('reports/daily_receipt_detail', templateData)
+}
 }

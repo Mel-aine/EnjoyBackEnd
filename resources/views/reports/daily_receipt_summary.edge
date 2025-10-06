@@ -14,12 +14,13 @@
         body {
             font-family: Arial, sans-serif;
             font-size: 11px;
-            padding: 10px;
+            padding: 0; 
+            margin: 0;  
             background-color: white;
         }
 
         .report-container {
-            padding: 15px;
+            padding: 0px 15px 15px 15px;
             background-color: white;
         }
 
@@ -64,7 +65,7 @@
 
         table th {
             background-color: #f5f5f5;
-            border-top: 1px solid #333;
+            border-top: none;
             border-bottom: 1px solid #333;
             padding: 5px 8px;
             text-align: left;
@@ -95,16 +96,9 @@
             border: none;
         }
 
-        /* Lignes des méthodes de paiement - bordures pointillées sur colonnes spécifiques */
+        /* Lignes des méthodes de paiement - pas de bordures */
         .payment-method-row td {
             border: none;
-        }
-
-        /* Bordures pointillées sur Tran. Count, Void Count et Total uniquement */
-        .payment-method-row td:nth-child(2),
-        .payment-method-row td:nth-child(4),
-        .payment-method-row td:nth-child(6) {
-            border-bottom: 1px dotted #ccc;
         }
 
         /* Ligne User Total - bordures en pointillés sur colonnes spécifiques */
@@ -121,8 +115,8 @@
         .user-total-row td:nth-child(2),
         .user-total-row td:nth-child(4),
         .user-total-row td:nth-child(6) {
-            border-top: 1px dotted #999;
-            border-bottom: 1px dotted #999;
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
         }
 
         .separator-line {
@@ -145,58 +139,71 @@
         .grand-total-row td:nth-child(2),
         .grand-total-row td:nth-child(4),
         .grand-total-row td:nth-child(6) {
-            border-top: 1px dotted #999;
-            border-bottom: 1px dotted #999;
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
         }
 
-        /* Summary section */
-        .summary-section {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 2px solid #000;
-        }
+         /* Summary section - MODIFICATIONS */
+    .summary-section {
+        margin-top: 20px;
+        padding-top: 15px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Centre toute la section */
+    }
 
-        .summary-title {
-            font-weight: bold;
-            font-size: 12px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
+    .summary-title {
+        font-weight: bold;
+        font-size: 12px;
+        margin-bottom: 10px;
+        text-align: left;
+        padding-left: 0;
+        width: fit-content; /* S'adapte au contenu */
+        align-self: flex-start; /* Garde l'alignement à gauche */
+        margin-left: calc((100% - fit-content) / 2); /* Compensation pour le centrage */
+    }
 
-        .summary-tables {
-            display: flex;
-            gap: 20px;
-            justify-content: space-between;
-        }
+    .summary-tables {
+        display: flex;
+        gap: 30px;
+        justify-content: center;
+        margin: 0 auto;
+        width: fit-content;
+    }
 
-        .summary-table-container {
-            flex: 1;
-        }
+    .summary-table-container {
+        flex: 0 0 auto;
+    }
 
         .summary-table {
-            width: 100%;
             border-collapse: collapse;
-            font-size: 10px;
+            font-size: 11px;
             border: none;
+            min-width: 200px;
         }
 
         .summary-table th {
             background-color: #f5f5f5;
             border-top: 1px solid #333;
             border-bottom: 1px solid #333;
-            padding: 5px 8px;
+            padding: 6px 12px;
             text-align: left;
             font-weight: bold;
+            white-space: nowrap;
+            font-size: 11px;
         }
 
         .summary-table td {
             border: none;
-            padding: 4px 8px;
+            padding: 5px 12px;
+            white-space: nowrap;
+            font-size: 11px;
         }
 
-        /* Bordures pointillées pour les lignes normales du summary */
-        .summary-table tbody tr:not(.summary-grand-total) td {
-            border-bottom: 1px dotted #ccc;
+        /* Bordures pointillées uniquement pour la colonne Amount dans le summary - enlevées */
+        .summary-table tbody tr:not(.summary-grand-total) td:last-child {
+            border-bottom: none;
         }
 
         .summary-grand-total {
@@ -204,9 +211,19 @@
             background-color: #f0f0f0;
         }
 
-        .summary-grand-total td {
-            border-top: 1px dotted #999;
-            border-bottom: 1px dotted #999;
+        .summary-grand-total td:last-child {
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+
+        /* Suppression de la bordure droite qui séparait les sections summary */
+        .summary-table-container:first-child .summary-table {
+            border-right: none;
+        }
+
+        .summary-table-container:first-child .summary-table th,
+        .summary-table-container:first-child .summary-table td {
+            padding-right: 12px;
         }
 
         .amount-column {
@@ -256,15 +273,14 @@
                         <tr class="user-total-row">
                             <td><strong>User Total</strong></td>
                             <td class="text-center"><strong>{{ user.totalTransactions }}</strong></td>
-                            <td class="text-right amount-column"><strong>{{ formatCurrency(user.totalAmount) }}</strong></td>
+                            <td class="text-right amount-column"><strong></strong></td>
                             <td class="text-center"><strong>{{ user.totalVoid }}</strong></td>
-                            <td class="text-right amount-column"><strong>{{ formatCurrency(user.voidAmount) }}</strong></td>
+                            <td class="text-right amount-column"><strong></strong></td>
                             <td class="text-right amount-column"><strong>{{ formatCurrency(user.userTotal) }}</strong></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div class="separator-line"></div>
         @end
 
         <!-- Grand Total -->
@@ -283,7 +299,9 @@
 
         <!-- Summary Section -->
         <div class="summary-section">
-            <div class="summary-title">Summary</div>
+            <div class="summary-title-container">
+                <div class="summary-title">Summary</div>
+            </div>
             
             <div class="summary-tables">
                 <!-- User Summary -->
