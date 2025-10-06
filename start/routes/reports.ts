@@ -13,6 +13,7 @@ import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 
 const ReportsController = () => import('#controllers/reports_controller')
+const ReservationsController = () => import('#controllers/reservations_controller')
 const PickupDropoffReportsController = () => import('#controllers/pickup_dropoff_reports_controller')
 const GuestCheckoutReportsController = () => import('#controllers/guest_checkout_reports_controller')
 const DailyReceiptReportsController = () => import('#controllers/daily_receipt_reports_controller')
@@ -43,6 +44,9 @@ router.group(() => {
   router.get('/receipt/:transactionId', [ReportsController, 'printReceipt'])
 
   router.get('/invoice/:transactionId', [ReportsController, 'printInvoice'])
+
+  // POS Receipt printing route
+  router.get('/pos-receipt/:transactionId', [ReportsController, 'printPosReceipt'])
 
 
 
@@ -84,6 +88,12 @@ router.group(() => {
     // PDF
     router.post('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
     router.post('/rooms-status', [RoomStatusReportsController, 'generateRoomsByStatus'])
+
+    // In-house reservations filtered by roomId and roomTypeId (JSON)
+    router.get('/inhouse-guests', [ReservationsController, 'getInHouseReservations'])
+
+    // Occupied rooms with rate type relation (JSON)
+    router.get('/occupied-rooms', [ReservationsController, 'getOccupiedRooms'])
 
   }).prefix('/front-office')
 
@@ -200,6 +210,12 @@ router.group(() => {
 
     // Daily Revenue PDF report
     router.get('/daily-revenue-pdf', [ReportsController, 'generateDailyRevenuePdf'])
+
+    // Daily Operations Summary data (JSON)
+    router.get('/daily-operations-report', [ReportsController, 'getDailyOperationsReport'])
+
+    // Daily Operations Summary PDF (arrivals, stayovers, departures, no-shows, cancellations)
+    router.post('/daily-operations-report-pdf', [ReportsController, 'generateDailyOperationsReportPdf'])
     // New Report Endpoints
     // Folio List Report
     router.post('/folio-list', [ReportsController, 'getFolioListReport'])

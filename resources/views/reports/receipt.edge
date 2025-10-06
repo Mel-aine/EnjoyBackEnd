@@ -3,249 +3,269 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt</title>
+    <title>Reçu Hôtel</title>
     <style>
-        /* Base Styles */
-    
-
-        /* Conteneur principal du reçu */
-        .receipt-container {
-            width: 100%;
-            max-width: 700px; /* Légèrement plus étroit pour coller à l'image */
-            background-color: white;
-            padding: 30px;
-            border: 1px solid black; /* Bordure simple */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            font-size: 0.9rem;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        /* Helpers */
-        .text-sm { font-size: 0.85rem; }
-        .text-center { text-align: center; }
-        .font-bold { font-weight: 700; }
-        .mt-8 { margin-top: 2rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .pb-1 { padding-bottom: 0.25rem; }
-
-        /* Header (En-tête de l'hôtel) */
-        .header {
-            margin-bottom: 2rem;
-            line-height: 1.4;
-            font-size: 0.9rem;
-        }
-        .header-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-        }
-        .header-address {
-            margin-bottom: 5px;
-        }
-
-        /* Titre du reçu */
-        .receipt-title {
-            font-size: 1.15rem;
-            font-weight: 700;
-            text-align: center;
-            border-bottom: 1px solid black;
-            padding-bottom: 5px;
-            margin-bottom: 20px;
-        }
-
-        /* Section des détails clés (Room, Guest Name, Folio No, etc.) */
-        .detail-section {
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
             display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
             flex-direction: column;
-            gap: 15px; /* Espacement vertical entre les lignes de détail */
         }
 
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            line-height: 1.1;
-            gap: 15px;
+        .receipt {
+            background: white;
+            width: 100%;
+            max-width: 800px;
         }
 
-        .detail-item {
-            width: 50%;
-            display: flex;
-            justify-content: space-between;
-            
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .detail-label {
-            font-weight: 400; /* Normal weight for label */
-            padding-right: 10px;
-            white-space: nowrap; /* Empêche le wrap du label */
-            width: 30%
+        td {
+            border: 2px solid #000;
+            padding: 8px;
+            font-size: 12px;
         }
 
-       
-
-        .detail-value {
-            font-weight: 500;
-            text-align: left;
-            white-space: nowrap; /* Empêche le wrap de la valeur */
-             border-bottom: 1px dotted black;
-             width: 70%
-        }
-        
-        /* Ajustements pour les montants (plus gras) */
-        .amount-row .detail-value {
-            font-weight: 700;
-        }
-
-        /* Section Notice */
-        .notice-section {
-            margin-top: 30px;
-            padding-top: 10px;
-            border-top: 1px dotted black; /* Séparation fine */
-        }
-
-        /* Footer/Signatures */
-        .signature-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-top: 100px;
-            border-top: 1px solid black;
-            padding-top: 5px;
-            font-size: 0.8rem;
-        }
-
-        .signature-item {
-            width: 30%;
+        .header-cell {
             text-align: center;
-            line-height: 1.4;
+            padding: 15px 20px 10px;
         }
-        
-        .page-info {
-            font-size: 0.8rem;
-            text-align: right;
-            margin-top: 20px;
+
+        .header-cell h1 {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .company-info-cell {
+            padding: 0 20px 3px 10px;
+            font-size: 12px;
+        }
+
+        .label-cell {
+            font-weight: bold;
+        }
+
+        .amount {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .signature-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 70px 10px 10px;
+        }
+
+        .signature-left, .signature-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .signature-right {
+            margin-left: auto;
+        }
+
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .receipt {
+                max-width: 100%;
+                page-break-inside: avoid;
+            }
+
+            @page {
+                margin: 10mm;
+                size: A4;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="receipt-container">
-        
-        <!-- HEADER (Informations de l'hôtel) -->
-        <header class="header text-center">
-            <h1 class="header-title">Hotel Royal{{ hotel.hotelName}} </h1>
-            <p class="header-address">{{ hotel.address}},{{ hotel.city}},{{ hotel.stateProvince}}, {{ hotel.country}}</p>
-            <p class="text-sm">Phone: {{ hotel.phoneNumber}}, Email: {{ hotel.email}}</p>
-        </header> 
+    <div class="receipt">
+        <table>
+            <tr>
+                <td colspan="4" class="header-cell" style="border-bottom: none;">
+                    <h1>Receipt</h1>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    <strong>{{ hotel.hotelName }}</strong>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    {{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }} {{ hotel.country }}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    Phone: {{ hotel.phoneNumber }}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="padding-bottom: 10px; border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    {{ hotel.website }}, Email : {{ hotel.email }}
+                </td>
+            </tr>
+            <tr>
+                <td style="width: 20%;"><strong>Room No</strong></td>
+                <td style="width: 30%; border-right: none;">{{ room.roomNumber }}</td>
+                <td style="width: 20%; border-left: none;"><strong>Date</strong></td>
+                <td style="width: 30%;">{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+            </tr>
+            <tr>
+                <td><strong>Reg No</strong></td>
+                <td style="border-right: none;">{{ hotel.registrationNo1 || 'NA' }}</td>
+                <td style="border-left: none;"><strong>Receipt No.</strong></td>
+                <td>{{ transaction.transactionNumber }}</td>
+            </tr>
+            <tr>
+                <td class="label-cell">Guest Name</td>
+                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.type }})</td>
+            </tr>
+            <tr>
+                <td class="label-cell">Company Name</td>
+                <td colspan="3" style="padding: 10px 10px 50px 10px; position: relative;">
+                    {{ guest.companyName || 'NA' }}
+                    <div style="position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-weight: bold; font-size: 12px; z-index:0; line-height: 1;">Authorization</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="label-cell" style="width: 30%; padding-top: 5px;">
+                    <div>Amount</div>
+                    <div style="margin-top: 5px;">Towards</div>
+                    <div style="margin-top: 5px;">Arr & Dep Details</div>
+                </td>
+                <td style="width: 70%; padding-top: 5px; position: relative;" colspan="3">
+                    <div style="display: flex; align-items: baseline;">
+                        <div class="amount" style="margin-right: 10px;">XAF {{ transaction.totalAmount | formatCurrency }}</div>
+                        <div style="flex: 1; text-align: center; font-size: 11px; position: relative; top: -4px; white-space: normal; word-break: break-word;">{{ amountInWords }}</div>
+                    </div>
+                    <div style="margin-top: 5px;">{{ paymentMethod.methodName }}</div>
+                    <div style="margin-top: 5px;">{{ reservations.checkInDate.toFormat('dd-MM-yyyy HH:mm:ss') }} &nbsp;&nbsp;&nbsp;&nbsp; <strong>To</strong> &nbsp;&nbsp; {{ reservations.checkOutDate.toFormat('dd-MM-yyyy HH:mm:ss') }}</div>
+                    
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" style="padding: 0;">
+                    <div class="signature-content">
+                        <div class="signature-left">
+                            <strong>FOA Signature</strong>
+                            <span>{{ printedBy }}</span>
+                            <span>{{ printedAt.toFormat('dd-MM-yyyy') }}</span>
+                            <span>{{ printedAt.toFormat('HH:mm:ss') }}</span>
+                        </div>
+                        <div class="signature-right">
+                            <strong>Guest Signature</strong>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
 
-       
-
-        <!-- TITRE DU REÇU -->
-        <h2 class="receipt-title">Receipt</h2>
-        
-        <!-- SECTION DÉTAILS -->
-        <section class="detail-section">
-            
-            <!-- Room & Receipt No. -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="detail-label">Room</span>
-                    <span class="detail-value dotted-line">{{room.roomNumber}}-{{roomType.roomTypeName}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Receipt No.</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{transaction.transactionNumber}}</span>
-                </div>
-            </div>
-
-            <!-- Guest Name & Folio No. -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="detail-label">Guest Name</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ guest.firstName}} {{guest.lastName}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Folio No.</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ folio.folioNumber}}</span>
-                </div>
-            </div>
-
-            <!-- Payment Date & Entered On -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <span class="detail-label">Payment Date</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Entered On</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ transaction.createdAt.toFormat('dd-MM-yyyy HH:mm:ss') }}</span>
-                </div>
-            </div>
-
-            <!-- Pay Method & Amount -->
-            <div class="detail-row amount-row">
-                <div class="detail-item">
-                    <span class="detail-label">Pay Method</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value">{{ transaction.paymentMethodId || 'NAN' }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Amount</span>
-                    <span class="dotted-line"></span>
-                    <span class="detail-value font-bold">{{transaction.amount}}(XAF)</span>
-                </div>
-            </div>
-            
-            <!-- Remark -->
-            <div class="detail-row">
-                <div class="detail-item" style="width: 100%;">
-                    <span class="detail-label">Remark</span>
-                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span class="detail-value" style="text-align: left;padding-right: 350px; width: 70%;"> {{ transaction.description}}</span>
-                </div>
-            </div>
-
-        </section>
-        
-        <!-- SECTION NOTICE -->
-        <div style="margin-top: 30px;" >
-            <div class="detail-row">
-                <div class="detail-item" style="width: 100%;">
-                    <span class="detail-label">Notice</span>
-                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span  style="text-align: left;padding-right: 350px; width: 70%;">Receipt NOTICE</span>
-                </div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-item" style="width: 100%;">
-                    <span class="detail-label"></span>
-                    <span class="dotted-line" style="flex-grow: 0.1;"></span>
-                    <span  style="text-align: left;padding-right: 350px; width: 70%;">Receipt NOTICE</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- FOOTER ET SIGNATURES -->
-
-        <footer class="signature-section" style="margin-top: 40px;">
-            <div class="signature-item">
-                User
-            </div>
-            <div class="signature-item">
-               {{ printedBy }}
-            </div>
-            <div class="signature-item">
-                Guest Signature
-            </div>
-            <div class="signature-item">
-                Authorized Signatory
-            </div>  
-        </footer>
-        <hr style="width: 100%; height: 1px;margin-top: 4px; margin-bottom: 100px; background-color: black; border: none;"><br>
-        
+    <div class="receipt" style="margin-top: 80px;">
+        <table>
+            <tr>
+                <td colspan="4" class="header-cell" style="border-bottom: none;">
+                    <h1>Receipt [Duplicate Copy]</h1>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    <strong>{{ hotel.hotelName }}</strong>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    {{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }} {{ hotel.country }}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    Phone: {{ hotel.phoneNumber }}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" class="company-info-cell" style="padding-bottom: 10px; border: none; border-left: 2px solid #000; border-right: 2px solid #000;">
+                    {{ hotel.website }}, Email : {{ hotel.email }}
+                </td>
+            </tr>
+            <tr>
+                <td style="width: 20%;"><strong>Room No</strong></td>
+                <td style="width: 30%; border-right: none;">{{ room.roomNumber }}</td>
+                <td style="width: 20%; border-left: none;"><strong>Date</strong></td>
+                <td style="width: 30%;">{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+            </tr>
+            <tr>
+                <td><strong>Reg No</strong></td>
+                <td style="border-right: none;">{{ hotel.registrationNo1 || 'NA' }}</td>
+                <td style="border-left: none;"><strong>Receipt No.</strong></td>
+                <td>{{ transaction.transactionNumber }}</td>
+            </tr>
+            <tr>
+                <td class="label-cell">Guest Name</td>
+                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.type }})</td>
+            </tr>
+            <tr>
+                <td class="label-cell">Company Name</td>
+                <td colspan="3" style="padding: 10px 10px 50px 10px; position: relative;">
+                    {{ guest.companyName || 'NA' }}
+                    <div style="position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-weight: bold; font-size: 12px; z-index:0; line-height: 1;">Authorization</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="label-cell" style="width: 30%; padding-top: 5px;">
+                    <div>Amount</div>
+                    <div style="margin-top: 5px;">Towards</div>
+                    <div style="margin-top: 5px;">Arr & Dep Details</div>
+                </td>
+                <td style="width: 70%; padding-top: 5px; position: relative;" colspan="3">
+                    <div style="display: flex; align-items: baseline;">
+                        <div class="amount" style="margin-right: 10px;">XAF {{ transaction.totalAmount | formatCurrency }}</div>
+                        <div style="flex: 1; text-align: center; font-size: 11px; position: relative; top: -4px; white-space: normal; word-break: break-word;">{{ amountInWords }}</div>
+                    </div>
+                    <div style="margin-top: 5px;">{{ paymentMethod.methodName }}</div>
+                    <div style="margin-top: 5px;">{{ reservations.checkInDate.toFormat('dd-MM-yyyy HH:mm:ss') }} &nbsp;&nbsp;&nbsp;&nbsp; <strong>To</strong> &nbsp;&nbsp; {{ reservations.checkOutDate.toFormat('dd-MM-yyyy HH:mm:ss') }}</div>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" style="padding: 0;">
+                    <div class="signature-content">
+                        <div class="signature-left">
+                            <strong>FOA Signature</strong>
+                            <span>{{ printedBy }}</span>
+                            <span>{{ printedAt.toFormat('dd-MM-yyyy') }}</span>
+                            <span>{{ printedAt.toFormat('HH:mm:ss') }}</span>
+                        </div>
+                        <div class="signature-right">
+                            <strong>Guest Signature</strong>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
     </div>
 </body>
 </html>

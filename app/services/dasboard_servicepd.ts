@@ -40,7 +40,7 @@ export class HotelAnalyticsDashboardService {
     })
 
     // Nombre total de chambres
-    const totalRoomsResult = await ServiceProduct.query().where('hotel_id', serviceId).count('* as total')
+    const totalRoomsResult = await Room.query().where('hotel_id', serviceId).count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
 
     if (totalRooms === 0) {
@@ -399,13 +399,27 @@ export class HotelAnalyticsDashboardService {
       const endOfPrevMonth = startOfPrevMonth.endOf('month')
 
       // Récupération des types distincts pour le mois
+      // const distinctReservations = await Reservation
+      //   .query()
+      //   .where('hotel_id', serviceId)
+      //   .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+      //   .distinct('reservation_type_id')
       const distinctReservations = await Reservation
-        .query()
-        .where('hotel_id', serviceId)
-        .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
-        .distinct('reservation_type')
+      .query()
+      .where('reservations.hotel_id', serviceId)
+      .whereBetween('reservations.created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+      .join('reservation_types', 'reservations.reservation_type_id', 'reservation_types.id')
+      .distinct('reservations.reservation_type_id', 'reservation_types.name')
+      .select('reservation_types.id as typeId', 'reservation_types.name as typeName')
 
-      const types = distinctReservations.map(r => r.reservationType || 'Inconnu')
+    const types = distinctReservations.map(r => ({
+      id: r.$extras.typeId,
+      name: r.$extras.typeName || 'Inconnu'
+    }))
+
+
+
+      // const types = distinctReservations.map(r => r.reservationTypeId || 'Inconnu')
 
       // Statistiques hebdomadaires (4 semaines)
       const weeks: { label: string, data: { type: string, count: number }[] }[] = []
@@ -418,20 +432,21 @@ export class HotelAnalyticsDashboardService {
 
         for (const type of types) {
           const query = Reservation.query()
-            .where('hotel_id', serviceId)
-            .whereBetween('created_at', [weekStart.toSQL()!, weekEnd.toSQL()!])
+            .where('reservations.hotel_id', serviceId)
+            .whereBetween('reservations.created_at', [weekStart.toSQL()!, weekEnd.toSQL()!])
 
-          type === 'Inconnu'
-            ? query.whereNull('reservation_type')
-            : query.where('reservation_type', type)
+          type.name === 'Inconnu'
+            ? query.whereNull('reservation_type_id')
+            : query.where('reservation_type_id', type.id)
 
           const result = await query.count('* as count')
 
           data.push({
-            type,
+            type: type.name,
             count: Number(result[0].$extras.count || 0),
           })
         }
+
 
         weeks.push({ label: `Semaine ${i + 1}`, data })
       }
@@ -439,16 +454,16 @@ export class HotelAnalyticsDashboardService {
       // Résumé du mois et progression
       const summary = await Promise.all(types.map(async (type) => {
         const currentQuery = Reservation.query()
-          .where('hotel_id', serviceId)
+          .where('reservations.hotel_id', serviceId)
           .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
 
         const prevQuery = Reservation.query()
-          .where('hotel_id', serviceId)
+          .where('reservations.hotel_id', serviceId)
           .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
 
-        type === 'Inconnu'
-          ? (currentQuery.whereNull('reservation_type'), prevQuery.whereNull('reservation_type'))
-          : (currentQuery.where('reservation_type', type), prevQuery.where('reservation_type', type))
+        type.name === 'Inconnu'
+          ? (currentQuery.whereNull('reservation_type_id'), prevQuery.whereNull('reservation_type_id'))
+          : (currentQuery.where('reservation_type_id', type.id), prevQuery.where('reservation_type_id', type.id))
 
         const currentCount = Number((await currentQuery.count('* as count'))[0].$extras.count || 0)
         const previousCount = Number((await prevQuery.count('* as count'))[0].$extras.count || 0)
@@ -457,8 +472,31 @@ export class HotelAnalyticsDashboardService {
           ? (currentCount > 0 ? 100 : 0)
           : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
 
-        return { type, count: currentCount, progression }
+        return { type: type.name, count: currentCount, progression }
       }))
+
+      // const summary = await Promise.all(types.map(async (type) => {
+      //   const currentQuery = Reservation.query()
+      //     .where('hotel_id', serviceId)
+      //     .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+
+      //   const prevQuery = Reservation.query()
+      //     .where('hotel_id', serviceId)
+      //     .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
+
+      //   type === 'Inconnu'
+      //     ? (currentQuery.whereNull('reservation_type'), prevQuery.whereNull('reservation_type'))
+      //     : (currentQuery.where('reservation_type', type), prevQuery.where('reservation_type', type))
+
+      //   const currentCount = Number((await currentQuery.count('* as count'))[0].$extras.count || 0)
+      //   const previousCount = Number((await prevQuery.count('* as count'))[0].$extras.count || 0)
+
+      //   const progression = previousCount === 0
+      //     ? (currentCount > 0 ? 100 : 0)
+      //     : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
+
+      //   return { type, count: currentCount, progression }
+      // }))
 
       results.push({
         month: startOfMonth.toFormat('LLLL'), // Nom du mois (ex: Janvier)
@@ -495,6 +533,7 @@ public static async getYearlyRevenueStats(serviceId: number, year: number): Prom
     .from('folio_transactions')
     .where('hotel_id', serviceId)
     .where('transaction_type', 'payment')
+     .where('is_voided', false)
     .whereBetween('transaction_date', [startOfYear, endOfYear])
     .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month")) // Extract month name
     .sum('amount as totalRevenue') // Sum the payment amounts

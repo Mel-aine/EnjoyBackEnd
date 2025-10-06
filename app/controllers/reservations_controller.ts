@@ -432,7 +432,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Update associated room status to dirty
         if (reservationRoom.room) {
           console.log(`🧹 Marking room ${reservationRoom.room.id} as dirty`)
-          reservationRoom.room.status = 'dirty'
+          reservationRoom.room.status = 'available'
           reservationRoom.room.housekeepingStatus = 'dirty'
           await reservationRoom.room.useTransaction(trx).save()
           updatedRooms.push(reservationRoom.room.id)
@@ -1736,6 +1736,135 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
 
+  /**
+   * List in-house reservations filtered by roomId and roomTypeId
+   * Returns ReservationRoom rows with related reservation, guest, room, roomType, rateType
+   */
+  async getInHouseReservations({ request, response }: HttpContext) {
+    try {
+      const hotelIdRaw = request.input('hotelId') ?? request.qs().hotelId
+      const roomIdRaw = request.input('roomId') ?? request.qs().roomId
+      const roomTypeIdRaw = request.input('roomTypeId') ?? request.qs().roomTypeId
+
+      const hotelId = hotelIdRaw ? parseInt(hotelIdRaw) : NaN
+      const roomId = roomIdRaw ? parseInt(roomIdRaw) : undefined
+      const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw) : undefined
+
+      if (!hotelId || Number.isNaN(hotelId)) {
+        return response.badRequest({ success: false, message: 'hotelId is required and must be a number' })
+      }
+
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+
+      let query = ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .where('status', 'checked_in')
+
+      if (roomId && !Number.isNaN(roomId)) {
+        query = query.where('room_id', roomId)
+      }
+      if (roomTypeId && !Number.isNaN(roomTypeId)) {
+        query = query.where('room_type_id', roomTypeId)
+      }
+
+      query
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest').preload('bookingSource')
+        })
+        .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('roomType')
+        .preload('rateType')
+
+      const rows = await query
+
+      const data = rows.map((rr) => {
+        const res = rr.reservation
+        const guest = res?.guest || rr.guest
+        return {
+          reservationRoomId: rr.id,
+          reservationId: res?.id || rr.reservationId,
+          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+          roomId: rr.roomId,
+          roomNumber: rr.room?.roomNumber,
+          roomTypeId: rr.roomTypeId,
+          roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+          checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+          checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+          nights: rr.nights,
+          rateTypeId: rr.rateTypeId,
+          rateTypeName: rr.rateType?.rateTypeName,
+          bookingSource: res?.bookingSource?.sourceName,
+          status: rr.status,
+        }
+      })
+
+      return response.ok({ success: true, count: data.length, data })
+    } catch (error) {
+      logger.error('Error fetching in-house reservations:', error)
+      return response.status(500).json({ success: false, message: 'Failed to fetch in-house reservations', error: error.message })
+    }
+  }
+
+  /**
+   * List occupied rooms with rate type relation
+   * Returns ReservationRoom rows currently checked-in, grouped by room with rate type.
+   */
+  async getOccupiedRooms({ request, response }: HttpContext) {
+    try {
+      const hotelIdRaw = request.input('hotelId') ?? request.qs().hotelId
+      const roomTypeIdRaw = request.input('roomTypeId') ?? request.qs().roomTypeId
+
+      const hotelId = hotelIdRaw ? parseInt(hotelIdRaw) : NaN
+      const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw) : undefined
+
+      if (!hotelId || Number.isNaN(hotelId)) {
+        return response.badRequest({ success: false, message: 'hotelId is required and must be a number' })
+      }
+
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+
+      let query = ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .where('status', 'checked_in')
+
+      if (roomTypeId && !Number.isNaN(roomTypeId)) {
+        query = query.where('room_type_id', roomTypeId)
+      }
+
+      query
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest')
+        })
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('rateType')
+
+      const rows = await query
+
+      const data = rows.map((rr) => ({
+        roomId: rr.roomId,
+        roomNumber: rr.room?.roomNumber,
+        roomTypeId: rr.roomTypeId || rr.room?.roomType?.id,
+        roomTypeName: rr.room?.roomType?.roomTypeName,
+        reservationRoomId: rr.id,
+        reservationId: rr.reservationId,
+        guestName: rr.reservation?.guest ? `${rr.reservation.guest.firstName || ''} ${rr.reservation.guest.lastName || ''}`.trim() : '—',
+        rateTypeId: rr.rateTypeId,
+        rateTypeName: rr.rateType?.rateTypeName,
+        checkInDate: rr.checkInDate?.toISODate?.(),
+        checkOutDate: rr.checkOutDate?.toISODate?.(),
+      }))
+
+      return response.ok({ success: true, count: data.length, data })
+    } catch (error) {
+      logger.error('Error fetching occupied rooms:', error)
+      return response.status(500).json({ success: false, message: 'Failed to fetch occupied rooms', error: error.message })
+    }
+  }
 public async getReservationById({ request, response, auth, params }: HttpContext) {
   try {
     const reservationId = params.id
@@ -4379,84 +4508,101 @@ public async getReservationById({ request, response, auth, params }: HttpContext
   }
 
   public async unassignRoom(ctx: HttpContext) {
-    const trx = await db.transaction()
-    const { params, request, response, auth } = ctx
-    try {
-      const { reservationId } = params
-      const { reservationRooms, actualCheckInTime } = request.body()
+  const trx = await db.transaction()
+  const { params, request, response, auth } = ctx
+  try {
+    const { reservationId } = params
+    const { reservationRooms, actualCheckInTime } = request.body()
 
-      // Validate required fields
-      if (!reservationRooms) {
-        await trx.rollback()
-        return response.badRequest({ message: 'Room ID is required' })
-      }
+    console.log('--- Début unassignRoom ---')
+    console.log('Params:', params)
+    console.log('Body reçu:', request.body())
+    console.log('User connecté:', auth?.user)
 
-      // Get reservation with related data
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.whereIn('id', reservationRooms).where('status', 'reserved')
-        })
-        .first()
-      console.log('Reservation trouvée:', reservation)
-
-      if (!reservation) {
-        console.log('Erreur : réservation non trouvée')
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
-
-      // Check if reservation allows room unassignment
-      const allowedStatuses = ['confirmed', 'pending']
-      if (!allowedStatuses.includes(reservation.status)) {
-        console.log('Erreur : statut non autorisé', reservation.status)
-        await trx.rollback()
-        return response.badRequest({
-          message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
-        })
-      }
-
-      for (const reservationRoom of reservation.reservationRooms) {
-        // Store the reservation room ID before unassigning
-        const reservationRoomId = reservationRoom.id
-
-        reservationRoom.roomId = null
-        reservationRoom.lastModifiedBy = auth?.user?.id!
-        await reservationRoom.useTransaction(trx).save()
-
-        // Remove room number from folio transaction descriptions
-        await ReservationFolioService.removeRoomChargeDescriptions(
-          reservationRoomId,
-          auth?.user?.id!
-        )
-      }
-
-      // Create audit log
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'ROOM_UNASSIGNED',
-        entityType: 'ReservationRoom',
-        entityId: reservationId,
-        hotelId: reservation.hotelId,
-        description: `Room unassigned from reservation #${reservation.reservationNumber}`,
-        ctx: ctx,
-      })
-
-      await trx.commit()
-      console.log('Room désaffectée avec succès')
-
-      return response.ok({
-        message: 'Room unassigned successfully',
-        reservationId,
-      })
-    } catch (error) {
+    // Validate required fields
+    if (!reservationRooms) {
+      console.log('Erreur : reservationRooms manquant')
       await trx.rollback()
-      logger.error('Error unassigning room:', error)
+      return response.badRequest({ message: 'Room ID is required' })
+    }
+
+    // Get reservation with related data
+    console.log('Recherche de la réservation ID:', reservationId, 'avec rooms:', reservationRooms)
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', reservationId)
+      .preload('reservationRooms', (query) => {
+        query.whereIn('id', reservationRooms)
+      })
+      .first()
+
+    console.log('Résultat de la requête Reservation:', reservation)
+
+    if (!reservation) {
+      console.log('Erreur : réservation non trouvée')
+      await trx.rollback()
+      return response.notFound({ message: 'Reservation not found' })
+    }
+
+    // Check if reservation allows room unassignment
+    const allowedStatuses = ['confirmed', 'pending']
+    console.log('Statut réservation:', reservation.status)
+    if (!allowedStatuses.includes(reservation.status)) {
+      console.log('Erreur : statut non autorisé', reservation.status)
+      await trx.rollback()
       return response.badRequest({
-        message: 'Failed to unassign room',
-        error: error.message,
+        message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
       })
     }
+
+    console.log('Nombre de reservationRooms trouvées:', reservation.reservationRooms.length)
+
+    for (const reservationRoom of reservation.reservationRooms) {
+      console.log('Traitement reservationRoom:', reservationRoom.id, '-> actuel roomId:', reservationRoom.roomId)
+
+      // Store the reservation room ID before unassigning
+      const reservationRoomId = reservationRoom.id
+
+      reservationRoom.roomId = null
+      reservationRoom.lastModifiedBy = auth?.user?.id!
+      await reservationRoom.useTransaction(trx).save()
+      console.log('Room désaffectée pour reservationRoom:', reservationRoomId)
+
+      // Remove room number from folio transaction descriptions
+      await ReservationFolioService.removeRoomChargeDescriptions(
+        reservationRoomId,
+        auth?.user?.id!
+      )
+      console.log('Descriptions folio mises à jour pour reservationRoom:', reservationRoomId)
+    }
+
+    // Create audit log
+    console.log('Création du log audit...')
+    await LoggerService.log({
+      actorId: auth.user?.id!,
+      action: 'ROOM_UNASSIGNED',
+      entityType: 'ReservationRoom',
+      entityId: reservationId,
+      hotelId: reservation.hotelId,
+      description: `Room unassigned from reservation #${reservation.reservationNumber}`,
+      ctx: ctx,
+    })
+
+    await trx.commit()
+    console.log('--- SUCCESS: Room désaffectée avec succès ---')
+
+    return response.ok({
+      message: 'Room unassigned successfully',
+      reservationId,
+    })
+  } catch (error) {
+    await trx.rollback()
+    console.log('--- ERROR ---')
+    console.error('Error unassigning room:', error)
+    return response.badRequest({
+      message: 'Failed to unassign room',
+      error: error.message,
+    })
+  }
   }
 
   /**

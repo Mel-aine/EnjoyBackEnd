@@ -35,6 +35,7 @@ export default class RoomTypesController {
         .preload('hotel')
         .preload('createdByUser')
         .preload('updatedByUser')
+        .orderBy('sort_order', 'asc')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -321,9 +322,16 @@ export default class RoomTypesController {
         data: payload
       })
     } catch (error) {
+      if ((error as any)?.code === 'E_VALIDATION_ERROR' || (error as any)?.code === 'E_VALIDATION_FAILURE' || (error as any)?.messages) {
+        return response.badRequest({
+          message: 'Failed to update sort order',
+          error: 'Validation failure',
+          errors: (error as any).messages
+        })
+      }
       return response.badRequest({
         message: 'Failed to update sort order',
-        error: error.message
+        error: (error as any)?.message || 'Unknown error'
       })
     }
   }
@@ -351,6 +359,7 @@ export default class RoomTypesController {
           query.preload('taxRates')
         })
         .preload('roomRates')
+        .orderBy('sort_order', 'asc')
         .paginate(page, limit)
 
       // Vérifier si aucun résultat

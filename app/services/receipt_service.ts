@@ -18,9 +18,9 @@ export interface CreateReceiptData {
 }
 
 export interface VoidReceiptData {
-  receiptId: number
+  transactionId: number
   voidedBy: number
-  reason?: string
+  voidReason?: string
 }
 
 export interface ReceiptQueryOptions {
@@ -78,8 +78,40 @@ export default class ReceiptService {
           currency: data.currency
         }, { client: trx })
 
+        // Log successful receipt creation
+        await LoggerService.logActivity({
+          userId: data.createdBy,
+          action: 'CREATE',
+          resourceType: 'Receipt',
+          resourceId: receipt.id,
+          details: {
+            receiptNumber: receipt.receiptNumber,
+            totalAmount: data.totalAmount,
+            currency: data.currency,
+            paymentMethodId: data.paymentMethodId,
+            folioTransactionId: data.folioTransactionId,
+            tenantId: data.tenantId
+          },
+          hotelId: data.hotelId
+        }, trx)
+
         return receipt
       } catch (error) {
+        // Log failed receipt creation
+        await LoggerService.logActivity({
+          userId: data.createdBy,
+          action: 'CREATE_FAILED',
+          resourceType: 'Receipt',
+          resourceId: data.folioTransactionId, // Use folio transaction ID as reference
+          details: {
+            error: error.message,
+            totalAmount: data.totalAmount,
+            currency: data.currency,
+            folioTransactionId: data.folioTransactionId,
+            tenantId: data.tenantId
+          },
+          hotelId: data.hotelId
+        })
         throw error
       }
     })
@@ -92,7 +124,7 @@ export default class ReceiptService {
     return await db.transaction(async (trx) => {
       try {
         const receipt = await Receipt.query({ client: trx })
-          .where('id', data.receiptId)
+          .where('folioTransactionId', data.transactionId)
           .first()
 
         if (!receipt) {
@@ -108,28 +140,33 @@ export default class ReceiptService {
         receipt.voidedBy = data.voidedBy
         receipt.voidedAt = DateTime.now()
         
-        await receipt.save({ client: trx })
+        await receipt.useTransaction(trx).save()
 
-        await LoggerService.log({
-          level: 'info',
-          message: 'Receipt voided successfully',
-          data: {
-            receiptId: receipt.id,
+        // Log successful void operation
+        await LoggerService.logActivity({
+          userId: data.voidedBy,
+          action: 'VOID',
+          resourceType: 'Receipt',
+          resourceId: receipt.id,
+          details: {
             receiptNumber: receipt.receiptNumber,
-            voidedBy: data.voidedBy,
-            reason: data.reason
-          }
-        })
+            reason: data.voidReason,
+            voidedAt: receipt.voidedAt?.toISO()
+          },
+          hotelId: receipt.hotelId
+        }, trx)
 
         return receipt
       } catch (error) {
-        await LoggerService.log({
-          level: 'error',
-          message: 'Failed to void receipt',
-          data: {
+        // Log error operation
+        await LoggerService.logActivity({
+          userId: data.voidedBy,
+          action: 'VOID_FAILED',
+          resourceType: 'Receipt',
+          resourceId: data.transactionId,
+          details: {
             error: error.message,
-            receiptId: data.receiptId,
-            voidedBy: data.voidedBy
+            reason: data.voidReason
           }
         })
         throw error

@@ -105,7 +105,9 @@ export class HotelAnalyticsService {
         // 2. Get all room types for the hotel
         const roomTypes = await Room.query()
             .where('hotel_id', hotelId)
-            .preload('roomType')
+            .preload('roomType', (roomTypeQuery) => {
+                roomTypeQuery.orderBy('sort_order', 'asc')
+            })
             .then(rooms => {
                 const uniqueTypes = new Map()
                 rooms.forEach(room => {
@@ -335,6 +337,7 @@ export class HotelAnalyticsService {
             if (!groupedDetails[roomType]) {
                 groupedDetails[roomType] = {
                     room_type: roomType,
+                    order: room.roomType?.sortOrder ?? 0,
                     room_type_id: room.roomType?.id,
                     total_rooms_of_type: 0,
                     room_details: [],
@@ -501,9 +504,14 @@ export class HotelAnalyticsService {
             }
         }
 
+        // Sort grouped details by the 'order' field ascending
+        const groupedDetailsSorted = Object.values(groupedDetails).sort((a: any, b: any) => {
+            return (a.order ?? 0) - (b.order ?? 0)
+        })
+
         return {
             daily_occupancy_metrics: dailyMetrics,
-            grouped_reservation_details: Object.values(groupedDetails),
+            grouped_reservation_details: groupedDetailsSorted,
             global_room_status_stats: globalRoomStatusStats,
             room_blocks: roomBlocks.map(block => ({
                 id: block.id,

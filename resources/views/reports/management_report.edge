@@ -15,16 +15,12 @@
       }
       
       .header {
-        position: fixed;
-        top: 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
-        font-weight: bold;
-        font-size: 14px;
       }
       
+     
       .horizontal-line {
         border-top: 1px solid #333;
         margin: 10px 0;
@@ -109,83 +105,14 @@
           padding-top:20px
           page-break-before: always;
         }
-      
-        /* Ensure header is at the top */
-      
-        .header {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 50px;
-          padding: 10px 20px;
-          /* Adjust height as needed */
-          background-color: white;
-          /* To prevent background show-through */
-        }
-      
-        /* Ensure footer is at the bottom */
-      
-        .footer {
-          height: 50px;
-          /* Adjust height as needed */
-          background-color: white;
-          /* To prevent background show-through */
-        }
-      
-        /* Optional: Add padding to the body to prevent content overlap */
-      
-        .main {
-          position:absolute
-          padding-top: 20px;
-          /* Add space for the header */
-          padding-bottom: 80px;
-          /* Add space for the footer */
-        }
       }
     </style>
   </head>
   <body>
     <!-- Header -->
-    <div class="header">
-      <span>{{ hotelName }}</span>
-      <span>Manager Report</span>
-    </div>
+    
     <div class="main">
-      <div class="horizontal-line">
-      </div>
-
-      <!-- Report Info -->
-      <div class="report-info">
-        <span>          <strong>As On Date:</strong>{{ asOnDate }}</span>
-        <span>          <strong>PTD:</strong>{{ ptdDate }}</span>
-        <span>          <strong>YTD:</strong>{{ ytdDate }}</span>
-        <span>          <strong>Currency:</strong>{{ currency }}</span>
-      </div>
-      <div class="horizontal-line">
-      </div>
-
-      <!-- Column Headers -->
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 40%;">
-              Particulars
-            </th>
-            <th class="currency" style="width: 20%;">
-              Today
-            </th>
-            <th class="currency" style="width: 20%;">
-              PTD
-            </th>
-            <th class="currency" style="width: 20%;">
-              YTD
-            </th>
-          </tr>
-        </thead>
-      </table>
-      <div class="horizontal-line">
-      </div>
+      
 
       <!-- Section 1: Room Charges -->
       <div class="section-title">
@@ -1284,15 +1211,6 @@
  <div class="horizontal-line">
       </div>
     </div>
-    <!-- Footer -->
-    <div class="footer">
-      <div class="footer-line">
-      </div>
-      <div class="footer-content">
-        <span>Printed On: {{ printedOn }}</span>
-        <span>Printed By: {{ printedBy }}</span>
-        <span>Page {{ currentPage }} of {{ totalPages }}</span>
-      </div>
-    </div>
+
   </body>
 </html>

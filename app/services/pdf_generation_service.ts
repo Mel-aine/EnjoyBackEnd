@@ -12,6 +12,8 @@ export interface PdfOptions {
   }
   displayHeaderFooter?: boolean
   printBackground?: boolean
+  headerTemplate?: string
+  footerTemplate?: string
 }
 
 export default class PdfGenerationService {
@@ -41,16 +43,19 @@ export default class PdfGenerationService {
       // Generate HTML content
       const htmlContent = this.generateHtmlTemplate(folioPrintData)
 
-      // PDF generation options for html-pdf-node
+      // PDF generation options for html-pdf-node (puppeteer-style)
       const pdfOptions = {
         format: defaultOptions.format,
         orientation: defaultOptions.orientation,
-        border: {
+        margin: {
           top: defaultOptions.margin.top,
           right: defaultOptions.margin.right,
           bottom: defaultOptions.margin.bottom,
           left: defaultOptions.margin.left
         },
+        displayHeaderFooter: defaultOptions.displayHeaderFooter,
+        headerTemplate: options.headerTemplate,
+        footerTemplate: options.footerTemplate,
         type: 'pdf',
         quality: '75',
         renderDelay: 500,
@@ -89,16 +94,19 @@ export default class PdfGenerationService {
         ...options
       }
 
-      // PDF generation options for html-pdf-node
+      // PDF generation options for html-pdf-node (puppeteer-style)
       const pdfOptions = {
         format: defaultOptions.format,
         orientation: defaultOptions.orientation,
-        border: {
+        margin: {
           top: defaultOptions.margin.top,
           right: defaultOptions.margin.right,
           bottom: defaultOptions.margin.bottom,
           left: defaultOptions.margin.left
         },
+        displayHeaderFooter: defaultOptions.displayHeaderFooter,
+        headerTemplate: options.headerTemplate,
+        footerTemplate: options.footerTemplate,
         type: 'pdf',
         quality: '75',
         renderDelay: 500,
@@ -992,16 +1000,19 @@ static async generateSuitaHotelPdf(
     // Generate HTML content
     const htmlContent = this.generateHotelHtmlTemplate(folioPrintData)
 
-    // PDF generation options for html-pdf-node
+    // PDF generation options for html-pdf-node (puppeteer-style)
     const pdfOptions = {
       format: defaultOptions.format,
       orientation: defaultOptions.orientation,
-      border: {
+      margin: {
         top: defaultOptions.margin.top,
         right: defaultOptions.margin.right,
         bottom: defaultOptions.margin.bottom,
         left: defaultOptions.margin.left
       },
+      displayHeaderFooter: defaultOptions.displayHeaderFooter,
+      headerTemplate: options.headerTemplate,
+      footerTemplate: options.footerTemplate,
       type: 'pdf',
       quality: '75',
       renderDelay: 500,

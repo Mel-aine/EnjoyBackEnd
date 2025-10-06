@@ -13,6 +13,7 @@ import NightAuditService from '../services/night_audit_service.js'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import RoomType from '#models/room_type'
+import numberToWords from 'number-to-words'
 export default class ReportsController {
   /**
    * Get all available report types
@@ -32,7 +33,6 @@ export default class ReportsController {
       })
     }
   }
-
   /**
    * Generate a specific report
    */
@@ -625,11 +625,16 @@ export default class ReportsController {
       // Get hotel information
       const hotel = await Hotel.findOrFail(hotelId)
       // Generate all sections data
-      const auditDetails = await NightAuditService.getNightAuditDetails(
+      let auditDetails = await NightAuditService.getNightAuditDetails(
         reportDate,
         Number(hotelId)
       )
-      const roomsByStatus = auditDetails?.roomStatusReportData;
+      let roomsByStatus: any = {};
+      if (auditDetails && auditDetails?.roomStatusReportData) {
+        roomsByStatus = auditDetails?.roomStatusReportData
+      } else {
+        roomsByStatus = this.generateNightAuditSections(hotelId, reportDate, 'XAF')
+      }
       logger.info(roomsByStatus)
       // Get authenticated user information
       const user = auth.user
@@ -2496,7 +2501,9 @@ export default class ReportsController {
 
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+      const printedBy = user 
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
+        : 'System'
 
       // Generate all sections data
       let sectionsData: any = {}
@@ -2505,7 +2512,7 @@ export default class ReportsController {
         Number(hotelId)
       )
       if (auditDetails && auditDetails?.managerReportData) {
-        sectionsData = auditDetails?.managerReportData;
+        sectionsData = auditDetails?.managerReportData
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
@@ -2522,8 +2529,68 @@ export default class ReportsController {
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
-      // Generate PDF
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      // Format dates for display
+      const formattedDate = reportDate.toFormat('dd/MM/yyyy')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+    const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
+      // Create header template
+    // Create header template
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+      <!-- Hotel name and report title -->
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
+      </div>
+      
+      <!-- Report Info -->
+      <div style="font-size:10px; margin-bottom:3px;">
+        <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
+        <span style="margin-right:10px;"><strong>PTD:</strong> ${ ptdDate }</span>
+        <span style="margin-right:10px;"><strong>YTD:</strong> ${ ytdDate }</span>
+        <span><strong>Currency:</strong> ${currency}</span>
+      </div>
+      
+      <div style="border-top:1px solid #333; margin:0 ;"></div>
+      
+      <!-- Column Headers -->
+      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5;">
+            <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
+          </tr>
+        </thead>
+      </table>
+      
+      <div style="border-top:1px solid #333; margin-top:2px;"></div>
+    </div>
+    `
+    // Create footer template
+    const footerTemplate = `
+    <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
+  
+      // Generate PDF with header and footer
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4', 
+        margin: {
+          top: '100px',
+          right: '10px',
+          bottom: '70px',
+          left: '10px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
 
       // Set response headers
       const fileName = `management-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -2540,7 +2607,6 @@ export default class ReportsController {
       })
     }
   }
-
   /**
    * Generate all sections data for Management Report
    */
@@ -2621,16 +2687,16 @@ export default class ReportsController {
     const { default: edge } = await import('edge.js')
     const path = await import('path')
     logger.info(sectionsData)
-
+  
     // Configure Edge with views directory
     edge.mount(path.join(process.cwd(), 'resources/views'))
-
+  
     // Format dates
     const asOnDate = reportDate.toFormat('dd/MM/yyyy')
     const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
     const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-
+  
     // Helper function for currency formatting
     const formatCurrency = (amount: number | null | undefined): string => {
       if (amount === null || amount === undefined || isNaN(amount)) {
@@ -2641,7 +2707,7 @@ export default class ReportsController {
         maximumFractionDigits: 2
       })
     }
-
+  
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
@@ -2650,28 +2716,30 @@ export default class ReportsController {
         ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges?.ytd || 0) - (sectionsData.discounts?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
       },
       revenueWithTax: {
-        today: 0, // Will be calculated with tax
+        today: 0,
         ptd: 0,
         ytd: 0
       },
       posToPs: {
-        today: 0, // Placeholder
+        today: 0,
         ptd: 0,
         ytd: 0
       },
       transferToGuestLedger: {
-        today: 0, // Placeholder
+        today: 0,
         ptd: 0,
         ytd: 0
       }
     }
-
+  
     // Calculate revenue with tax
     totals.revenueWithTax.today = totals.revenueWithoutTax.today + (sectionsData.tax?.today || 0)
     totals.revenueWithTax.ptd = totals.revenueWithoutTax.ptd + (sectionsData.tax?.ptd || 0)
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
+    
     logger.info(sectionsData)
-    // Prepare template data
+  
+    // Prepare template data with header and footer info
     const templateData = {
       hotelName,
       asOnDate,
@@ -2686,9 +2754,22 @@ export default class ReportsController {
         ...sectionsData,
         totals
       },
-      formatCurrency
+      formatCurrency,
+      // Header specific data
+      header: {
+        hotelName,
+        reportTitle: 'Management Report',
+        reportDate: asOnDate,
+        currency
+      },
+      // Footer specific data
+      footer: {
+        printedBy,
+        printedOn,
+        pageInfo: 'Page {currentPage} of {totalPages}'
+      }
     }
-
+  
     // Render template
     return await edge.render('reports/management_report', templateData)
   }
@@ -4812,6 +4893,496 @@ export default class ReportsController {
   }
 
   /**
+   * Retrieve Daily Operations Summary data (JSON only)
+   * Same sections as PDF, grouped by Business Source with row details.
+   */
+  async getDailyOperationsReport({ request, response }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate') || DateTime.now().toFormat('yyyy-MM-dd')
+      const reportDate = DateTime.fromISO(asOnDate)
+
+      const { default: Hotel } = await import('#models/hotel')
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+
+      const hotel = await Hotel.find(hotelId)
+      if (!hotel) {
+        return response.badRequest({ success: false, message: 'Invalid hotelId' })
+      }
+
+      const nextDate = reportDate.plus({ days: 1 })
+      const dateISO = reportDate.toISODate()
+      const nextISO = nextDate.toISODate()
+
+      const basePreload = (q: ReturnType<typeof ReservationRoom.query>) => {
+        return q
+          .preload('reservation', (resQ) => {
+            resQ
+              .preload('guest')
+              .preload('businessSource')
+              .preload('folios')
+          })
+          .preload('guest')
+          .preload('room')
+          .preload('roomType')
+          .preload('rateType')
+      }
+
+      const buildRows = (items: ReservationRoom[]) => {
+        return items.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          const businessSourceName = res?.businessSource?.name || res?.sourceOfBusiness || 'N/A'
+          const roomNumber = rr.room?.roomNumber || '—'
+          const roomTypeName = rr.roomType?.roomTypeName || '—'
+          const folioNumber = (res?.folios && res.folios[0]?.folioNumber) || '—'
+          const rateTypeName = rr.rateType?.rateTypeName || '—'
+          const arrival = rr.checkInDate?.toISODate?.() || res?.scheduledArrivalDate?.toISODate?.() || ''
+          const departure = rr.checkOutDate?.toISODate?.() || res?.scheduledDepartureDate?.toISODate?.() || ''
+          const nights = rr.nights ?? res?.numberOfNights ?? 0
+          const roomRate = rr.roomRate ?? res?.roomRate ?? 0
+          const total = rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
+
+          return {
+            businessSource: businessSourceName,
+            reservationNumber: res?.reservationNumber || res?.confirmationNumber || String(res?.id || rr.reservationId),
+            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+            arrival,
+            departure,
+            nights,
+            room: `${roomNumber} (${roomTypeName})`,
+            voucherNumber: res?.confirmationCode || '—',
+            rateType: rateTypeName,
+            folioNumber,
+            roomRate,
+            total,
+          }
+        })
+      }
+
+      const sections: Record<string, Map<string, any[]>> = {
+        todayConfirmCheckin: new Map(),
+        stayoverInHouse: new Map(),
+        todayCheckout: new Map(),
+        todayNoShow: new Map(),
+        todayCancellation: new Map(),
+        tomorrowConfirmBooking: new Map(),
+        tomorrowCheckout: new Map(),
+        stayoverContinuedInHouse: new Map(),
+      }
+
+      // Today Confirm Check-in
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', ReservationStatus.CHECKED_IN)
+              .where('checkInDate', '=', dateISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.todayConfirmCheckin.has(key)) sections.todayConfirmCheckin.set(key, [])
+          sections.todayConfirmCheckin.get(key)!.push(r)
+        })
+      }
+
+      // Stayover (In-House Guests)
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '>', dateISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.stayoverInHouse.has(key)) sections.stayoverInHouse.set(key, [])
+          sections.stayoverInHouse.get(key)!.push(r)
+        })
+      }
+
+      // Today Checkout
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_out')
+              .where('checkOutDate', '=', dateISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.todayCheckout.has(key)) sections.todayCheckout.set(key, [])
+          sections.todayCheckout.get(key)!.push(r)
+        })
+      }
+
+      // Today No show
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'no_show')
+              .where('checkInDate', '=', dateISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.todayNoShow.has(key)) sections.todayNoShow.set(key, [])
+          sections.todayNoShow.get(key)!.push(r)
+        })
+      }
+
+      // Today Cancellation
+      {
+        const cancelledRooms = await basePreload(
+          ReservationRoom.query()
+            .where('hotelId', hotelId)
+            .where('status', 'cancelled')
+          //  .whereRaw('DATE(updatedAt) = ?', [dateISO])
+        )
+        const rows = buildRows(cancelledRooms)
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.todayCancellation.has(key)) sections.todayCancellation.set(key, [])
+          sections.todayCancellation.get(key)!.push(r)
+        })
+      }
+
+      // Tomorrow Confirm Booking
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'reserved')
+              .where('checkInDate', '=', nextISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.tomorrowConfirmBooking.has(key)) sections.tomorrowConfirmBooking.set(key, [])
+          sections.tomorrowConfirmBooking.get(key)!.push(r)
+        })
+      }
+
+      // Tomorrow Checkout
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '=', nextISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.tomorrowCheckout.has(key)) sections.tomorrowCheckout.set(key, [])
+          sections.tomorrowCheckout.get(key)!.push(r)
+        })
+      }
+
+      // Stayover (Continued In-House Guests)
+      {
+        const rows = buildRows(
+          await basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '>', nextISO)
+          )
+        )
+        rows.forEach((r) => {
+          const key = r.businessSource
+          if (!sections.stayoverContinuedInHouse.has(key)) sections.stayoverContinuedInHouse.set(key, [])
+          sections.stayoverContinuedInHouse.get(key)!.push(r)
+        })
+      }
+
+      const toGroups = (m: Map<string, any[]>) => Array.from(m, ([businessSource, rows]) => ({ businessSource, rows }))
+
+      return response.ok({
+        success: true,
+        hotel: { id: hotel.id, name: hotel.hotelName },
+        date: reportDate.toISODate(),
+        sections: {
+          todayConfirmCheckin: toGroups(sections.todayConfirmCheckin),
+          stayoverInHouse: toGroups(sections.stayoverInHouse),
+          todayCheckout: toGroups(sections.todayCheckout),
+          todayNoShow: toGroups(sections.todayNoShow),
+          todayCancellation: toGroups(sections.todayCancellation),
+          tomorrowConfirmBooking: toGroups(sections.tomorrowConfirmBooking),
+          tomorrowCheckout: toGroups(sections.tomorrowCheckout),
+          stayoverContinuedInHouse: toGroups(sections.stayoverContinuedInHouse),
+        },
+      })
+    } catch (error) {
+      logger.error('Error retrieving daily operations report data:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to retrieve daily operations report data',
+        error: error.message,
+      })
+    }
+  }
+  /**
+   * Generate Daily Operations Summary PDF
+   * Sections: Today Confirm Check-in, Stayover (In-House Guests), Today Checkout,
+   * Today No show, Today Cancellation, Tomorrow Confirm Booking,
+   * Tomorrow Checkout, Stayover (Continued In-House Guests)
+   * Grouped by Business Source with specified columns.
+   */
+  async generateDailyOperationsReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const hotelId = parseInt(request.input('hotelId', '1'))
+      const asOnDate = request.input('asOnDate') || DateTime.now().toFormat('yyyy-MM-dd')
+      const reportDate = DateTime.fromISO(asOnDate)
+  
+      // Imports (use dynamic to avoid circular deps)
+      const { default: Hotel } = await import('#models/hotel')
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+  
+      const hotel = await Hotel.find(hotelId)
+      if (!hotel) {
+        return response.badRequest({ success: false, message: 'Invalid hotelId' })
+      }
+  
+      const nextDate = reportDate.plus({ days: 1 })
+      const dateISO = reportDate.toISODate()
+      const nextISO = nextDate.toISODate()
+  
+      // Helper to build rows from ReservationRoom with preloaded relations
+      const buildRows = (items: ReservationRoom[]) => {
+        return items.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          const businessSourceName = res?.businessSource?.name || res?.sourceOfBusiness || 'N/A'
+          const roomNumber = rr.room?.roomNumber || '—'
+          const roomTypeName = rr.roomType?.roomTypeName || '—'
+          const folioNumber = (res?.folios && res.folios[0]?.folioNumber) || '—'
+          const rateTypeName = rr.rateType?.rateTypeName || '—'
+          const arrival = rr.checkInDate?.toISODate?.() || res?.scheduledArrivalDate?.toISODate?.() || ''
+          const departure = rr.checkOutDate?.toISODate?.() || res?.scheduledDepartureDate?.toISODate?.() || ''
+          const nights = rr.nights ?? res?.numberOfNights ?? 0
+          const roomRate = rr.roomRate ?? res?.roomRate ?? 0
+          const total = rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
+  
+          return {
+            businessSource: businessSourceName,
+            reservationNumber: res?.reservationNumber || res?.confirmationNumber || String(res?.id || rr.reservationId),
+            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+            arrival,
+            departure,
+            nights,
+            room: `${roomNumber} (${roomTypeName})`,
+            voucherNumber: res?.confirmationCode || '—',
+            rateType: rateTypeName,
+            folioNumber,
+            roomRate,
+            total,
+          }
+        })
+      }
+  
+      // Query helper
+      const basePreload = (q: ReturnType<typeof ReservationRoom.query>) => {
+        return q
+          .preload('reservation', (resQ) => {
+            resQ
+              .preload('guest')
+              .preload('businessSource')
+              .preload('folios')
+          })
+          .preload('guest')
+          .preload('room')
+          .preload('roomType')
+          .preload('rateType')
+      }
+  
+      // Define sections with their queries
+      const sectionDefinitions = [
+        {
+          key: 'todayConfirmCheckin',
+          title: 'Today Confirm Check-in',
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'reserved')
+              .where('checkInDate', '=', dateISO)
+          )
+        },
+        {
+          key: 'stayoverInHouse',
+          title: 'Stayover In House',
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '>', dateISO)
+          )
+        },
+        {
+          key: 'todayCheckout',
+          title: "Today Checkout",
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '=', dateISO)
+          )
+        },
+        {
+          key: 'todayNoShow',
+          title: 'Today No Show',
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'no_show')
+              .where('checkInDate', '=', dateISO)
+          )
+        },
+        {
+          key: 'todayCancellation',
+          title: 'Today Cancellation',
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'cancelled')
+              //.whereRaw('DATE(updatedAt) = ?', [dateISO])
+          )
+        },
+        {
+          key: 'tomorrowConfirmBooking',
+          title: "Tomorrow Confirm Booking ",
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'reserved')
+              .where('checkInDate', '=', nextISO)
+          )
+        },
+        {
+          key: 'tomorrowCheckout',
+          title: "Tomorrow Checkout",
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '=', nextISO)
+          )
+        },
+        {
+          key: 'stayoverContinuedInHouse',
+          title: 'Stayover Continued In House',
+          query: () => basePreload(
+            ReservationRoom.query()
+              .where('hotelId', hotelId)
+              .where('status', 'checked_in')
+              .where('checkOutDate', '>', nextISO)
+          )
+        }
+      ]
+      // Execute queries and organize data by business source
+      const sections = []
+  
+      for (const sectionDef of sectionDefinitions) {
+        const items = await sectionDef.query()
+        const rows = buildRows(items)
+        
+        // Group by business source
+        const groupsMap = new Map()
+        rows.forEach((row) => {
+          const key = row.businessSource
+          if (!groupsMap.has(key)) {
+            groupsMap.set(key, [])
+          }
+          groupsMap.get(key).push(row)
+        })
+  
+        // Convert Map to array for template
+        const groups = Array.from(groupsMap.entries()).map(([sourceName, rows]) => ({
+          sourceName,
+          rows
+        }))
+  
+        sections.push({
+          title: sectionDef.title,
+          groups
+        })
+      }
+  
+      // Prepare data for template
+      const user = auth?.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
+  
+      const reportData = {
+        hotel,
+        reportDate: reportDate.toFormat('yyyy-MM-dd'),
+        printedBy,
+        sections,
+        currentDateTime: new Date().toLocaleString('fr-FR') // Ajoutez cette ligne
+      }
+      console.log('reportData', reportData)
+  
+      // Generate PDF using Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+  
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+  
+      // Render the template
+      const html = await edge.render('reports/daily_operations', reportData)
+  
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const headerTemplate = `
+        <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:600; color:#1e40af; font-size:12px;">${hotel.hotelName}</div>
+          <div style="font-size:9px; color:#555;">Daily Operations Report - ${reportDate.toFormat('yyyy-MM-dd')}</div>
+        </div>`
+      const footerTemplate = `
+        <div style="font-size:9px; width:100%; padding:6px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+          <div>Report date: ${reportDate.toFormat('yyyy-MM-dd')}</div>
+          <div>Printed by: ${printedBy}</div>
+          <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
+        </div>`
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '60px',
+          right: '20px',
+          bottom: '60px',
+          left: '20px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
+  
+      const filename = `daily-operations-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+      return response
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(pdfBuffer)
+    } catch (error) {
+      logger.error('Error generating daily operations report PDF:', error)
+      console.log('Error generating daily operations report PDF:', error)
+      return response.status(500).json({
+        success: false,
+        //message: 'Failed to generate daily operations report PDF',
+        error: error
+      })
+    }
+  }
+  /**
    * Generate Revenue By Rate Type Summary PDF report
    */
   async generateRevenueByRateTypeSummaryPdf({ request, response, auth }: HttpContext) {
@@ -5527,7 +6098,12 @@ export default class ReportsController {
         reportDate,
         Number(hotelId)
       )
-      let revenueData = auditDetails?.dailyRevenueReportData
+      let revenueData: any = {};
+      if (auditDetails && auditDetails?.dailyRevenueReportData) {
+        revenueData = auditDetails?.dailyRevenueReportData || {}
+      } else {
+        revenueData = await this.getDailyRevenueData(hotelId, reportDate, revenueTypes)
+      }
 
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
@@ -5554,6 +6130,7 @@ export default class ReportsController {
 
     } catch (error) {
       logger.error('Error generating daily revenue PDF:', error)
+      logger.error(error)
       return response.status(500).json({
         success: false,
         error: error.message
@@ -7755,12 +8332,12 @@ export default class ReportsController {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
           folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
-              reservationRoomQuery.preload('room',(roomQuery:any)=>{
-                roomQuery.preload('roomType')
-              })
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
             })
+          })
         })
-        
+
         .preload('paymentMethod')
         .first()
 
@@ -7770,13 +8347,18 @@ export default class ReportsController {
           message: 'Transaction not found'
         })
       }
+      console.log('transaction.totalAmount', transaction.totalAmount)
+      const totalAmountNumber = parseFloat(transaction.totalAmount?.toString() || '0')
+      const amountInWords = this.calculateAmountInWords(totalAmountNumber)
 
       // Prepare data for the receipt template
       const receiptData = {
         transaction,
+        amountInWords,
         hotel: transaction.folio.hotel,
         guest: transaction.folio.guest,
         folio: transaction.folio,
+        reservations: transaction.folio.reservationRoom,
         room: transaction.folio.reservationRoom?.room,
         roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
@@ -7812,10 +8394,11 @@ export default class ReportsController {
 
     } catch (error) {
       logger.error('Error generating receipt PDF:', error)
+      
+      console.log('Error generating receipt PDF:', error)
       return response.internalServerError({
         success: false,
-        message: 'Error generating receipt PDF',
-        error: error.message
+        error: error
       })
     }
   }
@@ -7830,10 +8413,10 @@ export default class ReportsController {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
           folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
-              reservationRoomQuery.preload('room',(roomQuery:any)=>{
-                roomQuery.preload('roomType')
-              })
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
             })
+          })
         })
 
         .preload('paymentMethod')
@@ -7893,5 +8476,114 @@ export default class ReportsController {
         error: error.message
       })
     }
+  }
+
+  async printPosReceipt({ request, response }: HttpContext) {
+    try {
+      const { transactionId } = request.params()
+
+      if (!transactionId) {
+        return response.badRequest({
+          success: false,
+          message: 'Transaction ID is required'
+        })
+      }
+
+      // Get transaction with all related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
+            })
+          })
+        })
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      // Prepare receipt data for the template
+      const receiptData = {
+        transaction,
+        folio: transaction.folio,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room?.roomType,
+        paymentMethod: transaction.paymentMethod,
+        currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
+        formattedAmount: transaction.amount,
+        currency: 'XAF'
+      }
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the POS receipt template
+      const html = await edge.render('reports/pos-receipt', receiptData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '10px',
+          right: '10px',
+          bottom: '10px',
+          left: '10px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="pos-receipt-${transaction.transactionNumber}.pdf"`)
+
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating POS receipt PDF:')
+      logger.info(error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating POS receipt PDF',
+        error: error.message
+      })
+    }
+  }
+  private calculateAmountInWords(amount: Float16Array | number) {
+    // Vérifier que le montant est un nombre
+    if (typeof amount !== 'number' || Number.isNaN(amount)) {
+      throw new Error('Le montant doit être un nombre');
+    }
+
+    // Gérer les montants négatifs
+    const isNegative = amount < 0
+    const absoluteAmount = Math.abs(amount)
+
+    // Séparer les parties entière et décimale (arrondies à 2 décimales)
+    const integerPart = Math.floor(absoluteAmount)
+    const fractionalPart = Math.round((absoluteAmount - integerPart) * 100) // 0..99
+
+    let words = numberToWords.toWords(integerPart)
+
+    // Ajouter la partie décimale si présente, au format XX/100
+    if (fractionalPart > 0) {
+      words = `${words} and ${fractionalPart.toString().padStart(2, '0')}/100`
+    }
+
+    if (isNegative) {
+      words = `minus ${words}`
+    }
+
+    // Mettre une majuscule initiale pour une meilleure présentation
+    return words.charAt(0).toUpperCase() + words.slice(1)
   }
 }

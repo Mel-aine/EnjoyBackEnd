@@ -42,7 +42,8 @@ export class RoomAvailabilityService {
     const reservedTodayResult = await Reservation
       .query()
       .where('hotel_id', serviceId)
-      .whereBetween('bookingDate', [todayStart, tomorrowStart])
+      .where('status','confirmed')
+      .whereBetween('arrivedDate', [todayStart, tomorrowStart])
       .count('* as count')
 
     const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
@@ -140,7 +141,7 @@ export class RoomAnalyticsService {
         const countResult = await Reservation
           .query()
           .where('hotel_id', serviceId)
-          .whereBetween('createdAt', [start, end])
+          .whereBetween('arrivedDate', [start, end])
           .count('* as count')
 
         const occupied = Number(countResult[0].$extras.count || '0')
@@ -193,7 +194,7 @@ export class RoomAnalyticsService {
         const start = now.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = now.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('createdAt', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('arrivedDate', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -206,7 +207,7 @@ export class RoomAnalyticsService {
         const start = previousYear.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = previousYear.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('createdAt', [start, end]).count('* as count')
+        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('arrivedDate', [start, end]).count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -216,22 +217,35 @@ export class RoomAnalyticsService {
 
     return { current, previous }
   }
-  public static async getAverageLengthOfStay(serviceId: number): Promise<number> {
+
+public static async getAverageLengthOfStay(serviceId: number, year?: number): Promise<{
+  currentYear: number,
+  currentALOS: number,
+  previousYear: number,
+  previousALOS: number
+}> {
+  const now = DateTime.now()
+  const currentYear = year || now.year
+  const previousYear = currentYear - 1
+
+  const calculateALOS = async (yearToCheck: number): Promise<number> => {
+    const startOfYear = DateTime.fromObject({ year: yearToCheck, month: 1, day: 1 }).startOf('year')
+    const endOfYear = startOfYear.endOf('year')
+
     const reservations = await Reservation
       .query()
       .where('hotel_id', serviceId)
+      .whereBetween('arrived_date', [startOfYear.toSQL()!, endOfYear.toSQL()!])
       .select('arrived_date', 'depart_date')
-
-    if (reservations.length === 0) return 0
 
     let totalNights = 0
     let validCount = 0
 
     for (const res of reservations) {
-      if (!(res.arrivedDate instanceof Date) || !(res.departDate instanceof Date)) continue
+      if (!res.arrivedDate || !res.departDate) continue
 
-      const start = DateTime.fromJSDate(res.arrivedDate)
-      const end = DateTime.fromJSDate(res.departDate)
+      const start = DateTime.fromISO(res.arrivedDate.toString())
+      const end = DateTime.fromISO(res.departDate.toString())
 
       if (!start.isValid || !end.isValid) continue
 
@@ -242,11 +256,23 @@ export class RoomAnalyticsService {
       }
     }
 
-    if (validCount === 0) return 0
+    return validCount === 0 ? 0 : Math.round((totalNights / validCount) * 100) / 100
+  }
 
-    const average = totalNights / validCount
-      return Math.round(average * 100) / 100
-    }
+  const [currentALOS, previousALOS] = await Promise.all([
+    calculateALOS(currentYear),
+    calculateALOS(previousYear)
+  ])
+
+  return {
+    currentYear,
+    currentALOS,
+    previousYear,
+    previousALOS
+  }
+}
+
+
   }
 
 
