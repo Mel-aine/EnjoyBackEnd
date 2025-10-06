@@ -1026,6 +1026,7 @@ router
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
         router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
+        router.get('/filter_reservations', [ReservationsController, 'getInHouseReservations'])
 
         // Get released reservations by date for a hotel
         router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])
