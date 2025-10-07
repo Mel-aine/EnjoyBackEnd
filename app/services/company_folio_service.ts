@@ -7,6 +7,7 @@ import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionTy
 import Database from '@adonisjs/lucid/services/db'
 import LoggerService from '#app/services/logger_service'
 import type { HttpContext } from '@adonisjs/core/http'
+import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export interface CompanyPaymentData {
   companyId: number
@@ -131,7 +132,7 @@ export default class CompanyFolioService {
 
       // Generate transaction number
       const transactionNumber = await this.generateTransactionNumber(paymentData.hotelId)
-      const transactionCode = `TXN${transactionNumber.toString().padStart(8, '0')}`
+      const transactionCode = generateTransactionCode('TXN');
 
       // Create payment transaction
       const transaction = await FolioTransaction.create(
@@ -237,7 +238,7 @@ export default class CompanyFolioService {
 
       // Generate transaction number
       const transactionNumber = await this.generateTransactionNumber(paymentData.hotelId)
-      const transactionCode = `TXN${transactionNumber.toString().padStart(8, '0')}`
+      const transactionCode =  generateTransactionCode('TXN');
 
       // Create payment transaction
       const transaction = await FolioTransaction.create(

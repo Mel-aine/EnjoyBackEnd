@@ -95,6 +95,7 @@ export enum TransactionCategory {
   DEPOSIT = 'deposit',
   PAYMENT = 'payment',
   ADJUSTMENT = 'adjustment',
+  DISCOUNT = 'discount',
   NO_SHOW_FEE = 'no_show_fee',
   CANCELLATION_FEE = 'cancellation_fee',
   EARLY_DEPARTURE_FEE = 'early_departure_fee',
