@@ -579,7 +579,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .preload('room')
             .preload('paymentMethod')
             .preload('roomRates', (queryRoom: any) => {
-            .preload('roomRates', (queryRoom: any) => {
               queryRoom.preload('rateType')
             })
             .preload('roomType')
@@ -1558,10 +1557,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .orWhereHas('reservationRooms', (roomQuery) => {
               roomQuery
                 .whereHas('room', (roomSubQuery: any) => {
-                .whereHas('room', (roomSubQuery: any) => {
                   roomSubQuery.where('room_number', 'like', `%${searchText}%`)
                 })
-                .orWhereHas('roomType', (roomTypeQuery: any) => {
                 .orWhereHas('roomType', (roomTypeQuery: any) => {
                   roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
                 })
@@ -1595,7 +1592,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 4. Filter by roomType (product name)
       if (roomType) {
         query.whereHas('reservationRooms', (rspQuery) => {
-          rspQuery.whereHas('room', (spQuery: any) => {
           rspQuery.whereHas('room', (spQuery: any) => {
             spQuery.where('room_type_id', roomType)
           })
@@ -1681,7 +1677,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   roomSubQuery.where('room_number', 'like', `%${searchText}%`)
                 })
                 .orWhereHas('roomType', (roomTypeQuery: any) => {
-                .orWhereHas('roomType', (roomTypeQuery: any) => {
                   roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
                 })
             })
@@ -1705,7 +1700,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       if (roomType) {
         totalQuery.whereHas('reservationRooms', (rspQuery) => {
-          rspQuery.whereHas('room', (spQuery: any) => {
           rspQuery.whereHas('room', (spQuery: any) => {
             spQuery.where('room_type_id', roomType)
           })
@@ -1827,125 +1821,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok({ success: true, count: data.length, data })
     } catch (error) {
       logger.error('Error fetching in-house reservations:', error)
-      return response.status(500).json({
-        success: false,
-        message: 'Failed to fetch in-house reservations',
-        error: error.message,
-      })
-    }
-  }
-
-  async filterReservations({ request, response }: HttpContext) {
-    try {
-      // Récupération des paramètres depuis la query string
-      const { hotelId: hotelIdRaw, roomId: roomIdRaw, roomTypeId: roomTypeIdRaw } = request.qs()
-
-      //  Voir ce qui arrive
-      console.log(' Received query params:', { hotelIdRaw, roomIdRaw, roomTypeIdRaw })
-
-      // Conversion sécurisée des paramètres
-      const hotelId = hotelIdRaw ? parseInt(hotelIdRaw, 10) : null
-      const roomId = roomIdRaw ? parseInt(roomIdRaw, 10) : null
-      const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw, 10) : null
-
-      console.log(' Parsed params:', { hotelId, roomId, roomTypeId })
-
-      // Validation du hotelId (obligatoire)
-      if (!hotelId || Number.isNaN(hotelId)) {
-        console.log('❌ Invalid hotelId - returning 400')
-        return response.badRequest({
+      return response
+        .status(500)
+        .json({
           success: false,
-          message: 'hotelId is required and must be a valid number',
-          received: {
-            raw: hotelIdRaw,
-            parsed: hotelId,
-            type: typeof hotelIdRaw,
-          },
+          message: 'Failed to fetch in-house reservations',
+          error: error.message,
         })
-      }
-
-      // Construction de la requête de base
-      const query = ReservationRoom.query().where('hotel_id', hotelId).where('status', 'checked_in')
-
-      if (roomId && !Number.isNaN(roomId)) {
-        console.log(' Filtering by roomId:', roomId)
-        query.where('room_id', roomId)
-      }
-
-      // Filtre optionnel par roomTypeId
-      if (roomTypeId && !Number.isNaN(roomTypeId)) {
-        console.log(' Filtering by roomTypeId:', roomTypeId)
-        query.where('room_type_id', roomTypeId)
-      }
-
-      // Preload des relations (comme dans searchReservations)
-      query
-        .preload('reservation', (resQ) => {
-          resQ.preload('guest').preload('bookingSource')
-        })
-        .preload('guest')
-        .preload('room', (roomQ) => {
-          roomQ.preload('roomType')
-        })
-        .preload('roomType')
-        .preload('rateType')
-        .orderBy('check_in_date', 'desc')
-
-      console.log('🔍 Executing query...')
-      const rows = await query
-      console.log(' Query result count:', rows.length)
-
-      // Formatage des données (enrichissement comme searchReservations)
-      const data = rows.map((rr) => {
-        const res = rr.reservation
-        const guest = res?.guest || rr.guest
-
-        return {
-          reservationRoomId: rr.id,
-          reservationId: res?.id || rr.reservationId,
-          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
-          guestEmail: guest?.email || null,
-          guestPhone: guest?.phonePrimary || null,
-          roomId: rr.roomId,
-          roomNumber: rr.room?.roomNumber,
-          roomTypeId: rr.roomTypeId,
-          roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
-          checkInDate: rr.checkInDate?.toISODate?.() || null,
-          checkOutDate: rr.checkOutDate?.toISODate?.() || null,
-          nights: rr.nights,
-          adults: rr.adults,
-          children: rr.children,
-          rateTypeId: rr.rateTypeId,
-          rateTypeName: rr.rateType?.rateTypeName,
-          bookingSource: res?.bookingSource?.sourceName,
-          reservationNumber: res?.reservationNumber,
-          status: rr.status,
-        }
-      })
-
-      // Statistiques (optionnel, comme searchReservations)
-      const statistics = {
-        totalInHouse: data.length,
-        byRoomType: data.reduce((acc: any, curr) => {
-          const type = curr.roomTypeName || 'Unknown'
-          acc[type] = (acc[type] || 0) + 1
-          return acc
-        }, {}),
-      }
-
-      return response.ok({
-        success: true,
-        count: data.length,
-        data,
-        statistics,
-      })
-    } catch (error) {
-      console.error('💥 Error filtering reservations:', error)
-      return response.status(500).json({
-        success: false,
-        message: 'Failed to filter reservations',
-        error: error.message,
-      })
     }
   }
 
@@ -2015,10 +1897,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
     try {
       const reservationId = params.id
       const hotelId = params.hotelId
-  public async getReservationById({ request, response, auth, params }: HttpContext) {
-    try {
-      const reservationId = params.id
-      const hotelId = params.hotelId
 
       // Requête pour récupérer la réservation avec toutes les relations
       const reservation = await Reservation.query()
@@ -2033,7 +1911,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           folioQuery.preload('transactions')
         })
         .preload('reservationRooms', (rspQuery) => {
-          rspQuery.preload('room').preload('roomType')
+          rspQuery
+            .preload('room')
+            .preload('roomType')
         })
         .firstOrFail()
 
@@ -2046,28 +1926,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Construire la réponse complète
       const reservationData = reservation.toJSON()
-      // Construire la réponse complète
-      const reservationData = reservation.toJSON()
 
-      const enrichedReservation = {
-        ...reservationData,
-        // Computed fields du modèle
-        dayuse: reservation.dayuse,
-        dayuseDuration: reservation.dayuseDuration,
-        totalOccupancy: reservation.totalOccupancy,
-        averageRatePerNight: reservation.averageRatePerNight,
-        isConfirmed: reservation.isConfirmed,
-        isCheckedIn: reservation.isCheckedIn,
-        isCheckedOut: reservation.isCheckedOut,
-        isCancelled: reservation.isCancelled,
-        isActive: reservation.isActive,
-        hasBalance: reservation.hasBalance,
-        isFullyPaid: reservation.isFullyPaid,
-        displayName: reservation.displayName,
-        // Champs calculés
-        balanceSummary,
-        availableActions,
-      }
       const enrichedReservation = {
         ...reservationData,
         // Computed fields du modèle
@@ -2091,27 +1950,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok(enrichedReservation)
     } catch (error) {
       logger.error('Error fetching reservation: %o', error)
-      return response.ok(enrichedReservation)
-    } catch (error) {
-      logger.error('Error fetching reservation: %o', error)
 
       if (error.code === 'E_ROW_NOT_FOUND') {
         return response.notFound({
           message: 'Reservation not found',
         })
       }
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({
-          message: 'Reservation not found',
-        })
-      }
 
-      return response.internalServerError({
-        message: 'An error occurred while fetching the reservation.',
-        error: error.message,
-      })
-    }
-  }
       return response.internalServerError({
         message: 'An error occurred while fetching the reservation.',
         error: error.message,
@@ -2251,15 +2096,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
                       arrivalDateTime.toFormat('HH:mm'),
                       departureDateTime.toFormat('HH:mm'),
                     ])
-                    .orWhereBetween('checkOutTime', [
-                      arrivalDateTime.toFormat('HH:mm'),
-                      departureDateTime.toFormat('HH:mm'),
-                    ])
-                    .orWhere((overlapQuery) => {
-                      overlapQuery
-                        .where('checkInTime', '<=', arrivalDateTime.toFormat('HH:mm'))
-                        .where('checkOutTime', '>=', departureDateTime.toFormat('HH:mm'))
-                    })
                     .orWhereBetween('checkOutTime', [
                       arrivalDateTime.toFormat('HH:mm'),
                       departureDateTime.toFormat('HH:mm'),
@@ -2714,6 +2550,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Generate transaction number
       const transactionNumber = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
+
       // Create payment transaction
       const transaction = await FolioTransaction.create(
         {
@@ -3121,8 +2958,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
-
-  public async roomMove({ params, request, response, auth }: HttpContext) {
   public async roomMove({ params, request, response, auth }: HttpContext) {
     const trx = await db.transaction()
     try {
@@ -3656,8 +3491,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
-
-  public async exchangeRoom({ request, response, auth }: HttpContext) {
+   public async exchangeRoom({ request, response, auth }: HttpContext) {
     const trx = await db.transaction()
 
     try {
@@ -4260,7 +4094,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // --- Mettre à jour ReservationRoom ---
       for (const room of reservation.reservationRooms) {
-      for (const room of reservation.reservationRooms) {
         if (allRoomsSelected || selectedRooms.includes(room.id)) {
           room.status = 'no_show'
           room.markNoShowByUser = auth.user?.id ?? null
@@ -4702,27 +4535,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
     try {
       const { reservationId } = params
       const { reservationRooms, actualCheckInTime } = request.body()
-    const trx = await db.transaction()
-    const { params, request, response, auth } = ctx
-    try {
-      const { reservationId } = params
-      const { reservationRooms, actualCheckInTime } = request.body()
 
       console.log('--- Début unassignRoom ---')
       console.log('Params:', params)
       console.log('Body reçu:', request.body())
       console.log('User connecté:', auth?.user)
-      console.log('--- Début unassignRoom ---')
-      console.log('Params:', params)
-      console.log('Body reçu:', request.body())
-      console.log('User connecté:', auth?.user)
 
-      // Validate required fields
-      if (!reservationRooms) {
-        console.log('Erreur : reservationRooms manquant')
-        await trx.rollback()
-        return response.badRequest({ message: 'Room ID is required' })
-      }
       // Validate required fields
       if (!reservationRooms) {
         console.log('Erreur : reservationRooms manquant')
@@ -4738,23 +4556,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           query.whereIn('id', reservationRooms)
         })
         .first()
-      // Get reservation with related data
-      console.log('Recherche de la réservation ID:', reservationId, 'avec rooms:', reservationRooms)
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.whereIn('id', reservationRooms)
-        })
-        .first()
 
       console.log('Résultat de la requête Reservation:', reservation)
-      console.log('Résultat de la requête Reservation:', reservation)
 
-      if (!reservation) {
-        console.log('Erreur : réservation non trouvée')
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
       if (!reservation) {
         console.log('Erreur : réservation non trouvée')
         await trx.rollback()
@@ -4771,22 +4575,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
         })
       }
-      // Check if reservation allows room unassignment
-      const allowedStatuses = ['confirmed', 'pending']
-      console.log('Statut réservation:', reservation.status)
-      if (!allowedStatuses.includes(reservation.status)) {
-        console.log('Erreur : statut non autorisé', reservation.status)
-        await trx.rollback()
-        return response.badRequest({
-          message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
-        })
-      }
 
       console.log('Nombre de reservationRooms trouvées:', reservation.reservationRooms.length)
-      console.log('Nombre de reservationRooms trouvées:', reservation.reservationRooms.length)
 
-      for (const reservationRoom of reservation.reservationRooms) {
-        console.log(
       for (const reservationRoom of reservation.reservationRooms) {
         console.log(
           'Traitement reservationRoom:',
@@ -4797,25 +4588,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         // Store the reservation room ID before unassigning
         const reservationRoomId = reservationRoom.id
-        // Store the reservation room ID before unassigning
-        const reservationRoomId = reservationRoom.id
 
         reservationRoom.roomId = null
         reservationRoom.lastModifiedBy = auth?.user?.id!
         await reservationRoom.useTransaction(trx).save()
         console.log('Room désaffectée pour reservationRoom:', reservationRoomId)
-        reservationRoom.roomId = null
-        reservationRoom.lastModifiedBy = auth?.user?.id!
-        await reservationRoom.useTransaction(trx).save()
-        console.log('Room désaffectée pour reservationRoom:', reservationRoomId)
 
-        // Remove room number from folio transaction descriptions
-        await ReservationFolioService.removeRoomChargeDescriptions(
-          reservationRoomId,
-          auth?.user?.id!
-        )
-        console.log('Descriptions folio mises à jour pour reservationRoom:', reservationRoomId)
-      }
         // Remove room number from folio transaction descriptions
         await ReservationFolioService.removeRoomChargeDescriptions(
           reservationRoomId,
@@ -4835,36 +4613,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         description: `Room unassigned from reservation #${reservation.reservationNumber}`,
         ctx: ctx,
       })
-      // Create audit log
-      console.log('Création du log audit...')
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'ROOM_UNASSIGNED',
-        entityType: 'ReservationRoom',
-        entityId: reservationId,
-        hotelId: reservation.hotelId,
-        description: `Room unassigned from reservation #${reservation.reservationNumber}`,
-        ctx: ctx,
-      })
 
       await trx.commit()
       console.log('--- SUCCESS: Room désaffectée avec succès ---')
-      await trx.commit()
-      console.log('--- SUCCESS: Room désaffectée avec succès ---')
 
-      return response.ok({
-        message: 'Room unassigned successfully',
-        reservationId,
-      })
-    } catch (error) {
-      await trx.rollback()
-      console.log('--- ERROR ---')
-      console.error('Error unassigning room:', error)
-      return response.badRequest({
-        message: 'Failed to unassign room',
-        error: error.message,
-      })
-    }
       return response.ok({
         message: 'Room unassigned successfully',
         reservationId,
@@ -5727,26 +5479,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async updateBookingDetails(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     const trx = await db.transaction()
-  public async updateBookingDetails(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
-    const trx = await db.transaction()
 
-    try {
-      const { reservationId } = params
-      const payload = request.body()
     try {
       const { reservationId } = params
       const payload = request.body()
 
       // Log pour déboguer
       console.log('Received payload:', payload)
-      // Log pour déboguer
-      console.log('Received payload:', payload)
 
-      // Get reservation
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .first()
       // Get reservation
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
@@ -5756,18 +5496,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         await trx.rollback()
         return response.notFound({ message: 'Reservation not found' })
       }
-      if (!reservation) {
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
 
-      // Mettre à jour avec les bons noms de champs
-      if (payload.billTo !== undefined) {
-        reservation.billTo = payload.billTo
-      }
-      if (payload.businessSourceId !== undefined) {
-        reservation.businessSourceId = payload.businessSourceId
-      }
       // Mettre à jour avec les bons noms de champs
       if (payload.billTo !== undefined) {
         reservation.billTo = payload.billTo
@@ -5792,33 +5521,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (payload.companyName !== undefined) {
         reservation.companyName = payload.companyName
       }
-      if (payload.paymentMethodId !== undefined) {
-        reservation.paymentMethodId = payload.paymentMethodId
-      }
-      if (payload.paymentType !== undefined) {
-        reservation.paymentType = payload.paymentType
-      }
-      if (payload.marketCodeId !== undefined) {
-        reservation.marketCodeId = payload.marketCodeId
-      }
-      // CORRECTION: reservationType -> reservationTypeId
-      if (payload.reservationTypeId !== undefined) {
-        reservation.reservationTypeId = payload.reservationTypeId
-      }
-      if (payload.companyName !== undefined) {
-        reservation.companyName = payload.companyName
-      }
 
-      reservation.lastModifiedBy = auth?.user?.id!
       reservation.lastModifiedBy = auth?.user?.id!
 
       // Sauvegarder les changements
       await reservation.useTransaction(trx).save()
-      // Sauvegarder les changements
-      await reservation.useTransaction(trx).save()
 
-      // Log après sauvegarde
-      console.log('Reservation updated:', reservation.$attributes)
       // Log après sauvegarde
       console.log('Reservation updated:', reservation.$attributes)
 
@@ -5833,7 +5541,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         ctx,
       })
 
-      await trx.commit()
       await trx.commit()
 
       // Retourner les données mises à jour
@@ -5852,8 +5559,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   /**
-   * Update reservation details across rooms and transactions
-   */
+  * Update reservation details across rooms and transactions
+  */
   public async updateReservationDetails(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     const trx = await db.transaction()
@@ -5869,13 +5576,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (q) => q.preload('room', (rq: any) => rq.preload('taxRates')))
-        .preload('folios', (q) =>
-          q.preload('transactions', (trQuery) =>
-            trQuery
-              .where('transactionType', TransactionType.CHARGE)
-              .where('category', TransactionCategory.ROOM)
-          )
-        )
+        .preload('folios', (q) => q.preload('transactions', (trQuery) => trQuery.where('transactionType', TransactionType.CHARGE).where("category", TransactionCategory.ROOM)))
         .first()
       if (!reservation) {
         await trx.rollback()
@@ -5908,9 +5609,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const roomTaxMap: Record<string, TaxRate[]> = {}
       for (const rr of reservation.reservationRooms) {
         const roomNumber = rr.room?.roomNumber
-        const rates = (rr.room?.taxRates || []).filter(
-          (r: any) => r.isActive && r.appliesToRoomRate
-        )
+        const rates = (rr.room?.taxRates || []).filter((r: any) => r.isActive && r.appliesToRoomRate)
         if (roomNumber) {
           roomTaxMap[roomNumber] = rates
         }
@@ -5932,7 +5631,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const amount = Number(t.amount || 0)
         const sc = Number(t.serviceChargeAmount || 0)
         const disc = Number(t.discountAmount || 0)
-        const taxInclusive = payload.taxInclude
+        const taxInclusive = payload.taxInclude;
 
         if (t.category === TransactionCategory.ROOM) {
           const roomNumber = t.roomNumber || reservation.reservationRooms[0]?.room?.roomNumber || ''
@@ -5969,6 +5668,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           t.lastModifiedBy = auth?.user?.id || t.lastModifiedBy
           await t.useTransaction(trx).save()
         }
+
+
+
       }
 
       await trx.commit()
@@ -5978,17 +5680,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationId: reservation.id,
           updatedRooms: reservation.reservationRooms.map((rr) => rr.id),
           updatedTransactions: transactionsToUpdate.map((t) => t.id),
-          reservation: reservation,
+          reservation: reservation
         },
       })
     } catch (error) {
       await trx.rollback()
       const message = 'Failed to update reservation details'
-      if (
-        error?.code === 'E_VALIDATION_ERROR' ||
-        error?.code === 'E_VALIDATION_FAILURE' ||
-        error?.messages
-      ) {
+      if (error?.code === 'E_VALIDATION_ERROR' || error?.code === 'E_VALIDATION_FAILURE' || error?.messages) {
         return response.badRequest({
           message,
           errors: error?.messages || error?.message || 'Validation failure',
@@ -6030,6 +5728,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.badRequest({ message: 'Discount is not active' })
       }
 
+
       const roomTransactions = reservation.folios
         .flatMap((f) => f.transactions)
         .filter((t) => t.category === TransactionCategory.ROOM && !t.isVoided)
@@ -6043,24 +5742,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (payload.discountRule === 'firstNight') {
         targetTransactions = [...roomTransactions]
           .sort((a, b) => {
-            const ad = new Date(
-              (a.postingDate || a.transactionDate || a.createdAt) as any
-            ).getTime()
-            const bd = new Date(
-              (b.postingDate || b.transactionDate || b.createdAt) as any
-            ).getTime()
+            const ad = new Date((a.postingDate || a.transactionDate || a.createdAt) as any).getTime()
+            const bd = new Date((b.postingDate || b.transactionDate || b.createdAt) as any).getTime()
             return ad - bd
           })
           .slice(0, 1)
       } else if (payload.discountRule === 'lastNight') {
         targetTransactions = [...roomTransactions]
           .sort((a, b) => {
-            const ad = new Date(
-              (a.postingDate || a.transactionDate || a.createdAt) as any
-            ).getTime()
-            const bd = new Date(
-              (b.postingDate || b.transactionDate || b.createdAt) as any
-            ).getTime()
+            const ad = new Date((a.postingDate || a.transactionDate || a.createdAt) as any).getTime()
+            const bd = new Date((b.postingDate || b.transactionDate || b.createdAt) as any).getTime()
             return bd - ad
           })
           .slice(0, 1)
@@ -6071,9 +5762,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       if (targetTransactions.length === 0) {
         await trx.rollback()
-        return response.badRequest({
-          message: 'No matching transactions found for selected discount rule',
-        })
+        return response.badRequest({ message: 'No matching transactions found for selected discount rule' })
       }
 
       const updatedIds: number[] = []
@@ -6136,6 +5825,120 @@ export default class ReservationsController extends CrudController<typeof Reserv
     } catch (error) {
       await trx.rollback()
       return response.badRequest({ message: 'Failed to apply discount', error: error.message })
+    }
+  }
+
+  async filterReservations({ request, response }: HttpContext) {
+    try {
+      // Récupération des paramètres depuis la query string
+      const { hotelId: hotelIdRaw, roomId: roomIdRaw, roomTypeId: roomTypeIdRaw } = request.qs()
+
+      //  Voir ce qui arrive
+      console.log(' Received query params:', { hotelIdRaw, roomIdRaw, roomTypeIdRaw })
+
+      // Conversion sécurisée des paramètres
+      const hotelId = hotelIdRaw ? parseInt(hotelIdRaw, 10) : null
+      const roomId = roomIdRaw ? parseInt(roomIdRaw, 10) : null
+      const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw, 10) : null
+
+      console.log(' Parsed params:', { hotelId, roomId, roomTypeId })
+
+      // Validation du hotelId (obligatoire)
+      if (!hotelId || Number.isNaN(hotelId)) {
+        console.log('❌ Invalid hotelId - returning 400')
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required and must be a valid number',
+          received: {
+            raw: hotelIdRaw,
+            parsed: hotelId,
+            type: typeof hotelIdRaw,
+          },
+        })
+      }
+
+      // Construction de la requête de base
+      const query = ReservationRoom.query().where('hotel_id', hotelId).where('status', 'checked_in')
+
+      if (roomId && !Number.isNaN(roomId)) {
+        console.log(' Filtering by roomId:', roomId)
+        query.where('room_id', roomId)
+      }
+
+      // Filtre optionnel par roomTypeId
+      if (roomTypeId && !Number.isNaN(roomTypeId)) {
+        console.log(' Filtering by roomTypeId:', roomTypeId)
+        query.where('room_type_id', roomTypeId)
+      }
+
+      // Preload des relations (comme dans searchReservations)
+      query
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest').preload('bookingSource')
+        })
+        .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('roomType')
+        .preload('rateType')
+        .orderBy('check_in_date', 'desc')
+
+      console.log('🔍 Executing query...')
+      const rows = await query
+      console.log(' Query result count:', rows.length)
+
+      // Formatage des données (enrichissement comme searchReservations)
+      const data = rows.map((rr) => {
+        const res = rr.reservation
+        const guest = res?.guest || rr.guest
+
+        return {
+          reservationRoomId: rr.id,
+          reservationId: res?.id || rr.reservationId,
+          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+          guestEmail: guest?.email || null,
+          guestPhone: guest?.phonePrimary || null,
+          roomId: rr.roomId,
+          roomNumber: rr.room?.roomNumber,
+          roomTypeId: rr.roomTypeId,
+          roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+          checkInDate: rr.checkInDate?.toISODate?.() || null,
+          checkOutDate: rr.checkOutDate?.toISODate?.() || null,
+          nights: rr.nights,
+          adults: rr.adults,
+          children: rr.children,
+          rateTypeId: rr.rateTypeId,
+          rateTypeName: rr.rateType?.rateTypeName,
+          bookingSource: res?.bookingSource?.sourceName,
+          reservationNumber: res?.reservationNumber,
+          status: rr.status,
+        }
+      })
+
+      // Statistiques (optionnel, comme searchReservations)
+      const statistics = {
+        totalInHouse: data.length,
+        byRoomType: data.reduce((acc: any, curr) => {
+          const type = curr.roomTypeName || 'Unknown'
+          acc[type] = (acc[type] || 0) + 1
+          return acc
+        }, {}),
+      }
+
+      return response.ok({
+        success: true,
+        count: data.length,
+        data,
+        statistics,
+      })
+    } catch (error) {
+      console.error('💥 Error filtering reservations:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to filter reservations',
+        error: error.message,
+      })
     }
   }
 }
