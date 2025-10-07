@@ -2539,6 +2539,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Generate transaction number
       const transactionNumber = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
+
       // Create payment transaction
       const transaction = await FolioTransaction.create(
         {
@@ -2947,214 +2948,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async roomMove(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
-    const trx = await db.transaction()
-
-    try {
-      const reservationId = params.reservationId
-      const { moves } = request.body()
-      const userId = auth.user?.id || 1
-
-      if (!moves || !Array.isArray(moves) || moves.length === 0) {
-        await trx.rollback()
-        return response.badRequest({ message: 'An array of moves is required.' })
-      }
-
-      const originalReservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.preload('room')
-        })
-        .preload('folios', (query) => {
-          query.preload('transactions')
-        })
-        .first()
-
-      if (!originalReservation) {
-        await trx.rollback()
-        return response.notFound({ message: 'Original reservation not found' })
-      }
-
-      const moveResults = []
-
-      for (const move of moves) {
-        const { reservationRoomId, newRoomId } = move
-
-        const reservationRoomToMove = originalReservation.reservationRooms.find(
-          (rr) => rr.id === reservationRoomId
-        )
-
-        if (!reservationRoomToMove) {
-          throw new Error(
-            `ReservationRoom with ID ${reservationRoomId} not found in the original reservation.`
-          )
-        }
-
-        const oldRoom = await Room.find(reservationRoomToMove.roomId)
-        const newRoom = await Room.find(newRoomId)
-
-        if (!oldRoom || !newRoom) {
-          throw new Error('Old or new room not found.')
-        }
-
-        // 1. "Check out" the original reservation room by setting its status to 'moved_out'
-        reservationRoomToMove.status = 'moved_out'
-        reservationRoomToMove.checkOutDate = DateTime.now()
-        await reservationRoomToMove.useTransaction(trx).save()
-
-        // 2. Create a new reservation
-        const newReservation = await Reservation.create(
-          {
-            ...originalReservation.serialize(),
-            id: undefined,
-            status: 'checked_in',
-            reservationNumber: generateReservationNumber(),
-            confirmationNumber: generateConfirmationNumber(),
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-            notes: `(Moved from reservation ${originalReservation.reservationNumber})`,
-          },
-          { client: trx }
-        )
-
-        // 3. Create a new ReservationRoom for the new reservation
-        const newReservationRoom = await ReservationRoom.create(
-          {
-            ...reservationRoomToMove.serialize(),
-            id: undefined,
-            reservationId: newReservation.id,
-            roomId: newRoomId,
-            status: 'checked_in',
-            checkInDate: DateTime.now(),
-            checkOutDate: reservationRoomToMove.checkOutDate, // Keep original checkout date
-          },
-          { client: trx }
-        )
-
-        // 4. Handle folios
-        const oldFolio = originalReservation.folios.find(
-          (f) => f.reservationRoomId === reservationRoomId
-        )
-
-        let paymentTransaction = null
-        let chargeTransaction = null
-
-        if (oldFolio) {
-          const balanceSummary = this.calculateBalanceSummary([oldFolio])
-          const outstandingBalance = balanceSummary.outstandingBalance
-
-          // Create new folio for the new reservation
-          const newFolio = await Folio.create(
-            {
-              ...oldFolio.serialize(),
-              id: undefined,
-              reservationId: newReservation.id,
-              reservationRoomId: newReservationRoom.id,
-              folioNumber: `F-${newReservation.reservationNumber}-${Date.now()}`,
-              status: 'open',
-              balance: 0, // Start with a clean balance
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            },
-            { client: trx }
-          )
-
-          if (outstandingBalance !== 0) {
-            // Transfer balance
-            paymentTransaction = await FolioTransaction.create(
-              {
-                folioId: oldFolio.id,
-                transactionType: 'payment',
-                description: `Transfer to folio ${newFolio.folioNumber}`,
-                amount: -outstandingBalance,
-                createdBy: userId,
-              },
-              { client: trx }
-            )
-
-            chargeTransaction = await FolioTransaction.create(
-              {
-                folioId: newFolio.id,
-                transactionType: 'charge',
-                description: `Transfer from folio ${oldFolio.folioNumber}`,
-                amount: outstandingBalance,
-                createdBy: userId,
-              },
-              { client: trx }
-            )
-          }
-
-          // Close the old folio
-          oldFolio.status = 'closed'
-          oldFolio.closedBy = userId
-          oldFolio.closedDate = DateTime.now()
-          await oldFolio.useTransaction(trx).save()
-        }
-
-        moveResults.push({
-          from: {
-            reservationId: originalReservation.id,
-            reservationRoomId: reservationRoomToMove.id,
-            roomStatus: oldRoom.status,
-          },
-          to: {
-            reservationId: newReservation.id,
-            reservationRoomId: newReservationRoom.id,
-            roomStatus: newRoom.status,
-          },
-          transaction: {
-            paymentTransactionNumber: paymentTransaction?.transactionNumber,
-            paymentTransactionCode: paymentTransaction?.transactionCode,
-            chargeTransactionNumber: chargeTransaction?.transactionNumber,
-            chargeTransactionCode: chargeTransaction?.transactionCode,
-          },
-        })
-      }
-
-      // Check if the original reservation has any active rooms left
-      const activeRooms = await ReservationRoom.query({ client: trx })
-        .where('reservationId', originalReservation.id)
-        .whereIn('status', ['reserved', 'checked_in'])
-
-      if (activeRooms.length === 0) {
-        originalReservation.status = 'checked_out'
-        await originalReservation.useTransaction(trx).save()
-      }
-
-      await trx.commit()
-
-      return response.ok({
-        message: 'Room move (split) successful.',
-        moves: moveResults,
-      })
-    } catch (error) {
-      await trx.rollback()
-      console.error('Error during room move (split):', error)
-      return response.internalServerError({
-        message: 'An error occurred during the room move.',
-        error: error.message,
-      })
-    }
-  }
 
 
-  //transaction code
-  private async generateTransactionNumber( hotelId: number, trx?: TransactionClientContract, next?: number ): Promise<number> {
-    const query = FolioTransaction.query({ client: trx })
-      .where('hotelId', hotelId)
-      .orderBy('transactionNumber', 'desc')
-      .first()
 
-    const lastTransaction = await query
-    let nextNumber = 1
 
-    if (lastTransaction && lastTransaction.transactionNumber) {
-      nextNumber = lastTransaction.transactionNumber + 1 + (next ?? 0)
-    }
 
-    return nextNumber
-  }
+
+
+
 
   public async exchangeRoom({ params, request, response, auth }: HttpContext) {
     const trx = await db.transaction()

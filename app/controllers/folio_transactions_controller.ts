@@ -108,6 +108,7 @@ export default class FolioTransactionsController {
         .orderBy('transactionNumber', 'desc')
         .first()
       const transactionNumber = (lastTransaction?.transactionNumber || 0) + 1
+      console.log('transactionNumber',transactionNumber)
 
       // Generate transaction code if not provided
       const transactionCode = payload.transactionCode || `TC-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(6, '0')}`
