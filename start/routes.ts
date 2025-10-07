@@ -855,6 +855,7 @@ router
         router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
         router.get('/available-by-room-type/:roomTypeId', roomsController.getAvailableRoomsByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
+        router.get('/roomByType/:roomTypeId', roomsController.getRoomByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
       })
       .prefix('configuration/rooms')
 
@@ -1045,13 +1046,14 @@ router
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
         router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
-        router.get('/filter_reservations', [ReservationsController, 'getInHouseReservations'])
+
 
         // Get released reservations by date for a hotel
         router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])
 
       })
       .prefix('reservation')
+      router.get('configuration/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
 
     // Configuration routes
     router
