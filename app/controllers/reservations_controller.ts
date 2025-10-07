@@ -2950,7 +2950,228 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
 
+ public async roomMove({ params, request, response, auth }: HttpContext) {
+    const trx = await db.transaction()
+    try {
+      const reservationId = params.reservationId
+      const { newRoomId, reason, effectiveDate } = request.all()
 
+      if (!newRoomId) {
+        await trx.rollback()
+        return response.badRequest({ message: 'New room ID is required' })
+      }
+
+      // Find the reservation with current room assignments
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('reservationRooms', (query) => {
+          query.preload('room', (roomQuery) => {
+            roomQuery.preload('roomType')
+          })
+        })
+        .first()
+
+      if (!reservation) {
+        await trx.rollback()
+        return response.notFound({ message: 'Reservation not found' })
+      }
+
+      // Check if reservation can be moved
+      const allowedStatuses = ['confirmed', 'guaranteed', 'checked-in', 'checked_in']
+      if (!allowedStatuses.includes(reservation.reservationStatus.toLowerCase())) {
+        await trx.rollback()
+        return response.badRequest({
+          message: `Cannot move room for reservation with status: ${reservation.reservationStatus}`,
+        })
+      }
+
+      // Find the current active room assignment
+      const currentReservationRoom = reservation.reservationRooms.find(
+        (rr) => rr.status === 'reserved' || rr.status === 'checked_in'
+      )
+
+      if (!currentReservationRoom) {
+        await trx.rollback()
+        return response.badRequest({
+          message: 'No active room assignment found for this reservation',
+        })
+      }
+
+      // Check if trying to move to the same room
+      if (currentReservationRoom.roomId === newRoomId) {
+        await trx.rollback()
+        return response.badRequest({ message: 'Cannot move to the same room' })
+      }
+
+      // Validate the new room exists and is available
+      const newRoom = await Room.query({ client: trx })
+        .where('id', newRoomId)
+        .where('hotel_id', reservation.hotelId)
+        .preload('roomType')
+        .first()
+
+      if (!newRoom) {
+        await trx.rollback()
+        return response.badRequest({ message: 'New room not found or not available in this hotel' })
+      }
+
+      // Check if new room is available for the reservation dates
+      const moveDate = effectiveDate ? DateTime.fromISO(effectiveDate) : DateTime.now()
+      const checkOutDate = reservation.departDate
+
+      const conflictingReservation = await ReservationRoom.query({ client: trx })
+        .where('room_id', newRoomId)
+        .where('status', 'reserved')
+        .where((query) => {
+          query
+            .where((subQuery) => {
+              subQuery
+                .where('check_in_date', '<=', moveDate.toISODate()!)
+                .where('check_out_date', '>', moveDate.toISODate()!)
+            })
+            .orWhere((subQuery) => {
+              subQuery
+                .where('check_in_date', '<', checkOutDate?.toISODate()!)
+                .where('check_out_date', '>=', checkOutDate?.toISODate()!)
+            })
+            .orWhere((subQuery) => {
+              subQuery
+                .where('check_in_date', '>=', moveDate?.toISODate()!)
+                .where('check_out_date', '<=', checkOutDate?.toISODate()!)
+            })
+        })
+        .first()
+
+      if (conflictingReservation) {
+        await trx.rollback()
+        return response.badRequest({
+          message: 'New room is not available for the requested dates',
+        })
+      }
+
+      // Check room status
+      if (
+        newRoom.status !== 'active' ||
+        newRoom.housekeepingStatus === 'dirty' ||
+        newRoom.housekeepingStatus === 'maintenance'
+      ) {
+        await trx.rollback()
+        return response.badRequest({
+          message: `New room is not ready. Status: ${newRoom.status}, Housekeeping: ${newRoom.housekeepingStatus}`,
+        })
+      }
+
+      // Store original room information for audit
+      const originalRoomInfo = {
+        roomId: currentReservationRoom.roomId,
+        roomNumber: currentReservationRoom.room.roomNumber,
+        roomType: currentReservationRoom.room.roomType?.roomTypeName,
+      }
+
+      // Update current reservation room status to indicate move
+      await currentReservationRoom
+        .merge({
+          status: 'moved_out',
+          checkOutDate: moveDate,
+          lastModifiedBy: auth.user?.id || 1,
+          notes: `Moved to room ${newRoom.roomNumber}. Reason: ${reason || 'Room move requested'}`,
+        })
+        .useTransaction(trx)
+        .save()
+
+      // Create new reservation room record for the new room
+      const newReservationRoom = await ReservationRoom.create(
+        {
+          reservationId: reservation.id,
+          hotelId: reservation.hotelId,
+          roomId: newRoomId,
+          roomTypeId: newRoom.roomTypeId,
+          checkInDate: moveDate,
+          checkOutDate: reservation.departDate,
+          status:
+            reservation.reservationStatus.toLowerCase() === 'checked-in' ||
+            reservation.reservationStatus.toLowerCase() === 'checked_in'
+              ? 'checked_in'
+              : 'reserved',
+          rateAmount: currentReservationRoom.rateAmount, // Keep same rate
+          totalAmount: currentReservationRoom.totalAmount,
+          createdBy: auth.user?.id || 1,
+          lastModifiedBy: auth.user?.id || 1,
+          notes: `Moved from room ${currentReservationRoom.room.roomNumber}. Reason: ${reason || 'Room move requested'}`,
+        },
+        { client: trx }
+      )
+
+      // Update reservation's primary room type if different
+      if (newRoom.roomTypeId !== reservation.primaryRoomTypeId) {
+        await reservation
+          .merge({
+            primaryRoomTypeId: newRoom.roomTypeId,
+            lastModifiedBy: auth.user?.id || 1,
+          })
+          .useTransaction(trx)
+          .save()
+      }
+
+      // Create audit log
+      const auditData = {
+        reservationId: reservation.id,
+        action: 'room_move',
+        performedBy: auth.user?.id || 1,
+        originalRoom: originalRoomInfo,
+        newRoom: {
+          roomId: newRoomId,
+          roomNumber: newRoom.roomNumber,
+          roomType: newRoom.roomType?.roomTypeName,
+        },
+        reason: reason || 'Room move requested',
+        effectiveDate: moveDate.toISODate(),
+        timestamp: DateTime.now(),
+      }
+
+      console.log('Room Move Audit:', auditData)
+
+      // If there are any charges related to room move, create folio transactions
+      // This would depend on hotel policy - some hotels charge for room moves
+      // For now, we'll just log that charges may apply
+      console.log('Room move completed - check if any charges apply per hotel policy')
+
+      await trx.commit()
+
+      // Reload reservation with updated room assignments
+      const updatedReservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('reservationRooms', (query) => {
+          query.preload('room', (roomQuery) => {
+            roomQuery.preload('roomType')
+          })
+        })
+        .first()
+
+      return response.ok({
+        message: 'Room move completed successfully',
+        reservationId: reservationId,
+        moveDetails: {
+          fromRoom: originalRoomInfo,
+          toRoom: {
+            roomId: newRoomId,
+            roomNumber: newRoom.roomNumber,
+            roomType: newRoom.roomType?.roomTypeName,
+          },
+          effectiveDate: moveDate.toISODate(),
+          reason: reason || 'Room move requested',
+        },
+        reservation: updatedReservation,
+      })
+    } catch (error) {
+      await trx.rollback()
+      console.error('Error processing room move:', error)
+      return response.badRequest({
+        message: 'Failed to process room move',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
 
 
 
