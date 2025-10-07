@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 10px;  /* Police réduite */
+            margin: 0px 10px 10px 10px; 
+            padding: 0; 
+            line-height: 1.2;
+        }
+        
+        /* Styles de tableau avec police réduite */
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 9px;  /* Police réduite pour le tableau */
+        }
+        thead {
+            border-bottom: 1px solid #000;
+            border-top: none;
+        }
+        th { 
+            background-color: #f8f9fa; 
+            text-align: left; 
+            padding: 8px 12px;  /* Padding réduit */
+            font-weight: 600;
+            font-size: 9px;    /* Police réduite */
+            text-transform: uppercase;
+            border: none;
+        }
+        td { 
+            padding: 6px 12px;  /* Padding réduit */
+           
+            vertical-align: top;
+            font-size: 9px;    /* Police réduite */
+        }
+        .text-right { 
+            text-align: right; 
+        }
+        .text-center { 
+            text-align: center; 
+        }
+        .text-left { 
+            text-align: left; 
+        }
+        .font-semibold {
+            font-weight: 600;
+        }
+        .font-bold {
+            font-weight: bold;
+        }
+        
+        /* Styles spécifiques */
+        .border-dashed {
+            border-bottom-style: dashed;
+        }
+        .bg-gray-100 {
+            background-color: #f3f4f6;
+        }
+        
+        /* Styles pour l'en-tête de méthode de paiement */
+        .payment-method-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            font-size: 9px;  /* Police réduite */
+        }
+        
+        /* Styles pour les lignes de séparation */
+        .dashed-line td {
+            padding: 2px 12px;  /* Padding réduit */
+            border-bottom: none;
+        }
+        .dashed-line .dashed-border {
+            border-bottom: 1px dashed #6b7280;
+        }
+        
+        /* Espacement entre les méthodes */
+        .spacing-row td {
+            padding: 4px 0;  /* Espacement réduit */
+            border-bottom: none;
+        }
+
+        /* Style pour l'en-tête du tableau identique au header du contrôleur */
+        .table-header-row {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #000;
+        }
+        
+        .table-header-row th {
+            padding: 6px 12px;  /* Même padding que le header du contrôleur */
+            font-size: 9px;     /* Même taille de police */
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <!-- Détails des reçus -->
+    <div>
+        <table>
+            <thead>
+                <tr class="table-header-row">
+                    <th class="text-left">Date</th>
+                    <th class="text-left">Receipt</th>
+                    <th class="text-left">Reference</th>
+                    <th class="text-right">Amount</th>
+                    <th class="text-left">User</th>
+                    <th class="text-left">Entered On</th>
+                </tr>
+            </thead>
+            <tbody>
+                @each(method in data.paymentMethodTotals)
+                    <tr class="payment-method-header">
+                        <td colspan="6" style="padding: 8px 12px;">
+                            <strong>{{ method.methodName }}</strong>
+                        </td>
+                    </tr>
+                    
+                    @each(receipt in method.receipts)
+                        <tr>
+                            <td class="text-left" style="white-space: nowrap;">{{ formatDate(receipt.date) }}</td>
+                            <td class="text-left" style="white-space: nowrap;">{{ receipt.receiptNumber }}</td>
+                            <td class="text-left">{{ receipt.summary || receipt.description }}</td>
+                            <td class="text-right" style="white-space: nowrap;">{{ formatCurrency(receipt.amount) }}</td>
+                            <td class="text-left" style="white-space: nowrap;">{{ receipt.user }}</td>
+                            <td class="text-left" style="white-space: nowrap;">{{ formatDate(receipt.enteredOn) }}</td>
+                        </tr>
+                    @endeach
+                    
+                    <tr class="dashed-line">
+                        <td colspan="3" style="padding: 2px 12px;"></td>
+                        <td class="dashed-border" style="padding: 2px 12px;"></td>
+                        <td colspan="2" style="padding: 2px 12px;"></td>
+                    </tr>
+                    
+                    <tr>
+                        <td class="text-left" colspan="2" style="padding: 6px 12px;"></td>
+                        <td class="text-left" style="padding: 6px 12px;">
+                            <strong>Total {{ method.methodName }}</strong>
+                        </td>
+                        <td class="text-right font-semibold" style="padding: 6px 12px; white-space: nowrap;">
+                            <strong>{{ formatCurrency(calculateMethodTotal(method.receipts)) }}</strong>
+                        </td>
+                        <td colspan="2" style="padding: 6px 12px;"></td>
+                    </tr>
+                    
+                    <tr class="dashed-line">
+                        <td colspan="3" style="padding: 2px 12px;"></td>
+                        <td class="dashed-border" style="padding: 2px 12px;"></td>
+                        <td colspan="2" style="padding: 2px 12px;"></td>
+                    </tr>
+                    
+                    <tr class="spacing-row">
+                        <td colspan="6"></td>
+                    </tr>
+                @endeach
+                
+                <tr class="bg-gray-100 font-bold">
+                    <td class="text-left" colspan="2" style="padding: 6px 12px;"></td>
+                    <td class="text-left" style="padding: 6px 12px;">
+                        <strong>Grand Total</strong>
+                    </td>
+                    <td class="text-right font-bold" style="padding: 6px 12px; white-space: nowrap;">
+                        <strong>{{ formatCurrency(data.grandTotalAmount) }}</strong>
+                    </td>
+                    <td colspan="2" style="padding: 6px 12px;"></td>
+                </tr>
+                
+                <tr class="dashed-line">
+                    <td colspan="3" style="padding: 2px 12px;"></td>
+                    <td class="dashed-border" style="padding: 2px 12px;"></td>
+                    <td colspan="2" style="padding: 2px 12px;"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

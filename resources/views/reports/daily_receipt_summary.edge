@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ hotelName }} - Daily Receipt Summary</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            padding: 0; 
+            margin: 0;  
+            background-color: white;
+        }
+
+        .report-container {
+            padding: 0px 15px 15px 15px;
+            background-color: white;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+        }
+
+        .report-title {
+            border: 2px solid #c00;
+            background: white;
+            color: #c00;
+            padding: 5px 15px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+
+        .date-range {
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+
+        .date-range strong {
+            font-weight: bold;
+        }
+
+        /* User sections */
+        .user-section {
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            margin-bottom: 5px;
+        }
+
+        table th {
+            background-color: #f5f5f5;
+            border-top: none;
+            border-bottom: 1px solid #333;
+            padding: 5px 8px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        table th.text-right,
+        table td.text-right {
+            text-align: right;
+        }
+
+        table th.text-center,
+        table td.text-center {
+            text-align: center;
+        }
+
+        table td {
+            padding: 4px 8px;
+            font-size: 10px;
+            border: none;
+        }
+
+        /* Ligne avec le nom d'utilisateur */
+        .user-name-row td {
+            padding: 6px 8px;
+            font-weight: bold;
+            border: none;
+        }
+
+        /* Lignes des méthodes de paiement - pas de bordures */
+        .payment-method-row td {
+            border: none;
+        }
+
+        /* Ligne User Total - bordures en pointillés sur colonnes spécifiques */
+        .user-total-row {
+            font-weight: bold;
+            background-color: #f9f9f9;
+        }
+
+        .user-total-row td {
+            border: none;
+        }
+
+        /* Bordures pointillées sur Tran. Count, Void Count et Total uniquement */
+        .user-total-row td:nth-child(2),
+        .user-total-row td:nth-child(4),
+        .user-total-row td:nth-child(6) {
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+
+        .separator-line {
+            border-top: 1px solid #999;
+            margin: 10px 0;
+        }
+
+        /* Grand Total */
+        .grand-total-row {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+
+        .grand-total-row td {
+            padding: 6px 8px;
+            border: none;
+        }
+
+        /* Bordures pointillées sur Tran. Count, Void Count et Total uniquement */
+        .grand-total-row td:nth-child(2),
+        .grand-total-row td:nth-child(4),
+        .grand-total-row td:nth-child(6) {
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+
+         /* Summary section - MODIFICATIONS */
+    .summary-section {
+        margin-top: 20px;
+        padding-top: 15px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Centre toute la section */
+    }
+
+    .summary-title {
+        font-weight: bold;
+        font-size: 12px;
+        margin-bottom: 10px;
+        text-align: left;
+        padding-left: 0;
+        width: fit-content; /* S'adapte au contenu */
+        align-self: flex-start; /* Garde l'alignement à gauche */
+        margin-left: calc((100% - fit-content) / 2); /* Compensation pour le centrage */
+    }
+
+    .summary-tables {
+        display: flex;
+        gap: 30px;
+        justify-content: center;
+        margin: 0 auto;
+        width: fit-content;
+    }
+
+    .summary-table-container {
+        flex: 0 0 auto;
+    }
+
+        .summary-table {
+            border-collapse: collapse;
+            font-size: 11px;
+            border: none;
+            min-width: 200px;
+        }
+
+        .summary-table th {
+            background-color: #f5f5f5;
+            border-top: 1px solid #333;
+            border-bottom: 1px solid #333;
+            padding: 6px 12px;
+            text-align: left;
+            font-weight: bold;
+            white-space: nowrap;
+            font-size: 11px;
+        }
+
+        .summary-table td {
+            border: none;
+            padding: 5px 12px;
+            white-space: nowrap;
+            font-size: 11px;
+        }
+
+        /* Bordures pointillées uniquement pour la colonne Amount dans le summary - enlevées */
+        .summary-table tbody tr:not(.summary-grand-total) td:last-child {
+            border-bottom: none;
+        }
+
+        .summary-grand-total {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+
+        .summary-grand-total td:last-child {
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+
+        /* Suppression de la bordure droite qui séparait les sections summary */
+        .summary-table-container:first-child .summary-table {
+            border-right: none;
+        }
+
+        .summary-table-container:first-child .summary-table th,
+        .summary-table-container:first-child .summary-table td {
+            padding-right: 12px;
+        }
+
+        .amount-column {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+
+        <!-- User Sections -->
+        @each(user in data.userSummaries)
+            <div class="user-section">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Pay Method</th>
+                            <th class="text-center" style="width: 15%;">Tran. Count</th>
+                            <th class="text-right" style="width: 20%;">Amount</th>
+                            <th class="text-center" style="width: 15%;">Void Count</th>
+                            <th class="text-right" style="width: 20%;">Void Amount</th>
+                            <th class="text-right" style="width: 20%;">Total ({{ currency }})</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="user-name-row">
+                            <td colspan="6">User: {{ user.userName }}</td>
+                        </tr>
+                        @each(method in user.paymentMethods)
+                            <tr class="payment-method-row">
+                                <td>{{ method.methodName }}</td>
+                                <td class="text-center">{{ method.totalTransactions }}</td>
+                                <td class="text-right amount-column">{{ formatCurrency(method.amount) }}</td>
+                                <td class="text-center">{{ method.totalVoid }}</td>
+                                <td class="text-right amount-column">{{ formatCurrency(method.voidAmount) }}</td>
+                                <td class="text-right amount-column">{{ formatCurrency(method.total) }}</td>
+                            </tr>
+                        @end
+                        <tr class="user-total-row">
+                            <td><strong>User Total</strong></td>
+                            <td class="text-center"><strong>{{ user.totalTransactions }}</strong></td>
+                            <td class="text-right amount-column"><strong></strong></td>
+                            <td class="text-center"><strong>{{ user.totalVoid }}</strong></td>
+                            <td class="text-right amount-column"><strong></strong></td>
+                            <td class="text-right amount-column"><strong>{{ formatCurrency(user.userTotal) }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        @end
+
+        <!-- Grand Total -->
+        <table style="margin-top: 10px;">
+            <tbody>
+                <tr class="grand-total-row">
+                    <td style="width: 25%;"><strong>Grand Total</strong></td>
+                    <td class="text-center" style="width: 15%;"><strong>{{ data.grandTotals.totalTransactions }}</strong></td>
+                    <td class="text-right amount-column" style="width: 20%;"><strong>{{ formatCurrency(data.grandTotals.totalAmount) }}</strong></td>
+                    <td class="text-center" style="width: 15%;"><strong>{{ data.grandTotals.totalVoid }}</strong></td>
+                    <td class="text-right amount-column" style="width: 20%;"><strong>{{ formatCurrency(data.grandTotals.voidAmount) }}</strong></td>
+                    <td class="text-right amount-column" style="width: 20%;"><strong>{{ formatCurrency(data.grandTotals.netTotal) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <div class="summary-title-container">
+                <div class="summary-title">Summary</div>
+            </div>
+            
+            <div class="summary-tables">
+                <!-- User Summary -->
+                <div class="summary-table-container">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th colspan="2" style="text-align: center;">User</th>
+                                <th class="text-right">Amount ({{ currency }})</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @each(userSum in data.summary.userSummary)
+                                <tr>
+                                    <td colspan="2">{{ userSum.userName }}</td>
+                                    <td class="text-right amount-column">{{ formatCurrency(userSum.netTotal) }}</td>
+                                </tr>
+                            @end
+                            <tr class="summary-grand-total">
+                                <td colspan="2"><strong>Grand Total</strong></td>
+                                <td class="text-right amount-column"><strong>{{ formatCurrency(data.summary.grandTotalUserSummary.netTotal) }}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Payment Method Summary -->
+                <div class="summary-table-container">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Pay Method</th>
+                                <th class="text-right">Amount ({{ currency }})</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @each(methodSum in data.summary.paymentMethodSummary)
+                                <tr>
+                                    <td>{{ methodSum.methodName }}</td>
+                                    <td class="text-right amount-column">{{ formatCurrency(methodSum.total) }}</td>
+                                </tr>
+                            @end
+                            <tr class="summary-grand-total">
+                                <td><strong>Grand Total</strong></td>
+                                <td class="text-right amount-column"><strong>{{ formatCurrency(data.summary.grandTotalPaymentMethodSummary.netTotal) }}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
