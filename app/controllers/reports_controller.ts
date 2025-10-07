@@ -2501,7 +2501,9 @@ export default class ReportsController {
 
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+      const printedBy = user 
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
+        : 'System'
 
       // Generate all sections data
       let sectionsData: any = {}
@@ -2510,7 +2512,7 @@ export default class ReportsController {
         Number(hotelId)
       )
       if (auditDetails && auditDetails?.managerReportData) {
-        sectionsData = auditDetails?.managerReportData;
+        sectionsData = auditDetails?.managerReportData
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
@@ -2527,8 +2529,68 @@ export default class ReportsController {
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
-      // Generate PDF
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      // Format dates for display
+      const formattedDate = reportDate.toFormat('dd/MM/yyyy')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+    const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
+      // Create header template
+    // Create header template
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+      <!-- Hotel name and report title -->
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
+      </div>
+      
+      <!-- Report Info -->
+      <div style="font-size:10px; margin-bottom:3px;">
+        <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
+        <span style="margin-right:10px;"><strong>PTD:</strong> ${ ptdDate }</span>
+        <span style="margin-right:10px;"><strong>YTD:</strong> ${ ytdDate }</span>
+        <span><strong>Currency:</strong> ${currency}</span>
+      </div>
+      
+      <div style="border-top:1px solid #333; margin:0 ;"></div>
+      
+      <!-- Column Headers -->
+      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5;">
+            <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
+            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
+          </tr>
+        </thead>
+      </table>
+      
+      <div style="border-top:1px solid #333; margin-top:2px;"></div>
+    </div>
+    `
+    // Create footer template
+    const footerTemplate = `
+    <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
+  
+      // Generate PDF with header and footer
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4', 
+        margin: {
+          top: '100px',
+          right: '10px',
+          bottom: '70px',
+          left: '10px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
 
       // Set response headers
       const fileName = `management-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -2545,7 +2607,6 @@ export default class ReportsController {
       })
     }
   }
-
   /**
    * Generate all sections data for Management Report
    */
@@ -2626,16 +2687,16 @@ export default class ReportsController {
     const { default: edge } = await import('edge.js')
     const path = await import('path')
     logger.info(sectionsData)
-
+  
     // Configure Edge with views directory
     edge.mount(path.join(process.cwd(), 'resources/views'))
-
+  
     // Format dates
     const asOnDate = reportDate.toFormat('dd/MM/yyyy')
     const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
     const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-
+  
     // Helper function for currency formatting
     const formatCurrency = (amount: number | null | undefined): string => {
       if (amount === null || amount === undefined || isNaN(amount)) {
@@ -2646,7 +2707,7 @@ export default class ReportsController {
         maximumFractionDigits: 2
       })
     }
-
+  
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
@@ -2655,28 +2716,30 @@ export default class ReportsController {
         ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges?.ytd || 0) - (sectionsData.discounts?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
       },
       revenueWithTax: {
-        today: 0, // Will be calculated with tax
+        today: 0,
         ptd: 0,
         ytd: 0
       },
       posToPs: {
-        today: 0, // Placeholder
+        today: 0,
         ptd: 0,
         ytd: 0
       },
       transferToGuestLedger: {
-        today: 0, // Placeholder
+        today: 0,
         ptd: 0,
         ytd: 0
       }
     }
-
+  
     // Calculate revenue with tax
     totals.revenueWithTax.today = totals.revenueWithoutTax.today + (sectionsData.tax?.today || 0)
     totals.revenueWithTax.ptd = totals.revenueWithoutTax.ptd + (sectionsData.tax?.ptd || 0)
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
+    
     logger.info(sectionsData)
-    // Prepare template data
+  
+    // Prepare template data with header and footer info
     const templateData = {
       hotelName,
       asOnDate,
@@ -2691,9 +2754,22 @@ export default class ReportsController {
         ...sectionsData,
         totals
       },
-      formatCurrency
+      formatCurrency,
+      // Header specific data
+      header: {
+        hotelName,
+        reportTitle: 'Management Report',
+        reportDate: asOnDate,
+        currency
+      },
+      // Footer specific data
+      footer: {
+        printedBy,
+        printedOn,
+        pageInfo: 'Page {currentPage} of {totalPages}'
+      }
     }
-
+  
     // Render template
     return await edge.render('reports/management_report', templateData)
   }

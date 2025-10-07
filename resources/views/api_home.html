@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enjoys API — Overview & Quick Tests</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; line-height: 1.6; color: #1f2937; }
+      header { background: #111827; color: #fff; padding: 24px 20px; }
+      main { padding: 24px 20px; max-width: 980px; margin: 0 auto; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      h2 { margin-top: 28px; font-size: 20px; }
+      h3 { margin-top: 20px; font-size: 16px; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto; }
+      .endpoint { background: #eef2ff; border: 1px solid #c7d2fe; padding: 8px 10px; border-radius: 6px; display: inline-block; }
+      .method { font-weight: 600; color: #2563eb; margin-right: 6px; }
+      footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; }
+      ul { padding-left: 18px; }
+      .note { color: #6b7280; font-size: 14px; }
+      .copy { cursor: pointer; color: #2563eb; text-decoration: underline; }
+      .section { margin-bottom: 20px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Enjoys API</h1>
+      <p>Overview, usage, and quick test examples</p>
+    </header>
+    <main>
+      <section class="section">
+        <h2>Overview</h2>
+        <p>
+          This is the Enjoys API built on AdonisJS. Use the endpoints below to
+          interact with reservations, reports, and front-office features.
+        </p>
+        <p class="note">Base URL: <code>{{BASE_URL}}</code></p>
+      </section>
+
+      <section class="section">
+        <h2>Authentication</h2>
+        <p>
+          Most endpoints require authentication with a Bearer token in the
+          <code>Authorization</code> header.
+        </p>
+        <pre><code>Authorization: Bearer &lt;YOUR_TOKEN&gt;</code></pre>
+        <h3>Login</h3>
+        <p class="endpoint"><span class="method">POST</span> {{BASE_URL}}/api/authLogin</p>
+        <pre><code>curl -X POST "{{BASE_URL}}/api/authLogin" \
+ -H "Content-Type: application/json" \
+ -d '{
+   "email": "admin@example.com",
+   "password": "Password123"
+ }'</code></pre>
+        <h3>Get Current User</h3>
+        <p class="endpoint"><span class="method">GET</span> {{BASE_URL}}/api/auth</p>
+        <pre><code>curl -X GET "{{BASE_URL}}/api/auth" \
+ -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+        <h3>Logout</h3>
+        <p class="endpoint"><span class="method">POST</span> {{BASE_URL}}/api/authLogout</p>
+        <pre><code>curl -X POST "{{BASE_URL}}/api/authLogout" \
+ -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Basic Health</h2>
+        <p class="endpoint"><span class="method">GET</span> {{BASE_URL}}/ping</p>
+        <pre><code>curl -X GET "{{BASE_URL}}/ping"</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Front Office</h2>
+        <h3>In-House Reservations</h3>
+        <p class="endpoint"><span class="method">GET</span> {{BASE_URL}}/api/reports/front-office/inhouse-guests</p>
+        <ul>
+          <li>Lists in-house reservations (checked-in rooms)</li>
+          <li>Query params: <code>hotelId</code> (required), <code>roomId</code>, <code>roomTypeId</code></li>
+        </ul>
+        <pre><code>curl -X GET "{{BASE_URL}}/api/reports/front-office/inhouse-guests?hotelId=1" \
+ -H "Authorization: Bearer YOUR_TOKEN" \
+ -H "Accept: application/json"</code></pre>
+        <h3>Occupied Rooms</h3>
+        <p class="endpoint"><span class="method">GET</span> {{BASE_URL}}/api/reports/front-office/occupied-rooms</p>
+        <ul>
+          <li>Lists occupied rooms with rate type</li>
+          <li>Query params: <code>hotelId</code> (required), <code>roomTypeId</code></li>
+        </ul>
+        <pre><code>curl -X GET "{{BASE_URL}}/api/reports/front-office/occupied-rooms?hotelId=1" \
+ -H "Authorization: Bearer YOUR_TOKEN" \
+ -H "Accept: application/json"</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Swagger</h2>
+        <p>For the complete list of routes and schemas, use Swagger UI.</p>
+        <p class="endpoint"><span class="method">GET</span> {{BASE_URL}}/swagger</p>
+        <pre><code>open {{BASE_URL}}/swagger</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Quick Tests (Node.js)</h2>
+        <p>Run this snippet with <code>node</code> (requires Node 18+ or <code>node-fetch</code>).</p>
+        <pre><code>const token = process.env.ENJOYS_TOKEN || 'YOUR_TOKEN'
+const baseUrl = '{{BASE_URL}}'
+
+async function testInHouse() {
+  const res = await fetch(baseUrl + '/api/reports/front-office/inhouse-guests?hotelId=1', {
+    headers: { Authorization: 'Bearer ' + token }
+  })
+  const data = await res.json()
+  console.log('In-House:', data)
+}
+
+async function testOccupiedRooms() {
+  const res = await fetch(baseUrl + '/api/reports/front-office/occupied-rooms?hotelId=1', {
+    headers: { Authorization: 'Bearer ' + token }
+  })
+  const data = await res.json()
+  console.log('Occupied Rooms:', data)
+}
+
+testInHouse().then(testOccupiedRooms)</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Notes</h2>
+        <ul>
+          <li>Use actual <code>hotelId</code>, <code>roomId</code>, and <code>roomTypeId</code> from your data.</li>
+          <li>Both endpoints filter rooms with status <code>checked_in</code>.</li>
+          <li>If you encounter authentication errors, ensure your token is valid and not expired.</li>
+        </ul>
+      </section>
+
+      <footer>
+        <p>Enjoys API · AdonisJS · {{BASE_URL}}</p>
+      </footer>
+    </main>
+    <script>
+      // Minimal helper to copy curl commands
+      document.querySelectorAll('pre').forEach(p => {
+        const btn = document.createElement('div')
+        btn.textContent = 'Copy'
+        btn.className = 'copy'
+        btn.onclick = () => navigator.clipboard.writeText(p.innerText)
+        p.parentNode.insertBefore(btn, p)
+      })
+    </script>
+  </body>
+</html>

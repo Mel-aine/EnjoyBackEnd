@@ -358,39 +358,12 @@ export default class UsersController extends CrudController<typeof User> {
       // 1. Fetch user and their primary role
       const user = await User.query().where('id', userId).preload('role').firstOrFail()
 
-      // Fetch all employment contracts for the user
-      const allContracts = await EmploymentContract.query().where('employee_id', userId)
-
-      // Fetch the most recent employment contract
-      const recentContract = await EmploymentContract.query()
-        .where('employee_id', userId)
-        .orderBy('contract_id', 'desc')
-        .first()
-
+      
       // 2. Fetch all service assignments for the user, with department and service info
       const assignments = await ServiceUserAssignment.query()
         .where('user_id', userId)
         .preload('department')
         .preload('hotel')
-
-      // 3. Get all permissions for that user's role across all their assigned services.
-      // const serviceIds = assignments.map((a) => a.hotel_id)
-      // let permissions: Permission[] = []
-
-      // if (user.roleId) {
-      //   permissions = await Permission.query().whereHas('rolePermissions', (rpQuery) => {
-      //     rpQuery.where('role_id', user.roleId).where((q) => {
-      //       // Permissions for assigned services OR global permissions
-      //       if (serviceIds.length > 0) {
-      //         q.whereIn('service_id', serviceIds).orWhereNull('service_id')
-      //       } else {
-      //         // If no assignments, only get global permissions
-      //         q.whereNull('service_id')
-      //       }
-      //     })
-      //   })
-      // }
-      // Get activities
       const activityHistory = await ActivityLog.query()
         .where((query) => {
           query.where('user_id', userId)
@@ -413,9 +386,8 @@ export default class UsersController extends CrudController<typeof User> {
         responseData.hireDate = assignments[0].hire_date?.toISODate() ?? null
         responseData.role = assignments[0].role // This is the specific role/title in the assignment
       }
-      console.log('-->responseData', responseData)
 
-      return response.ok({ ...responseData, recentContract, allContracts })
+      return response.ok({ ...responseData })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
         return response.notFound({ message: 'User not found' })

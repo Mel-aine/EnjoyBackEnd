@@ -50,7 +50,7 @@
       }
       
       .section-title {
-        font-weight: bold; 
+        font-weight: bold;
         margin: 15px 0 5px 0;
         font-size: 12px;
       }
@@ -84,8 +84,7 @@
         text-align: right;
       }
       
-    
-      
+     
       .footer-line {
         border-top: 1px solid #333;
         margin-bottom: 5px;
@@ -97,12 +96,13 @@
         align-items: center;
       }
       
-      .page-break {
-        page-break-before: always;
-      }
       
+      .font-bold{
+        font-weight: 900;
+      }
       @media print {
         .page-break {
+          padding-top:20px
           page-break-before: always;
         }
       }
@@ -112,40 +112,7 @@
     <!-- Header -->
     
     <div class="main">
-      <div class="horizontal-line">
-      </div>
-
-      <!-- Report Info -->
-      <div class="report-info">
-        <span>          <strong>As On Date:</strong>{{ asOnDate }}</span>
-        <span>          <strong>PTD:</strong>{{ ptdDate }}</span>
-        <span>          <strong>YTD:</strong>{{ ytdDate }}</span>
-        <span>          <strong>Currency:</strong>{{ currency }}</span>
-      </div>
-      <div class="horizontal-line">
-      </div>
-
-      <!-- Column Headers -->
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 40%;">
-              Particulars
-            </th>
-            <th class="currency" style="width: 20%;">
-              Today
-            </th>
-            <th class="currency" style="width: 20%;">
-              PTD
-            </th>
-            <th class="currency" style="width: 20%;">
-              YTD
-            </th>
-          </tr>
-        </thead>
-      </table>
-      <div class="horizontal-line">
-      </div>
+      
 
       <!-- Section 1: Room Charges -->
       <div class="section-title">
@@ -1197,7 +1164,7 @@
               </td>
             </tr>
           @endeach
-          <tr class="section-total-top">
+          <tr class="section-total">
             <td>
               <strong>POS Revenue</strong>
             </td>
@@ -1217,17 +1184,17 @@
       <div class="horizontal-line">
         <table>
           <tbody>
-            <tr class="section-total-top">
-              <td class="">
+            <tr class="font-bold">
+              <td style="width: 40%;">
                 Total Revenue
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.revenueSummary.today) }}
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.revenueSummary.ptd) }}
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(content.revenueSummary.ytd) }}
               </td>
             </tr>
@@ -1236,17 +1203,14 @@
       </div>
       <div class="horizontal-line">
       </div>
+      <p>*Guest Ledger Closing Balance = Opening Balance - Carry Forwarded Advance Deposit + Charge Posted to Guest Ledger - Settlement by Guest</p>
+      <p>*Transfer From Advance Deposit = Balance Transfer to Guest Ledger</p>
+      <p>*PMS Revenue = Total Revenue without Tax (PMS)</p>
+      <p>*POS Revenue = All Outlet's Total Revenue without Tax</p>
+      <p>*Total Revenue = PMS Revenue + POS Revenue</p>
+ <div class="horizontal-line">
+      </div>
+    </div>
 
-    </div>
-    <!-- Footer -->
-    <div class="footer">
-      <div class="footer-line">
-      </div>
-      <div class="footer-content">
-        <span>Printed On: {{ printedOn }}</span>
-        <span>Printed By: {{ printedBy }}</span>
-        <span>Page {{ currentPage }} of {{ totalPages }}</span>
-      </div>
-    </div>
   </body>
 </html>

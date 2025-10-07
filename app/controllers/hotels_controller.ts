@@ -220,14 +220,29 @@ export default class HotelsController {
       // Rollback the transaction on any error
       await trx.rollback()
 
+      // Handle validation failures with detailed field-level errors
+      if (error && (error.code === 'E_VALIDATION_ERROR' || error.code === 'E_VALIDATION_FAILURE')) {
+        const details = Array.isArray((error as any).errors)
+          ? (error as any).errors.map((e: any) => ({ field: e.field, rule: e.rule, message: e.message }))
+          : []
+
+        logger.warn('Hotel validation failed', { errors: (error as any).messages, details })
+
+        return response.badRequest({
+          message: 'Validation failed',
+          errors: (error as any).messages,
+          details
+        })
+      }
+
       logger.error('Hotel creation failed, transaction rolled back', {
-        error: error.message,
-        stack: error.stack
+        error: (error as any).message,
+        stack: (error as any).stack
       })
 
       return response.badRequest({
         message: 'Failed to create hotel',
-        error: error.message
+        error: (error as any).message
       })
     }
   }
@@ -281,9 +296,22 @@ export default class HotelsController {
         data: hotel
       })
     } catch (error) {
+      // Handle validation failures with detailed field-level errors
+      if (error && (error.code === 'E_VALIDATION_ERROR' || error.code === 'E_VALIDATION_FAILURE')) {
+        const details = Array.isArray((error as any).errors)
+          ? (error as any).errors.map((e: any) => ({ field: e.field, rule: e.rule, message: e.message }))
+          : []
+
+        return response.badRequest({
+          message: 'Validation failed',
+          errors: (error as any).messages,
+          details
+        })
+      }
+
       return response.badRequest({
         message: 'Failed to update hotel',
-        error: error.message
+        error: (error as any).message
       })
     }
   }
