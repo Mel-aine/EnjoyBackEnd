@@ -843,6 +843,7 @@ router
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
         router.get('/:hotelId/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
         router.get('/houseview/:hotelId', roomsController.getHouseStatus.bind(roomsController))
+        router.get('/recentBooking/:hotelId', roomsController.getRecentBookings.bind(roomsController))
 
 
         // Room status management
@@ -1044,6 +1045,7 @@ router
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
         router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
+        router.get('/filter_reservations', [ReservationsController, 'getInHouseReservations'])
 
         // Get released reservations by date for a hotel
         router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])

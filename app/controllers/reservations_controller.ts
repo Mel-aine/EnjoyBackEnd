@@ -13,6 +13,7 @@ import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import CancellationPolicy from '#models/cancellation_policy'
+import { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import {
   FolioStatus,
   FolioType,
@@ -575,7 +576,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           query
             .preload('room')
             .preload('paymentMethod')
-            .preload('roomRates', (queryRoom: any) => {
+            .preload('roomRates', (queryRoom:  any) => {
               queryRoom.preload('rateType')
             })
             .preload('roomType')
@@ -1315,12 +1316,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const trx = await db.transaction()
 
     try {
-
       if (!selectedRooms || selectedRooms.length === 0) {
         // Si rien n'est sélectionné, on ne fait rien ou on renvoie une erreur
         await trx.rollback()
         return response.badRequest({
-          message: 'No rooms selected for cancellation.'
+          message: 'No rooms selected for cancellation.',
         })
       }
       // 1. Find the reservation and its related data
@@ -1360,7 +1360,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // await reservation.save()
 
       for (const resService of reservation.reservationRooms) {
-        if (selectedRooms.includes(resService.id) && resService.status !== ReservationProductStatus.CANCELLED) {
+        if (
+          selectedRooms.includes(resService.id) &&
+          resService.status !== ReservationProductStatus.CANCELLED
+        ) {
           resService.status = ReservationProductStatus.CANCELLED
           resService.lastModifiedBy = auth.user!.id
           await resService.save()
@@ -1542,10 +1545,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
             .orWhereHas('reservationRooms', (roomQuery) => {
               roomQuery
-                .whereHas('room', (roomSubQuery: any) => {
+                .whereHas('room', (roomSubQuery:  any) => {
                   roomSubQuery.where('room_number', 'like', `%${searchText}%`)
                 })
-                .orWhereHas('roomType', (roomTypeQuery: any) => {
+                .orWhereHas('roomType', (roomTypeQuery:  any) => {
                   roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
                 })
             })
@@ -1578,7 +1581,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 4. Filter by roomType (product name)
       if (roomType) {
         query.whereHas('reservationRooms', (rspQuery) => {
-          rspQuery.whereHas('room', (spQuery: any) => {
+          rspQuery.whereHas('room', (spQuery:  any) => {
             spQuery.where('room_type_id', roomType)
           })
         })
@@ -1659,10 +1662,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
             .orWhereHas('reservationRooms', (roomQuery) => {
               roomQuery
-                .whereHas('room', (roomSubQuery: any) => {
+                .whereHas('room', (roomSubQuery:  any) => {
                   roomSubQuery.where('room_number', 'like', `%${searchText}%`)
                 })
-                .orWhereHas('roomType', (roomTypeQuery: any) => {
+                .orWhereHas('roomType', (roomTypeQuery:  any) => {
                   roomTypeQuery.where('room_type_name', 'like', `%${searchText}%`)
                 })
             })
@@ -1686,7 +1689,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       if (roomType) {
         totalQuery.whereHas('reservationRooms', (rspQuery) => {
-          rspQuery.whereHas('room', (spQuery: any) => {
+          rspQuery.whereHas('room', (spQuery:  any) => {
             spQuery.where('room_type_id', roomType)
           })
         })
@@ -1738,8 +1741,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-
-
   /**
    * List in-house reservations filtered by roomId and roomTypeId
    * Returns ReservationRoom rows with related reservation, guest, room, roomType, rateType
@@ -1755,14 +1756,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw) : undefined
 
       if (!hotelId || Number.isNaN(hotelId)) {
-        return response.badRequest({ success: false, message: 'hotelId is required and must be a number' })
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required and must be a number',
+        })
       }
 
       const { default: ReservationRoom } = await import('#models/reservation_room')
 
-      let query = ReservationRoom.query()
-        .where('hotel_id', hotelId)
-        .where('status', 'checked_in')
+      let query = ReservationRoom.query().where('hotel_id', hotelId).where('status', 'checked_in')
 
       if (roomId && !Number.isNaN(roomId)) {
         query = query.where('room_id', roomId)
@@ -1808,7 +1810,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok({ success: true, count: data.length, data })
     } catch (error) {
       logger.error('Error fetching in-house reservations:', error)
-      return response.status(500).json({ success: false, message: 'Failed to fetch in-house reservations', error: error.message })
+      return response
+        .status(500)
+        .json({
+          success: false,
+          message: 'Failed to fetch in-house reservations',
+          error: error.message,
+        })
     }
   }
 
@@ -1825,14 +1833,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const roomTypeId = roomTypeIdRaw ? parseInt(roomTypeIdRaw) : undefined
 
       if (!hotelId || Number.isNaN(hotelId)) {
-        return response.badRequest({ success: false, message: 'hotelId is required and must be a number' })
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required and must be a number',
+        })
       }
 
       const { default: ReservationRoom } = await import('#models/reservation_room')
 
-      let query = ReservationRoom.query()
-        .where('hotel_id', hotelId)
-        .where('status', 'checked_in')
+      let query = ReservationRoom.query().where('hotel_id', hotelId).where('status', 'checked_in')
 
       if (roomTypeId && !Number.isNaN(roomTypeId)) {
         query = query.where('room_type_id', roomTypeId)
@@ -1856,7 +1865,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         roomTypeName: rr.room?.roomType?.roomTypeName,
         reservationRoomId: rr.id,
         reservationId: rr.reservationId,
-        guestName: rr.reservation?.guest ? `${rr.reservation.guest.firstName || ''} ${rr.reservation.guest.lastName || ''}`.trim() : '—',
+        guestName: rr.reservation?.guest
+          ? `${rr.reservation.guest.firstName || ''} ${rr.reservation.guest.lastName || ''}`.trim()
+          : '—',
         rateTypeId: rr.rateTypeId,
         rateTypeName: rr.rateType?.rateTypeName,
         checkInDate: rr.checkInDate?.toISODate?.(),
@@ -1866,13 +1877,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok({ success: true, count: data.length, data })
     } catch (error) {
       logger.error('Error fetching occupied rooms:', error)
-      return response.status(500).json({ success: false, message: 'Failed to fetch occupied rooms', error: error.message })
+      return response
+        .status(500)
+        .json({ success: false, message: 'Failed to fetch occupied rooms', error: error.message })
     }
   }
-  public async getReservationById({ request, response, auth, params }: HttpContext) {
-    try {
-      const reservationId = params.id
-      const hotelId = params.hotelId
+    public async getReservationById({ request, response, auth, params }: HttpContext) {
+      try {
+        const reservationId = params.id
+        const hotelId = params.hotelId
 
       // Requête pour récupérer la réservation avec toutes les relations
       const reservation = await Reservation.query()
@@ -1900,46 +1913,45 @@ export default class ReservationsController extends CrudController<typeof Reserv
         JSON.parse(auth.user?.permisPrivileges || '[]')
       )
 
-      // Construire la réponse complète
-      const reservationData = reservation.toJSON()
+        // Construire la réponse complète
+        const reservationData = reservation.toJSON()
 
-      const enrichedReservation = {
-        ...reservationData,
-        // Computed fields du modèle
-        dayuse: reservation.dayuse,
-        dayuseDuration: reservation.dayuseDuration,
-        totalOccupancy: reservation.totalOccupancy,
-        averageRatePerNight: reservation.averageRatePerNight,
-        isConfirmed: reservation.isConfirmed,
-        isCheckedIn: reservation.isCheckedIn,
-        isCheckedOut: reservation.isCheckedOut,
-        isCancelled: reservation.isCancelled,
-        isActive: reservation.isActive,
-        hasBalance: reservation.hasBalance,
-        isFullyPaid: reservation.isFullyPaid,
-        displayName: reservation.displayName,
-        // Champs calculés
-        balanceSummary,
-        availableActions,
-      }
+        const enrichedReservation = {
+          ...reservationData,
+          // Computed fields du modèle
+          dayuse: reservation.dayuse,
+          dayuseDuration: reservation.dayuseDuration,
+          totalOccupancy: reservation.totalOccupancy,
+          averageRatePerNight: reservation.averageRatePerNight,
+          isConfirmed: reservation.isConfirmed,
+          isCheckedIn: reservation.isCheckedIn,
+          isCheckedOut: reservation.isCheckedOut,
+          isCancelled: reservation.isCancelled,
+          isActive: reservation.isActive,
+          hasBalance: reservation.hasBalance,
+          isFullyPaid: reservation.isFullyPaid,
+          displayName: reservation.displayName,
+          // Champs calculés
+          balanceSummary,
+          availableActions,
+        }
 
-      return response.ok(enrichedReservation)
+        return response.ok(enrichedReservation)
+      } catch (error) {
+        logger.error('Error fetching reservation: %o', error)
 
-    } catch (error) {
-      logger.error('Error fetching reservation: %o', error)
+        if (error.code === 'E_ROW_NOT_FOUND') {
+          return response.notFound({
+            message: 'Reservation not found',
+          })
+        }
 
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({
-          message: 'Reservation not found',
+        return response.internalServerError({
+          message: 'An error occurred while fetching the reservation.',
+          error: error.message,
         })
       }
-
-      return response.internalServerError({
-        message: 'An error occurred while fetching the reservation.',
-        error: error.message,
-      })
     }
-  }
   /**
    * Create reservation
    */
@@ -2050,8 +2062,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         // Validate room availability only if rooms are assigned
         if (rooms.length > 0) {
-          const roomIds = rooms.map(r => r.room_id).filter((id): id is any => Boolean(id))
-
+          const roomIds = rooms.map((r) => r.room_id).filter((id): id is any => Boolean(id))
 
           if (roomIds.length > 0) {
             let existingReservationsQuery = ReservationRoom.query({ client: trx })
@@ -2061,38 +2072,35 @@ export default class ReservationsController extends CrudController<typeof Reserv
             if (arrivedDate.toISODate() === departDate.toISODate()) {
               // Cas same-day (day use) → check overlap par heures
               const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
-              const departureDateTime = DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`)
+              const departureDateTime = DateTime.fromISO(
+                `${data.depart_date}T${data.check_out_time}`
+              )
 
               existingReservationsQuery = existingReservationsQuery
                 .where('checkInDate', arrivedDate.toISODate())
                 .where('checkOutDate', departDate.toISODate())
                 .where((query) => {
-                  query.whereBetween('checkInTime', [
-                    arrivalDateTime.toFormat('HH:mm'),
-                    departureDateTime.toFormat('HH:mm'),
-                  ])
-                    .orWhereBetween('checkOutTime', [
+                  query
+                    .whereBetween('checkInTime', [
                       arrivalDateTime.toFormat('HH:mm'),
                       departureDateTime.toFormat('HH:mm'),
                     ])
-                    .orWhere((overlapQuery) => {
-                      overlapQuery
-                        .where('checkInTime', '<=', arrivalDateTime.toFormat('HH:mm'))
-                        .where('checkOutTime', '>=', departureDateTime.toFormat('HH:mm'))
-                    })
+                      .orWhereBetween('checkOutTime', [
+                        arrivalDateTime.toFormat('HH:mm'),
+                        departureDateTime.toFormat('HH:mm'),
+                      ])
+                      .orWhere((overlapQuery) => {
+                        overlapQuery
+                          .where('checkInTime', '<=', arrivalDateTime.toFormat('HH:mm'))
+                          .where('checkOutTime', '>=', departureDateTime.toFormat('HH:mm'))
+                      })
                 })
             } else {
               // Cas multi-jours → check overlap par dates
               existingReservationsQuery = existingReservationsQuery.where((query) => {
                 query
-                  .whereBetween('checkInDate', [
-                    arrivedDate.toISODate(),
-                    departDate.toISODate(),
-                  ])
-                  .orWhereBetween('checkOutDate', [
-                    arrivedDate.toISODate(),
-                    departDate.toISODate(),
-                  ])
+                  .whereBetween('checkInDate', [arrivedDate.toISODate(), departDate.toISODate()])
+                  .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
                   .orWhere((overlapQuery) => {
                     overlapQuery
                       .where('checkInDate', '<=', arrivedDate.toISODate())
@@ -2108,18 +2116,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
               return response.badRequest({
                 success: false,
                 message: `One or more rooms are not available for the selected dates/times`,
-                conflicts: existingReservations.map(r => ({
+                conflicts: existingReservations.map((r) => ({
                   roomId: r.roomId,
                   checkInDate: r.checkInDate,
                   checkOutDate: r.checkOutDate,
                   checkInTime: r.checkInTime,
                   checkOutTime: r.checkOutTime,
-                }))
+                })),
               })
             }
           }
         }
-
 
         // Create reservation
         logger.info('Creating reservation with data: %o', guest)
@@ -2532,6 +2539,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Generate transaction number
       const transactionNumber = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
+
       // Create payment transaction
       const transaction = await FolioTransaction.create(
         {
@@ -2940,7 +2948,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  public async roomMove({ params, request, response, auth }: HttpContext) {
+
+
+ public async roomMove({ params, request, response, auth }: HttpContext) {
     const trx = await db.transaction()
     try {
       const reservationId = params.reservationId
@@ -3080,7 +3090,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           checkOutDate: reservation.departDate,
           status:
             reservation.reservationStatus.toLowerCase() === 'checked-in' ||
-              reservation.reservationStatus.toLowerCase() === 'checked_in'
+            reservation.reservationStatus.toLowerCase() === 'checked_in'
               ? 'checked_in'
               : 'reserved',
           rateAmount: currentReservationRoom.rateAmount, // Keep same rate
@@ -3162,6 +3172,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
+
+
+
+
+
 
   public async exchangeRoom({ params, request, response, auth }: HttpContext) {
     const trx = await db.transaction()
@@ -3790,318 +3805,84 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
-  // public async markNoShow({ params, request, response, auth }: HttpContext) {
-  //   const trx = await db.transaction()
-
-  //   try {
-  //     const { reservationId } = params
-  //     const {
-  //       selectedRooms = [],
-  //       reason,
-  //       notes,
-  //       noShowFees = 0,
-  //     } = request.only(['selectedRooms', 'reason', 'notes', 'noShowFees'])
-
-  //     // Vérification reservationId
-  //     if (!reservationId) {
-  //       await trx.rollback()
-  //       return response.badRequest({ message: 'Reservation ID is required' })
-  //     }
-
-  //     // Charger la réservation et ses chambres
-  //     const reservation = await Reservation.query({ client: trx })
-  //       .where('id', reservationId)
-  //       .preload('reservationRooms')
-  //       .first()
-
-  //     if (!reservation) {
-  //       await trx.rollback()
-  //       return response.badRequest({ message: 'Reservation not found' })
-  //     }
-
-  //     // Vérifier si le statut permet le no-show
-  //     const allowedStatuses = ['confirmed', 'checked_in', 'pending']
-  //     if (!allowedStatuses.includes(reservation.status)) {
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         message: `Cannot mark reservation as no-show. Current status: ${reservation.status}`,
-  //       })
-  //     }
-
-  //     // Vérifier que la date d’arrivée est passée
-  //     const now = DateTime.now()
-  //     const arrivalDate = reservation.arrivedDate!
-  //     if (now < arrivalDate) {
-  //       await trx.rollback()
-  //       return response.badRequest({ message: 'Cannot mark as no-show before arrival date' })
-  //     }
-
-  //     // Vérifier si toutes les chambres sont sélectionnées
-  //     const allRoomsSelected = selectedRooms.length === reservation.reservationRooms.length
-
-  //     // Sauvegarder l'ancien statut pour l'audit
-  //     const originalStatus = reservation.status
-
-  //     // CAS 1 : NO-SHOW TOTAL
-  //     if (allRoomsSelected) {
-  //       await reservation
-  //         .useTransaction(trx)
-  //         .merge({
-  //           status: ReservationStatus.NOSHOW,
-  //           noShowDate: now,
-  //           noShowReason: reason,
-  //           noShowFees,
-  //           markNoShowBy: auth.user?.id,
-  //           lastModifiedBy: auth.user?.id,
-  //         })
-  //         .save()
-
-  //       // Toutes les chambres en no_show
-  //       await ReservationRoom.query({ client: trx }).where('reservationId', reservationId).update({
-  //         status: 'no_show',
-  //         lastModifiedBy: auth.user?.id,
-  //         updatedAt: now.toJSDate(),
-  //       })
-  //     }
-
-  //     // CAS 2 : NO-SHOW PARTIEL
-  //     else {
-  //       // Marquer uniquement certaines chambres
-  //       for (const room of reservation.reservationRooms) {
-  //         if (selectedRooms.includes(room.roomId)) {
-  //           room.status = 'no_show'
-  //           room.markNoShowByUser = auth.user!.id
-  //           room.lastModifiedBy = auth.user!.id
-  //           await room.useTransaction(trx).save()
-
-  //           // Libérer la chambre physique
-  //           const physicalRoom = await Room.find(room.roomId)
-  //           if (physicalRoom) {
-  //             physicalRoom.status = 'available'
-  //             physicalRoom.lastModifiedBy = auth.user!.id
-  //             await physicalRoom.useTransaction(trx).save()
-  //           }
-  //         }
-  //       }
-
-  //       // Mettre le statut global de la réservation en "partially_no_show"
-  //       await reservation
-  //         .useTransaction(trx)
-  //         .merge({
-  //           status: 'partially_no_show',
-  //           lastModifiedBy: auth.user?.id,
-  //         })
-  //         .save()
-  //     }
-
-  //     // --- Gestion des folios ---
-  //     const folios = await Folio.query({ client: trx })
-  //       .where('reservationId', reservationId)
-  //       .where('status', '!=', 'voided')
-
-  //     for (const folio of folios) {
-  //       // Appliquer les frais : total ou par chambre
-  //       const totalNoShowFees = allRoomsSelected ? noShowFees : noShowFees * selectedRooms.length
-
-  //       if (totalNoShowFees > 0) {
-  //         await FolioService.postTransaction({
-  //           folioId: folio.id,
-  //           transactionType: TransactionType.CHARGE,
-  //           category: TransactionCategory.NO_SHOW_FEE,
-  //           description: `No-show fee - ${reason || 'Guest did not arrive'}`,
-  //           amount: totalNoShowFees,
-  //           quantity: 1,
-  //           unitPrice: totalNoShowFees,
-  //           reference: `NOSHOW-${reservation.reservationNumber}`,
-  //           notes: `No-show fee applied on ${now.toISODate()}`,
-  //           postedBy: auth.user?.id!,
-  //         })
-  //       }
-
-  //       // Annuler toutes les transactions existantes
-  //       const activeTransactions = await FolioTransaction.query({ client: trx })
-  //         .where('folioId', folio.id)
-  //         .where('status', '!=', 'voided')
-
-  //       for (const transaction of activeTransactions) {
-  //         await FolioService.postTransaction({
-  //           folioId: folio.id,
-  //           transactionType: TransactionType.VOID,
-  //           category: TransactionCategory.VOID,
-  //           description: `Void: ${transaction.description} (No-show)`,
-  //           amount: -transaction.amount,
-  //           quantity: 1,
-  //           unitPrice: -transaction.amount,
-  //           reference: `VOID-${transaction.transactionNumber}`,
-  //           notes: `Voided due to no-show: ${reason || 'Guest did not arrive'}`,
-  //           postedBy: auth.user?.id!,
-  //         })
-
-  //         await transaction
-  //           .useTransaction(trx)
-  //           .merge({
-  //             voidedDate: now,
-  //             voidReason: 'No-show reservation',
-  //             voidedBy: auth.user?.id,
-  //           })
-  //           .save()
-  //       }
-
-  //       // Vérifier le solde et équilibrer si besoin
-  //       await folio.useTransaction(trx).refresh()
-  //       const currentBalance = folio.balance
-  //       if (Math.abs(currentBalance) > 0.01) {
-  //         const adjustmentAmount = -currentBalance
-  //         await FolioService.postTransaction({
-  //           folioId: folio.id,
-  //           transactionType: TransactionType.ADJUSTMENT,
-  //           category: TransactionCategory.ADJUSTMENT,
-  //           description: `Balancing adjustment - No-show processing`,
-  //           amount: adjustmentAmount,
-  //           quantity: 1,
-  //           unitPrice: adjustmentAmount,
-  //           reference: `BAL-${reservation.reservationNumber}`,
-  //           notes: `Balancing adjustment after no-show processing`,
-  //           postedBy: auth.user?.id!,
-  //         })
-  //       }
-
-  //       // Mettre le folio en "voided"
-  //       await folio
-  //         .useTransaction(trx)
-  //         .merge({
-  //           status: FolioStatus.VOIDED,
-  //           voidedDate: now,
-  //           voidReason: `No-show reservation: ${reason || 'Guest did not arrive'}`,
-  //           lastModifiedBy: auth.user?.id,
-  //         })
-  //         .save()
-  //     }
-
-  //     // --- Audit log ---
-  //     await LoggerService.logActivity(
-  //       {
-  //         userId: auth.user?.id,
-  //         action: 'mark_no_show',
-  //         resourceType: 'reservation',
-  //         resourceId: reservationId,
-  //         details: {
-  //           originalStatus,
-  //           newStatus: reservation.status,
-  //           reason: reason || 'Guest did not arrive',
-  //           notes,
-  //           noShowDate: now.toISO(),
-  //           noShowFees: noShowFees || null,
-  //           markNoShowBy: auth.user?.id,
-  //           reservationNumber: reservation.reservationNumber,
-  //         },
-  //         ipAddress: request.ip(),
-  //         userAgent: request.header('user-agent'),
-  //       },
-  //       trx
-  //     )
-
-  //     await trx.commit()
-
-  //     return response.ok({
-  //       message: 'Reservation marked as no-show successfully',
-  //       reservationId: reservation.id,
-  //       data: {
-  //         reservationNumber: reservation.reservationNumber,
-  //         status: reservation.status,
-  //         noShowDate: now.toISO(),
-  //         reason: reason || 'Guest did not arrive',
-  //         noShowFees: noShowFees || null,
-  //         markNoShowBy: auth.user?.id,
-  //       },
-  //     })
-  //   } catch (error) {
-  //     await trx.rollback()
-  //     return response.badRequest({
-  //       message: 'Failed to mark as no-show',
-  //       error: error.message,
-  //     })
-  //   }
-  // }
   public async markNoShow({ params, request, response, auth }: HttpContext) {
-    console.log('--- markNoShow start ---', { params });
-    const startTime = Date.now();
+    console.log('--- markNoShow start ---', { params })
+    const startTime = Date.now()
 
-    const trx = await db.transaction();
+    const trx = await db.transaction()
 
     try {
-      const { reservationId } = params;
-      const { selectedRooms = [], reason, notes, noShowFees = 0 } = request.only([
-        'selectedRooms',
-        'reason',
-        'notes',
-        'noShowFees',
-      ]);
+      const { reservationId } = params
+      const {
+        selectedRooms = [],
+        reason,
+        notes,
+        noShowFees = 0,
+      } = request.only(['selectedRooms', 'reason', 'notes', 'noShowFees'])
 
       if (!reservationId) {
-        await trx.rollback();
-        return response.badRequest({ message: 'Reservation ID is required' });
+        await trx.rollback()
+        return response.badRequest({ message: 'Reservation ID is required' })
       }
 
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms')
-        .first();
+        .first()
 
       if (!reservation) {
-        await trx.rollback();
-        return response.badRequest({ message: 'Reservation not found' });
+        await trx.rollback()
+        return response.badRequest({ message: 'Reservation not found' })
       }
 
-      const allowedStatuses = ['confirmed', 'checked_in', 'pending'];
+      const allowedStatuses = ['confirmed', 'checked_in', 'pending']
       if (!allowedStatuses.includes(reservation.status)) {
-        await trx.rollback();
+        await trx.rollback()
         return response.badRequest({
           message: `Cannot mark reservation as no-show. Current status: ${reservation.status}`,
-        });
+        })
       }
 
-      const now = DateTime.now();
+      const now = DateTime.now()
       if (now < reservation.arrivedDate!) {
-        await trx.rollback();
-        return response.badRequest({ message: 'Cannot mark as no-show before arrival date' });
+        await trx.rollback()
+        return response.badRequest({ message: 'Cannot mark as no-show before arrival date' })
       }
 
-      const allRoomsSelected = selectedRooms.length === reservation.reservationRooms.length;
-      const originalStatus = reservation.status;
+      const allRoomsSelected = selectedRooms.length === reservation.reservationRooms.length
+      const originalStatus = reservation.status
 
-      console.log('Updating rooms and reservation status', { allRoomsSelected, selectedRooms });
+      console.log('Updating rooms and reservation status', { allRoomsSelected, selectedRooms })
 
       // --- Mettre à jour ReservationRoom ---
-      for (const room of reservation.reservationRooms) {
+       for (const room of reservation.reservationRooms) {
         if (allRoomsSelected || selectedRooms.includes(room.id)) {
-          room.status = 'no_show';
-          room.markNoShowByUser = auth.user?.id ?? null;
-          await room.useTransaction(trx).save();
+          room.status = 'no_show'
+          room.markNoShowByUser = auth.user?.id ?? null
+          await room.useTransaction(trx).save()
         }
       }
 
-
       // --- Mettre à jour le statut global de la réservation ---
-      const allRoomsNoShow = reservation.reservationRooms.every(room => room.status === 'no_show');
-      reservation.status = allRoomsNoShow ? ReservationStatus.NOSHOW : ReservationStatus.CONFIRMED;
-      reservation.noShowDate = now;
-      reservation.noShowReason = reason;
-      reservation.noShowFees = noShowFees;
-      reservation.markNoShowBy = auth.user?.id || null;
-      reservation.lastModifiedBy = auth.user?.id || null;
-      await reservation.useTransaction(trx).save();
+      const allRoomsNoShow = reservation.reservationRooms.every((room) => room.status === 'no_show')
+      reservation.status = allRoomsNoShow ? ReservationStatus.NOSHOW : ReservationStatus.CONFIRMED
+      reservation.noShowDate = now
+      reservation.noShowReason = reason
+      reservation.noShowFees = noShowFees
+      reservation.markNoShowBy = auth.user?.id || null
+      reservation.lastModifiedBy = auth.user?.id || null
+      await reservation.useTransaction(trx).save()
 
-      console.log('Reservation and rooms updated, start processing folios');
+      console.log('Reservation and rooms updated, start processing folios')
 
       // --- Folio fees et voids ---
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)
-        .where('status', '!=', 'voided');
+        .where('status', '!=', 'voided')
 
       for (const folio of folios) {
         // Appliquer les frais no-show
-        const totalNoShowFees = allRoomsSelected ? noShowFees : noShowFees * selectedRooms.length;
+        const totalNoShowFees = allRoomsSelected ? noShowFees : noShowFees * selectedRooms.length
         if (totalNoShowFees > 0) {
           await FolioService.postTransaction(
             {
@@ -4117,13 +3898,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
               postedBy: auth.user?.id!,
             },
             trx
-          );
+          )
         }
 
         // Annuler les transactions actives
         const activeTransactions = await FolioTransaction.query({ client: trx })
           .where('folioId', folio.id)
-          .where('status', '!=', 'voided');
+          .where('status', '!=', 'voided')
 
         for (const transaction of activeTransactions) {
           // Vérifier qu'on ne void pas une transaction déjà voidée
@@ -4142,17 +3923,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 postedBy: auth.user?.id!,
               },
               trx
-            );
+            )
 
-            transaction.voidedDate = now;
-            transaction.voidReason = 'No-show reservation';
-            transaction.voidedBy = auth.user?.id;
-            await transaction.useTransaction(trx).save();
+            transaction.voidedDate = now
+            transaction.voidReason = 'No-show reservation'
+            transaction.voidedBy = auth.user?.id
+            await transaction.useTransaction(trx).save()
           }
         }
 
         // Mettre le folio à jour si nécessaire (balance / status)
-        await folio.useTransaction(trx).refresh();
+        await folio.useTransaction(trx).refresh()
         if (Math.abs(folio.balance) > 0.01) {
           await FolioService.postTransaction(
             {
@@ -4168,7 +3949,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               postedBy: auth.user?.id!,
             },
             trx
-          );
+          )
         }
 
         await folio
@@ -4179,10 +3960,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
             voidReason: `No-show reservation: ${reason || 'Guest did not arrive'}`,
             lastModifiedBy: auth.user?.id,
           })
-          .save();
+          .save()
       }
 
-      console.log('All folios processed, sending audit log');
+      console.log('All folios processed, sending audit log')
 
       // --- Audit log ---
       await LoggerService.logActivity(
@@ -4205,10 +3986,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
           userAgent: request.header('user-agent'),
         },
         trx
-      );
+      )
 
-      await trx.commit();
-      console.log('Transaction committed', { durationMs: Date.now() - startTime });
+      await trx.commit()
+      console.log('Transaction committed', { durationMs: Date.now() - startTime })
 
       return response.ok({
         message: 'Reservation marked as no-show successfully',
@@ -4221,17 +4002,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
           noShowFees: noShowFees || null,
           markNoShowBy: auth.user?.id,
         },
-      });
+      })
     } catch (error) {
-      await trx.rollback();
-      console.log('Error in markNoShow', { error: error.message });
+      await trx.rollback()
+      console.log('Error in markNoShow', { error: error.message })
       return response.badRequest({
         message: 'Failed to mark as no-show',
         error: error.message,
-      });
+      })
     }
   }
-
 
   /**
    * new Void reservation
@@ -4512,101 +4292,106 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   public async unassignRoom(ctx: HttpContext) {
-    const trx = await db.transaction()
-    const { params, request, response, auth } = ctx
-    try {
-      const { reservationId } = params
-      const { reservationRooms, actualCheckInTime } = request.body()
+      const trx = await db.transaction()
+      const { params, request, response, auth } = ctx
+      try {
+        const { reservationId } = params
+        const { reservationRooms, actualCheckInTime } = request.body()
 
-      console.log('--- Début unassignRoom ---')
-      console.log('Params:', params)
-      console.log('Body reçu:', request.body())
-      console.log('User connecté:', auth?.user)
+        console.log('--- Début unassignRoom ---')
+        console.log('Params:', params)
+        console.log('Body reçu:', request.body())
+        console.log('User connecté:', auth?.user)
 
-      // Validate required fields
-      if (!reservationRooms) {
-        console.log('Erreur : reservationRooms manquant')
-        await trx.rollback()
-        return response.badRequest({ message: 'Room ID is required' })
-      }
+        // Validate required fields
+        if (!reservationRooms) {
+          console.log('Erreur : reservationRooms manquant')
+          await trx.rollback()
+          return response.badRequest({ message: 'Room ID is required' })
+        }
 
-      // Get reservation with related data
-      console.log('Recherche de la réservation ID:', reservationId, 'avec rooms:', reservationRooms)
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.whereIn('id', reservationRooms)
-        })
-        .first()
+        // Get reservation with related data
+        console.log('Recherche de la réservation ID:', reservationId, 'avec rooms:', reservationRooms)
+        const reservation = await Reservation.query({ client: trx })
+          .where('id', reservationId)
+          .preload('reservationRooms', (query) => {
+            query.whereIn('id', reservationRooms)
+          })
+          .first()
 
-      console.log('Résultat de la requête Reservation:', reservation)
+        console.log('Résultat de la requête Reservation:', reservation)
 
-      if (!reservation) {
-        console.log('Erreur : réservation non trouvée')
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
+        if (!reservation) {
+          console.log('Erreur : réservation non trouvée')
+          await trx.rollback()
+          return response.notFound({ message: 'Reservation not found' })
+        }
 
-      // Check if reservation allows room unassignment
-      const allowedStatuses = ['confirmed', 'pending']
-      console.log('Statut réservation:', reservation.status)
-      if (!allowedStatuses.includes(reservation.status)) {
-        console.log('Erreur : statut non autorisé', reservation.status)
-        await trx.rollback()
-        return response.badRequest({
-          message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
-        })
-      }
+        // Check if reservation allows room unassignment
+        const allowedStatuses = ['confirmed', 'pending']
+        console.log('Statut réservation:', reservation.status)
+        if (!allowedStatuses.includes(reservation.status)) {
+          console.log('Erreur : statut non autorisé', reservation.status)
+          await trx.rollback()
+          return response.badRequest({
+            message: `Cannot unassign room from reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
+          })
+        }
 
-      console.log('Nombre de reservationRooms trouvées:', reservation.reservationRooms.length)
+        console.log('Nombre de reservationRooms trouvées:', reservation.reservationRooms.length)
 
-      for (const reservationRoom of reservation.reservationRooms) {
-        console.log('Traitement reservationRoom:', reservationRoom.id, '-> actuel roomId:', reservationRoom.roomId)
-
-        // Store the reservation room ID before unassigning
-        const reservationRoomId = reservationRoom.id
-
-        reservationRoom.roomId = null
-        reservationRoom.lastModifiedBy = auth?.user?.id!
-        await reservationRoom.useTransaction(trx).save()
-        console.log('Room désaffectée pour reservationRoom:', reservationRoomId)
-
-        // Remove room number from folio transaction descriptions
-        await ReservationFolioService.removeRoomChargeDescriptions(
-          reservationRoomId,
-          auth?.user?.id!
+        for (const reservationRoom of reservation.reservationRooms) {
+          console.log(
+          'Traitement reservationRoom:',
+          reservationRoom.id,
+          '-> actuel roomId:',
+          reservationRoom.roomId
         )
-        console.log('Descriptions folio mises à jour pour reservationRoom:', reservationRoomId)
+
+          // Store the reservation room ID before unassigning
+          const reservationRoomId = reservationRoom.id
+
+          reservationRoom.roomId = null
+          reservationRoom.lastModifiedBy = auth?.user?.id!
+          await reservationRoom.useTransaction(trx).save()
+          console.log('Room désaffectée pour reservationRoom:', reservationRoomId)
+
+          // Remove room number from folio transaction descriptions
+          await ReservationFolioService.removeRoomChargeDescriptions(
+            reservationRoomId,
+            auth?.user?.id!
+          )
+          console.log('Descriptions folio mises à jour pour reservationRoom:', reservationRoomId)
+        }
+
+        // Create audit log
+        console.log('Création du log audit...')
+        await LoggerService.log({
+          actorId: auth.user?.id!,
+          action: 'ROOM_UNASSIGNED',
+          entityType: 'ReservationRoom',
+          entityId: reservationId,
+          hotelId: reservation.hotelId,
+          description: `Room unassigned from reservation #${reservation.reservationNumber}`,
+          ctx: ctx,
+        })
+
+        await trx.commit()
+        console.log('--- SUCCESS: Room désaffectée avec succès ---')
+
+        return response.ok({
+          message: 'Room unassigned successfully',
+          reservationId,
+        })
+      } catch (error) {
+        await trx.rollback()
+        console.log('--- ERROR ---')
+        console.error('Error unassigning room:', error)
+        return response.badRequest({
+          message: 'Failed to unassign room',
+          error: error.message,
+        })
       }
-
-      // Create audit log
-      console.log('Création du log audit...')
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'ROOM_UNASSIGNED',
-        entityType: 'ReservationRoom',
-        entityId: reservationId,
-        hotelId: reservation.hotelId,
-        description: `Room unassigned from reservation #${reservation.reservationNumber}`,
-        ctx: ctx,
-      })
-
-      await trx.commit()
-      console.log('--- SUCCESS: Room désaffectée avec succès ---')
-
-      return response.ok({
-        message: 'Room unassigned successfully',
-        reservationId,
-      })
-    } catch (error) {
-      await trx.rollback()
-      console.log('--- ERROR ---')
-      console.error('Error unassigning room:', error)
-      return response.badRequest({
-        message: 'Failed to unassign room',
-        error: error.message,
-      })
-    }
   }
 
   /**
@@ -5453,74 +5238,72 @@ export default class ReservationsController extends CrudController<typeof Reserv
     `
   }
 
+    public async updateBookingDetails(ctx: HttpContext) {
+      const { params, request, response, auth } = ctx
+      const trx = await db.transaction()
 
+      try {
+        const { reservationId } = params
+        const payload = request.body()
 
-  public async updateBookingDetails(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
-    const trx = await db.transaction()
+        // Log pour déboguer
+        console.log('Received payload:', payload)
 
-    try {
-      const { reservationId } = params
-      const payload = request.body()
+        // Get reservation
+        const reservation = await Reservation.query({ client: trx })
+          .where('id', reservationId)
+          .first()
 
-      // Log pour déboguer
-      console.log('Received payload:', payload)
+        if (!reservation) {
+          await trx.rollback()
+          return response.notFound({ message: 'Reservation not found' })
+        }
 
-      // Get reservation
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .first()
+        // Mettre à jour avec les bons noms de champs
+        if (payload.billTo !== undefined) {
+          reservation.billTo = payload.billTo
+        }
+        if (payload.businessSourceId !== undefined) {
+          reservation.businessSourceId = payload.businessSourceId
+        }
 
-      if (!reservation) {
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
+        if (payload.paymentMethodId !== undefined) {
+          reservation.paymentMethodId = payload.paymentMethodId
+        }
+        if (payload.paymentType !== undefined) {
+          reservation.paymentType = payload.paymentType
+        }
+        if (payload.marketCodeId !== undefined) {
+          reservation.marketCodeId = payload.marketCodeId
+        }
+        // CORRECTION: reservationType -> reservationTypeId
+        if (payload.reservationTypeId !== undefined) {
+          reservation.reservationTypeId = payload.reservationTypeId
+        }
+        if (payload.companyName !== undefined) {
+          reservation.companyName = payload.companyName
+        }
 
-      // Mettre à jour avec les bons noms de champs
-      if (payload.billTo !== undefined) {
-        reservation.billTo = payload.billTo
-      }
-      if (payload.businessSourceId !== undefined) {
-        reservation.businessSourceId = payload.businessSourceId
-      }
+        reservation.lastModifiedBy = auth?.user?.id!
 
-      if (payload.paymentMethodId !== undefined) {
-        reservation.paymentMethodId = payload.paymentMethodId
-      }
-      if (payload.paymentType !== undefined) {
-        reservation.paymentType = payload.paymentType
-      }
-      if (payload.marketCodeId !== undefined) {
-        reservation.marketCodeId = payload.marketCodeId
-      }
-      // CORRECTION: reservationType -> reservationTypeId
-      if (payload.reservationTypeId !== undefined) {
-        reservation.reservationTypeId = payload.reservationTypeId
-      }
-      if (payload.companyName !== undefined) {
-        reservation.companyName = payload.companyName
-      }
+        // Sauvegarder les changements
+        await reservation.useTransaction(trx).save()
 
-      reservation.lastModifiedBy = auth?.user?.id!
+        // Log après sauvegarde
+        console.log('Reservation updated:', reservation.$attributes)
 
-      // Sauvegarder les changements
-      await reservation.useTransaction(trx).save()
+        // Audit log
+        await LoggerService.log({
+          actorId: auth.user?.id!,
+          action: 'UPDATED',
+          entityType: 'Reservation',
+          entityId: reservationId,
+          hotelId: reservation.hotelId,
+          description: `Updated booking details for reservation #${reservation.reservationNumber}`,
+          ctx,
+        })
 
-      // Log après sauvegarde
-      console.log('Reservation updated:', reservation.$attributes)
-
-      // Audit log
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'UPDATED',
-        entityType: 'Reservation',
-        entityId: reservationId,
-        hotelId: reservation.hotelId,
-        description: `Updated booking details for reservation #${reservation.reservationNumber}`,
-        ctx,
-      })
-
-      await trx.commit()
+        await trx.commit()
 
       // Retourner les données mises à jour
       return response.ok({

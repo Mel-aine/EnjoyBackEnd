@@ -110,6 +110,7 @@ export default class FolioTransactionsController {
         .orderBy('transactionNumber', 'desc')
         .first()
       const transactionNumber = (lastTransaction?.transactionNumber || 0) + 1
+      console.log('transactionNumber',transactionNumber)
 
       // Generate transaction code if not provided
       const transactionCode = generateTransactionCode()

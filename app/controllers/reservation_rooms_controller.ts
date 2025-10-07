@@ -573,50 +573,5 @@ export default class ReservationRoomsController {
     }
   }
 
-  /**
-   * recent booking
-   */
 
-  async getRecentBookings({ params, response }: HttpContext) {
-    const serviceId = params.serviceId
-
-    if (!serviceId) {
-      return response.badRequest({ error: 'Le serviceId est requis.' })
-    }
-
-  try {
-      const reservations = await ReservationRoom
-        .query()
-        .whereHas('room', (query) => {
-          query.where('service_id', serviceId)
-        })
-        .preload('reservation', (resQuery) => {
-          resQuery.preload('user')
-        })
-        .preload('room')
-        .orderBy('start_date', 'desc')
-        .limit(10)
-
-      const formatted = reservations.map((res) => {
-        const reservation = res.reservation
-        const user = reservation?.user
-        // const product = res.room
-
-        return {
-          guest: user ? `${user.firstName} ${user.lastName}` : 'Inconnu',
-          email: user?.email ?? '',
-          // room: product?.product_name ?? 'Non spécifié',
-          // checkin: res.start_date?.toFormat('dd/MM/yyyy') ?? '',
-          // checkout: res.end_date?.toFormat('dd/MM/yyyy') ?? '',
-          status: reservation?.status ?? '',
-          amount: reservation?.finalAmount ?? 0,
-        }
-      })
-
-      return response.ok(formatted)
-    } catch (error) {
-      console.error(error)
-      return response.internalServerError({ message: 'Erreur lors de la récupération des réservations.' })
-    }
-  }
 }
