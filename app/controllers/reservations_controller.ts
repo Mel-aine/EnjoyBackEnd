@@ -96,10 +96,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const trx = await db.transaction()
     console.log('Transaction started')
 
+    // Ensure authenticated user is present before proceeding
+    if (!auth.user) {
+      await trx.rollback()
+      return response.unauthorized({
+        message: 'Authentication required',
+      })
+    }
+
     try {
       const reservationId = Number(params.reservationId)
-      console.log('Reservation ID:', reservationId)
-
       // Validate required parameters
       if (isNaN(reservationId)) {
         console.log('Invalid reservation ID')
@@ -116,8 +122,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('id', reservationId)
         .preload('reservationRooms', (query) => query.preload('room'))
         .first()
-
-      console.log('Reservation found:', reservation)
 
       if (!reservation) {
         console.log('Reservation not found, rolling back')
@@ -140,7 +144,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('reservation_id', reservation.id)
         .preload('room')
 
-      console.log('Reservation rooms to check in:', reservationRoomsToCheckIn)
 
       if (reservationRoomsToCheckIn.length === 0) {
         console.log('No valid reservation rooms found for check-in, rolling back')
@@ -3163,6 +3166,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           .merge({
             status: ReservationStatus.CHECKED_OUT,
             checkOutDate: moveDate,
+            departDate:moveDate,
             checkedOutBy: auth.user?.id || null,
             lastModifiedBy: auth.user?.id || null,
           })
@@ -3241,7 +3245,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           settlementStatus: SettlementStatus.PENDING,
           workflowStatus: WorkflowStatus.ACTIVE,
           openedDate: DateTime.now(),
-          openedBy: auth.user?.id || 1,
+          openedBy: auth.user?.id,
           totalCharges: 0,
           totalPayments: 0,
           totalAdjustments: 0,
@@ -3251,8 +3255,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           balance: 0,
           creditLimit: 0,
           notes: `Auto-created after room move to ${newRoom.roomNumber}`,
-          createdBy: auth.user?.id || 1,
-          lastModifiedBy: auth.user?.id || 1,
+          createdBy: auth.user?.id,
+          lastModifiedBy: auth.user?.id,
         }, { client: trx })
       }
 
@@ -3261,24 +3265,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Recompute totals to ensure balance is current before transfer
         // (guards against stale totals)
         try {
-          // @ts-ignore access private helper via controller import context
-          // Update totals using FolioService utility
-          // Even if it throws, we continue with the best-known balance
-          // because transferCharges itself posts transactions that will recalc balances.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const anyFolioService: any = FolioService as any
           if (anyFolioService.updateFolioTotals) {
             await anyFolioService.updateFolioTotals(sourceFolio.id, trx)
           }
         } catch { }
 
-        // Refresh source folio after totals update
+        // Refresh source folio after totals update and preload transactions
         sourceFolio = await Folio.query({ client: trx })
           .where('id', sourceFolio.id)
+          .preload('transactions', (query) => query
+            .where('status', '!=', TransactionStatus.VOIDED)
+            .orderBy('id', 'asc'))
           .firstOrFail()
-
-        const amountToTransfer = Math.abs(sourceFolio.balance || 0)
         await trx.commit()
+
+        // Calculate balance using calculateBalanceSummary to ensure transfers are handled
+        const balanceSummary = this.calculateBalanceSummary([sourceFolio])
+        const amountToTransfer = Math.abs(balanceSummary.outstandingBalance || 0)
 
         // If payments exist on the source folio, move ALL transactions to the destination folio
         const hasPayments = await FolioTransaction.query()
