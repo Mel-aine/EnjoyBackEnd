@@ -504,6 +504,47 @@ export default class RoomsController {
   }
 
   /**
+   * get room by room type
+   */
+  async getRoomByRoomTypeId({ params, request, response }: HttpContext) {
+    try {
+      const roomTypeId = params.roomTypeId
+      // Validate room type exists
+      const roomType = await RoomType.findOrFail(roomTypeId)
+      console.log('Room type found:', roomType)
+
+      // Get all rooms of this type
+      const rooms = await Room.query()
+        .where('room_type_id', roomTypeId)
+        .where('status', 'occupied')
+        .preload('roomType')
+      console.log(
+        'All rooms of this type:',
+        rooms.map((r) => r.id)
+      )
+
+
+      return response.ok({
+        message: 'Available rooms retrieved successfully',
+        data: {
+          roomType: {
+            id: roomType.id,
+            name: roomType.roomTypeName,
+          },
+          totalRooms: rooms.length,
+          rooms: rooms
+        },
+      })
+    } catch (error) {
+      console.error('Error fetching available rooms:', error)
+      return response.badRequest({
+        message: 'Failed to retrieve available rooms',
+        error: error.message,
+      })
+    }
+  }
+
+  /**
    * Get room statistics
    */
   async stats({ request, response }: HttpContext) {
