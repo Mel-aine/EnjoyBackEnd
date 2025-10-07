@@ -1355,6 +1355,13 @@ export default class FolioService {
         totalPayments += Math.abs(parseFloat(`${transaction.amount}`) || 0)
       } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
         totalAdjustments += parseFloat(`${transaction.amount}`) || 0
+      } else if (transaction.transactionType === TransactionType.TRANSFER) {
+        // Treat transfer-in as charge (debit), transfer-out as payment (credit)
+        if (transaction.category === TransactionCategory.TRANSFER_IN) {
+          totalCharges += parseFloat(`${transaction.amount}`) || 0
+        } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
+          totalPayments += Math.abs(parseFloat(`${transaction.amount}`) || 0)
+        }
       }
 
       totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0

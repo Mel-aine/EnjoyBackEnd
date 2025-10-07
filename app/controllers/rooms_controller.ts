@@ -419,7 +419,7 @@ export default class RoomsController {
       // Get all rooms of this type
       const rooms = await Room.query()
         .where('room_type_id', roomTypeId)
-        .where('status', 'available')
+        //.where('status', 'available')
         .preload('roomType')
       console.log(
         'All rooms of this type:',
@@ -616,7 +616,7 @@ export default class RoomsController {
         .where('hotel_id', hotelId)
         .preload('roomType')
         .preload('blocks')
-        .preload('assignedHousekeeper',(query) => {
+        .preload('assignedHousekeeper', (query) => {
           query.select('id', 'name', 'phone')
         })
         .preload('reservationRooms', (query) => {
@@ -648,9 +648,9 @@ export default class RoomsController {
         //   ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() ||
         //     null
         //   : null
-          const guestName = checkedInReservation?.guest
-            ? checkedInReservation.guest.displayName
-            : null
+        const guestName = checkedInReservation?.guest
+          ? checkedInReservation.guest.displayName
+          : null
 
 
         const checkInTime = checkedInReservation?.reservation?.checkInDate
@@ -896,9 +896,9 @@ export default class RoomsController {
           room.status,
           room.housekeepingStatus
         )
-         const occupants = room.reservationRooms?.reduce((total, rr) => {
-            return total + (rr.adults || 0) + (rr.children || 0);
-          }, 0) || 0;
+        const occupants = room.reservationRooms?.reduce((total, rr) => {
+          return total + (rr.adults || 0) + (rr.children || 0);
+        }, 0) || 0;
         return {
           id: room.id.toString(),
           name: room.roomNumber,
@@ -915,7 +915,7 @@ export default class RoomsController {
           housekeepingStatus: actualHousekeepingStatus,
           tag: this.getRoomTag(room),
           statusType: this.getStatusType(actualHousekeepingStatus, room.status),
-          assignedHousekeeperId:room.assignedHousekeeper? room.assignedHousekeeper.id : null,
+          assignedHousekeeperId: room.assignedHousekeeper ? room.assignedHousekeeper.id : null,
           assignedHousekeeper: room.assignedHousekeeper
             ? `${room.assignedHousekeeper.name}`
             : '',
@@ -1169,27 +1169,27 @@ export default class RoomsController {
   /**
    * Détermine le statut de ménage basé sur le statut de la chambre
    */
- private getHousekeepingStatusFromRoomStatus(
-  roomStatus: string,
-  currentHousekeepingStatus: string
-): string {
-  switch (roomStatus?.toLowerCase()) {
-    case 'occupied':
-      // Si la chambre est occupée, on garde son statut ménage (dirty/clean), sinon "Dirty" par défaut
-      return currentHousekeepingStatus || 'No Status'
+  private getHousekeepingStatusFromRoomStatus(
+    roomStatus: string,
+    currentHousekeepingStatus: string
+  ): string {
+    switch (roomStatus?.toLowerCase()) {
+      case 'occupied':
+        // Si la chambre est occupée, on garde son statut ménage (dirty/clean), sinon "Dirty" par défaut
+        return currentHousekeepingStatus || 'No Status'
 
-    case 'available':
-      // Si disponible, on garde son statut ménage, sinon "Dirty"
-      return currentHousekeepingStatus || 'No Status'
+      case 'available':
+        // Si disponible, on garde son statut ménage, sinon "Dirty"
+        return currentHousekeepingStatus || 'No Status'
 
-    case 'out_of_order':
-    case 'maintenance':
-      return 'Out Of Order'
+      case 'out_of_order':
+      case 'maintenance':
+        return 'Out Of Order'
 
-    default:
-      return currentHousekeepingStatus || 'No Status'
+      default:
+        return currentHousekeepingStatus || 'No Status'
+    }
   }
-}
 
 
   /**

@@ -97,6 +97,10 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare bedPreference: string
 
+  // Free-form notes about the reservation room (long text)
+  @column()
+  declare notes: string | null
+
   @column()
   declare smokingPreference: 'smoking' | 'non_smoking' | 'no_preference'
 
@@ -127,8 +131,6 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare housekeepingNotes: string
 
-  @column()
-  declare notes: string | null
 
   @column()
   declare rateAmount: number | null
