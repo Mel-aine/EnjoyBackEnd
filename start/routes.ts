@@ -911,6 +911,7 @@ router
         router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
         router.post('/room-charge/add', foliosController.addRoomCharge.bind(foliosController)) // Add room charge to folio
         router.post('/adjustment/add', foliosController.addAdjustment.bind(foliosController)) // Add folio adjustment
+        router.post('/apply/discount', foliosController.applyDiscount.bind(foliosController)) // Apply discount to folio
         router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
 
         // Checkout and settlement

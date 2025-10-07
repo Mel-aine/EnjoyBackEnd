@@ -543,6 +543,7 @@ export class FolioPrintService {
               break
             case 'discount':
               totalDiscounts += Math.abs(amount) // Discounts are typically negative
+              totalCharges -= Math.abs(amount)
               break
             case 'refund':
               totalPayments -= amount // Refunds reduce payments
@@ -560,7 +561,7 @@ export class FolioPrintService {
       }
     })
 
-    const outstandingBalance = totalCharges + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts + totalAdjustments
+    const outstandingBalance = totalCharges + totalTaxes + totalServiceCharges - totalPayments + totalAdjustments
 
     return {
       totalCharges: parseFloat(totalCharges.toFixed(2)),

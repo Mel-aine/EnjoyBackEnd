@@ -6,8 +6,12 @@ import ReservationFolioService from '#services/reservation_folio_service'
 import CheckoutService from '#services/checkout_service'
 import FolioInquiryService from '#services/folio_inquiry_service'
 import LoggerService from '#services/logger_service'
+import Discount from '#models/discount'
+import FolioTransaction from '#models/folio_transaction'
+import db from '@adonisjs/lucid/services/db'
+import { applyFolioDiscountValidator } from '#validators/folio_apply_discount'
+import { TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
 import {
-  createFolioValidator,
   updateFolioValidator,
   postTransactionValidator,
   settleFolioValidator,
@@ -28,6 +32,8 @@ import {
 } from '#validators/folio'
 import { addFolioAdjustmentValidator } from '#validators/folio_adjustment'
 import { FolioStatus, ReservationStatus } from '../enums.js'
+import logger from '@adonisjs/core/services/logger'
+import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export default class FoliosController {
   /**
@@ -380,9 +386,9 @@ export default class FoliosController {
           query.orderBy('transactionDate', 'asc')
         })
         .preload('reservationRoom', (roomQuery) => {
-          roomQuery.select(['id','roomId'])
+          roomQuery.select(['id', 'roomId'])
           roomQuery.preload('room')
-        }).select('id', 'folioNumber','reservationRoomId')
+        }).select('id', 'folioNumber', 'reservationRoomId')
         .firstOrFail()
 
       // Format the response with only necessary fields
@@ -404,6 +410,169 @@ export default class FoliosController {
         message: 'Failed to retrieve folio statement',
         error: error.message
       })
+    }
+  }
+
+  /**
+   * Apply a discount to a folio by creating a discount transaction
+   */
+  async applyDiscount(ctx: HttpContext) {
+    logger.info('enterhere')
+    const { request, response, auth } = ctx;
+    const payload = await request.validateUsing(applyFolioDiscountValidator)
+
+    try {
+      const folio = await Folio.findOrFail(payload.folioId)
+
+      if (!folio.canBeModified) {
+        return response.badRequest({ message: 'Folio cannot be modified - finalized or closed' })
+      }
+
+      // Validate reservation/hotel context match when provided
+      if (payload.reservationId && folio.reservationId && folio.reservationId !== payload.reservationId) {
+        return response.badRequest({ message: 'Reservation mismatch for folio' })
+      }
+      if (payload.hotelId && folio.hotelId !== payload.hotelId) {
+        return response.badRequest({ message: 'Hotel mismatch for folio' })
+      }
+
+      const discount = await Discount.findOrFail(payload.discountId)
+      if (discount.status !== 'active' || discount.isDeleted) {
+        return response.badRequest({ message: 'Discount is not active or has been deleted' })
+      }
+
+      // Determine applicable base amount for discount based on applyOn
+      // room_charge -> sum of CHARGE transactions in ROOM category
+      // extra_charge -> sum of CHARGE transactions in EXTRACT_CHARGE category
+      const baseAmountResult = await db
+        .from('folio_transactions')
+        .where('folio_id', folio.id)
+        .where('is_voided', false)
+        .where('transaction_type', TransactionType.CHARGE)
+        .sum('amount as total')
+        .first()
+
+      const applicableBase = parseFloat(`${baseAmountResult?.total || 0}`)
+
+      // Calculate discount amount
+      let discountAmount = 0
+      if (discount.type === 'percentage') {
+        discountAmount = applicableBase * (discount.value / 100)
+      } else {
+        // flat
+        discountAmount = Math.min(discount.value, applicableBase)
+      }
+
+      // If there is no base to apply on, return gracefully
+      if (!discountAmount || discountAmount <= 0) {
+        return response.badRequest({ message: 'No applicable charges found to apply discount' })
+      }
+
+      // Generate a transaction number similar to service logic (sequential per hotel)
+      const lastTx = await FolioTransaction.query()
+        .where('hotelId', folio.hotelId)
+        .orderBy('transactionNumber', 'desc')
+        .first()
+      const transactionNumber = Number((lastTx?.transactionNumber || 0)) + 1
+      // Ensure transaction code respects 20-char DB limit
+      const transactionCode = generateTransactionCode('DSC')
+
+      // Build particular/description
+      const category = TransactionCategory.DISCOUNT
+      const particular = discount.name;
+      const description = payload.notes?.trim() || `${discount.name} (${discount.shortCode})`
+
+      // Create discount transaction: amount negative, discountAmount tracked
+      const transaction = await FolioTransaction.create({
+        hotelId: folio.hotelId,
+        folioId: folio.id,
+        reservationId: folio.reservationId ?? undefined,
+        transactionNumber,
+        transactionType: TransactionType.DISCOUNT,
+        category,
+        particular,
+        description,
+        amount: -Math.abs(discountAmount),
+        totalAmount: -Math.abs(discountAmount),
+        quantity: 1,
+        unitPrice: -Math.abs(discountAmount),
+        taxAmount: 0,
+        serviceChargeAmount: 0,
+        discountAmount: Math.abs(discountAmount),
+        discountId: discount.id,
+        netAmount: -Math.abs(discountAmount),
+        grossAmount: -Math.abs(discountAmount),
+        transactionCode: transactionCode,
+        transactionTime: DateTime.now().toISOTime(),
+        postingDate: DateTime.now(),
+        transactionDate: payload.transactionDate ? DateTime.fromJSDate(new Date(payload.transactionDate)) : DateTime.now(),
+        status: TransactionStatus.POSTED,
+        createdBy: auth.user?.id || 0,
+        lastModifiedBy: auth.user?.id || 0
+      })
+
+      // Update folio totals using the same logic as service controller
+      // Sum of discountAmount is what reduces folio balance
+      const transactions = await FolioTransaction.query()
+        .where('folioId', folio.id)
+        .where('isVoided', false)
+
+      let totalCharges = 0
+      let totalPayments = 0
+      let totalAdjustments = 0
+      let totalTaxes = 0
+      let totalServiceCharges = 0
+      let totalDiscounts = 0
+
+      for (const tx of transactions) {
+        switch (tx.transactionType) {
+          case TransactionType.CHARGE:
+            totalCharges += parseFloat(`${tx.amount ?? 0}`)
+            break
+          case TransactionType.PAYMENT:
+            totalPayments += Math.abs(parseFloat(`${tx.amount ?? 0}`))
+            break
+          case TransactionType.ADJUSTMENT:
+            totalAdjustments += parseFloat(`${tx.amount ?? 0}`)
+            break
+        }
+        totalTaxes += parseFloat(`${tx.taxAmount ?? 0}`) || 0
+        totalServiceCharges += parseFloat(`${tx.serviceChargeAmount ?? 0}`) || 0
+        totalDiscounts += parseFloat(`${tx.discountAmount ?? 0}`) || 0
+      }
+
+      folio.totalCharges = totalCharges
+      folio.totalPayments = totalPayments
+      folio.totalAdjustments = totalAdjustments
+      folio.totalTaxes = totalTaxes
+      folio.totalServiceCharges = totalServiceCharges
+      folio.totalDiscounts = totalDiscounts
+      folio.balance = totalCharges + totalAdjustments + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts
+      folio.lastModifiedBy = auth.user?.id || 0
+      await folio.save()
+
+      // Enrich response for client-side folio operation reloads
+      await transaction.load('hotel')
+      await transaction.load('folio')
+
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'CREATE',
+        entityType: 'FolioTransaction',
+        entityId: transaction.id,
+        hotelId: folio.hotelId,
+        description: `Applied discount "${discount.name}" to folio ${folio.folioNumber}`,
+        changes: LoggerService.extractChanges({}, transaction.toJSON()),
+        ctx: ctx
+      })
+
+      return response.created({
+        message: 'Discount applied successfully',
+        data: transaction
+      })
+    } catch (error) {
+      logger.info(error)
+      return response.badRequest({ message: error.message })
     }
   }
 

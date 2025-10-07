@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import { TransactionCategory, TransactionStatus, TransactionType } from '../enums.js'
+import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export default class PosController {
   /**
@@ -194,7 +195,7 @@ export default class PosController {
         })
       }
       const transactionNumber = parseInt(Date.now().toString().slice(-9));
-      const transactionCode = `ROOMPOSTING`;
+      const transactionCode =generateTransactionCode('RMP');
       // Create the transaction
       const transaction = await FolioTransaction.create({
         folioId: parseInt(folioId),

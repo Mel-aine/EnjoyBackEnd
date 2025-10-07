@@ -6,6 +6,7 @@ import ReceiptService from '#services/receipt_service'
 import LoggerService from '#services/logger_service'
 import { TransactionCategory, TransactionStatus, TransactionType } from '#app/enums'
 import { createFolioTransactionValidator, updateFolioTransactionValidator } from '#validators/folio_transaction'
+import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export default class FolioTransactionsController {
   /**
@@ -95,7 +96,8 @@ export default class FolioTransactionsController {
   /**
    * Create a new folio transaction
    */
-  async store({ request, response, auth }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx
     try {
       const payload = await request.validateUsing(createFolioTransactionValidator)
 
@@ -110,7 +112,7 @@ export default class FolioTransactionsController {
       const transactionNumber = (lastTransaction?.transactionNumber || 0) + 1
 
       // Generate transaction code if not provided
-      const transactionCode = payload.transactionCode || `TC-${folio.hotelId}-${String((lastTransaction?.id || 0) + 1).padStart(6, '0')}`
+      const transactionCode = generateTransactionCode()
 
       // Map category to particular description
       const category = payload.category as TransactionCategory || TransactionCategory.MISCELLANEOUS
@@ -265,7 +267,7 @@ export default class FolioTransactionsController {
               amount: transaction.amount
             },
             hotelId: transaction.hotelId,
-            ctx: { request, response }
+            ctx:ctx
           })
         } catch (receiptError) {
           // Log error but don't fail the transaction creation
@@ -281,7 +283,7 @@ export default class FolioTransactionsController {
               folioId: folio.id
             },
             hotelId: transaction.hotelId,
-            ctx: { request, response }
+            ctx: ctx
           })
         }
       }

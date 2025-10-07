@@ -651,6 +651,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               break
             case 'discount':
               totalDiscounts += Math.abs(amount) // Discounts are typically negative
+              totalCharges -= Math.abs(amount)
               break
             case 'refund':
               totalPayments -= amount // Refunds reduce payments
@@ -672,8 +673,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalCharges +
       totalTaxes +
       totalServiceCharges -
-      totalPayments -
-      totalDiscounts +
+      totalPayments+
       totalAdjustments
 
     return {
@@ -946,7 +946,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const totalDiff = roomChargesDiff + taxesDiff
         const transactionType = totalDiff >= 0 ? TransactionType.CHARGE : TransactionType.ADJUSTMENT
         const transactionCode = transactionType === TransactionType.CHARGE ? 'CHG' : 'ADJ'
-        const transactionNumber = parseInt(Date.now().toString().slice(-9))
+        const transactionNumber = Date.now().toString().slice(-9)
 
         await FolioTransaction.create(
           {
@@ -5688,7 +5688,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
-        .preload('folios', (f) => f.preload('transactions',(t) => t.where('category', TransactionCategory.ROOM).andWhere('transactionType', TransactionType.CHARGE)))
+        .preload('folios', (f) => f.preload('transactions', (t) => t.where('category', TransactionCategory.ROOM).andWhere('transactionType', TransactionType.CHARGE)))
         .first()
 
       if (!reservation) {
@@ -5706,7 +5706,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         await trx.rollback()
         return response.badRequest({ message: 'Discount is not active' })
       }
-    
+
 
       const roomTransactions = reservation.folios
         .flatMap((f) => f.transactions)
