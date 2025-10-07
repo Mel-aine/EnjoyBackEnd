@@ -7,12 +7,17 @@ export default class BedTypesController {
   /**
    * Display a list of bed types
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'hotelId is required in route params',
+        })
+      }
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search', '')
-      const hotelId = request.input('hotel_id')
 
       const query = BedType.query()
         .where('is_deleted', false)
@@ -28,9 +33,7 @@ export default class BedTypesController {
         })
       }
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', hotelId)
 
       query.orderBy('created_at', 'desc')
 

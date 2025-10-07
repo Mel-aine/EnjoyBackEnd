@@ -12,12 +12,17 @@ export default class RoomsController {
   /**
    * Display a list of rooms
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'hotelId is required in route params',
+        })
+      }
       const page = request.input('page', 1)
       const limit = request.input('limit', 100)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
       const roomTypeId = request.input('room_type_id')
       const floor = request.input('floor')
       const status = request.input('status')
@@ -29,9 +34,7 @@ export default class RoomsController {
 
       const query = Room.query()
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', hotelId)
 
       if (roomTypeId) {
         query.where('room_type_id', roomTypeId)

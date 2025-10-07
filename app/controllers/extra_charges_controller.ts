@@ -7,12 +7,16 @@ export default class ExtraChargesController {
   /**
    * Display a list of extra charges
    */
-  public async index({ request, response }: HttpContext) {
+  public async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotelId')
+      const hotelId = params.hotelId
       const search = request.input('search')
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
 
       const query = ExtraCharge.query()
         .where('is_deleted', false)
@@ -21,9 +25,7 @@ export default class ExtraChargesController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (search) {
         query.where((builder) => {

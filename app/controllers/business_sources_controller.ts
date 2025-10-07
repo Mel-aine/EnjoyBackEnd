@@ -7,12 +7,16 @@ export default class BusinessSourcesController {
   /**
    * Display a list of business sources
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const shortCode = request.input('short_code')
+
+      if (!hotelId) {
+        return response.badRequest({ message: 'hotelId is required' })
+      }
 
       const query = BusinessSource.query()
         .where('is_deleted', false)
@@ -20,9 +24,7 @@ export default class BusinessSourcesController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (shortCode) {
         query.where('short_code', 'like', `%${shortCode}%`)

@@ -56,19 +56,24 @@ export default class TaxRatesController {
   /**
    * Display a list of tax rates
    */
-  public async index({ request, response }: HttpContext) {
+  public async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const isActive = request.input('is_active')
       const search = request.input('search')
 
       const query = TaxRate.query().preload('hotel').preload('taxApplyAfter')
 
-      if (hotelId) {
-        query.where('hotelId', hotelId)
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required in route params',
+        })
       }
+
+      query.where('hotelId', hotelId)
 
       if (isActive !== undefined) {
         query.where('isActive', isActive)

@@ -13,16 +13,20 @@ export default class BookingSourcesController {
   /**
    * Display a list of booking sources
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const sourceType = request.input('source_type')
       const sourceName = request.input('source_name')
 
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
+
       const filters = {
-        hotelId,
+        hotelId: Number(hotelId),
         sourceType,
         sourceName,
       }

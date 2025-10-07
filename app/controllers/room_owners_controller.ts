@@ -9,16 +9,26 @@ export default class RoomOwnersController {
   /**
    * Display a list of room owners
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search', '')
       const includeDeleted = request.input('includeDeleted', false)
+      const hotelId = params.hotelId
+
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'hotelId is required in route params',
+        })
+      }
 
       let query = includeDeleted ? RoomOwner.withDeleted() : RoomOwner.withoutDeleted()
 
       query = query.preload('createdBy').preload('updatedBy').preload('rooms')
+
+      // Restrict to the specific hotel
+      query.where('hotel_id', hotelId)
 
       if (search) {
         query = query.where((builder) => {

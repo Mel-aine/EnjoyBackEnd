@@ -7,12 +7,16 @@ export default class BlackListReasonsController {
   /**
    * Display a list of black list reasons
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const category = request.input('category')
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
 
       const query = BlackListReason.query()
         .where('is_deleted', false)
@@ -20,9 +24,7 @@ export default class BlackListReasonsController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (category) {
         query.where('category', category)

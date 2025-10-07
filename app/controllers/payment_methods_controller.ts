@@ -6,22 +6,24 @@ export default class PaymentMethodsController {
   /**
    * Display a list of payment methods
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const methodType = request.input('method_type')
       const isActive = request.input('is_active')
       const isDefault = request.input('is_default')
       const requiresProcessing = request.input('requires_processing')
 
+      if (!hotelId) {
+        return response.badRequest({ message: 'hotelId is required' })
+      }
+
       const query = PaymentMethod.query()
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (search) {
         query.where((builder) => {

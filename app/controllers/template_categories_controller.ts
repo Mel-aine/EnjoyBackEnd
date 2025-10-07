@@ -7,11 +7,15 @@ export default class TemplateCategoriesController {
   /**
    * Display a list of template categories
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
 
       const query = TemplateCategory.query()
         .where('is_deleted', false)
@@ -19,9 +23,7 @@ export default class TemplateCategoriesController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       const templateCategories = await query.paginate(page, limit)
 

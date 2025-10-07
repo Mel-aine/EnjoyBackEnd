@@ -7,12 +7,12 @@ export default class InventoryController {
   /**
    * Display a list of inventory items
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const category = request.input('category')
       const subcategory = request.input('subcategory')
       const status = request.input('status')
@@ -22,11 +22,13 @@ export default class InventoryController {
       const needsReorder = request.input('needs_reorder')
       const storageLocation = request.input('storage_location')
 
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
+
       const query = Inventory.query()
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (search) {
         query.where((builder) => {

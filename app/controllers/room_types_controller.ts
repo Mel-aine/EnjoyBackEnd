@@ -7,18 +7,21 @@ export default class RoomTypesController {
   /**
    * Display a list of room types
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'hotelId is required in route params'
+        })
+      }
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
 
       const query = RoomType.query()
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', hotelId)
 
       if (search) {
         query.where((builder) => {
