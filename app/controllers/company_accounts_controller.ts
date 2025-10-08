@@ -14,9 +14,13 @@ export default class CompanyAccountsController {
   /**
    * List all company accounts with optional filtering
    */
-  async index({ request, response }: HttpContext) {
+  async index({ request, response, params }: HttpContext) {
     try {
       const filters = request.input('filters', {})
+      // Always scope by hotel from route params
+      if (params?.hotelId) {
+        filters.hotel_id = Number(params.hotelId)
+      }
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 20)
       const sortBy = request.input('sortBy', 'id')
@@ -41,7 +45,7 @@ export default class CompanyAccountsController {
    * Create a new company account
    */
   async store(ctx: HttpContext) {
-    const { request, response, auth } = ctx
+    const { request, response, auth, params } = ctx
     try {
       const payload = await request.validateUsing(createCompanyAccountValidator)
       const data = payload
@@ -71,7 +75,8 @@ export default class CompanyAccountsController {
         creditLimit: data.credit_limit,
         currentBalance: data.current_balance,
         preferredCurrency: data.preferred_currency,
-        hotelId: data.hotel_id,
+        // Always take hotelId from route params
+        hotelId: Number(params?.hotelId),
 
       })
 
@@ -172,7 +177,8 @@ export default class CompanyAccountsController {
         creditLimit: data.credit_limit,
         currentBalance: data.current_balance,
         preferredCurrency: data.preferred_currency,
-        hotelId: data.hotel_id,
+        // Always take hotelId from route params
+        hotelId: Number(params?.hotelId),
       }
 
       const companyAccount = await this.service.update(params.id, payload)
@@ -279,7 +285,8 @@ export default class CompanyAccountsController {
    */
   async getActive({ request, response }: HttpContext) {
     try {
-      const hotelId = request.input('hotelId')
+      // Prefer hotelId from params; fallback to request body if not present
+      const hotelId = (request.params()?.hotelId ? Number(request.params().hotelId) : request.input('hotelId'))
       const companyAccounts = await this.service.getActiveAccounts(hotelId)
 
       return response.ok({

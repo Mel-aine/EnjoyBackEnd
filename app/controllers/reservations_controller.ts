@@ -2406,10 +2406,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (data.status === 'confirmed' && oldStatus.status !== 'confirmed') {
         try {
           // Create folios for all guests with room charges
-          const folios = await ReservationFolioService.createFoliosOnConfirmation(
+         /* const folios = await ReservationFolioService.createFoliosOnConfirmation(
             reservationId,
             auth.user!.id
-          )
+          )* */
 
           // Log the folio creation
           await LoggerService.log({
@@ -2436,12 +2436,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
           return response.ok({
             message: 'Reservation confirmed successfully',
             reservation: updateResponse,
-            folios: folios.map((folio) => ({
+           /* folios: folios.map((folio) => ({
               id: folio.id,
               folioNumber: folio.folioNumber,
               guestId: folio.guestId,
               folioType: folio.folioType,
-            })),
+            })),* */
           })
         } catch (folioError) {
           console.error('Error creating folios on confirmation:', folioError)

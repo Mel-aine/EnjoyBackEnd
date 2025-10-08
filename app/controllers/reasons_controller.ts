@@ -150,8 +150,13 @@ export default class ReasonsController {
    */
   async getByCategory({ params, response }: HttpContext) {
     try {
+        const hotelId = params.hotelId
+        const category = decodeURIComponent(params.category);
+        console.log('hotelId:', hotelId, 'category:', category)
+
       const reasons = await Reason.query()
-        .where('category', params.category)
+        .where('category', category)
+        .where('hotel_id', hotelId)
         .where('is_deleted', false)
         .preload('hotel')
         .orderBy('reason_name', 'asc')
