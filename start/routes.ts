@@ -759,7 +759,7 @@ router
     router
       .group(() => {
         // Basic CRUD operations for room types
-        router.get('/', roomTypesController.index.bind(roomTypesController)) // Get all room types with filtering by hotel
+        router.get('/', roomTypesController.showByHotel.bind(roomTypesController)) // Get all room types with filtering by hotel
         router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
         router.get('/:id', roomTypesController.showByHotel.bind(roomTypesController)) // Get specific room type details
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
@@ -841,7 +841,7 @@ router
         router.put('/:id', roomsController.update.bind(roomsController)) // Update room information
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
         router.get('/views/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
-        router.get('/house/view/', roomsController.getHouseStatus.bind(roomsController))
+        router.get('/house/view', roomsController.getHouseStatus.bind(roomsController))
         router.get('/recent/Booking', roomsController.getRecentBookings.bind(roomsController))
 
 
@@ -866,7 +866,7 @@ router
         router.get('/', roomRatesController.index.bind(roomRatesController)) // Get all room rates with filtering
         router.post('/', roomRatesController.store.bind(roomRatesController)) // Create a new room rate
         router.get('/base-rate', roomRatesController.getBaseRateByRoomAndRateType.bind(roomRatesController)) // Get base rate
-        router.get('/:id', roomRatesController.show.bind(roomRatesController)) // Get specific room rate details
+        router.get('/:id', roomRatesController.show.bind(roomRatesController)).where('id', /^[0-9]+$/) // Get specific room rate details (numeric ID only to avoid conflicts)
         router.put('/:id', roomRatesController.update.bind(roomRatesController)) // Update room rate information
         router.delete('/:id', roomRatesController.destroy.bind(roomRatesController)) // Delete room rate
 

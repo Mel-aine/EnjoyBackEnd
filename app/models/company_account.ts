@@ -127,16 +127,16 @@ export default class CompanyAccount extends BaseModel {
   declare updated_at: DateTime
 
   // Relations
-  @belongsTo(() => Hotel, { foreignKey: 'hotel_id' })
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @hasMany(() => Reservation, { foreignKey: 'company_account_id' })
   declare reservations: HasMany<typeof Reservation>
 
-  @belongsTo(() => User, { foreignKey: 'created_by' })
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'last_modified_by' })
+  @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
   declare modifier: BelongsTo<typeof User>
 
   // Computed properties

@@ -38,6 +38,10 @@ export default class RoomTypesController {
         .preload('hotel')
         .preload('createdByUser')
         .preload('updatedByUser')
+        .preload('rooms',(query)=>{
+          query.preload('taxRates')
+        })
+        .preload('roomRates')
         .orderBy('sort_order', 'asc')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
@@ -344,7 +348,7 @@ export default class RoomTypesController {
    */
   async showByHotel({ params, request, response }: HttpContext) {
     try {
-      const hotelId = Number(params.id)
+      const hotelId = Number(params.hotelId)
       console.log('Fetching room types for hotelId:', hotelId)
 
       if (isNaN(hotelId)) {
