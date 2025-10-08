@@ -2387,8 +2387,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async update(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     try {
-      const reservationId = params.id
+      const reservationId =  params.id
       const data = request.all()
+      console.log
       const oldStatus = await Reservation.query()
         .where('id', reservationId)
         .select('status')
@@ -2399,6 +2400,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Call the parent update method
+
       const updateResponse = await super.update(ctx)
       const reservation = await Reservation.findOrFail(reservationId)
 
@@ -2454,7 +2456,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
-      return updateResponse
+      return response.ok({
+          status: 200,
+          message: 'Reservation confirmed successfully',
+          reservation: reservation,
+        })
     } catch (error) {
       console.error('Error updating reservation:', error)
       return response.internalServerError({
