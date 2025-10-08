@@ -5,6 +5,7 @@ import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
 import Room from '#models/room'
 import FolioTransaction from '#models/folio_transaction'
+import User from '#models/user'
 
 export default class TaxRate extends BaseModel {
   @column({ isPrimary: true, columnName: 'tax_rate_id' })
@@ -79,6 +80,12 @@ export default class TaxRate extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
+  @column({ columnName: 'created_by_user_id' })
+  declare createdByUserId: number | null
+
+  @column({ columnName: 'updated_by_user_id' })
+  declare updatedByUserId: number | null
+
   @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
@@ -100,4 +107,10 @@ export default class TaxRate extends BaseModel {
     pivotColumns: ['tax_amount', 'tax_rate_percentage', 'taxable_amount']
   })
   declare folioTransactions: ManyToMany<typeof FolioTransaction>
+
+  @belongsTo(() => User, { foreignKey: 'createdByUserId' })
+  declare createdByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'updatedByUserId' })
+  declare updatedByUser: BelongsTo<typeof User>
 }

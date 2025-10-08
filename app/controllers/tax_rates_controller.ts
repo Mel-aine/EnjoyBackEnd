@@ -64,7 +64,10 @@ export default class TaxRatesController {
       const isActive = request.input('is_active')
       const search = request.input('search')
 
-      const query = TaxRate.query().preload('hotel').preload('taxApplyAfter')
+      const query = TaxRate.query()
+        .preload('taxApplyAfter')
+        .preload('createdByUser')
+        .preload('updatedByUser')
 
       if (!hotelId) {
         return response.badRequest({
@@ -106,9 +109,10 @@ export default class TaxRatesController {
   /**
    * Handle form submission for the create action
    */
-  public async store({ request, response }: HttpContext) {
+  public async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createTaxRateValidator)
+      const user = auth.user!
 
       const taxRate = await TaxRate.create({
         hotelId: payload.hotelId,
@@ -129,6 +133,8 @@ export default class TaxRatesController {
         appliesToOtherServices: payload.appliesToOtherServices ?? false,
         effectiveDate: payload.effectiveDate ? DateTime.fromJSDate(payload.effectiveDate) : DateTime.now(),
         endDate: payload.endDate ? DateTime.fromJSDate(payload.endDate) : null,
+        createdByUserId: user.id,
+        updatedByUserId: user.id,
       })
 
       // Attach tax dependencies if provided
@@ -138,6 +144,8 @@ export default class TaxRatesController {
 
       await taxRate.load('hotel')
       await taxRate.load('taxApplyAfter')
+      await taxRate.load('createdByUser')
+      await taxRate.load('updatedByUser')
 
       return response.created({
         success: true,
@@ -184,9 +192,10 @@ export default class TaxRatesController {
   /**
    * Handle form submission for the edit action
    */
-  public async update({ params, request, response }: HttpContext) {
+  public async update({ params, request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(updateTaxRateValidator)
+      const user = auth.user!
 
       const taxRate = await TaxRate.query()
         .where('taxRateId', params.id)
@@ -212,6 +221,7 @@ export default class TaxRatesController {
       if (payload.appliesToOtherServices !== undefined) updateData.appliesToOtherServices = payload.appliesToOtherServices
       if (payload.effectiveDate !== undefined) updateData.effectiveDate = payload.effectiveDate ? DateTime.fromJSDate(payload.effectiveDate) : null
       if (payload.endDate !== undefined) updateData.endDate = payload.endDate ? DateTime.fromJSDate(payload.endDate) : null
+      updateData.updatedByUserId = user.id
 
       taxRate.merge(updateData)
       await taxRate.save()
@@ -223,6 +233,7 @@ export default class TaxRatesController {
       
       await taxRate.load('hotel')
       await taxRate.load('taxApplyAfter')
+      await taxRate.load('updatedByUser')
 
       return response.ok({
         success: true,
