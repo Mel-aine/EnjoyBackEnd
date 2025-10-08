@@ -2436,15 +2436,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
           // Return success response with folio information
           return response.ok({
-            message: 'Reservation confirmed successfully',
-            reservation: updateResponse,
-           /* folios: folios.map((folio) => ({
-              id: folio.id,
-              folioNumber: folio.folioNumber,
-              guestId: folio.guestId,
-              folioType: folio.folioType,
-            })),* */
-          })
+          status: 200,
+          message: 'Reservation confirmed successfully',
+          reservation: reservation,
+        })
         } catch (folioError) {
           console.error('Error creating folios on confirmation:', folioError)
           // Return the update response even if folio creation fails

@@ -48,6 +48,7 @@ export default class GuestsController {
       const hotelId = request.input('hotel_id')
 
       const query = Guest.query()
+      .preload('vipStatuses')
 
         if (hotelId) {
           query.where('hotelId', hotelId);
@@ -73,7 +74,7 @@ export default class GuestsController {
       }
 
       if (vipStatus !== undefined) {
-        query.where('vip_status', vipStatus)
+        query.where('vipStatusId', vipStatus)
       }
 
       if (nationality) {
@@ -219,6 +220,7 @@ export default class GuestsController {
         .where('hotel_id', params.id)
         .preload('reservations')
         .preload('folios')
+        .preload('vipStatuses')
 
       return response.ok({
         message: 'Guest retrieved successfully',
@@ -364,6 +366,7 @@ export default class GuestsController {
     try {
       const guest = await Guest.query()
         .where('id', params.id)
+        .preload('vipStatuses')
         .preload('reservations', (reservationQuery) => {
 
           reservationQuery.preload('reservationRooms', (roomQuery) => {

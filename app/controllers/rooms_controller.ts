@@ -424,6 +424,7 @@ export default class RoomsController {
         .where('room_type_id', roomTypeId)
         //.where('status', 'available')
         .preload('roomType')
+        .preload('taxRates')
       console.log(
         'All rooms of this type:',
         rooms.map((r) => r.id)
@@ -494,6 +495,13 @@ export default class RoomsController {
             floorNumber: room.floorNumber,
             status: room.status,
             housekeepingStatus: room.housekeepingStatus,
+            taxRates: room.taxRates?.map((tax) => ({
+            id: tax.taxRateId,
+            name: tax.taxName,
+            postingType: tax.postingType,
+            amount: tax.amount,
+            percentage: tax.percentage,
+          })) || [],
           })),
         },
       })

@@ -6,6 +6,7 @@ import ReservationGuest from './reservation_guest.js'
 import Folio from './folio.js'
 import User from './user.js'
 import Hotel from './hotel.js'
+import VipStatus from './vip_status.js'
 
 
 export default class Guest extends BaseModel {
@@ -29,6 +30,9 @@ export default class Guest extends BaseModel {
 
   @column()
   declare hotelId: number
+
+  @column()
+  declare vipStatusId: number | null
 
   @column()
   declare suffix: string
@@ -244,6 +248,9 @@ export default class Guest extends BaseModel {
 
   @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
+
+  @belongsTo(() => VipStatus, { foreignKey: 'vipStatusId' })
+  declare vipStatuses: BelongsTo<typeof VipStatus>
 
   // Computed properties
   @computed()
