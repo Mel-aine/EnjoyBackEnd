@@ -86,204 +86,204 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+
+
   public async checkIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
     const { reservationRooms, actualCheckInTime, notes } = request.body()
 
-    const trx = await db.transaction()
-    console.log('Transaction started')
+  // On démarre une transaction
+  const trx = await db.transaction()
+  console.log('Transaction started')
 
-    // Ensure authenticated user is present before proceeding
-    if (!auth.user) {
+  if (!auth.user) {
+    await trx.rollback()
+    return response.unauthorized({ message: 'Authentication required' })
+  }
+
+  try {
+    const reservationId = Number(params.reservationId)
+
+    if (isNaN(reservationId)) {
+      console.log('Invalid reservation ID')
       await trx.rollback()
-      return response.unauthorized({
-        message: 'Authentication required',
+      return response.badRequest({ message: 'Reservation ID is required' })
+    }
+
+    if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+      console.log('No reservation rooms provided')
+      await trx.rollback()
+      return response.badRequest({ message: 'At least one reservation room ID is required' })
+    }
+
+    //  Récupération de la réservation
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', reservationId)
+      .preload('reservationRooms', (query) => query.preload('room'))
+      .first()
+
+    if (!reservation) {
+      console.log('Reservation not found')
+      await trx.rollback()
+      return response.notFound({ message: 'Reservation not found' })
+    }
+
+    // Vérification du statut
+    if (!['confirmed', 'pending'].includes(reservation.status)) {
+      console.log(`Cannot check in reservation with status: ${reservation.status}`)
+      await trx.rollback()
+      return response.badRequest({
+        message: `Cannot check in reservation with status: ${reservation.status}`,
       })
     }
 
-    try {
-      const reservationId = Number(params.reservationId)
-      // Validate required parameters
-      if (isNaN(reservationId)) {
-        console.log('Invalid reservation ID')
-        return response.badRequest({ message: 'Reservation ID is required' })
-      }
+    //  Récupération des chambres à check-in
+    const reservationRoomsToCheckIn = await ReservationRoom.query({ client: trx })
+      .whereIn('id', reservationRooms)
+      .where('reservation_id', reservation.id)
+      .preload('room')
 
-      if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
-        console.log('No reservation rooms provided')
-        return response.badRequest({ message: 'At least one reservation room ID is required' })
-      }
+    if (reservationRoomsToCheckIn.length === 0) {
+      console.log('No valid reservation rooms found')
+      await trx.rollback()
+      return response.notFound({ message: 'No valid reservation rooms found for check-in' })
+    }
 
-      // Find reservation with related data
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => query.preload('room'))
-        .first()
+    // Vérifie si certaines chambres sont déjà check-in
+    const alreadyCheckedIn = reservationRoomsToCheckIn.filter((rr) => rr.status === 'checked_in')
+    if (alreadyCheckedIn.length > 0) {
+      console.log('Some rooms already checked in:', alreadyCheckedIn)
+      await trx.rollback()
+      return response.badRequest({
+        message: `Some rooms are already checked in: ${alreadyCheckedIn
+          .map((r) => r.room?.roomNumber || r.roomId)
+          .join(', ')}`,
+      })
+    }
 
-      if (!reservation) {
-        console.log('Reservation not found, rolling back')
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
+    const now = actualCheckInTime ? DateTime.fromISO(actualCheckInTime) : DateTime.now()
+    const checkedInRooms = []
 
-      // Check if reservation can be checked in
-      if (!['confirmed', 'pending'].includes(reservation.status)) {
-        console.log(`Cannot check in reservation with status: ${reservation.status}`)
-        await trx.rollback()
-        return response.badRequest({
-          message: `Cannot check in reservation with status: ${reservation.status}`,
-        })
-      }
-
-      // Get the specific reservation rooms to check in
-      const reservationRoomsToCheckIn = await ReservationRoom.query({ client: trx })
-        .whereIn('id', reservationRooms)
-        .where('reservation_id', reservation.id)
-        .preload('room')
-
-
-      if (reservationRoomsToCheckIn.length === 0) {
-        console.log('No valid reservation rooms found for check-in, rolling back')
-        await trx.rollback()
-        return response.notFound({ message: 'No valid reservation rooms found for check-in' })
-      }
-
-      // Check if any rooms are already checked in
-      const alreadyCheckedIn = reservationRoomsToCheckIn.filter((rr) => rr.status === 'checked_in')
-      if (alreadyCheckedIn.length > 0) {
-        console.log('Some rooms are already checked in:', alreadyCheckedIn)
-        await trx.rollback()
-        return response.badRequest({
-          message: `Some rooms are already checked in: ${alreadyCheckedIn.map((r) => r.room?.roomNumber || r.roomId).join(', ')}`,
-        })
-      }
-
-      const now = actualCheckInTime ? DateTime.fromISO(actualCheckInTime) : DateTime.now()
-      const checkedInRooms = []
-
-      // Update each reservation room
-      for (const reservationRoom of reservationRoomsToCheckIn) {
-        reservationRoom.status = 'checked_in'
-        reservationRoom.checkInDate = now
-        reservationRoom.actualCheckIn = now
-        reservationRoom.checkedInBy = auth.user!.id
-        reservationRoom.guestNotes = notes || reservationRoom.guestNotes
+    //  Mise à jour de chaque chambre
+    for (const reservationRoom of reservationRoomsToCheckIn) {
+      reservationRoom.status = 'checked_in'
+      reservationRoom.checkInDate = now
+      reservationRoom.actualCheckIn = now
+      reservationRoom.checkedInBy = auth.user!.id
+      reservationRoom.guestNotes = notes || reservationRoom.guestNotes
 
         console.log('Updating reservation room:', reservationRoom.id)
         console.log('Reservation room data:', trx)
 
         await reservationRoom.useTransaction(trx).save()
 
-        // Update room status to occupied
-        if (reservationRoom.room) {
-          reservationRoom.room.status = 'occupied'
-          await reservationRoom.room.useTransaction(trx).save()
-          console.log('Room status updated to occupied:', reservationRoom.room.roomNumber)
-        }
-
-        checkedInRooms.push({
-          id: reservationRoom.id,
-          roomId: reservationRoom.roomId,
-          roomNumber: reservationRoom.room?.roomNumber,
-          status: reservationRoom.status,
-          checkInDate: reservationRoom.checkInDate,
-          keyCardsIssued: reservationRoom.keyCardsIssued,
-        })
+      //  Met à jour la chambre correspondante
+      if (reservationRoom.room) {
+        reservationRoom.room.status = 'occupied'
+        await reservationRoom.room.useTransaction(trx).save()
+        console.log('Room status updated to occupied:', reservationRoom.room.roomNumber)
       }
 
-      // Vérifier si toutes les chambres de la réservation sont maintenant checked-in
-      const allReservationRooms = await ReservationRoom.query({ client: trx }).where(
-        'reservation_id',
-        reservation.id
-      )
+      checkedInRooms.push({
+        id: reservationRoom.id,
+        roomId: reservationRoom.roomId,
+        roomNumber: reservationRoom.room?.roomNumber,
+        status: reservationRoom.status,
+        checkInDate: reservationRoom.checkInDate,
+        keyCardsIssued: reservationRoom.keyCardsIssued,
+      })
+    }
 
-      console.log(
-        'All reservation rooms:',
-        allReservationRooms.map((r) => ({ id: r.id, status: r.status }))
-      )
+    // Vérifie si toutes les chambres de la réservation sont check-in
+    const allReservationRooms = await ReservationRoom.query({ client: trx }).where(
+      'reservation_id',
+      reservation.id
+    )
 
-      const allRoomsCheckedIn = allReservationRooms.every(
-        (room) => room.status === 'checked_in' || reservationRooms.includes(room.id)
-      )
+    const allRoomsCheckedIn = allReservationRooms.every(
+      (room) => room.status === 'checked_in' || reservationRooms.includes(room.id)
+    )
 
-      console.log('All rooms checked in?', allRoomsCheckedIn)
-
-      // Ne mettre à jour le statut de la réservation que si toutes les chambres sont check-in
-      if (allRoomsCheckedIn) {
-        reservation.status = ReservationStatus.CHECKED_IN
-        reservation.checkInDate = now
-        reservation.checkedInBy = auth.user!.id
-        console.log('Updating reservation status to CHECKED_IN - all rooms are checked in')
-      } else {
-        // Statut intermédiaire pour check-in partiel
-        reservation.status = 'confirmed'
-        // Ne pas mettre à jour checkInDate et checkedInBy pour un check-in partiel
-        console.log('Updating reservation status to PARTIALLY_CHECKED_IN - partial check-in')
-      }
+    // Met à jour la réservation
+    if (allRoomsCheckedIn) {
+      reservation.status = ReservationStatus.CHECKED_IN
+      reservation.checkInDate = now
+      reservation.checkedInBy = auth.user!.id
+      console.log('Updating reservation status to CHECKED_IN')
+    } else {
+      reservation.status = 'confirmed'
+      console.log('Partial check-in: updating reservation to confirmed')
+    }
 
       reservation.lastModifiedBy = auth.user!.id
       await reservation.useTransaction(trx).save()
 
       await trx.commit()
 
-      // Create audit log
-      const logDescription = allRoomsCheckedIn
-        ? `Reservation #${reservation.reservationNumber} fully checked in. Rooms: ${checkedInRooms.map((r) => r.roomNumber).join(', ')}`
-        : `Reservation #${reservation.reservationNumber} partially checked in. Rooms: ${checkedInRooms.map((r) => r.roomNumber).join(', ')}`
+    // Logs d’audit
+    const logDescription = allRoomsCheckedIn
+      ? `Reservation #${reservation.reservationNumber} fully checked in. Rooms: ${checkedInRooms
+          .map((r) => r.roomNumber)
+          .join(', ')}`
+      : `Reservation #${reservation.reservationNumber} partially checked in. Rooms: ${checkedInRooms
+          .map((r) => r.roomNumber)
+          .join(', ')}`
 
+    await LoggerService.log({
+      actorId: auth.user!.id,
+      action: 'CHECK_IN',
+      entityType: 'Reservation',
+      entityId: reservation.id,
+      hotelId: reservation.hotelId,
+      description: logDescription,
+      ctx,
+    })
+
+    if (reservation.guestId) {
       await LoggerService.log({
         actorId: auth.user!.id,
         action: 'CHECK_IN',
-        entityType: 'Reservation',
-        entityId: reservation.id,
+        entityType: 'Guest',
         hotelId: reservation.hotelId,
-        description: logDescription,
-        ctx: ctx,
-      })
-
-      if (reservation.guestId) {
-        await LoggerService.log({
-          actorId: auth.user!.id,
-          action: 'CHECK_IN',
-          entityType: 'Guest',
-          hotelId: reservation.hotelId,
-          entityId: reservation.guestId,
-          description: `Checked in from hotel for reservation #${reservation.reservationNumber}.`,
-          meta: {
-            reservationId: reservation.id,
-            reservationNumber: reservation.reservationNumber,
-            rooms: reservationRooms,
-            isPartialCheckIn: !allRoomsCheckedIn,
-          },
-          ctx: ctx,
-        })
-      }
-
-      // Transaction already committed earlier to ensure folio visibility for posting
-      console.log('Transaction committed successfully')
-
-      return response.ok({
-        message: allRoomsCheckedIn ? 'Check-in successful' : 'Partial check-in successful',
-        data: {
+        entityId: reservation.guestId,
+        description: `Checked in from hotel for reservation #${reservation.reservationNumber}.`,
+        meta: {
           reservationId: reservation.id,
           reservationNumber: reservation.reservationNumber,
-          status: reservation.status,
-          checkInDate: reservation.checkInDate,
-          checkedInRooms: checkedInRooms,
-          totalRoomsCheckedIn: checkedInRooms.length,
+          rooms: reservationRooms,
           isPartialCheckIn: !allRoomsCheckedIn,
-          totalRoomsInReservation: allReservationRooms.length,
         },
-      })
-    } catch (error) {
-      await trx.rollback()
-      console.error('Error during check-in:', error)
-      return response.badRequest({
-        message: 'Failed to check in reservation',
-        error: error.message,
+        ctx,
       })
     }
+
+    //
+    await trx.commit()
+    console.log('Transaction committed successfully')
+
+    return response.ok({
+      message: allRoomsCheckedIn ? 'Check-in successful' : 'Partial check-in successful',
+      data: {
+        reservationId: reservation.id,
+        reservationNumber: reservation.reservationNumber,
+        status: reservation.status,
+        checkInDate: reservation.checkInDate,
+        checkedInRooms,
+        totalRoomsCheckedIn: checkedInRooms.length,
+        isPartialCheckIn: !allRoomsCheckedIn,
+        totalRoomsInReservation: allReservationRooms.length,
+      },
+    })
+  } catch (error) {
+    console.error('Error during check-in:', error)
+    await trx.rollback()
+    return response.badRequest({
+      message: 'Failed to check in reservation',
+      error: error.message,
+    })
   }
+}
+
 
   public async checkOut(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
@@ -2338,6 +2338,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           success: true,
           reservationId: reservation.id,
           confirmationNumber,
+          status:reservation.status,
           reservationType: reservationTypeDescription,
           isDayUse: numberOfNights === 0,
           hasRooms: rooms.length > 0,
@@ -2387,8 +2388,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async update(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     try {
-      const reservationId = params.id
+      const reservationId =  params.id
       const data = request.all()
+      console.log
       const oldStatus = await Reservation.query()
         .where('id', reservationId)
         .select('status')
@@ -2399,6 +2401,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Call the parent update method
+
       const updateResponse = await super.update(ctx)
       const reservation = await Reservation.findOrFail(reservationId)
 
@@ -2454,7 +2457,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
-      return updateResponse
+      return response.ok({
+          status: 200,
+          message: 'Reservation confirmed successfully',
+          reservation: reservation,
+        })
     } catch (error) {
       console.error('Error updating reservation:', error)
       return response.internalServerError({
