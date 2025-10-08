@@ -89,11 +89,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
   public async checkIn(ctx: HttpContext) {
-  const { params, response, request, auth } = ctx
-  const { reservationRooms, actualCheckInTime, notes } = request.body()
-
-  console.log('Check-in request received')
-  console.log('Request body:', { reservationRooms, actualCheckInTime, notes })
+    const { params, response, request, auth } = ctx
+    const { reservationRooms, actualCheckInTime, notes } = request.body()
 
   // On démarre une transaction
   const trx = await db.transaction()
@@ -175,8 +172,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       reservationRoom.checkedInBy = auth.user!.id
       reservationRoom.guestNotes = notes || reservationRoom.guestNotes
 
-      console.log('Updating reservation room:', reservationRoom.id)
-      await reservationRoom.useTransaction(trx).save()
+        console.log('Updating reservation room:', reservationRoom.id)
+        console.log('Reservation room data:', trx)
+
+        await reservationRoom.useTransaction(trx).save()
 
       //  Met à jour la chambre correspondante
       if (reservationRoom.room) {
@@ -216,8 +215,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       console.log('Partial check-in: updating reservation to confirmed')
     }
 
-    reservation.lastModifiedBy = auth.user!.id
-    await reservation.useTransaction(trx).save()
+      reservation.lastModifiedBy = auth.user!.id
+      await reservation.useTransaction(trx).save()
+
+      await trx.commit()
 
     // Logs d’audit
     const logDescription = allRoomsCheckedIn
@@ -2408,10 +2409,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (data.status === 'confirmed' && oldStatus.status !== 'confirmed') {
         try {
           // Create folios for all guests with room charges
-         /* const folios = await ReservationFolioService.createFoliosOnConfirmation(
-            reservationId,
-            auth.user!.id
-          )* */
+          /* const folios = await ReservationFolioService.createFoliosOnConfirmation(
+             reservationId,
+             auth.user!.id
+           )* */
 
           // Log the folio creation
           await LoggerService.log({
@@ -3167,7 +3168,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           .merge({
             status: ReservationStatus.CHECKED_OUT,
             checkOutDate: moveDate,
-            departDate:moveDate,
+            departDate: moveDate,
             checkedOutBy: auth.user?.id || null,
             lastModifiedBy: auth.user?.id || null,
           })
@@ -3492,7 +3493,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
   }
-   public async exchangeRoom({ request, response, auth }: HttpContext) {
+  public async exchangeRoom({ request, response, auth }: HttpContext) {
     const trx = await db.transaction()
 
     try {
@@ -3633,9 +3634,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
               roomId: originalRoomId2,
               roomTypeId: originalRoomTypeId2,
               lastModifiedBy: auth.user?.id || 1,
-              notes: `Room swapped with reservation ${targetReservationId}. Reason: ${
-                reason || 'Room exchange requested'
-              }`,
+              notes: `Room swapped with reservation ${targetReservationId}. Reason: ${reason || 'Room exchange requested'
+                }`,
             })
             .useTransaction(trx)
             .save()
@@ -3645,9 +3645,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
               roomId: originalRoomId1,
               roomTypeId: originalRoomTypeId1,
               lastModifiedBy: auth.user?.id || 1,
-              notes: `Room swapped with reservation ${reservationId}. Reason: ${
-                reason || 'Room exchange requested'
-              }`,
+              notes: `Room swapped with reservation ${reservationId}. Reason: ${reason || 'Room exchange requested'
+                }`,
             })
             .useTransaction(trx)
             .save()
@@ -3715,9 +3714,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
               roomId: newRoom.id,
               roomTypeId: newRoom.roomTypeId,
               lastModifiedBy: auth.user?.id || 1,
-              notes: `Room exchanged from ${currentReservationRoom.room.roomNumber} to ${
-                newRoom.roomNumber
-              }. Reason: ${reason || 'Room exchange requested'}`,
+              notes: `Room exchanged from ${currentReservationRoom.room.roomNumber} to ${newRoom.roomNumber
+                }. Reason: ${reason || 'Room exchange requested'}`,
             })
             .useTransaction(trx)
             .save()
