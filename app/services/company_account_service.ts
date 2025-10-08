@@ -127,14 +127,14 @@ export default class CompanyAccountService {
       // Disable any existing city ledger payment method for this company
       await PaymentMethod.query()
         .where('hotelId', companyAccount.hotelId)
-        .where('name', `City Ledger - ${companyAccount.companyCode}`)
+        .where('methodName', `City Ledger - ${companyAccount.companyCode}`)
         .where('methodType', PaymentMethodType.CITY_LEDGER)
         .update({ isActive: false })
     } else if (companyAccount.doNotCountAsCityLedger === false) {
       // Check if payment method exists and reactivate or create
       const existingPaymentMethod = await PaymentMethod.query()
         .where('hotelId', companyAccount.hotelId)
-        .where('name', `City Ledger - ${companyAccount.companyName}`)
+        .where('methodName', `City Ledger - ${companyAccount.companyCode}`)
         .where('methodType', PaymentMethodType.CITY_LEDGER)
         .first()
 
