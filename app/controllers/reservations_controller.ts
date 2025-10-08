@@ -2337,6 +2337,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           success: true,
           reservationId: reservation.id,
           confirmationNumber,
+          status:reservation.status,
           reservationType: reservationTypeDescription,
           isDayUse: numberOfNights === 0,
           hasRooms: rooms.length > 0,
