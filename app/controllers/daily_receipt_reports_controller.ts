@@ -331,192 +331,182 @@ export default class DailyReceiptReportsController {
         dateType,
         roomId, 
         businessSourceId, 
-        paymentMethodId,
+        paymentMethodIds,
         taxIds,
-        extraChargeIds,
         showUnassignRooms,
         showUnpostedInclusion,
         discardUnconfirmedBookings,
-        showMobileNoField,
-        showEmailField
+        //showMobileNoField,
+        //showEmailField
       } = payload
-
+  
       const startDateTime = DateTime.fromISO(fromDate)
       const endDateTime = DateTime.fromISO(toDate)
-
+  
       // Get hotel details
       const hotel = await Hotel.findOrFail(hotelId)
-
+  
       // Build query for reservations
       let query = Reservation.query()
-        .preload('guest') // Guest information
-        .preload('roomType') // Room type
-        .preload('ratePlan') // Rate plan
-        .preload('businessSource') // Business source
-        .preload('paymentMethod') // Payment method
-        .preload('folios', (folioQuery) => {
-          folioQuery.preload('charges').preload('taxes')
+        .preload('guest')
+        .preload('roomType', (roomTypeQuery) => {
+          roomTypeQuery.preload('rooms', (roomQuery) => {
+            roomQuery.preload('taxRates', (taxRateQuery) => {
+              if (taxIds && taxIds.length > 0) {
+                taxRateQuery.whereIn('taxRateId', taxIds)
+              }
+            })
+          })
         })
+        .preload('ratePlan')
+        .preload('businessSource')
+        .preload('paymentMethod')
+        .preload('folios')
         .where('hotelId', hotelId)
-
+  
       // Apply date type filter
       switch (dateType) {
         case 'booking':
-          // Filter by reservation creation date
           query = query.whereBetween('createdAt', [startDateTime.toSQL(), endDateTime.toSQL()])
           break
           
         case 'stay':
-          // Filter by stay dates (scheduled arrival/departure)
           query = query.where((builder) => {
             builder
-              .whereBetween('scheduledArrivalDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
-              .orWhereBetween('scheduledDepartureDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .whereBetween('arrivedDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .orWhereBetween('departDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
               .orWhere((subBuilder) => {
                 subBuilder
-                  .where('scheduledArrivalDate', '<=', startDateTime.toSQLDate())
-                  .where('scheduledDepartureDate', '>=', endDateTime.toSQLDate())
+                  .where('arrivedDate', '<=', startDateTime.toSQLDate())
+                  .where('departDate', '>=', endDateTime.toSQLDate())
               })
           })
           break
           
         case 'departure':
-          // Filter by departure date only
-          query = query.whereBetween('scheduledDepartureDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+          query = query.whereBetween('departDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
           break
           
         default:
-          // Default to stay date filtering
           query = query.where((builder) => {
             builder
-              .whereBetween('scheduledArrivalDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
-              .orWhereBetween('scheduledDepartureDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .whereBetween('arrivedDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .orWhereBetween('departDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
               .orWhere((subBuilder) => {
                 subBuilder
-                  .where('scheduledArrivalDate', '<=', startDateTime.toSQLDate())
-                  .where('scheduledDepartureDate', '>=', endDateTime.toSQLDate())
+                  .where('arrivedDate', '<=', startDateTime.toSQLDate())
+                  .where('departDate', '>=', endDateTime.toSQLDate())
               })
           })
       }
-
+  
       // Apply optional filters
       if (roomId) {
-        query = query.where('primaryRoomTypeId', roomId)
+        query = query.where('roomTypeId', roomId)
       }
-
+  
       if (businessSourceId) {
         query = query.where('businessSourceId', businessSourceId)
       }
-
+  
+      // Filter by payment methods
+      if (paymentMethodIds && paymentMethodIds.length > 0) {
+        query = query.whereIn('paymentMethodId', paymentMethodIds)
+      }
+  
       if (discardUnconfirmedBookings) {
         query = query.where('reservationStatus', 'Confirmed')
       }
-
+  
       if (showUnassignRooms) {
-        query = query.whereNull('primaryRoomTypeId')
+        query = query.whereNull('roomTypeId')
       }
-
-      const reservations = await query.orderBy('scheduledArrivalDate', 'asc')
-
+  
+      const reservations = await query.orderBy('arrivedDate', 'asc')
+  
       // Process reservation data
       let grandTotalRoomRate = 0
-      let grandTotalCharges = 0
       let grandTotalTaxes = 0
       let grandTotalRevenue = 0
       let grandTotalCommission = 0
       let totalNights = 0
-
+  
       const reservationList = reservations.map((reservation) => {
-        // Calculate nights based on scheduled dates
+        // Calculate nights
         const nights = Math.ceil(
-          reservation.scheduledDepartureDate.diff(reservation.scheduledArrivalDate, 'days').days
+          reservation.departDate.diff(reservation.arrivedDate, 'days').days
         )
         
-        // Calculate room rate for the period
+        // Calculate room rate
         const roomRate = reservation.roomRate || 0
         const totalRoomRate = roomRate * nights
-
-        // Calculate extra charges (filtered if extraChargeIds provided)
-        let totalCharges = 0
-        if (reservation.folios && reservation.folios.length > 0) {
-          reservation.folios.forEach((folio) => {
-            if (folio.charges) {
-              folio.charges.forEach((charge) => {
-                if (!extraChargeIds || extraChargeIds.length === 0 || extraChargeIds.includes(charge.chargeTypeId)) {
-                  totalCharges += Number(charge.amount)
-                }
-              })
-            }
-          })
-        }
-
-        // Calculate taxes (filtered if taxIds provided)
+  
+        // Calculate taxes (already filtered by preload)
         let totalTaxes = 0
         if (reservation.folios && reservation.folios.length > 0) {
           reservation.folios.forEach((folio) => {
             if (folio.taxes) {
               folio.taxes.forEach((tax) => {
-                if (!taxIds || taxIds.length === 0 || taxIds.includes(tax.taxId)) {
-                  totalTaxes += Number(tax.amount)
-                }
+                totalTaxes += Number(tax.amount)
               })
             }
           })
         }
-
-        // Calculate commission from business source
-        const commissionRate = reservation.businessSource?.commissionRate || 0
+  
+        // Calculate commission
+        const commissionRate = reservation.businessSource?.commissionValue || 0
         const commission = (totalRoomRate * commissionRate) / 100
-
-        const totalRevenue = totalRoomRate + totalCharges + totalTaxes
-
+  
+        const totalRevenue = totalRoomRate + totalTaxes
+  
         // Update grand totals
         grandTotalRoomRate += totalRoomRate
-        grandTotalCharges += totalCharges
         grandTotalTaxes += totalTaxes
         grandTotalRevenue += totalRevenue
         grandTotalCommission += commission
         totalNights += nights
-
+  
         // Base reservation data
         const reservationData: any = {
-          serialNo: 0, // Will be set later
+          serialNo: 0,
           guestName: reservation.guest?.displayName || 'N/A',
-          arrivalDate: reservation.scheduledArrivalDate.toFormat('dd/MM/yyyy'),
-          departureDate: reservation.scheduledDepartureDate.toFormat('dd/MM/yyyy'),
+          arrivalDate: reservation.arrivedDate.toFormat('dd/MM/yyyy'),
+          departureDate: reservation.departDate.toFormat('dd/MM/yyyy'),
           nights,
-          room: reservation.roomType?.name || 'Unassigned',
+          room: reservation.roomType?.rooms?.[0]?.roomNumber 
+          ? `${reservation.roomType.rooms[0].roomNumber} - ${reservation.roomType.roomTypeName}` 
+          : 'Unassigned',
           voucherNo: reservation.confirmationCode || '-',
-          rateType: reservation.ratePlan?.name || 'Standard',
+          rateType: reservation.ratePlan?.planName || 'Standard',
           folioNo: reservation.folios?.[0]?.folioNumber || '-',
           roomRate: totalRoomRate,
-          totalCharges,
           totalTaxes,
           totalRevenue,
           commission,
           reservationType: reservation.reservationType?.name || 'Reservation',
-          showOnlyUnassignRooms: !reservation.primaryRoomTypeId,
-          businessSource: reservation.businessSource?.sourceName || 'Direct'
+          showOnlyUnassignRooms: !reservation.roomTypeId,
+          businessSource: reservation.businessSource?.name || 'Direct',
+          paymentMethod: reservation.paymentMethod?.methodName || '-'
         }
-
-        // Add mobile number field if requested
+  
+   /*      // Add mobile number field if requested
         if (showMobileNoField) {
           reservationData.mobileNo = reservation.guest?.mobileNo || '-'
         }
-
+  
         // Add email field if requested
         if (showEmailField) {
           reservationData.email = reservation.guest?.email || '-'
-        }
-
+        } */
+  
         return reservationData
       })
-
+  
       // Set serial numbers
       reservationList.forEach((item, index) => {
         item.serialNo = index + 1
       })
-
+  
       const responseData = {
         hotelDetails: {
           hotelId: hotel.id,
@@ -533,7 +523,6 @@ export default class DailyReceiptReportsController {
         grandTotals: {
           totalNights,
           totalRoomRate: grandTotalRoomRate,
-          totalCharges: grandTotalCharges,
           totalTaxes: grandTotalTaxes,
           totalRevenue: grandTotalRevenue,
           totalCommission: grandTotalCommission,
@@ -543,17 +532,16 @@ export default class DailyReceiptReportsController {
           dateType,
           roomId,
           businessSourceId,
-          paymentMethodId,
+          paymentMethodIds,
           taxIds,
-          extraChargeIds,
           showUnassignRooms,
           showUnpostedInclusion,
           discardUnconfirmedBookings,
-          showMobileNoField,
-          showEmailField
+          //showMobileNoField,
+          //showEmailField
         }
       }
-
+  
       return response.ok({
         success: true,
         message: 'Daily revenue report generated successfully',
@@ -561,7 +549,7 @@ export default class DailyReceiptReportsController {
         generatedAt: DateTime.now().toISO(),
         generatedBy: auth.user?.firstName + ' ' + auth.user?.lastName
       })
-
+  
     } catch (error) {
       return response.badRequest({
         success: false,
@@ -570,6 +558,7 @@ export default class DailyReceiptReportsController {
       })
     }
   }
+  
 
   /**
    * Generate PDF for Daily Revenue Report using Reservation model
@@ -584,185 +573,161 @@ export default class DailyReceiptReportsController {
         dateType,
         roomId, 
         businessSourceId,
-        paymentMethodId,
+        paymentMethodIds,
         taxIds,
-        extraChargeIds,
         showUnassignRooms,
         showUnpostedInclusion,
         discardUnconfirmedBookings,
-        showMobileNoField,
-        showEmailField
       } = payload
-
+  
       const startDateTime = DateTime.fromISO(fromDate)
       const endDateTime = DateTime.fromISO(toDate)
-
+  
       // Get hotel details
       const hotel = await Hotel.findOrFail(hotelId)
-
+  
       // Get authenticated user information
       const user = auth.user
       const printedBy = user 
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
         : 'System'
-
+  
       // Build query for reservations
       let query = Reservation.query()
         .preload('guest')
-        .preload('roomType')
+        .preload('roomType', (roomTypeQuery) => {
+          roomTypeQuery.preload('rooms', (roomQuery) => {
+            roomQuery.preload('taxRates', (taxRateQuery) => {
+              if (taxIds && taxIds.length > 0) {
+                taxRateQuery.whereIn('taxRateId', taxIds)
+              }
+            })
+          })
+        })
         .preload('ratePlan')
         .preload('businessSource')
-        .preload('folios', (folioQuery) => {
-          folioQuery.preload('charges').preload('taxes')
-        })
+        .preload('paymentMethod')
+        .preload('folios')
         .where('hotelId', hotelId)
-
+  
       // Apply date type filter
       switch (dateType) {
         case 'booking':
-          // Filter by reservation creation date
           query = query.whereBetween('createdAt', [startDateTime.toSQL(), endDateTime.toSQL()])
           break
           
         case 'stay':
-          // Filter by stay dates (scheduled arrival/departure)
           query = query.where((builder) => {
             builder
-              .whereBetween('scheduledArrivalDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
-              .orWhereBetween('scheduledDepartureDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .whereBetween('arrivedDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .orWhereBetween('departDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
               .orWhere((subBuilder) => {
                 subBuilder
-                  .where('scheduledArrivalDate', '<=', startDateTime.toSQLDate())
-                  .where('scheduledDepartureDate', '>=', endDateTime.toSQLDate())
+                  .where('arrivedDate', '<=', startDateTime.toSQLDate())
+                  .where('departDate', '>=', endDateTime.toSQLDate())
               })
           })
           break
           
         case 'departure':
-          // Filter by departure date only
-          query = query.whereBetween('scheduledDepartureDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+          query = query.whereBetween('departDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
           break
           
         default:
-          // Default to stay date filtering
           query = query.where((builder) => {
             builder
-              .whereBetween('scheduledArrivalDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
-              .orWhereBetween('scheduledDepartureDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .whereBetween('arrivedDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
+              .orWhereBetween('departDate', [startDateTime.toSQLDate(), endDateTime.toSQLDate()])
               .orWhere((subBuilder) => {
                 subBuilder
-                  .where('scheduledArrivalDate', '<=', startDateTime.toSQLDate())
-                  .where('scheduledDepartureDate', '>=', endDateTime.toSQLDate())
+                  .where('arrivedDate', '<=', startDateTime.toSQLDate())
+                  .where('departDate', '>=', endDateTime.toSQLDate())
               })
           })
       }
-
+  
       // Apply optional filters
       if (roomId) {
-        query = query.where('primaryRoomTypeId', roomId)
+        query = query.where('roomTypeId', roomId)
       }
-
+  
       if (businessSourceId) {
         query = query.where('businessSourceId', businessSourceId)
       }
-
+  
+      // Filter by payment methods
+      if (paymentMethodIds && paymentMethodIds.length > 0) {
+        query = query.whereIn('paymentMethodId', paymentMethodIds)
+      }
+  
       if (discardUnconfirmedBookings) {
         query = query.where('reservationStatus', 'Confirmed')
       }
-
-      if (showUnassignRooms) {
-        query = query.whereNull('primaryRoomTypeId')
+  
+      if (showUnassignRooms) {` `
+        query = query.whereNull('roomTypeId')
       }
-
-      const reservations = await query.orderBy('scheduledArrivalDate', 'asc')
-
+      
+      const reservations = await query.orderBy('arrivedDate', 'asc')
+  
       // Process data
       let grandTotalRoomRate = 0
-      let grandTotalCharges = 0
       let grandTotalTaxes = 0
       let grandTotalRevenue = 0
       let grandTotalCommission = 0
       let totalNights = 0
-
+  
       const reservationList = reservations.map((reservation, index) => {
         const nights = Math.ceil(
-          reservation.scheduledDepartureDate.diff(reservation.scheduledArrivalDate, 'days').days
+          reservation.departDate.diff(reservation.arrivedDate, 'days').days
         )
         
         const roomRate = reservation.roomRate || 0
         const totalRoomRate = roomRate * nights
-
-        // Calculate charges with filters
-        let totalCharges = 0
-        if (reservation.folios && reservation.folios.length > 0) {
-          reservation.folios.forEach((folio) => {
-            if (folio.charges) {
-              folio.charges.forEach((charge) => {
-                if (!extraChargeIds || extraChargeIds.length === 0 || extraChargeIds.includes(charge.chargeTypeId)) {
-                  totalCharges += Number(charge.amount)
-                }
-              })
-            }
-          })
-        }
-
-        // Calculate taxes with filters
+  
+        // Calculate taxes (already filtered by preload)
         let totalTaxes = 0
         if (reservation.folios && reservation.folios.length > 0) {
           reservation.folios.forEach((folio) => {
             if (folio.taxes) {
               folio.taxes.forEach((tax) => {
-                if (!taxIds || taxIds.length === 0 || taxIds.includes(tax.taxId)) {
-                  totalTaxes += Number(tax.amount)
-                }
+                totalTaxes += Number(tax.amount)
               })
             }
           })
         }
-
+  
         const commissionRate = reservation.businessSource?.commissionRate || 0
         const commission = (totalRoomRate * commissionRate) / 100
-        const totalRevenue = totalRoomRate + totalCharges + totalTaxes
-
+        const totalRevenue = totalRoomRate + totalTaxes
+  
         grandTotalRoomRate += totalRoomRate
-        grandTotalCharges += totalCharges
         grandTotalTaxes += totalTaxes
         grandTotalRevenue += totalRevenue
         grandTotalCommission += commission
         totalNights += nights
-
-        // Base reservation data
-        const reservationData: any = {
+  
+        return {
           serialNo: index + 1,
           guestName: reservation.guest?.displayName || 'N/A',
-          arrivalDate: reservation.scheduledArrivalDate.toFormat('dd/MM/yyyy'),
-          departureDate: reservation.scheduledDepartureDate.toFormat('dd/MM/yyyy'),
+          arrivalDate: reservation.arrivedDate.toFormat('dd/MM/yyyy'),
+          departureDate: reservation.departDate.toFormat('dd/MM/yyyy'),
           nights,
-          room: reservation.roomType?.name || 'Unassigned',
+          room: reservation.roomType?.rooms?.[0]?.roomNumber 
+          ? `${reservation.roomType.rooms[0].roomNumber} - ${reservation.roomType.roomTypeName}` 
+          : 'Unassigned',
           voucherNo: reservation.confirmationCode || '-',
-          rateType: reservation.ratePlan?.name || 'EP',
+          rateType: reservation.ratePlan?.planName || 'EP',
           folioNo: reservation.folios?.[0]?.folioNumber || '-',
           roomRate: totalRoomRate,
-          totalCharges,
           totalTaxes,
           totalRevenue,
           commission,
-          businessSource: reservation.businessSource?.sourceName || 'Direct'
+          businessSource: reservation.businessSource?.name || 'Direct',
+          paymentMethod: reservation.paymentMethod?.methodName || '-'
         }
-
-        // Add mobile number field if requested
-        if (showMobileNoField) {
-          reservationData.mobileNo = reservation.guest?.mobileNo || '-'
-        }
-
-        // Add email field if requested
-        if (showEmailField) {
-          reservationData.email = reservation.guest?.email || '-'
-        }
-
-        return reservationData
       })
-
+  
       const reportData = {
         hotelDetails: {
           hotelName: hotel.hotelName
@@ -774,7 +739,6 @@ export default class DailyReceiptReportsController {
         reservationList,
         grandTotals: {
           totalRoomRate: grandTotalRoomRate,
-          totalCharges: grandTotalCharges,
           totalTaxes: grandTotalTaxes,
           totalRevenue: grandTotalRevenue,
           totalCommission: grandTotalCommission,
@@ -782,13 +746,13 @@ export default class DailyReceiptReportsController {
         },
         filters: {
           dateType,
-          showMobileNoField,
-          showEmailField,
           showUnassignRooms,
-          discardUnconfirmedBookings
+          discardUnconfirmedBookings,
+          paymentMethodIds,
+          taxIds
         }
       }
-
+  
       // Generate HTML content
       const htmlContent = await this.generateRevenueHtml(
         hotel.hotelName,
@@ -797,16 +761,16 @@ export default class DailyReceiptReportsController {
         reportData,
         printedBy
       )
-
+  
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-
+  
       const formattedFromDate = startDateTime.toFormat('dd/MM/yyyy')
       const formattedToDate = endDateTime.toFormat('dd/MM/yyyy')
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-
+  
       // Header template
-      const headerTemplate = `
+/*       const headerTemplate = `
       <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
         <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
           <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
@@ -822,7 +786,7 @@ export default class DailyReceiptReportsController {
         <div style="border-top:1px solid #333; margin:0;"></div>
       </div>
       `
-
+      */
       // Footer template
       const footerTemplate = `
       <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
@@ -830,8 +794,8 @@ export default class DailyReceiptReportsController {
         <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
         <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
       </div>
-      `
-
+      ` 
+  
       // Generate PDF
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
@@ -843,18 +807,18 @@ export default class DailyReceiptReportsController {
           left: '10px'
         },
         displayHeaderFooter: true,
-        headerTemplate,
+        //headerTemplate,
         footerTemplate,
         printBackground: true
       })
-
+  
       // Set response headers
       const fileName = `daily-revenue-report-${dateType}-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${fileName}"`)
-
+  
       return response.send(pdfBuffer)
-
+  
     } catch (error) {
       console.error('Error generating daily revenue PDF:', error)
       return response.internalServerError({

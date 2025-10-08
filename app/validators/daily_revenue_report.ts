@@ -11,13 +11,15 @@ export const createDailyRevenueReportValidator = vine.compile(
     toDate: vine.string().trim(),
     hotelId: vine.number().positive(),
 
-    // Date type (Booking, Stay, Departure) - maintenant requis
+    // Date type (Booking, Stay, Departure) - required
     dateType: vine.enum(['booking', 'stay', 'departure']),
 
     // Optional filters
     roomId: vine.number().positive().optional(),
     businessSourceId: vine.number().positive().optional(),
-    paymentMethodId: vine.number().positive().optional(),
+    
+    // Payment Method IDs (multiple selection) - CORRIGÉ: pluriel avec array
+    paymentMethodIds: vine.array(vine.number().positive()).optional(),
     
     // Tax IDs (multiple selection)
     taxIds: vine.array(vine.number().positive()).optional(),
@@ -30,11 +32,11 @@ export const createDailyRevenueReportValidator = vine.compile(
     showUnpostedInclusion: vine.boolean().optional(),
     discardUnconfirmedBookings: vine.boolean().optional(),
 
-    // Colonnes conditionnelles
+    // Conditional columns
     showMobileNoField: vine.boolean().optional(),
     showEmailField: vine.boolean().optional(),
 
-    // Template optionnel
+    // Optional template
     reportTemplate: vine.string().optional()
   })
 )

@@ -3,311 +3,248 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daily Revenue Report - {{ hotelName }}</title>
   <style>
     * {
       margin: 0;
-      padding: 0;
+      padding: 0;S
       box-sizing: border-box;
     }
 
     body {
-      font-family: 'Arial', sans-serif;
-      font-size: 10px;
-      color: #333;
-      padding: 10px;
+      font-family: 'Times New Roman', Times, serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }S
+
+    .container {
+      background-color: white;
+      padding: 0S;
+      max-width: 1400px;
+      margin: 0 auto;
     }
 
-    .report-header {
-      text-align: center;
-      margin-bottom: 15px;
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0px;
       padding-bottom: 10px;
-      border-bottom: 2px solid #333;
     }
 
-    .report-header h1 {
-      font-size: 16px;
-      color: #00008B;
-      margin-bottom: 5px;
-    }
-
-    .report-header h2 {
-      font-size: 13px;
-      color: #8B0000;
-      margin-bottom: 8px;
-    }
-
-    .report-info {
-      font-size: 9px;
-      color: #555;
-    }
-
-    .section-title {
-      background-color: #f0f0f0;
-      padding: 6px 8px;
+    .header h1 {
+      font-size: 18px;
       font-weight: bold;
+      color: rgb(8, 8, 129);
+    }
+
+    .header h2 {
+      font-size: 18px;
+      font-weight: bold;
+      color: rgb(157, 10, 27);
+    }
+
+    .filters {
       font-size: 11px;
-      margin-top: 15px;
-      margin-bottom: 8px;
-      border-left: 4px solid #00008B;
+      margin-bottom: 5px;
+      line-height: 1.4;
+      padding: 5px;           
+      border-top: 2px solid #000;   
+    }
+
+    .filters div {
+      margin-bottom: 2px;
+    }
+
+    .revenue-note {
+      font-size: 11px;
+      font-weight: bold;
+      margin: 0;
+      padding: 0;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 15px;
-      font-size: 9px;
+      font-size: 11px;
+      margin-top: 10px;
     }
 
-    thead {
-      background-color: #e8e8e8;
-    }
-
-    th {
-      padding: 6px 4px;
-      text-align: left;
+    table th {
+      background-color: #fff;
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      padding: 6px 8px;
+      text-align: center;
       font-weight: bold;
-      border: 1px solid #ccc;
-      font-size: 9px;
+      font-size: 11px;
     }
 
-    td {
-      padding: 5px 4px;
-      border: 1px solid #ddd;
+    table td {
+      padding: 6px 8px;
+      font-size: 11px;
+      text-align: center;
     }
 
-    tbody tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-
-    tbody tr:hover {
-      background-color: #f0f0f0;
+    .text-left {
+      text-align: left !important;
     }
 
     .text-right {
-      text-align: right;
-    }
-
-    .text-center {
-      text-align: center;
+      text-align: right !important;
     }
 
     .total-row {
+      background-color: #fff;
       font-weight: bold;
-      background-color: #e0e0e0 !important;
+      border-top: 2px solid #000;
     }
 
-    .grand-total-row {
-      font-weight: bold;
-      background-color: #d0d0d0 !important;
-      font-size: 10px;
+    .total-row td {
+      border-bottom: 2px solid #000;
     }
 
-    .summary-box {
-      background-color: #f5f5f5;
-      padding: 10px;
-      margin-top: 20px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px solid #ddd;
-    }
-
-    .summary-row:last-child {
-      border-bottom: none;
-      font-weight: bold;
-      font-size: 11px;
-      margin-top: 5px;
-      padding-top: 8px;
-      border-top: 2px solid #333;
-    }
+    .col-sr { width: 4%; }
+    .col-guest { width: 10%; }
+    .col-source { width: 8%; }
+    .col-date { width: 7%; }
+    .col-nights { width: 4%; }
+    .col-room { width: 8%; }
+    .col-voucher { width: 7%; }
+    .col-rate { width: 6%; }
+    .col-folio { width: 6%; }
+    .col-amount { width: 8%; }
+    .col-charges { width: 8%; }
+    .col-taxes { width: 8%; }
+    .col-commission { width: 8%; }
+    .col-total { width: 8%; }
+    
+    /* Colonnes conditionnelles */
+    .col-mobile { width: 8%; }
+    .col-email { width: 10%; }
 
     .no-data {
       text-align: center;
-      padding: 30px;
+      padding: 20px;
       color: #999;
       font-style: italic;
-    }
-
-    /* Colonnes conditionnelles */
-    .conditional-column {
-      background-color: #fffacd;
     }
   </style>
 </head>
 <body>
-  
-  <!-- Header Information -->
-  <div class="report-header">
-    <h1>{{ hotelName }}</h1>
-    <h2>Daily Revenue Report</h2>
-    <div class="report-info">
-      <strong>Period:</strong> {{ fromDate }} to {{ toDate }} | 
-      <strong>Date Type:</strong> {{ filters.dateType ? filters.dateType.charAt(0).toUpperCase() + filters.dateType.slice(1) : 'Stay' }} | 
-      <strong>Printed:</strong> {{ printedOn }} by {{ printedBy }}
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>{{ hotelName }}</h1>
+      <h2>Detail Revenue Report</h2>
     </div>
-  </div>
 
-  <!-- Filtres appliqués -->
-  @if(filters)
-  <div class="section-title">Applied Filters</div>
-  <div style="font-size: 9px; margin-bottom: 15px; padding: 8px; background: #f8f9fa; border: 1px solid #dee2e6;">
-    @if(filters.showUnassignRooms)
-      <span style="margin-right: 15px;">• Show Unassigned Rooms</span>
-    @endif
-    @if(filters.discardUnconfirmedBookings)
-      <span style="margin-right: 15px;">• Discard Unconfirmed Bookings</span>
-    @endif
-    @if(filters.showMobileNoField)
-      <span style="margin-right: 15px;">• Show Mobile Numbers</span>
-    @endif
-    @if(filters.showEmailField)
-      <span style="margin-right: 15px;">• Show Email Addresses</span>
-    @endif
-  </div>
-  @endif
+    <!-- Filters Section -->
+    <div class="filters">
+      <div>
+        <strong>Query From:</strong> {{ fromDate }} 
+        <strong>To:</strong> {{ toDate }} 
+        <strong>Date Type:</strong> {{ filters.dateType ? filters.dateType.charAt(0).toUpperCase() + filters.dateType.slice(1) : 'Stay' }} 
+        <strong>Show Guest Unassigned Rooms:</strong> {{ filters.showUnassignRooms ? 'Yes' : 'No' }} 
+        <strong>Discard Unconfirmed Bookings:</strong> {{ filters.discardUnconfirmedBookings ? 'Yes' : 'No' }} 
+        <strong>Include Unposted Inclusion:</strong> {{ filters.showUnpostedInclusion ? 'Yes' : 'No' }}
+      </div>
+      <div style="margin-top: 5px;">
+        <strong>*Total Revenue: Revenue Only From Property (After deduction of commission)</strong>
+      </div>
+      <div class="revenue-note">*Room Rate = Offered Rate</div>
+    </div>
 
-  <div class="section-title">Reservation Details</div>
-  
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 3%;">Sr.No</th>
-        <th style="width: 12%;">Guest Name</th>
-        
-        <!-- Colonnes conditionnelles -->
-        @if(filters.showMobileNoField)
-          <th style="width: 8%;" class="conditional-column">Mobile No</th>
-        @endif
-        @if(filters.showEmailField)
-          <th style="width: 10%;" class="conditional-column">Email</th>
-        @endif
-        
-        <th style="width: 8%;">Arrival</th>
-        <th style="width: 8%;">Dept</th>
-        <th style="width: 5%;">Nights</th>
-        <th style="width: 6%;">Room</th>
-        <th style="width: 8%;">Vouc. No</th>
-        <th style="width: 8%;">Rate Type</th>
-        <th style="width: 8%;">Folio No</th>
-        <th style="width: 8%;" class="text-right">Room Rate</th>
-        <th style="width: 8%;" class="text-right">Charges</th>
-        <th style="width: 8%;" class="text-right">Taxes</th>
-        <th style="width: 8%;" class="text-right">Commission</th>
-        <th style="width: 8%;" class="text-right">Total Revenue</th>
-      </tr>
-    </thead>
-    <tbody>
-      @if(data.reservationList && data.reservationList.length > 0)
-        @each(reservation in data.reservationList)
+    <!-- Main Table -->
+    <table>
+      <thead>
+        <tr>
+          <th class="col-sr">Sr. No</th>
+          <th class="col-guest">Guest Name</th>
+          
+          @if(filters.showMobileNoField)
+            <th class="col-mobile">Mobile No</th>
+          @endif
+          
+          @if(filters.showEmailField)
+            <th class="col-email">Email</th>
+          @endif
+          
+          <th class="col-source">Source</th>
+          <th class="col-date">Arrival</th>
+          <th class="col-date">Dept</th>
+          <th class="col-nights">Nights</th>
+          <th class="col-room">Room</th>
+          <th class="col-voucher">Vouc No</th>
+          <th class="col-rate">Rate Type</th>
+          <th class="col-folio">Folio No</th>
+          <th class="col-amount">Room Rate<br>(XAF)</th>
+          <th class="col-charges">Charges<br>(XAF)</th>
+          <th class="col-taxes">Taxes<br>(XAF)</th>
+          <th class="col-commission">Commission<br>(XAF)</th>
+          <th class="col-total">Revenue<br>(XAF)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if(data.reportData && data.reportData.reservations && data.reportData.reservations.length > 0)
+          @each(reservation in data.reportData.reservations)
+            <tr>
+              <td>{{ reservation.serialNo }}</td>
+              <td class="text-left">{{ reservation.guestName }}</td>
+              
+              @if(filters.showMobileNoField)
+                <td>{{ reservation.mobileNo || '-' }}</td>
+              @endif
+              
+              @if(filters.showEmailField)
+                <td class="text-left">{{ reservation.email || '-' }}</td>
+              @endif
+              
+              <td>{{ reservation.businessSource }}</td>
+              <td>{{ reservation.arrivalDate }}</td>
+              <td>{{ reservation.departureDate }}</td>
+              <td>{{ reservation.nights }}</td>
+              <td>{{ reservation.room }}</td>
+              <td>{{ reservation.voucherNo }}</td>
+              <td>{{ reservation.rateType }}</td>
+              <td>{{ reservation.folioNo }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.roomRate) }}</td>
+              <td class="text-right"></td>
+              <td class="text-right">{{ formatCurrency(reservation.totalTaxes) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.commission) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.totalRevenue - reservation.commission) }}</td>
+            </tr>
+          @end
+          
+          <!-- Grand Total Row -->
+          <tr class="total-row">
+            <td class="text-left">
+              <strong>Grand Total</strong>
+            </td>
+            <td colspan="{{ (filters.showMobileNoField ? 1 : 0) + (filters.showEmailField ? 1 : 0) + 9 }}" class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalRoomRate) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong></strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalTaxes) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalCommission) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalRevenue - data.grandTotals.totalCommission) }}</strong>
+            </td>
+          </tr>
+        @else
           <tr>
-            <td class="text-center">{{ reservation.serialNo }}</td>
-            <td>{{ reservation.guestName }}</td>
-            
-            <!-- Colonnes conditionnelles -->
-            @if(filters.showMobileNoField)
-              <td class="conditional-column">{{ reservation.mobileNo || '-' }}</td>
-            @endif
-            @if(filters.showEmailField)
-              <td class="conditional-column">{{ reservation.email || '-' }}</td>
-            @endif
-            
-            <td class="text-center">{{ reservation.arrivalDate }}</td>
-            <td class="text-center">{{ reservation.departureDate }}</td>
-            <td class="text-center">{{ reservation.nights }}</td>
-            <td class="text-center">{{ reservation.room }}</td>
-            <td class="text-center">{{ reservation.voucherNo }}</td>
-            <td>{{ reservation.rateType }}</td>
-            <td class="text-center">{{ reservation.folioNo }}</td>
-            <td class="text-right">{{ formatCurrency(reservation.roomRate) }}</td>
-            <td class="text-right">{{ formatCurrency(reservation.totalCharges) }}</td>
-            <td class="text-right">{{ formatCurrency(reservation.totalTaxes) }}</td>
-            <td class="text-right">{{ formatCurrency(reservation.commission) }}</td>
-            <td class="text-right">{{ formatCurrency(reservation.totalRevenue) }}</td>
+            <td colspan="{{ 15 + (filters.showMobileNoField ? 1 : 0) + (filters.showEmailField ? 1 : 0) }}" class="no-data">
+              No reservations found
+            </td>
           </tr>
         @end
-        
-        <!-- Grand Total Row -->
-        <tr class="grand-total-row">
-          <td colspan="{{ filters.showMobileNoField && filters.showEmailField ? 11 : filters.showMobileNoField || filters.showEmailField ? 10 : 9 }}" class="text-right">
-            <strong>Grand Total</strong>
-          </td>
-          <td class="text-right"><strong>{{ formatCurrency(data.grandTotals.totalRoomRate) }}</strong></td>
-          <td class="text-right"><strong>{{ formatCurrency(data.grandTotals.totalCharges) }}</strong></td>
-          <td class="text-right"><strong>{{ formatCurrency(data.grandTotals.totalTaxes) }}</strong></td>
-          <td class="text-right"><strong>{{ formatCurrency(data.grandTotals.totalCommission) }}</strong></td>
-          <td class="text-right"><strong>{{ formatCurrency(data.grandTotals.totalRevenue) }}</strong></td>
-        </tr>
-      @else
-        <tr>
-          <td colspan="{{ filters.showMobileNoField && filters.showEmailField ? 15 : filters.showMobileNoField || filters.showEmailField ? 14 : 13 }}" class="no-data">
-            No reservations found for the selected period
-          </td>
-        </tr>
-      @end
-    </tbody>
-  </table>
-
-  <!-- Summary Section -->
-  <div class="summary-box">
-    <h3 style="margin-bottom: 10px; font-size: 12px; color: #00008B;">Revenue Summary</h3>
-    
-    <div class="summary-row">
-      <span>Total Reservations:</span>
-      <span><strong>{{ data.reservationList ? data.reservationList.length : 0 }}</strong></span>
-    </div>
-    
-    <div class="summary-row">
-      <span>Total Nights:</span>
-      <span><strong>{{ data.grandTotals.totalNights || 0 }}</strong></span>
-    </div>
-    
-    <div class="summary-row">
-      <span>Total Room Revenue:</span>
-      <span><strong>{{ formatCurrency(data.grandTotals.totalRoomRate) }}</strong></span>
-    </div>
-    
-    <div class="summary-row">
-      <span>Total Extra Charges:</span>
-      <span><strong>{{ formatCurrency(data.grandTotals.totalCharges) }}</strong></span>
-    </div>
-    
-    <div class="summary-row">
-      <span>Total Taxes:</span>
-      <span><strong>{{ formatCurrency(data.grandTotals.totalTaxes) }}</strong></span>
-    </div>
-    
-    <div class="summary-row">
-      <span>Total Commission:</span>
-      <span><strong>{{ formatCurrency(data.grandTotals.totalCommission) }}</strong></span>
-    </div>
-    
-    <div class="summary-row">
-      <span style="font-size: 12px; color: #006400;">Gross Revenue:</span>
-      <span style="font-size: 12px; color: #006400;">
-        <strong>{{ formatCurrency(data.grandTotals.totalRevenue) }}</strong>
-      </span>
-    </div>
-    
-    <div class="summary-row">
-      <span style="font-size: 12px; color: #8B0000;">Net Revenue (After Commission):</span>
-      <span style="font-size: 12px; color: #8B0000;">
-        <strong>{{ formatCurrency(data.grandTotals.totalRevenue - data.grandTotals.totalCommission) }}</strong>
-      </span>
-    </div>
+      </tbody>
+    </table>
   </div>
-
-  <!-- Footer Information -->
-  <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 8px; color: #666; text-align: center;">
-    Generated on {{ printedOn }} by {{ printedBy }} | 
-    Hotel: {{ hotelName }} | 
-    Period: {{ fromDate }} to {{ toDate }}
-  </div>
-
 </body>
 </html>
