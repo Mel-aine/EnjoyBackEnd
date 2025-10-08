@@ -2418,7 +2418,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Reservation',
             entityId: reservationId,
             hotelId: reservation.hotelId,
-            description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
+            description: `Reservation #${reservationId} confirmed. `,
             ctx,
           })
           //for guest
@@ -2428,7 +2428,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Guest',
             entityId: reservation.guestId,
             hotelId: reservation.hotelId,
-            description: `Reservation #${reservationId} confirmed. Created ${folios.length} folio(s) with room charges.`,
+            description: `Reservation #${reservationId} confirmed.`,
             ctx,
           })
 
