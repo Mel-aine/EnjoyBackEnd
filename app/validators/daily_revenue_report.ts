@@ -38,5 +38,6 @@ export const createDailyRevenueReportValidator = vine.compile(
 
     // Optional template
     reportTemplate: vine.string().optional()
-  })
+  }) 
 )
+console.log('createDailyRevenueReportValidator', createDailyRevenueReportValidator)

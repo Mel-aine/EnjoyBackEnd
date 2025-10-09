@@ -330,22 +330,21 @@ export default class DailyReceiptReportsController {
         hotelId, 
         dateType,
         roomId, 
-        businessSourceId, 
+        businessSourceId,
         paymentMethodIds,
         taxIds,
         showUnassignRooms,
         showUnpostedInclusion,
         discardUnconfirmedBookings,
-        //showMobileNoField,
-        //showEmailField
       } = payload
-  
+      console.log('payload@@@@@@@@@', payload)
+
       const startDateTime = DateTime.fromISO(fromDate)
       const endDateTime = DateTime.fromISO(toDate)
-  
-      // Get hotel details
+
+      // Get hotel details 
       const hotel = await Hotel.findOrFail(hotelId)
-  
+
       // Build query for reservations
       let query = Reservation.query()
         .preload('guest')
@@ -353,17 +352,23 @@ export default class DailyReceiptReportsController {
           roomTypeQuery.preload('rooms', (roomQuery) => {
             roomQuery.preload('taxRates', (taxRateQuery) => {
               if (taxIds && taxIds.length > 0) {
-                taxRateQuery.whereIn('taxRateId', taxIds)
+                taxRateQuery.whereIn('tax_rates.tax_rate_id', taxIds)
               }
             })
           })
         })
-        .preload('ratePlan')
+        .preload('reservationRooms', (reservationRoomQuery) => {
+          reservationRoomQuery.preload('room')
+          reservationRoomQuery.preload('roomType')
+          reservationRoomQuery.preload('roomRates', (roomRateQuery) => {
+            roomRateQuery.preload('rateType')
+          })
+        })
         .preload('businessSource')
         .preload('paymentMethod')
         .preload('folios')
         .where('hotelId', hotelId)
-  
+
       // Apply date type filter
       switch (dateType) {
         case 'booking':
@@ -399,73 +404,87 @@ export default class DailyReceiptReportsController {
               })
           })
       }
-  
+
       // Apply optional filters
       if (roomId) {
         query = query.where('roomTypeId', roomId)
       }
-  
+
       if (businessSourceId) {
         query = query.where('businessSourceId', businessSourceId)
       }
-  
+
       // Filter by payment methods
       if (paymentMethodIds && paymentMethodIds.length > 0) {
         query = query.whereIn('paymentMethodId', paymentMethodIds)
       }
-  
+
       if (discardUnconfirmedBookings) {
         query = query.where('reservationStatus', 'Confirmed')
       }
-  
+
       if (showUnassignRooms) {
         query = query.whereNull('roomTypeId')
       }
-  
+
       const reservations = await query.orderBy('arrivedDate', 'asc')
-  
+
       // Process reservation data
       let grandTotalRoomRate = 0
+      let grandTotalCharges = 0
       let grandTotalTaxes = 0
       let grandTotalRevenue = 0
       let grandTotalCommission = 0
       let totalNights = 0
-  
+
       const reservationList = reservations.map((reservation) => {
         // Calculate nights
-        const nights = Math.ceil(
+        const nights = reservation.numberOfNights || Math.ceil(
           reservation.departDate.diff(reservation.arrivedDate, 'days').days
         )
         
         // Calculate room rate
-        const roomRate = reservation.roomRate || 0
+        const roomRate = reservation.reservationRooms?.[0]?.roomRate || reservation.roomRate || 0
         const totalRoomRate = roomRate * nights
-  
+
+        // Calculate charges from folios
+        let totalCharges = 0
+        if (reservation.folios && reservation.folios.length > 0) {
+          reservation.folios.forEach((folio) => {
+            if (folio.folioCharges && folio.folioCharges.length > 0) {
+              folio.folioCharges.forEach((charge) => {
+                totalCharges += Number(charge.amount || 0)
+              })
+            }
+          })
+        }
+
         // Calculate taxes (already filtered by preload)
         let totalTaxes = 0
         if (reservation.folios && reservation.folios.length > 0) {
           reservation.folios.forEach((folio) => {
             if (folio.taxes) {
               folio.taxes.forEach((tax) => {
-                totalTaxes += Number(tax.amount)
+                totalTaxes += Number(tax.amount || 0)
               })
             }
           })
         }
-  
+
         // Calculate commission
         const commissionRate = reservation.businessSource?.commissionValue || 0
         const commission = (totalRoomRate * commissionRate) / 100
-  
-        const totalRevenue = totalRoomRate + totalTaxes
-  
+
+        const totalRevenue = totalRoomRate + totalCharges + totalTaxes
+
         // Update grand totals
         grandTotalRoomRate += totalRoomRate
+        grandTotalCharges += totalCharges
         grandTotalTaxes += totalTaxes
         grandTotalRevenue += totalRevenue
         grandTotalCommission += commission
         totalNights += nights
-  
+
         // Base reservation data
         const reservationData: any = {
           serialNo: 0,
@@ -473,40 +492,32 @@ export default class DailyReceiptReportsController {
           arrivalDate: reservation.arrivedDate.toFormat('dd/MM/yyyy'),
           departureDate: reservation.departDate.toFormat('dd/MM/yyyy'),
           nights,
-          room: reservation.roomType?.rooms?.[0]?.roomNumber 
-          ? `${reservation.roomType.rooms[0].roomNumber} - ${reservation.roomType.roomTypeName}` 
-          : 'Unassigned',
+          room:  reservation.reservationRooms?.[0]?.room?.roomNumber
+          ? `${reservation.reservationRooms?.[0]?.room?.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType.roomTypeName}` 
+          : 'N/A',
           voucherNo: reservation.confirmationCode || '-',
-          rateType: reservation.ratePlan?.planName || 'Standard',
+          rateType: reservation.reservationRooms?.[0]?.roomRates.rateType?.rateTypeName || 'N/A',
           folioNo: reservation.folios?.[0]?.folioNumber || '-',
           roomRate: totalRoomRate,
+          totalCharges,
           totalTaxes,
           totalRevenue,
           commission,
+          netRevenue: totalRevenue - commission,
           reservationType: reservation.reservationType?.name || 'Reservation',
           showOnlyUnassignRooms: !reservation.roomTypeId,
-          businessSource: reservation.businessSource?.name || 'Direct',
+          businessSource: reservation.businessSource?.name || 'N/A',
           paymentMethod: reservation.paymentMethod?.methodName || '-'
         }
-  
-   /*      // Add mobile number field if requested
-        if (showMobileNoField) {
-          reservationData.mobileNo = reservation.guest?.mobileNo || '-'
-        }
-  
-        // Add email field if requested
-        if (showEmailField) {
-          reservationData.email = reservation.guest?.email || '-'
-        } */
-  
+        console.log('reservationData@@@@@@@@@', reservationData)
         return reservationData
       })
-  
+
       // Set serial numbers
       reservationList.forEach((item, index) => {
         item.serialNo = index + 1
       })
-  
+
       const responseData = {
         hotelDetails: {
           hotelId: hotel.id,
@@ -523,9 +534,11 @@ export default class DailyReceiptReportsController {
         grandTotals: {
           totalNights,
           totalRoomRate: grandTotalRoomRate,
+          totalCharges: grandTotalCharges,
           totalTaxes: grandTotalTaxes,
           totalRevenue: grandTotalRevenue,
           totalCommission: grandTotalCommission,
+          netRevenue: grandTotalRevenue - grandTotalCommission,
           totalReservations: reservationList.length
         },
         filters: {
@@ -536,12 +549,10 @@ export default class DailyReceiptReportsController {
           taxIds,
           showUnassignRooms,
           showUnpostedInclusion,
-          discardUnconfirmedBookings,
-          //showMobileNoField,
-          //showEmailField
+          discardUnconfirmedBookings
         }
       }
-  
+
       return response.ok({
         success: true,
         message: 'Daily revenue report generated successfully',
@@ -549,16 +560,15 @@ export default class DailyReceiptReportsController {
         generatedAt: DateTime.now().toISO(),
         generatedBy: auth.user?.firstName + ' ' + auth.user?.lastName
       })
-  
+
     } catch (error) {
+      console.log('error', error)
       return response.badRequest({
         success: false,
-        message: 'Failed to generate daily revenue report',
-        error: error.message
+        error: error
       })
     }
   }
-  
 
   /**
    * Generate PDF for Daily Revenue Report using Reservation model
@@ -579,38 +589,45 @@ export default class DailyReceiptReportsController {
         showUnpostedInclusion,
         discardUnconfirmedBookings,
       } = payload
-  
+
+      console.log('payload@@@@@@@@@', payload)
       const startDateTime = DateTime.fromISO(fromDate)
       const endDateTime = DateTime.fromISO(toDate)
-  
+
       // Get hotel details
       const hotel = await Hotel.findOrFail(hotelId)
-  
+
       // Get authenticated user information
       const user = auth.user
       const printedBy = user 
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
         : 'System'
-  
-      // Build query for reservations
+
+      // Build query for reservations (IDENTIQUE à generatedailyRevenueReport)
       let query = Reservation.query()
         .preload('guest')
         .preload('roomType', (roomTypeQuery) => {
           roomTypeQuery.preload('rooms', (roomQuery) => {
             roomQuery.preload('taxRates', (taxRateQuery) => {
               if (taxIds && taxIds.length > 0) {
-                taxRateQuery.whereIn('taxRateId', taxIds)
+                taxRateQuery.whereIn('tax_rates.tax_rate_id', taxIds)
               }
             })
           })
         })
-        .preload('ratePlan')
+        .preload('reservationRooms', (reservationRoomQuery) => {
+          reservationRoomQuery.preload('room')
+          reservationRoomQuery.preload('roomType')
+          reservationRoomQuery.preload('roomRates', (roomRateQuery) => {
+            roomRateQuery.preload('rateType')
+          })
+        })
         .preload('businessSource')
         .preload('paymentMethod')
         .preload('folios')
         .where('hotelId', hotelId)
-  
-      // Apply date type filter
+
+      // Apply date type filter (IDENTIQUE)
       switch (dateType) {
         case 'booking':
           query = query.whereBetween('createdAt', [startDateTime.toSQL(), endDateTime.toSQL()])
@@ -645,114 +662,139 @@ export default class DailyReceiptReportsController {
               })
           })
       }
-  
-      // Apply optional filters
+
+      // Apply optional filters (IDENTIQUE)
       if (roomId) {
         query = query.where('roomTypeId', roomId)
       }
-  
+
       if (businessSourceId) {
         query = query.where('businessSourceId', businessSourceId)
       }
-  
-      // Filter by payment methods
+
       if (paymentMethodIds && paymentMethodIds.length > 0) {
         query = query.whereIn('paymentMethodId', paymentMethodIds)
       }
-  
+
       if (discardUnconfirmedBookings) {
         query = query.where('reservationStatus', 'Confirmed')
       }
-  
-      if (showUnassignRooms) {` `
+
+      if (showUnassignRooms) {
         query = query.whereNull('roomTypeId')
       }
       
       const reservations = await query.orderBy('arrivedDate', 'asc')
-  
-      // Process data
+      
+      
+      // Process data (IDENTIQUE avec les charges)
       let grandTotalRoomRate = 0
+      let grandTotalCharges = 0
       let grandTotalTaxes = 0
       let grandTotalRevenue = 0
       let grandTotalCommission = 0
       let totalNights = 0
-  
+
       const reservationList = reservations.map((reservation, index) => {
-        const nights = Math.ceil(
+        const nights = reservation.numberOfNights || Math.ceil(
           reservation.departDate.diff(reservation.arrivedDate, 'days').days
         )
         
-        const roomRate = reservation.roomRate || 0
+        const roomRate = reservation.reservationRooms?.[0]?.roomRate || reservation.roomRate || 0
         const totalRoomRate = roomRate * nights
-  
+
+        // Calculate charges from folios
+        let totalCharges = 0
+        if (reservation.folios && reservation.folios.length > 0) {
+          reservation.folios.forEach((folio) => {
+            if (folio.folioCharges && folio.folioCharges.length > 0) {
+              folio.folioCharges.forEach((charge) => {
+                totalCharges += Number(charge.amount || 0)
+              })
+            }
+          })
+        }
+
         // Calculate taxes (already filtered by preload)
         let totalTaxes = 0
         if (reservation.folios && reservation.folios.length > 0) {
           reservation.folios.forEach((folio) => {
             if (folio.taxes) {
               folio.taxes.forEach((tax) => {
-                totalTaxes += Number(tax.amount)
+                totalTaxes += Number(tax.amount || 0)
               })
             }
           })
         }
-  
-        const commissionRate = reservation.businessSource?.commissionRate || 0
+
+        const commissionRate = reservation.businessSource?.commissionValue || 0
         const commission = (totalRoomRate * commissionRate) / 100
-        const totalRevenue = totalRoomRate + totalTaxes
-  
+        const totalRevenue = totalRoomRate + totalCharges + totalTaxes
+        
         grandTotalRoomRate += totalRoomRate
+        grandTotalCharges += totalCharges
         grandTotalTaxes += totalTaxes
         grandTotalRevenue += totalRevenue
         grandTotalCommission += commission
         totalNights += nights
-  
+
         return {
           serialNo: index + 1,
           guestName: reservation.guest?.displayName || 'N/A',
           arrivalDate: reservation.arrivedDate.toFormat('dd/MM/yyyy'),
           departureDate: reservation.departDate.toFormat('dd/MM/yyyy'),
           nights,
-          room: reservation.roomType?.rooms?.[0]?.roomNumber 
-          ? `${reservation.roomType.rooms[0].roomNumber} - ${reservation.roomType.roomTypeName}` 
-          : 'Unassigned',
+          room:  reservation.reservationRooms?.[0]?.room?.roomNumber
+          ? `${reservation.reservationRooms?.[0]?.room?.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType.roomTypeName}` 
+          : 'N/A',
           voucherNo: reservation.confirmationCode || '-',
-          rateType: reservation.ratePlan?.planName || 'EP',
+          rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'N/A',
           folioNo: reservation.folios?.[0]?.folioNumber || '-',
           roomRate: totalRoomRate,
+          totalCharges,
           totalTaxes,
           totalRevenue,
           commission,
+          netRevenue: totalRevenue - commission,
           businessSource: reservation.businessSource?.name || 'Direct',
           paymentMethod: reservation.paymentMethod?.methodName || '-'
         }
       })
-  
+
       const reportData = {
         hotelDetails: {
-          hotelName: hotel.hotelName
+          hotelName: hotel.hotelName,
+          address: hotel.address
         },
         dateRange: {
           fromDate: startDateTime.toFormat('dd/MM/yyyy'),
           toDate: endDateTime.toFormat('dd/MM/yyyy')
         },
-        reservationList,
+        reportData: {
+          reservations: reservationList
+        },
         grandTotals: {
           totalRoomRate: grandTotalRoomRate,
+          totalCharges: grandTotalCharges,
           totalTaxes: grandTotalTaxes,
           totalRevenue: grandTotalRevenue,
           totalCommission: grandTotalCommission,
-          totalNights
+          netRevenue: grandTotalRevenue - grandTotalCommission,
+          totalNights,
+          totalReservations: reservationList.length
         },
         filters: {
           dateType,
-          showUnassignRooms,
-          discardUnconfirmedBookings,
+          roomId,
+          businessSourceId,
           paymentMethodIds,
-          taxIds
+          taxIds,
+          showUnassignRooms,
+          showUnpostedInclusion,
+          discardUnconfirmedBookings
         }
       }
-  
+
       // Generate HTML content
       const htmlContent = await this.generateRevenueHtml(
         hotel.hotelName,
@@ -761,32 +803,14 @@ export default class DailyReceiptReportsController {
         reportData,
         printedBy
       )
-  
+
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-  
+
       const formattedFromDate = startDateTime.toFormat('dd/MM/yyyy')
       const formattedToDate = endDateTime.toFormat('dd/MM/yyyy')
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-  
-      // Header template
-/*       const headerTemplate = `
-      <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
-        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
-          <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
-          <div style="font-size:13px; color:#8B0000; font-weight:bold;">Detail Revenue Report</div>
-        </div>
-        
-        <div style="font-size:8px; margin-bottom:3px;">
-          <span style="margin-right:10px;"><strong>Run From:</strong> ${formattedFromDate}</span>
-          <span style="margin-right:10px;"><strong>To:</strong> ${formattedToDate}</span>
-          <span><strong>Date Type:</strong> ${dateType.charAt(0).toUpperCase() + dateType.slice(1)}</span>
-        </div>
-        
-        <div style="border-top:1px solid #333; margin:0;"></div>
-      </div>
-      `
-      */
+
       // Footer template
       const footerTemplate = `
       <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
@@ -795,30 +819,29 @@ export default class DailyReceiptReportsController {
         <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
       </div>
       ` 
-  
+
       // Generate PDF
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         landscape: true,
         margin: {
-          top: '70px',
+          top: '60px',
           right: '10px',
           bottom: '70px',
           left: '10px'
         },
         displayHeaderFooter: true,
-        //headerTemplate,
         footerTemplate,
         printBackground: true
       })
-  
+
       // Set response headers
       const fileName = `daily-revenue-report-${dateType}-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${fileName}"`)
-  
+
       return response.send(pdfBuffer)
-  
+
     } catch (error) {
       console.error('Error generating daily revenue PDF:', error)
       return response.internalServerError({

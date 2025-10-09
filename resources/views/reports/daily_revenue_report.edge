@@ -6,7 +6,7 @@
   <style>
     * {
       margin: 0;
-      padding: 0;S
+      padding: 0;
       box-sizing: border-box;
     }
 
@@ -14,11 +14,11 @@
       font-family: 'Times New Roman', Times, serif;
       padding: 20px;
       background-color: #f5f5f5;
-    }S
+    }
 
     .container {
       background-color: white;
-      padding: 0S;
+      padding: 0;
       max-width: 1400px;
       margin: 0 auto;
     }
@@ -103,24 +103,20 @@
       border-bottom: 2px solid #000;
     }
 
-    .col-sr { width: 4%; }
-    .col-guest { width: 10%; }
-    .col-source { width: 8%; }
-    .col-date { width: 7%; }
+    .col-sr { width: 3%; }
+    .col-guest { width: 11%; }
+    .col-source { width: 7%; }
+    .col-date { width: 6%; }
     .col-nights { width: 4%; }
-    .col-room { width: 8%; }
-    .col-voucher { width: 7%; }
+    .col-room { width: 9%; }
+    .col-voucher { width: 6%; }
     .col-rate { width: 6%; }
-    .col-folio { width: 6%; }
-    .col-amount { width: 8%; }
-    .col-charges { width: 8%; }
-    .col-taxes { width: 8%; }
-    .col-commission { width: 8%; }
+    .col-folio { width: 5%; }
+    .col-amount { width: 7%; }
+    .col-charges { width: 7%; }
+    .col-taxes { width: 7%; }
+    .col-commission { width: 7%; }
     .col-total { width: 8%; }
-    
-    /* Colonnes conditionnelles */
-    .col-mobile { width: 8%; }
-    .col-email { width: 10%; }
 
     .no-data {
       text-align: center;
@@ -146,12 +142,11 @@
         <strong>Date Type:</strong> {{ filters.dateType ? filters.dateType.charAt(0).toUpperCase() + filters.dateType.slice(1) : 'Stay' }} 
         <strong>Show Guest Unassigned Rooms:</strong> {{ filters.showUnassignRooms ? 'Yes' : 'No' }} 
         <strong>Discard Unconfirmed Bookings:</strong> {{ filters.discardUnconfirmedBookings ? 'Yes' : 'No' }} 
-        <strong>Include Unposted Inclusion:</strong> {{ filters.showUnpostedInclusion ? 'Yes' : 'No' }}
       </div>
       <div style="margin-top: 5px;">
         <strong>*Total Revenue: Revenue Only From Property (After deduction of commission)</strong>
       </div>
-      <div class="revenue-note">*Room Rate = Offered Rate</div>
+      <div class="revenue-note">*Room Rate = Offered Rate | *Charges = Additional folio charges</div>
     </div>
 
     <!-- Main Table -->
@@ -160,15 +155,6 @@
         <tr>
           <th class="col-sr">Sr. No</th>
           <th class="col-guest">Guest Name</th>
-          
-          @if(filters.showMobileNoField)
-            <th class="col-mobile">Mobile No</th>
-          @endif
-          
-          @if(filters.showEmailField)
-            <th class="col-email">Email</th>
-          @endif
-          
           <th class="col-source">Source</th>
           <th class="col-date">Arrival</th>
           <th class="col-date">Dept</th>
@@ -190,15 +176,6 @@
             <tr>
               <td>{{ reservation.serialNo }}</td>
               <td class="text-left">{{ reservation.guestName }}</td>
-              
-              @if(filters.showMobileNoField)
-                <td>{{ reservation.mobileNo || '-' }}</td>
-              @endif
-              
-              @if(filters.showEmailField)
-                <td class="text-left">{{ reservation.email || '-' }}</td>
-              @endif
-              
               <td>{{ reservation.businessSource }}</td>
               <td>{{ reservation.arrivalDate }}</td>
               <td>{{ reservation.departureDate }}</td>
@@ -208,23 +185,23 @@
               <td>{{ reservation.rateType }}</td>
               <td>{{ reservation.folioNo }}</td>
               <td class="text-right">{{ formatCurrency(reservation.roomRate) }}</td>
-              <td class="text-right"></td>
+              <td class="text-right">{{ formatCurrency(reservation.totalCharges) }}</td>
               <td class="text-right">{{ formatCurrency(reservation.totalTaxes) }}</td>
               <td class="text-right">{{ formatCurrency(reservation.commission) }}</td>
-              <td class="text-right">{{ formatCurrency(reservation.totalRevenue - reservation.commission) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.netRevenue) }}</td>
             </tr>
           @end
           
           <!-- Grand Total Row -->
           <tr class="total-row">
-            <td class="text-left">
+            <td colspan="10" class="text-left">
               <strong>Grand Total</strong>
             </td>
-            <td colspan="{{ (filters.showMobileNoField ? 1 : 0) + (filters.showEmailField ? 1 : 0) + 9 }}" class="text-right">
+            <td class="text-right">
               <strong>{{ formatCurrency(data.grandTotals.totalRoomRate) }}</strong>
             </td>
             <td class="text-right">
-              <strong></strong>
+              <strong>{{ formatCurrency(data.grandTotals.totalCharges) }}</strong>
             </td>
             <td class="text-right">
               <strong>{{ formatCurrency(data.grandTotals.totalTaxes) }}</strong>
@@ -233,12 +210,12 @@
               <strong>{{ formatCurrency(data.grandTotals.totalCommission) }}</strong>
             </td>
             <td class="text-right">
-              <strong>{{ formatCurrency(data.grandTotals.totalRevenue - data.grandTotals.totalCommission) }}</strong>
+              <strong>{{ formatCurrency(data.grandTotals.netRevenue) }}</strong>
             </td>
           </tr>
         @else
           <tr>
-            <td colspan="{{ 15 + (filters.showMobileNoField ? 1 : 0) + (filters.showEmailField ? 1 : 0) }}" class="no-data">
+            <td colspan="15" class="no-data">
               No reservations found
             </td>
           </tr>
