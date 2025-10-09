@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background-color: white;
+      padding: 0;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0px;
+      padding-bottom: 10px;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: bold;
+      color: rgb(8, 8, 129);
+    }
+
+    .header h2 {
+      font-size: 18px;
+      font-weight: bold;
+      color: rgb(157, 10, 27);
+    }
+
+    .filters {
+      font-size: 11px;
+      margin-bottom: 5px;
+      line-height: 1.4;
+      padding: 5px;           
+      border-top: 2px solid #000;   
+    }
+
+    .filters div {
+      margin-bottom: 2px;
+    }
+
+    .revenue-note {
+      font-size: 11px;
+      font-weight: bold;
+      margin: 0;
+      padding: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-top: 10px;
+    }
+
+    table th {
+      background-color: #fff;
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      padding: 6px 8px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    table td {
+      padding: 6px 8px;
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .text-left {
+      text-align: left !important;
+    }
+
+    .text-right {
+      text-align: right !important;
+    }
+
+    .total-row {
+      background-color: #fff;
+      font-weight: bold;
+      border-top: 2px solid #000;
+    }
+
+    .total-row td {
+      border-bottom: 2px solid #000;
+    }
+
+    .col-sr { width: 3%; }
+    .col-guest { width: 11%; }
+    .col-source { width: 7%; }
+    .col-date { width: 6%; }
+    .col-nights { width: 4%; }
+    .col-room { width: 9%; }
+    .col-voucher { width: 6%; }
+    .col-rate { width: 6%; }
+    .col-folio { width: 5%; }
+    .col-amount { width: 7%; }
+    .col-charges { width: 7%; }
+    .col-taxes { width: 7%; }
+    .col-commission { width: 7%; }
+    .col-total { width: 8%; }
+
+    .no-data {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>{{ hotelName }}</h1>
+      <h2>Detail Revenue Report</h2>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters">
+      <div>
+        <strong>Query From:</strong> {{ fromDate }} 
+        <strong>To:</strong> {{ toDate }} 
+        <strong>Date Type:</strong> {{ filters.dateType ? filters.dateType.charAt(0).toUpperCase() + filters.dateType.slice(1) : 'Stay' }} 
+        <strong>Show Guest Unassigned Rooms:</strong> {{ filters.showUnassignRooms ? 'Yes' : 'No' }} 
+        <strong>Discard Unconfirmed Bookings:</strong> {{ filters.discardUnconfirmedBookings ? 'Yes' : 'No' }} 
+      </div>
+      <div style="margin-top: 5px;">
+        <strong>*Total Revenue: Revenue Only From Property (After deduction of commission)</strong>
+      </div>
+      <div class="revenue-note">*Room Rate = Offered Rate | *Charges = Additional folio charges</div>
+    </div>
+
+    <!-- Main Table -->
+    <table>
+      <thead>
+        <tr>
+          <th class="col-sr">Sr. No</th>
+          <th class="col-guest">Guest Name</th>
+          <th class="col-source">Source</th>
+          <th class="col-date">Arrival</th>
+          <th class="col-date">Dept</th>
+          <th class="col-nights">Nights</th>
+          <th class="col-room">Room</th>
+          <th class="col-voucher">Vouc No</th>
+          <th class="col-rate">Rate Type</th>
+          <th class="col-folio">Folio No</th>
+          <th class="col-amount">Room Rate<br>(XAF)</th>
+          <th class="col-charges">Charges<br>(XAF)</th>
+          <th class="col-taxes">Taxes<br>(XAF)</th>
+          <th class="col-commission">Commission<br>(XAF)</th>
+          <th class="col-total">Revenue<br>(XAF)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if(data.reportData && data.reportData.reservations && data.reportData.reservations.length > 0)
+          @each(reservation in data.reportData.reservations)
+            <tr>
+              <td>{{ reservation.serialNo }}</td>
+              <td class="text-left">{{ reservation.guestName }}</td>
+              <td>{{ reservation.businessSource }}</td>
+              <td>{{ reservation.arrivalDate }}</td>
+              <td>{{ reservation.departureDate }}</td>
+              <td>{{ reservation.nights }}</td>
+              <td>{{ reservation.room }}</td>
+              <td>{{ reservation.voucherNo }}</td>
+              <td>{{ reservation.rateType }}</td>
+              <td>{{ reservation.folioNo }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.roomRate) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.totalCharges) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.totalTaxes) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.commission) }}</td>
+              <td class="text-right">{{ formatCurrency(reservation.netRevenue) }}</td>
+            </tr>
+          @end
+          
+          <!-- Grand Total Row -->
+          <tr class="total-row">
+            <td colspan="10" class="text-left">
+              <strong>Grand Total</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalRoomRate) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalCharges) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalTaxes) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.totalCommission) }}</strong>
+            </td>
+            <td class="text-right">
+              <strong>{{ formatCurrency(data.grandTotals.netRevenue) }}</strong>
+            </td>
+          </tr>
+        @else
+          <tr>
+            <td colspan="15" class="no-data">
+              No reservations found
+            </td>
+          </tr>
+        @end
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

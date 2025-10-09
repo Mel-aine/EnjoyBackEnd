@@ -504,7 +504,7 @@ export default class PdfGenerationService {
             <table>
                 <tr>
                     <td style="width: 20%;" class="label">This Folio is in :</td>
-                    <td style="width: 30%;">${currency.code}</td>
+                    <td style="width: 30%;">XAF</td>
                     <td style="width: 30%;">${amountInWords}</td>
                     <td style="width: 10%;" class="label">Total Paid</td>
                     <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
