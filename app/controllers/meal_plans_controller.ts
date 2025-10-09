@@ -169,4 +169,28 @@ export default class MealPlansController {
       return response.badRequest({ success: false, message: error.message })
     }
   }
+
+
+  // Delete a meal plan
+  public async destroy({ params, response }: HttpContext) {
+    try {
+      const { id, hotelId } = params
+
+      const mealPlan = await MealPlan.query()
+        .where('id', id)
+        .where('hotel_id', Number(hotelId))
+        .firstOrFail()
+
+      await MealPlanComponent.query()
+        .where('meal_plan_id', mealPlan.id)
+        .where('hotel_id', Number(hotelId))
+        .delete()
+
+      await mealPlan.delete()
+
+      return response.ok({ success: true, message: 'MealPlan deleted successfully' })
+    } catch (error) {
+      return response.notFound({ success: false, message: 'MealPlan not found' })
+    }
+  }
 }

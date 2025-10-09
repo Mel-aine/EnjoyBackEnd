@@ -1441,6 +1441,7 @@ router
             router.post('/', mealPlansController.store.bind(mealPlansController))
             router.get('/:id', mealPlansController.show.bind(mealPlansController))
             router.put('/:id', mealPlansController.update.bind(mealPlansController))
+            router.delete('/:id', mealPlansController.destroy.bind(mealPlansController))
           })
           .prefix('meal_plans')
 

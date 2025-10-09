@@ -7,6 +7,7 @@ import RatePlan from './rate_plan.js'
 import RateType from './rate_type.js'
 import Season from './season.js'
 import BookingSource from './booking_source.js'
+import BusinessSource from './business_source.js'
 import User from './user.js'
 import MealPlan from './meal_plan.js'
 
@@ -186,8 +187,8 @@ export default class RoomRate extends BaseModel {
   @belongsTo(() => Season)
   declare season: BelongsTo<typeof Season>
 
-  @belongsTo(() => BookingSource, { foreignKey: 'sourceId' })
-  declare source: BelongsTo<typeof BookingSource>
+  @belongsTo(() => BusinessSource, { foreignKey: 'sourceId' })
+  declare source: BelongsTo<typeof BusinessSource>
 
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>

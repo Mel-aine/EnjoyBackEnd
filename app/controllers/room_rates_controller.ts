@@ -112,15 +112,15 @@ export default class RoomRatesController {
       // Load the room type and rate type to establish the relationship
       await roomRate.load('roomType')
       await roomRate.load('rateType')
-      
+
       // Add the rate type to the room type's rateTypes relationship if not already present
       const roomType = roomRate.roomType
       const rateTypeId = roomRate.rateTypeId
-      
+
       // Check if the relationship already exists
       await roomType.load('rateTypes')
       const existingRateType = roomType.rateTypes.find(rt => rt.id === rateTypeId)
-      
+
       if (!existingRateType) {
         // Attach the rate type to the room type
         await roomType.related('rateTypes').attach([rateTypeId], trx)
@@ -152,11 +152,11 @@ export default class RoomRatesController {
   async show({ params, response }: HttpContext) {
     try {
       const id = parseInt(params.id)
-      
+
       if (isNaN(id)) {
         return response.badRequest({ message: 'Invalid ID' })
       }
-      
+
       const roomRate = await RoomRate.query()
         .where('id', id)
         .preload('hotel')
@@ -190,13 +190,14 @@ export default class RoomRatesController {
     const trx = await Database.transaction()
     try {
       const id = parseInt(params.id)
-      
+
       if (isNaN(id)) {
         await trx.rollback()
         return response.badRequest({ message: 'Invalid ID' })
       }
-      
+
       const payload = await request.validateUsing(updateRoomRateValidator)
+
       const userId = auth.user?.id
 
       const roomRate = await RoomRate.query()
@@ -242,11 +243,11 @@ export default class RoomRatesController {
   async destroy({ params, response }: HttpContext) {
     try {
       const id = parseInt(params.id)
-      
+
       if (isNaN(id)) {
         return response.badRequest({ message: 'Invalid ID' })
       }
-      
+
       const roomRate = await RoomRate.findOrFail(id)
       await roomRate.delete()
 

@@ -17,9 +17,12 @@ export const createRoomRateValidator = vine.compile(
     effectiveFrom: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     effectiveTo: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     status: vine.enum(['active', 'inactive', 'draft']).optional(),
-    
+
     // Optional fields from existing model
     hotelId: vine.number().positive().optional(),
+    mealPlanId: vine.number().positive().optional(),
+    mealPlanRateInclude: vine.boolean().optional(),
+    taxInclude: vine.boolean().optional(),
     ratePlanId: vine.number().positive().optional(),
     rateDate: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     extraPersonRate: vine.number().min(0).optional(),
@@ -75,9 +78,12 @@ export const updateRoomRateValidator = vine.compile(
     effectiveFrom: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     effectiveTo: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     status: vine.enum(['active', 'inactive', 'draft']).optional(),
-    
+
     // Optional fields from existing model
     hotelId: vine.number().positive().optional(),
+    mealPlanId: vine.number().positive().optional(),
+    mealPlanRateInclude: vine.boolean().optional(),
+    taxInclude: vine.boolean().optional(),
     ratePlanId: vine.number().positive().optional(),
     rateDate: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(),
     extraPersonRate: vine.number().min(0).optional(),
