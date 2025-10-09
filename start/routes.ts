@@ -26,6 +26,7 @@ import IdentityTypesController from '#controllers/identity_types_controller'
 import ReservationRoomsController from '#controllers/reservation_rooms_controller'
 import RoomOwnersController from '#controllers/room_owners_controller'
 import RoomRatesController from '#controllers/room_rates_controller'
+import MealPlansController from '#controllers/meal_plans_controller'
 import RateTypesController from '#controllers/rate_types_controller'
 import SeasonsController from '#controllers/seasons_controller'
 import ReasonsController from '#controllers/reasons_controller'
@@ -114,6 +115,7 @@ const identityTypesController = new IdentityTypesController()
 const reservationRoomsController = new ReservationRoomsController()
 const roomOwnersController = new RoomOwnersController()
 const roomRatesController = new RoomRatesController()
+const mealPlansController = new MealPlansController()
 const rateTypesController = new RateTypesController()
 const seasonsController = new SeasonsController()
 const reasonsController = new ReasonsController()
@@ -1430,6 +1432,17 @@ router
             router.get('/totals', cityLedgerController.totals.bind(cityLedgerController)) // Get city ledger totals only
           })
           .prefix('city_ledger')
+
+        // Meal Plans Management Routes
+        router
+          .group(() => {
+            // Basic CRUD operations for meal plans scoped to hotel
+            router.get('/', mealPlansController.index.bind(mealPlansController))
+            router.post('/', mealPlansController.store.bind(mealPlansController))
+            router.get('/:id', mealPlansController.show.bind(mealPlansController))
+            router.put('/:id', mealPlansController.update.bind(mealPlansController))
+          })
+          .prefix('meal_plans')
 
         // Company Folio Management Routes
         // Company folio creation, payment posting, and assignment management

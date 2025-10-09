@@ -32,6 +32,7 @@ export default class RoomRatesController {
         .preload('source')
         .preload('creator')
         .preload('modifier')
+        .preload('mealPlan')
 
       // Filter by hotel (required)
       query.where('hotel_id', Number(hotelId))
