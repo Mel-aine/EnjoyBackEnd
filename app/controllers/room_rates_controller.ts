@@ -428,6 +428,7 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
     const rateTypeId = request.input('rate_type_id')
     const dateInput = request.input('date')
 
+
     // Conversion de la date en DateTime Luxon
     const date = dateInput ? DateTime.fromISO(dateInput) : DateTime.now()
     const dateStr = date.toSQLDate()
@@ -442,6 +443,9 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
       .where('hotel_id', hotelId)
       .where('room_type_id', roomTypeId)
       .where('rate_type_id', rateTypeId)
+      .preload('mealPlan', (mealPlanQuery) => {
+        mealPlanQuery.preload('extraCharges')
+      })
       .where((query) => {
         query
           .whereNull('effective_from')
@@ -484,7 +488,12 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
       bookingRules: roomRate.bookingRules || {},
       rateDate: dateStr,
       effectiveFrom: roomRate.effectiveFrom,
-      effectiveTo: roomRate.effectiveTo
+      effectiveTo: roomRate.effectiveTo,
+      mealPlan: roomRate.mealPlan || null,
+      mealPlanId:roomRate.mealPlanId || null,
+      mealPlanRateInclude : roomRate.mealPlanRateInclude,
+      taxInclude : roomRate.taxInclude
+
     })
   } catch (error) {
     console.error('Erreur lors de la récupération du tarif:', error)

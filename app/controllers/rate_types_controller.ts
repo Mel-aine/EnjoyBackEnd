@@ -148,8 +148,8 @@ export default class RateTypesController {
   }
 /***
  * get Rates by hotel id with room rates
- * @param {*} params 
- * @returns 
+ * @param {*} params
+ * @returns
  */
 async getRatesByHotelId({ params, response }: HttpContext) {
   try {
@@ -407,46 +407,34 @@ async getRatesByHotelId({ params, response }: HttpContext) {
    * get rate_type by roomtype
    */
 
+
 public async getByRoomType({ params, response }: HttpContext) {
   try {
     const roomTypeId = Number(params.id)
 
-    // Vérifier que l'ID est valide
     if (isNaN(roomTypeId)) {
       return response.status(400).json({ message: 'Invalid room type ID' })
     }
 
-    // Récupération des RoomRate avec leurs RateType
+    // Récupérer les RoomRate avec leurs RateType
     const roomRates = await RoomRate.query()
       .where('room_type_id', roomTypeId)
       .preload('rateType')
 
-    const ratesType = roomRates.map((item) => item.rateType)
-
-    // Récupération du RoomType avec ses RateTypes (non supprimés)
-    const roomType = await RoomType.query()
-      .where('id', roomTypeId)
-      .preload('rateTypes', (query) => {
-        query.where('is_deleted', false)
-      })
-      .first()
-
-    if (!roomType) {
-      return response.status(404).json({ message: 'Room type not found' })
+    if (roomRates.length === 0) {
+      return response.status(404).json({ message: 'No rates found for this room type' })
     }
 
-    // Fusionner et supprimer les doublons par ID
-    const mergedRateTypes = [
+    // Extraire les RateType uniques
+    const rateTypes = [
       ...new Map(
-        [...roomType.rateTypes, ...ratesType].map((rt) => [rt.id, rt])
+        roomRates.map((rr) => [rr.rateType.id, rr.rateType])
       ).values()
     ]
 
     return response.json({
-      roomType: {
-        id: roomType.id,
-        rateTypes: mergedRateTypes
-      }
+      roomTypeId,
+      rateTypes
     })
   } catch (error) {
     console.error(error)

@@ -2237,6 +2237,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   (numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights),
                 status: numberOfNights === 0 ? 'day_use' : 'reserved',
                 rateTypeId: room.rate_type_id,
+                mealPlanId:room.meal_plan_id,
                 isOwner: index === 0,
                 reservedByUser: auth.user?.id,
                 createdBy: data.created_by,
