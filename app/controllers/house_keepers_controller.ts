@@ -4,12 +4,16 @@ import HouseKeeperService from '#services/house_keeper_service'
 const houseKeeperService = new HouseKeeperService()
 
 export default class HouseKeepersController {
-  public async index({ request, response }: HttpContext) {
+  public async index({ params, request, response }: HttpContext) {
     try {
       const page = Number(request.input('page', 1))
       const limit = Number(request.input('limit', 20))
-      const hotelId = request.input('hotel_id') ? Number(request.input('hotel_id')) : undefined
+      const hotelId = params.hotelId ? Number(params.hotelId) : undefined
       const search = request.input('search')
+
+      if (!hotelId || Number.isNaN(hotelId)) {
+        return response.badRequest({ message: 'hotelId is required and must be a number' })
+      }
 
       const data = await houseKeeperService.list({ page, limit, hotelId, search })
       return response.ok({ message: 'HouseKeepers retrieved successfully', data })

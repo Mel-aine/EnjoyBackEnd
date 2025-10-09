@@ -88,9 +88,7 @@ export const createGuestValidator = vine.compile(
         })
       )
       .optional(),
-    vipStatus: vine
-      .enum(['none', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'other'])
-      .optional(),
+    vipStatusId:vine.number().min(0).optional(),
     vipNotes: vine.string().trim().maxLength(1000).optional(),
     blacklisted: vine.boolean().optional(),
     blacklistReason: vine.string().trim().maxLength(500).optional(),
@@ -160,7 +158,7 @@ export const updateGuestValidator = vine.compile(
     firstName: vine.string().trim().minLength(1).maxLength(100).optional(),
     lastName: vine.string().trim().minLength(1).maxLength(100).optional(),
     middleName: vine.string().trim().maxLength(100).optional(),
-    title: vine.enum(['Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Sir', 'Madam']).optional(),
+    title: vine.enum(['Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Sir', 'Madam','Miss']).optional(),
     gender: vine.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
     dateOfBirth: vine.date().optional(),
     nationality: vine.string().trim().maxLength(100).optional(),
@@ -238,9 +236,7 @@ export const updateGuestValidator = vine.compile(
         })
       )
       .optional(),
-    vipStatus: vine
-      .enum(['none', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'other'])
-      .optional(),
+    vipStatusId:vine.number().min(0).optional(),
     vipNotes: vine.string().trim().maxLength(1000).optional(),
     blacklisted: vine.boolean().optional(),
     blacklistReason: vine.string().trim().maxLength(500).optional(),

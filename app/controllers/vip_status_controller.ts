@@ -13,17 +13,16 @@ export default class VipStatusController {
   /**
    * Display a list of VIP statuses for a specific hotel
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
 
-      // HotelId is mandatory for all GET operations
       if (!hotelId) {
         return response.badRequest({
-          message: 'hotel_id is required as a query parameter'
+          message: 'hotelId is required in route params'
         })
       }
 

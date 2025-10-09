@@ -8,17 +8,21 @@ export default class RoomRatesController {
   /**
    * Display a list of room rates
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const roomTypeId = request.input('room_type_id')
       const rateTypeId = request.input('rate_type_id')
       const seasonId = request.input('season_id')
       const sourceId = request.input('source_id')
       const status = request.input('status')
       const search = request.input('search')
+
+      if (!hotelId) {
+        return response.badRequest({ message: 'hotelId is required' })
+      }
 
       const query = RoomRate.query()
         .preload('hotel')
@@ -28,11 +32,10 @@ export default class RoomRatesController {
         .preload('source')
         .preload('creator')
         .preload('modifier')
+        .preload('mealPlan')
 
-      // Filter by hotel if provided
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      // Filter by hotel (required)
+      query.where('hotel_id', Number(hotelId))
 
       // Filter by room type if provided
       if (roomTypeId) {

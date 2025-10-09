@@ -12,12 +12,17 @@ export default class RoomsController {
   /**
    * Display a list of rooms
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'hotelId is required in route params',
+        })
+      }
       const page = request.input('page', 1)
       const limit = request.input('limit', 100)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
       const roomTypeId = request.input('room_type_id')
       const floor = request.input('floor')
       const status = request.input('status')
@@ -29,9 +34,7 @@ export default class RoomsController {
 
       const query = Room.query()
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', hotelId)
 
       if (roomTypeId) {
         query.where('room_type_id', roomTypeId)
@@ -419,8 +422,9 @@ export default class RoomsController {
       // Get all rooms of this type
       const rooms = await Room.query()
         .where('room_type_id', roomTypeId)
-        .where('status', 'available')
+        //.where('status', 'available')
         .preload('roomType')
+        .preload('taxRates')
       console.log(
         'All rooms of this type:',
         rooms.map((r) => r.id)
@@ -491,7 +495,55 @@ export default class RoomsController {
             floorNumber: room.floorNumber,
             status: room.status,
             housekeepingStatus: room.housekeepingStatus,
+            taxRates: room.taxRates?.map((tax) => ({
+            id: tax.taxRateId,
+            name: tax.taxName,
+            postingType: tax.postingType,
+            amount: tax.amount,
+            percentage: tax.percentage,
+          })) || [],
           })),
+        },
+      })
+    } catch (error) {
+      console.error('Error fetching available rooms:', error)
+      return response.badRequest({
+        message: 'Failed to retrieve available rooms',
+        error: error.message,
+      })
+    }
+  }
+
+  /**
+   * get room by room type
+   */
+  async getRoomByRoomTypeId({ params, request, response }: HttpContext) {
+    try {
+      const roomTypeId = params.roomTypeId
+      // Validate room type exists
+      const roomType = await RoomType.findOrFail(roomTypeId)
+      console.log('Room type found:', roomType)
+
+      // Get all rooms of this type
+      const rooms = await Room.query()
+        .where('room_type_id', roomTypeId)
+        .where('status', 'occupied')
+        .preload('roomType')
+      console.log(
+        'All rooms of this type:',
+        rooms.map((r) => r.id)
+      )
+
+
+      return response.ok({
+        message: 'Available rooms retrieved successfully',
+        data: {
+          roomType: {
+            id: roomType.id,
+            name: roomType.roomTypeName,
+          },
+          totalRooms: rooms.length,
+          rooms: rooms
         },
       })
     } catch (error) {
@@ -616,7 +668,7 @@ export default class RoomsController {
         .where('hotel_id', hotelId)
         .preload('roomType')
         .preload('blocks')
-        .preload('assignedHousekeeper',(query) => {
+        .preload('assignedHousekeeper', (query) => {
           query.select('id', 'name', 'phone')
         })
         .preload('reservationRooms', (query) => {
@@ -648,9 +700,9 @@ export default class RoomsController {
         //   ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() ||
         //     null
         //   : null
-          const guestName = checkedInReservation?.guest
-            ? checkedInReservation.guest.displayName
-            : null
+        const guestName = checkedInReservation?.guest
+          ? checkedInReservation.guest.displayName
+          : null
 
 
         const checkInTime = checkedInReservation?.reservation?.checkInDate
@@ -896,9 +948,9 @@ export default class RoomsController {
           room.status,
           room.housekeepingStatus
         )
-         const occupants = room.reservationRooms?.reduce((total, rr) => {
-            return total + (rr.adults || 0) + (rr.children || 0);
-          }, 0) || 0;
+        const occupants = room.reservationRooms?.reduce((total, rr) => {
+          return total + (rr.adults || 0) + (rr.children || 0);
+        }, 0) || 0;
         return {
           id: room.id.toString(),
           name: room.roomNumber,
@@ -915,7 +967,7 @@ export default class RoomsController {
           housekeepingStatus: actualHousekeepingStatus,
           tag: this.getRoomTag(room),
           statusType: this.getStatusType(actualHousekeepingStatus, room.status),
-          assignedHousekeeperId:room.assignedHousekeeper? room.assignedHousekeeper.id : null,
+          assignedHousekeeperId: room.assignedHousekeeper ? room.assignedHousekeeper.id : null,
           assignedHousekeeper: room.assignedHousekeeper
             ? `${room.assignedHousekeeper.name}`
             : '',
@@ -1169,27 +1221,27 @@ export default class RoomsController {
   /**
    * Détermine le statut de ménage basé sur le statut de la chambre
    */
- private getHousekeepingStatusFromRoomStatus(
-  roomStatus: string,
-  currentHousekeepingStatus: string
-): string {
-  switch (roomStatus?.toLowerCase()) {
-    case 'occupied':
-      // Si la chambre est occupée, on garde son statut ménage (dirty/clean), sinon "Dirty" par défaut
-      return currentHousekeepingStatus || 'No Status'
+  private getHousekeepingStatusFromRoomStatus(
+    roomStatus: string,
+    currentHousekeepingStatus: string
+  ): string {
+    switch (roomStatus?.toLowerCase()) {
+      case 'occupied':
+        // Si la chambre est occupée, on garde son statut ménage (dirty/clean), sinon "Dirty" par défaut
+        return currentHousekeepingStatus || 'No Status'
 
-    case 'available':
-      // Si disponible, on garde son statut ménage, sinon "Dirty"
-      return currentHousekeepingStatus || 'No Status'
+      case 'available':
+        // Si disponible, on garde son statut ménage, sinon "Dirty"
+        return currentHousekeepingStatus || 'No Status'
 
-    case 'out_of_order':
-    case 'maintenance':
-      return 'Out Of Order'
+      case 'out_of_order':
+      case 'maintenance':
+        return 'Out Of Order'
 
-    default:
-      return currentHousekeepingStatus || 'No Status'
+      default:
+        return currentHousekeepingStatus || 'No Status'
+    }
   }
-}
 
 
   /**

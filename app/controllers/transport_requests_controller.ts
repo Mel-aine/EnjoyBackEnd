@@ -8,6 +8,7 @@ import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import FolioTransaction from '#models/folio_transaction'
 import  { TransactionType } from '#app/enums'
+import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export default class TransportRequestsController {
   /**
@@ -46,7 +47,7 @@ async store({ request, response, auth }: HttpContext) {
       folio.useTransaction(trx)
       await folio.save()
 
-      const transactionCode =  TransactionType.CHARGE ? 'CHG' : 'ADJ';
+      const transactionCode =  TransactionType.CHARGE ?  generateTransactionCode('CHG') : generateTransactionCode('ADJ');
       const transactionNumber = parseInt(Date.now().toString().slice(-9));
 
 

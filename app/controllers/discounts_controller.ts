@@ -7,14 +7,18 @@ export default class DiscountsController {
   /**
    * Display a list of discounts
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const search = request.input('search')
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const type = request.input('type')
       const applyOn = request.input('apply_on')
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
 
       const query = Discount.query()
 
@@ -22,9 +26,7 @@ export default class DiscountsController {
         .preload('creator')
         .preload('modifier')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (search) {
         query.where((builder) => {

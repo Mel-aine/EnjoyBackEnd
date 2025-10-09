@@ -14,12 +14,18 @@ export default class EmailTemplateController {
   /**
    * Get all email templates for a hotel
    */
-  async list({ request, response, auth }: HttpContext) {
+  async list({ params, request, response, auth }: HttpContext) {
     try {
-      const { hotelId } = await request.validateUsing(getEmailTemplatesByHotelValidator)
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required in route params',
+        })
+      }
       const includeDeleted = request.input('includeDeleted', false)
 
-      const emailTemplates = await this.emailTemplateService.list(hotelId, includeDeleted)
+      const emailTemplates = await this.emailTemplateService.list(Number(hotelId), includeDeleted)
 
       return response.ok({
         success: true,

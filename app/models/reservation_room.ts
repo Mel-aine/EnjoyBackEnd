@@ -11,6 +11,7 @@ import Folio from './folio.js'
 import PaymentMethod from './payment_method.js'
 import Hotel from './hotel.js'
 import RateType from './rate_type.js'
+import MealPlan from './meal_plan.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -97,6 +98,10 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare bedPreference: string
 
+  // Free-form notes about the reservation room (long text)
+  @column()
+  declare notes: string | null
+
   @column()
   declare smokingPreference: 'smoking' | 'non_smoking' | 'no_preference'
 
@@ -127,8 +132,6 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare housekeepingNotes: string
 
-  @column()
-  declare notes: string | null
 
   @column()
   declare rateAmount: number | null
@@ -607,6 +610,9 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare roomRateId: number | null
 
+  @column({ columnName: 'meal_plan_id' })
+  declare mealPlanId: number | null
+
   // No-show tracking
   @column()
   declare noShowReason: string
@@ -681,6 +687,9 @@ export default class ReservationRoom extends BaseModel {
 
   @belongsTo(() => RateType, { foreignKey: 'rateTypeId' })
   declare rateType: BelongsTo<typeof RateType>
+
+  @belongsTo(() => MealPlan, { foreignKey: 'mealPlanId' })
+  declare mealPlan: BelongsTo<typeof MealPlan>
 
   // Computed properties
   get isCheckedIn() {

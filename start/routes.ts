@@ -26,6 +26,7 @@ import IdentityTypesController from '#controllers/identity_types_controller'
 import ReservationRoomsController from '#controllers/reservation_rooms_controller'
 import RoomOwnersController from '#controllers/room_owners_controller'
 import RoomRatesController from '#controllers/room_rates_controller'
+import MealPlansController from '#controllers/meal_plans_controller'
 import RateTypesController from '#controllers/rate_types_controller'
 import SeasonsController from '#controllers/seasons_controller'
 import ReasonsController from '#controllers/reasons_controller'
@@ -114,6 +115,7 @@ const identityTypesController = new IdentityTypesController()
 const reservationRoomsController = new ReservationRoomsController()
 const roomOwnersController = new RoomOwnersController()
 const roomRatesController = new RoomRatesController()
+const mealPlansController = new MealPlansController()
 const rateTypesController = new RateTypesController()
 const seasonsController = new SeasonsController()
 const reasonsController = new ReasonsController()
@@ -472,12 +474,12 @@ router
     })
 
     router.group(() => {
-      // HouseKeepers (Configuration)
-      router.get('/configuration/housekeepers', houseKeepersController.index.bind(houseKeepersController))
-      router.get('/configuration/housekeepers/:id', houseKeepersController.show.bind(houseKeepersController))
-      router.post('/configuration/housekeepers', houseKeepersController.store.bind(houseKeepersController))
-      router.put('/configuration/housekeepers/:id', houseKeepersController.update.bind(houseKeepersController))
-      router.delete('/configuration/housekeepers/:id', houseKeepersController.destroy.bind(houseKeepersController))
+      // HouseKeepers (Configuration) with hotel context
+      router.get('/configuration/hotels/:hotelId/housekeepers', houseKeepersController.index.bind(houseKeepersController))
+      router.get('/configuration/hotels/:hotelId/housekeepers/:id', houseKeepersController.show.bind(houseKeepersController))
+      router.post('/configuration/hotels/:hotelId/housekeepers', houseKeepersController.store.bind(houseKeepersController))
+      router.put('/configuration/hotels/:hotelId/housekeepers/:id', houseKeepersController.update.bind(houseKeepersController))
+      router.delete('/configuration/hotels/:hotelId/housekeepers/:id', houseKeepersController.destroy.bind(houseKeepersController))
     })
 
     router.group(() => {
@@ -759,10 +761,9 @@ router
     router
       .group(() => {
         // Basic CRUD operations for room types
-        router.get('/', roomTypesController.index.bind(roomTypesController)) // Get all room types with filtering by hotel
+        router.get('/', roomTypesController.showByHotel.bind(roomTypesController)) // Get all room types with filtering by hotel
         router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
-        router.get('/:id', roomTypesController.show.bind(roomTypesController)) // Get specific room type details
-        router.get('/:id/hotel', roomTypesController.showByHotel.bind(roomTypesController)) // Get room type details for a specific hotel
+        router.get('/:id', roomTypesController.showByHotel.bind(roomTypesController)) // Get specific room type details
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
         router.delete('/:id', roomTypesController.destroy.bind(roomTypesController)) // Soft delete room type
         router.patch('/:id/restore', roomTypesController.restore.bind(roomTypesController)) // Restore soft-deleted room type
@@ -775,7 +776,7 @@ router
         // Sort order management
         router.post('/sort/sort-order', roomTypesController.updateSortOrder.bind(roomTypesController)) // Update sort order for multiple room types
       })
-      .prefix('configuration/room_types')
+      .prefix('configuration/hotels/:hotelId/room_types')
 
     // Bed Type Management Routes
     // Bed type configuration for room types
@@ -790,7 +791,7 @@ router
         router.patch('/:id/restore', bedTypesController.restore.bind(bedTypesController)) // Restore soft-deleted bed type
         router.patch('/:id/toggle-status', bedTypesController.toggleStatus.bind(bedTypesController)) // Toggle bed type status
       })
-      .prefix('configuration/bed_types')
+      .prefix('configuration/hotels/:hotelId/bed_types')
 
     // Rate Type Management Routes
     // Rate type configuration and pricing management
@@ -801,7 +802,7 @@ router
         router.post('/', rateTypesController.store.bind(rateTypesController)) // Create a new rate type
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
         router.get('/hotel/:id', rateTypesController.showByHotel.bind(rateTypesController))
-        router.get('/hotel/:hotelId/stay_view', rateTypesController.getRatesByHotelId.bind(rateTypesController))
+        router.get('/stay/view', rateTypesController.getRatesByHotelId.bind(rateTypesController))
         // Get rate type details for a specific hotel
         router.get('/roomType/:id', rateTypesController.getByRoomType.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
@@ -811,7 +812,7 @@ router
         // Rate type analytics
         router.get('/stats', rateTypesController.stats.bind(rateTypesController)) // Get rate type statistics
       })
-      .prefix('configuration/rate_types')
+      .prefix('configuration/hotels/:hotelId/rate_types')
 
     // Season Management Routes
     // Define seasons for rate management based on time periods
@@ -828,7 +829,7 @@ router
         // Season analytics
         router.get('/stats', seasonsController.stats.bind(seasonsController)) // Get season statistics
       })
-      .prefix('configuration/seasons')
+      .prefix('configuration/hotels/:hotelId/seasons')
 
     // Room Management Routes
     // Individual room management and status tracking
@@ -841,9 +842,9 @@ router
         router.get('/:id', roomsController.show.bind(roomsController)) // Get specific room details
         router.put('/:id', roomsController.update.bind(roomsController)) // Update room information
         router.delete('/:id', roomsController.destroy.bind(roomsController)) // Delete room
-        router.get('/:hotelId/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
-        router.get('/houseview/:hotelId', roomsController.getHouseStatus.bind(roomsController))
-        router.get('/recentBooking/:hotelId', roomsController.getRecentBookings.bind(roomsController))
+        router.get('/views/details', roomsController.getRoomsWithDetails.bind(roomsController)) // Delete room
+        router.get('/house/view', roomsController.getHouseStatus.bind(roomsController))
+        router.get('/recent/Booking', roomsController.getRecentBookings.bind(roomsController))
 
 
         // Room status management
@@ -855,8 +856,9 @@ router
         router.get('/stats', roomsController.stats.bind(roomsController)) // Get room statistics
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
         router.get('/available-by-room-type/:roomTypeId', roomsController.getAvailableRoomsByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
+        router.get('/roomByType/:roomTypeId', roomsController.getRoomByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
       })
-      .prefix('configuration/rooms')
+      .prefix('configuration/hotels/:hotelId/rooms')
 
     // Room Rate Management Routes
     // Room rate configuration and pricing management
@@ -866,7 +868,7 @@ router
         router.get('/', roomRatesController.index.bind(roomRatesController)) // Get all room rates with filtering
         router.post('/', roomRatesController.store.bind(roomRatesController)) // Create a new room rate
         router.get('/base-rate', roomRatesController.getBaseRateByRoomAndRateType.bind(roomRatesController)) // Get base rate
-        router.get('/:id', roomRatesController.show.bind(roomRatesController)) // Get specific room rate details
+        router.get('/:id', roomRatesController.show.bind(roomRatesController)).where('id', /^[0-9]+$/) // Get specific room rate details (numeric ID only to avoid conflicts)
         router.put('/:id', roomRatesController.update.bind(roomRatesController)) // Update room rate information
         router.delete('/:id', roomRatesController.destroy.bind(roomRatesController)) // Delete room rate
 
@@ -875,7 +877,7 @@ router
 
         router.get('/statistics', roomRatesController.stats.bind(roomRatesController)) // Get room rate statistics
       })
-      .prefix('configuration/room_rates')
+      .prefix('configuration/hotels/:hotelId/room_rates')
 
     // Folio Management Routes
     // Guest billing and financial management
@@ -912,6 +914,7 @@ router
         router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
         router.post('/room-charge/add', foliosController.addRoomCharge.bind(foliosController)) // Add room charge to folio
         router.post('/adjustment/add', foliosController.addAdjustment.bind(foliosController)) // Add folio adjustment
+        router.post('/apply/discount', foliosController.applyDiscount.bind(foliosController)) // Apply discount to folio
         router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
 
         // Checkout and settlement
@@ -1030,6 +1033,7 @@ router
         router.post('/:reservationId/checkin', [ReservationsController, 'checkIn'])
         router.post('/:reservationId/payment', [ReservationsController, 'addPayment'])
         router.put('/:reservationId/amend-stay', [ReservationsController, 'amendStay'])
+        router.patch('/:id/update_status', [ReservationsController, 'update'])
         router.put('/:reservationId/booking-detail', [ReservationsController, 'updateBookingDetails'])
         router.post('/:reservationId/room-move', [ReservationsController, 'roomMove'])
         router.post('/:reservationId/exchange-room', [ReservationsController, 'exchangeRoom'])
@@ -1044,13 +1048,14 @@ router
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
         router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
-        router.get('/filter_reservations', [ReservationsController, 'getInHouseReservations'])
+
 
         // Get released reservations by date for a hotel
         router.get('/hotel/:hotelId/released', [ReservationsController, 'getReleasedReservationsByDate'])
 
       })
       .prefix('reservation')
+      router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
 
     // Configuration routes
     router
@@ -1149,7 +1154,7 @@ router
             // Basic CRUD operations for email accounts
             router.get('/', emailAccountsController.index.bind(emailAccountsController)) // Get all email accounts with pagination
             router.post('/', emailAccountsController.store.bind(emailAccountsController)) // Create a new email account
-            router.get('/active/:hotelId', emailAccountsController.getActive.bind(emailAccountsController)) // Get active email accounts for hotel
+            router.get('/active', emailAccountsController.getActive.bind(emailAccountsController)) // Get active email accounts for hotel
             router.get('/:id', emailAccountsController.show.bind(emailAccountsController)) // Get specific email account details
             router.put('/:id', emailAccountsController.update.bind(emailAccountsController)) // Update email account information
             router.delete('/:id', emailAccountsController.destroy.bind(emailAccountsController)) // Delete email account
@@ -1170,9 +1175,9 @@ router
             router.patch('/:id/restore', emailTemplateController.restore.bind(emailTemplateController)) // Restore soft deleted email template
 
             // Filter operations for email templates
-            router.get('/by-auto-send/:hotelId', emailTemplateController.getByAutoSendType.bind(emailTemplateController)) // Get templates by auto send type
-            router.get('/by-category/:hotelId', emailTemplateController.getByTemplateCategory.bind(emailTemplateController)) // Get templates by category
-            router.get('/by-email-account/:hotelId', emailTemplateController.getByEmailAccount.bind(emailTemplateController)) // Get templates by email account
+            router.get('/by-auto-send', emailTemplateController.getByAutoSendType.bind(emailTemplateController)) // Get templates by auto send type
+            router.get('/by-category', emailTemplateController.getByTemplateCategory.bind(emailTemplateController)) // Get templates by category
+            router.get('/by-email-account', emailTemplateController.getByEmailAccount.bind(emailTemplateController)) // Get templates by email account
           })
           .prefix('email-templates')
         // Reason Management Routes
@@ -1188,7 +1193,7 @@ router
 
             // Reason operations
             router.get('/category/:category', reasonsController.getByCategory.bind(reasonsController)) // Get reasons by category
-            router.get('/:hotelId/:category', reasonsController.getReasonsByHotelAndCategory.bind(reasonsController)) // Get reasons by category
+            router.get('/:category', reasonsController.getReasonsByHotelAndCategory.bind(reasonsController)) // Get reasons by category
             router.get('/categories/list', reasonsController.getCategories.bind(reasonsController)) // Get all available categories
             router.get('/status/:status', reasonsController.getByStatus.bind(reasonsController)) // Get reasons by status
           })
@@ -1335,7 +1340,7 @@ router
 
             // Additional booking source operations
             router.get('/list', bookingSourcesController.list.bind(bookingSourcesController)) // Get all booking sources without pagination
-            router.get('/hotel/:hotelId', bookingSourcesController.getByHotelId.bind(bookingSourcesController)) // Get booking sources by hotel ID
+            router.get('/hotel', bookingSourcesController.getByHotelId.bind(bookingSourcesController)) // Get booking sources by hotel ID
           })
           .prefix('booking_sources')
 
@@ -1350,9 +1355,9 @@ router
             router.delete('/:id', [() => import('#controllers/company_accounts_controller'), 'destroy']) // Delete company account
 
             // Additional company account operations
-            router.get('/hotel/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getByHotel']) // Get company accounts by hotel
+            router.get('/hotel', [() => import('#controllers/company_accounts_controller'), 'getByHotel']) // Get company accounts by hotel
             router.get('/active', [() => import('#controllers/company_accounts_controller'), 'getActive']) // Get active company accounts
-            router.get('/city_ledger/:hotelId', [() => import('#controllers/company_accounts_controller'), 'getCityLedger']) // Get city ledger accounts for hotel (doNotCountAsCityLedger = false)
+            router.get('/city_ledger', [() => import('#controllers/company_accounts_controller'), 'getCityLedger']) // Get city ledger accounts for hotel (doNotCountAsCityLedger = false)
           })
           .prefix('company_accounts')
 
@@ -1384,7 +1389,7 @@ router
             router.delete('/:id', extraChargesController.destroy.bind(extraChargesController)) // Soft delete extra charge
 
             // Additional routes for extra charges
-            router.get('/hotel/:hotelId', extraChargesController.getByHotel.bind(extraChargesController)) // Get extra charges by hotel
+            router.get('/hotel', extraChargesController.getByHotel.bind(extraChargesController)) // Get extra charges by hotel
             router.get('/web-published', extraChargesController.getWebPublished.bind(extraChargesController)) // Get web-published extra charges
           })
           .prefix('extra_charges')
@@ -1428,21 +1433,32 @@ router
           })
           .prefix('city_ledger')
 
+        // Meal Plans Management Routes
+        router
+          .group(() => {
+            // Basic CRUD operations for meal plans scoped to hotel
+            router.get('/', mealPlansController.index.bind(mealPlansController))
+            router.post('/', mealPlansController.store.bind(mealPlansController))
+            router.get('/:id', mealPlansController.show.bind(mealPlansController))
+            router.put('/:id', mealPlansController.update.bind(mealPlansController))
+          })
+          .prefix('meal_plans')
+
         // Company Folio Management Routes
         // Company folio creation, payment posting, and assignment management
         router
           .group(() => {
-            router.get('/:companyId/:hotelId', companyFolioController.show.bind(companyFolioController)) // Get company folio with transactions
+            router.get('/:companyId', companyFolioController.show.bind(companyFolioController)) // Get company folio with transactions
             router.post('/create', companyFolioController.createOrGet.bind(companyFolioController)) // Create or get company folio
             router.post('/payment', companyFolioController.postPayment.bind(companyFolioController)) // Post payment to company folio
             router.post('/payment-with-assignment', companyFolioController.postPaymentWithAssignment.bind(companyFolioController)) // Post payment with automatic assignment
             router.put('/assignment', companyFolioController.updateAssignment.bind(companyFolioController)) // Update payment assignment
             router.put('/bulk-assignment', companyFolioController.updateBulkAssignments.bind(companyFolioController)) // Update bulk payment assignments
-            router.get('/:companyId/:hotelId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
+            router.get('/:companyId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
           })
           .prefix('company_folios')
       })
-      .prefix('configuration')
+      .prefix('configuration/hotels/:hotelId')
 
     //Demande de transport
     router.group(() => {

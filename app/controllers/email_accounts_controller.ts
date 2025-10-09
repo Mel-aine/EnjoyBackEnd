@@ -8,11 +8,20 @@ export default class EmailAccountsController {
   /**
    * Get all email accounts for a specific hotel
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
-      const { hotelId, page = 1, limit = 10 } = await request.validateUsing(emailAccountQueryValidator)
+      const result = await request.validateUsing(emailAccountQueryValidator)
+      const { page = 1, limit = 10 } = result
+      const hotelId = params.hotelId
       
-      const emailAccounts = await this.emailAccountService.getByHotelId(hotelId, page, limit)
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required in route params'
+        })
+      }
+      
+      const emailAccounts = await this.emailAccountService.getByHotelId(Number(hotelId), page, limit)
       
       return response.ok({
         success: true,

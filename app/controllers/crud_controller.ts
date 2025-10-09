@@ -95,8 +95,8 @@ export default class CrudController<T extends typeof BaseModel> {
     const { params, request, response, auth } = ctx
     try {
       const data = request.all()
-      const oldItem = await this.service.getById(params.id)
-      
+      const oldItem = await this.service.findById(params.id)
+
       if (!oldItem) {
         return response.notFound({ message: 'Record not found' })
       }
@@ -134,7 +134,7 @@ export default class CrudController<T extends typeof BaseModel> {
     const { params, response, auth } = ctx
     try {
       const oldItem = await this.service.getById(params.id)
-      
+
       if (!oldItem) {
         return response.notFound({ message: 'Record not found' })
       }

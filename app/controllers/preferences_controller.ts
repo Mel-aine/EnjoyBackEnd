@@ -7,11 +7,11 @@ export default class PreferencesController {
   /**
    * Display a list of preferences
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const preferenceTypeId = request.input('preference_type_id')
 
       const query = Preference.query()
@@ -21,9 +21,14 @@ export default class PreferencesController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'hotelId is required in route params',
+        })
       }
+
+      query.where('hotel_id', hotelId)
 
       if (preferenceTypeId) {
         query.where('preference_type_id', preferenceTypeId)

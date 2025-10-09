@@ -4,6 +4,7 @@ import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import User from './user.js'
 import TaxRate from './tax_rate.js'
+import MealPlan from './meal_plan.js'
 
 export default class ExtraCharge extends BaseModel {
   @column({ isPrimary: true })
@@ -57,6 +58,15 @@ export default class ExtraCharge extends BaseModel {
   @column()
   declare applyChargeAlways: boolean
 
+  @column()
+  declare category: string | null
+
+  @column({ columnName: 'is_meal_plan_component' })
+  declare isMealPlanComponent: boolean
+
+  @column({ columnName: 'tax_rate_id' })
+  declare taxRateId: number | null
+
   // Audit fields
   @column()
   declare createdByUserId: number | null
@@ -98,4 +108,17 @@ export default class ExtraCharge extends BaseModel {
     pivotRelatedForeignKey: 'tax_rate_id',
   })
   declare taxRates: ManyToMany<typeof TaxRate>
+
+  @belongsTo(() => TaxRate, { foreignKey: 'taxRateId' })
+  declare taxRate: BelongsTo<typeof TaxRate>
+
+  @manyToMany(() => MealPlan, {
+    pivotTable: 'meal_plan_components',
+    localKey: 'id',
+    pivotForeignKey: 'extra_charge_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'meal_plan_id',
+    pivotColumns: ['quantity_per_day', 'target_guest_type']
+  })
+  declare mealPlans: ManyToMany<typeof MealPlan>
 }

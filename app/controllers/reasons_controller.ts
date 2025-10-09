@@ -7,13 +7,17 @@ export default class ReasonsController {
   /**
    * Display a list of reasons
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 100)
-      const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       const category = request.input('category')
       const search = request.input('search')
+
+      if (!hotelId) {
+        return response.badRequest({ message: 'hotelId is required' })
+      }
 
       const query = Reason.query()
         .where('is_deleted', false)
@@ -21,9 +25,7 @@ export default class ReasonsController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
-      }
+      query.where('hotel_id', Number(hotelId))
 
       if (category) {
         query.where('category', category)
@@ -148,8 +150,13 @@ export default class ReasonsController {
    */
   async getByCategory({ params, response }: HttpContext) {
     try {
+        const hotelId = params.hotelId
+        const category = decodeURIComponent(params.category);
+        console.log('hotelId:', hotelId, 'category:', category)
+
       const reasons = await Reason.query()
-        .where('category', params.category)
+        .where('category', category)
+        .where('hotel_id', hotelId)
         .where('is_deleted', false)
         .preload('hotel')
         .orderBy('reason_name', 'asc')

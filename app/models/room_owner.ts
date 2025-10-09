@@ -3,10 +3,15 @@ import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from './user.js'
 import Room from './room.js'
+import Hotel from './hotel.js'
 
 export default class RoomOwner extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
+
+  // Hotel association
+  @column({ columnName: 'hotel_id' })
+  declare hotelId: number
 
   // Personal Information
   @column()
@@ -82,6 +87,11 @@ export default class RoomOwner extends BaseModel {
   declare deletedAt: DateTime | null
 
   // Relationships
+  @belongsTo(() => Hotel, {
+    foreignKey: 'hotelId',
+  })
+  declare hotel: BelongsTo<typeof Hotel>
+
   @belongsTo(() => User, {
     foreignKey: 'createdByUserId',
   })

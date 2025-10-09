@@ -3,9 +3,12 @@ import Currency from '#models/currency'
 import vine from '@vinejs/vine'
 
 export default class CurrenciesController {
-  public async index({ request, response }: HttpContext) {
+  public async index({ params, request, response }: HttpContext) {
     try {
-      const { hotelId } = request.qs()
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
       
       let query = Currency.query()
         .where('is_deleted', false)
@@ -13,9 +16,7 @@ export default class CurrenciesController {
         .preload('createdBy')
         .preload('updatedBy')
       
-      if (hotelId) {
-        query = query.where('hotel_id', hotelId)
-      }
+      query = query.where('hotel_id', Number(hotelId))
       
       const currencies = await query.orderBy('created_at', 'desc')
       

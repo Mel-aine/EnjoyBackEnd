@@ -8,6 +8,7 @@ import RateType from './rate_type.js'
 import Season from './season.js'
 import BookingSource from './booking_source.js'
 import User from './user.js'
+import MealPlan from './meal_plan.js'
 
 export default class RoomRate extends BaseModel {
   @column({ isPrimary: true })
@@ -30,6 +31,9 @@ export default class RoomRate extends BaseModel {
 
   @column()
   declare ratePlanId: number | null
+
+  @column({ columnName: 'meal_plan_id' })
+  declare mealPlanId: number | null
 
   @column.date()
   declare rateDate: DateTime | null
@@ -151,6 +155,12 @@ export default class RoomRate extends BaseModel {
   @column()
   declare channexRateId: string | null
 
+  @column({ columnName: 'tax_include' })
+  declare taxInclude: boolean
+
+  @column({ columnName: 'meal_plan_rate_include' })
+  declare mealPlanRateInclude: boolean
+
   @column()
   declare createdBy: number | null
 
@@ -187,6 +197,9 @@ export default class RoomRate extends BaseModel {
 
   @belongsTo(() => RatePlan)
   declare ratePlan: BelongsTo<typeof RatePlan>
+
+  @belongsTo(() => MealPlan, { foreignKey: 'mealPlanId' })
+  declare mealPlan: BelongsTo<typeof MealPlan>
 
   // Computed properties
   get effectiveRate() {

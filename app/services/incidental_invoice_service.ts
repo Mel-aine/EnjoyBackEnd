@@ -9,6 +9,7 @@ import PaymentMethod from '#models/payment_method'
 import PdfService, { IncidentalInvoiceData, IncidentalCharge } from '#services/pdf_service'
 import LoggerService from '#services/logger_service'
 import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
+import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export interface CreateIncidentalInvoiceData {
   hotelId: number
@@ -217,7 +218,7 @@ export default class IncidentalInvoiceService {
             hotelId: data.hotelId,
             folioId: folio.id,
             transactionNumber: transactionNumber,
-            transactionCode: transactionNumber.toString(),
+            transactionCode: generateTransactionCode('CHG'),
             transactionType: charge.transactionType ? TransactionType.CHARGE : TransactionType.CHARGE,
             category: this.mapChargeCategory(charge.category),
             description: charge.description || 'Incidental Charge',
@@ -277,7 +278,7 @@ export default class IncidentalInvoiceService {
           hotelId: data.hotelId,
           folioId: folio.id,
           transactionNumber: paymentTransactionNumber,
-          transactionCode: paymentTransactionNumber.toString(),
+          transactionCode: generateTransactionCode('PY'),
           transactionType: TransactionType.PAYMENT,
           category: TransactionCategory.PAYMENT,
           description: `Payment - ${data.paymentType}`,

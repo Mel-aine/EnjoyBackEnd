@@ -4,9 +4,12 @@ import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
 
 export default class IdentityTypesController {
-  public async index({ request, response }: HttpContext) {
+  public async index({ params, request, response }: HttpContext) {
     try {
-      const { hotelId } = request.qs()
+      const hotelId = params.hotelId
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
       
       let query = IdentityType.query()
         .where('is_deleted', false)
@@ -14,9 +17,7 @@ export default class IdentityTypesController {
         .preload('createdBy')
         .preload('updatedBy')
       
-      if (hotelId) {
-        query = query.where('hotel_id', hotelId)
-      }
+      query = query.where('hotel_id', Number(hotelId))
       
       const identityTypes = await query.orderBy('created_at', 'desc')
       

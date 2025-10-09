@@ -7,11 +7,11 @@ export default class PayoutReasonsController {
   /**
    * Display a list of payout reasons
    */
-  async index({ request, response }: HttpContext) {
+  async index({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
-      const hotelId = request.input('hotelId')
+      const hotelId = params.hotelId
 
       const query = PayoutReason.query()
         .where('is_deleted', false)
@@ -19,9 +19,11 @@ export default class PayoutReasonsController {
         .preload('createdByUser')
         .preload('updatedByUser')
 
-      if (hotelId) {
-        query.where('hotel_id', hotelId)
+      if (!hotelId) {
+        return response.badRequest({ message: 'hotelId is required in route params' })
       }
+
+      query.where('hotel_id', hotelId)
 
       const payoutReasons = await query.paginate(page, limit)
       return response.ok(payoutReasons)
