@@ -112,15 +112,15 @@ export default class RoomRatesController {
       // Load the room type and rate type to establish the relationship
       await roomRate.load('roomType')
       await roomRate.load('rateType')
-      
+
       // Add the rate type to the room type's rateTypes relationship if not already present
       const roomType = roomRate.roomType
       const rateTypeId = roomRate.rateTypeId
-      
+
       // Check if the relationship already exists
       await roomType.load('rateTypes')
       const existingRateType = roomType.rateTypes.find(rt => rt.id === rateTypeId)
-      
+
       if (!existingRateType) {
         // Attach the rate type to the room type
         await roomType.related('rateTypes').attach([rateTypeId], trx)
@@ -152,11 +152,11 @@ export default class RoomRatesController {
   async show({ params, response }: HttpContext) {
     try {
       const id = parseInt(params.id)
-      
+
       if (isNaN(id)) {
         return response.badRequest({ message: 'Invalid ID' })
       }
-      
+
       const roomRate = await RoomRate.query()
         .where('id', id)
         .preload('hotel')
@@ -190,13 +190,14 @@ export default class RoomRatesController {
     const trx = await Database.transaction()
     try {
       const id = parseInt(params.id)
-      
+
       if (isNaN(id)) {
         await trx.rollback()
         return response.badRequest({ message: 'Invalid ID' })
       }
-      
+
       const payload = await request.validateUsing(updateRoomRateValidator)
+
       const userId = auth.user?.id
 
       const roomRate = await RoomRate.query()
@@ -242,11 +243,11 @@ export default class RoomRatesController {
   async destroy({ params, response }: HttpContext) {
     try {
       const id = parseInt(params.id)
-      
+
       if (isNaN(id)) {
         return response.badRequest({ message: 'Invalid ID' })
       }
-      
+
       const roomRate = await RoomRate.findOrFail(id)
       await roomRate.delete()
 
@@ -427,6 +428,7 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
     const rateTypeId = request.input('rate_type_id')
     const dateInput = request.input('date')
 
+
     // Conversion de la date en DateTime Luxon
     const date = dateInput ? DateTime.fromISO(dateInput) : DateTime.now()
     const dateStr = date.toSQLDate()
@@ -441,6 +443,9 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
       .where('hotel_id', hotelId)
       .where('room_type_id', roomTypeId)
       .where('rate_type_id', rateTypeId)
+      .preload('mealPlan', (mealPlanQuery) => {
+        mealPlanQuery.preload('extraCharges')
+      })
       .where((query) => {
         query
           .whereNull('effective_from')
@@ -483,7 +488,12 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
       bookingRules: roomRate.bookingRules || {},
       rateDate: dateStr,
       effectiveFrom: roomRate.effectiveFrom,
-      effectiveTo: roomRate.effectiveTo
+      effectiveTo: roomRate.effectiveTo,
+      mealPlan: roomRate.mealPlan || null,
+      mealPlanId:roomRate.mealPlanId || null,
+      mealPlanRateInclude : roomRate.mealPlanRateInclude,
+      taxInclude : roomRate.taxInclude
+
     })
   } catch (error) {
     console.error('Erreur lors de la récupération du tarif:', error)

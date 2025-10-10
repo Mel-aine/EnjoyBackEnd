@@ -12,12 +12,12 @@ export default class extends BaseSchema {
       table.dateTime('effective_from').nullable()
       table.dateTime('effective_to').nullable()
       table.timestamp('deleted_at', { useTz: true }).nullable()
-      
+
       // Add foreign key constraints for new fields
       table.foreign('rate_type_id').references('id').inTable('rate_types').onDelete('SET NULL')
       table.foreign('season_id').references('id').inTable('seasons').onDelete('SET NULL')
-      table.foreign('source_id').references('id').inTable('booking_sources').onDelete('SET NULL')
-      
+      table.foreign('source_id').references('id').inTable('business_sources').onDelete('SET NULL')
+
       // Add indexes for better performance
       table.index(['rate_type_id'])
       table.index(['season_id'])
@@ -32,13 +32,13 @@ export default class extends BaseSchema {
       table.dropForeign(['rate_type_id'])
       table.dropForeign(['season_id'])
       table.dropForeign(['source_id'])
-      
+
       // Drop indexes
       table.dropIndex(['rate_type_id'])
       table.dropIndex(['season_id'])
       table.dropIndex(['source_id'])
       table.dropIndex(['effective_from', 'effective_to'])
-      
+
       // Drop columns
       table.dropColumn('rate_type_id')
       table.dropColumn('season_id')

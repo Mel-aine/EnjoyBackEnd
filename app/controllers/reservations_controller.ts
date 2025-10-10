@@ -2236,7 +2236,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   (numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights) +
                   (numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights),
                 status: numberOfNights === 0 ? 'day_use' : 'reserved',
-                rateTypeId: data.rate_type_id,
+                rateTypeId: room.rate_type_id,
+                mealPlanId:room.meal_plan_id,
                 isOwner: index === 0,
                 reservedByUser: auth.user?.id,
                 createdBy: data.created_by,
@@ -2390,7 +2391,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     try {
       const reservationId =  params.id
       const data = request.all()
-      console.log
+
       const oldStatus = await Reservation.query()
         .where('id', reservationId)
         .select('status')

@@ -32,6 +32,7 @@ export const createReservationValidator = vine.compile(
 
     // Room Details
     room_type_id: vine.number().positive().optional(),
+    meal_plan_id: vine.number().positive().optional(),
     number_of_rooms: vine.number().min(1).max(50),
     room_preference: vine.string().optional(),
     bed_type_preference: vine.string().optional(),

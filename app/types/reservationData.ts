@@ -75,6 +75,7 @@ export interface ReservationData {
   rooms: Array<{
     room_type_id: number
     rate_type_id?: number
+    meal_plan_id?:number
     room_id: number | null
     room_rate: number
     adult_count: number
