@@ -89,6 +89,16 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare netAmount: number
 
+  // Pricing flags
+  @column({ columnName: 'is_complementary' })
+  declare isComplementary: boolean
+
+  @column({ columnName: 'tax_includes' })
+  declare taxIncludes: boolean
+
+  @column({ columnName: 'meal_plan_rate_include' })
+  declare mealPlanRateInclude: boolean
+
   @column()
   declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked' | 'day_use'
 
