@@ -3303,7 +3303,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               folioId: destinationFolio.id,
               lastModifiedBy: auth.user?.id || 1,
               updatedAt: DateTime.now(),
-              description: db.raw("CONCAT(COALESCE(description, ''), ' | ', ?)", [transferNote]),
+              description: db.rawQuery("CONCAT(COALESCE(description, ''), ' | ', ?)", [transferNote]),
             })
 
           const refreshedSource = await Folio.query()
