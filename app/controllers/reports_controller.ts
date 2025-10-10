@@ -2076,10 +2076,12 @@ export default class ReportsController {
       .hotel-name {
         font-size: 16px;
         font-weight: bold;
+        color: #003366;
       }
       .report-title {
         font-size: 16px;
         font-weight: bold;
+        color: #8B0000;
       }
       .report-info {
         margin: 10px 0;
@@ -2111,16 +2113,18 @@ export default class ReportsController {
       .data-table th {
         background-color: transparent;
         border: none;
-        border-bottom: 1px dotted #333;
+        border-bottom: 1px solid #333;
         padding: 4px 2px;
         text-align: center;
         font-weight: bold;
       }
       .data-table td {
         border: none;
-        border-bottom: 1px dotted #ddd;
         padding: 3px 2px;
         text-align: left;
+      }
+      .data-table tbody tr {
+        border-bottom: 1px dotted #ccc;
       }
       .data-table td.number {
         text-align: right;
@@ -2132,9 +2136,12 @@ export default class ReportsController {
         background-color: transparent;
         font-weight: bold;
         border-top: 1px solid #333 !important;
+        border-bottom: 1px solid #333 !important;
       }
       .totals-row td {
-        border-bottom: 1px solid #333 !important;
+        border-top: none !important;
+        border-bottom: none !important;
+        padding: 3px 2px;
       }
       .footer {
         position: fixed;
