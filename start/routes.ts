@@ -1507,7 +1507,7 @@ router
     )
 
 router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
-  router.post('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
+  router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
   router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
 
     //Payment Method routes
