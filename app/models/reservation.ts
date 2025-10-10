@@ -451,13 +451,13 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
   declare modifier: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'checked_in_by' })
+  @belongsTo(() => User, { foreignKey: 'checkedInBy' })
   declare checkedInByUser: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'checked_out_by' })
+  @belongsTo(() => User, { foreignKey: 'checkedOutBy' })
   declare checkedOutByUser: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'reserved_by' })
+  @belongsTo(() => User, { foreignKey: 'reservedBy' })
   declare reservedByUser: BelongsTo<typeof User>
 
   @belongsTo(() => User, { foreignKey: 'voided_by' })

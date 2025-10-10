@@ -110,8 +110,9 @@ export class FolioPrintService {
             }).preload('roomType')
           })
           //.preload('creator')
-          //.preload('checkedOutByUser')
-        //  .preload('reservedByUser')
+          .preload('checkedOutByUser')
+          .preload('reservedByUser')
+          .preload('checkedInByUser')
       })
       .preload('transactions', (transactionQuery) => {
         transactionQuery
@@ -189,10 +190,16 @@ export class FolioPrintService {
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
       status: reservation.status || reservation.reservationStatus,
-      checkedInBy: reservation.checkedInByUser + ' ' + reservation.checkedInByUser,
-      checkedOutBy: reservation.checkedOutByUser + ' ' + reservation.checkedOutByUser,
-      reservedBy: reservation.reservedByUser + ' ' + reservation.reservedByUser
-    }
+      checkedInBy: reservation.checkedInByUser 
+      ? `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}`
+      : 'N/A',
+      checkedOutBy: reservation.checkedOutByUser 
+        ? `${reservation.checkedOutByUser.firstName} ${reservation.checkedOutByUser.lastName}`
+        : 'N/A',
+      reservedBy: reservation.reservedByUser 
+        ? `${reservation.reservedByUser.firstName} ${reservation.reservedByUser.lastName}`
+        : 'N/A'
+    } 
 
     // Prepare folio information
     const folioData = {

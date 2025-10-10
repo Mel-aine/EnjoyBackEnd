@@ -79,7 +79,7 @@ export default class FolioPrintController {
       response.header('Content-Length', pdfBuffer.length.toString())
 
       return response.send(pdfBuffer)
-    } catch (error) {
+    } catch (error) { 
       return response.status(500).json({
         success: false,
         message: 'Failed to generate folio PDF',
