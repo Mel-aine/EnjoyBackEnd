@@ -2049,358 +2049,364 @@ export default class ReportsController {
   ): string {
     const formattedDate = reportDate.toFormat('dd/MM/yyyy')
     const currentDateTime = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-
+  
     return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Night Audit Report - ${hotelName}</title>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            margin: 15px;
-            color: #333;
-            line-height: 1.3;
-            font-size: 12px;
-        }
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid black;
-        }
-        .hotel-name {
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .report-title {
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .report-info {
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .horizontal-line {
-            border-top: 1px solid #333;
-            margin: 5px 0;
-        }
-        .dotted-line {
-            border-top: 1px dotted #333;
-            margin: 5px 0;
-        }
-        .section {
-            margin: 15px 0;
-            page-break-inside: avoid;
-        }
-        .section-title {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 5px 0;
-            font-size: 10px;
-        }
-        .data-table th {
-            background-color: #f5f5f5;
-            border: 1px solid #333;
-            padding: 4px 2px;
-            text-align: center;
-            font-weight: bold;
-        }
-        .data-table td {
-            border: 1px solid #333;
-            padding: 3px 2px;
-            text-align: left;
-        }
-        .data-table td.number {
-            text-align: right;
-        }
-        .data-table td.center {
-            text-align: center;
-        }
-        .totals-row {
-            background-color: #f0f0f0;
-            font-weight: bold;
-        }
-        .footer {
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            right: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 10px;
-        }
-        @media print {
-            body { margin: 10px; }
-            .page-header { page-break-after: avoid; }
-            .section { page-break-inside: avoid; }
-        }
+      body {
+        font-family: 'Arial', sans-serif;
+        margin: 15px;
+        color: #333;
+        line-height: 1.2;
+        font-size: 10px;
+      }
+      .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 2px solid black;
+      }
+      .hotel-name {
+        font-size: 16px;
+        font-weight: bold;
+      }
+      .report-title {
+        font-size: 16px;
+        font-weight: bold;
+      }
+      .report-info {
+        margin: 10px 0;
+        font-weight: bold;
+      }
+      .horizontal-line {
+        border-top: 1px solid #333;
+        margin: 5px 0;
+      }
+      .dotted-line {
+        border-top: 1px dotted #333;
+        margin: 5px 0;
+      }
+      .section {
+        margin: 15px 0;
+        page-break-inside: avoid;
+      }
+      .section-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 5px 0;
+        font-size: 10px;
+      }
+      .data-table th {
+        background-color: transparent;
+        border: none;
+        border-bottom: 1px dotted #333;
+        padding: 4px 2px;
+        text-align: center;
+        font-weight: bold;
+      }
+      .data-table td {
+        border: none;
+        border-bottom: 1px dotted #ddd;
+        padding: 3px 2px;
+        text-align: left;
+      }
+      .data-table td.number {
+        text-align: right;
+      }
+      .data-table td.center {
+        text-align: center;
+      }
+      .totals-row {
+        background-color: transparent;
+        font-weight: bold;
+        border-top: 1px solid #333 !important;
+      }
+      .totals-row td {
+        border-bottom: 1px solid #333 !important;
+      }
+      .footer {
+        position: fixed;
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+        padding-top: 10px;
+        border-top: 1px solid #333;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 10px;
+      }
+      @media print {
+        body { margin: 10px; }
+        .page-header { page-break-after: avoid; }
+        .section { page-break-inside: avoid; }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <!-- Page Header -->
     <div class="page-header">
-        <div class="hotel-name">${hotelName}</div>
-        <div class="report-title">Night Audit</div>
+      <div class="hotel-name">${hotelName}</div>
+      <div class="report-title">Night Audit</div>
     </div>
-
+  
     <!-- Report Info -->
     <div class="report-info">
-        As On Date: ${formattedDate} &nbsp;&nbsp;&nbsp;&nbsp; Currency: ${currency}
+      As On Date: ${formattedDate} &nbsp;&nbsp;&nbsp;&nbsp; Currency: ${currency}
     </div>
     <div class="horizontal-line"></div>
-
+  
     <!-- Section 1: Room Charges -->
     <div class="section">
-        <div class="section-title">Room Charges</div>
-        <div class="horizontal-line"></div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Folio No.</th>
-                    <th>Guest</th>
-                    <th>Source</th>
-                    <th>Company</th>
-                    <th>Rent Date</th>
-                    <th>Rate Type</th>
-                    <th>Nrml.Tariff</th>
-                    <th>Ofrd.Tariff</th>
-                    <th>Total Tax</th>
-                    <th>Total Rent</th>
-                    <th>Var %</th>
-                    <th>Checkin By</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sectionsData.roomCharges.data.map((row: any) => `
-                <tr>
-                    <td>${row.room}</td>
-                    <td class="center">${row.folioNo}</td>
-                    <td>${row.guest}</td>
-                    <td>${row.source}</td>
-                    <td>${row.company}</td>
-                    <td class="center">${row.rentDate}</td>
-                    <td>${row.rateType}</td>
-                    <td class="number">${row.normalTariff}</td>
-                    <td class="number">${row.offeredTariff}</td>
-                    <td class="number">${row.totalTax}</td>
-                    <td class="number">${row.totalRent}</td>
-                    <td class="number">${row.variance}</td>
-                    <td>${row.checkinBy}</td>
-                </tr>
-                `).join('')}
-                <tr class="totals-row">
-                    <td colspan="7"><strong>Total (${currency}):</strong></td>
-                    <td class="number"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
-                    <td class="number"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
-                    <td class="number"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
-                    <td class="number"><strong>${sectionsData.roomCharges.totals.totalRent}</strong></td>
-                    <td class="number"><strong>${sectionsData.roomCharges.totals.totalVariant}</strong></td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="dotted-line"></div>
+      <div class="section-title">Room Charges</div>
+      <div class="horizontal-line"></div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Folio No.</th>
+            <th>Guest</th>
+            <th>Source</th>
+            <th>Company</th>
+            <th>Rent Date</th>
+            <th>Rate Type</th>
+            <th>Nrml.Tariff</th>
+            <th>Ofrd.Tariff</th>
+            <th>Total Tax</th>
+            <th>Total Rent</th>
+            <th>Var %</th>
+            <th>Checkin By</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionsData.roomCharges.data.map((row: any) => `
+          <tr>
+            <td>${row.room}</td>
+            <td class="center">${row.folioNo}</td>
+            <td>${row.guest}</td>
+            <td>${row.source}</td>
+            <td>${row.company}</td>
+            <td class="center">${row.rentDate}</td>
+            <td>${row.rateType}</td>
+            <td class="number">${row.normalTariff}</td>
+            <td class="number">${row.offeredTariff}</td>
+            <td class="number">${row.totalTax}</td>
+            <td class="number">${row.totalRent}</td>
+            <td class="number">${row.variance}</td>
+            <td>${row.checkinBy}</td>
+          </tr>
+          `).join('')}
+          <tr class="totals-row">
+            <td colspan="7"><strong>Total (${currency}):</strong></td>
+            <td class="number"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
+            <td class="number"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
+            <td class="number"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
+            <td class="number"><strong>${sectionsData.roomCharges.totals.totalRent}</strong></td>
+            <td class="number"><strong>${sectionsData.roomCharges.totals.totalVariant}</strong></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="dotted-line"></div>
     </div>
-
+  
     <!-- Section 2: Daily Sales -->
     <div class="section">
-        <div class="section-title">Daily Sales</div>
-        <div class="horizontal-line"></div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Sales Type</th>
-                    <th>Room Charges (${currency})</th>
-                    <th>Extra Charges (${currency})</th>
-                    <th>Room Tax (${currency})</th>
-                    <th>Extra Tax (${currency})</th>
-                    <th>Discount (${currency})</th>
-                    <th>Adjustment (${currency})</th>
-                    <th>Total Sales (${currency})</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sectionsData.dailySales.data.map((row: any) => `
-                <tr>
-                    <td>${row.salesType}</td>
-                    <td class="number">${row.roomCharges}</td>
-                    <td class="number">${row.extraCharges}</td>
-                    <td class="number">${row.roomTax}</td>
-                    <td class="number">${row.extraTax}</td>
-                    <td class="number">${row.discount}</td>
-                    <td class="number">${row.adjustment}</td>
-                    <td class="number">${row.totalSales}</td>
-                </tr>
-                `).join('')}
-                <tr class="totals-row">
-                    <td><strong>Total:</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.extraTax}</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.discount}</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.adjustment}</strong></td>
-                    <td class="number"><strong>${sectionsData.dailySales.totals.totalSales}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="dotted-line"></div>
+      <div class="section-title">Daily Sales</div>
+      <div class="horizontal-line"></div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Sales Type</th>
+            <th>Room Charges (${currency})</th>
+            <th>Extra Charges (${currency})</th>
+            <th>Room Tax (${currency})</th>
+            <th>Extra Tax (${currency})</th>
+            <th>Discount (${currency})</th>
+            <th>Adjustment (${currency})</th>
+            <th>Total Sales (${currency})</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionsData.dailySales.data.map((row: any) => `
+          <tr>
+            <td>${row.salesType}</td>
+            <td class="number">${row.roomCharges}</td>
+            <td class="number">${row.extraCharges}</td>
+            <td class="number">${row.roomTax}</td>
+            <td class="number">${row.extraTax}</td>
+            <td class="number">${row.discount}</td>
+            <td class="number">${row.adjustment}</td>
+            <td class="number">${row.totalSales}</td>
+          </tr>
+          `).join('')}
+          <tr class="totals-row">
+            <td><strong>Total:</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.extraTax}</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.discount}</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.adjustment}</strong></td>
+            <td class="number"><strong>${sectionsData.dailySales.totals.totalSales}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="dotted-line"></div>
     </div>
-
+  
     <!-- Section 3: Misc. Charges -->
     <div class="section">
-        <div class="section-title">Misc. Charges</div>
-        <div class="horizontal-line"></div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Folio No.</th>
-                    <th>Guest</th>
-                    <th>Charge Date</th>
-                    <th>Voucher No</th>
-                    <th>Charge</th>
-                    <th>Unit Price (${currency})</th>
-                    <th>Unit (Q'ty)</th>
-                    <th>Amount (${currency})</th>
-                    <th>Entered On</th>
-                    <th>Remark</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sectionsData.miscCharges.data.map((row: any) => `
-                <tr>
-                    <td>${row.room}</td>
-                    <td class="center">${row.folioNo}</td>
-                    <td>${row.guest}</td>
-                    <td class="center">${row.chargeDate}</td>
-                    <td class="center">${row.voucherNo}</td>
-                    <td>${row.charge}</td>
-                    <td class="number">${row.unitPrice}</td>
-                    <td class="number">${row.units}</td>
-                    <td class="number">${row.amount}</td>
-                    <td class="center">${row.enteredOn}</td>
-                    <td>${row.remark}</td>
-                </tr>
-                `).join('')}
-                <tr class="totals-row">
-                    <td colspan="7"><strong>Total:</strong></td>
-                    <td class="number"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
-                    <td class="number"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
-                    <td colspan="2"></td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="dotted-line"></div>
+      <div class="section-title">Misc. Charges</div>
+      <div class="horizontal-line"></div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Folio No.</th>
+            <th>Guest</th>
+            <th>Charge Date</th>
+            <th>Voucher No</th>
+            <th>Charge</th>
+            <th>Unit Price (${currency})</th>
+            <th>Unit (Q'ty)</th>
+            <th>Amount (${currency})</th>
+            <th>Entered On</th>
+            <th>Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionsData.miscCharges.data.map((row: any) => `
+          <tr>
+            <td>${row.room}</td>
+            <td class="center">${row.folioNo}</td>
+            <td>${row.guest}</td>
+            <td class="center">${row.chargeDate}</td>
+            <td class="center">${row.voucherNo}</td>
+            <td>${row.charge}</td>
+            <td class="number">${row.unitPrice}</td>
+            <td class="number">${row.units}</td>
+            <td class="number">${row.amount}</td>
+            <td class="center">${row.enteredOn}</td>
+            <td>${row.remark}</td>
+          </tr>
+          `).join('')}
+          <tr class="totals-row">
+            <td colspan="7"><strong>Total:</strong></td>
+            <td class="number"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
+            <td class="number"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="dotted-line"></div>
     </div>
-
+  
     <!-- Section 4: Room Status -->
     <div class="section">
-        <div class="section-title">Room Status</div>
-        <div class="horizontal-line"></div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Total Rooms</th>
-                    <th>Occupied</th>
-                    <th>Due Out</th>
-                    <th>Vacant</th>
-                    <th>Departed</th>
-                    <th>Reserve</th>
-                    <th>Blocked</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="center">${sectionsData.roomStatus.date}</td>
-                    <td class="number">${sectionsData.roomStatus.totalRooms}</td>
-                    <td class="number">${sectionsData.roomStatus.occupied}</td>
-                    <td class="number">${sectionsData.roomStatus.dueOut}</td>
-                    <td class="number">${sectionsData.roomStatus.vacant}</td>
-                    <td class="number">${sectionsData.roomStatus.departed}</td>
-                    <td class="number">${sectionsData.roomStatus.reserved}</td>
-                    <td class="number">${sectionsData.roomStatus.blocked}</td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="dotted-line"></div>
+      <div class="section-title">Room Status</div>
+      <div class="horizontal-line"></div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Total Rooms</th>
+            <th>Occupied</th>
+            <th>Due Out</th>
+            <th>Vacant</th>
+            <th>Departed</th>
+            <th>Reserve</th>
+            <th>Blocked</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="center">${sectionsData.roomStatus.date}</td>
+            <td class="number">${sectionsData.roomStatus.totalRooms}</td>
+            <td class="number">${sectionsData.roomStatus.occupied}</td>
+            <td class="number">${sectionsData.roomStatus.dueOut}</td>
+            <td class="number">${sectionsData.roomStatus.vacant}</td>
+            <td class="number">${sectionsData.roomStatus.departed}</td>
+            <td class="number">${sectionsData.roomStatus.reserved}</td>
+            <td class="number">${sectionsData.roomStatus.blocked}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="dotted-line"></div>
     </div>
-
+  
     <!-- Section 5: Pax Status -->
     <div class="section">
-        <div class="section-title">Pax Status</div>
-        <div class="horizontal-line"></div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Status</th>
-                    <th>Rooms</th>
-                    <th>Adult</th>
-                    <th>Child</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sectionsData.paxStatus.map((row: any) => `
-                <tr>
-                    <td>${row.status}</td>
-                    <td class="number">${row.rooms}</td>
-                    <td class="number">${row.adults}</td>
-                    <td class="number">${row.children}</td>
-                </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        <div class="dotted-line"></div>
+      <div class="section-title">Pax Status</div>
+      <div class="horizontal-line"></div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Rooms</th>
+            <th>Adult</th>
+            <th>Child</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionsData.paxStatus.map((row: any) => `
+          <tr>
+            <td>${row.status}</td>
+            <td class="number">${row.rooms}</td>
+            <td class="number">${row.adults}</td>
+            <td class="number">${row.children}</td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="dotted-line"></div>
     </div>
-
+  
     <!-- Section 6: Pax Analysis -->
     <div class="section">
-        <div class="section-title">Pax Analysis</div>
-        <div class="horizontal-line"></div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Rate Type</th>
-                    <th>Adult</th>
-                    <th>Child</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sectionsData.paxAnalysis.map((row: any) => `
-                <tr>
-                    <td>${row.rateType}</td>
-                    <td class="number">${row.adults}</td>
-                    <td class="number">${row.children}</td>
-                </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        <div class="dotted-line"></div>
+      <div class="section-title">Pax Analysis</div>
+      <div class="horizontal-line"></div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rate Type</th>
+            <th>Adult</th>
+            <th>Child</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionsData.paxAnalysis.map((row: any) => `
+          <tr>
+            <td>${row.rateType}</td>
+            <td class="number">${row.adults}</td>
+            <td class="number">${row.children}</td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="dotted-line"></div>
     </div>
-
+  
     <!-- Footer -->
     <div class="footer">
-        <div><strong>Printed On:</strong> ${currentDateTime}</div>
-        <div><strong>Printed By:</strong> ${printedBy}</div>
-        <div><strong>Page 1 of 1</strong></div>
+      <div><strong>Printed On:</strong> ${currentDateTime}</div>
+      <div><strong>Printed By:</strong> ${printedBy}</div>
+      <div><strong>Page 1 of 1</strong></div>
     </div>
-</body>
-</html>
+  </body>
+  </html>
     `
   }
 
