@@ -214,14 +214,14 @@ export default class PdfGenerationService {
             max-width: 800px;
             margin: 0 auto;
             background-color: white;
-            border: 1px solid #ccc;
+            border: 2px solid;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
 
         .header {
             text-align: center;
             padding: 10px;
-            border-bottom: 1px solid #ccc;
+            border-bottom: 2px solid;
         }
 
         .hotel-name {
@@ -256,7 +256,7 @@ export default class PdfGenerationService {
 
         th, td {
             padding: 5px;
-            border: 1px solid #ccc;
+            border: 2px solid;
         }
 
         th {
@@ -274,7 +274,7 @@ export default class PdfGenerationService {
 
         .invoice-details td {
             border: none;
-            padding: 2px 5px;
+            padding: 1px 5px;
             vertical-align: top;
         }
 
@@ -322,7 +322,7 @@ export default class PdfGenerationService {
         }
 
         .amount-in-words table {
-            border: 1px solid #ccc;
+            border: 2px solid;
         }
 
         .bill-to-section {
@@ -344,7 +344,7 @@ export default class PdfGenerationService {
             text-align: center;
             padding: 10px;
             font-size: 11px;
-            border-top: 1px solid #ccc;
+            border-top: 2px solid;
         }
 
         .folio-notice {

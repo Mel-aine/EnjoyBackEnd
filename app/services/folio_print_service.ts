@@ -130,9 +130,9 @@ export class FolioPrintService {
       //.preload('hotel')
       .preload('guest')
       .preload('roomType')
-      //.preload('checkedInByUser')
-      //.preload('checkedOutByUser')
-     // .preload('reservedByUser')
+      .preload('checkedInByUser')
+      .preload('checkedOutByUser')
+      .preload('reservedByUser')
       .firstOrFail()
 
     // Load currency information
@@ -189,9 +189,9 @@ export class FolioPrintService {
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
       status: reservation.status || reservation.reservationStatus,
-      checkedInBy: reservation.checkedInByUser?.firstName + ' ' + reservation.checkedInByUser?.lastName,
-      checkedOutBy: reservation.checkedOutByUser?.firstName + ' ' + reservation.checkedOutByUser?.lastName,
-      reservedBy: reservation.reservedByUser?.firstName + ' ' + reservation.reservedByUser?.lastName
+      checkedInBy: reservation.checkedInByUser + ' ' + reservation.checkedInByUser,
+      checkedOutBy: reservation.checkedOutByUser + ' ' + reservation.checkedOutByUser,
+      reservedBy: reservation.reservedByUser + ' ' + reservation.reservedByUser
     }
 
     // Prepare folio information
