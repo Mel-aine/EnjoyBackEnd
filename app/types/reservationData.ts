@@ -81,6 +81,8 @@ export interface ReservationData {
     adult_count: number
     child_count: number
     room_rate_id: number,
+    tax_includes:boolean,
+    meal_plan_rate_include : boolean,
     taxes: number
   }>
 

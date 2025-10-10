@@ -580,6 +580,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .preload('paymentMethod')
             .preload('roomRates', (queryRoom: any) => {
               queryRoom.preload('rateType')
+              .preload('mealPlan',(queryMeal:any)=>{
+                queryMeal.preload('extraCharges')
+              })
             })
             .preload('roomType')
         })
@@ -2238,6 +2241,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 status: numberOfNights === 0 ? 'day_use' : 'reserved',
                 rateTypeId: room.rate_type_id,
                 mealPlanId:room.meal_plan_id,
+                isComplementary : data.complimentary_room,
+                taxIncludes : room.tax_includes,
+                mealPlanRateInclude: room.meal_plan_rate_include,
                 isOwner: index === 0,
                 reservedByUser: auth.user?.id,
                 createdBy: data.created_by,

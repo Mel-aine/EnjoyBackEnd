@@ -193,6 +193,113 @@ async getRatesByHotelId({ params, response }: HttpContext) {
 }
 
 
+/**
+ * Get rate types with full room rate details for a specific room type
+ * This includes baseRate, mealPlan, taxes, etc.
+ */
+async getRatesByHotelIdAndRoomType({ params, response }: HttpContext) {
+  try {
+    const { hotelId, roomTypeId } = params
+
+    if (!hotelId) {
+      return response.badRequest({
+        message: 'hotelId is required'
+      })
+    }
+
+    if (!roomTypeId) {
+      return response.badRequest({
+        message: 'roomTypeId is required'
+      })
+    }
+
+    const rateTypes = await RateType.query()
+      .where('hotel_id', hotelId)
+      .where('is_deleted', false)
+      .preload('roomTypes', (roomTypesQuery) => {
+        roomTypesQuery
+          .where('room_types.id', roomTypeId)
+          .preload('roomRates', (roomRatesQuery) => {
+            roomRatesQuery
+              .where('status', 'active')
+              .preload('mealPlan', (mealPlanQuery) => {
+                mealPlanQuery.preload('extraCharges')
+              })
+              .preload('rateType')
+              .preload('season')
+              .orderBy('created_at', 'desc')
+          })
+      })
+
+    const result = []
+
+    for (const rateType of rateTypes) {
+      // Only include rate types that have rates for this room type
+      if (rateType.roomTypes.length > 0) {
+        const roomType = rateType.roomTypes[0]
+
+        // Get the most recent active rate for this combination
+        const activeRate = roomType.roomRates.find(
+          rate => rate.rateTypeId === rateType.id && rate.status === 'active'
+        )
+
+        if (activeRate) {
+          result.push({
+            rateTypeId: rateType.id,
+            rateTypeName: rateType.rateTypeName,
+            shortCode: rateType.shortCode,
+            isPackage: rateType.isPackage,
+            status: rateType.status,
+            roomTypeId: roomType.id,
+            roomTypeName: roomType.roomTypeName,
+            // Rate details
+            baseRate: activeRate.baseRate,
+            extraAdultRate: activeRate.extraAdultRate,
+            extraChildRate: activeRate.extraChildRate,
+            taxInclude: activeRate.taxInclude,
+            mealPlanRateInclude: activeRate.mealPlanRateInclude,
+            mealPlanId: activeRate.mealPlanId,
+            mealPlan: activeRate.mealPlan ? {
+              id: activeRate.mealPlan.id,
+              name: activeRate.mealPlan.name,
+              shortCode: activeRate.mealPlan.shortCode,
+              description: activeRate.mealPlan.description,
+              isAllInclusive: activeRate.mealPlan.isAllInclusive,
+              extraCharges: activeRate.mealPlan.extraCharges?.map(charge => ({
+                id: charge.id,
+                name: charge.name,
+                shortCode: charge.shortCode,
+                rate: charge.rate,
+                rateInclusiveTax: charge.rateInclusiveTax,
+                fixedPrice: charge.fixedPrice,
+                description: charge.description
+              })) || []
+            } : null,
+            seasonId: activeRate.seasonId,
+            season: activeRate.season,
+            effectiveFrom: activeRate.effectiveFrom,
+            effectiveTo: activeRate.effectiveTo,
+            minimumNights: activeRate.minimumNights,
+            maximumNights: activeRate.maximumNights,
+            rateId: activeRate.id
+          })
+        }
+      }
+    }
+
+    return response.ok({
+      message: 'Rate types with rates retrieved successfully',
+      data: result
+    })
+  } catch (error) {
+    console.error('Error in getRatesByHotelIdAndRoomType:', error)
+    return response.badRequest({
+      message: 'Failed to retrieve rate types',
+      error: error.message
+    })
+  }
+}
+
 
 
   /**

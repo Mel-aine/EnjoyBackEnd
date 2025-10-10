@@ -803,6 +803,7 @@ router
         router.get('/:id', rateTypesController.show.bind(rateTypesController)) // Get specific rate type details
         router.get('/hotel/:id', rateTypesController.showByHotel.bind(rateTypesController))
         router.get('/stay/view', rateTypesController.getRatesByHotelId.bind(rateTypesController))
+        router.get('/:roomTypeId/rates', rateTypesController.getRatesByHotelIdAndRoomType.bind(rateTypesController))
         // Get rate type details for a specific hotel
         router.get('/roomType/:id', rateTypesController.getByRoomType.bind(rateTypesController)) // Get rate type details for a specific hotel
         router.put('/:id', rateTypesController.update.bind(rateTypesController)) // Update rate type information
