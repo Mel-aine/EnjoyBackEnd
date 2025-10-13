@@ -2170,13 +2170,16 @@ export default class ReportsController {
       .totals-row {
         background-color: #fff;
         font-weight: bold;
-        border-top: 1.5px dashed #000 !important;
-        border-bottom: 1px dashed #000 !important;
       }
       
       .totals-row td {
         padding: 4px 3px;
         font-size: 8px;
+      }
+
+      .totals-row td.border-dashed {
+      border-top: 1.5px dashed #000 !important;
+      border-bottom: 1px dashed #000 !important;
       }
       
       .total-count {
@@ -2190,19 +2193,19 @@ export default class ReportsController {
       .data-table.room-status-table {
         width: 70%;
         margin-left: 0;
-        margin-right: auto;
+        margin-right: 0;
       }
       
       .data-table.pax-status-table {
         width: 50%;
         margin-left: 0;
-        margin-right: auto;
+        margin-right: 0;
       }
       
       .data-table.pax-analysis-table {
         width: 40%;
         margin-left: 0;
-        margin-right: auto;
+        margin-right: 0;
       }
       
       .footer {
@@ -2217,7 +2220,6 @@ export default class ReportsController {
         align-items: center;
         font-size: 8px;
       }
-      
         @media print {
         body { 
           margin: 0;
@@ -2288,12 +2290,18 @@ export default class ReportsController {
           </tr>
           `).join('')}
           <tr class="totals-row">
-            <td colspan="7"><strong>Total (${currency})</strong></td>
-            <td class="number"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
-            <td class="number"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
-            <td class="number"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
-            <td class="number"><strong>${sectionsData.roomCharges.totals.totalRent}</strong></td>
-            <td class="number"><strong>${sectionsData.roomCharges.totals.totalVariant}</strong></td>
+           <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong>Total (${currency})</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalRent}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalVariant}</strong></td>
             <td></td>
           </tr>
         </tbody>
@@ -2321,7 +2329,7 @@ export default class ReportsController {
           ${sectionsData.dailySales.data.map((row: any) => `
           <tr>
             <td>${row.salesType}</td>
-            <td class="number">${row.roomCharges}</td>
+            <td class="number ">${row.roomCharges}</td>
             <td class="number">${row.extraCharges}</td>
             <td class="number">${row.roomTax}</td>
             <td class="number">${row.extraTax}</td>
@@ -2332,13 +2340,13 @@ export default class ReportsController {
           `).join('')}
           <tr class="totals-row">
             <td><strong>Total (${currency})</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.extraTax}</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.discount}</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.adjustment}</strong></td>
-            <td class="number"><strong>${sectionsData.dailySales.totals.totalSales}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.extraTax}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.discount}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.adjustment}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.totalSales}</strong></td>
           </tr>
         </tbody>
       </table>
@@ -2380,9 +2388,15 @@ export default class ReportsController {
           </tr>
           `).join('')}
           <tr class="totals-row">
-            <td colspan="7"><strong>Total (${currency})</strong></td>
-            <td class="number"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
-            <td class="number"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td ><strong></strong></td>
+            <td><strong>Total (${currency})</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
             <td colspan="2"></td>
           </tr>
         </tbody>
