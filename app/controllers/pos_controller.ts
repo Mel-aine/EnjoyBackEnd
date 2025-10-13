@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
-import { TransactionCategory, TransactionStatus, TransactionType } from '../enums.js'
+import { ReservationStatus, TransactionCategory, TransactionStatus, TransactionType } from '../enums.js'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export default class PosController {
@@ -40,13 +40,13 @@ export default class PosController {
           hotelName: hotel.hotelName,
           address: hotel.address,
           city: hotel.city,
-          state: hotel.state,
+          state: hotel.stateProvince,
           country: hotel.country,
-          zipCode: hotel.zipCode,
-          phone: hotel.phone,
+          zipCode: hotel.postalCode,
+          phone: hotel.phoneNumber,
           email: hotel.email,
           website: hotel.website,
-          currency: hotel.currency,
+          currency: hotel.currencies,
           timezone: hotel.timezone,
           checkInTime: hotel.checkInTime,
           checkOutTime: hotel.checkOutTime,
@@ -85,17 +85,17 @@ export default class PosController {
 
       // Get all checked-in reservation rooms for the hotel
       const inHouseReservations = await ReservationRoom.query()
-        //.where('hotel_id', parseInt(hotelId))
-        //.where('status', 'checked-in')
+        .where('hotel_id', parseInt(hotelId))
+        .where('status', "checked_in")
         .preload('guest')
-        .preload('reservation', (reservationQuery) => {
+        .preload('reservation', (reservationQuery:any) => {
           reservationQuery.preload('guest')
           reservationQuery.preload('folios')
         })
         .preload('room')
 
       // Format the response data
-      const formattedData = inHouseReservations.map(reservationRoom => {
+      const formattedData = inHouseReservations?.map(reservationRoom => {
         const guest = reservationRoom.reservation?.guest
         const room = reservationRoom.room
         const folio = reservationRoom.reservation.folios?.[0]
