@@ -28,9 +28,11 @@ import {
   postTaxesAndFeesValidator,
   checkoutValidator,
   reservationCheckoutValidator,
-  forceCloseValidator
+  forceCloseValidator,
+  updateTransactionValidator
+
 } from '#validators/folio'
-import { addFolioAdjustmentValidator } from '#validators/folio_adjustment'
+import { addFolioAdjustmentValidator , updateFolioAdjustmentValidator } from '#validators/folio_adjustment'
 import { FolioStatus, ReservationStatus } from '../enums.js'
 import logger from '@adonisjs/core/services/logger'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
@@ -577,6 +579,156 @@ export default class FoliosController {
   }
 
   /**
+   * update discount
+   */
+  public async updateDiscount(ctx: HttpContext) {
+  const { request, response, auth } = ctx;
+  logger.info('enter update discount')
+
+  const payload = await request.validateUsing(applyFolioDiscountValidator)
+
+  try {
+    const transactionId = request.param('id')
+    const existingTx = await FolioTransaction.findOrFail(transactionId)
+
+    const folio = await Folio.findOrFail(existingTx.folioId)
+
+    if (!folio.canBeModified) {
+      return response.badRequest({ message: 'Folio cannot be modified - finalized or closed' })
+    }
+
+    // Validate reservation/hotel context
+    if (payload.reservationId && folio.reservationId && folio.reservationId !== payload.reservationId) {
+      return response.badRequest({ message: 'Reservation mismatch for folio' })
+    }
+    if (payload.hotelId && folio.hotelId !== payload.hotelId) {
+      return response.badRequest({ message: 'Hotel mismatch for folio' })
+    }
+
+    // Validate discount
+    const discount = await Discount.findOrFail(payload.discountId)
+    if (discount.status !== 'active' || discount.isDeleted) {
+      return response.badRequest({ message: 'Discount is not active or has been deleted' })
+    }
+
+    // Compute new applicable base
+    const baseAmountResult = await db
+      .from('folio_transactions')
+      .where('folio_id', folio.id)
+      .where('is_voided', false)
+      .where('transaction_type', TransactionType.CHARGE)
+      .sum('amount as total')
+      .first()
+
+    const applicableBase = parseFloat(`${baseAmountResult?.total || 0}`)
+
+    // Compute new discount amount
+    let discountAmount = 0
+    if (discount.type === 'percentage') {
+      discountAmount = applicableBase * (discount.value / 100)
+    } else {
+      discountAmount = Math.min(discount.value, applicableBase)
+    }
+
+    if (!discountAmount || discountAmount <= 0) {
+      return response.badRequest({ message: 'No applicable charges found to apply discount' })
+    }
+
+    // Update transaction fields
+    existingTx.merge({
+      discountId: discount.id,
+      particular: discount.name,
+      description: payload.notes?.trim() || `${discount.name} (${discount.shortCode})`,
+      amount: -Math.abs(discountAmount),
+      totalAmount: -Math.abs(discountAmount),
+      unitPrice: -Math.abs(discountAmount),
+      discountAmount: Math.abs(discountAmount),
+      netAmount: -Math.abs(discountAmount),
+      grossAmount: -Math.abs(discountAmount),
+      lastModifiedBy: auth.user?.id || 0,
+      transactionDate: payload.transactionDate
+        ? DateTime.fromJSDate(new Date(payload.transactionDate))
+        : DateTime.now(),
+    })
+
+    await existingTx.save()
+
+    // --- Recompute folio totals ---
+    const transactions = await FolioTransaction.query()
+      .where('folioId', folio.id)
+      .where('isVoided', false)
+
+    let totalCharges = 0
+    let totalPayments = 0
+    let totalAdjustments = 0
+    let totalTaxes = 0
+    let totalServiceCharges = 0
+    let totalDiscounts = 0
+
+    for (const tx of transactions) {
+      switch (tx.transactionType) {
+        case TransactionType.CHARGE:
+          totalCharges += parseFloat(`${tx.amount ?? 0}`)
+          break
+        case TransactionType.PAYMENT:
+          totalPayments += Math.abs(parseFloat(`${tx.amount ?? 0}`))
+          break
+        case TransactionType.ADJUSTMENT:
+          totalAdjustments += parseFloat(`${tx.amount ?? 0}`)
+          break
+      }
+      totalTaxes += parseFloat(`${tx.taxAmount ?? 0}`) || 0
+      totalServiceCharges += parseFloat(`${tx.serviceChargeAmount ?? 0}`) || 0
+      totalDiscounts += parseFloat(`${tx.discountAmount ?? 0}`) || 0
+    }
+
+    folio.merge({
+      totalCharges,
+      totalPayments,
+      totalAdjustments,
+      totalTaxes,
+      totalServiceCharges,
+      totalDiscounts,
+      balance:
+        totalCharges +
+        totalAdjustments +
+        totalTaxes +
+        totalServiceCharges -
+        totalPayments -
+        totalDiscounts,
+      lastModifiedBy: auth.user?.id || 0,
+    })
+    await folio.save()
+
+    // Logging
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'UPDATE',
+      entityType: 'FolioTransaction',
+      entityId: existingTx.id,
+      hotelId: folio.hotelId,
+      description: `Updated discount "${discount.name}" on folio ${folio.folioNumber}`,
+      changes: LoggerService.extractChanges({}, existingTx.toJSON()),
+      ctx,
+    })
+
+    await existingTx.load('hotel')
+    await existingTx.load('folio')
+
+    return response.ok({
+      message: 'Discount updated successfully',
+      data: existingTx,
+    })
+  } catch (error) {
+    logger.error(error)
+    return response.badRequest({ message: error.message })
+  }
+}
+
+
+
+
+  /**
    * Transfer charges between folios
    */
   async transfer({ params, request, response, auth }: HttpContext) {
@@ -977,6 +1129,36 @@ export default class FoliosController {
       return response.badRequest({ message: error.message })
     }
   }
+
+  /**
+   * update folio
+   */
+ async updateTransaction({ request, response, auth, params }: HttpContext) {
+  try {
+
+    const payload = await request.validateUsing(updateTransactionValidator)
+
+    const transactionId = Number(params.id)
+    if (!transactionId) {
+      return response.badRequest({ message: 'Transaction ID is required' })
+    }
+
+    const transaction = await FolioService.updateTransaction(transactionId, {
+      ...payload,
+    }, auth.user!.id)
+
+    return response.ok({
+      message: 'Transaction updated successfully',
+      data: transaction,
+    })
+  } catch (error) {
+    console.error('Error updating transaction:', error)
+    return response.badRequest({
+      message: error.message || 'Failed to update transaction',
+    })
+  }
+}
+
 
   /**
    * Settle a folio (process payment)
@@ -1678,6 +1860,57 @@ export default class FoliosController {
       })
     }
   }
+
+  /**
+   * update Adjustment Folio
+   */
+
+  async updateAdjustment({ request, response, auth }: HttpContext) {
+  try {
+    const transactionId = request.param('id')
+
+    // Valider d'abord avec les données brutes
+    const payload = await request.validateUsing(updateFolioAdjustmentValidator)
+
+
+    // Convertir la date APRÈS la validation
+    const dataForService:any = {
+      type: payload.type,
+      amount: payload.amount,
+      comment: payload.comment,
+      date: payload.date,
+      postedBy: auth.user!.id,
+    }
+
+    const transaction = await FolioService.updateFolioAdjustment(
+      transactionId,
+      dataForService
+    )
+
+    return response.ok({
+      message: 'Folio adjustment updated successfully',
+      data: {
+        id: transaction.id,
+        transactionNumber: transaction.transactionNumber,
+        description: transaction.description,
+        particular: transaction.particular,
+        amount: transaction.amount,
+        type: transaction.particular,
+        category: transaction.category,
+        transactionDate: transaction.transactionDate,
+        folioId: transaction.folioId,
+      }
+    })
+  } catch (error) {
+    console.error('Error in updateAdjustment:', error)
+    return response.badRequest({
+      message: 'Failed to update folio adjustment',
+      error: error.message
+    })
+  }
+}
+
+
 
   /**
    * Cut folio by creating a new folio and transferring transactions based on type flags
