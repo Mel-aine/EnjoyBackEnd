@@ -1308,6 +1308,7 @@ export default class ReportsController {
 
     // Section 6: Pax Analysis
     const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
+    
 
     return {
       roomCharges,
@@ -2047,8 +2048,8 @@ export default class ReportsController {
     sectionsData: any,
     printedBy: string = 'System'
   ): string {
-    const formattedDate = reportDate.toFormat('dd/MM/yyyy')
-    const currentDateTime = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    const formattedDate = reportDate.toFormat('dd-MM-yyyy')
+    const currentDateTime = DateTime.now().toFormat('dd-MM-yyyy HH:mm:ss')
   
     return `
   <!DOCTYPE html>
@@ -2058,107 +2059,180 @@ export default class ReportsController {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Night Audit Report - ${hotelName}</title>
     <style>
-      body {
-        font-family: 'Arial', sans-serif;
-        margin: 15px;
-        color: #333;
-        line-height: 1.2;
-        font-size: 10px;
+      @page {
+        size: A4;
       }
+      
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        color: #000;
+        line-height: 1.3;
+        font-size: 9px;
+      }
+      
       .page-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
+        align-items: flex-start;
+        margin-bottom: 0;
         padding-bottom: 5px;
-        border-bottom: 2px solid black;
+        border-bottom: 1px solid #000;
       }
+      
       .hotel-name {
-        font-size: 16px;
+        font-size: 12px;
         font-weight: bold;
-        color: #003366;
+        color:rgb(7, 7, 111);
+        text-transform: uppercase;
       }
+      
       .report-title {
-        font-size: 16px;
+        font-size: 12px;
         font-weight: bold;
-        color: #8B0000;
+        color: #800020;
       }
+      
+  
+      
       .report-info {
-        margin: 10px 0;
+        padding: 3px 0 3px 0;
+        margin: 0;
+        font-size: 9px;
         font-weight: bold;
+        border-bottom: 1px solid #000;
       }
+      
       .horizontal-line {
-        border-top: 1px solid #333;
+        border-top: 1.5px solid #000;
         margin: 5px 0;
       }
-      .dotted-line {
-        border-top: 1px dotted #333;
-        margin: 5px 0;
-      }
+      
       .section {
-        margin: 15px 0;
+        margin: 12px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px dashed #666;
         page-break-inside: avoid;
       }
+      
       .section-title {
-        font-size: 14px;
+        font-size: 9px;
         font-weight: bold;
         margin-bottom: 5px;
+        color: #000;
+        background-color: #f0f0f0;
+        padding: 3px 0 3px 0
       }
+      
       .data-table {
         width: 100%;
         border-collapse: collapse;
-        margin: 5px 0;
-        font-size: 10px;
+        margin: 0;
+        font-size: 8px;
       }
+      
       .data-table th {
-        background-color: transparent;
-        border: none;
-        border-bottom: 1px solid #333;
-        padding: 4px 2px;
+        background-color: #fff;
+        border-top: 1px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 4px 3px;
         text-align: center;
         font-weight: bold;
+        font-size: 8px;
+        white-space: nowrap;
       }
+      
       .data-table td {
         border: none;
-        padding: 3px 2px;
+        padding: 2px 3px;
         text-align: left;
+        font-size: 8px;
       }
+      
       .data-table tbody tr {
-        border-bottom: 1px dotted #ccc;
+        border-bottom: none;
       }
+      
+      .data-table tbody tr:hover {
+        background-color: #fafafa;
+      }
+      
       .data-table td.number {
         text-align: right;
+        font-family: 'Courier New', monospace;
       }
+      
       .data-table td.center {
         text-align: center;
       }
+      
       .totals-row {
-        background-color: transparent;
+        background-color: #fff;
         font-weight: bold;
-        border-top: 1px solid #333 !important;
-        border-bottom: 1px solid #333 !important;
+        border-top: 1.5px dashed #000 !important;
+        border-bottom: 1px dashed #000 !important;
       }
+      
       .totals-row td {
-        border-top: none !important;
-        border-bottom: none !important;
-        padding: 3px 2px;
+        padding: 4px 3px;
+        font-size: 8px;
       }
+      
+      .total-count {
+        font-weight: bold;
+        margin-top: 3px;
+        font-size: 9px;
+        text-align: right;
+      }
+      
+      /* Styles pour les tableaux de statut réduits */
+      .data-table.room-status-table {
+        width: 70%;
+        margin-left: 0;
+        margin-right: auto;
+      }
+      
+      .data-table.pax-status-table {
+        width: 50%;
+        margin-left: 0;
+        margin-right: auto;
+      }
+      
+      .data-table.pax-analysis-table {
+        width: 40%;
+        margin-left: 0;
+        margin-right: auto;
+      }
+      
       .footer {
         position: fixed;
         bottom: 15px;
-        left: 15px;
-        right: 15px;
-        padding-top: 10px;
-        border-top: 1px solid #333;
+        left: 20px;
+        right: 20px;
+        padding-top: 8px;
+        border-top: 1px solid #000;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 10px;
+        font-size: 8px;
       }
-      @media print {
-        body { margin: 10px; }
-        .page-header { page-break-after: avoid; }
-        .section { page-break-inside: avoid; }
+      
+        @media print {
+        body { 
+          margin: 0;
+          padding: 0;
+        }
+        .page-header { 
+          page-break-after: avoid;
+        }
+        .section { 
+          page-break-inside: avoid;
+        }
+        .footer {
+          position: fixed;
+          bottom: 0;
+        }
       }
     </style>
   </head>
@@ -2171,14 +2245,12 @@ export default class ReportsController {
   
     <!-- Report Info -->
     <div class="report-info">
-      As On Date: ${formattedDate} &nbsp;&nbsp;&nbsp;&nbsp; Currency: ${currency}
+      As On Date ${formattedDate} &nbsp;&nbsp;&nbsp;&nbsp; Currency ${currency}
     </div>
-    <div class="horizontal-line"></div>
   
     <!-- Section 1: Room Charges -->
     <div class="section">
       <div class="section-title">Room Charges</div>
-      <div class="horizontal-line"></div>
       <table class="data-table">
         <thead>
           <tr>
@@ -2189,10 +2261,10 @@ export default class ReportsController {
             <th>Company</th>
             <th>Rent Date</th>
             <th>Rate Type</th>
-            <th>Nrml.Tariff</th>
-            <th>Ofrd.Tariff</th>
-            <th>Total Tax</th>
-            <th>Total Rent</th>
+            <th>Nrml. Tariff<br/>(${currency})</th>
+            <th>Ofrd.Tariff<br/>(${currency})</th>
+            <th>Total Tax<br/>(${currency})</th>
+            <th>Total Rent<br/>(${currency})</th>
             <th>Var %</th>
             <th>Checkin By</th>
           </tr>
@@ -2216,7 +2288,7 @@ export default class ReportsController {
           </tr>
           `).join('')}
           <tr class="totals-row">
-            <td colspan="7"><strong>Total (${currency}):</strong></td>
+            <td colspan="7"><strong>Total (${currency})</strong></td>
             <td class="number"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
             <td class="number"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
             <td class="number"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
@@ -2226,24 +2298,23 @@ export default class ReportsController {
           </tr>
         </tbody>
       </table>
-      <div class="dotted-line"></div>
+      <div class="total-count">Total ${sectionsData.roomCharges.data.length}</div>
     </div>
   
     <!-- Section 2: Daily Sales -->
     <div class="section">
       <div class="section-title">Daily Sales</div>
-      <div class="horizontal-line"></div>
       <table class="data-table">
         <thead>
           <tr>
             <th>Sales Type</th>
-            <th>Room Charges (${currency})</th>
-            <th>Extra Charges (${currency})</th>
-            <th>Room Tax (${currency})</th>
-            <th>Extra Tax (${currency})</th>
-            <th>Discount (${currency})</th>
-            <th>Adjustment (${currency})</th>
-            <th>Total Sales (${currency})</th>
+            <th>Room Charges<br/>(${currency})</th>
+            <th>Extra Charges<br/>(${currency})</th>
+            <th>Room Tax<br/>(${currency})</th>
+            <th>Extra Tax<br/>(${currency})</th>
+            <th>Discount<br/>(${currency})</th>
+            <th>Adjustment<br/>(${currency})</th>
+            <th>Total Sales<br/>(${currency})</th>
           </tr>
         </thead>
         <tbody>
@@ -2260,7 +2331,7 @@ export default class ReportsController {
           </tr>
           `).join('')}
           <tr class="totals-row">
-            <td><strong>Total:</strong></td>
+            <td><strong>Total (${currency})</strong></td>
             <td class="number"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
             <td class="number"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
             <td class="number"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
@@ -2271,13 +2342,11 @@ export default class ReportsController {
           </tr>
         </tbody>
       </table>
-      <div class="dotted-line"></div>
     </div>
   
     <!-- Section 3: Misc. Charges -->
     <div class="section">
       <div class="section-title">Misc. Charges</div>
-      <div class="horizontal-line"></div>
       <table class="data-table">
         <thead>
           <tr>
@@ -2287,9 +2356,9 @@ export default class ReportsController {
             <th>Charge Date</th>
             <th>Voucher No</th>
             <th>Charge</th>
-            <th>Unit Price (${currency})</th>
+            <th>Unit Price<br/>(${currency})</th>
             <th>Unit (Q'ty)</th>
-            <th>Amount (${currency})</th>
+            <th>Amount<br/>(${currency})</th>
             <th>Entered On</th>
             <th>Remark</th>
           </tr>
@@ -2311,29 +2380,28 @@ export default class ReportsController {
           </tr>
           `).join('')}
           <tr class="totals-row">
-            <td colspan="7"><strong>Total:</strong></td>
+            <td colspan="7"><strong>Total (${currency})</strong></td>
             <td class="number"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
             <td class="number"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
             <td colspan="2"></td>
           </tr>
         </tbody>
       </table>
-      <div class="dotted-line"></div>
+      <div class="total-count">Total ${sectionsData.miscCharges.data.length}</div>
     </div>
   
     <!-- Section 4: Room Status -->
     <div class="section">
       <div class="section-title">Room Status</div>
-      <div class="horizontal-line"></div>
-      <table class="data-table">
+      <table class="data-table room-status-table">
         <thead>
           <tr>
             <th>Date</th>
             <th>Total Rooms</th>
             <th>Occupied</th>
             <th>Due Out</th>
-            <th>Vacant</th>
             <th>Departed</th>
+            <th>Vacant</th>
             <th>Reserve</th>
             <th>Blocked</th>
           </tr>
@@ -2344,21 +2412,19 @@ export default class ReportsController {
             <td class="number">${sectionsData.roomStatus.totalRooms}</td>
             <td class="number">${sectionsData.roomStatus.occupied}</td>
             <td class="number">${sectionsData.roomStatus.dueOut}</td>
-            <td class="number">${sectionsData.roomStatus.vacant}</td>
             <td class="number">${sectionsData.roomStatus.departed}</td>
+            <td class="number">${sectionsData.roomStatus.vacant}</td>
             <td class="number">${sectionsData.roomStatus.reserved}</td>
             <td class="number">${sectionsData.roomStatus.blocked}</td>
           </tr>
         </tbody>
       </table>
-      <div class="dotted-line"></div>
     </div>
   
     <!-- Section 5: Pax Status -->
     <div class="section">
       <div class="section-title">Pax Status</div>
-      <div class="horizontal-line"></div>
-      <table class="data-table">
+      <table class="data-table pax-status-table">
         <thead>
           <tr>
             <th>Status</th>
@@ -2378,14 +2444,12 @@ export default class ReportsController {
           `).join('')}
         </tbody>
       </table>
-      <div class="dotted-line"></div>
     </div>
   
     <!-- Section 6: Pax Analysis -->
     <div class="section">
       <div class="section-title">Pax Analysis</div>
-      <div class="horizontal-line"></div>
-      <table class="data-table">
+      <table class="data-table pax-analysis-table">
         <thead>
           <tr>
             <th>Rate Type</th>
@@ -2403,20 +2467,17 @@ export default class ReportsController {
           `).join('')}
         </tbody>
       </table>
-      <div class="dotted-line"></div>
     </div>
   
     <!-- Footer -->
     <div class="footer">
       <div><strong>Printed On:</strong> ${currentDateTime}</div>
       <div><strong>Printed By:</strong> ${printedBy}</div>
-      <div><strong>Page 1 of 1</strong></div>
     </div>
   </body>
   </html>
     `
   }
-
   /**
    * Get report statistics and analytics
    */

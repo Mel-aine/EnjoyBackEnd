@@ -901,6 +901,7 @@ router
 
         // New service-based operations
         router.post('/transactions', foliosController.postTransaction.bind(foliosController)) // Post transaction to folio
+        router.put('/transactions/:id', foliosController.updateTransaction.bind(foliosController)) // Post transaction to folio
         router.post('/settle', foliosController.settle.bind(foliosController)) // Settle folio payment
         router.post('/transfer-charges', foliosController.transferCharges.bind(foliosController)) // Transfer charges between folios
         router.post('/:id/close-service', foliosController.closeWithService.bind(foliosController)) // Close folio using service
@@ -915,7 +916,9 @@ router
         router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
         router.post('/room-charge/add', foliosController.addRoomCharge.bind(foliosController)) // Add room charge to folio
         router.post('/adjustment/add', foliosController.addAdjustment.bind(foliosController)) // Add folio adjustment
+        router.put('/adjustment/:id', foliosController.updateAdjustment.bind(foliosController)) // Add folio adjustment
         router.post('/apply/discount', foliosController.applyDiscount.bind(foliosController)) // Apply discount to folio
+        router.put('/update/discount/:id', foliosController.updateDiscount.bind(foliosController)) // Apply discount to folio
         router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
 
         // Checkout and settlement

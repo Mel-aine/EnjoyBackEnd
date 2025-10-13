@@ -327,6 +327,103 @@ export default class FolioService {
     }
   }
 
+  /**
+   *
+   * @param transactionId
+   * @param data
+   * @param updatedBy
+   * @returns
+   */
+static async updateTransaction(
+  transactionId: number,
+  data: Partial<PostTransactionData>,
+  updatedBy: number
+): Promise<FolioTransaction> {
+  return await db.transaction(async (trx) => {
+    //  Vérifier que la transaction existe
+    const transaction = await FolioTransaction.findOrFail(transactionId)
+
+    //Vérifier que le folio peut être modifié
+    const folio = await Folio.findOrFail(transaction.folioId)
+    if (!folio.canBeModified) {
+      throw new Error('Folio cannot be modified — it is finalized or closed')
+    }
+
+    //  Préparer les valeurs de base
+    const quantity = Number(data.quantity ?? transaction.quantity ?? 1)
+    const amount = Number(data.amount ?? transaction.amount ?? 0)
+    let calculatedDiscountAmount = Number(data.discountAmount ?? transaction.discountAmount ?? 0)
+
+    //  Calcul du discount si discountId fourni
+    if (data.discountId) {
+      const discount = await Discount.findOrFail(data.discountId)
+
+      if (discount.status !== 'active' || discount.isDeleted) {
+        throw new Error('Discount is not active or has been deleted')
+      }
+
+      if (discount.type === 'percentage') {
+        calculatedDiscountAmount = amount * (discount.value / 100)
+      } else if (discount.type === 'flat') {
+        calculatedDiscountAmount = Math.min(discount.value, amount)
+      }
+    }
+
+    //  Recalcul des totaux
+    const totalAmount = amount
+    const taxAmount = Number(data.taxAmount ?? transaction.taxAmount ?? 0)
+    const serviceChargeAmount = Number(data.serviceChargeAmount ?? transaction.serviceChargeAmount ?? 0)
+    const netAmount = totalAmount - calculatedDiscountAmount
+    const grossAmount = totalAmount + taxAmount + serviceChargeAmount
+
+    // Mise à jour des champs
+    transaction.merge({
+      description: data.description ?? transaction.description,
+      category: data.category ?? transaction.category,
+      transactionType: data.transactionType ?? transaction.transactionType,
+      paymentMethodId: data.paymentMethodId ?? transaction.paymentMethodId,
+      notes: data.notes ?? transaction.notes,
+      discountId: data.discountId ?? transaction.discountId,
+      discountAmount: calculatedDiscountAmount,
+      taxAmount,
+      serviceChargeAmount,
+      amount,
+      totalAmount,
+      netAmount,
+      grossAmount,
+      quantity,
+      unitPrice: data.unitPrice ?? transaction.unitPrice ?? amount,
+      lastModifiedBy: updatedBy,
+      updatedAt: DateTime.now(),
+    })
+
+    //  Sauvegarder la transaction
+    await transaction.useTransaction(trx).save()
+
+    //  Mettre à jour les totaux du folio
+    await this.updateFolioTotals(folio.id, trx)
+
+    //  Log de l’activité
+    await LoggerService.logActivity(
+      {
+        userId: updatedBy,
+        action: 'TRANSACTION_UPDATED',
+        resourceType: 'FolioTransaction',
+        resourceId: transaction.id,
+        details: {
+          transactionId: transaction.id,
+          folioId: folio.id,
+          updatedFields: Object.keys(data),
+        },
+      },
+      trx
+    )
+
+    return transaction
+  })
+}
+
+
   private static async _executePostTransaction(data: PostTransactionData, trx: any): Promise<FolioTransaction> {
     const folio = await Folio.findOrFail(data.folioId)
     logger.info(data)
@@ -1253,6 +1350,95 @@ export default class FolioService {
       return transaction
     })
   }
+
+
+     /**
+   * update folio adjustement
+   */
+
+  static async updateFolioAdjustment(
+  adjustmentId: number,
+  data: {
+    type?: string
+    amount?: number
+    comment?: string
+    date?: Date
+    postedBy: number
+  }
+): Promise<FolioTransaction> {
+  return await db.transaction(async (trx) => {
+
+
+    // Vérifier que la transaction existe
+    const transaction = await FolioTransaction.findOrFail(adjustmentId)
+
+    if (transaction.transactionType !== TransactionType.ADJUSTMENT) {
+      throw new Error('Transaction is not an adjustment type')
+    }
+
+    // Vérifier que le folio peut être modifié
+    const folio = await Folio.findOrFail(transaction.folioId)
+    if (!folio.canBeModified) {
+      throw new Error('Folio cannot be modified — it is finalized or closed')
+    }
+
+    // Mettre à jour les champs principaux
+    if (data.type !== undefined) {
+      transaction.particular = data.type
+      transaction.category = TransactionCategory.ADJUSTMENT
+      console.log('💡 Champ type mis à jour:', data.type)
+    }
+
+    if (data.amount !== undefined) {
+      const newAmount = Number(data.amount)
+      transaction.amount = newAmount
+      transaction.totalAmount = newAmount
+      transaction.unitPrice = newAmount
+      transaction.netAmount = newAmount
+      transaction.grossAmount = newAmount
+      console.log('💡 Montant mis à jour:', newAmount)
+    }
+
+    if (data.comment !== undefined) {
+      transaction.description = data.comment
+    }
+    if (data.date) {
+      const luxonDate = DateTime.fromISO(data.date)
+      if (!luxonDate.isValid) {
+        throw new Error('Date invalide reçue pour transaction')
+      }
+      transaction.transactionDate = luxonDate
+      transaction.serviceDate = luxonDate
+
+    }
+    // Mettre à jour les métadonnées
+    transaction.lastModifiedBy = data.postedBy
+    transaction.updatedAt = DateTime.now()
+
+    // Sauvegarder la transaction
+    await transaction.useTransaction(trx).save()
+
+    // Mettre à jour les totaux du folio
+    await this.updateFolioTotals(transaction.folioId, trx)
+
+    await LoggerService.logActivity(
+      {
+        userId: data.postedBy,
+        action: 'FOLIO_ADJUSTMENT_UPDATED',
+        resourceType: 'FolioTransaction',
+        resourceId: transaction.id,
+        details: {
+          folioId: transaction.folioId,
+          adjustmentId: transaction.id,
+          updatedFields: Object.keys(data),
+        },
+      },
+      trx
+    )
+    return transaction
+  })
+}
+
 
   /**
    * Generate unique folio number
