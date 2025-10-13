@@ -17,6 +17,10 @@ const dbConfig = defineConfig({
         naturalSort: true,
         paths: ['database/migrations'],
       },
+      pool: {
+        min: 2,
+        max: 20, // Increase this value (e.g., from 10 to 20, 30, or more)
+      },
     },
   },
 })
