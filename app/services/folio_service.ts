@@ -391,7 +391,7 @@ export default class FolioService {
       amount: totalAmount,
       totalAmount: totalAmount,
       quantity: data.quantity || 1,
-      unitPrice: data.unitPrice || data.amount,
+      unitPrice: data.unitPrice ||0,
       taxAmount: data.taxAmount || 0,
       serviceChargeAmount: data.serviceChargeAmount || 0,
       discountAmount: calculatedDiscountAmount,
