@@ -42,6 +42,7 @@ export interface PostTransactionData {
   serviceChargeAmount?: number
   discountAmount?: number,
   discountId?: number,
+  extraChargeId?: number,
   departmentId?: number
   revenueCenterId?: number
   costCenterId?: number
@@ -398,6 +399,7 @@ export default class FolioService {
       discountId: data.discountId,
       netAmount: data.amount - calculatedDiscountAmount,
       grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
+      extraChargeId: data.extraChargeId,
       transactionCode: transactionCode,
       transactionTime: DateTime.now().toISOTime(),
       postingDate: DateTime.now(),
