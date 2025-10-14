@@ -18,7 +18,7 @@ export default class RateTypesController {
         })
       }
       const page = request.input('page', 1)
-      const limit = request.input('limit', 10)
+      const limit = request.input('limit', 100)
       const search = request.input('search')
       const includeDeleted = request.input('include_deleted', false)
 
