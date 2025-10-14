@@ -17,6 +17,7 @@ import CurrenciesController from '#controllers/currencies_controller'
 import GuestsController from '#controllers/guests_controller'
 import RoomTypesController from '#controllers/room_types_controller'
 import BedTypesController from '#controllers/bed_types_controller'
+import UnitsController from '#controllers/units_controller'
 import RoomsController from '#controllers/rooms_controller'
 import FoliosController from '#controllers/folios_controller'
 import FolioPrintController from '#controllers/folio_print_controller'
@@ -106,6 +107,7 @@ const currenciesController = new CurrenciesController()
 const guestsController = new GuestsController()
 const roomTypesController = new RoomTypesController()
 const bedTypesController = new BedTypesController()
+const unitsController = new UnitsController()
 const roomsController = new RoomsController()
 const foliosController = new FoliosController()
 const folioPrintController = new FolioPrintController()
@@ -792,6 +794,20 @@ router
         router.patch('/:id/toggle-status', bedTypesController.toggleStatus.bind(bedTypesController)) // Toggle bed type status
       })
       .prefix('configuration/hotels/:hotelId/bed_types')
+
+    // Unit Management Routes
+    // Units configuration under hotel
+    router
+      .group(() => {
+        // Basic CRUD operations for units
+        router.get('/', unitsController.index.bind(unitsController)) // Get all units with filtering by hotel
+        router.post('/', unitsController.store.bind(unitsController)) // Create a new unit
+        router.get('/:id', unitsController.show.bind(unitsController)) // Get specific unit details
+        router.put('/:id', unitsController.update.bind(unitsController)) // Update unit information
+        router.delete('/:id', unitsController.destroy.bind(unitsController)) // Soft delete unit
+        router.patch('/:id/restore', unitsController.restore.bind(unitsController)) // Restore soft-deleted unit
+      })
+      .prefix('configuration/hotels/:hotelId/units')
 
     // Rate Type Management Routes
     // Rate type configuration and pricing management
