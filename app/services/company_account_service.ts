@@ -8,28 +8,96 @@ export default class CompanyAccountService {
   /**
    * List company accounts with filtering, sorting, and pagination
    */
-  async list(filters: any, sortBy: string = 'id', order: 'asc' | 'desc' = 'asc', page: number = 1, perPage: number = 20) {
-    let query = CompanyAccount.query()
+  // async list(filters: any, sortBy: string = 'id', order: 'asc' | 'desc' = 'asc', page: number = 1, perPage: number = 20) {
+  //   let query = CompanyAccount.query()
 
-    // Apply filters
-    for (const key in filters) {
-      if (Array.isArray(filters[key])) {
-        query.whereIn(key, filters[key])
-      } else {
-        query.where(key, filters[key])
-      }
+  //   // Apply filters
+  //   for (const key in filters) {
+  //     if (Array.isArray(filters[key])) {
+  //       query.whereIn(key, filters[key])
+  //     } else {
+  //       query.where(key, filters[key])
+  //     }
+  //   }
+
+  //   // Apply relationships
+  //   query.preload('hotel')
+  //   query.preload('creator')
+  //   query.preload('modifier')
+
+  //   // Apply sorting and pagination
+  //   return await query
+  //     .orderBy(sortBy, order)
+  //     .paginate(page, perPage)
+  // }
+  async list(filters: any, sortBy: string = 'id', order: 'asc' | 'desc' = 'asc', page: number = 1, perPage: number = 20) {
+  let query = CompanyAccount.query()
+
+  // Apply filters
+  for (const key in filters) {
+    const value = filters[key]
+
+    // Skip empty or undefined values
+    if (value === '' || value === null || value === undefined) {
+      continue
     }
 
-    // Apply relationships
-    query.preload('hotel')
-    query.preload('creator')
-    query.preload('modifier')
+    // Handle special filters
+    switch (key) {
+      case 'searchText':
+        // Search in company name, contact person name, or email
+        query.where((subQuery) => {
+          subQuery
+            .whereILike('company_name', `%${value}%`)
+            .orWhereILike('contact_person_name', `%${value}%`)
+            .orWhereILike('primary_email', `%${value}%`)
+        })
+        break
 
-    // Apply sorting and pagination
-    return await query
-      .orderBy(sortBy, order)
-      .paginate(page, perPage)
+      case 'minBalance':
+        query.where('current_balance', '>=', parseFloat(value))
+        break
+
+      case 'maxBalance':
+        query.where('current_balance', '<=', parseFloat(value))
+        break
+
+      case 'account_status':
+      case 'status':
+        query.where('account_status', value)
+        break
+
+      case 'billing_country':
+      case 'country':
+        query.where('billing_country', value)
+        break
+
+      case 'primary_email':
+      case 'email':
+        query.whereILike('primary_email', `%${value}%`)
+        break
+
+      default:
+        // Handle array filters
+        if (Array.isArray(value)) {
+          query.whereIn(key, value)
+        } else {
+          query.where(key, value)
+        }
+        break
+    }
   }
+
+  // Apply relationships
+  query.preload('hotel')
+  query.preload('creator')
+  query.preload('modifier')
+
+  // Apply sorting and pagination
+  return await query
+    .orderBy(sortBy, order)
+    .paginate(page, perPage)
+}
 
   /**
    * Get a company account by ID
