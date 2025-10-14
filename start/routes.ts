@@ -17,6 +17,7 @@ import CurrenciesController from '#controllers/currencies_controller'
 import GuestsController from '#controllers/guests_controller'
 import RoomTypesController from '#controllers/room_types_controller'
 import BedTypesController from '#controllers/bed_types_controller'
+import UnitsController from '#controllers/units_controller'
 import RoomsController from '#controllers/rooms_controller'
 import FoliosController from '#controllers/folios_controller'
 import FolioPrintController from '#controllers/folio_print_controller'
@@ -106,6 +107,7 @@ const currenciesController = new CurrenciesController()
 const guestsController = new GuestsController()
 const roomTypesController = new RoomTypesController()
 const bedTypesController = new BedTypesController()
+const unitsController = new UnitsController()
 const roomsController = new RoomsController()
 const foliosController = new FoliosController()
 const folioPrintController = new FolioPrintController()
@@ -793,6 +795,20 @@ router
       })
       .prefix('configuration/hotels/:hotelId/bed_types')
 
+    // Unit Management Routes
+    // Units configuration under hotel
+    router
+      .group(() => {
+        // Basic CRUD operations for units
+        router.get('/', unitsController.index.bind(unitsController)) // Get all units with filtering by hotel
+        router.post('/', unitsController.store.bind(unitsController)) // Create a new unit
+        router.get('/:id', unitsController.show.bind(unitsController)) // Get specific unit details
+        router.put('/:id', unitsController.update.bind(unitsController)) // Update unit information
+        router.delete('/:id', unitsController.destroy.bind(unitsController)) // Soft delete unit
+        router.patch('/:id/restore', unitsController.restore.bind(unitsController)) // Restore soft-deleted unit
+      })
+      .prefix('configuration/hotels/:hotelId/units')
+
     // Rate Type Management Routes
     // Rate type configuration and pricing management
     router
@@ -901,6 +917,7 @@ router
 
         // New service-based operations
         router.post('/transactions', foliosController.postTransaction.bind(foliosController)) // Post transaction to folio
+        router.put('/transactions/:id', foliosController.updateTransaction.bind(foliosController)) // Post transaction to folio
         router.post('/settle', foliosController.settle.bind(foliosController)) // Settle folio payment
         router.post('/transfer-charges', foliosController.transferCharges.bind(foliosController)) // Transfer charges between folios
         router.post('/:id/close-service', foliosController.closeWithService.bind(foliosController)) // Close folio using service
@@ -914,8 +931,11 @@ router
         router.post('/post-room-charges', foliosController.postRoomCharges.bind(foliosController)) // Auto-post room charges
         router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
         router.post('/room-charge/add', foliosController.addRoomCharge.bind(foliosController)) // Add room charge to folio
+        router.put('/room-charge/:id', foliosController.updateRoomCharge.bind(foliosController)) // Add room charge to folio
         router.post('/adjustment/add', foliosController.addAdjustment.bind(foliosController)) // Add folio adjustment
+        router.put('/adjustment/:id', foliosController.updateAdjustment.bind(foliosController)) // Add folio adjustment
         router.post('/apply/discount', foliosController.applyDiscount.bind(foliosController)) // Apply discount to folio
+        router.put('/update/discount/:id', foliosController.updateDiscount.bind(foliosController)) // Apply discount to folio
         router.get('/reservation/:reservationId', foliosController.getReservationFolios.bind(foliosController)) // Get all folios for reservation
 
         // Checkout and settlement
