@@ -4,7 +4,7 @@ import ReportsService, {
 } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
-import { PaymentMethodType, ReservationStatus, TransactionCategory, TransactionType } from '#app/enums'
+import { PaymentMethodType, ReservationStatus, TransactionCategory, TransactionType, TransactionStatus } from '#app/enums'
 import PaymentMethod from '#models/payment_method'
 import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
@@ -969,7 +969,7 @@ export default class ReportsController {
         .header {
             text-align: center;
             margin-bottom: 2rem;
-            border-bottom: 3px solid #ef4444;
+            border-bottom: 3px solid #3b82f6;
             padding-bottom: 1.5rem;
         }
         .header-content {
@@ -979,14 +979,14 @@ export default class ReportsController {
             margin-top: 0.5rem;
         }
         .header-legend {
-            background-color: #ef4444;
+            background-color: #3b82f6;
             color: white;
             padding: 0.25rem 0.5rem;
             border-radius: 0.375rem;
             font-size: 0.875rem;
         }
         .title {
-            background-color: #ef4444;
+            background-color: #3b82f6;
             color: white;
             padding: 0.5rem 1rem;
             border-radius: 0.5rem;
@@ -1019,12 +1019,18 @@ export default class ReportsController {
             padding: 0 0.5rem;
             gap: 3px;
         }
-        .bar {
-            background-color: #ef4444;
-            min-height: 2px;
+        .bar-container {
             flex: 1;
             position: relative;
-            border: 1px solid #b91c1c;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+        }
+        .bar {
+            background: #3b82f6;
+            width: 100%;
+            position: relative;
+            border: 1px solid #3b82f6; /* Bordure bleue */
         }
         .bar-value {
             position: absolute;
@@ -1035,6 +1041,7 @@ export default class ReportsController {
             color: #1f2937;
             font-weight: 700;
             white-space: nowrap;
+            
         }
         .x-axis {
             position: absolute;
@@ -1078,10 +1085,10 @@ export default class ReportsController {
             line-height: 1;
             transform: translateY(50%);
         }
-        .red-flag {
+        .blue-flag {
             width: 8px;
             height: 8px;
-            background-color: #ef4444;
+            background-color: #3b82f6;
             border-radius: 50%;
             margin-right: 0.25rem;
         }
@@ -1151,7 +1158,7 @@ export default class ReportsController {
                 <div class="y-label">${Math.ceil(yAxisMax * 0.75)}</div>
                 <div class="y-label">${Math.ceil(yAxisMax * 0.5)}</div>
                 <div class="y-label">${Math.ceil(yAxisMax * 0.25)}</div>
-                <div class="y-label-zero"><span class="red-flag"></span>0</div>
+                <div class="y-label-zero"><span class="blue-flag"></span>0</div>
             </div>
             <div class="chart-wrapper">
                 <div class="grid-lines">
@@ -1162,8 +1169,12 @@ export default class ReportsController {
                 </div>
                 <div class="chart">
                     ${chartData.map(data => `
-                        <div class="bar" style="height: ${data.height}px;">
-                            <div class="bar-value">${data.reservationCount}</div>
+                        <div class="bar-container">
+                            ${data.reservationCount > 0 ? `
+                                <div class="bar" style="height: ${data.height}px; background-color: #fb923c; /* Orange pour l'intérieur */">
+                                    <div class="bar-value">${data.reservationCount}</div>
+                                </div>
+                            ` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -7150,7 +7161,7 @@ export default class ReportsController {
         voidedBy: transaction.voidedByUser
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
-        voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
+        voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '' ,
         reason: transaction.voidReason || ''
       }))
 
@@ -7203,7 +7214,7 @@ export default class ReportsController {
           folioQuery.preload('guest').preload('reservation')
         })
         .preload('voidedByUser')
-        .where('status', 'voided')
+        //.where('status', 'voided')
         .where('category', TransactionCategory.PAYMENT)
         .whereBetween('voidedDate', [from, to])
 
@@ -7216,7 +7227,7 @@ export default class ReportsController {
 
       // Apply user filter
       if (by) {
-        query = query.where('voided_by_user_id', by)
+        query = query.where('voidedBY', by)
       }
 
       const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
@@ -7270,6 +7281,8 @@ export default class ReportsController {
         hotelId
       } = request.only(['from', 'to', 'by', 'hotelId'])
 
+      console.log('Received params:', { from, to, by, hotelId }) // DEBUG
+
       if (!from || !to) {
         return response.badRequest({
           success: false,
@@ -7279,6 +7292,17 @@ export default class ReportsController {
 
       // Import models
       const FolioTransaction = (await import('#models/folio_transaction')).default
+      const { DateTime } = await import('luxon')
+
+    // Convertir les dates from et to pour couvrir toute la journée
+    const startDateTime = DateTime.fromISO(from).startOf('day')
+    const endDateTime = DateTime.fromISO(to).endOf('day')
+
+    // Utiliser toJSDate() au lieu de toSQL() pour éviter le problème de null
+    const startDate = startDateTime.toJSDate()
+    const endDate = endDateTime.toJSDate()
+    
+    console.log('ddate converti', { startDate, endDate})
 
       // Build query for all void transactions
       let query = FolioTransaction.query()
@@ -7286,9 +7310,9 @@ export default class ReportsController {
           folioQuery.preload('guest').preload('reservation')
         })
         .preload('voidedByUser')
-        .where('status', 'voided')
-        .where('category', TransactionCategory.PAYMENT)
-        .whereBetween('voidedDate', [from, to])
+        .where('status', TransactionStatus.VOIDED)
+        //.where('category', TransactionCategory.PAYMENT)
+        .whereBetween('voidedDate',[startDate, endDate])
 
       // Apply hotel filter
       if (hotelId) {
@@ -7299,7 +7323,7 @@ export default class ReportsController {
 
       // Apply user filter
       if (by) {
-        query = query.where('voided_by_user_id', by)
+        query = query.where('voidedBy', by)
       }
 
       const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
@@ -7314,6 +7338,7 @@ export default class ReportsController {
         transactionType: transaction.transactionType,
         description: transaction.description,
         amount: transaction.amount,
+        transactionNumber: transaction.transactionNumber,
         voidedBy: transaction.voidedByUser
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
@@ -7334,10 +7359,12 @@ export default class ReportsController {
 
     } catch (error) {
       logger.error('Error generating void transaction report:', error)
+      console.log(error)
       return response.internalServerError({
         success: false,
-        message: 'Error generating void transaction report',
-        error: error.message
+        /* message: 'Error generating void transaction report',
+        error: error.message */
+        error
       })
     }
   }
