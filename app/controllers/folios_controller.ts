@@ -20,6 +20,7 @@ import {
   splitFolioByTypeValidator,
   cutFolioValidator,
   addRoomChargeValidator,
+  updateRoomChargeValidator,
   createFolioServiceValidator,
   createReservationFolioValidator,
   createWalkInFolioValidator,
@@ -1826,6 +1827,50 @@ export default class FoliosController {
       })
     }
   }
+
+   /**
+   * Update room charge to folio
+   */
+async updateRoomCharge({ request, response, auth }: HttpContext) {
+  try {
+     const transactionId = request.param('id')
+    const payload = await request.validateUsing(updateRoomChargeValidator)
+
+    const transaction = await FolioService.updateRoomChargeMethod(transactionId, {
+      ...payload,
+      postedBy: auth.user!.id
+    })
+
+    return response.ok({
+      message: 'Room charge updated successfully',
+      data: {
+        id: transaction.id,
+        transactionNumber: transaction.transactionNumber,
+        description: transaction.description,
+        amount: transaction.amount,
+        chargeSubtype: transaction.subcategory,
+        complementary: transaction.complementary,
+        transactionDate: transaction.transactionDate,
+        folioId: transaction.folioId
+      }
+    })
+  } catch (error) {
+    if (error.code === 'E_VALIDATION_ERROR') {
+      return response.badRequest({
+        success: false,
+        message: 'Validation failed',
+        errors: error.messages,
+        details: 'Please check the following validation errors and correct the input data'
+      })
+    }
+
+    return response.badRequest({
+      success: false,
+      message: 'Failed to update room charge',
+      error: error.message
+    })
+  }
+}
 
   /**
    * Add folio adjustment

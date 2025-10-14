@@ -119,6 +119,18 @@ export const addRoomChargeValidator = vine.compile(
   })
 )
 
+export const updateRoomChargeValidator = vine.compile(
+  vine.object({
+    amount: vine.number().min(0),
+    description: vine.string().minLength(1).maxLength(255).optional(),
+    date: vine.string(),
+    taxInclusive: vine.boolean(),
+    folioId: vine.number().positive(),
+    complementary: vine.boolean(),
+    discountId: vine.number().positive().optional(),
+    chargeSubtype: vine.enum(['cancellation_revenue', 'day_user_charge', 'late_checkout_charge', 'no_show_revenue', 'room_charge'])
+  })
+)
 // Validator for creating folio with service
 export const createFolioServiceValidator = vine.compile(
   vine.object({

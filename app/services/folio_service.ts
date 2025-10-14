@@ -1262,6 +1262,181 @@ static async updateTransaction(
   }
 
   /**
+   * update room charges
+   */
+
+static async updateRoomChargeMethod(
+  id: number,
+  data: {
+    amount?: number
+    description?: string
+    date?: DateTime
+    taxInclusive?: boolean
+    complementary?: boolean
+    discountId?: number | null
+    chargeSubtype?: string
+    postedBy: number
+  }
+): Promise<FolioTransaction> {
+  return await db.transaction(async (trx) => {
+
+
+    //  Récupération de la transaction existante
+    const transaction = await FolioTransaction.findOrFail(id)
+    const folio = await Folio.findOrFail(transaction.folioId)
+
+
+    // Vérification du folio
+    if (!folio.canBeModified) {
+      throw new Error('Folio cannot be modified - it is finalized or closed')
+    }
+
+
+    //  Validation du sous-type
+    const validSubtypes = [
+      'cancellation_revenue',
+      'day_user_charge',
+      'late_checkout_charge',
+      'no_show_revenue',
+      'room_charge',
+    ]
+    if (data.chargeSubtype && !validSubtypes.includes(data.chargeSubtype)) {
+      throw new Error(`Invalid charge subtype. Must be one of: ${validSubtypes.join(', ')}`)
+    }
+
+    let baseAmount = data.amount ?? transaction.amount
+    let taxAmount = 0
+    let discountAmount = 0
+
+
+    // 5Application de la remise (discount)
+    if (data.discountId) {
+      const discount = await Discount.findOrFail(data.discountId)
+
+
+      if (discount.status !== 'active' || discount.isDeleted) {
+        throw new Error('Discount is not active or has been deleted')
+      }
+
+      if (discount.applyOn !== 'room_charge') {
+        throw new Error('This discount does not apply to room charges')
+      }
+
+      if (discount.type === 'percentage') {
+        discountAmount = baseAmount * (discount.value / 100)
+      } else if (discount.type === 'flat') {
+        discountAmount = Math.min(discount.value, baseAmount)
+      }
+
+      baseAmount = baseAmount - discountAmount
+      console.log('Discount Applied:', { discountAmount, newBaseAmount: baseAmount })
+    } else {
+      console.log('No discount applied')
+    }
+    const taxRate = 0.1
+    const taxInclusive = data.taxInclusive ?? transaction.taxExempt
+
+
+    if (taxInclusive) {
+      taxAmount = baseAmount * (taxRate / (1 + taxRate))
+      baseAmount = baseAmount - taxAmount
+
+    } else {
+      taxAmount = baseAmount * taxRate
+
+    }
+
+    const totalAmount = baseAmount + taxAmount
+    const netAmount = baseAmount - discountAmount
+    const grossAmount = totalAmount
+
+
+    //  Mapping du sous-type
+    let category = transaction.category
+    let particular = transaction.particular
+
+    if (data.chargeSubtype) {
+      switch (data.chargeSubtype) {
+        case 'cancellation_revenue':
+          category = TransactionCategory.ADJUSTMENT
+          particular = 'Cancellation Revenue'
+          break
+        case 'day_user_charge':
+          category = TransactionCategory.ROOM
+          particular = 'Day User Charge'
+          break
+        case 'late_checkout_charge':
+          category = TransactionCategory.ROOM
+          particular = 'Late Checkout Charge'
+          break
+        case 'no_show_revenue':
+          category = TransactionCategory.NO_SHOW_FEE
+          particular = 'No Show Revenue'
+          break
+        case 'room_charge':
+          category = TransactionCategory.ROOM
+          particular = 'Room Charge'
+          break
+        default:
+          category = TransactionCategory.MISCELLANEOUS
+          particular = 'Miscellaneous Charge'
+      }
+
+    }
+
+    //  Mise à jour de la transaction
+    transaction.merge({
+      description: data.description ?? transaction.description,
+      category,
+      subcategory: data.chargeSubtype ?? transaction.subcategory,
+      particular,
+      amount:  totalAmount,
+      totalAmount:  totalAmount,
+      unitPrice: baseAmount,
+      taxAmount: taxAmount,
+      taxRate,
+      discountAmount,
+      discountRate: discountAmount > 0 ? discountAmount / (baseAmount + discountAmount) : 0,
+      netAmount:  netAmount,
+      grossAmount:  grossAmount,
+      transactionDate: data.date ?? transaction.transactionDate,
+      postingDate: DateTime.now(),
+      complementary: data.complementary ?? transaction.complementary,
+      compReason: data.complementary ? 'Complimentary room charge' : '',
+      discountId: data.discountId ?? null,
+      lastModifiedBy: data.postedBy,
+    })
+
+    console.log(' Transaction Merged Values:', transaction.serialize())
+
+    transaction.useTransaction(trx)
+    await transaction.save()
+
+    await this.updateFolioTotals(folio.id, trx)
+
+    //  Log d’activité
+    await LoggerService.logActivity(
+      {
+        userId: data.postedBy,
+        action: 'ROOM_CHARGE_UPDATED',
+        resourceType: 'FolioTransaction',
+        resourceId: transaction.id,
+        details: {
+          folioId: folio.id,
+          newAmount: data.amount,
+          chargeSubtype: data.chargeSubtype,
+          complementary: data.complementary,
+          description: data.description,
+        },
+      },
+      trx
+    )
+    return transaction
+  })
+}
+
+
+  /**
    * Add folio adjustment
    */
   static async addFolioAdjustment(data: {

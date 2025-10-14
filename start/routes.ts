@@ -915,6 +915,7 @@ router
         router.post('/post-room-charges', foliosController.postRoomCharges.bind(foliosController)) // Auto-post room charges
         router.post('/post-taxes-fees', foliosController.postTaxesAndFees.bind(foliosController)) // Auto-post taxes and fees
         router.post('/room-charge/add', foliosController.addRoomCharge.bind(foliosController)) // Add room charge to folio
+        router.put('/room-charge/:id', foliosController.updateRoomCharge.bind(foliosController)) // Add room charge to folio
         router.post('/adjustment/add', foliosController.addAdjustment.bind(foliosController)) // Add folio adjustment
         router.put('/adjustment/:id', foliosController.updateAdjustment.bind(foliosController)) // Add folio adjustment
         router.post('/apply/discount', foliosController.applyDiscount.bind(foliosController)) // Apply discount to folio
