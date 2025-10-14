@@ -52,6 +52,8 @@ export default class PaymentMethodsController {
 
       const paymentMethods = await query
         .preload('hotel')
+        .preload('creator')
+        .preload('modifier')
         .orderBy('sort_order', 'asc')
         .orderBy('method_name', 'asc')
         .paginate(page, limit)
