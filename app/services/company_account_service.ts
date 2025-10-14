@@ -307,10 +307,25 @@ export default class CompanyAccountService {
    * Create a city ledger payment method for the company account
    */
   public async createCityLedgerPaymentMethod(companyAccount: CompanyAccount) {
-    await PaymentMethod.create({
+    const methodCode = this.generateShortCode(`CL-${companyAccount.companyName}`)
+
+    // Vérifie si la méthode existe déjà
+    const existingMethod = await PaymentMethod.query()
+      .where('hotelId', companyAccount.hotelId)
+      .where('methodCode', methodCode)
+      .first()
+
+    if (existingMethod) {
+      existingMethod.isActive = true
+      existingMethod.lastModifiedBy = companyAccount.createdBy
+      await existingMethod.save()
+      return existingMethod
+    }
+
+    return await PaymentMethod.create({
       hotelId: companyAccount.hotelId,
       methodName: `City Ledger - ${companyAccount.companyName}`,
-      methodCode: this.generateShortCode(`CL-${companyAccount.companyName}`),
+      methodCode: methodCode,
       methodType: PaymentMethodType.CITY_LEDGER,
       shortCode: this.generateShortCode(`CL-${companyAccount.companyName}`),
       type: PaymentMethodType.CITY_LEDGER,
