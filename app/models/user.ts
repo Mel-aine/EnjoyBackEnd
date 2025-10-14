@@ -233,7 +233,7 @@ export default class User extends AuthFinder(BaseModel) {
   // Computed properties
   @computed()
   get fullName() {
-    return `${this.firstName} ${this.lastName}`
+    return `${this.firstName??''} ${this.lastName}`
   }
 
   public async hasAnyPermission(permissions: string[]): Promise<boolean> {
