@@ -42,6 +42,7 @@ export interface PostTransactionData {
   serviceChargeAmount?: number
   discountAmount?: number,
   discountId?: number,
+  extraChargeId?: number,
   departmentId?: number
   revenueCenterId?: number
   costCenterId?: number
@@ -488,13 +489,14 @@ static async updateTransaction(
       amount: totalAmount,
       totalAmount: totalAmount,
       quantity: data.quantity || 1,
-      unitPrice: data.unitPrice || data.amount,
+      unitPrice: data.unitPrice ||0,
       taxAmount: data.taxAmount || 0,
       serviceChargeAmount: data.serviceChargeAmount || 0,
       discountAmount: calculatedDiscountAmount,
       discountId: data.discountId,
       netAmount: data.amount - calculatedDiscountAmount,
       grossAmount: data.amount + (data.taxAmount || 0) + (data.serviceChargeAmount || 0),
+      extraChargeId: data.extraChargeId,
       transactionCode: transactionCode,
       transactionTime: DateTime.now().toISOTime(),
       postingDate: DateTime.now(),

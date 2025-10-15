@@ -170,6 +170,7 @@ export default class FolioInquiryService {
       .preload('guest')
       .preload('transactions', (query) => {
         query.orderBy('transactionDate', 'desc')
+          .preload('extraCharge')
       })
       .preload('creator')
       .preload('modifier')
@@ -498,6 +499,7 @@ export default class FolioInquiryService {
     const query = FolioTransaction.query()
       .preload('folio')
       .preload('creator' )
+      .preload('extraCharge')
     
     // Apply filters
     if (filters.folioId) {

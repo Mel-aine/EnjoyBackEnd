@@ -223,6 +223,7 @@ export default class IncidentalInvoiceService {
             category: this.mapChargeCategory(charge.category),
             description: charge.description || 'Incidental Charge',
             particular: charge.description || 'Voice Incidence Charge',
+            extraChargeId: charge.extraChargeId || null,
             amount: charge.amount,
             totalAmount: grossAmount,
             quantity: charge.quantity,
