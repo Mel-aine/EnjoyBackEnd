@@ -12,6 +12,7 @@ import logger from '@adonisjs/core/services/logger'
 import axios from 'axios'
 import env from '#start/env'
 import { DateTime } from 'luxon'
+
 /**
  * Controller for migrating hotel data to Channex.io system
  */
@@ -383,7 +384,7 @@ export default class ChannexMigrationController {
         error: null
       }
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         status: 'failed',
         data: null,
@@ -444,7 +445,7 @@ export default class ChannexMigrationController {
         error: null
       }
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         status: 'failed',
         data: null,
@@ -515,7 +516,7 @@ export default class ChannexMigrationController {
         error: null
       }
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         status: 'failed',
         data: [],
@@ -611,7 +612,7 @@ export default class ChannexMigrationController {
         error: null
       }
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         status: 'failed',
         data: [],
@@ -619,8 +620,6 @@ export default class ChannexMigrationController {
       }
     }
   }
-
-
 
   /**
    * Get migration status for a hotel
@@ -642,7 +641,7 @@ export default class ChannexMigrationController {
         }
       })
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to get migration status', {
         hotelId,
         error: error.message
@@ -718,7 +717,7 @@ export default class ChannexMigrationController {
         }
       })
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate iframe token:', error)
 
       // Log the failure
@@ -799,8 +798,6 @@ export default class ChannexMigrationController {
         username
       })
 
-
-
       return response.ok({
         success: true,
         message: 'Iframe URL generated successfully',
@@ -819,7 +816,7 @@ export default class ChannexMigrationController {
         }
       })
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate iframe URL:', error)
 
       // Log the failure
@@ -897,7 +894,7 @@ export default class ChannexMigrationController {
         }
       })
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to get hotel Channex info:', error)
 
       return response.status(500).json({
@@ -1043,7 +1040,7 @@ export default class ChannexMigrationController {
         }
       })
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error fetching booking revisions:', error)
       return response.status(500).json({
         success: false,
@@ -1052,4 +1049,482 @@ export default class ChannexMigrationController {
       })
     }
   }
+
+  /**
+ * Liste toutes les réservations d'une propriété
+ * GET /api/channex/bookings/:propertyId
+ */
+  async listBookings({ params, request, response, auth }: HttpContext) {
+    const { propertyId } = params
+    const userId = auth.user?.id
+
+    if (!userId) {
+      return response.unauthorized({ error: 'Authentication required' })
+    }
+
+    try {
+      // Récupérer les paramètres de pagination et filtres depuis la requête
+      const page = request.input('page', 1)
+      const perPage = request.input('per_page', 20)
+      const arrivalDateFrom = request.input('arrival_date_from')
+      const arrivalDateTo = request.input('arrival_date_to')
+      const status = request.input('status') // peut être un tableau: ['new', 'modified']Z
+
+      // Construire les paramètres pour l'API Channex
+      const params: any = {
+        page,
+        per_page: perPage
+      }
+
+      // Ajouter les filtres si fournis
+      if (arrivalDateFrom || arrivalDateTo || status) {
+        params.filter = {}
+        
+        if (arrivalDateFrom) params.filter.arrival_date_from = arrivalDateFrom
+        if (arrivalDateTo) params.filter.arrival_date_to = arrivalDateTo
+        if (status) params.filter.status = Array.isArray(status) ? status : [status]
+      }
+
+      // Appeler le service Channex
+      const bookingsResult = await this.channexService.listBooking(params)
+
+      // Logger l'action
+      await LoggerService.log({
+        actorId: userId,
+        action: 'CHANNEX_BOOKINGS_LISTED',
+        entityType: 'channex',
+        entityId: propertyId,
+        description: `Retrieved bookings list for property ${propertyId}`,
+        meta: {
+          page,
+          perPage,
+          totalResults: bookingsResult.data?.data?.length || 0
+        },
+        ctx: ctx
+      })
+
+      return response.ok({
+        success: true,
+        message: 'Bookings retrieved successfully',
+        data: (bookingsResult as any)?.data
+      })
+
+    } catch (error: any) {
+      console.error('Failed to list bookings:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to retrieve bookings',
+        error: error.message
+      })
+    }
+  }
+
+/**
+ * Récupérer les détails d'une réservation spécifique
+ * GET /api/channex/bookings/:bookingId/details
+ */
+  async getBookingDetails({ params, response, auth }: HttpContext) {
+    const { bookingId } = params
+    const userId = auth.user?.id
+
+    if (!userId) {
+      return response.unauthorized({ error: 'Authentication required' })
+    }
+
+    try {
+      // Appeler le service Channex pour obtenir les détails
+      const bookingDetails = await this.channexService.getBookings(bookingId)
+
+      // Logger l'action
+      await LoggerService.log({
+        actorId: userId,
+        action: 'CHANNEX_BOOKING_DETAILS_RETRIEVED',
+        entityType: 'channex',
+        entityId: bookingId,
+        description: `Retrieved details for booking ${bookingId}`,
+        ctx: ctx
+      })
+
+      return response.ok({
+        success: true,
+        message: 'Booking details retrieved successfully',
+        data: bookingDetails.data
+      })
+
+    } catch (error: any) {
+      console.error('Failed to get booking details:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to retrieve booking details',
+        error: error.message
+      })
+    }
+  }
+
+/**
+ * Synchronise les réservations depuis Channex vers la base de données locale
+ * POST /api/channex/sync/bookings/:hotelId
+ */
+async syncBookingsFromChannex(ctx: HttpContext) {
+  const { params, request, response, auth } = ctx
+  const { hotelId } = params
+  const userId = auth.user?.id
+
+  if (!userId) {
+    return response.unauthorized({ error: 'Authentication required' })
+  }
+
+  if (!hotelId) {
+    return response.badRequest({ error: 'Hotel ID is required' })
+  }
+
+  const logEntries: any[] = []
+  const syncResults = {
+    hotelId,
+    status: 'started',
+    totalFetched: 0,
+    totalProcessed: 0,
+    totalCreated: 0,
+    totalUpdated: 0,
+    totalSkipped: 0,
+    totalErrors: 0,
+    errors: [],
+    startTime: new Date(),
+    endTime: null
+  }
+
+  try {
+    // Récupérer l'hôtel avec son channexPropertyId
+    const hotel = await Hotel.find(hotelId)
+    if (!hotel) {
+      throw new Error(`Hotel with ID ${hotelId} not found`)
+    }
+
+    if (!hotel.channexPropertyId) {
+      throw new Error('Hotel has not been migrated to Channex yet')
+    }
+
+    // Log du début de synchronisation
+    logEntries.push({
+      actorId: userId,
+      action: 'CHANNEX_BOOKING_SYNC_START',
+      entityType: 'Hotel',
+      entityId: hotelId,
+      description: `Started booking synchronization for hotel ${hotelId}`,
+      hotelId: parseInt(hotelId),
+      ctx: ctx
+    })
+
+    // Récupérer les paramètres de filtrage depuis la requête
+    const page = request.input('page', 1)
+    const perPage = request.input('per_page', 100)
+    const arrivalDateFrom = request.input('arrival_date_from')
+    const arrivalDateTo = request.input('arrival_date_to')
+    const status = request.input('status') // ['new', 'modified', 'cancelled']
+
+    // Construire les paramètres pour l'API Channex
+    const channexParams: any = {
+      page,
+      per_page: perPage
+    }
+
+    // Ajouter les filtres si fournis
+    if (arrivalDateFrom || arrivalDateTo || status) {
+      channexParams.filter = {}
+      
+      if (arrivalDateFrom) channexParams.filter.arrival_date_from = arrivalDateFrom
+      if (arrivalDateTo) channexParams.filter.arrival_date_to = arrivalDateTo
+      if (status) channexParams.filter.status = Array.isArray(status) ? status : [status]
+    }
+
+    // Récupérer les réservations depuis Channex
+    const bookingsResponse: any = await this.channexService.listBooking(channexParams)
+    const bookings = bookingsResponse.data?.data || []
+
+    syncResults.totalFetched = bookings.length
+
+    console.log(`Fetched ${bookings.length} bookings from Channex for hotel ${hotelId}`)
+
+    // Traiter chaque réservation
+    for (const booking of bookings) {
+      try {
+        const bookingData = booking.attributes
+        const bookingId = booking.id
+
+        // Filtrer par property_id pour s'assurer que la réservation appartient à cet hôtel
+        if (bookingData.property_id !== hotel.channexPropertyId) {
+          console.log(`Skipping booking ${bookingId} - does not belong to this hotel`)
+          syncResults.totalSkipped++
+          continue
+        }
+
+        // Vérifier si c'est une réservation annulée sans dates
+        if (bookingData.status === 'cancelled' && (!bookingData.arrival_date || !bookingData.departure_date)) {
+          console.log(`Skipping cancelled booking ${bookingId} without dates`)
+          syncResults.totalSkipped++
+          continue
+        }
+
+        // Vérifier si la réservation existe déjà
+        let existingReservation = await Reservation.query()
+          .where('confirmation_code', bookingData.unique_id)
+          .first()
+
+        if (!existingReservation) {
+          existingReservation = await Reservation.query()
+            .where('channex_booking_id', bookingId)
+            .first()
+        }
+
+        // Créer ou trouver le guest
+        const customerData = bookingData.customer
+        let guest = null
+
+        // Essayer de trouver le guest par email
+        if (customerData.mail) {
+          guest = await Guest.query()
+            .where('email', customerData.mail)
+            .where('hotel_id', hotel.id)
+            .first()
+        }
+
+        // Si pas trouvé par email, essayer par téléphone
+        if (!guest && customerData.phone) {
+          guest = await Guest.query()
+            .where('phone_primary', customerData.phone)
+            .where('hotel_id', hotel.id)
+            .first()
+        }
+
+        // Créer un nouveau guest si nécessaire
+        if (!guest) {
+          guest = await Guest.create({
+            hotelId: hotel.id,
+            firstName: customerData.name || 'Guest',
+            lastName: customerData.surname || '',
+            email: customerData.mail || `guest_${bookingId}@channex.placeholder`,
+            phonePrimary: customerData.phone,
+            address: customerData.address,
+            city: customerData.city,
+            postalCode: customerData.zip,
+            country: customerData.country,
+            language: customerData.language || 'en',
+            createdBy: userId
+          })
+        }
+
+        // Mapper le statut Channex vers le statut local
+        const statusMapping: any = {
+          'new': 'Confirmed',
+          'modified': 'Confirmed',
+          'cancelled': 'Cancelled'
+        }
+
+        const reservationStatus = statusMapping[bookingData.status] || 'Pending'
+
+        // Calculer les totaux
+        const totalAdults = bookingData.occupancy?.adults || 0
+        const totalChildren = bookingData.occupancy?.children || 0
+        const totalAmount = parseFloat(bookingData.amount || '0')
+
+        if (existingReservation) {
+          // Mettre à jour la réservation existante
+          existingReservation.merge({
+            guestId: guest.id,
+            arrivedDate: bookingData.arrival_date ? DateTime.fromISO(bookingData.arrival_date) : existingReservation.scheduledArrivalDate,
+            departDate: bookingData.departure_date ? DateTime.fromISO(bookingData.departure_date) : existingReservation.scheduledDepartureDate,
+            reservationStatus: reservationStatus,
+            numAdultsTotal: totalAdults,
+            numChildrenTotal: totalChildren,
+            totalEstimatedRevenue: totalAmount,
+            totalAmount: totalAmount,
+            currencyCode: bookingData.currency || hotel.currencyCode,
+            specialRequests: bookingData.notes,
+            id: bookingId,
+            //otaName: bookingData.ota_name,
+            //otaReservationCode: bookingData.ota_reservation_code,
+            //paymentCollect: bookingData.payment_collect,
+            paymentType: bookingData.payment_type,
+            //updatedBy: userId
+          })
+          await existingReservation.save()
+          syncResults.totalUpdated++
+
+          console.log(`Updated reservation ${existingReservation.id} for booking ${bookingId}`)
+        } else {
+          // Créer une nouvelle réservation
+          const newReservation = await Reservation.create({
+            hotelId: hotel.id,
+            guestId: guest.id,
+            arrivedDate: DateTime.fromISO(bookingData.arrival_date),
+            departDate: DateTime.fromISO(bookingData.departure_date),
+            reservationStatus: reservationStatus, // Statut réel de Channex
+            numAdultsTotal: totalAdults,
+            numChildrenTotal: totalChildren,
+            bookingSourceId: 1,
+            ratePlanId: 1,
+            totalEstimatedRevenue: totalAmount,
+            totalAmount: totalAmount,
+            currencyCode: bookingData.currency || hotel.currencyCode,
+            specialRequests: bookingData.notes,
+            confirmationCode: bookingData.unique_id,
+            //channexBookingId: bookingId, // ← À ajouter dans votre modèle
+            paymentType: bookingData.payment_type,
+            reservationDatetime: DateTime.fromISO(bookingData.inserted_at),
+            userId: userId,
+            status: reservationStatus.toLowerCase(), // Utiliser le vrai statut
+            createdBy: userId
+          })
+          
+          syncResults.totalCreated++
+          console.log(`Created reservation ${newReservation.id} for booking ${bookingId} with status: ${reservationStatus}`)
+
+          // Créer les ReservationRoom pour chaque chambre
+          if (bookingData.rooms && bookingData.rooms.length > 0) {
+            for (const roomData of bookingData.rooms) {
+              // Trouver le room type local par channex_room_type_id
+              const roomType = await RoomType.query()
+                .where('channex_room_type_id', roomData.room_type_id)
+                .where('hotel_id', hotel.id)
+                .first()
+
+              // Trouver le room rate local par channex_rate_id
+              const roomRate = await RoomRate.query()
+                .where('channex_rate_id', roomData.rate_plan_id)
+                .where('hotel_id', hotel.id)
+                .first()
+
+              // Calculer le nombre de nuits
+              const checkInDate = DateTime.fromISO(roomData.checkin_date)
+              const checkOutDate = DateTime.fromISO(roomData.checkout_date)
+              const nights = checkOutDate.diff(checkInDate, 'days').days
+
+              // Calculer le montant de la chambre
+              const roomAmount = parseFloat(roomData.amount || '0')
+
+              await ReservationRoom.create({
+                reservationId: newReservation.id,
+                roomRateId: roomRate?.id,
+                roomTypeId: roomType?.id || 1,
+                guestId: guest.id,
+                isOwner: true,
+                checkInDate: checkInDate,
+                checkOutDate: checkOutDate,
+                nights: nights,
+                adults: roomData.occupancy?.adults || totalAdults,
+                children: roomData.occupancy?.children || totalChildren,
+                infants: roomData.occupancy?.infants || 0,
+                roomRate: roomAmount / nights, // Prix par nuit
+                totalRoomCharges: roomAmount,
+                roomCharges: roomAmount,
+                netAmount: roomAmount,
+                status: roomData.is_cancelled ? 'cancelled' : 'reserved',
+                channexBookingRoomId: roomData.booking_room_id,
+                createdBy: userId
+              })
+
+              console.log(`Created reservation room for booking ${bookingId}, room ${roomData.booking_room_id}`)
+            }
+          } else {
+            // Si pas de chambres spécifiques, créer une entrée générique
+            const checkInDate = DateTime.fromISO(bookingData.arrival_date)
+            const checkOutDate = DateTime.fromISO(bookingData.departure_date)
+            const nights = checkOutDate.diff(checkInDate, 'days').days
+
+            await ReservationRoom.create({
+              reservationId: newReservation.id,
+              roomRateId: null,
+              roomTypeId: 1,
+              guestId: guest.id,
+              isOwner: true,
+              checkInDate: checkInDate,
+              checkOutDate: checkOutDate,
+              nights: nights,
+              adults: totalAdults,
+              children: totalChildren,
+              infants: 0,
+              roomRate: totalAmount / nights,
+              totalRoomCharges: totalAmount,
+              roomCharges: totalAmount,
+              netAmount: totalAmount,
+              status: 'reserved',
+              createdBy: userId
+            })
+          }
+        }
+
+        syncResults.totalProcessed++
+
+      } catch (error: any) {
+        syncResults.totalErrors++;
+        if (!Array.isArray(syncResults.errors)) {
+          syncResults.errors = [];
+        }
+        syncResults.errors.push({
+          bookingId: booking?.id,
+          uniqueId: booking?.attributes?.unique_id,
+          error: error?.message || String(error)
+        });
+        console.error(`Error processing booking ${booking?.id}:`, error);
+      }
+    }
+
+    syncResults.status = syncResults.totalErrors > 0 ? 'completed_with_errors' : 'completed'
+    syncResults.endTime = new Date()
+
+    // Log de fin de synchronisation
+    logEntries.push({
+      actorId: userId,
+      action: 'CHANNEX_BOOKING_SYNC_COMPLETE',
+      entityType: 'Hotel',
+      entityId: hotelId,
+      description: `Completed booking synchronization for hotel ${hotelId}. Fetched: ${syncResults.totalFetched}, Created: ${syncResults.totalCreated}, Updated: ${syncResults.totalUpdated}, Skipped: ${syncResults.totalSkipped}, Errors: ${syncResults.totalErrors}`,
+      meta: {
+        ...syncResults,
+        duration: syncResults.endTime.getTime() - syncResults.startTime.getTime()
+      },
+      hotelId: parseInt(hotelId),
+      ctx: ctx
+    })
+
+    // Enregistrer tous les logs
+    await LoggerService.bulkLog(logEntries)
+
+    return response.ok({
+      success: true,
+      message: 'Booking synchronization completed',
+      data: syncResults
+    })
+
+  } catch (error: any) {
+    syncResults.status = 'failed'
+    syncResults.endTime = new Date()
+    syncResults.totalErrors++
+
+    logEntries.push({
+      actorId: userId,
+      action: 'CHANNEX_BOOKING_SYNC_FAILED',
+      entityType: 'Hotel',
+      entityId: hotelId,
+      description: `Booking synchronization failed for hotel ${hotelId}: ${error.message}`,
+      meta: {
+        error: error.message,
+        stack: error.stack
+      },
+      hotelId: parseInt(hotelId),
+      ctx: ctx
+    })
+
+    await LoggerService.bulkLog(logEntries)
+
+    console.error('Booking synchronization failed:', error)
+
+    return response.status(500).json({
+      success: false,
+      message: 'Booking synchronization failed',
+      error: error.message,
+      data: syncResults
+    })
+  }
+}
 }

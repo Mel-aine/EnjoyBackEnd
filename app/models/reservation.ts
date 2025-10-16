@@ -442,7 +442,7 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'user_id' })
   declare user: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'created_by' })
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
    @belongsTo(() => MarketCode, { foreignKey: 'marketCodeId' })

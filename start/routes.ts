@@ -151,6 +151,17 @@ const transportRequestsController = new TransportRequestsController()
 const workOrdersController = new WorkOrdersController()
 const houseKeepersController = new HouseKeepersController()
 
+
+
+
+const syncJob = new Cron('*/5 * * * *', async () => {
+  console.log('⏰ Exécution automatique de la sync Channex...')
+  await AutoSyncService.syncAllHotels()
+})
+
+// Démarrer la tâche
+syncJob.start()
+
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
@@ -1602,6 +1613,10 @@ router.get('/reservations/:id', reservationsController.getReservationById.bind(r
 
         // Booking Revisions Feed
         router.get('/booking-revisions/feed', channexMigrationController.getBookingRevisionsFeed.bind(channexMigrationController)) // Fetch booking revisions from Channex and create reservations
+        
+        router.get('/booking', channexMigrationController.listBookings.bind(channexMigrationController))
+        router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
+        )
       })
       .prefix('channex');
 

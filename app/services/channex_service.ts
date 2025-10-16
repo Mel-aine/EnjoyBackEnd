@@ -618,6 +618,63 @@ export class ChannexService {
     return this.get('/booking_revisions/feed', params)
   }
 
+    // =============================================================================
+  // BOOKINGS API METHODS2
+  // =============================================================================
+
+    /**
+   * List bookings for a property
+   * GET /properties/{property_id}/bookings
+   */
+    async listBooking( params?: {
+      page?: number
+      per_page?: number
+      filter?: {
+        arrival_date_from?: string
+        arrival_date_to?: string
+        departure_date_from?: string
+        departure_date_to?: string
+        created_at_from?: string
+        created_at_to?: string
+        updated_at_from?: string
+        updated_at_to?: string
+        status?: string[]
+        [key: string]: any
+      }
+    }) {
+      return this.get(`/bookings`, params)
+    }
+  
+    /**
+     * Get a specific booking
+     * GET /properties/{property_id}/bookings/{booking_id}
+     */
+    async getBookings( bookingId: string) {
+      return this.get(`/bookings/${bookingId}`)
+    }
+
+      /**
+   * Get booking revisions
+   * GET /properties/{property_id}/bookings/{booking_id}/revisions
+   */
+
+    async getBookingRevision() {
+      return this.get(`/booking_revisions`)
+    }
+
+      /**
+   * Get booking revisions feed
+   * GET /booking_revisions/feed
+   */
+
+    async getBookingRevisionFeed(params?: { property_id?: string }) {
+      const filter = params && params.property_id ? `?filter[property_id]=${params.property_id}` : '';
+      return this.get(`/booking_revisions/feed${filter}`);
+    }
+  
+
+
+
   // =============================================================================
   // WEBHOOKS API METHODS
   // =============================================================================
@@ -855,6 +912,10 @@ export class ChannexService {
   async getHotelPolicy(policyId: string) {
     return this.get(`/hotel_policies/${policyId}`)
   }
+  // =============================================================================
+  // GROUPS API METHODS
+  // =============================================================================
+
 
   // =============================================================================
   // REVIEWS API METHODS
@@ -879,6 +940,7 @@ export class ChannexService {
   async getReview(propertyId: string, reviewId: string) {
     return this.get(`/properties/${propertyId}/reviews/${reviewId}`)
   }
+
 
   /**
    * Update a review response
