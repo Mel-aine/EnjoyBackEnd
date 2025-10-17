@@ -2405,6 +2405,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservationId =  params.id
       const data = request.all()
 
+      if (data.channex_booking_id !== undefined) {
+        data.channexBookingId = data.channex_booking_id
+      }
+
       const oldStatus = await Reservation.query()
         .where('id', reservationId)
         .select('status')
@@ -3152,6 +3156,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             status: ReservationStatus.CHECKED_IN,
             reservationNumber: newReservationNumber,
             confirmationNumber: newConfirmationNumber,
+            channexBookingId: reservation.channexBookingId,
             arrivedDate: moveDate,
             departDate: currentCheckOutDate,
             checkInDate: moveDate,
