@@ -307,7 +307,7 @@ export default class ChannexMigrationController {
         title: hotel.hotelName,
         currency: hotel.currencyCode || 'XAF',
         timezone: hotel.timezone || 'UTC',
-        country: hotel.country || 'CM',
+        country: hotel.country || 'US',
         state: hotel.stateProvince,
         city: hotel.city,
         address: hotel.address,
@@ -1200,7 +1200,7 @@ async syncBookingsFromChannex(ctx: HttpContext) {
     }
 
     // ✅ ID Channex en dur
-    const channexPropertyId = '8ef93c2e-d782-4d2b-8df1-eec9ef79feca'
+    const channexPropertyId = 'c4a2b4dc-89e3-4579-be82-821a661714bf'
     
     console.log(`🎯 Synchronisation TOUS les bookings Channex`)
 
@@ -1275,7 +1275,7 @@ async syncBookingsFromChannex(ctx: HttpContext) {
 
         if (!existingReservation) {
           existingReservation = await Reservation.query()
-            .where('channex_booking_id', bookingId)
+            .where('id', bookingId)
             .first()
         }
 
