@@ -2239,6 +2239,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 roomRateId: room.room_rate_id,
                 paymentMethodId: data.payment_mod,
                 hotelId: data.hotel_id,
+                meansOfTransportation:room.means_of_transport,
+                goingTo:room.going_to,
+                arrivingTo:room.arriving_to,
                 totalRoomCharges:
                   numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights,
                 taxAmount: room.taxes,

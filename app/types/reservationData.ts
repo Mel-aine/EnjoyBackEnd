@@ -87,7 +87,10 @@ export interface ReservationData {
     room_rate_id: number,
     tax_includes:boolean,
     meal_plan_rate_include : boolean,
-    taxes: number
+    taxes: number,
+    arriving_to:string,
+    going_to:string,
+    means_of_transport:string
   }>
 
   // Financial
