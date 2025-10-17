@@ -241,7 +241,7 @@ export default class ImportGuests extends BaseCommand {
 
   public async run() {
     const DEFAULT_FILE = path.resolve('docs', 'guestdatabse_ABS_ij6NHV3euux50fwcgrnpSw_ABS_68ee2eac48b71.csv')
-    const HOTEL_ID = 3
+    const HOTEL_ID = 5
     const LOG_DIR = path.resolve('tmp')
     const LOG_FILE = path.resolve(LOG_DIR, 'import_guests.log')
     try {
