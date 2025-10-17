@@ -307,7 +307,7 @@ export default class ChannexMigrationController {
         title: hotel.hotelName,
         currency: hotel.currencyCode || 'XAF',
         timezone: hotel.timezone || 'UTC',
-        country: hotel.country || 'US',
+        country: hotel.country || 'CM',
         state: hotel.stateProvince,
         city: hotel.city,
         address: hotel.address,

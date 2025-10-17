@@ -50,6 +50,8 @@ export default class UsersController extends CrudController<typeof User> {
         address: user.address,
         nationality: user.nationality,
         service_id: await this.getUserServiceId(user.id),
+        profession: user.profession,
+        company_id: user.companyId,
         date_of_birth: user.dateOfBirth,
         place_of_birth: user.placeOfBirth,
         gender: user.gender,
@@ -76,6 +78,8 @@ export default class UsersController extends CrudController<typeof User> {
       user.roleId = data.role_id
       user.address = data.address
       user.nationality = data.nationality
+      user.profession = data.profession || null
+      user.companyId = data.company_id || null
       user.lastModifiedBy = auth.user?.id || null
       user.hireDate = data.hire_date ? DateTime.fromISO(data.hire_date) : null
       user.dateOfBirth = data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null
@@ -136,6 +140,8 @@ export default class UsersController extends CrudController<typeof User> {
         address: user.address,
         nationality: user.nationality,
         service_id: data.service_id,
+        profession: user.profession,
+        company_id: user.companyId,
         date_of_birth: user.dateOfBirth,
         place_of_birth: user.placeOfBirth,
         gender: user.gender,

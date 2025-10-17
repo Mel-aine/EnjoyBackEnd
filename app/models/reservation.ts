@@ -156,6 +156,15 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'special_requests' })
   declare specialRequests: string | null
 
+  @column({ columnName: 'arriving_to' })
+  declare arrivingTo: string | null
+
+  @column({ columnName: 'going_to' })
+  declare goingTo: string | null
+
+  @column({ columnName: 'means_of_transportation' })
+  declare meansOfTransportation: string | null
+
   @column({ columnName: 'status' })
   declare status: string
 

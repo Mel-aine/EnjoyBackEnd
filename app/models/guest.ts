@@ -7,6 +7,7 @@ import Folio from './folio.js'
 import User from './user.js'
 import Hotel from './hotel.js'
 import VipStatus from './vip_status.js'
+import CompanyAccount from './company_account.js'
 
 
 export default class Guest extends BaseModel {
@@ -103,6 +104,9 @@ export default class Guest extends BaseModel {
   @column()
   declare companyName: string
 
+  @column({ columnName: 'company_id' })
+  declare companyId: number | null
+
   @column()
   declare jobTitle: string
 
@@ -165,6 +169,18 @@ export default class Guest extends BaseModel {
 
   @column.date()
   declare lastStayDate: DateTime
+
+  @column({ columnName: 'first_reservation_id' })
+  declare firstReservationId: number | null
+
+  @column({ columnName: 'last_reservation_id' })
+  declare lastReservationId: number | null
+
+  @column.dateTime({ columnName: 'first_arrival_date' })
+  declare firstArrivalDate: DateTime | null
+
+  @column.dateTime({ columnName: 'last_arrival_date' })
+  declare lastArrivalDate: DateTime | null
 
   @column()
   declare totalStays: number
@@ -241,7 +257,11 @@ export default class Guest extends BaseModel {
   })
   declare reservationsAsGuest: ManyToMany<typeof Reservation>
 
+  @belongsTo(() => Reservation, { foreignKey: 'firstReservationId' })
+  declare firstReservation: BelongsTo<typeof Reservation>
 
+  @belongsTo(() => Reservation, { foreignKey: 'lastReservationId' })
+  declare lastReservation: BelongsTo<typeof Reservation>
 
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>
@@ -257,6 +277,9 @@ export default class Guest extends BaseModel {
 
   @belongsTo(() => VipStatus, { foreignKey: 'vipStatusId' })
   declare vipStatuses: BelongsTo<typeof VipStatus>
+
+  @belongsTo(() => CompanyAccount, { foreignKey: 'companyId' })
+  declare companyAccount: BelongsTo<typeof CompanyAccount>
 
   // Computed properties
   @computed()

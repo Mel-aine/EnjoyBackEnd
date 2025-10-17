@@ -5,6 +5,8 @@ export interface GuestData {
   phone_primary?: string
   title?: string
   company_name?: string
+  company_id?: number
+  profession?: string
   address_line?: string
   country?: string
   state?: string
@@ -29,6 +31,8 @@ export interface ReservationData {
   phone_primary?: string
   title?: string
   company_name?: string
+  company_id?: number
+  profession?: string
   group_name?: string
   address_line?: string
   country?: string
@@ -101,6 +105,9 @@ export interface ReservationData {
   payment_type?: string
   credit_type?: string
   tax_exempt?: boolean
+  arriving_to?: string
+  going_to?: string
+  means_of_transportation?: string
 
   // Communication preferences
   email_booking_vouchers?: boolean

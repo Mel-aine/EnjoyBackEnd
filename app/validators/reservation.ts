@@ -39,6 +39,9 @@ export const createReservationValidator = vine.compile(
     payment_method: vine.number().positive(),
     floor_preference: vine.string().optional(),
     view_preference: vine.string().optional(),
+    arriving_to: vine.string().optional(),
+    going_to: vine.string().optional(),
+    means_of_transportation: vine.string().optional(),
 
     // Rates and Pricing
     rate_plan_id: vine.number().positive().optional(),
@@ -84,6 +87,9 @@ export const createReservationValidator = vine.compile(
     dietary_requirements: vine.string().optional(),
     accessibility_needs: vine.string().optional(),
     transportation_needs: vine.string().optional(),
+    arriving_to: vine.string().optional(),
+    going_to: vine.string().optional(),
+    means_of_transportation: vine.string().optional(),
 
     // Guest Preferences
     smoking_preference: vine.boolean().optional(),
