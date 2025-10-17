@@ -1086,7 +1086,7 @@ export default class ChannexMigrationController {
       }
 
       // Appeler le service Channex
-      const bookingsResult = await this.channexService.listBooking(params)
+      const bookingsResult = await this.channexService.listBooking()
 
       // Logger l'action
       await LoggerService.log({
@@ -1166,7 +1166,7 @@ export default class ChannexMigrationController {
  * POST /api/channex/sync/bookings/:hotelId
  */
 async syncBookingsFromChannex(ctx: HttpContext) {
-  const { params, request, response, auth } = ctx
+  const { params, response, auth } = ctx
   const { hotelId } = params
   const userId = auth.user?.id
 
@@ -1178,7 +1178,6 @@ async syncBookingsFromChannex(ctx: HttpContext) {
     return response.badRequest({ error: 'Hotel ID is required' })
   }
 
-  const logEntries: any[] = []
   const syncResults = {
     hotelId,
     status: 'started',
@@ -1194,80 +1193,84 @@ async syncBookingsFromChannex(ctx: HttpContext) {
   }
 
   try {
-    // Récupérer l'hôtel avec son channexPropertyId
+    // Récupérer l'hôtel
     const hotel = await Hotel.find(hotelId)
     if (!hotel) {
       throw new Error(`Hotel with ID ${hotelId} not found`)
     }
 
-    if (!hotel.channexPropertyId) {
-      throw new Error('Hotel has not been migrated to Channex yet')
+    // ✅ ID Channex en dur
+    const channexPropertyId = '8ef93c2e-d782-4d2b-8df1-eec9ef79feca'
+    
+    console.log(`🎯 Synchronisation TOUS les bookings Channex`)
+
+    // ✅ APPEL DIRECT SANS FILTRES
+    console.log('📤 Appel Channex listBooking()...')
+
+    const bookingsResponse: any = await this.channexService.listBooking()
+    
+    // ✅ CORRECTION ICI : La réponse EST DIRECTEMENT le tableau de bookings
+    const allBookings = Array.isArray(bookingsResponse) ? bookingsResponse : bookingsResponse.data || []
+
+    syncResults.totalFetched = allBookings.length
+
+    console.log(`📥 ${allBookings.length} bookings récupérés`)
+
+    // ✅ Afficher le détail pour confirmer
+    if (allBookings.length > 0) {
+      console.log('=== Premier booking comme exemple ===')
+      const firstBooking = allBookings[0]
+      console.log('ID:', firstBooking.id)
+      console.log('Property ID:', firstBooking.attributes?.property_id)
+      console.log('Status:', firstBooking.attributes?.status)
     }
 
-    // Log du début de synchronisation
-    logEntries.push({
-      actorId: userId,
-      action: 'CHANNEX_BOOKING_SYNC_START',
-      entityType: 'Hotel',
-      entityId: hotelId,
-      description: `Started booking synchronization for hotel ${hotelId}`,
-      hotelId: parseInt(hotelId),
-      ctx: ctx
+    // ✅ FILTRER MANUELLEMENT par property_id
+    const ourBookings = allBookings.filter(booking => {
+      const propertyId = booking.attributes?.property_id
+      return propertyId === channexPropertyId
     })
 
-    // Récupérer les paramètres de filtrage depuis la requête
-    const page = request.input('page', 1)
-    const perPage = request.input('per_page', 100)
-    const arrivalDateFrom = request.input('arrival_date_from')
-    const arrivalDateTo = request.input('arrival_date_to')
-    const status = request.input('status') // ['new', 'modified', 'cancelled']
+    console.log(`🎯 ${ourBookings.length} bookings pour notre property ${channexPropertyId}`)
 
-    // Construire les paramètres pour l'API Channex
-    const channexParams: any = {
-      page,
-      per_page: perPage
+    // Afficher le détail des properties trouvés
+    console.log('=== DEBUG: Tous les properties trouvés ===')
+    const allProperties = [...new Set(allBookings.map(b => b.attributes?.property_id).filter(Boolean))]
+    
+    allProperties.forEach(propId => {
+      const count = allBookings.filter(b => b.attributes?.property_id === propId).length
+      console.log(`- Property ${propId}: ${count} bookings ${propId === channexPropertyId ? '✅ (NOTRE PROPERTY)' : ''}`)
+    })
+
+    if (ourBookings.length === 0) {
+      return response.ok({
+        success: false,
+        message: 'Aucun booking trouvé pour notre property',
+        debug: {
+          totalBookingsFromChannex: allBookings.length,
+          ourPropertyId: channexPropertyId,
+          allPropertiesFound: allProperties,
+          ourBookingsCount: ourBookings.length
+        }
+      })
     }
 
-    // Ajouter les filtres si fournis
-    if (arrivalDateFrom || arrivalDateTo || status) {
-      channexParams.filter = {}
-      
-      if (arrivalDateFrom) channexParams.filter.arrival_date_from = arrivalDateFrom
-      if (arrivalDateTo) channexParams.filter.arrival_date_to = arrivalDateTo
-      if (status) channexParams.filter.status = Array.isArray(status) ? status : [status]
-    }
+    // ✅ Map pour créer les room types et rates manquants automatiquement
+    const autoCreatedRoomTypes = new Map()
+    const autoCreatedRoomRates = new Map()
 
-    // Récupérer les réservations depuis Channex
-    const bookingsResponse: any = await this.channexService.listBooking(channexParams)
-    const bookings = bookingsResponse.data?.data || []
-
-    syncResults.totalFetched = bookings.length
-
-    console.log(`Fetched ${bookings.length} bookings from Channex for hotel ${hotelId}`)
-
-    // Traiter chaque réservation
-    for (const booking of bookings) {
+    // Traiter chaque réservation DE NOTRE PROPERTY
+    for (const booking of ourBookings) {
       try {
         const bookingData = booking.attributes
         const bookingId = booking.id
 
-        // Filtrer par property_id pour s'assurer que la réservation appartient à cet hôtel
-        if (bookingData.property_id !== hotel.channexPropertyId) {
-          console.log(`Skipping booking ${bookingId} - does not belong to this hotel`)
-          syncResults.totalSkipped++
-          continue
-        }
-
-        // Vérifier si c'est une réservation annulée sans dates
-        if (bookingData.status === 'cancelled' && (!bookingData.arrival_date || !bookingData.departure_date)) {
-          console.log(`Skipping cancelled booking ${bookingId} without dates`)
-          syncResults.totalSkipped++
-          continue
-        }
+        console.log(`\n--- Processing booking ${bookingId} ---`)
+        console.log(`Status: ${bookingData.status}, Arrival: ${bookingData.arrival_date}, Departure: ${bookingData.departure_date}`)
 
         // Vérifier si la réservation existe déjà
         let existingReservation = await Reservation.query()
-          .where('confirmation_code', bookingData.unique_id)
+          .where('reservation_number', bookingData.unique_id)
           .first()
 
         if (!existingReservation) {
@@ -1277,10 +1280,9 @@ async syncBookingsFromChannex(ctx: HttpContext) {
         }
 
         // Créer ou trouver le guest
-        const customerData = bookingData.customer
+        const customerData = bookingData.customer || {}
         let guest = null
 
-        // Essayer de trouver le guest par email
         if (customerData.mail) {
           guest = await Guest.query()
             .where('email', customerData.mail)
@@ -1288,7 +1290,6 @@ async syncBookingsFromChannex(ctx: HttpContext) {
             .first()
         }
 
-        // Si pas trouvé par email, essayer par téléphone
         if (!guest && customerData.phone) {
           guest = await Guest.query()
             .where('phone_primary', customerData.phone)
@@ -1296,31 +1297,44 @@ async syncBookingsFromChannex(ctx: HttpContext) {
             .first()
         }
 
-        // Créer un nouveau guest si nécessaire
         if (!guest) {
-          guest = await Guest.create({
+          const guestData: any = {
             hotelId: hotel.id,
-            firstName: customerData.name || 'Guest',
-            lastName: customerData.surname || '',
+            firstName: customerData.name || 'Unknown',
+            lastName: customerData.surname || 'Guest',
             email: customerData.mail || `guest_${bookingId}@channex.placeholder`,
-            phonePrimary: customerData.phone,
-            address: customerData.address,
-            city: customerData.city,
-            postalCode: customerData.zip,
-            country: customerData.country,
-            language: customerData.language || 'en',
+            phonePrimary: customerData.phone || '000-000-0000',
             createdBy: userId
-          })
+          }
+
+          if (customerData.address) guestData.address = customerData.address
+          if (customerData.city) guestData.city = customerData.city
+          if (customerData.zip) guestData.postalCode = customerData.zip
+          if (customerData.country) guestData.country = customerData.country
+          if (customerData.language) guestData.language = customerData.language
+
+          guest = await Guest.create(guestData)
+          console.log(`✅ Guest créé: ${guest.id}`)
         }
 
-        // Mapper le statut Channex vers le statut local
+        // Mapper le statut
         const statusMapping: any = {
           'new': 'Confirmed',
-          'modified': 'Confirmed',
+          'modified': 'Confirmed', 
           'cancelled': 'Cancelled'
         }
 
         const reservationStatus = statusMapping[bookingData.status] || 'Pending'
+
+        // Gérer les dates manquantes
+        let arrivalDate = bookingData.arrival_date
+        let departureDate = bookingData.departure_date
+
+        if (!arrivalDate || !departureDate) {
+          console.log(`⚠️ Dates manquantes, utilisation de dates par défaut`)
+          arrivalDate = arrivalDate || new Date().toISOString().split('T')[0]
+          departureDate = departureDate || new Date(Date.now() + 86400000).toISOString().split('T')[0]
+        }
 
         // Calculer les totaux
         const totalAdults = bookingData.occupancy?.adults || 0
@@ -1331,8 +1345,8 @@ async syncBookingsFromChannex(ctx: HttpContext) {
           // Mettre à jour la réservation existante
           existingReservation.merge({
             guestId: guest.id,
-            arrivedDate: bookingData.arrival_date ? DateTime.fromISO(bookingData.arrival_date) : existingReservation.scheduledArrivalDate,
-            departDate: bookingData.departure_date ? DateTime.fromISO(bookingData.departure_date) : existingReservation.scheduledDepartureDate,
+            arrivedDate: arrivalDate ? DateTime.fromISO(arrivalDate) : existingReservation.scheduledArrivalDate,
+            departDate: departureDate ? DateTime.fromISO(departureDate) : existingReservation.scheduledDepartureDate,
             reservationStatus: reservationStatus,
             numAdultsTotal: totalAdults,
             numChildrenTotal: totalChildren,
@@ -1340,25 +1354,20 @@ async syncBookingsFromChannex(ctx: HttpContext) {
             totalAmount: totalAmount,
             currencyCode: bookingData.currency || hotel.currencyCode,
             specialRequests: bookingData.notes,
-            id: bookingId,
-            //otaName: bookingData.ota_name,
-            //otaReservationCode: bookingData.ota_reservation_code,
-            //paymentCollect: bookingData.payment_collect,
+            channexBookingId: bookingId,
             paymentType: bookingData.payment_type,
-            //updatedBy: userId
           })
           await existingReservation.save()
           syncResults.totalUpdated++
-
-          console.log(`Updated reservation ${existingReservation.id} for booking ${bookingId}`)
+          console.log(`🔄 Reservation mise à jour: ${existingReservation.id}`)
         } else {
           // Créer une nouvelle réservation
-          const newReservation = await Reservation.create({
+          const reservationData: any = {
             hotelId: hotel.id,
             guestId: guest.id,
-            arrivedDate: DateTime.fromISO(bookingData.arrival_date),
-            departDate: DateTime.fromISO(bookingData.departure_date),
-            reservationStatus: reservationStatus, // Statut réel de Channex
+            arrivedDate: DateTime.fromISO(arrivalDate),
+            departDate: DateTime.fromISO(departureDate),
+            reservationStatus: reservationStatus,
             numAdultsTotal: totalAdults,
             numChildrenTotal: totalChildren,
             bookingSourceId: 1,
@@ -1368,67 +1377,27 @@ async syncBookingsFromChannex(ctx: HttpContext) {
             currencyCode: bookingData.currency || hotel.currencyCode,
             specialRequests: bookingData.notes,
             confirmationCode: bookingData.unique_id,
-            //channexBookingId: bookingId, // ← À ajouter dans votre modèle
+            channexBookingId: bookingId,
             paymentType: bookingData.payment_type,
             reservationDatetime: DateTime.fromISO(bookingData.inserted_at),
             userId: userId,
-            status: reservationStatus.toLowerCase(), // Utiliser le vrai statut
+            status: reservationStatus.toLowerCase(),
             createdBy: userId
-          })
-          
-          syncResults.totalCreated++
-          console.log(`Created reservation ${newReservation.id} for booking ${bookingId} with status: ${reservationStatus}`)
+          }
 
-          // Créer les ReservationRoom pour chaque chambre
+          const newReservation = await Reservation.create(reservationData)
+          syncResults.totalCreated++
+          console.log(`✅ NOUVELLE Reservation créée: ${newReservation.id} (${reservationStatus})`)
+
+          // Créer les ReservationRoom
           if (bookingData.rooms && bookingData.rooms.length > 0) {
             for (const roomData of bookingData.rooms) {
-              // Trouver le room type local par channex_room_type_id
-              const roomType = await RoomType.query()
-                .where('channex_room_type_id', roomData.room_type_id)
-                .where('hotel_id', hotel.id)
-                .first()
-
-              // Trouver le room rate local par channex_rate_id
-              const roomRate = await RoomRate.query()
-                .where('channex_rate_id', roomData.rate_plan_id)
-                .where('hotel_id', hotel.id)
-                .first()
-
-              // Calculer le nombre de nuits
-              const checkInDate = DateTime.fromISO(roomData.checkin_date)
-              const checkOutDate = DateTime.fromISO(roomData.checkout_date)
-              const nights = checkOutDate.diff(checkInDate, 'days').days
-
-              // Calculer le montant de la chambre
-              const roomAmount = parseFloat(roomData.amount || '0')
-
-              await ReservationRoom.create({
-                reservationId: newReservation.id,
-                roomRateId: roomRate?.id,
-                roomTypeId: roomType?.id || 1,
-                guestId: guest.id,
-                isOwner: true,
-                checkInDate: checkInDate,
-                checkOutDate: checkOutDate,
-                nights: nights,
-                adults: roomData.occupancy?.adults || totalAdults,
-                children: roomData.occupancy?.children || totalChildren,
-                infants: roomData.occupancy?.infants || 0,
-                roomRate: roomAmount / nights, // Prix par nuit
-                totalRoomCharges: roomAmount,
-                roomCharges: roomAmount,
-                netAmount: roomAmount,
-                status: roomData.is_cancelled ? 'cancelled' : 'reserved',
-                channexBookingRoomId: roomData.booking_room_id,
-                createdBy: userId
-              })
-
-              console.log(`Created reservation room for booking ${bookingId}, room ${roomData.booking_room_id}`)
+              await this.createReservationRoom(newReservation, roomData, guest, hotel, userId, autoCreatedRoomTypes, autoCreatedRoomRates)
             }
           } else {
-            // Si pas de chambres spécifiques, créer une entrée générique
-            const checkInDate = DateTime.fromISO(bookingData.arrival_date)
-            const checkOutDate = DateTime.fromISO(bookingData.departure_date)
+            // Room générique si pas de chambres spécifiques
+            const checkInDate = DateTime.fromISO(arrivalDate)
+            const checkOutDate = DateTime.fromISO(departureDate)
             const nights = checkOutDate.diff(checkInDate, 'days').days
 
             await ReservationRoom.create({
@@ -1443,13 +1412,14 @@ async syncBookingsFromChannex(ctx: HttpContext) {
               adults: totalAdults,
               children: totalChildren,
               infants: 0,
-              roomRate: totalAmount / nights,
+              roomRate: totalAmount / Math.max(nights, 1),
               totalRoomCharges: totalAmount,
               roomCharges: totalAmount,
               netAmount: totalAmount,
-              status: 'reserved',
+              status: bookingData.status === 'cancelled' ? 'cancelled' : 'reserved',
               createdBy: userId
             })
+            console.log(`✅ Room générique créée pour reservation ${newReservation.id}`)
           }
         }
 
@@ -1457,74 +1427,123 @@ async syncBookingsFromChannex(ctx: HttpContext) {
 
       } catch (error: any) {
         syncResults.totalErrors++;
-        if (!Array.isArray(syncResults.errors)) {
-          syncResults.errors = [];
-        }
         syncResults.errors.push({
           bookingId: booking?.id,
           uniqueId: booking?.attributes?.unique_id,
-          error: error?.message || String(error)
+          error: error?.message
         });
-        console.error(`Error processing booking ${booking?.id}:`, error);
+        console.error(`❌ Erreur processing booking ${booking?.id}:`, error);
       }
     }
 
     syncResults.status = syncResults.totalErrors > 0 ? 'completed_with_errors' : 'completed'
     syncResults.endTime = new Date()
 
-    // Log de fin de synchronisation
-    logEntries.push({
-      actorId: userId,
-      action: 'CHANNEX_BOOKING_SYNC_COMPLETE',
-      entityType: 'Hotel',
-      entityId: hotelId,
-      description: `Completed booking synchronization for hotel ${hotelId}. Fetched: ${syncResults.totalFetched}, Created: ${syncResults.totalCreated}, Updated: ${syncResults.totalUpdated}, Skipped: ${syncResults.totalSkipped}, Errors: ${syncResults.totalErrors}`,
-      meta: {
-        ...syncResults,
-        duration: syncResults.endTime.getTime() - syncResults.startTime.getTime()
-      },
-      hotelId: parseInt(hotelId),
-      ctx: ctx
-    })
-
-    // Enregistrer tous les logs
-    await LoggerService.bulkLog(logEntries)
-
     return response.ok({
       success: true,
-      message: 'Booking synchronization completed',
-      data: syncResults
+      message: `Synchronisation terminée: ${syncResults.totalCreated} créés, ${syncResults.totalUpdated} mis à jour`,
+      data: {
+        ...syncResults,
+        debug: {
+          totalFromChannex: allBookings.length,
+          ourPropertyBookings: ourBookings.length,
+          allProperties: allProperties
+        }
+      }
     })
 
   } catch (error: any) {
-    syncResults.status = 'failed'
-    syncResults.endTime = new Date()
-    syncResults.totalErrors++
-
-    logEntries.push({
-      actorId: userId,
-      action: 'CHANNEX_BOOKING_SYNC_FAILED',
-      entityType: 'Hotel',
-      entityId: hotelId,
-      description: `Booking synchronization failed for hotel ${hotelId}: ${error.message}`,
-      meta: {
-        error: error.message,
-        stack: error.stack
-      },
-      hotelId: parseInt(hotelId),
-      ctx: ctx
-    })
-
-    await LoggerService.bulkLog(logEntries)
-
-    console.error('Booking synchronization failed:', error)
-
+    console.error('❌ Sync error:', error)
     return response.status(500).json({
       success: false,
       message: 'Booking synchronization failed',
-      error: error.message,
-      data: syncResults
+      error: error.message
     })
+  }
+}
+
+// ✅ Méthode helper pour créer les ReservationRoom
+private async createReservationRoom(reservation: Reservation, roomData: any, guest: Guest, hotel: Hotel, userId: number, autoCreatedRoomTypes: Map<string, any>, autoCreatedRoomRates: Map<string, any>) {
+  try {
+    // Gérer les room types manquants
+    let roomType = await RoomType.query()
+      .where('channex_room_type_id', roomData.room_type_id)
+      .where('hotel_id', hotel.id)
+      .first()
+
+    if (!roomType) {
+      const cacheKey = `roomtype_${roomData.room_type_id}`
+      if (!autoCreatedRoomTypes.has(cacheKey)) {
+        roomType = await RoomType.create({
+          hotelId: hotel.id,
+          roomTypeName: `Auto-Channex-${roomData.room_type_id.substring(0, 8)}`,
+          channexRoomTypeId: roomData.room_type_id,
+          status: 'active',
+          createdBy: userId
+        })
+        autoCreatedRoomTypes.set(cacheKey, roomType)
+        console.log(`✅ RoomType auto-créé: ${roomType.id}`)
+      } else {
+        roomType = autoCreatedRoomTypes.get(cacheKey)
+      }
+    }
+
+    // Gérer les room rates manquants
+    let roomRate = await RoomRate.query()
+      .where('channex_rate_id', roomData.rate_plan_id)
+      .where('hotel_id', hotel.id)
+      .first()
+
+    if (!roomRate) {
+      const cacheKey = `roomrate_${roomData.rate_plan_id}`
+      if (!autoCreatedRoomRates.has(cacheKey)) {
+        roomRate = await RoomRate.create({
+          hotelId: hotel.id,
+          roomTypeId: roomType.id,
+          name: `Auto-Rate-${roomData.rate_plan_id.substring(0, 8)}`,
+          channexRateId: roomData.rate_plan_id,
+          amount: parseFloat(roomData.amount || '0'),
+          currencyCode: 'GBP',
+          createdBy: userId
+        })
+        autoCreatedRoomRates.set(cacheKey, roomRate)
+        console.log(`✅ RoomRate auto-créé: ${roomRate.id}`)
+      } else {
+        roomRate = autoCreatedRoomRates.get(cacheKey)
+      }
+    }
+
+    // Calculer les dates et montants
+    const checkInDate = DateTime.fromISO(roomData.checkin_date)
+    const checkOutDate = DateTime.fromISO(roomData.checkout_date)
+    const nights = checkOutDate.diff(checkInDate, 'days').days
+    const roomAmount = parseFloat(roomData.amount || '0')
+
+    await ReservationRoom.create({
+      reservationId: reservation.id,
+      roomRateId: roomRate?.id,
+      roomTypeId: roomType?.id,
+      guestId: guest.id,
+      isOwner: true,
+      checkInDate: checkInDate,
+      checkOutDate: checkOutDate,
+      nights: nights,
+      adults: roomData.occupancy?.adults || 0,
+      children: roomData.occupancy?.children || 0,
+      infants: roomData.occupancy?.infants || 0,
+      roomRate: roomAmount / Math.max(nights, 1),
+      totalRoomCharges: roomAmount,
+      roomCharges: roomAmount,
+      netAmount: roomAmount,
+      status: roomData.is_cancelled ? 'cancelled' : 'reserved',
+      channexBookingRoomId: roomData.booking_room_id,
+      createdBy: userId
+    })
+
+    console.log(`✅ ReservationRoom créée pour booking ${reservation.id}`)
+  } catch (error) {
+    console.error(`❌ Erreur création ReservationRoom:`, error)
+    throw error
   }
 }
 }

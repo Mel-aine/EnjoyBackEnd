@@ -152,16 +152,6 @@ const workOrdersController = new WorkOrdersController()
 const houseKeepersController = new HouseKeepersController()
 
 
-
-
-const syncJob = new Cron('*/5 * * * *', async () => {
-  console.log('⏰ Exécution automatique de la sync Channex...')
-  await AutoSyncService.syncAllHotels()
-})
-
-// Démarrer la tâche
-syncJob.start()
-
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
