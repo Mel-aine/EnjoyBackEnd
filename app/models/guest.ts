@@ -170,6 +170,18 @@ export default class Guest extends BaseModel {
   @column.date()
   declare lastStayDate: DateTime
 
+  @column({ columnName: 'first_reservation_id' })
+  declare firstReservationId: number | null
+
+  @column({ columnName: 'last_reservation_id' })
+  declare lastReservationId: number | null
+
+  @column.dateTime({ columnName: 'first_arrival_date' })
+  declare firstArrivalDate: DateTime | null
+
+  @column.dateTime({ columnName: 'last_arrival_date' })
+  declare lastArrivalDate: DateTime | null
+
   @column()
   declare totalStays: number
 
@@ -245,7 +257,11 @@ export default class Guest extends BaseModel {
   })
   declare reservationsAsGuest: ManyToMany<typeof Reservation>
 
+  @belongsTo(() => Reservation, { foreignKey: 'firstReservationId' })
+  declare firstReservation: BelongsTo<typeof Reservation>
 
+  @belongsTo(() => Reservation, { foreignKey: 'lastReservationId' })
+  declare lastReservation: BelongsTo<typeof Reservation>
 
   @hasMany(() => Folio)
   declare folios: HasMany<typeof Folio>

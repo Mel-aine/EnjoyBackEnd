@@ -39,6 +39,7 @@ import Guest from '#models/guest'
 import { updateReservationDetailsValidator } from '#validators/reservation_update_details'
 import { applyRoomChargeDiscountValidator } from '#validators/reservation_apply_discount'
 import TaxRate from '#models/tax_rate'
+import GuestSummaryService from '#services/guest_summary_service'
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -262,6 +263,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
     //
     await trx.commit()
     console.log('Transaction committed successfully')
+
+    await GuestSummaryService.recomputeFromReservation(reservation.id)
 
     return response.ok({
       message: allRoomsCheckedIn ? 'Check-in successful' : 'Partial check-in successful',
@@ -497,6 +500,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await trx.commit()
 
+      await GuestSummaryService.recomputeFromReservation(reservation.id)
       return response.ok({
         success: true,
         message: 'Check-out completed successfully',
@@ -1206,6 +1210,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         ctx,
       })
 
+      await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({ message: 'The stay was successfully extended.', reservation })
     } catch (error) {
       await trx.rollback()
@@ -1511,6 +1516,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await trx.commit()
 
+      await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({
         message: `Reservation cancelled. Fee: ${cancellationFee}`,
         cancellationFee: cancellationFee,
@@ -2373,6 +2379,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           responseData.message += ` and ${folios.length} folio(s) with room charges`
         }
 
+        await GuestSummaryService.recomputeFromReservation(reservation.id)
+
         return response.created(responseData)
       } catch (error) {
         await trx.rollback()
@@ -2442,6 +2450,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
 
           // Return success response with folio information
+          await GuestSummaryService.recomputeFromReservation(reservationId)
           return response.ok({
           status: 200,
           message: 'Reservation confirmed successfully',
@@ -2450,6 +2459,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         } catch (folioError) {
           console.error('Error creating folios on confirmation:', folioError)
           // Return the update response even if folio creation fails
+          await GuestSummaryService.recomputeFromReservation(reservationId)
           return response.ok({
             message: 'Reservation confirmed but folio creation failed',
             reservation: updateResponse,
@@ -2458,6 +2468,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
+      await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({
           status: 200,
           message: 'Reservation confirmed successfully',
@@ -2948,6 +2959,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await trx.commit()
 
+      await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({
         message: 'Stay amended successfully',
         reservationId: reservationId,
@@ -4237,6 +4249,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await trx.commit()
       console.log('Transaction committed', { durationMs: Date.now() - startTime })
 
+      await GuestSummaryService.recomputeFromReservation(reservation.id)
+
       return response.ok({
         message: 'Reservation marked as no-show successfully',
         reservationId: reservation.id,
@@ -4503,6 +4517,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
          })*/
 
       await trx.commit()
+
+      await GuestSummaryService.recomputeFromReservation(reservation.id)
 
       const message = isPartialVoid
         ? allRoomsVoided
