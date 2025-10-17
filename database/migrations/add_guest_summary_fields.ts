@@ -1,4 +1,4 @@
-import BaseSchema from '@adonisjs/lucid/schema'
+import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class AddGuestSummaryFields extends BaseSchema {
   protected tableName = 'guests'

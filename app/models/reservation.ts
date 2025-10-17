@@ -234,6 +234,9 @@ export default class Reservation extends BaseModel {
   @column()
   declare confirmationNumber: string
 
+  @column({ columnName: 'channex_booking_id' })
+  declare channexBookingId: string | null
+
   @column()
   declare checkInTime: string
 
