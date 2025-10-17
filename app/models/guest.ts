@@ -7,6 +7,7 @@ import Folio from './folio.js'
 import User from './user.js'
 import Hotel from './hotel.js'
 import VipStatus from './vip_status.js'
+import CompanyAccount from './company_account.js'
 
 
 export default class Guest extends BaseModel {
@@ -102,6 +103,9 @@ export default class Guest extends BaseModel {
 
   @column()
   declare companyName: string
+
+  @column({ columnName: 'company_id' })
+  declare companyId: number | null
 
   @column()
   declare jobTitle: string
@@ -257,6 +261,9 @@ export default class Guest extends BaseModel {
 
   @belongsTo(() => VipStatus, { foreignKey: 'vipStatusId' })
   declare vipStatuses: BelongsTo<typeof VipStatus>
+
+  @belongsTo(() => CompanyAccount, { foreignKey: 'companyId' })
+  declare companyAccount: BelongsTo<typeof CompanyAccount>
 
   // Computed properties
   @computed()

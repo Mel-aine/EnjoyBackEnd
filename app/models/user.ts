@@ -10,6 +10,7 @@ import ServiceUserAssignment from '#models/service_user_assignment'
 import Permission from '#models/permission'
 import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
+import CompanyAccount from '#models/company_account'
 
 const AuthFinder = withAuthFinder(() => hash.use('argon'), {
   uids: ['email'],
@@ -133,7 +134,7 @@ export default class User extends AuthFinder(BaseModel) {
 @column({ columnName: 'postal_code' })
   declare postalCode: string | null
 
-@column({ columnName: 'fax' })
+  @column({ columnName: 'fax' })
   declare fax: string | null
 
 
@@ -142,6 +143,12 @@ export default class User extends AuthFinder(BaseModel) {
 
 @column({ columnName: 'language' })
   declare language: string
+
+  @column({ columnName: 'profession' })
+  declare profession: string | null
+
+  @column({ columnName: 'company_id' })
+  declare companyId: number | null
 
   @column({ columnName: 'role_id' })
   declare roleId: number
@@ -201,6 +208,9 @@ export default class User extends AuthFinder(BaseModel) {
 
   @hasMany(() => Reservation, { foreignKey: 'user_id' })
   declare reservations: HasMany<typeof Reservation>
+
+  @belongsTo(() => CompanyAccount, { foreignKey: 'companyId' })
+  declare company: BelongsTo<typeof CompanyAccount>
 
   @manyToMany(() => Permission, {
     pivotTable: 'role_permissions',

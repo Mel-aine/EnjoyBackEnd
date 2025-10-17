@@ -142,6 +142,15 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare housekeepingNotes: string
 
+  @column({ columnName: 'arriving_to' })
+  declare arrivingTo: string | null
+
+  @column({ columnName: 'going_to' })
+  declare goingTo: string | null
+
+  @column({ columnName: 'means_of_transportation' })
+  declare meansOfTransportation: string | null
+
 
   @column()
   declare rateAmount: number | null

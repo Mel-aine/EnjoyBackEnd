@@ -48,13 +48,13 @@ export default class GuestsController {
       const hotelId = request.input('hotel_id')
 
       const query = Guest.query()
-      .preload('vipStatuses')
+        .preload('vipStatuses')
 
-        if (hotelId) {
-          query.where('hotelId', hotelId);
-        } else {
-          return response.badRequest({ message: 'hotelId is required' });
-        }
+      if (hotelId) {
+        query.where('hotelId', hotelId);
+      } else {
+        return response.badRequest({ message: 'hotelId is required' });
+      }
 
       if (search) {
         query.where((builder) => {
@@ -64,7 +64,7 @@ export default class GuestsController {
             .orWhere('email', 'ILIKE', `%${search}%`)
             .orWhere('phone_primary', 'ILIKE', `%${search}%`)
             .orWhere('guest_code', 'ILIKE', `%${search}%`)
-            // .orWhere('loyalty_number', 'ILIKE', `%${search}%`)
+          // .orWhere('loyalty_number', 'ILIKE', `%${search}%`)
 
         })
       }
@@ -106,7 +106,8 @@ export default class GuestsController {
   /**
    * Create a new guest
    */
-  async store({ request, response, auth }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx;
     try {
       console.log('Start guest creation process')
 
@@ -162,8 +163,6 @@ export default class GuestsController {
 
       // Create guest
       const guest = await Guest.create(guestData)
-      console.log('Guest created successfully:', guest)
-
       await LoggerService.log({
         actorId: auth.user?.id || 0,
         action: 'CREATE',
@@ -172,7 +171,7 @@ export default class GuestsController {
         hotelId: guest.hotelId,
         description: `Guest "${guest.fullName}" created successfully`,
         changes: LoggerService.extractChanges({}, guest.toJSON()),
-        ctx: { request, response, auth }
+        ctx: ctx
       })
 
       return response.created({
@@ -197,6 +196,7 @@ export default class GuestsController {
         .where('id', params.id)
         .preload('reservations')
         .preload('folios')
+        .preload('companyAccount')
         .firstOrFail()
 
       return response.ok({
@@ -238,17 +238,18 @@ export default class GuestsController {
    * Update a guest
    */
 
-  async update( ctx : HttpContext) {
+  async update(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
 
-    console.log("auth",auth.user)
+    console.log("auth", auth.user)
     try {
 
       const guest = await Guest.query()
-      .where('id', params.id)
-      .preload('hotel')
-      .firstOrFail()
-       const oldData = guest.toJSON()
+        .where('id', params.id)
+        .preload('hotel')
+        .preload('companyAccount')
+        .firstOrFail()
+      const oldData = guest.toJSON()
       const payload = await request.validateUsing(updateGuestValidator)
 
       // Infer the type of the validated payload
@@ -268,28 +269,28 @@ export default class GuestsController {
         'nextStayDate',
       ]
 
-       for (const field of dateFields) {
-      const value = payload[field]
-      if (value) {
-        updateData[field] = DateTime.fromJSDate(value as Date)
+      for (const field of dateFields) {
+        const value = payload[field]
+        if (value) {
+          updateData[field] = DateTime.fromJSDate(value as Date)
+        }
       }
-    }
 
       guest.merge(updateData)
       await guest.save()
       const changes = this.generateChangeLog(oldData, payload)
-       if (Object.keys(changes).length > 0) {
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'UPDATE',
-        entityType: 'Guest',
-        entityId: guest.id,
-        hotelId:guest.hotelId,
-        description: `The profile for guest "${guest.fullName}" has been updated.`,
-        changes: changes,
-        ctx
-      })
-    }
+      if (Object.keys(changes).length > 0) {
+        await LoggerService.log({
+          actorId: auth.user?.id!,
+          action: 'UPDATE',
+          entityType: 'Guest',
+          entityId: guest.id,
+          hotelId: guest.hotelId,
+          description: `The profile for guest "${guest.fullName}" has been updated.`,
+          changes: changes,
+          ctx
+        })
+      }
 
       return response.ok({
         message: 'Guest updated successfully',
@@ -307,7 +308,7 @@ export default class GuestsController {
   /**
    * Delete a guest only if they have no active or upcoming reservations.
    */
-  async destroy(ctx : HttpContext){
+  async destroy(ctx: HttpContext) {
     const { params, response, auth } = ctx
     try {
       //  On trouve le client. Si non trouvé, `findOrFail` lève une erreur 404.
@@ -362,7 +363,7 @@ export default class GuestsController {
    * Get guest profile with stay history
    */
 
-   async profile({ params, response }: HttpContext) {
+  async profile({ params, response }: HttpContext) {
     try {
       const guest = await Guest.query()
         .where('id', params.id)
@@ -373,7 +374,7 @@ export default class GuestsController {
             roomQuery.preload('room')
             roomQuery.preload('roomType')
             // On ne prend que les statuts pertinents pour ne pas surcharger
-            roomQuery.whereIn('status', ['reserved', 'checked_in','confirmed'])
+            roomQuery.whereIn('status', ['reserved', 'checked_in', 'confirmed'])
           })
         })
         .preload('folios', (query) => {
@@ -401,7 +402,7 @@ export default class GuestsController {
       // Construire l'objet de retour final
       const profileData = {
         ...guest.serialize(),
-         activeStays: activeStays.map(stay => stay.serialize()),
+        activeStays: activeStays.map(stay => stay.serialize()),
         upcomingStay: upcomingStay ? upcomingStay.serialize() : null,
 
       };
@@ -488,7 +489,7 @@ export default class GuestsController {
   /**
    * Toggle guest blacklist status
    */
-  async toggleBlacklist( ctx : HttpContext) {
+  async toggleBlacklist(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     try {
       const guest = await Guest.findOrFail(params.id)
@@ -503,18 +504,18 @@ export default class GuestsController {
 
       await guest.save()
       await LoggerService.log({
-      actorId: auth.user?.id!,
-      action: guest.blacklisted ? 'BLACKLIST' : 'UNBLACKLIST',
-      entityType: 'Guest',
-      entityId: guest.id,
-      hotelId: guest.hotelId,
-      description: `The guest "${guest.fullName}" has been ${guest.blacklisted ? 'added to blacklist' : 'removed from blacklist'}.`,
-      meta: {
-        blacklisted: guest.blacklisted,
-        reason: guest.blacklisted ? reason : null,
-      },
-      ctx
-    })
+        actorId: auth.user?.id!,
+        action: guest.blacklisted ? 'BLACKLIST' : 'UNBLACKLIST',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: guest.hotelId,
+        description: `The guest "${guest.fullName}" has been ${guest.blacklisted ? 'added to blacklist' : 'removed from blacklist'}.`,
+        meta: {
+          blacklisted: guest.blacklisted,
+          reason: guest.blacklisted ? reason : null,
+        },
+        ctx
+      })
 
 
       return response.ok({
