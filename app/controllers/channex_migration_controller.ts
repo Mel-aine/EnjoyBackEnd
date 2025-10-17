@@ -1275,7 +1275,7 @@ async syncBookingsFromChannex(ctx: HttpContext) {
 
         if (!existingReservation) {
           existingReservation = await Reservation.query()
-            .where('id', bookingId)
+            .where('channex_booking_id', bookingId)
             .first()
         }
 
