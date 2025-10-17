@@ -5,6 +5,16 @@ import path from 'path'
 import { DateTime } from 'luxon'
 import Guest from '#models/guest'
 import { generateGuestCode } from '../app/utils/generate_guest_code.js'
+import countries from 'i18n-iso-countries'
+import en from 'i18n-iso-countries/langs/en.json' assert { type: 'json' }
+import fr from 'i18n-iso-countries/langs/fr.json' assert { type: 'json' }
+import es from 'i18n-iso-countries/langs/es.json' assert { type: 'json' }
+import de from 'i18n-iso-countries/langs/de.json' assert { type: 'json' }
+
+countries.registerLocale(en)
+countries.registerLocale(fr)
+countries.registerLocale(es)
+countries.registerLocale(de)
 
 function parseCsv(content: string): string[][] {
   const rows: string[][] = []
@@ -158,6 +168,72 @@ function mapGuestType(val: string | undefined): 'individual' | 'corporate' | 'gr
   return 'individual'
 }
 
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function guessCountryCodeFromName(name: string): string | null {
+  const langs = ['en', 'fr', 'es', 'de'] as const
+  for (const lang of langs) {
+    const code = countries.getAlpha2Code(name, lang as any)
+    if (code) return code
+  }
+  return null
+}
+
+function mapCountryCode(val: string | undefined): string {
+  if (!val) return ''
+  let raw = val.trim()
+  let s = stripAccents(raw).replace(/\./g, ' ').replace(/\s+/g, ' ').trim()
+  const lower = s.toLowerCase()
+
+  // Handle common abbreviations and synonyms quickly
+  const synonyms: Record<string, string> = {
+    usa: 'US', 'u.s.a': 'US', 'u.s': 'US', 'us': 'US',
+    uk: 'GB', 'great britain': 'GB', 'britain': 'GB', 'england': 'GB',
+    uae: 'AE', 'emirates': 'AE',
+    russia: 'RU',
+    'ivory coast': 'CI', "cote d'ivoire": 'CI', 'cote d ivoire': 'CI',
+    'south korea': 'KR', 'republic of korea': 'KR',
+    'north korea': 'KP',
+    'dr congo': 'CD', 'democratic republic of the congo': 'CD', 'congo-kinshasa': 'CD',
+    'congo': 'CG', 'congo-brazzaville': 'CG',
+    'bolivia': 'BO', 'bolivia (plurinational state of)': 'BO',
+    'laos': 'LA', 'lao pdr': 'LA', 'lao people s democratic republic': 'LA',
+    'myanmar': 'MM', 'burma': 'MM',
+    'czech republic': 'CZ', 'czechia': 'CZ',
+    'eswatini': 'SZ', 'swaziland': 'SZ',
+    'macedonia': 'MK', 'north macedonia': 'MK',
+    cameroom: 'CM', cameroon: 'CM', cameroun: 'CM',
+  }
+  if (synonyms[lower]) return synonyms[lower]
+
+  // If alpha-2 code
+  if (/^[a-z]{2}$/i.test(s)) {
+    const code = s.toUpperCase()
+    // Validate against known list
+    if (countries.alpha2ToAlpha3(code)) return code
+  }
+  // If alpha-3 code
+  if (/^[a-z]{3}$/i.test(s)) {
+    const a2 = countries.alpha3ToAlpha2(s.toUpperCase())
+    if (a2) return a2
+  }
+
+  // Try name-based lookup across locales
+  const nameCode = guessCountryCodeFromName(s)
+  if (nameCode) return nameCode
+
+  // Fallback: try the original raw value
+  const fallback = guessCountryCodeFromName(stripAccents(raw))
+  return fallback || raw
+}
+
+function truncate(val: string | undefined, max: number): string {
+  const v = (val || '').trim()
+  return v.length > max ? v.slice(0, max) : v
+}
+
 export default class ImportGuests extends BaseCommand {
   public static commandName = 'import:guests'
   public static description = 'Import guests from a CSV file into the database'
@@ -233,23 +309,23 @@ export default class ImportGuests extends BaseCommand {
         const email = (get(colEmail) || '').trim()
         const payload: any = {
           title: title ?? null,
-          firstName: firstName,
-          lastName: lastName,
-          middleName: middleName || '',
+          firstName: truncate(firstName, 100),
+          lastName: truncate(lastName, 100),
+          middleName: truncate(middleName || '', 100),
           hotelId: HOTEL_ID,
           guestType: mapGuestType(get(colType)),
           addressLine: (get(colAddress) || '').trim(),
-          postalCode: (get(colZip) || '').trim(),
-          city: (get(colCity) || '').trim(),
-          stateProvince: (get(colState) || '').trim(),
-          country: (get(colCountry) || '').trim(),
-          nationality: (get(colNationality) || '').trim(),
-          registrationNumber: (get(colRegNo) || '').trim(),
-          phonePrimary: (get(colPhone) || '').trim(),
-          fax: (get(colFax) || '').trim(),
-          email: email,
-          idType: (get(colIdType) || '').trim(),
-          idNumber: (get(colIdNo) || '').trim(),
+          postalCode: truncate((get(colZip) || '').trim(), 20),
+          city: truncate((get(colCity) || '').trim(), 100),
+          stateProvince: truncate((get(colState) || '').trim(), 100),
+          country: mapCountryCode(get(colCountry)),
+          nationality: truncate((get(colNationality) || '').trim(), 100),
+          registrationNumber: truncate((get(colRegNo) || '').trim(), 255),
+          phonePrimary: truncate((get(colPhone) || '').trim(), 20),
+          fax: truncate((get(colFax) || '').trim(), 255),
+          email: truncate(email, 255),
+          idType: truncate((get(colIdType) || '').trim(), 255),
+          idNumber: truncate((get(colIdNo) || '').trim(), 255),
           blacklisted: !!(get(colBlacklistReason) || '').trim(),
           vipStatus: mapVipStatus(get(colVipStatus)) || 'none',
         }
