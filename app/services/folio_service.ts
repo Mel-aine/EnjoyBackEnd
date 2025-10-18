@@ -1764,7 +1764,7 @@ export default class FolioService {
   /**
    * Update folio totals based on transactions
    */
-  private static async updateFolioTotals(folioId: number, trx?: TransactionClientContract): Promise<void> {
+  static async updateFolioTotals(folioId: number, trx?: TransactionClientContract): Promise<void> {
     const transactions = await FolioTransaction.query({ client: trx })
       .where('folioId', folioId)
       .where('status', '!=', TransactionStatus.VOIDED)

@@ -5617,6 +5617,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               .where('category', TransactionCategory.ROOM)
           )
         )
+        .preload('hotel', (hq) => hq.preload('roomChargesTaxRates'))
         .first()
 
       if (!reservation) {
@@ -5677,6 +5678,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // -------------------------------
       // Recalculate transactions
       // -------------------------------
+      // Use hotel-level room charge tax rates to match creation path
+      const hotelTaxRates = ((reservation.hotel as any)?.roomChargesTaxRates || [])
+
       for (const t of transactionsToUpdate) {
         if (t.isVoided || (t as any).status === 'voided') continue
 
@@ -5709,7 +5713,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const baseAmount = Number(t.amount || 0) + mealPlanAmount
         const sc = Number(t.serviceChargeAmount || 0)
         const disc = Number(t.discountAmount || 0)
-        const taxRates = roomTaxMap[t.roomNumber || ''] || []
+        const taxRates = hotelTaxRates
 
         let totalPct = 0
         let totalFlat = 0
@@ -5718,18 +5722,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
           if ((rate as any).postingType === 'flat_amount') totalFlat += Number(rate.amount || 0)
         }
 
-        if ((t as any).taxInclusive) {
+        if (payload.taxInclude) {
+          logger.info(baseAmount);
           const pctIncluded = totalPct > 0 ? baseAmount * (totalPct / (100 + totalPct)) : 0
           t.taxAmount = Number((pctIncluded + totalFlat).toFixed(2))
-          t.grossAmount = Number((baseAmount + sc - Math.abs(disc)).toFixed(2))
+          t.grossAmount = Number((baseAmount + sc - t.taxAmount - Math.abs(disc)).toFixed(2))
           t.netAmount = Number((baseAmount - t.taxAmount).toFixed(2))
+          t.amount = t.grossAmount;
+          t.totalAmount = baseAmount;
         } else {
           const pctTax = totalPct > 0 ? baseAmount * (totalPct / 100) : 0
           t.taxAmount = Number((pctTax + totalFlat).toFixed(2))
-          t.grossAmount = Number((baseAmount + t.taxAmount + sc - Math.abs(disc)).toFixed(2))
-          t.netAmount = Number(baseAmount.toFixed(2))
+          t.grossAmount = baseAmount;
+          t.grossAmount = Number((baseAmount).toFixed(2))
+          t.netAmount = Number((baseAmount - disc).toFixed(2))
+          t.totalAmount = Number(baseAmount + t.taxAmount)
         }
-
         t.lastModifiedBy = auth?.user?.id || t.lastModifiedBy
         await t.useTransaction(trx).save()
       }
@@ -5750,6 +5758,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       reservation.totalAmount = totalAmount
       await reservation.useTransaction(trx).save()
+
+      // Recalculate folio totals/balance to reflect transaction changes
+      const affectedFolioIds = new Set<number>()
+      for (const t of transactionsToUpdate) {
+        if (t.folioId) affectedFolioIds.add(t.folioId)
+      }
+      for (const folioId of affectedFolioIds) {
+        await FolioService.updateFolioTotals(folioId, trx)
+      }
 
       await trx.commit()
 
