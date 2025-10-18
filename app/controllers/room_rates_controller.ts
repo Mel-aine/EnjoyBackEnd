@@ -446,7 +446,7 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
       .preload('mealPlan', (mealPlanQuery) => {
         mealPlanQuery.preload('extraCharges')
       })
-      .where((query) => {
+     /* .where((query) => {
         query
           .whereNull('effective_from')
           .orWhere('effective_from', '<=', dateStr)
@@ -455,7 +455,7 @@ async getBaseRateByRoomAndRateType({ request, response }: HttpContext) {
         query
           .whereNull('effective_to')
           .orWhere('effective_to', '>=', dateStr)
-      })
+      })*/
       .orderBy('created_at', 'desc')
       .first()
 

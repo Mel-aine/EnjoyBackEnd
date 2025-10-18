@@ -260,7 +260,6 @@ export default class HotelsController {
         .preload('rooms')
         .preload('ratePlans')
         .preload('discounts')
-        .preload('inventories')
         .preload('roomChargesTaxRates')
         .preload('cancellationRevenueTaxRates')
         .preload('noShowRevenueTaxRates')
