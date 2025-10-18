@@ -532,10 +532,6 @@ export default class ReservationFolioService {
         .preload('reservationRooms')
         .firstOrFail()
 
-      // Check if reservation is confirmed
-      /*if (reservation.status !== 'confirmed') {
-        throw new Error('Reservation must be confirmed to create folios')
-      }*/
 
       // Check if folios already exist
       const existingFolios = await this.getFoliosForReservation(reservationId)

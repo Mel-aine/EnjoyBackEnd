@@ -723,6 +723,7 @@ router
         router.put('/:id/checkin-reservation-settings', hotelsController.updateCheckinReservationSettings.bind(hotelsController)) // Update hotel check-in and reservation settings
         router.put('/:id/display-settings', hotelsController.updateDisplaySettings.bind(hotelsController)) // Update hotel display settings
         router.put('/:id/registration-settings', hotelsController.updateRegistrationSettings.bind(hotelsController)) // Update hotel registration settings
+        router.put('/:id/tax-rates', hotelsController.updateTaxRates.bind(hotelsController)) // Update hotel tax rate relations
         router.put('/:id/housekeeping-status-colors', hotelsController.updateHousekeepingStatusColors.bind(hotelsController)) // Update hotel housekeeping status colors
         router.delete('/:id', hotelsController.destroy.bind(hotelsController)) // Delete hotel
 
