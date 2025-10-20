@@ -4,6 +4,7 @@ import Guest from '#models/guest'
 import FolioService, { CreateFolioData } from '#services/folio_service'
 import { FolioType, TransactionCategory, TransactionType } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
+import logger from '@adonisjs/core/services/logger'
 
 export interface ReservationFolioData {
   reservationId: number
@@ -179,10 +180,12 @@ export default class ReservationFolioService {
       .where('id', reservationId)
       .preload('folios')
       .preload('guests')
+      .preload('hotel', (query) => {
+        query.preload('roomChargesTaxRates')
+      })
       .preload('reservationRooms', (query) => {
-        query.preload('room', (roomQuery:any) => {
+        query.preload('room', (roomQuery: any) => {
           roomQuery.preload('roomType')
-          roomQuery.preload('taxRates')
         })
         query.preload('roomRates')
       }) //.preload('roomRate')
@@ -197,27 +200,30 @@ export default class ReservationFolioService {
     const effectiveNights = rawNights === 0 ? 1 : rawNights
     // Post room charges for each room
     for (const reservationRoom of reservation.reservationRooms) {
+
+      logger.info('roomChargesTaxRates')
+      logger.info(reservation.hotel?.roomChargesTaxRates)
       const grossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
       let baseAmount = grossDailyRate
       let totalDailyAmount = grossDailyRate
 
       // If taxes are included in the room rate, extract tax to get net base
-      if (reservationRoom.taxIncludes) {
-        const room: any = reservationRoom.room
-        const taxes = room?.taxRates ?? room?.taxes ?? []
+      // if (reservationRoom.taxIncludes) {
+      const hotel: any = reservation.hotel
+      const taxes = hotel?.roomChargesTaxRates ?? []
 
-        let percentageSum = 0
-        let flatSum = 0
-        for (const tax of taxes) {
-          const appliesToRoom = tax?.appliesToRoomRate ?? true
-          if (!appliesToRoom) continue
+      let percentageSum = 0
+      let flatSum = 0
+      for (const tax of taxes) {
+        /*const appliesToRoom = (tax as any)?.appliesToRoomRate ?? true
+        if (!appliesToRoom) continue*/
 
-          if (tax?.postingType === 'flat_percentage' && tax?.percentage) {
-            percentageSum += Number(tax.percentage) || 0
-          } else if (tax?.postingType === 'flat_amount' && tax?.amount) {
-            flatSum += Number(tax.amount) || 0
-          }
+        if ((tax as any)?.postingType === 'flat_percentage' && (tax as any)?.percentage) {
+          percentageSum += Number((tax as any).percentage) || 0
+        } else if ((tax as any)?.postingType === 'flat_amount' && (tax as any)?.amount) {
+          flatSum += Number((tax as any).amount) || 0
         }
+        // }
 
         const adjustedGross = Math.max(0, grossDailyRate - flatSum)
         const percRate = percentageSum > 0 ? percentageSum / 100 : 0
@@ -230,32 +236,32 @@ export default class ReservationFolioService {
       for (let night = 1; night <= effectiveNights; night++) {
         // si day-use : répartir la taxe correctement
         let dailyTaxAmount = 0
-        if (reservationRoom.taxIncludes) {
-          dailyTaxAmount = Math.max(0, totalDailyAmount - baseAmount)
-        } else {
-          // Calculate tax based on taxes related to the room
-          const room: any = reservationRoom.room
-          const taxes = room?.taxRates ?? room?.taxes ?? []
-
-          let percentageSum = 0
-          let flatSum = 0
-          for (const tax of taxes) {
-            const appliesToRoom = tax?.appliesToRoomRate ?? true
-            if (!appliesToRoom) continue
-
-            if (tax?.postingType === 'flat_percentage' && tax?.percentage) {
-              percentageSum += Number(tax.percentage) || 0
-            } else if (tax?.postingType === 'flat_amount' && tax?.amount) {
-              flatSum += Number(tax.amount) || 0
+        //if (reservationRoom.taxIncludes) {
+        dailyTaxAmount = Math.max(0, totalDailyAmount - baseAmount)
+        /*  } else {
+            // Calculate tax based on taxes related to the hotel room charges
+            const hotel: any = reservation.hotel
+            const taxes = hotel?.roomChargesTaxRates ?? []
+  
+            let percentageSum = 0
+            let flatSum = 0
+            for (const tax of taxes) {
+              /* const appliesToRoom = (tax as any)?.appliesToRoomRate ?? true
+               if (!appliesToRoom) continue
+  
+              if ((tax as any)?.postingType === 'flat_percentage' && (tax as any)?.percentage) {
+                percentageSum += Number((tax as any).percentage) || 0
+              } else if ((tax as any)?.postingType === 'flat_amount' && (tax as any)?.amount) {
+                flatSum += Number((tax as any).amount) || 0
+              }
             }
-          }
-
-          const percRate = percentageSum > 0 ? percentageSum / 100 : 0
-          dailyTaxAmount = baseAmount * percRate + flatSum
-
-          // If taxes are not included, add them to the posted amount
-          totalDailyAmount = baseAmount  + dailyTaxAmount
-        }
+  
+            const percRate = percentageSum > 0 ? percentageSum / 100 : 0
+            dailyTaxAmount = baseAmount * percRate + flatSum
+  
+            // If taxes are not included, add them to the posted amount
+            totalDailyAmount = baseAmount + dailyTaxAmount
+          }*/
 
         // pour day-use : date = date d’arrivée
         const transactionDate =
@@ -271,7 +277,7 @@ export default class ReservationFolioService {
             rawNights === 0
               ? `Room ${reservationRoom.room?.roomNumber ?? ''} - Day use`
               : `Room ${reservationRoom.room?.roomNumber ?? ''} - Night ${night}`,
-          amount: totalDailyAmount,
+          amount: baseAmount,
           quantity: 1,
           unitPrice: baseAmount,
           taxAmount: dailyTaxAmount,
@@ -279,9 +285,8 @@ export default class ReservationFolioService {
           revenueCenterId: 1,
           glAccountCode: '4100',
           reference: `RES-${reservation.confirmationNumber}`,
-          notes: `Auto-posted room charge for reservation ${reservation.confirmationNumber}${
-            rawNights === 0 ? ' - Day use' : ` - Night ${night}`
-          }`,
+          notes: `Auto-posted room charge for reservation ${reservation.confirmationNumber}${rawNights === 0 ? ' - Day use' : ` - Night ${night}`
+            }`,
           transactionDate,
           postedBy,
         })
@@ -532,10 +537,6 @@ export default class ReservationFolioService {
         .preload('reservationRooms')
         .firstOrFail()
 
-      // Check if reservation is confirmed
-      /*if (reservation.status !== 'confirmed') {
-        throw new Error('Reservation must be confirmed to create folios')
-      }*/
 
       // Check if folios already exist
       const existingFolios = await this.getFoliosForReservation(reservationId)

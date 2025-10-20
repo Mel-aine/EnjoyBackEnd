@@ -10,6 +10,7 @@ import db from '@adonisjs/lucid/services/db'
 import Database from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
 import { createHotelValidator, updateHotelValidator } from '#validators/hotel'
+import { updateHotelTaxRatesValidator } from '#validators/hotel_tax_rates'
 import CurrenciesController from '#controllers/currencies_controller'
 import ReservationType from '#models/reservation_type'
 import BookingSource from '#models/booking_source'
@@ -20,6 +21,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import Discount from '../models/discount.js'
+import TaxRate from '#models/tax_rate'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -258,7 +260,9 @@ export default class HotelsController {
         .preload('rooms')
         .preload('ratePlans')
         .preload('discounts')
-        .preload('inventories')
+        .preload('roomChargesTaxRates')
+        .preload('cancellationRevenueTaxRates')
+        .preload('noShowRevenueTaxRates')
         .firstOrFail()
 
       return response.ok({
@@ -606,6 +610,60 @@ export default class HotelsController {
       return response.badRequest({
         message: 'Failed to update hotel registration settings',
         error: error.message
+      })
+    }
+  }
+
+  /**
+   * Update hotel tax-rate relations for room charges, cancellation revenue, and no-show revenue
+   */
+  async updateTaxRates({ params, request, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+      const payload = await request.validateUsing(updateHotelTaxRatesValidator)
+
+      // Room charges tax rates
+      if (payload.roomChargesTaxRateIds !== undefined) {
+        if (payload.roomChargesTaxRateIds.length > 0) {
+          await hotel.related('roomChargesTaxRates').sync(payload.roomChargesTaxRateIds)
+        } else {
+          await hotel.related('roomChargesTaxRates').detach()
+        }
+      }
+
+      // Cancellation revenue tax rates
+      if (payload.cancellationRevenueTaxRateIds !== undefined) {
+        if (payload.cancellationRevenueTaxRateIds.length > 0) {
+          await hotel.related('cancellationRevenueTaxRates').sync(payload.cancellationRevenueTaxRateIds)
+        } else {
+          await hotel.related('cancellationRevenueTaxRates').detach()
+        }
+      }
+
+      // No-show revenue tax rates
+      if (payload.noShowRevenueTaxRateIds !== undefined) {
+        if (payload.noShowRevenueTaxRateIds.length > 0) {
+          await hotel.related('noShowRevenueTaxRates').sync(payload.noShowRevenueTaxRateIds)
+        } else {
+          await hotel.related('noShowRevenueTaxRates').detach()
+        }
+      }
+
+      hotel.lastModifiedBy = auth.user?.id || 0
+      await hotel.save()
+
+      await hotel.load('roomChargesTaxRates')
+      await hotel.load('cancellationRevenueTaxRates')
+      await hotel.load('noShowRevenueTaxRates')
+
+      return response.ok({
+        message: 'Hotel tax rates updated successfully',
+        data: hotel,
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to update hotel tax rates',
+        error: (error as any).message,
       })
     }
   }

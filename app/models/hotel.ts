@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany, belongsTo, beforeCreate } from '@adonisjs/lucid/orm'
-import type { HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany, belongsTo, beforeCreate, manyToMany } from '@adonisjs/lucid/orm'
+import type { HasMany, BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import RoomType from './room_type.js'
 import Room from './room.js'
 import RatePlan from './rate_plan.js'
@@ -9,6 +9,7 @@ import Inventory from './inventory.js'
 import User from './user.js'
 import Currency from './currency.js'
 import PaymentMethod from './payment_method.js'
+import TaxRate from './tax_rate.js'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
@@ -338,6 +339,7 @@ export default class Hotel extends BaseModel {
   })
   declare registrationSettings: object | null
 
+
   @column({ columnName: 'min_price' })
   declare minPrice: number | null
 
@@ -446,6 +448,33 @@ export default class Hotel extends BaseModel {
 
   @hasMany(() => Inventory)
   declare inventories: HasMany<typeof Inventory>
+
+  @manyToMany(() => TaxRate, {
+    pivotTable: 'hotel_room_charges_tax_rates',
+    localKey: 'id',
+    pivotForeignKey: 'hotel_id',
+    relatedKey: 'taxRateId',
+    pivotRelatedForeignKey: 'tax_rate_id'
+  })
+  declare roomChargesTaxRates: ManyToMany<typeof TaxRate>
+
+  @manyToMany(() => TaxRate, {
+    pivotTable: 'hotel_cancellation_revenue_tax_rates',
+    localKey: 'id',
+    pivotForeignKey: 'hotel_id',
+    relatedKey: 'taxRateId',
+    pivotRelatedForeignKey: 'tax_rate_id'
+  })
+  declare cancellationRevenueTaxRates: ManyToMany<typeof TaxRate>
+
+  @manyToMany(() => TaxRate, {
+    pivotTable: 'hotel_no_show_revenue_tax_rates',
+    localKey: 'id',
+    pivotForeignKey: 'hotel_id',
+    relatedKey: 'taxRateId',
+    pivotRelatedForeignKey: 'tax_rate_id'
+  })
+  declare noShowRevenueTaxRates: ManyToMany<typeof TaxRate>
 
   @hasMany(() => Currency)
   declare currencies: HasMany<typeof Currency>

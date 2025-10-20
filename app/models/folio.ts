@@ -534,14 +534,14 @@ export default class Folio extends BaseModel {
       .whereNot("status", TransactionStatus.VOIDED)
       .whereNot("isVoided", true)
       .where('transactionType', TransactionType.CHARGE)
-      .sum('amount as total')
+      .sum('total_amount as total')
 
     const totalPayments = await this.related('transactions')
       .query()
       .whereNot("status", TransactionStatus.VOIDED)
       .whereNot("isVoided", true)
       .where('transactionType', TransactionType.PAYMENT)
-      .sum('amount as total')
+      .sum('total_amount as total')
 
     const charges = totalCharges[0].$extras.total || 0
     const payments = totalPayments[0].$extras.total || 0
