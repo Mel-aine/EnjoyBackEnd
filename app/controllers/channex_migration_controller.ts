@@ -10,6 +10,8 @@ import Guest from '../models/guest.js'
 import ReservationRoom from '../models/reservation_room.js'
 import logger from '@adonisjs/core/services/logger'
 import axios from 'axios'
+import { generateGuestCode } from '../utils/generate_guest_code.js'
+import  ReservationCreationService  from '../services/reservation_creation_service.js'
 import env from '#start/env'
 import { DateTime } from 'luxon'
 
@@ -970,16 +972,16 @@ export default class ChannexMigrationController {
           scheduledArrivalDate: DateTime.fromISO(revisionData.arrival_date),
           scheduledDepartureDate: DateTime.fromISO(revisionData.departure_date),
           reservationStatus: 'Pending', // Initially pending as requested
-          numAdultsTotal: revisionData.occupancy.adults,
-          numChildrenTotal: revisionData.occupancy.children,
+          adults: revisionData.occupancy.adults,
+          children: revisionData.occupancy.children,
           bookingSourceId: 1, // Default booking source
           ratePlanId: 1, // Default rate plan
           totalEstimatedRevenue: parseFloat(revisionData.amount),
           totalAmount: parseFloat(revisionData.amount),
           currencyCode: revisionData.currency,
           specialRequests: revisionData.notes,
-          confirmationCode: revisionData.unique_id,
-          reservationDatetime: DateTime.now(),
+          reservationNumber: revisionData.unique_id,
+          createdAt: DateTime.now(),
           userId: 1, // System user
           reservationType: 'Online',
           status: 'pending',
@@ -1161,389 +1163,256 @@ export default class ChannexMigrationController {
     }
   }
 
-/**
- * Synchronise les réservations depuis Channex vers la base de données locale
- * POST /api/channex/sync/bookings/:hotelId
- */
-async syncBookingsFromChannex(ctx: HttpContext) {
-  const { params, response, auth } = ctx
-  const { hotelId } = params
-  const userId = auth.user?.id
-
-  if (!userId) {
-    return response.unauthorized({ error: 'Authentication required' })
-  }
-
-  if (!hotelId) {
-    return response.badRequest({ error: 'Hotel ID is required' })
-  }
-
-  const syncResults = {
-    hotelId,
-    status: 'started',
-    totalFetched: 0,
-    totalProcessed: 0,
-    totalCreated: 0,
-    totalUpdated: 0,
-    totalSkipped: 0,
-    totalErrors: 0,
-    errors: [],
-    startTime: new Date(),
-    endTime: null
-  }
-
-  try {
-    // Récupérer l'hôtel
-    const hotel = await Hotel.find(hotelId)
-    if (!hotel) {
-      throw new Error(`Hotel with ID ${hotelId} not found`)
+  /**
+   * Synchronise les réservations depuis Channex vers la base de données locale
+   * POST /api/channex/sync/bookings/:hotelId
+   */
+  async syncBookingsFromChannex(ctx: HttpContext) {
+    const { params, response, auth } = ctx
+    const { hotelId } = params
+    const userId = auth.user?.id
+  
+    if (!userId) {
+      return response.unauthorized({ error: 'Authentication required' })
     }
-
-    // ✅ ID Channex en dur
-    const channexPropertyId = 'c4a2b4dc-89e3-4579-be82-821a661714bf'
-    
-    console.log(`🎯 Synchronisation TOUS les bookings Channex`)
-
-    // ✅ APPEL DIRECT SANS FILTRES
-    console.log('📤 Appel Channex listBooking()...')
-
-    const bookingsResponse: any = await this.channexService.listBooking()
-    
-    // ✅ CORRECTION ICI : La réponse EST DIRECTEMENT le tableau de bookings
-    const allBookings = Array.isArray(bookingsResponse) ? bookingsResponse : bookingsResponse.data || []
-
-    syncResults.totalFetched = allBookings.length
-
-    console.log(`📥 ${allBookings.length} bookings récupérés`)
-
-    // ✅ Afficher le détail pour confirmer
-    if (allBookings.length > 0) {
-      console.log('=== Premier booking comme exemple ===')
-      const firstBooking = allBookings[0]
-      console.log('ID:', firstBooking.id)
-      console.log('Property ID:', firstBooking.attributes?.property_id)
-      console.log('Status:', firstBooking.attributes?.status)
+  
+    if (!hotelId) {
+      return response.badRequest({ error: 'Hotel ID is required' })
     }
-
-    // ✅ FILTRER MANUELLEMENT par property_id
-    const ourBookings = allBookings.filter(booking => {
-      const propertyId = booking.attributes?.property_id
-      return propertyId === channexPropertyId
-    })
-
-    console.log(`🎯 ${ourBookings.length} bookings pour notre property ${channexPropertyId}`)
-
-    // Afficher le détail des properties trouvés
-    console.log('=== DEBUG: Tous les properties trouvés ===')
-    const allProperties = [...new Set(allBookings.map(b => b.attributes?.property_id).filter(Boolean))]
-    
-    allProperties.forEach(propId => {
-      const count = allBookings.filter(b => b.attributes?.property_id === propId).length
-      console.log(`- Property ${propId}: ${count} bookings ${propId === channexPropertyId ? '✅ (NOTRE PROPERTY)' : ''}`)
-    })
-
-    if (ourBookings.length === 0) {
-      return response.ok({
-        success: false,
-        message: 'Aucun booking trouvé pour notre property',
-        debug: {
-          totalBookingsFromChannex: allBookings.length,
-          ourPropertyId: channexPropertyId,
-          allPropertiesFound: allProperties,
-          ourBookingsCount: ourBookings.length
-        }
+  
+    const syncResults = {
+      hotelId,
+      status: 'started',
+      totalFetched: 0,
+      totalProcessed: 0,
+      totalCreated: 0,
+      totalUpdated: 0,
+      totalSkipped: 0,
+      totalErrors: 0,
+      errors: [] as any[],
+      startTime: new Date(),
+      endTime: null as Date | null
+    }
+  
+    try {
+      // Récupérer l'hôtel
+      const hotel = await Hotel.find(hotelId)
+      if (!hotel) {
+        throw new Error(`Hotel with ID ${hotelId} not found`)
+      }
+  
+      const channexPropertyId = '8ef93c2e-d782-4d2b-8df1-eec9ef79feca'
+      
+      console.log(`🎯 Synchronisation des 3 DERNIÈRES bookings Channex pour property ${channexPropertyId}`)
+  
+      // Récupérer tous les bookings
+      const bookingsResponse: any = await this.channexService.getBookingByFilter({
+        page: 1,
+        limit: 100  // Récupérer assez pour avoir les 3 dernières
       })
-    }
-
-    // ✅ Map pour créer les room types et rates manquants automatiquement
-    const autoCreatedRoomTypes = new Map()
-    const autoCreatedRoomRates = new Map()
-
-    // Traiter chaque réservation DE NOTRE PROPERTY
-    for (const booking of ourBookings) {
-      try {
-        const bookingData = booking.attributes
-        const bookingId = booking.id
-
-        console.log(`\n--- Processing booking ${bookingId} ---`)
-        console.log(`Status: ${bookingData.status}, Arrival: ${bookingData.arrival_date}, Departure: ${bookingData.departure_date}`)
-
-        // Vérifier si la réservation existe déjà
-        let existingReservation = await Reservation.query()
-          .where('reservation_number', bookingData.unique_id)
-          .first()
-
-        if (!existingReservation) {
-          existingReservation = await Reservation.query()
-            .where('channex_booking_id', bookingId)
-            .first()
-        }
-
-        // Créer ou trouver le guest
-        const customerData = bookingData.customer || {}
-        let guest = null
-
-        if (customerData.mail) {
-          guest = await Guest.query()
-            .where('email', customerData.mail)
-            .where('hotel_id', hotel.id)
-            .first()
-        }
-
-        if (!guest && customerData.phone) {
-          guest = await Guest.query()
-            .where('phone_primary', customerData.phone)
-            .where('hotel_id', hotel.id)
-            .first()
-        }
-
-        if (!guest) {
-          const guestData: any = {
-            hotelId: hotel.id,
-            firstName: customerData.name || 'Unknown',
-            lastName: customerData.surname || 'Guest',
-            email: customerData.mail || `guest_${bookingId}@channex.placeholder`,
-            phonePrimary: customerData.phone || '000-000-0000',
-            createdBy: userId
+      
+      const allBookings = Array.isArray(bookingsResponse) ? bookingsResponse : bookingsResponse.data || []
+      syncResults.totalFetched = allBookings.length
+  
+      console.log(`📥 ${allBookings.length} bookings récupérés au total`)
+  
+      // Filtrer pour notre property
+      const ourBookings = allBookings.filter(booking => {
+        const propertyId = booking.attributes?.property_id
+        return propertyId === channexPropertyId
+      })
+  
+      console.log(`🎯 ${ourBookings.length} bookings pour notre property`)
+  
+      if (ourBookings.length === 0) {
+        const allProperties = [...new Set(allBookings.map(b => b.attributes?.property_id).filter(Boolean))]
+        return response.ok({
+          success: false,
+          message: 'Aucun booking trouvé pour cette property',
+          debug: {
+            totalBookingsFromChannex: allBookings.length,
+            ourPropertyId: channexPropertyId,
+            allPropertiesFound: allProperties
           }
+        })
+      }
 
-          if (customerData.address) guestData.address = customerData.address
-          if (customerData.city) guestData.city = customerData.city
-          if (customerData.zip) guestData.postalCode = customerData.zip
-          if (customerData.country) guestData.country = customerData.country
-          if (customerData.language) guestData.language = customerData.language
-
-          guest = await Guest.create(guestData)
-          console.log(`✅ Guest créé: ${guest.id}`)
-        }
-
-        // Mapper le statut
-        const statusMapping: any = {
-          'new': 'Confirmed',
-          'modified': 'Confirmed', 
-          'cancelled': 'Cancelled'
-        }
-
-        const reservationStatus = statusMapping[bookingData.status] || 'Pending'
-
-        // Gérer les dates manquantes
-        let arrivalDate = bookingData.arrival_date
-        let departureDate = bookingData.departure_date
-
-        if (!arrivalDate || !departureDate) {
-          console.log(`⚠️ Dates manquantes, utilisation de dates par défaut`)
-          arrivalDate = arrivalDate || new Date().toISOString().split('T')[0]
-          departureDate = departureDate || new Date(Date.now() + 86400000).toISOString().split('T')[0]
-        }
-
-        // Calculer les totaux
-        const totalAdults = bookingData.occupancy?.adults || 0
-        const totalChildren = bookingData.occupancy?.children || 0
-        const totalAmount = parseFloat(bookingData.amount || '0')
-
-        if (existingReservation) {
-          // Mettre à jour la réservation existante
-          existingReservation.merge({
-            guestId: guest.id,
-            arrivedDate: arrivalDate ? DateTime.fromISO(arrivalDate) : existingReservation.scheduledArrivalDate,
-            departDate: departureDate ? DateTime.fromISO(departureDate) : existingReservation.scheduledDepartureDate,
-            reservationStatus: reservationStatus,
-            numAdultsTotal: totalAdults,
-            numChildrenTotal: totalChildren,
-            totalEstimatedRevenue: totalAmount,
-            totalAmount: totalAmount,
-            currencyCode: bookingData.currency || hotel.currencyCode,
-            specialRequests: bookingData.notes,
-            channexBookingId: bookingId,
-            paymentType: bookingData.payment_type,
-          })
-          await existingReservation.save()
-          syncResults.totalUpdated++
-          console.log(`🔄 Reservation mise à jour: ${existingReservation.id}`)
-        } else {
-          // Créer une nouvelle réservation
-          const reservationData: any = {
-            hotelId: hotel.id,
-            guestId: guest.id,
-            arrivedDate: DateTime.fromISO(arrivalDate),
-            departDate: DateTime.fromISO(departureDate),
-            reservationStatus: reservationStatus,
-            numAdultsTotal: totalAdults,
-            numChildrenTotal: totalChildren,
-            bookingSourceId: 1,
-            ratePlanId: 1,
-            totalEstimatedRevenue: totalAmount,
-            totalAmount: totalAmount,
-            currencyCode: bookingData.currency || hotel.currencyCode,
-            specialRequests: bookingData.notes,
-            confirmationCode: bookingData.unique_id,
-            channexBookingId: bookingId,
-            paymentType: bookingData.payment_type,
-            reservationDatetime: DateTime.fromISO(bookingData.inserted_at),
-            userId: userId,
-            status: reservationStatus.toLowerCase(),
-            createdBy: userId
-          }
-
-          const newReservation = await Reservation.create(reservationData)
-          syncResults.totalCreated++
-          console.log(`✅ NOUVELLE Reservation créée: ${newReservation.id} (${reservationStatus})`)
-
-          // Créer les ReservationRoom
-          if (bookingData.rooms && bookingData.rooms.length > 0) {
-            for (const roomData of bookingData.rooms) {
-              await this.createReservationRoom(newReservation, roomData, guest, hotel, userId, autoCreatedRoomTypes, autoCreatedRoomRates)
+      // 🎯 NOUVEAU: PRENDRE UNIQUEMENT LES 3 DERNIÈRES RÉSERVATIONS
+      const lastThreeBookings = ourBookings.slice(-3)
+      
+      console.log(`🎯 Traitement des 3 DERNIÈRES réservations sur ${ourBookings.length} totales:`)
+      lastThreeBookings.forEach((booking, index) => {
+        console.log(`   ${index + 1}. ${booking.attributes?.unique_id} - ${booking.attributes?.arrival_date}`)
+      })
+  
+      // 🎯 MODIFICATION: Traiter uniquement les 3 dernières réservations
+      for (const booking of lastThreeBookings) {
+        try {
+          const bookingData = booking.attributes
+          const bookingId = booking.id
+  
+          console.log(`\n--- Processing LAST booking ${bookingId} (${bookingData.unique_id}) ---`)
+          console.log(`Status: ${bookingData.status}, Arrival: ${bookingData.arrival_date}`)
+  
+          // Vérifier si la réservation existe déjà
+          let existingReservation = await Reservation.query()
+            .where('reservation_number', bookingData.unique_id)
+            .orWhere('channex_booking_id', bookingId)
+            .first()
+  
+          if (existingReservation) {
+            // ============================================
+            // CAS 1: MISE À JOUR D'UNE RÉSERVATION EXISTANTE
+            // ============================================
+            console.log(`🔄 Réservation existante trouvée: ${existingReservation.id}`)
+            
+            const customerData = bookingData.customer || {}
+            const totalAdults = bookingData.occupancy?.adults || 0
+            const totalChildren = bookingData.occupancy?.children || 0
+            const totalAmount = parseFloat(bookingData.amount || '0')
+            
+            const statusMapping: any = {
+              'new': 'confirmed',
+              'modified': 'confirmed', 
+              'cancelled': 'cancelled'
             }
-          } else {
-            // Room générique si pas de chambres spécifiques
-            const checkInDate = DateTime.fromISO(arrivalDate)
-            const checkOutDate = DateTime.fromISO(departureDate)
-            const nights = checkOutDate.diff(checkInDate, 'days').days
-
-            await ReservationRoom.create({
-              reservationId: newReservation.id,
-              roomRateId: null,
-              roomTypeId: 1,
-              guestId: guest.id,
-              isOwner: true,
-              checkInDate: checkInDate,
-              checkOutDate: checkOutDate,
-              nights: nights,
+            const reservationStatus = statusMapping[bookingData.status] || 'pending'
+  
+            existingReservation.merge({
+              arrivedDate: bookingData.arrival_date ,
+              departDate: bookingData.departure_date ,
+              status: reservationStatus,
               adults: totalAdults,
               children: totalChildren,
-              infants: 0,
-              roomRate: totalAmount / Math.max(nights, 1),
-              totalRoomCharges: totalAmount,
-              roomCharges: totalAmount,
-              netAmount: totalAmount,
-              status: bookingData.status === 'cancelled' ? 'cancelled' : 'reserved',
-              createdBy: userId
+              totalAmount: totalAmount,
+              specialRequests: bookingData.notes,
+              channexBookingId: bookingId,
+              paymentType: bookingData.payment_type,
             })
-            console.log(`✅ Room générique créée pour reservation ${newReservation.id}`)
+            
+            await existingReservation.save()
+            syncResults.totalUpdated++
+            console.log(`✅ Reservation mise à jour: ${existingReservation.id}`)
+            
+          } else {
+            // ============================================
+            // CAS 2: CRÉATION D'UNE NOUVELLE RÉSERVATION
+            // ============================================
+            console.log(`➕ Création d'une nouvelle réservation via ReservationCreationService`)
+            
+            const creationResult = await ReservationCreationService.createFromChannex(
+              booking,
+              parseInt(hotelId),
+              userId,
+              ctx
+            )
+  
+            if (creationResult.success) {
+              syncResults.totalCreated++
+              console.log(`✅ Nouvelle réservation créée: ${creationResult.reservationId}`)
+              console.log(`   - Confirmation: ${creationResult.confirmationNumber}`)
+              console.log(`   - Type: ${creationResult.reservationType}`)
+              console.log(`   - Invités: ${creationResult.totalGuests}`)
+              console.log(`   - Chambres: ${creationResult.hasRooms ? 'Oui' : 'Non'}`)
+              
+              if (creationResult.folios && creationResult.folios.length > 0) {
+                console.log(`   - Folios: ${creationResult.folios.length} créé(s)`)
+              }
+            } else {
+              syncResults.totalErrors++
+              syncResults.errors.push({
+                bookingId: bookingId,
+                uniqueId: bookingData.unique_id,
+                error: creationResult.message || creationResult.error,
+                validationErrors: creationResult.validationErrors
+              })
+              console.error(`❌ Échec création réservation:`, creationResult.message || creationResult.error)
+              
+              if (creationResult.validationErrors) {
+                console.error(`   Erreurs de validation:`, creationResult.validationErrors)
+              }
+            }
           }
-        }
-
-        syncResults.totalProcessed++
-
-      } catch (error: any) {
-        syncResults.totalErrors++;
-        syncResults.errors.push({
-          bookingId: booking?.id,
-          uniqueId: booking?.attributes?.unique_id,
-          error: error?.message
-        });
-        console.error(`❌ Erreur processing booking ${booking?.id}:`, error);
-      }
-    }
-
-    syncResults.status = syncResults.totalErrors > 0 ? 'completed_with_errors' : 'completed'
-    syncResults.endTime = new Date()
-
-    return response.ok({
-      success: true,
-      message: `Synchronisation terminée: ${syncResults.totalCreated} créés, ${syncResults.totalUpdated} mis à jour`,
-      data: {
-        ...syncResults,
-        debug: {
-          totalFromChannex: allBookings.length,
-          ourPropertyBookings: ourBookings.length,
-          allProperties: allProperties
+  
+          syncResults.totalProcessed++
+  
+        } catch (error: any) {
+          syncResults.totalErrors++
+          syncResults.errors.push({
+            bookingId: booking?.id,
+            uniqueId: booking?.attributes?.unique_id,
+            error: error?.message,
+            stack: error?.stack
+          })
+          console.error(`❌ Erreur processing booking ${booking?.id}:`, error)
         }
       }
-    })
-
-  } catch (error: any) {
-    console.error('❌ Sync error:', error)
-    return response.status(500).json({
-      success: false,
-      message: 'Booking synchronization failed',
-      error: error.message
-    })
-  }
-}
-
-// ✅ Méthode helper pour créer les ReservationRoom
-private async createReservationRoom(reservation: Reservation, roomData: any, guest: Guest, hotel: Hotel, userId: number, autoCreatedRoomTypes: Map<string, any>, autoCreatedRoomRates: Map<string, any>) {
-  try {
-    // Gérer les room types manquants
-    let roomType = await RoomType.query()
-      .where('channex_room_type_id', roomData.room_type_id)
-      .where('hotel_id', hotel.id)
-      .first()
-
-    if (!roomType) {
-      const cacheKey = `roomtype_${roomData.room_type_id}`
-      if (!autoCreatedRoomTypes.has(cacheKey)) {
-        roomType = await RoomType.create({
-          hotelId: hotel.id,
-          roomTypeName: `Auto-Channex-${roomData.room_type_id.substring(0, 8)}`,
-          channexRoomTypeId: roomData.room_type_id,
-          status: 'active',
-          createdBy: userId
-        })
-        autoCreatedRoomTypes.set(cacheKey, roomType)
-        console.log(`✅ RoomType auto-créé: ${roomType.id}`)
-      } else {
-        roomType = autoCreatedRoomTypes.get(cacheKey)
-      }
+  
+      syncResults.status = syncResults.totalErrors > 0 ? 'completed_with_errors' : 'completed'
+      syncResults.endTime = new Date()
+  
+      // Log global de la synchronisation
+      await LoggerService.log({
+        actorId: userId,
+        action: 'CHANNEX_LAST_THREE_BOOKINGS_SYNCED',
+        entityType: 'Hotel',
+        entityId: hotelId,
+        description: `Synchronisation des 3 DERNIÈRES réservations Channex terminée: ${syncResults.totalCreated} créées, ${syncResults.totalUpdated} mises à jour, ${syncResults.totalErrors} erreur(s)`,
+        meta: {
+          totalFetched: syncResults.totalFetched,
+          totalProcessed: syncResults.totalProcessed,
+          totalCreated: syncResults.totalCreated,
+          totalUpdated: syncResults.totalUpdated,
+          totalErrors: syncResults.totalErrors,
+          errors: syncResults.errors,
+          duration: syncResults.endTime.getTime() - syncResults.startTime.getTime(),
+          lastThreeBookings: lastThreeBookings.map(b => ({
+            id: b.id,
+            unique_id: b.attributes?.unique_id,
+            arrival_date: b.attributes?.arrival_date
+          }))
+        },
+        hotelId: parseInt(hotelId),
+        ctx: ctx
+      })
+  
+      return response.ok({
+        success: true,
+        message: `Synchronisation des 3 DERNIÈRES réservations terminée: ${syncResults.totalCreated} créées, ${syncResults.totalUpdated} mises à jour`,
+        data: {
+          ...syncResults,
+          lastThreeProcessed: lastThreeBookings.length,
+          processedBookings: lastThreeBookings.map(b => ({
+            id: b.id,
+            unique_id: b.attributes?.unique_id,
+            status: b.attributes?.status
+          }))
+        }
+      })
+  
+    } catch (error: any) {
+      console.error('❌ Sync error:', error)
+      
+      await LoggerService.log({
+        actorId: userId,
+        action: 'CHANNEX_LAST_THREE_BOOKINGS_SYNC_FAILED',
+        entityType: 'Hotel',
+        entityId: hotelId,
+        description: `Échec de la synchronisation des 3 DERNIÈRES réservations Channex: ${error.message}`,
+        meta: { 
+          error: error.message,
+          stack: error.stack
+        },
+        hotelId: parseInt(hotelId),
+        ctx: ctx
+      })
+  
+      return response.status(500).json({
+        success: false,
+        message: 'Last three bookings synchronization failed',
+        error: error.message,
+        data: syncResults
+      })
     }
-
-    // Gérer les room rates manquants
-    let roomRate = await RoomRate.query()
-      .where('channex_rate_id', roomData.rate_plan_id)
-      .where('hotel_id', hotel.id)
-      .first()
-
-    if (!roomRate) {
-      const cacheKey = `roomrate_${roomData.rate_plan_id}`
-      if (!autoCreatedRoomRates.has(cacheKey)) {
-        roomRate = await RoomRate.create({
-          hotelId: hotel.id,
-          roomTypeId: roomType.id,
-          name: `Auto-Rate-${roomData.rate_plan_id.substring(0, 8)}`,
-          channexRateId: roomData.rate_plan_id,
-          amount: parseFloat(roomData.amount || '0'),
-          currencyCode: 'GBP',
-          createdBy: userId
-        })
-        autoCreatedRoomRates.set(cacheKey, roomRate)
-        console.log(`✅ RoomRate auto-créé: ${roomRate.id}`)
-      } else {
-        roomRate = autoCreatedRoomRates.get(cacheKey)
-      }
-    }
-
-    // Calculer les dates et montants
-    const checkInDate = DateTime.fromISO(roomData.checkin_date)
-    const checkOutDate = DateTime.fromISO(roomData.checkout_date)
-    const nights = checkOutDate.diff(checkInDate, 'days').days
-    const roomAmount = parseFloat(roomData.amount || '0')
-
-    await ReservationRoom.create({
-      reservationId: reservation.id,
-      roomRateId: roomRate?.id,
-      roomTypeId: roomType?.id,
-      guestId: guest.id,
-      isOwner: true,
-      checkInDate: checkInDate,
-      checkOutDate: checkOutDate,
-      nights: nights,
-      adults: roomData.occupancy?.adults || 0,
-      children: roomData.occupancy?.children || 0,
-      infants: roomData.occupancy?.infants || 0,
-      roomRate: roomAmount / Math.max(nights, 1),
-      totalRoomCharges: roomAmount,
-      roomCharges: roomAmount,
-      netAmount: roomAmount,
-      status: roomData.is_cancelled ? 'cancelled' : 'reserved',
-      channexBookingRoomId: roomData.booking_room_id,
-      createdBy: userId
-    })
-
-    console.log(`✅ ReservationRoom créée pour booking ${reservation.id}`)
-  } catch (error) {
-    console.error(`❌ Erreur création ReservationRoom:`, error)
-    throw error
   }
-}
 }

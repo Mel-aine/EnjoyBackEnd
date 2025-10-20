@@ -630,12 +630,27 @@ export class ChannexService {
       return this.get(`/bookings`)
     }
   
+    async getBookingByFilter( params :{
+      page: number,
+      limit: number}){
+        return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
+      }
+
     /**
      * Get a specific booking
      * GET /properties/{property_id}/bookings/{booking_id}
      */
     async getBookings( bookingId: string) {
       return this.get(`/bookings/${bookingId}`)
+    }
+    
+    /**
+     * Post Acknowledge Booking Revision receiving
+     * POST /booking_revisions/${id}
+     */
+
+    async postAcknowledge(id:number){
+      return this.post(`/booking_revisions/${id}/ack`)
     }
 
       /**
