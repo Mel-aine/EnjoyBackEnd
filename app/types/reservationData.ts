@@ -67,6 +67,7 @@ export interface ReservationData {
   passportNumber?: any,
   profilePhoto?: any,
   rate_type_id: any,
+  customType?:string,
 
   // Dates and guests
   arrived_date: string

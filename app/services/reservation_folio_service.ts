@@ -76,7 +76,7 @@ export default class ReservationFolioService {
       if (reservation.groupId) {
         folioType = FolioType.GROUP
       }
-      /* 
+      /*
       TODO Manage Company Id
       else if (reservation.companyId) {
         folioType = 'company'
@@ -242,23 +242,23 @@ export default class ReservationFolioService {
             // Calculate tax based on taxes related to the hotel room charges
             const hotel: any = reservation.hotel
             const taxes = hotel?.roomChargesTaxRates ?? []
-  
+
             let percentageSum = 0
             let flatSum = 0
             for (const tax of taxes) {
               /* const appliesToRoom = (tax as any)?.appliesToRoomRate ?? true
                if (!appliesToRoom) continue
-  
+
               if ((tax as any)?.postingType === 'flat_percentage' && (tax as any)?.percentage) {
                 percentageSum += Number((tax as any).percentage) || 0
               } else if ((tax as any)?.postingType === 'flat_amount' && (tax as any)?.amount) {
                 flatSum += Number((tax as any).amount) || 0
               }
             }
-  
+
             const percRate = percentageSum > 0 ? percentageSum / 100 : 0
             dailyTaxAmount = baseAmount * percRate + flatSum
-  
+
             // If taxes are not included, add them to the posted amount
             totalDailyAmount = baseAmount + dailyTaxAmount
           }*/
@@ -377,7 +377,8 @@ export default class ReservationFolioService {
     return await Folio.query()
       .where('reservationId', reservationId)
       .preload('guest')
-      .preload('transactions')
+      .preload('transactions',(query)=>
+      query.preload('paymentMethod'))
       .orderBy('folioType', 'asc')
       .orderBy('createdAt', 'asc')
   }
