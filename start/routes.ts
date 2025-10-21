@@ -1070,6 +1070,8 @@ router
         router.put('/:reservationId/stop-move', [ReservationsController, 'updateStopMove'])
         router.get('/:reservationId/room-charges', [ReservationsController, 'getRoomCharges'])
         router.post('/:reservationId/check-out', [ReservationsController, 'checkOut'])
+        router.post('/:reservationId/undo-checkin', [ReservationsController, 'undoCheckIn'])
+        router.post('/:reservationId/undo-check-out', [ReservationsController, 'undoCheckOut'])
         router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
 
 
