@@ -21,6 +21,11 @@ export interface GuestData {
   emergency_contact?: string
   emergency_phone?: string
   notes?: string
+  contact_type?: string
+  maiden_name?: string
+  nationality?: string
+  dateOfBirth?: string
+  placeOfBirth?: string
 }
 
 export interface ReservationData {
@@ -40,6 +45,11 @@ export interface ReservationData {
   city?: string
   zipcode?: string
   payment: number
+  contact_type?: string
+  maiden_name?: string
+  nationality?: string
+  dateOfBirth?: string
+  placeOfBirth?: string
 
   // Multiple guests support
   guests?: GuestData[]

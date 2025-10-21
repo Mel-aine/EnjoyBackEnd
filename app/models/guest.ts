@@ -57,6 +57,12 @@ export default class Guest extends BaseModel {
   declare gender: string
 
   @column()
+  declare maidenName: string
+
+  @column()
+  declare contactType: string
+
+  @column()
   declare nationality: string
 
   @column()

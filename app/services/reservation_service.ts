@@ -216,11 +216,16 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
       companyName: data.company_name,
       companyId: data.company_id,
       profession: data.profession,
+      nationality: data.nationality,
+      maidenName: data.maiden_name,
+      contactType: data.contact_type,
       addressLine: data.address_line,
       country: data.country,
       stateProvince: data.state,
       city: data.city,
       postalCode: data.zipcode,
+      dateOfBirth: data.dateOfBirth ? convertToDateTime(data.dateOfBirth) : null,
+      placeOfBirth: data.placeOfBirth,
       createdBy: data.created_by,
       idPhoto: data.idPhoto,
       idType:data.idType,
@@ -356,6 +361,7 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
       })
       await guest.useTransaction(trx).save()
     } else {
+
       guest = await Guest.create({
         firstName: guestData.first_name,
         lastName: guestData.last_name,
@@ -366,6 +372,11 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
         companyName: guestData.company_name,
         companyId: guestData.company_id,
         profession: guestData.profession,
+        nationality: guestData.nationality,
+        dateOfBirth: guestData.dateOfBirth ? DateTime.fromISO(guestData.dateOfBirth) : undefined,
+        placeOfBirth: guestData.placeOfBirth,
+        maidenName: guestData.maiden_name,
+        contactType: guestData.contact_type,
         addressLine: guestData.address_line,
         country: guestData.country,
         stateProvince: guestData.state,
