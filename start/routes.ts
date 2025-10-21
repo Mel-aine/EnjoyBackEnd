@@ -59,6 +59,7 @@ import EmailTemplateController from '#controllers/email_template_controller'
 import TransportRequestsController from '#controllers/transport_requests_controller'
 import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
+import OtaController from '#controllers/ota_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 // Root route that presents Enjoys API documentation and test examples
@@ -150,6 +151,7 @@ const emailTemplateController = new EmailTemplateController()
 const transportRequestsController = new TransportRequestsController()
 const workOrdersController = new WorkOrdersController()
 const houseKeepersController = new HouseKeepersController()
+const otaController = new OtaController()
 
 
 router.get('/swagger', async () => {
@@ -1644,6 +1646,15 @@ router.get('/reservations/:id', reservationsController.getReservationById.bind(r
       guards: ['api'],
     })
   )
+
+// Public OTA endpoints (no auth)
+router
+  .group(() => {
+    router.get('/hotels/:hotelId/info', otaController.hotelInfo.bind(otaController))
+    router.get('/hotels/:hotelId/room-types', otaController.getRoomTypes.bind(otaController))
+    router.get('/hotels/:hotelId/availability', otaController.getAvailability.bind(otaController))
+  })
+  .prefix('api/ota')
 
 // Import reports routes
 import './routes/reports.js'
