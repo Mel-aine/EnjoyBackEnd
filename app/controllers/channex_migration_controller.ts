@@ -1246,7 +1246,7 @@ export default class ChannexMigrationController {
       })
   
       // 🎯 MODIFICATION: Traiter uniquement les 3 dernières réservations
-      for (const booking of lastThreeBookings) {
+      for (const booking of ourBookings) {
         try {
           const bookingData = booking.attributes
           const bookingId = booking.id
