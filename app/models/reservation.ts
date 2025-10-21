@@ -84,6 +84,9 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'special_notes' })
   declare specialNotes: string | null
 
+  @column({ columnName: 'custom_type' })
+  declare customType: string | null
+
    @column({ columnName: 'bill_to' })
   declare billTo: string | null
 
@@ -454,7 +457,7 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'user_id' })
   declare user: BelongsTo<typeof User>
 
-  @belongsTo(() => User, { foreignKey: 'created_by' })
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
    @belongsTo(() => MarketCode, { foreignKey: 'marketCodeId' })

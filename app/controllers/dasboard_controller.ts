@@ -663,7 +663,7 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
           .where('hotel_id', serviceId)
           .whereBetween('created_at', [startDate.toSQL()!, endDate.toSQL()!])
           .orderBy('created_at', 'desc')
-          .limit(10)
+          .limit(5)
           .preload('user'),
       ])
 

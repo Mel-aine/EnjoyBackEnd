@@ -80,7 +80,7 @@ export default class ReservationFolioService {
       if (reservation.groupId) {
         folioType = FolioType.GROUP
       }
-      /* 
+      /*
       TODO Manage Company Id
       else if (reservation.companyId) {
         folioType = 'company'
@@ -379,7 +379,8 @@ export default class ReservationFolioService {
     return await Folio.query()
       .where('reservationId', reservationId)
       .preload('guest')
-      .preload('transactions')
+      .preload('transactions',(query)=>
+      query.preload('paymentMethod'))
       .orderBy('folioType', 'asc')
       .orderBy('createdAt', 'asc')
   }

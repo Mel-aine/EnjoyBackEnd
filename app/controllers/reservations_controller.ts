@@ -2444,6 +2444,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             paymentMethodId: data.payment_mod,
             billTo: data.bill_to,
             marketCodeId: data.market_code_id,
+            customType:data.customType,
             paymentType: data.payment_type,
             taxExempt: data.tax_exempt,
             isHold: data.isHold,

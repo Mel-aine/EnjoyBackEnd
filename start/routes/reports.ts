@@ -19,6 +19,8 @@ const GuestCheckoutReportsController = () => import('#controllers/guest_checkout
 const DailyReceiptReportsController = () => import('#controllers/daily_receipt_reports_controller')
 const WorkOrderReportsController = () => import('#controllers/work_order_reports_controller')
 const RoomStatusReportsController = () => import('#controllers/room_status_controller')
+const ReservationReportsController = () => import('#controllers/reservation_reports_controller')
+
 
 // Group all report routes under /api/reports prefix
 router.group(() => {
@@ -65,6 +67,17 @@ router.group(() => {
     router.post('/forecast', [ReportsController, 'generate']).where('reportType', 'reservationForecast')
     router.post('/void', [ReportsController, 'generate']).where('reportType', 'voidReservations')
   }).prefix('/reservations')
+
+  router.group(() => {
+    router.post('/arrivals', [ReservationReportsController, 'generateArrivalList'])
+    router.post('/departures', [ReservationReportsController, 'generateDepartureList'])
+    router.post('/cancelled', [ReservationReportsController, 'generateCancelledList'])
+    router.post('/void', [ReservationReportsController, 'generateVoidList'])
+    router.post('/arrivals-pdf', [ReservationReportsController, 'generateArrivalListPdf'])
+    router.post('/departures-pdf', [ReservationReportsController, 'generateDepartureListPdf'])
+    router.post('/cancelled-pdf', [ReservationReportsController, 'generateCancelledListPdf'])
+    router.post('/void-pdf', [ReservationReportsController, 'generateVoidListPdf'])
+  }).prefix('/reservation')
 
   // Reservation export
   router.group(() => {

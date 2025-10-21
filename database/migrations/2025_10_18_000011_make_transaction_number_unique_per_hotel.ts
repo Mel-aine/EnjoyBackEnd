@@ -6,7 +6,7 @@ export default class extends BaseSchema {
   public async up () {
     this.schema.alterTable(this.tableName, (table) => {
       // Drop global unique constraint on transaction_number
-      table.dropUnique(['transaction_number'])
+      // table.dropUnique(['transaction_number'])
       // Add composite unique constraint per hotel
       table.unique(['hotel_id', 'transaction_number'])
     })
