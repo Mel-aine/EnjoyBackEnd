@@ -39,7 +39,7 @@ export default class Guest extends BaseModel {
   declare suffix: string
 
   @column()
-  declare email: string
+  declare email: string | null
 
   @column()
   declare phonePrimary: string

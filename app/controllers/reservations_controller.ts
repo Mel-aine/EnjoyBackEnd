@@ -542,6 +542,299 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+  public async undoCheckIn(ctx: HttpContext) {
+    const { params, response, request, auth } = ctx
+    const { reservationRooms, notes } = request.body()
+
+    if (!auth.user) {
+      return response.unauthorized({ success: false, message: 'Authentication required' })
+    }
+
+    const trx = await db.transaction()
+
+    try {
+      const reservationId = Number(params.reservationId)
+      if (isNaN(reservationId)) {
+        await trx.rollback()
+        return response.badRequest({ success: false, message: 'Reservation ID is required' })
+      }
+
+      if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+        await trx.rollback()
+        return response.badRequest({ success: false, message: 'reservationRooms must be a non-empty array' })
+      }
+
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('reservationRooms', (q) => q.preload('room'))
+        .first()
+
+      if (!reservation) {
+        await trx.rollback()
+        return response.notFound({ success: false, message: 'Reservation not found' })
+      }
+
+      // Only same-day undo allowed
+      const todayISO = DateTime.now().toISODate()
+
+      const roomsToUndo = await ReservationRoom.query({ client: trx })
+        .whereIn('id', reservationRooms)
+        .where('reservationId', reservationId)
+        .preload('room')
+
+      if (roomsToUndo.length === 0) {
+        await trx.rollback()
+        return response.notFound({ success: false, message: 'No matching reservation rooms for the provided IDs' })
+      }
+
+      // Validate statuses and dates
+      const invalidRooms = roomsToUndo.filter(
+        (rr) =>
+          rr.status !== 'checked_in' ||
+          !(
+            (rr.actualCheckIn && rr.actualCheckIn.toISODate() === todayISO) ||
+            (rr.checkInDate && rr.checkInDate.toISODate() === todayISO)
+          )
+      )
+
+      if (invalidRooms.length > 0) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Undo check-in only allowed for rooms checked in today',
+          errors: invalidRooms.map((rr) => `Room ${rr.roomId} is ${rr.status} or not checked in today`),
+        })
+      }
+
+      const updatedRooms: any[] = []
+
+      for (const rr of roomsToUndo) {
+        rr.status = 'reserved'
+        //rr.checkedInBy = null as any
+        //rr.actualCheckIn = null as any
+        //rr.checkInDate = null as any
+        if (notes) rr.guestNotes = notes
+        await rr.useTransaction(trx).save()
+        updatedRooms.push(rr)
+
+        if (rr.room) {
+          rr.room.status = 'available'
+          await rr.room.useTransaction(trx).save()
+        }
+      }
+
+      // If no rooms remain checked-in, revert reservation status and check-in date
+      const remainingCheckedIn = await ReservationRoom.query({ client: trx })
+        .where('reservationId', reservationId)
+        .where('status',  ReservationStatus.CHECKED_IN)
+
+      if (remainingCheckedIn.length === 0) {
+        reservation.status = ReservationStatus.CONFIRMED
+        //reservation.checkInDate = null 
+        await reservation.useTransaction(trx).save()
+      }
+
+      await LoggerService.log({
+        actorId: auth.user.id,
+        action: 'UNDO_CHECK_IN',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        hotelId: reservation.hotelId,
+        description: `Undo check-in for rooms: ${reservationRooms.join(', ')} on reservation #${reservation.reservationNumber}`,
+        ctx,
+      })
+
+      if (reservation.guestId) {
+        await LoggerService.log({
+          actorId: auth.user.id,
+          action: 'UNDO_CHECK_IN',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId: reservation.hotelId,
+          description: `Undo check-in on reservation #${reservation.reservationNumber}.`,
+          meta: { reservationId: reservation.id, reservationNumber: reservation.reservationNumber, rooms: reservationRooms },
+          ctx,
+        })
+      }
+
+      await trx.commit()
+      await GuestSummaryService.recomputeFromReservation(reservation.id)
+
+      return response.ok({
+        success: true,
+        message: 'Undo check-in completed successfully',
+        data: {
+          reservation: {
+            id: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            status: reservation.status,
+            checkInDate: reservation.checkInDate,
+          },
+          updatedRooms: updatedRooms.map((room) => ({ id: room.id, roomId: room.roomId, status: room.status })),
+        },
+      })
+    } catch (error) {
+      await trx.rollback()
+      logger.error('Error during undo check-in:', {
+        reservationId: params.reservationId,
+        reservationRooms,
+        error: error.message,
+        stack: error.stack,
+      })
+
+      return response.status(500).json({ success: false, message: 'An error occurred during undo check-in', errors: [error.message] })
+    }
+  }
+
+  public async undoCheckOut(ctx: HttpContext) {
+    const { params, response, request, auth } = ctx
+    const { reservationRooms, notes } = request.body()
+
+    if (!auth.user) {
+      return response.unauthorized({ success: false, message: 'Authentication required' })
+    }
+
+    const trx = await db.transaction()
+
+    try {
+      const reservationId = Number(params.reservationId)
+      if (isNaN(reservationId)) {
+        await trx.rollback()
+        return response.badRequest({ success: false, message: 'Reservation ID is required' })
+      }
+
+      if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+        await trx.rollback()
+        return response.badRequest({ success: false, message: 'reservationRooms must be a non-empty array' })
+      }
+
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', reservationId)
+        .preload('reservationRooms', (q) => q.preload('room'))
+        .first()
+
+      if (!reservation) {
+        await trx.rollback()
+        return response.notFound({ success: false, message: 'Reservation not found' })
+      }
+
+      const todayISO = DateTime.now().toISODate()
+      const checkedOutTodayAtReservationLevel =
+        reservation.checkOutDate && reservation.checkOutDate.toISODate() === todayISO
+
+      const roomsToUndo = await ReservationRoom.query({ client: trx })
+        .whereIn('id', reservationRooms)
+        .where('reservationId', reservationId)
+        .preload('room')
+
+      if (roomsToUndo.length === 0) {
+        await trx.rollback()
+        return response.notFound({ success: false, message: 'No matching reservation rooms for the provided IDs' })
+      }
+
+      const invalidRooms = roomsToUndo.filter((rr) => rr.status !== 'checked_out')
+      if (invalidRooms.length > 0) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Undo check-out only allowed for rooms that are checked out',
+          errors: invalidRooms.map((rr) => `Room ${rr.roomId} is ${rr.status}`),
+        })
+      }
+
+      // If reservation-level checkout is set, enforce same-day undo
+      if (!checkedOutTodayAtReservationLevel) {
+        // fallback: allow if any selected room updated today (best effort)
+        const anySelectedUpdatedToday = roomsToUndo.some(
+          (rr) => rr.updatedAt && rr.updatedAt.toISODate() === todayISO
+        )
+        if (!anySelectedUpdatedToday) {
+          await trx.rollback()
+          return response.badRequest({
+            success: false,
+            message: 'Undo check-out only allowed for check-outs performed today',
+          })
+        }
+      }
+
+      const updatedRooms: any[] = []
+      for (const rr of roomsToUndo) {
+        rr.status = 'checked_in'
+        //rr.checkedOutBy = null as any
+        // rr.actualCheckOutTime = null
+        if (notes) rr.guestNotes = notes
+        await rr.useTransaction(trx).save()
+        updatedRooms.push(rr)
+
+        if (rr.room) {
+          rr.room.status = 'occupied'
+          await rr.room.useTransaction(trx).save()
+        }
+      }
+
+      // If any room is no longer checked_out, ensure reservation is not CHECKED_OUT
+      const stillCheckedOut = await ReservationRoom.query({ client: trx })
+        .where('reservationId', reservationId)
+        .where('status', ReservationStatus.CHECKED_OUT)
+
+      if (stillCheckedOut.length === 0) {
+        reservation.status = ReservationStatus.CHECKED_IN
+        //reservation.checkOutDate = null
+        await reservation.useTransaction(trx).save()
+      }
+
+      await LoggerService.log({
+        actorId: auth.user.id,
+        action: 'UNDO_CHECK_OUT',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        hotelId: reservation.hotelId,
+        description: `Undo check-out for rooms: ${reservationRooms.join(', ')} on reservation #${reservation.reservationNumber}`,
+        ctx,
+      })
+
+      if (reservation.guestId) {
+        await LoggerService.log({
+          actorId: auth.user.id,
+          action: 'UNDO_CHECK_OUT',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId: reservation.hotelId,
+          description: `Undo check-out on reservation #${reservation.reservationNumber}.`,
+          meta: { reservationId: reservation.id, reservationNumber: reservation.reservationNumber, rooms: reservationRooms },
+          ctx,
+        })
+      }
+
+      await trx.commit()
+      await GuestSummaryService.recomputeFromReservation(reservation.id)
+
+      return response.ok({
+        success: true,
+        message: 'Undo check-out completed successfully',
+        data: {
+          reservation: {
+            id: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            status: reservation.status,
+            checkOutDate: reservation.checkOutDate,
+          },
+          updatedRooms: updatedRooms.map((room) => ({ id: room.id, roomId: room.roomId, status: room.status })),
+        },
+      })
+    } catch (error) {
+      await trx.rollback()
+      logger.error('Error during undo check-out:', {
+        reservationId: params.reservationId,
+        reservationRooms,
+        error: error.message,
+        stack: error.stack,
+      })
+
+      return response.status(500).json({ success: false, message: 'An error occurred during undo check-out', errors: [error.message] })
+    }
+  }
+
   /**
    * Get a single reservation with all its related information,
    * including the user, service product, and payment.
@@ -752,6 +1045,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
       (reservationRoom: any) => reservationRoom.roomId
     )
 
+    const todayISO = DateTime.now().toISODate()
+    const reservationCheckedInToday =
+      reservation.checkInDate && reservation.checkInDate.toISODate && reservation.checkInDate.toISODate() === todayISO
+    const reservationCheckedOutToday =
+      reservation.checkOutDate && reservation.checkOutDate.toISODate && reservation.checkOutDate.toISODate() === todayISO
+
+    const hasSameDayRoomCheckIn = Array.isArray(reservation.reservationRooms) && reservation.reservationRooms.some(
+      (rr: any) =>
+        ['checked_in'].includes((rr.status || '').toLowerCase()) &&
+        ((rr.actualCheckIn && rr.actualCheckIn.toISODate && rr.actualCheckIn.toISODate() === todayISO) ||
+          (rr.checkInDate && rr.checkInDate.toISODate && rr.checkInDate.toISODate() === todayISO))
+    )
+
+    const hasSameDayRoomCheckOut = Array.isArray(reservation.reservationRooms) && reservation.reservationRooms.some(
+      (rr: any) => (rr.status || '').toLowerCase() === 'checked_out' && rr.updatedAt && rr.updatedAt.toISODate && rr.updatedAt.toISODate() === todayISO
+    )
+
     // Check-in: Available for confirmed reservations on or after arrival date
     if (
       userPermissions.includes('check_in_guest') &&
@@ -778,6 +1088,36 @@ export default class ReservationsController extends CrudController<typeof Reserv
         description: 'Check out guest to a different room',
         available: true,
         route: `/reservations/${reservation.id}/check-out`,
+      })
+    }
+
+    // Undo Check-in: allowed if check-in occurred today on reservation or any room
+    if (
+      userPermissions.includes('check_in_guest') &&
+      ['checked-in', 'checked_in'].includes(status) &&
+      (reservationCheckedInToday || hasSameDayRoomCheckIn)
+    ) {
+      actions.push({
+        action: 'undo_check_in',
+        label: 'Undo Check-in',
+        description: 'Revert same-day check-in for selected rooms',
+        available: true,
+        route: `/reservations/${reservation.id}/undo-checkin`,
+      })
+    }
+
+    // Undo Check-out: allowed if check-out occurred today on reservation or any room
+    if (
+      userPermissions.includes('check_out_guest') &&
+      ['checked-out', 'checked_out'].includes(status) &&
+      (reservationCheckedOutToday || hasSameDayRoomCheckOut)
+    ) {
+      actions.push({
+        action: 'undo_check_out',
+        label: 'Undo Check-out',
+        description: 'Revert same-day check-out for selected rooms',
+        available: true,
+        route: `/reservations/${reservation.id}/undo-check-out`,
       })
     }
     // Add Payment: Available for all active reservations
@@ -811,7 +1151,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Room Move: Available during stay (checked-in status)
     if (
       userPermissions.includes('access_to_move_room') &&
-      ['checked-in', 'checked_in'].includes(status)
+      ['checked-in', 'checked_in', 'confirmed', 'guaranteed', 'pending'].includes(status)
     ) {
       actions.push({
         action: 'room_move',
@@ -825,7 +1165,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Exchange Room: Similar to room move
     if (
       userPermissions.includes('access_to_move_room') &&
-      ['checked-in', 'checked_in'].includes(status)
+      ['checked-in', 'checked_in', 'confirmed', 'guaranteed', 'pending'].includes(status)
     ) {
       actions.push({
         action: 'exchange_room',
@@ -928,106 +1268,24 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
   /**
    * Met à jour les folios après amendement de la réservation
+   * Delete existing room charges and repost them based on new stay details
    */
   private async updateFoliosAfterAmendment(reservation: any, trx: any, userId: number) {
     // Charger les folios avec les transactions
-    await reservation.load('folios', (query: any) => {
-      query.preload('transactions')
-    })
+    await reservation.load('folios')
 
-    for (const folio of reservation.folios) {
-      // Calculer les nouveaux totaux basés sur les chambres mises à jour
-      let newRoomCharges = 0
-      let newTotalTaxes = 0
+    // Supprimer toutes les transactions de type Room Charge et recalculer les totaux
+    const result = await FolioTransaction.query()
+      .whereIn('folioId', reservation.folios.map((f: any) => f.id))
+      .where('transactionType', TransactionType.CHARGE)
+      .where('category', TransactionCategory.ROOM)
+      .where('status', '!=', TransactionStatus.VOIDED)
+      .delete()
+    logger.info('result')
+    logger.info(result.length)
 
-      if (folio.reservationRoomId) {
-        const reservationRoom = reservation.reservationRooms.find(
-          (rr: any) => rr.id === folio.reservationRoomId
-        )
-        if (reservationRoom) {
-          newRoomCharges = reservationRoom.totalRoomCharges || 0
-          newTotalTaxes = reservationRoom.totalTaxesAmount || 0
-        }
-      } else {
-        for (const room of reservation.reservationRooms) {
-          newRoomCharges += room.totalRoomCharges || 0
-          newTotalTaxes += room.totalTaxesAmount || 0
-        }
-      }
-
-      const oldRoomCharges = folio.roomCharges || 0
-      const oldTotalTaxes = folio.totalTaxes || 0
-      const roomChargesDiff = newRoomCharges - oldRoomCharges
-      const taxesDiff = newTotalTaxes - oldTotalTaxes
-
-      if (Math.abs(roomChargesDiff) > 0.01 || Math.abs(taxesDiff) > 0.01) {
-        const totalDiff = roomChargesDiff + taxesDiff
-        const transactionType = totalDiff >= 0 ? TransactionType.CHARGE : TransactionType.ADJUSTMENT
-        const transactionCode = transactionType === TransactionType.CHARGE ? 'CHG' : 'ADJ'
-        const transactionNumber = Date.now().toString().slice(-9)
-
-        await FolioTransaction.create(
-          {
-            folioId: folio.id,
-            hotelId: reservation.hotelId,
-            guestId: folio.guestId,
-            reservationId: reservation.id,
-            transactionType: transactionType,
-            transactionCode: transactionCode,
-            transactionNumber: transactionNumber,
-            amount: roomChargesDiff,
-            taxAmount: taxesDiff,
-            totalAmount: totalDiff,
-            description: 'Adjustment due to stay modification.',
-            transactionDate: DateTime.now(),
-            postingDate: DateTime.now(),
-            status: TransactionStatus.POSTED,
-            transaction_time: DateTime.now().toFormat('HH:mm:ss'),
-            createdBy: userId,
-          },
-          { client: trx }
-        )
-
-        const safeNumber = (val: any): number => {
-          const num = Number(val)
-          return isNaN(num) ? 0 : num
-        }
-
-        const newTotalCharges = safeNumber(folio.totalCharges || 0) + roomChargesDiff
-        const newTotalTaxesOnFolio = safeNumber(folio.totalTaxes || 0) + taxesDiff
-        const newBalance = safeNumber(folio.balance || 0) + totalDiff
-
-        const notes =
-          (folio.internalNotes || '') +
-          `\n[${DateTime.now().toFormat('yyyy-MM-dd HH:mm')}] Folio updated after stay amendment. ` +
-          `Room charges changed by ${roomChargesDiff.toFixed(2)}. ` +
-          `Taxes changed by ${taxesDiff.toFixed(2)}.`
-
-        console.log({
-          oldCharges: folio.totalCharges,
-          roomChargesDiff,
-          newTotalCharges,
-          oldTaxes: folio.totalTaxes,
-          taxesDiff,
-          newTotalTaxesOnFolio,
-          oldBalance: folio.balance,
-          totalDiff,
-          newBalance,
-        })
-
-        await folio
-          .merge({
-            roomCharges: newRoomCharges,
-            totalTaxes: newTotalTaxesOnFolio,
-            totalCharges: newTotalCharges,
-            balance: newBalance,
-            lastModifiedBy: userId,
-            internalNotes: notes,
-          })
-          .useTransaction(trx)
-          .save()
-      }
-    }
+    // Reposter les Room Charges en fonction des nouvelles données de séjour
+    await ReservationFolioService.postRoomCharges(reservation.id, userId)
   }
 
   /**
@@ -2695,6 +2953,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async amendStay({ params, request, response, auth }: HttpContext) {
     const trx = await db.transaction()
     try {
+      logger.info('Audit Data:')
       const reservationId = params.reservationId
       const {
         selectedRooms,
@@ -2753,7 +3012,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           netAmount: rr.netAmount,
         })),
       }
-
+      logger.info('Audit Data:1')
       // 📌 Vérification des dates
       let newArrivalDateTime
       let newDepartureDateTime
@@ -2775,7 +3034,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           return response.badRequest({ message: 'Arrival date must be before departure date' })
         }
       }
-
+      logger.info('Audit Data:2')
       // 📌 Vérification du type de chambre
       if (newRoomTypeId) {
         const roomType = await db
@@ -2789,7 +3048,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           return response.badRequest({ message: 'Invalid room type selected' })
         }
       }
-
+      logger.info('Audit Data:3')
       // =============================
       // 🎯 AMENDEMENT DES CHAMBRES UNIQUEMENT
       // =============================
@@ -2861,7 +3120,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const targetRooms = reservation.reservationRooms.filter((rr) =>
           selectedRooms.includes(rr.roomId)
         )
-
+        logger.info('Audit Data:4')
         if (targetRooms.length === 0) {
           await trx.rollback()
           return response.badRequest({ message: 'No valid rooms selected for amendment' })
@@ -2869,7 +3128,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         for (const reservationRoom of targetRooms) {
           const roomUpdateData: any = {
-            lastModifiedBy: auth.user?.id || 1,
+            lastModifiedBy: auth.user?.id!,
+            id: reservationRoom.id
           }
 
           let checkInDate = reservationRoom.checkInDate
@@ -2915,17 +3175,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
             roomUpdateData.netAmount =
               roomUpdateData.totalRoomCharges + roomUpdateData.totalTaxesAmount
           }
-
           await reservationRoom.merge(roomUpdateData).useTransaction(trx).save()
         }
       }
-
       // 📌 Mise à jour uniquement du lastModifiedBy sur la réservation principale
       await reservation
         .merge({
           lastModifiedBy: auth.user?.id || 1,
           arrivedDate: newArrivalDateTime,
           departDate: newDepartureDateTime,
+          nights: reservation.reservationRooms[0].nights,
         })
         .useTransaction(trx)
         .save()
@@ -2947,25 +3206,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reason: reason || 'Stay amendment requested',
         timestamp: DateTime.now(),
       }
-
-      console.log('Reservation Amendment:', auditData)
-
+      await trx.commit()
       //  Mise à jour des folios si la réservation a des folios existants
       if (reservation.folios && reservation.folios.length > 0) {
-        await this.updateFoliosAfterAmendment(reservation, trx, auth.user?.id || 1)
+        await this.updateFoliosAfterAmendment(reservation, null, auth.user?.id || 1)
       }
 
-      // 🔄 Recharger réservation mise à jour
-      const updatedReservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.preload('room', (roomQuery) => {
-            roomQuery.preload('roomType')
-          })
-        })
-        .first()
 
-      await trx.commit()
 
       await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({
@@ -2975,7 +3222,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           originalData,
           newData: auditData.newData,
         },
-        reservation: updatedReservation,
       })
     } catch (error) {
       await trx.rollback()

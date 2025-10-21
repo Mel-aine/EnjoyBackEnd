@@ -16,7 +16,7 @@ export const createGuestValidator = vine.compile(
     gender: vine.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
     dateOfBirth: vine.date().optional(),
     nationality: vine.string().trim().maxLength(100).optional(),
-    email: vine.string().trim().email().maxLength(255),
+    email: vine.string().trim().email().maxLength(255).optional(),
     phonePrimary: vine.string().trim().maxLength(20).optional(),
     mobileNumber: vine.string().trim().maxLength(20).optional(),
     fax: vine.string().trim().maxLength(20).optional(),
