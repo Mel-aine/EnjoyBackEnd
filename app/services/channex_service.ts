@@ -649,7 +649,7 @@ export class ChannexService {
      * POST /booking_revisions/${id}
      */
 
-    async postAcknowledge(id:number){
+    async postAcknowledge(id:string){
       return this.post(`/booking_revisions/${id}/ack`)
     }
 
@@ -661,6 +661,10 @@ export class ChannexService {
     async getBookingRevision() {
       return this.get(`/booking_revisions`)
     }
+    async getBookingRevisionById( id: string) {
+      return this.get(`/booking_revisions/${id}`)
+    }
+
 
       /**
    * Get booking revisions feed
