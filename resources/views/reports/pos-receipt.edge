@@ -6,29 +6,32 @@
     <title>Reçu de Vente Détaillé</title>
     <style>
         /* Base Styles */
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f7f7f7;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Aligner en haut pour ne pas forcer le centre vertical */
+            align-items: flex-start;
             padding: 40px 20px;
             margin: 0;
             min-height: 100vh;
         }
 
-        /* Conteneur principal du reçu */
         .receipt-container {
             width: 100%;
             max-width: 800px;
             background-color: white;
-            padding: 20px;
+            padding: 0;
             border: 1px solid black;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            font-size: 0.875rem; /* text-sm par défaut */
+            font-size: 0.875rem;
+            overflow: hidden; /* Empêche tout débordement */
         }
 
-        /* Helpers */
         .text-sm { font-size: 0.575rem; }
         .text-lg { font-size: 1.125rem; }
         .font-bold { font-weight: 700; }
@@ -41,24 +44,23 @@
         .pb-1 { padding-bottom: 0.25rem; }
         .border-b { border-bottom: 1px solid black; }
 
-        /* Header (En-tête de l'hôtel) */
         .header {
             margin-bottom: 1.5rem;
             line-height: 1.4;
+            padding: 20px 20px 0 20px;
         }
         .header-title {
             font-size: 1.2rem;
             font-weight: 700;
         }
 
-        /* Section Informations (Tableau) */
         .info-section {
             display: flex;
-            flex-wrap: no-wrap;
+            flex-wrap: wrap; /* Permet le retour à la ligne sur petits écrans */
             border-bottom: 1px solid black;
             border-top: 1px solid black;
-            margin-bottom: 1rem;
-            padding: 8px 12px;
+            margin-bottom: 0;
+            padding: 8px 20px;
         }
 
         .info-col-left {
@@ -78,20 +80,25 @@
             display: flex;
             justify-content: flex-start;
             line-height: 1.5;
+            word-break: break-word; /* Évite le débordement de texte */
         }
 
         .info-label {
             font-weight: 700;
-            width: 30%; /* Largeur fixe pour les étiquettes de gauche */
+            width: 30%;
+            min-width: 60px; /* Largeur minimale pour les labels */
         }
         .info-value {
-            width: 70%; /* Largeur fixe pour les étiquettes de gauche */
+            width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
-        /* Tableau des articles (Item List) */
         .item-table {
             width: 100%;
-            margin-top: 20px;
+            margin-top: 0;
+            padding: 0 20px; /* Suppression du padding en haut et en bas */
+            overflow: hidden; /* Empêche le débordement */
         }
 
         .table-header-row {
@@ -111,10 +118,16 @@
         .item-name {
             width: 30%;
             text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .item-category {
             width: 25%;
             text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .item-qty, .item-unit, .item-amount {
             width: 15%;
@@ -124,14 +137,14 @@
             font-weight: 500;
         }
 
-        /* Section Totaux (Bill Details) */
         .bill-details {
             display: flex;
             flex-direction: column;
-            width: 50%; /* Colonne de droite */
-            margin-left: 50%; /* Décaler vers la droite */
+            width: 50%;
+            margin-left: 50%;
             margin-top: 15px;
             padding-top: 5px;
+            padding-right: 20px;
         }
 
         .total-row {
@@ -161,11 +174,10 @@
             font-size: 1rem;
         }
 
-        /* Section TVA / Taxe (au milieu) */
         .tax-section {
             border-top: 1px solid black;
             margin-top: 25px;
-            padding-top: 15px;
+            padding: 15px 20px 0 20px;
         }
 
         .tax-header {
@@ -177,9 +189,19 @@
             margin-bottom: 5px;
         }
 
-        .tax-col-desc { width: 50%; }
-        .tax-col-taxable { width: 25%; text-align: right; }
-        .tax-col-tax { width: 25%; text-align: right; }
+        .tax-col-desc { 
+            width: 50%; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tax-col-taxable { 
+            width: 25%; 
+            text-align: right; 
+        }
+        .tax-col-tax { 
+            width: 25%; 
+            text-align: right; 
+        }
 
         .tax-data-row {
             display: flex;
@@ -187,10 +209,10 @@
             padding: 3px 0;
         }
         
-        /* Footer/Signatures */
         .footer {
             margin-top: 80px;
             text-align: center;
+            padding: 0 20px 20px 20px;
         }
 
         .signature-area {
@@ -204,6 +226,29 @@
             width: 45%;
             padding-top: 5px;
         }
+        
+        /* Media queries pour la responsivité */
+        @media (max-width: 600px) {
+            .info-section {
+                flex-direction: column;
+            }
+            
+            .info-col-left, .info-col-right {
+                width: 100%;
+                padding-left: 0;
+            }
+            
+            .bill-details {
+                width: 100%;
+                margin-left: 0;
+                padding-right: 0;
+            }
+            
+            .item-name, .item-category {
+                white-space: normal;
+                overflow: visible;
+            }
+        }
     </style>
 </head>
 <body>
@@ -211,42 +256,55 @@
         
         <!-- HEADER (Informations de l'hôtel) -->
         <header class="header text-center text-sm">
-            <h1 class="header-title">TAMISARL (SUITA HOTEL)</h1>
-            <p>Carrefour Bastos, Yaounde, Centre, 2723, Cameroon</p>
-            <p>Phone: 658858585 | Email: reservation@suita-hotel.com</p>
-            <p>URL: www.suita-hotel.com</p>
+            <h1 class="header-title">{{ hotel.name || 'TAMISARL (SUITA HOTEL)' }}</h1>
+            <p>{{ hotel.address || 'Carrefour Bastos, Yaounde, Centre, 2723, Cameroon' }}</p>
+            <p>Phone: {{ hotel.phone || '658858585' }} | Email: {{ hotel.email || 'reservation@suita-hotel.com' }}</p>
+            @if(hotel.website)
+            <p>URL: {{ hotel.website }}</p>
+            @endif
         </header>
 
-        <!-- INFORMATIONS DE LA TRANSACTION ET DU CLIENT (Tableau d'informations) -->
+        <!-- INFORMATIONS DE LA TRANSACTION ET DU CLIENT -->
         <section class="info-section text-sm">
             <div class="info-col-left">
                 <div class="info-item">
-                    <span class="info-label">Receipt:</span> <span class="info-value">REC-7659</span>
+                    <span class="info-label">Receipt:</span> 
+                    <span class="info-value">{{ transaction.transactionNumber || transaction.id }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Table:</span> <span class="info-value">table 9</span>
+                    <span class="info-label">Table:</span> 
+                    <span class="info-value">{{ transaction.tableNumber || 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Guests:</span> <span class="info-value">Mr.GUNDAS KUNTAY // MOUHDJAF MINIG TR</span>
+                    <span class="info-label">Guests:</span> 
+                    <span class="info-value">{{ guest ? (guest.firstName + ' ' + guest.lastName) : 'Guest' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Room Nos:</span> <span class="info-value">504 - Lifestyle Suite</span>
+                    <span class="info-label">Room Nos:</span> 
+                    <span class="info-value">
+                        @if(room && roomType)
+                            {{ room.roomNumber }} - {{ roomType.roomTyeame }}
+                        @else
+                            N/A
+                        @endif
+                    </span>
                 </div>
             </div>
             
             <div class="info-col-right">
                 <div class="info-item">
-                    <span class="info-label">Dates:</span> <span class="info-value">05-08-2025</span>
+                    <span class="info-label">Date:</span> 
+                    <span class="info-value">{{ transaction.createdAt.toFormat('dd-MM-yyyy') }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Times:</span> <span class="info-value">15:03:49</span>
+                    <span class="info-label">Time:</span> 
+                    <span class="info-value">{{ transaction.createdAt.toFormat('HH:mm:ss') }}</span>
                 </div>
             </div>
         </section>
 
         <!-- TABLEAU DES ARTICLES -->
-        <section class="item-table text-sm border-b">
-            <!-- EN-TÊTE DU TABLEAU -->
+        <section class="item-table text-sm">
             <div class="table-header-row">
                 <div class="item-name">Item Name</div>
                 <div class="item-category">Category</div>
@@ -255,69 +313,62 @@
                 <div class="item-amount text-right">Amount</div>
             </div>
 
-            <!-- LIGNE 1 -->
-            <div class="item-row">
-                <div class="item-name">JUS DE BAOBAB</div>
-                <div class="item-category">Boissons</div>
-                <div class="item-qty">1</div>
-                <div class="item-unit">1</div>
-                <div class="item-amount">1 677</div>
-            </div>
-            
-            <!-- LIGNE 2 -->
-            <div class="item-row">
-                <div class="item-name">DOUBLE ESPRESSO+EAU 25CL</div>
-                <div class="item-category">Boissons</div>
-                <div class="item-qty">1</div>
-                <div class="item-unit">1</div>
-                <div class="item-amount">2 515</div>
-            </div>
-
-            <!-- LIGNE 3 -->
-            <div class="item-row">
-                <div class="item-name">Supermont 1,5L</div>
-                <div class="item-category">Boissons</div>
-                <div class="item-qty">1</div>
-                <div class="item-unit">1</div>
-                <div class="item-amount">1 257</div>
-            </div>
+            @if(transaction.items && transaction.items.length > 0)
+                @each(item in transaction.items)
+                <div class="item-row">
+                    <div class="item-name">{{ item.name || item.description }}</div>
+                    <div class="item-category">{{ item.category || 'N/A' }}</div>
+                    <div class="item-qty">{{ item.quantity || 1 }}</div>
+                    <div class="item-unit">{{ item.unitPrice || item.amount }}</div>
+                    <div class="item-amount">{{ item.totalAmount || item.amount }}</div>
+                </div>
+                @endeach
+            @else
+                <div class="item-row">
+                    <div class="item-name">{{ transaction.description || 'Transaction' }}</div>
+                    <div class="item-category">{{ transaction.category || 'Service' }}</div>
+                    <div class="item-qty">1</div>
+                    <div class="item-unit">{{ transaction.amount }}</div>
+                    <div class="item-amount">{{ transaction.amount }}</div>
+                </div>
+            @endif
         </section>
 
         <!-- SECTION DÉTAILS DE LA FACTURE ET TOTAL -->
         <section class="bill-details text-sm">
-            
             <div class="total-row">
                 <div class="total-label">Bill Amount</div>
-                <div class="total-value">5 450</div>
+                <div class="total-value">{{ transaction.subtotal || transaction.amount }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Surcharge</div>
-                <div class="total-value">0</div>
+                <div class="total-value">{{ transaction.surcharge || 0 }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Tax</div>
-                <div class="total-value">1 049</div>
+                <div class="total-value">{{ transaction.taxAmount || 0 }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Discount</div>
-                <div class="total-value">0</div>
+                <div class="total-value">{{ transaction.discount || 0 }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Adjustment</div>
-                <div class="total-value">0</div>
+                <div class="total-value">{{ transaction.adjustment || 0 }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Tip</div>
-                <div class="total-value">0</div>
+                <div class="total-value">{{ transaction.tip || 0 }}</div>
             </div>
             
             <div class="total-row total-payable">
                 <div class="total-label">Payable</div>
-                <div class="total-value">6 500</div>
+                <div class="total-value">{{ transaction.amount }} {{ currency }}</div>
             </div>
         </section>
         
         <!-- SECTION TVA DÉTAILLÉE -->
+        @if(transaction.taxAmount && transaction.taxAmount > 0)
         <section class="tax-section text-sm">
             <div class="tax-header">
                 <div class="tax-col-desc">Description</div>
@@ -326,10 +377,11 @@
             </div>
             <div class="tax-data-row">
                 <div class="tax-col-desc">TVA</div>
-                <div class="tax-col-taxable">5 450</div>
-                <div class="tax-col-tax">1 049</div>
+                <div class="tax-col-taxable">{{ transaction.subtotal || transaction.amount }}</div>
+                <div class="tax-col-tax">{{ transaction.taxAmount }}</div>
             </div>
         </section>
+        @endif
 
         <!-- FOOTER ET SIGNATURES -->
         <footer class="footer">
