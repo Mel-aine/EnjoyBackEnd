@@ -161,7 +161,7 @@ router.get('/swagger/json', async ({ response }) => {
     info: swagger.info,
     host: 'enjoybackend-4udk.onrender.com',
     basePath: '/',
-    schemes: ['http','https'],
+    schemes: ['http', 'https'],
     securityDefinitions: {
       Bearer: {
         type: 'apiKey',
@@ -421,28 +421,28 @@ router
       )
     })
 
-   /* router.group(() => {
-      router.get(
-        '/employment_contracts',
-        employmentContractController.getMultiple.bind(employmentContractController)
-      )
-      router.get(
-        '/employment_contracts/:id',
-        employmentContractController.getOne.bind(employmentContractController)
-      )
-      router.post(
-        '/employment_contracts',
-        employmentContractController.save.bind(employmentContractController)
-      )
-      router.put(
-        '/employment_contracts/:id',
-        employmentContractController.update.bind(employmentContractController)
-      )
-      router.put(
-        '/employment_contracts/:id/terminate',
-        employmentContractController.terminate.bind(employmentContractController)
-      )
-    })*/
+    /* router.group(() => {
+       router.get(
+         '/employment_contracts',
+         employmentContractController.getMultiple.bind(employmentContractController)
+       )
+       router.get(
+         '/employment_contracts/:id',
+         employmentContractController.getOne.bind(employmentContractController)
+       )
+       router.post(
+         '/employment_contracts',
+         employmentContractController.save.bind(employmentContractController)
+       )
+       router.put(
+         '/employment_contracts/:id',
+         employmentContractController.update.bind(employmentContractController)
+       )
+       router.put(
+         '/employment_contracts/:id/terminate',
+         employmentContractController.terminate.bind(employmentContractController)
+       )
+     })*/
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
       router.get('/payroll/:id', payrollController.getOne.bind(payrollController))
@@ -1080,7 +1080,7 @@ router
 
       })
       .prefix('reservation')
-      router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
+    router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
 
     // Configuration routes
     router
@@ -1530,9 +1530,9 @@ router
       reservationsController.getReservationDetails.bind(reservationsController)
     )
 
-router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
-  router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
-  router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
+    router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
+    router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
+    router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
 
     //Payment Method routes
     router
@@ -1606,7 +1606,7 @@ router.get('/reservations/:id', reservationsController.getReservationById.bind(r
 
         // Booking Revisions Feed
         router.get('/booking-revisions/feed', channexMigrationController.getBookingRevisionsFeed.bind(channexMigrationController)) // Fetch booking revisions from Channex and create reservations
-        
+
         router.get('/booking', channexMigrationController.listBookings.bind(channexMigrationController))
         router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
         )

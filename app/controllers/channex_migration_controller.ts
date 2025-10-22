@@ -1201,7 +1201,7 @@ export default class ChannexMigrationController {
         throw new Error(`Hotel with ID ${hotelId} not found`)
       }
   
-      const channexPropertyId = '8ef93c2e-d782-4d2b-8df1-eec9ef79feca'
+      const channexPropertyId = hotel.channexPropertyId;
       
       console.log(`🎯 Synchronisation des 3 DERNIÈRES bookings Channex pour property ${channexPropertyId}`)
   
