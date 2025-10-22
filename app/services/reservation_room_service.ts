@@ -49,7 +49,7 @@ export default class ReservationRoomService {
       .where('hotel_id', hotelId)
       .where('status', 'available')
       .where('housekeeping_status', 'clean')
-      .where('maintenance_status', 'operational')
+
 
     if (roomTypeId) {
       roomQuery.where('room_type_id', roomTypeId)
@@ -57,13 +57,13 @@ export default class ReservationRoomService {
 
     if (adults) {
       roomQuery.whereHas('roomType', (roomTypeQuery) => {
-        roomTypeQuery.where('max_adults', '>=', adults)
+        roomTypeQuery.where('max_adult', '>=', adults)
       })
     }
 
     if (children) {
       roomQuery.whereHas('roomType', (roomTypeQuery) => {
-        roomTypeQuery.where('max_children', '>=', children)
+        roomTypeQuery.where('max_child', '>=', children)
       })
     }
 
@@ -90,7 +90,7 @@ export default class ReservationRoomService {
    */
   async calculateTotalCharges(reservationRoomId: number): Promise<number> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
-    
+
     const totalCharges = (
       (reservationRoom.roomCharges || 0) +
       (reservationRoom.incidentalCharges || 0) +
@@ -128,7 +128,7 @@ export default class ReservationRoomService {
     }
   ): Promise<ReservationRoom> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
-    
+
     if (reservationRoom.status === 'checked_in') {
       throw new Error('Guest is already checked in')
     }
@@ -171,7 +171,7 @@ export default class ReservationRoomService {
     }
   ): Promise<ReservationRoom> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
-    
+
     if (reservationRoom.status === 'checked_out') {
       throw new Error('Guest is already checked out')
     }
@@ -214,7 +214,7 @@ export default class ReservationRoomService {
   ): Promise<ReservationRoom> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
     const oldRoomId = reservationRoom.roomId
-    
+
     // Check if new room is available
     const isAvailable = await this.checkRoomAvailability(
       newRoomId,
@@ -263,11 +263,11 @@ export default class ReservationRoomService {
     upgradedBy: number
   ): Promise<ReservationRoom> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
-    
+
     // Verify that the new room type is actually an upgrade
     //const currentRoomType = await RoomType.findOrFail(reservationRoom.roomTypeId)
     //const newRoomType = await RoomType.findOrFail(newRoomTypeId)
-    
+
     /*if (newRoomType.baseRate <= currentRoomType.baseRate) {
       throw new Error('New room type is not an upgrade')
     }*/
@@ -295,7 +295,7 @@ export default class ReservationRoomService {
     processedBy: number
   ): Promise<ReservationRoom> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
-    
+
     if (reservationRoom.status === 'checked_in') {
       throw new Error('Cannot mark as no-show: guest is already checked in')
     }
@@ -324,7 +324,7 @@ export default class ReservationRoomService {
     cancelledBy: number
   ): Promise<ReservationRoom> {
     const reservationRoom = await ReservationRoom.findOrFail(reservationRoomId)
-    
+
     if (reservationRoom.status === 'checked_in') {
       throw new Error('Cannot cancel: guest is already checked in')
     }
