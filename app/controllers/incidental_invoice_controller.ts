@@ -9,12 +9,12 @@ export default class IncidentalInvoiceController {
    * Create a new incidental invoice
    */
   public async create(ctx: HttpContext) {
-    const { request, response,auth } = ctx
+    const { request, response, auth } = ctx
     try {
       const payload = await request.validateUsing(createIncidentalInvoiceValidator)
-      
-        const invoice = await IncidentalInvoiceService.createIncidentalInvoice(payload, auth.user?.id, ctx)
-      
+
+      const invoice = await IncidentalInvoiceService.createIncidentalInvoice(payload, auth.user?.id, ctx)
+
       return response.status(200).json({
         success: true,
         message: 'Incidental invoice created successfully',
@@ -155,7 +155,7 @@ export default class IncidentalInvoiceController {
   public async void({ params, request, response, auth }: HttpContext) {
     try {
       const { reason } = request.only(['reason'])
-      
+
       if (!reason || reason.trim().length === 0) {
         return response.status(400).json({
           success: false,
@@ -239,19 +239,19 @@ export default class IncidentalInvoiceController {
   public async downloadPdf({ params, response }: HttpContext) {
     try {
       const invoiceId = parseInt(params.id)
-      
+
       // Generate PDF buffer
       const pdfBuffer = await IncidentalInvoiceService.generateInvoicePdf(invoiceId)
-      
+
       // Get invoice details for filename
       const invoice = await IncidentalInvoice.findOrFail(invoiceId)
       const filename = `incidental-invoice-${invoice.invoiceNumber}.pdf`
-      
+
       // Set response headers for PDF download
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${filename}"`)
       response.header('Content-Length', pdfBuffer.length.toString())
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.status(500).json({
@@ -267,15 +267,15 @@ export default class IncidentalInvoiceController {
   public async previewPdf({ params, response }: HttpContext) {
     try {
       const invoiceId = parseInt(params.id)
-      
+
       // Generate PDF buffer
       const pdfBuffer = await IncidentalInvoiceService.generateInvoicePdf(invoiceId)
-      
+
       // Set response headers for PDF preview
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', 'inline')
       response.header('Content-Length', pdfBuffer.length.toString())
-      
+
       return response.send(pdfBuffer)
     } catch (error) {
       return response.status(500).json({

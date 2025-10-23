@@ -795,99 +795,64 @@ export default class DashboardController {
   }
 
   private async getArrivalsData(serviceId: number, targetDate: string, trx: any) {
-    const [arrivalPending, arrivalCheckedIn, totalArrivals] = await Promise.all([
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('arrived_date', targetDate)
-        .where('status', 'confirmed')
-        .count('* as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('arrived_date', targetDate)
-        .where('status', 'checked_in')
-        .count('* as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('arrived_date', targetDate)
-        .whereIn('status', ['confirmed', 'checked_in'])
-        .count('* as total'),
-    ])
+    const grouped = await Reservation.query({ client: trx })
+      .where('hotel_id', serviceId)
+      .where('arrived_date', targetDate)
+      .whereIn('status', ['confirmed', 'checked_in'])
+      .groupBy('status')
+      .select('status')
+      .count('* as total')
+
+    const pending = Number(grouped.find((r) => r.status === 'confirmed')?.$extras.total || 0)
+    const arrived = Number(grouped.find((r) => r.status === 'checked_in')?.$extras.total || 0)
+    const total = pending + arrived
 
     return {
-      arrival: {
-        pending: Number(arrivalPending[0].$extras.total || '0'),
-        arrived: Number(arrivalCheckedIn[0].$extras.total || '0'),
-        total: Number(totalArrivals[0].$extras.total || '0'),
-      },
+      arrival: { pending, arrived, total },
     }
   }
 
   private async getDeparturesData(serviceId: number, targetDate: string, trx: any) {
-    const [departurePending, departureCheckedOut, totalDepartures] = await Promise.all([
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('depart_date', targetDate)
-        .where('status', 'checked_in')
-        .count('* as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('depart_date', targetDate)
-        .where('status', 'checked_out')
-        .count('* as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('depart_date', targetDate)
-        .whereIn('status', ['checked_in', 'checked_out'])
-        .count('* as total'),
-    ])
+    const grouped = await Reservation.query({ client: trx })
+      .where('hotel_id', serviceId)
+      .where('depart_date', targetDate)
+      .whereIn('status', ['checked_in', 'checked_out'])
+      .groupBy('status')
+      .select('status')
+      .count('* as total')
+
+    const pending = Number(grouped.find((r) => r.status === 'checked_in')?.$extras.total || 0)
+    const checkedOut = Number(grouped.find((r) => r.status === 'checked_out')?.$extras.total || 0)
+    const total = pending + checkedOut
 
     return {
-      departure: {
-        pending: Number(departurePending[0].$extras.total || '0'),
-        checkedOut: Number(departureCheckedOut[0].$extras.total || '0'),
-        total: Number(totalDepartures[0].$extras.total || '0'),
-      },
+      departure: { pending, checkedOut, total },
     }
   }
 
   private async getInHouseData(serviceId: number, targetDate: string, trx: any) {
-    const [guestInHouseAdult, guestInHouseChild, totalInHouse] = await Promise.all([
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('status', 'checked_in')
-        .where('arrived_date', '<=', targetDate)
-        .where('depart_date', '>', targetDate)
-        .sum('adults as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('status', 'checked_in')
-        .where('arrived_date', '<=', targetDate)
-        .where('depart_date', '>', targetDate)
-        .sum('children as total'),
-      Reservation.query({ client: trx })
-        .where('hotel_id', serviceId)
-        .where('status', 'checked_in')
-        .where('arrived_date', '<=', targetDate)
-        .where('depart_date', '>', targetDate)
-        .count('* as total'),
-    ])
+    const aggregate = await Reservation.query({ client: trx })
+      .where('hotel_id', serviceId)
+      .where('status', 'checked_in')
+      .where('arrived_date', '<=', targetDate)
+      .where('depart_date', '>=', targetDate)
+      .sum('adults as adults_total')
+      .sum('children as children_total')
+      .count('* as rooms_total')
 
-    const totalGuestsInHouse =
-      Number(guestInHouseAdult[0].$extras.total || '0') +
-      Number(guestInHouseChild[0].$extras.total || '0')
+    const row = aggregate[0]
+    const adult = Number(row?.$extras?.adults_total || 0)
+    const child = Number(row?.$extras?.children_total || 0)
+    const rooms = Number(row?.$extras?.rooms_total || 0)
+    const totalGuests = adult + child
 
     return {
       guestInHouse: {
-        adult: Number(guestInHouseAdult[0].$extras.total || '0'),
-        child: Number(guestInHouseChild[0].$extras.total || '0'),
-        total: Number(totalInHouse[0].$extras.total || '0'),
-        totalGuests: totalGuestsInHouse,
-        averageGuestsPerRoom:
-          Number(totalInHouse[0].$extras.total || '0') > 0
-            ? Math.round(
-              (totalGuestsInHouse / Number(totalInHouse[0].$extras.total || '1')) * 100
-            ) / 100
-            : 0,
+        adult,
+        child,
+        total: rooms,
+        totalGuests,
+        averageGuestsPerRoom: rooms > 0 ? Math.round((totalGuests / rooms) * 100) / 100 : 0,
       },
     }
   }
@@ -895,13 +860,7 @@ export default class DashboardController {
   private async getRoomStatusData(serviceId: number, trx: any, currentDate?: DateTime) {
     const targetDate = currentDate || DateTime.now();
 
-    const [
-      roomStatusCounts,
-      roomStatusDayUse,
-      roomStatusComplimentary,
-      totalRoomsCount,
-      roomBlocksForDate
-    ] = await Promise.all([
+    const [roomStatusCounts, roomStatusDayUse, roomStatusComplimentary, roomBlocksForDate] = await Promise.all([
       Room.query({ client: trx })
         .where('hotel_id', serviceId)
         .groupBy('status')
@@ -916,7 +875,6 @@ export default class DashboardController {
         .where('hotel_id', serviceId)
         .where('complimentary_room', 'true')
         .count('* as total'),
-      Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total'),
       // Récupération des chambres bloquées pour la date donnée
       RoomBlock.query({ client: trx })
         .where('hotel_id', serviceId)
@@ -934,37 +892,38 @@ export default class DashboardController {
       }
     })
 
-    const totalRooms = Number(totalRoomsCount[0].$extras.total || '0')
+    // Optimisation: construire une map des statuts pour éviter des recherches répétées
+    const statusCounts = new Map<string, number>()
+    for (const item of roomStatusCounts) {
+      statusCounts.set(item.status as any, Number(item.$extras.total || 0))
+    }
+
+    // Calculer le total des chambres depuis les comptes groupés
+    const totalRooms = Array.from(statusCounts.values()).reduce((sum, n) => sum + n, 0)
     const occupiedRooms =
-      (Number(roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total) || 0) +
+      (statusCounts.get('occupied') || 0) +
       Number(roomStatusDayUse[0].$extras.total || '0') +
       Number(roomStatusComplimentary[0].$extras.total || '0')
+
     const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
-    const roomsInMaintenanceCount =
-      Number(roomStatusCounts.find((item) => item.status === 'in_maintenance')?.$extras.total) || 0
+    const roomsInMaintenanceCount = statusCounts.get('in_maintenance') || 0
 
     // Nombre de chambres bloquées pour la date
     const blockedRoomsCount = blockedRoomIds.size
 
     return {
       roomStatus: {
-        vacant: Number(
-          roomStatusCounts.find((item) => item.status === 'available')?.$extras.total || '0'
-        ),
-        sold: Number(
-          roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total || '0'
-        ),
+        vacant: statusCounts.get('available') || 0,
+        sold: statusCounts.get('occupied') || 0,
         dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
         complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
-        blocked: Number(
-          roomStatusCounts.find((item) => item.status === 'blocked')?.$extras.total || '0'
-        ),
+        blocked: statusCounts.get('blocked') || 0,
         // Ajout des chambres bloquées par date
         blockedForDate: blockedRoomsCount,
         maintenance: roomsInMaintenanceCount,
         total: totalRooms,
         occupancyRate: occupancyRate,
-        availableRooms: totalRooms - occupiedRooms - roomsInMaintenanceCount - blockedRoomsCount,
+        availableRooms: Math.max(totalRooms - occupiedRooms - roomsInMaintenanceCount - blockedRoomsCount, 0),
       },
       // Détails des chambres bloquées
       blockedRoomsDetails: roomBlocksForDate.map(block => ({
@@ -1023,47 +982,45 @@ export default class DashboardController {
   }
 
   private async getSuiteOccupancyData(serviceId: number, trx: any) {
-    // Preload-based aggregation without manual joins, ordered by sort_order
+    // Aggregated counts by room type to avoid heavy preloads
     const roomTypes = await RoomType
       .query({ client: trx })
       .where('hotel_id', serviceId)
       .orderBy('sort_order', 'asc')
-      .preload('rooms', (roomQuery) => {
-        roomQuery.where('hotel_id', serviceId).select(['id', 'room_type_id', 'hotel_id'])
-      })
+      .select(['id', 'room_type_name', 'sort_order'])
 
-    const checkedInReservations = await Reservation
-      .query({ client: trx })
+    const totalRows = await Database
+      .from('rooms')
       .where('hotel_id', serviceId)
-      .where('status', 'checked_in')
-      .preload('reservationRooms', (rrQuery) => {
-        rrQuery.preload('room', (roomQuery: any) => {
-          roomQuery.select(['id', 'room_type_id', 'hotel_id'])
-        })
-      })
+      .groupBy('room_type_id')
+      .select('room_type_id')
+      .count('* as total')
 
-    // Build occupancy map: roomTypeId -> distinct occupied room ids
-    const occupiedByType = new Map<number, Set<number>>()
-    for (const res of checkedInReservations) {
-      const rrs = (res as any).reservationRooms || []
-      for (const rr of rrs) {
-        const room = (rr as any).room
-        if (!room) continue
-        if (room.hotelId !== serviceId) continue
-        const typeId = room.roomTypeId
-        if (!occupiedByType.has(typeId)) {
-          occupiedByType.set(typeId, new Set<number>())
-        }
-        occupiedByType.get(typeId)!.add(room.id)
-      }
+    const occupiedRows = await Database
+      .from('reservation_rooms')
+      .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+      .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
+      .where('reservations.hotel_id', serviceId)
+      .where('reservations.status', 'checked_in')
+      .groupBy('rooms.room_type_id')
+      .select('rooms.room_type_id')
+      .select(Database.raw('COUNT(DISTINCT reservation_rooms.room_id) AS occupied'))
+
+    const totalMap = new Map<number, number>()
+    for (const row of totalRows) {
+      totalMap.set(Number(row.room_type_id), Number(row.total || 0))
+    }
+
+    const occupiedMap = new Map<number, number>()
+    for (const row of occupiedRows) {
+      occupiedMap.set(Number(row.room_type_id), Number((row as any).occupied || 0))
     }
 
     const suites = roomTypes.map((rt) => {
-      const totalRooms = rt.rooms ? rt.rooms.length : 0
-      const occupied = occupiedByType.get(rt.id)?.size || 0
-      const free = totalRooms - occupied
+      const totalRooms = totalMap.get(rt.id) ?? 0
+      const occupied = occupiedMap.get(rt.id) ?? 0
+      const free = Math.max(totalRooms - occupied, 0)
       const rate = totalRooms > 0 ? (occupied / totalRooms) * 100 : 0
-
       return {
         roomTypeId: rt.id,
         roomTypeName: rt.roomTypeName,
@@ -1074,7 +1031,7 @@ export default class DashboardController {
       }
     })
 
-    return { suites: suites }
+    return { suites }
   }
 
 
@@ -1087,7 +1044,7 @@ export default class DashboardController {
       .groupBy('housekeeping_status')
       .select('housekeeping_status')
       .count('* as total')
-    const totalRooms = await Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total')
+    const totalRooms = [{ $extras: { total: housekeepingStatusCounts.reduce((sum, row) => sum + Number(row.$extras.total || 0), 0) } }]
 
     const blockedCountResult = await RoomBlock.query({ client: trx })
       .where('hotel_id', serviceId)

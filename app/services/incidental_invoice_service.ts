@@ -131,6 +131,7 @@ export default class IncidentalInvoiceService {
           meta: { ...logContext, step: 'generate_folio_number' },
           hotelId: data.hotelId
         })
+        
         const folioNumber = await this.generateFolioNumber(data.hotelId)
         logEntries.push({
           actorId: createdBy,
