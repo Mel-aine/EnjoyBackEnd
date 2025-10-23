@@ -152,7 +152,10 @@ export default class OtaController {
       console.log('Number of nights:', nights)
 
       // Fetch hotel info
-      const hotel = await Hotel.findOrFail(hotelId)
+      const hotel = await Hotel.query()
+        .where('id', hotelId)
+        .preload('roomChargesTaxRates')
+        .firstOrFail()
 
       // Fetch room types avec amenities
       const roomTypes = await RoomType.query()
@@ -273,7 +276,13 @@ export default class OtaController {
           phoneNumber: hotel.phoneNumber,
           address: hotel.address,
           email: hotel.email,
-          taxe: hotel.taxRate ?? 0,
+           taxes: hotel.roomChargesTaxRates?.map(tax => ({
+              id: tax.taxRateId,
+              name: tax.taxName,
+              rate: tax.amount,
+              percent: tax.percentage,
+              type: tax.postingType,
+            })) ?? [],
           policies: hotel.hotelPolicy,
           cancellation: hotel.cancellationPolicy,
           startDate: startDateStr,
