@@ -1,7 +1,8 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import RoomType from '#models/room_type'
-import { createRoomTypeValidator, updateRoomTypeValidator, updateSortOrderValidator } from '#validators/room_type'
+import { createRoomTypeValidator, updateRoomTypeValidator } from '#validators/room_type'
+import logger from '@adonisjs/core/services/logger'
 
 export default class RoomTypesController {
   /**
@@ -313,13 +314,20 @@ export default class RoomTypesController {
    */
   async updateSortOrder({ request, response, auth }: HttpContext) {
     try {
-      const payload = await request.validateUsing(updateSortOrderValidator)
+      logger.info(request)
+      const raw = request.body()
+      const payload = Array.isArray(raw) ? raw : (raw?.mappings || raw?.items || [])
       const userId = auth.user?.id
 
-      // Update each room type's sort order
-      for (const roomTypeData of payload) {
-        const roomType = await RoomType.findOrFail(roomTypeData.id)
-        roomType.sortOrder = roomTypeData.sortOrder
+      for (const item of payload) {
+        const roomTypeId = Number((item as any).id)
+        const sortOrder = Number((item as any).sortOrder)
+        if (!roomTypeId || Number.isNaN(sortOrder)) {
+          // Skip invalid items; no validation error thrown
+          continue
+        }
+        const roomType = await RoomType.findOrFail(roomTypeId)
+        roomType.sortOrder = sortOrder
         roomType.updatedByUserId = userId!
         await roomType.save()
       }
@@ -329,13 +337,6 @@ export default class RoomTypesController {
         data: payload
       })
     } catch (error) {
-      if ((error as any)?.code === 'E_VALIDATION_ERROR' || (error as any)?.code === 'E_VALIDATION_FAILURE' || (error as any)?.messages) {
-        return response.badRequest({
-          message: 'Failed to update sort order',
-          error: 'Validation failure',
-          errors: (error as any).messages
-        })
-      }
       return response.badRequest({
         message: 'Failed to update sort order',
         error: (error as any)?.message || 'Unknown error'

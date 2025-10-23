@@ -6,13 +6,13 @@ import { DateTime } from 'luxon'
 import Task from '#models/task'
 import Reservation from '#models/reservation'
 import Room from '#models/room'
+import RoomType from '#models/room_type'
 import ActivityLog from '#models/activity_log'
 import Guest from '#models/guest'
 import Folio from '#models/folio'
 import ReservationRoom from '#models/reservation_room'
-import FolioTransaction from '#models/folio_transaction'
 import Database from '@adonisjs/lucid/services/db'
-import { FolioStatus, ReservationStatus } from '../enums.js'
+import { ReservationStatus } from '../enums.js'
 
 import RoomBlock from '#models/room_block'
 import WorkOrder from '#models/work_order'
@@ -101,94 +101,94 @@ export default class DashboardController {
     }
   }
 
-//   public async getRevenueStats({ params, request, response }: HttpContext) {
-//     try {
-//       const serviceId = parseInt(params.serviceId)
-//       const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+  //   public async getRevenueStats({ params, request, response }: HttpContext) {
+  //     try {
+  //       const serviceId = parseInt(params.serviceId)
+  //       const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
-//       if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
-//         return response.badRequest({ success: false, message: 'Période invalide' })
-//       }
-
-
-//     return response.ok({ success: true, data: [] })
-//   } catch (error) {
-//     return response.internalServerError({ success: false, message: error.message })
-//   }
-// }
-public async getRevenueStats({ params, request, response }: HttpContext) {
-  try {
-    const serviceId = parseInt(params.serviceId)
-    const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
-
-    if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
-      return response.badRequest({ success: false, message: 'Période invalide' })
-    }
-
-    const now = DateTime.now()
-    const year = now.year
-    const startOfYear = DateTime.local(year, 1, 1).startOf('day').toSQL()
-    const endOfYear = DateTime.local(year, 12, 31).endOf('day').toSQL()
-
-    const previousYear = year - 1
-    const startOfPrevYear = DateTime.local(previousYear, 1, 1).startOf('day').toSQL()
-    const endOfPrevYear = DateTime.local(previousYear, 12, 31).endOf('day').toSQL()
-
-    // Fonction pour calculer progression
-    const calcProgression = (current: number, previous: number) => {
-      return previous === 0 ? (current > 0 ? 100 : 0) : Math.round(((current - previous) / previous) * 100)
-    }
-
-   if (period === 'monthly') {
-      const currentMonthName = now.toFormat('MMM')
-
-      // Revenu de tous les mois
-      const results = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
-        .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
-        .sum('amount as totalRevenue')
-        .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
-        .orderByRaw('MIN(transaction_date)')
-
-      const prevResults = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
-        .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
-        .sum('amount as totalRevenue')
-        .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
-
-      // On ne garde que le mois courant
-      const currentMonthResult = results.find(r => r.month === currentMonthName)
-      const prevMonthResult = prevResults.find(r => r.month === currentMonthName)
-
-      const progression = calcProgression(currentMonthResult?.totalRevenue || 0, prevMonthResult?.totalRevenue || 0)
-
-      return response.ok({
-        success: true,
-        data: [{
-          month: currentMonthName,
-          totalRevenue: currentMonthResult?.totalRevenue || 0,
-          progression
-        }]
-      })
-    }
+  //       if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+  //         return response.badRequest({ success: false, message: 'Période invalide' })
+  //       }
 
 
-    if (period === 'quarterly') {
-      const results = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
-        .select(Database.raw(`
+  //     return response.ok({ success: true, data: [] })
+  //   } catch (error) {
+  //     return response.internalServerError({ success: false, message: error.message })
+  //   }
+  // }
+  public async getRevenueStats({ params, request, response }: HttpContext) {
+    try {
+      const serviceId = parseInt(params.serviceId)
+      const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+
+      if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+        return response.badRequest({ success: false, message: 'Période invalide' })
+      }
+
+      const now = DateTime.now()
+      const year = now.year
+      const startOfYear = DateTime.local(year, 1, 1).startOf('day').toSQL()
+      const endOfYear = DateTime.local(year, 12, 31).endOf('day').toSQL()
+
+      const previousYear = year - 1
+      const startOfPrevYear = DateTime.local(previousYear, 1, 1).startOf('day').toSQL()
+      const endOfPrevYear = DateTime.local(previousYear, 12, 31).endOf('day').toSQL()
+
+      // Fonction pour calculer progression
+      const calcProgression = (current: number, previous: number) => {
+        return previous === 0 ? (current > 0 ? 100 : 0) : Math.round(((current - previous) / previous) * 100)
+      }
+
+      if (period === 'monthly') {
+        const currentMonthName = now.toFormat('MMM')
+
+        // Revenu de tous les mois
+        const results = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
+          .sum('amount as totalRevenue')
+          .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
+          .orderByRaw('MIN(transaction_date)')
+
+        const prevResults = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
+          .sum('amount as totalRevenue')
+          .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
+
+        // On ne garde que le mois courant
+        const currentMonthResult = results.find(r => r.month === currentMonthName)
+        const prevMonthResult = prevResults.find(r => r.month === currentMonthName)
+
+        const progression = calcProgression(currentMonthResult?.totalRevenue || 0, prevMonthResult?.totalRevenue || 0)
+
+        return response.ok({
+          success: true,
+          data: [{
+            month: currentMonthName,
+            totalRevenue: currentMonthResult?.totalRevenue || 0,
+            progression
+          }]
+        })
+      }
+
+
+      if (period === 'quarterly') {
+        const results = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
@@ -196,8 +196,8 @@ public async getRevenueStats({ params, request, response }: HttpContext) {
             ELSE 'Q4'
           END AS quarter
         `))
-        .sum('amount as totalRevenue')
-        .groupByRaw(Database.raw(`
+          .sum('amount as totalRevenue')
+          .groupByRaw(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
@@ -205,15 +205,15 @@ public async getRevenueStats({ params, request, response }: HttpContext) {
             ELSE 'Q4'
           END
         `))
-        .orderByRaw('MIN(transaction_date)')
+          .orderByRaw('MIN(transaction_date)')
 
-      const prevResults = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
-        .select(Database.raw(`
+        const prevResults = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
@@ -221,8 +221,8 @@ public async getRevenueStats({ params, request, response }: HttpContext) {
             ELSE 'Q4'
           END AS quarter
         `))
-        .sum('amount as totalRevenue')
-        .groupByRaw(Database.raw(`
+          .sum('amount as totalRevenue')
+          .groupByRaw(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 4 AND 6 THEN 'Q2'
@@ -231,128 +231,128 @@ public async getRevenueStats({ params, request, response }: HttpContext) {
           END
         `))
 
-     const currentMonth = now.month
-      let currentQuarter = ''
-      if (currentMonth >= 1 && currentMonth <= 3) currentQuarter = 'Q1'
-      else if (currentMonth >= 4 && currentMonth <= 6) currentQuarter = 'Q2'
-      else if (currentMonth >= 7 && currentMonth <= 9) currentQuarter = 'Q3'
-      else currentQuarter = 'Q4'
+        const currentMonth = now.month
+        let currentQuarter = ''
+        if (currentMonth >= 1 && currentMonth <= 3) currentQuarter = 'Q1'
+        else if (currentMonth >= 4 && currentMonth <= 6) currentQuarter = 'Q2'
+        else if (currentMonth >= 7 && currentMonth <= 9) currentQuarter = 'Q3'
+        else currentQuarter = 'Q4'
 
-      const data = results.map(r => {
-        const prev = prevResults.find(p => p.quarter === r.quarter)
-        const progression = calcProgression(r.totalRevenue || 0, prev?.totalRevenue || 0)
-        return { ...r, progression }
-      })
+        const data = results.map(r => {
+          const prev = prevResults.find(p => p.quarter === r.quarter)
+          const progression = calcProgression(r.totalRevenue || 0, prev?.totalRevenue || 0)
+          return { ...r, progression }
+        })
 
-      // On garde seulement le trimestre courant
-      const currentQuarterData = data.find(d => d.quarter === currentQuarter)
+        // On garde seulement le trimestre courant
+        const currentQuarterData = data.find(d => d.quarter === currentQuarter)
 
-      return response.ok({ success: true, data: [currentQuarterData] })
-    }
+        return response.ok({ success: true, data: [currentQuarterData] })
+      }
 
-    if (period === 'semester') {
-      const results = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
-        .select(Database.raw(`
+      if (period === 'semester') {
+        const results = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
             ELSE 'S2'
           END AS semester
         `))
-        .sum('amount as totalRevenue')
-        .groupByRaw(Database.raw(`
+          .sum('amount as totalRevenue')
+          .groupByRaw(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
             ELSE 'S2'
           END
         `))
-        .orderByRaw('MIN(transaction_date)')
+          .orderByRaw('MIN(transaction_date)')
 
-      const prevResults = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
-        .select(Database.raw(`
+        const prevResults = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
             ELSE 'S2'
           END AS semester
         `))
-        .sum('amount as totalRevenue')
-        .groupByRaw(Database.raw(`
+          .sum('amount as totalRevenue')
+          .groupByRaw(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
             ELSE 'S2'
           END
         `))
 
-      const data = results.map(r => {
-        const prev = prevResults.find(p => p.semester === r.semester)
-        const progression = calcProgression(r.totalRevenue || 0, prev?.totalRevenue || 0)
-        return { ...r, progression }
-      })
+        const data = results.map(r => {
+          const prev = prevResults.find(p => p.semester === r.semester)
+          const progression = calcProgression(r.totalRevenue || 0, prev?.totalRevenue || 0)
+          return { ...r, progression }
+        })
 
-      return response.ok({ success: true, data })
+        return response.ok({ success: true, data })
+      }
+
+      if (period === 'yearly') {
+        const result = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .sum('amount as totalRevenue')
+          .first()
+
+        const prevResult = await Database
+          .from('folio_transactions')
+          .where('hotel_id', serviceId)
+          .where('transaction_type', 'payment')
+          .where('is_voided', false)
+          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .sum('amount as totalRevenue')
+          .first()
+
+        const progression = calcProgression(result?.totalRevenue || 0, prevResult?.totalRevenue || 0)
+
+        return response.ok({
+          success: true,
+          data: [{ year: year.toString(), totalRevenue: result?.totalRevenue || 0, progression }]
+        })
+      }
+
+    } catch (error) {
+      return response.internalServerError({ success: false, message: error.message })
     }
+  }
 
-    if (period === 'yearly') {
-      const result = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfYear!, endOfYear!])
-        .sum('amount as totalRevenue')
-        .first()
 
-      const prevResult = await Database
-        .from('folio_transactions')
-        .where('hotel_id', serviceId)
-        .where('transaction_type', 'payment')
-        .where('is_voided', false)
-        .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
-        .sum('amount as totalRevenue')
-        .first()
-
-      const progression = calcProgression(result?.totalRevenue || 0, prevResult?.totalRevenue || 0)
+  public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
+    try {
+      const serviceId = parseInt(params.serviceId)
+      if (!serviceId || isNaN(serviceId)) {
+        return response.badRequest({ success: false, message: 'ID de service invalide' })
+      }
+      const data = await HotelAnalyticsDashboardService.getMonthlyRevenueComparison(serviceId)
 
       return response.ok({
         success: true,
-        data: [{ year: year.toString(), totalRevenue: result?.totalRevenue || 0, progression }]
+        data
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: error.message || 'Erreur serveur'
       })
     }
-
-  } catch (error) {
-    return response.internalServerError({ success: false, message: error.message })
   }
-}
-
-
-public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
-  try {
-    const serviceId = parseInt(params.serviceId)
-    if (!serviceId || isNaN(serviceId)) {
-      return response.badRequest({ success: false, message: 'ID de service invalide' })
-    }
-    const data = await HotelAnalyticsDashboardService.getMonthlyRevenueComparison(serviceId)
-
-    return response.ok({
-      success: true,
-      data
-    })
-  } catch (error) {
-    return response.internalServerError({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    })
-  }
-}
 
   public async averageOccupancyRate({ params, request, response }: HttpContext) {
     const serviceId = parseInt(params.serviceId)
@@ -701,7 +701,7 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
           ...revenueData,
           ...suiteOccupancyData,
           ...housekeepingData,
-          unpaidFoliosData ,
+          unpaidFoliosData,
           ...notificationData,
 
           activityFeeds: Array.isArray(recentActivities) ? recentActivities.map((activity: any) => ({
@@ -742,7 +742,7 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
 
   // Enhanced helper method for activity types
   private getActivityType(action: string): string {
-    const typeMap : any = {
+    const typeMap: any = {
       check_in: 'arrival',
       CHECK_IN: 'arrival',
       check_out: 'departure',
@@ -885,99 +885,99 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
         averageGuestsPerRoom:
           Number(totalInHouse[0].$extras.total || '0') > 0
             ? Math.round(
-                (totalGuestsInHouse / Number(totalInHouse[0].$extras.total || '1')) * 100
-              ) / 100
+              (totalGuestsInHouse / Number(totalInHouse[0].$extras.total || '1')) * 100
+            ) / 100
             : 0,
       },
     }
   }
 
   private async getRoomStatusData(serviceId: number, trx: any, currentDate?: DateTime) {
-  const targetDate = currentDate || DateTime.now();
+    const targetDate = currentDate || DateTime.now();
 
-  const [
-    roomStatusCounts,
-    roomStatusDayUse,
-    roomStatusComplimentary,
-    totalRoomsCount,
-    roomBlocksForDate
-  ] = await Promise.all([
-    Room.query({ client: trx })
-      .where('hotel_id', serviceId)
-      .groupBy('status')
-      .select('status')
-      .count('* as total'),
-    ReservationRoom.query({ client: trx })
-      .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
-      .where('reservations.hotel_id', serviceId)
-      .where('reservation_rooms.status', 'day_use')
-      .count('* as total'),
-    Reservation.query({ client: trx })
-      .where('hotel_id', serviceId)
-      .where('complimentary_room', 'true')
-      .count('* as total'),
-    Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total'),
-    // Récupération des chambres bloquées pour la date donnée
-    RoomBlock.query({ client: trx })
-      .where('hotel_id', serviceId)
-      .where('block_from_date', '<=', targetDate.toFormat('yyyy-MM-dd'))
-      .where('block_to_date', '>=', targetDate.toFormat('yyyy-MM-dd'))
-      .whereNot('status', 'completed')
-      .preload('room')
-  ])
+    const [
+      roomStatusCounts,
+      roomStatusDayUse,
+      roomStatusComplimentary,
+      totalRoomsCount,
+      roomBlocksForDate
+    ] = await Promise.all([
+      Room.query({ client: trx })
+        .where('hotel_id', serviceId)
+        .groupBy('status')
+        .select('status')
+        .count('* as total'),
+      ReservationRoom.query({ client: trx })
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .where('reservations.hotel_id', serviceId)
+        .where('reservation_rooms.status', 'day_use')
+        .count('* as total'),
+      Reservation.query({ client: trx })
+        .where('hotel_id', serviceId)
+        .where('complimentary_room', 'true')
+        .count('* as total'),
+      Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total'),
+      // Récupération des chambres bloquées pour la date donnée
+      RoomBlock.query({ client: trx })
+        .where('hotel_id', serviceId)
+        .where('block_from_date', '<=', targetDate.toFormat('yyyy-MM-dd'))
+        .where('block_to_date', '>=', targetDate.toFormat('yyyy-MM-dd'))
+        .whereNot('status', 'completed')
+        .preload('room')
+    ])
 
-  // Créer un Set des IDs des chambres bloquées
-  const blockedRoomIds = new Set<number>()
-  roomBlocksForDate.forEach(block => {
-    if (block.room) {
-      blockedRoomIds.add(block.room.id)
+    // Créer un Set des IDs des chambres bloquées
+    const blockedRoomIds = new Set<number>()
+    roomBlocksForDate.forEach(block => {
+      if (block.room) {
+        blockedRoomIds.add(block.room.id)
+      }
+    })
+
+    const totalRooms = Number(totalRoomsCount[0].$extras.total || '0')
+    const occupiedRooms =
+      (Number(roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total) || 0) +
+      Number(roomStatusDayUse[0].$extras.total || '0') +
+      Number(roomStatusComplimentary[0].$extras.total || '0')
+    const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
+    const roomsInMaintenanceCount =
+      Number(roomStatusCounts.find((item) => item.status === 'in_maintenance')?.$extras.total) || 0
+
+    // Nombre de chambres bloquées pour la date
+    const blockedRoomsCount = blockedRoomIds.size
+
+    return {
+      roomStatus: {
+        vacant: Number(
+          roomStatusCounts.find((item) => item.status === 'available')?.$extras.total || '0'
+        ),
+        sold: Number(
+          roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total || '0'
+        ),
+        dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
+        complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
+        blocked: Number(
+          roomStatusCounts.find((item) => item.status === 'blocked')?.$extras.total || '0'
+        ),
+        // Ajout des chambres bloquées par date
+        blockedForDate: blockedRoomsCount,
+        maintenance: roomsInMaintenanceCount,
+        total: totalRooms,
+        occupancyRate: occupancyRate,
+        availableRooms: totalRooms - occupiedRooms - roomsInMaintenanceCount - blockedRoomsCount,
+      },
+      // Détails des chambres bloquées
+      blockedRoomsDetails: roomBlocksForDate.map(block => ({
+        blockId: block.id,
+        roomId: block.room?.id,
+        roomNumber: block.room?.roomNumber,
+        blockFromDate: block.blockFromDate,
+        blockToDate: block.blockToDate,
+        blockReason: block.reason || 'Non spécifié',
+        notes: block.description || 'Aucune description',
+      }))
     }
-  })
-
-  const totalRooms = Number(totalRoomsCount[0].$extras.total || '0')
-  const occupiedRooms =
-    (Number(roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total) || 0) +
-    Number(roomStatusDayUse[0].$extras.total || '0') +
-    Number(roomStatusComplimentary[0].$extras.total || '0')
-  const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
-  const roomsInMaintenanceCount =
-    Number(roomStatusCounts.find((item) => item.status === 'in_maintenance')?.$extras.total) || 0
-
-  // Nombre de chambres bloquées pour la date
-  const blockedRoomsCount = blockedRoomIds.size
-
-  return {
-    roomStatus: {
-      vacant: Number(
-        roomStatusCounts.find((item) => item.status === 'available')?.$extras.total || '0'
-      ),
-      sold: Number(
-        roomStatusCounts.find((item) => item.status === 'occupied')?.$extras.total || '0'
-      ),
-      dayUse: Number(roomStatusDayUse[0].$extras.total || '0'),
-      complimentary: Number(roomStatusComplimentary[0].$extras.total || '0'),
-      blocked: Number(
-        roomStatusCounts.find((item) => item.status === 'blocked')?.$extras.total || '0'
-      ),
-      // Ajout des chambres bloquées par date
-      blockedForDate: blockedRoomsCount,
-      maintenance: roomsInMaintenanceCount,
-      total: totalRooms,
-      occupancyRate: occupancyRate,
-      availableRooms: totalRooms - occupiedRooms - roomsInMaintenanceCount - blockedRoomsCount,
-    },
-    // Détails des chambres bloquées
-    blockedRoomsDetails: roomBlocksForDate.map(block => ({
-      blockId: block.id,
-      roomId: block.room?.id,
-      roomNumber: block.room?.roomNumber,
-      blockFromDate: block.blockFromDate,
-      blockToDate: block.blockToDate,
-      blockReason: block.reason || 'Non spécifié',
-      notes: block.description || 'Aucune description',
-    }))
   }
-}
 
   private async getRevenueData(serviceId: number, startDate: DateTime, endDate: DateTime, trx: any) {
     const revenueDataOptimized = await ReservationRoom.query({ client: trx })
@@ -1022,67 +1022,65 @@ public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
     }
   }
 
-private async getSuiteOccupancyData(serviceId: number, trx: any) {
+  private async getSuiteOccupancyData(serviceId: number, trx: any) {
+    // Preload-based aggregation without manual joins, ordered by sort_order
+    const roomTypes = await RoomType
+      .query({ client: trx })
+      .where('hotel_id', serviceId)
+      .orderBy('sort_order', 'asc')
+      .preload('rooms', (roomQuery) => {
+        roomQuery.where('hotel_id', serviceId).select(['id', 'room_type_id', 'hotel_id'])
+      })
 
-  const roomsByType = await Room.query({ client: trx })
-    .where('rooms.hotel_id', serviceId)
-    .join('room_types', 'rooms.room_type_id', 'room_types.id')
-    .groupBy('room_types.id', 'room_types.room_type_name')
-    .select('room_types.id')
-    .select('room_types.room_type_name')
-    .count('* as total_rooms')
+    const checkedInReservations = await Reservation
+      .query({ client: trx })
+      .where('hotel_id', serviceId)
+      .where('status', 'checked_in')
+      .preload('reservationRooms', (rrQuery) => {
+        rrQuery.preload('room', (roomQuery: any) => {
+          roomQuery.select(['id', 'room_type_id', 'hotel_id'])
+        })
+      })
 
-
-  const occupiedByType = await Reservation.query({ client: trx })
-    .where('reservations.hotel_id', serviceId)
-    .where('reservations.status', 'checked_in')
-    .join('reservation_rooms', 'reservations.id', 'reservation_rooms.reservation_id')
-    .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
-    .join('room_types', 'rooms.room_type_id', 'room_types.id')
-    .groupBy('room_types.id', 'room_types.room_type_name')
-    .select('room_types.id')
-    .select('room_types.room_type_name')
-    .count('* as occupied_rooms')
-
-
-
-
-
-  const occupiedMap = occupiedByType.reduce((acc: any, item: any) => {
-    const typeId = item.id || item.room_types_id
-    acc[typeId] = Number(item.$extras?.occupied_rooms || 0)
-    return acc
-  }, {})
-
-
-
-  const result = roomsByType.map((item: any) => {
-    const typeId = item.id || item.room_types_id
-    const roomTypeName = item.$extras?.room_type_name || 'Inconnu'
-    const totalRooms = Number(item.$extras?.total_rooms || 0)
-    const occupied = occupiedMap[typeId] || 0
-    const free = totalRooms - occupied
-    const rate = totalRooms > 0 ? (occupied / totalRooms) * 100 : 0
-
-    return {
-      roomTypeId: typeId,
-      roomTypeName,
-      totalRooms,
-      occupied,
-      free,
-      occupancyRate: rate.toFixed(2) + '%',
+    // Build occupancy map: roomTypeId -> distinct occupied room ids
+    const occupiedByType = new Map<number, Set<number>>()
+    for (const res of checkedInReservations) {
+      const rrs = (res as any).reservationRooms || []
+      for (const rr of rrs) {
+        const room = (rr as any).room
+        if (!room) continue
+        if (room.hotelId !== serviceId) continue
+        const typeId = room.roomTypeId
+        if (!occupiedByType.has(typeId)) {
+          occupiedByType.set(typeId, new Set<number>())
+        }
+        occupiedByType.get(typeId)!.add(room.id)
+      }
     }
-  })
+
+    const suites = roomTypes.map((rt) => {
+      const totalRooms = rt.rooms ? rt.rooms.length : 0
+      const occupied = occupiedByType.get(rt.id)?.size || 0
+      const free = totalRooms - occupied
+      const rate = totalRooms > 0 ? (occupied / totalRooms) * 100 : 0
+
+      return {
+        roomTypeId: rt.id,
+        roomTypeName: rt.roomTypeName,
+        totalRooms,
+        occupied,
+        free,
+        occupancyRate: `${rate.toFixed(2)}%`,
+      }
+    })
+
+    return { suites: suites }
+  }
 
 
 
-  return { suites: result }
-}
 
-
-
-
-  private async getHousekeepingData(serviceId: number, trx: any ,targetDate?: DateTime) {
+  private async getHousekeepingData(serviceId: number, trx: any, targetDate?: DateTime) {
     const date = targetDate || DateTime.now()
     const housekeepingStatusCounts = await Room.query({ client: trx })
       .where('hotel_id', serviceId)
@@ -1091,14 +1089,14 @@ private async getSuiteOccupancyData(serviceId: number, trx: any) {
       .count('* as total')
     const totalRooms = await Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total')
 
-     const blockedCountResult = await RoomBlock.query({ client: trx })
-    .where('hotel_id', serviceId)
-    .where('block_from_date', '<=', date.toFormat('yyyy-MM-dd'))
-    .where('block_to_date', '>=', date.toFormat('yyyy-MM-dd'))
-    .whereNot('status', 'completed')
-    .count('* as total')
+    const blockedCountResult = await RoomBlock.query({ client: trx })
+      .where('hotel_id', serviceId)
+      .where('block_from_date', '<=', date.toFormat('yyyy-MM-dd'))
+      .where('block_to_date', '>=', date.toFormat('yyyy-MM-dd'))
+      .whereNot('status', 'completed')
+      .count('* as total')
 
-  const blockedCount = Number(blockedCountResult[0].$extras.total || 0)
+    const blockedCount = Number(blockedCountResult[0].$extras.total || 0)
 
     return {
       housekeepingStatus: {
@@ -1127,13 +1125,13 @@ private async getSuiteOccupancyData(serviceId: number, trx: any) {
         cleanPercentage:
           Number(totalRooms[0].$extras.total) > 0
             ? Math.round(
-                (Number(
-                  housekeepingStatusCounts.find((item) => item.housekeepingStatus === 'clean')
-                    ?.$extras.total || '0'
-                ) /
-                  Number(totalRooms[0].$extras.total)) *
-                  100
-              )
+              (Number(
+                housekeepingStatusCounts.find((item) => item.housekeepingStatus === 'clean')
+                  ?.$extras.total || '0'
+              ) /
+                Number(totalRooms[0].$extras.total)) *
+              100
+            )
             : 0,
       },
     }
@@ -1259,90 +1257,90 @@ private async getSuiteOccupancyData(serviceId: number, trx: any) {
     }
   }
 
-private async getUnpaidFoliosData(serviceId: number, trx: any, startDate?: string, endDate?: string, status?: string) {
-  const query = Folio.query({ client: trx })
-    .where('hotel_id', serviceId)
-    .where('balance', '>', 0)
-    .where('status', 'open')
-    .whereHas('reservation', (reservationQuery) => {
-      reservationQuery.whereNotIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
+  private async getUnpaidFoliosData(serviceId: number, trx: any, startDate?: string, endDate?: string, status?: string) {
+    const query = Folio.query({ client: trx })
+      .where('hotel_id', serviceId)
+      .where('balance', '>', 0)
+      .where('status', 'open')
+      .whereHas('reservation', (reservationQuery) => {
+        reservationQuery.whereNotIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
 
-      if (startDate) reservationQuery.where('scheduled_arrival_date', '>=', startDate)
-      if (endDate) reservationQuery.where('scheduled_departure_date', '<=', endDate)
+        if (startDate) reservationQuery.where('scheduled_arrival_date', '>=', startDate)
+        if (endDate) reservationQuery.where('scheduled_departure_date', '<=', endDate)
 
-      if (status) {
-        switch (status.toLowerCase()) {
-          case 'checkout':
-            reservationQuery.where('status', ReservationStatus.CHECKED_OUT)
+        if (status) {
+          switch (status.toLowerCase()) {
+            case 'checkout':
+              reservationQuery.where('status', ReservationStatus.CHECKED_OUT)
+              break
+            case 'inhouse':
+              reservationQuery.where('status', ReservationStatus.CHECKED_IN)
+              break
+            case 'noshow':
+              reservationQuery.where('status', ReservationStatus.NOSHOW)
+              break
+            case 'cancelled':
+              reservationQuery.where('status', ReservationStatus.CANCELLED)
+              break
+          }
+        }
+      })
+
+    const unpaidFolios = await query
+      .preload('guest')
+      .preload('reservation', (reservationQuery) => reservationQuery.preload('guest'))
+      .preload('reservationRoom', (roomQuery) => roomQuery.preload('room'))
+      .preload('transactions', (transactionQuery) => transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc'))
+      .orderBy('balance', 'desc')
+      .limit(20)
+
+    const formattedData = unpaidFolios.map(folio => {
+      const reservation = folio.reservation
+      const guest = folio.guest
+      const reservationRoom = folio.reservationRoom
+
+      let displayStatus = reservation?.status
+      if (reservation) {
+        switch (reservation.status) {
+          case ReservationStatus.CHECKED_OUT:
+            displayStatus = 'checkout'
             break
-          case 'inhouse':
-            reservationQuery.where('status', ReservationStatus.CHECKED_IN)
+          case ReservationStatus.CHECKED_IN:
+            displayStatus = 'inhouse'
             break
-          case 'noshow':
-            reservationQuery.where('status', ReservationStatus.NOSHOW)
+          case 'checked_in':
+            displayStatus = 'inhouse'
             break
-          case 'cancelled':
-            reservationQuery.where('status', ReservationStatus.CANCELLED)
+          case ReservationStatus.NOSHOW:
+            displayStatus = 'noshow'
+            break
+          case ReservationStatus.CANCELLED:
+            displayStatus = 'cancelled'
             break
         }
       }
+
+      return {
+        folioNumber: folio.folioNumber,
+        id: folio.id,
+        reservationNumber: reservation?.reservationNumber || reservation?.confirmationCode || 'N/A',
+        guestName: guest ? `${guest.displayName}`.trim() : 'N/A',
+        arrival: reservation?.arrivedDate?.toFormat('yyyy-MM-dd') || 'N/A',
+        departure: reservation?.departDate?.toFormat('yyyy-MM-dd') || 'N/A',
+        status: displayStatus,
+        balance: folio.balance,
+        roomNumber: reservationRoom?.room?.roomNumber || 'N/A',
+        reservationId: reservation?.id,
+      }
     })
 
-  const unpaidFolios = await query
-    .preload('guest')
-    .preload('reservation', (reservationQuery) => reservationQuery.preload('guest'))
-    .preload('reservationRoom', (roomQuery) => roomQuery.preload('room'))
-    .preload('transactions', (transactionQuery) => transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc'))
-    .orderBy('balance', 'desc')
-    .limit(20)
-
-  const formattedData = unpaidFolios.map(folio => {
-    const reservation = folio.reservation
-    const guest = folio.guest
-    const reservationRoom = folio.reservationRoom
-
-    let displayStatus = reservation?.status
-    if (reservation) {
-      switch (reservation.status) {
-        case ReservationStatus.CHECKED_OUT:
-          displayStatus = 'checkout'
-          break
-        case ReservationStatus.CHECKED_IN:
-          displayStatus = 'inhouse'
-          break
-        case 'checked_in':
-          displayStatus = 'inhouse'
-          break
-        case ReservationStatus.NOSHOW:
-          displayStatus = 'noshow'
-          break
-        case ReservationStatus.CANCELLED:
-          displayStatus = 'cancelled'
-          break
+    return {
+      unpaidFolios: {
+        total: formattedData.length,
+        foliosList: formattedData
       }
     }
-
-    return {
-      folioNumber: folio.folioNumber,
-      id: folio.id,
-      reservationNumber: reservation?.reservationNumber || reservation?.confirmationCode || 'N/A',
-      guestName: guest ? `${guest.displayName}`.trim() : 'N/A',
-      arrival: reservation?.arrivedDate?.toFormat('yyyy-MM-dd') || 'N/A',
-      departure: reservation?.departDate?.toFormat('yyyy-MM-dd') || 'N/A',
-      status: displayStatus,
-      balance: folio.balance,
-      roomNumber: reservationRoom?.room?.roomNumber || 'N/A',
-      reservationId: reservation?.id,
-    }
-  })
-
-  return {
-    unpaidFolios: {
-      total: formattedData.length,
-      foliosList: formattedData
-    }
   }
-}
 
 
 }
