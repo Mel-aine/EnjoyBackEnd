@@ -52,6 +52,7 @@ import CityLedgerController from '#controllers/city_ledger_controller'
 import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
+import ChannexController from '#controllers/channex_controller'
 import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '#controllers/audit_trail_controller'
 import EmailAccountsController from '#controllers/email_accounts_controller'
@@ -144,6 +145,7 @@ const cityLedgerController = new CityLedgerController()
 const companyFolioController = new CompanyFolioController()
 const nightAuditController = new NightAuditController()
 const channexMigrationController = new ChannexMigrationController()
+const channexController = new ChannexController()
 const configurationController = new ConfigurationController()
 const auditTrailController = new AuditTrailController()
 const emailAccountsController = new EmailAccountsController()
@@ -163,7 +165,7 @@ router.get('/swagger/json', async ({ response }) => {
     info: swagger.info,
     host: 'enjoybackend-4udk.onrender.com',
     basePath: '/',
-    schemes: ['http','https'],
+    schemes: ['http', 'https'],
     securityDefinitions: {
       Bearer: {
         type: 'apiKey',
@@ -423,28 +425,28 @@ router
       )
     })
 
-   /* router.group(() => {
-      router.get(
-        '/employment_contracts',
-        employmentContractController.getMultiple.bind(employmentContractController)
-      )
-      router.get(
-        '/employment_contracts/:id',
-        employmentContractController.getOne.bind(employmentContractController)
-      )
-      router.post(
-        '/employment_contracts',
-        employmentContractController.save.bind(employmentContractController)
-      )
-      router.put(
-        '/employment_contracts/:id',
-        employmentContractController.update.bind(employmentContractController)
-      )
-      router.put(
-        '/employment_contracts/:id/terminate',
-        employmentContractController.terminate.bind(employmentContractController)
-      )
-    })*/
+    /* router.group(() => {
+       router.get(
+         '/employment_contracts',
+         employmentContractController.getMultiple.bind(employmentContractController)
+       )
+       router.get(
+         '/employment_contracts/:id',
+         employmentContractController.getOne.bind(employmentContractController)
+       )
+       router.post(
+         '/employment_contracts',
+         employmentContractController.save.bind(employmentContractController)
+       )
+       router.put(
+         '/employment_contracts/:id',
+         employmentContractController.update.bind(employmentContractController)
+       )
+       router.put(
+         '/employment_contracts/:id/terminate',
+         employmentContractController.terminate.bind(employmentContractController)
+       )
+     })*/
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
       router.get('/payroll/:id', payrollController.getOne.bind(payrollController))
@@ -1082,7 +1084,7 @@ router
 
       })
       .prefix('reservation')
-      router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
+    router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
 
     // Configuration routes
     router
@@ -1532,9 +1534,9 @@ router
       reservationsController.getReservationDetails.bind(reservationsController)
     )
 
-router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
-  router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
-  router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
+    router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
+    router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
+    router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
 
     //Payment Method routes
     router
@@ -1612,6 +1614,11 @@ router.get('/reservations/:id', reservationsController.getReservationById.bind(r
         router.get('/booking', channexMigrationController.listBookings.bind(channexMigrationController))
         router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
         )
+
+        // ARI endpoints
+        router.get('/properties/:propertyId/availability', channexController.getAvailability.bind(channexController))
+        router.put('/properties/:propertyId/availability', channexController.updateAvailability.bind(channexController))
+        router.put('/properties/:propertyId/restrictions', channexController.updateRestrictions.bind(channexController))
       })
       .prefix('channex');
 

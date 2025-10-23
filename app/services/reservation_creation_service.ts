@@ -1,7 +1,7 @@
 import Reservation from '#models/reservation'
 import ReservationRoom from '#models/reservation_room'
 import Guest from '#models/guest'
-import Room from '#models/room'
+import RoomType from '#models/room_type'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
@@ -11,6 +11,7 @@ import ReservationFolioService from '#services/reservation_folio_service'
 import LoggerService from '#services/logger_service'
 import GuestSummaryService from '#services/guest_summary_service'
 import logger from '@adonisjs/core/services/logger'
+import { ChannexService } from '../services/channex_service.js'
 
 /**
  * Interface pour les données d'une chambre de réservation
@@ -160,6 +161,7 @@ interface ReservationCreationResult {
   message?: string
   error?: string
   validationErrors?: string[]
+  acknowledgedToChannex?: boolean // Nouveau champ pour indiquer si l'accusé a été envoyé
 }
 
 /**
@@ -167,6 +169,136 @@ interface ReservationCreationResult {
  * Suit exactement la même logique que saveReservation du controller
  */
 export default class ReservationCreationService {
+  private static channexService: ChannexService = new ChannexService()
+
+
+/**
+ * Envoie un accusé de réception à Channex pour une réservation créée
+ */
+private static async sendAcknowledgeToChannex(revisionId: string, reservationId: number, userId: number, ctx?: any): Promise<boolean> {
+  try {
+    console.log(`📤 [ACKNOWLEDGE] Envoi accusé avec revision_id: ${revisionId}`)
+    
+    // Vérifier que le revision_id n'est pas vide
+    if (!revisionId || revisionId.trim() === '') {
+      throw new Error('Revision ID est vide')
+    }
+
+    console.log(`🔍 [ACK DETAILS]`, {
+      revision_id: revisionId,
+      reservation_id: reservationId,
+      url: `/booking_revisions/${revisionId}/ack`
+    })
+    
+    // ✅ Utilisation du revision_id avec postAcknowledge
+    await this.channexService.postAcknowledge(revisionId)
+    
+    console.log(`✅ [SUCCESS] Accusé de réception envoyé avec succès pour revision_id: ${revisionId}`)
+    
+    // Logger l'action
+    if (ctx) {
+      await LoggerService.log({
+        actorId: userId,
+        action: 'CHANNEX_ACKNOWLEDGE_SENT',
+        entityType: 'Reservation',
+        entityId: reservationId,
+        description: `Accusé de réception envoyé à Channex pour la réservation ${reservationId}`,
+        meta: {
+          channexRevisionId: revisionId,
+          reservationId: reservationId
+        },
+        ctx,
+      })
+    }
+    
+    return true
+  } catch (error: any) {
+    console.error(`❌ [ACK ERROR] Erreur lors de l'envoi de l'accusé de réception:`, {
+      message: error.message,
+      revision_id: revisionId,
+      reservation_id: reservationId,
+      status: error.response?.status,
+      data: error.response?.data
+    })
+    
+    // Logger l'erreur
+    if (ctx) {
+      await LoggerService.log({
+        actorId: userId,
+        action: 'CHANNEX_ACKNOWLEDGE_FAILED',
+        entityType: 'Reservation',
+        entityId: reservationId,
+        description: `Échec de l'envoi de l'accusé de réception à Channex pour la réservation ${reservationId}`,
+        meta: {
+          channexRevisionId: revisionId,
+          reservationId: reservationId,
+          error: error.message,
+          status: error.response?.status,
+          responseData: error.response?.data
+        },
+        ctx,
+      })
+    }
+    
+    return false
+  }
+}
+
+  /**
+   * Trouve le room_type_id local basé sur channex_room_type_id
+   */
+  private static async findRoomTypeByChannexId(channexRoomTypeId: string, hotelId: number): Promise<number> {
+    try {
+      console.log(`🔍 Recherche room_type_id pour channex_room_type_id: "${channexRoomTypeId}", hotel: ${hotelId}`)
+      
+      if (!channexRoomTypeId) {
+        console.warn('❌ channex_room_type_id est vide, recherche du room type par défaut')
+        return await this.getDefaultRoomType(hotelId)
+      }
+
+      const roomType = await RoomType.query()
+        .where('channex_room_type_id', channexRoomTypeId)
+        .andWhere('hotel_id', hotelId)
+        .first()
+
+      if (roomType) {
+        console.log(`✅ Room type trouvé: ${roomType.id} ("${roomType.name}") pour channex_room_type_id: "${channexRoomTypeId}"`)
+        return roomType.id
+      } else {
+        console.warn(`❌ Aucun room type trouvé pour channex_room_type_id: "${channexRoomTypeId}", utilisation du défaut`)
+        
+        // Log pour debug
+        const availableMappings = await RoomType.query()
+          .where('hotel_id', hotelId)
+          .whereNotNull('channex_room_type_id')
+          .select('id', 'name', 'channex_room_type_id')
+        
+        console.log('📋 Mappings Channex disponibles:', availableMappings)
+        
+        return await this.getDefaultRoomType(hotelId)
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la recherche du room type:', error)
+      return await this.getDefaultRoomType(hotelId)
+    }
+  }
+
+  /**
+   * Récupère un room type par défaut pour l'hôtel
+   */
+  private static async getDefaultRoomType(hotelId: number): Promise<number> {
+    const defaultRoomType = await RoomType.query()
+      .where('hotel_id', hotelId)
+      .first()
+
+    if (!defaultRoomType) {
+      throw new Error(`Aucun room type trouvé pour l'hôtel ${hotelId}`)
+    }
+
+    console.log(`🔧 Utilisation du room type par défaut: ${defaultRoomType.id} ("${defaultRoomType.name}")`)
+    return defaultRoomType.id
+  }
+
   /**
    * Crée une nouvelle réservation avec la même logique que saveReservation
    */
@@ -417,6 +549,7 @@ export default class ReservationCreationService {
           billTo: data.bill_to,
           marketCodeId: data.market_code_id,
           paymentType: data.payment_type,
+          channexBookingId: data.channex_booking_id,
           taxExempt: data.tax_exempt,
           isHold: data.isHold,
           holdReleaseDate:
@@ -674,113 +807,216 @@ export default class ReservationCreationService {
     return errors
   }
 
-  /**
-   * Méthode helper pour créer une réservation depuis Channex
-   */
+/**
+ * Méthode helper pour créer une réservation depuis Channex
+ */
   static async createFromChannex(
-    channexBooking: any,
-    hotelId: number,
-    userId: number,
-    ctx?: any
+  channexBooking: any,
+  hotelId: number,
+  userId: number,
+  ctx?: any
   ): Promise<ReservationCreationResult> {
-    try {
-      console.log('🔍 [DEBUG] Processing Channex booking:', {
-        id: channexBooking.id,
-        status: channexBooking.attributes?.status,
-        customer: channexBooking.attributes?.customer
-      })
+  try {
+    console.log('🔍 [DEBUG] Processing Channex booking:', {
+      id: channexBooking.id,
+      status: channexBooking.attributes?.status,
+      customer: channexBooking.attributes?.customer
+    })
 
-      const bookingData = channexBooking.attributes || channexBooking
+    const bookingData = channexBooking.attributes || channexBooking
 
-      // ✅ CORRECTION: Utilisation sécurisée de mapChannexStatus
-      const mappedStatus = this.mapChannexStatus(bookingData.status)
+    // ✅ RÉCUPÉRATION DIRECTE DU REVISION_ID DEPUIS LES DONNÉES CHANNEX
+    const revisionId = bookingData.revision_id
+    const bookingId = channexBooking.id
 
-      // ✅ CORRECTION: Validation robuste des données client
-      const customer = bookingData.customer || {}
-      const customerName = customer.name || 'Unknown'
-      const customerSurname = customer.surname || 'Guest'
-      const customerEmail = customer.mail || `guest_${channexBooking.id}@channex.placeholder`
-      const customerPhone = customer.phone || null
+    console.log('🎯 [REVISION ID]', {
+      booking_id: bookingId,
+      revision_id: revisionId,
+      has_revision: !!revisionId
+    })
 
-      console.log('🔍 [DEBUG] Customer data processed:', {
-        name: customerName,
-        surname: customerSurname,
-        email: customerEmail,
-        phone: customerPhone
-      })
+    // ✅ CORRECTION: Utilisation sécurisée de mapChannexStatus
+    const mappedStatus = this.mapChannexStatus(bookingData.status)
 
-      // ✅ CORRECTION: Validation et transformation des chambres
-      const rooms = (bookingData.rooms || []).map((room: any, index: number) => {
-        console.log(`🔍 [DEBUG] Processing room ${index + 1}:`, {
-          room_type_id: room.room_type_id,
-          adult_count: room.occupancy?.adults || 0,
-          amount: room.amount
-        })
+    // ✅ CORRECTION: Validation robuste des données client
+    const customer = bookingData.customer || {}
+    const customerName = customer.name || customer.first_name || 'Unknown'
+    const customerSurname = customer.surname || customer.last_name || 'Guest'
+    const customerEmail = customer.mail || customer.email || `guest_${channexBooking.id}@channex.placeholder`
+    const customerPhone = customer.phone || null
 
-        return {
-          room_type_id: room.room_type_id,
-          adult_count: room.occupancy?.adults || 0,
-          child_count: room.occupancy?.children || 0,
-          room_rate: parseFloat(room.amount || '0'),
-          checkin_date: room.checkin_date,
-          checkout_date: room.checkout_date,
-          channex_booking_room_id: room.booking_room_id,
-          is_cancelled: room.is_cancelled || false,
+    console.log('🔍 [DEBUG] Customer data processed:', {
+      name: customerName,
+      surname: customerSurname,
+      email: customerEmail,
+      phone: customerPhone
+    })
+
+    // ✅ CORRECTION: Transformation AVEC MAPPING des chambres
+    const roomsData = bookingData.rooms || bookingData.unit_assignments || []
+    console.log(`🔍 [DEBUG] Raw rooms data to process:`, roomsData.length, 'rooms')
+
+    const rooms = await Promise.all(
+      roomsData.map(async (room: any, index: number) => {
+        try {
+          console.log(`🔍 [DEBUG] Processing room ${index + 1}:`, {
+            unit_group_id: room.unit_group_id,
+            rate_plan_id: room.rate_plan_id,
+            adults: room.occupancy?.adults,
+            children: room.occupancy?.children,
+            amount: room.amount
+          })
+
+          // ✅ CORRECTION: Utiliser unit_group_id ou rate_plan_id comme channex_room_type_id
+          const channexRoomTypeId = room.unit_group_id || room.rate_plan_id
+          
+          if (!channexRoomTypeId) {
+            console.warn(`⚠️ Aucun channex_room_type_id trouvé pour la chambre ${index + 1}, utilisation du défaut`)
+            const defaultRoomTypeId = await this.getDefaultRoomType(hotelId)
+            
+            return {
+              room_type_id: defaultRoomTypeId,
+              adult_count: room.occupancy?.adults || 0,
+              child_count: room.occupancy?.children || 0,
+              room_rate: parseFloat(room.amount || room.rate || '0'),
+              checkin_date: room.checkin_date || bookingData.arrival_date,
+              checkout_date: room.checkout_date || bookingData.departure_date,
+              channex_booking_room_id: room.booking_room_id || room.id,
+              is_cancelled: room.is_cancelled || false,
+            }
+          }
+
+          // ✅ CORRECTION: Trouver le room_type_id local via channex_room_type_id
+          const localRoomTypeId = await this.findRoomTypeByChannexId(channexRoomTypeId, hotelId)
+
+          console.log(`✅ Chambre ${index + 1} mappée:`, {
+            channex_room_type_id: channexRoomTypeId,
+            local_room_type_id: localRoomTypeId,
+            adults: room.occupancy?.adults || 0,
+            children: room.occupancy?.children || 0,
+            rate: room.amount || room.rate
+          })
+
+          return {
+            room_type_id: localRoomTypeId, // ← MAINTENANT UN ENTIER VALIDE !
+            adult_count: room.occupancy?.adults || 0,
+            child_count: room.occupancy?.children || 0,
+            room_rate: parseFloat(room.amount || room.rate || '0'),
+            checkin_date: room.checkin_date || bookingData.arrival_date,
+            checkout_date: room.checkout_date || bookingData.departure_date,
+            channex_booking_room_id: room.booking_room_id || room.id,
+            is_cancelled: room.is_cancelled || false,
+          }
+        } catch (roomError: any) {
+          console.error(`❌ Erreur mapping chambre ${index + 1}:`, roomError.message)
+          // En cas d'erreur, utiliser le room type par défaut
+          const defaultRoomTypeId = await this.getDefaultRoomType(hotelId)
+          
+          return {
+            room_type_id: defaultRoomTypeId,
+            adult_count: room.occupancy?.adults || 0,
+            child_count: room.occupancy?.children || 0,
+            room_rate: parseFloat(room.amount || room.rate || '0'),
+            checkin_date: room.checkin_date || bookingData.arrival_date,
+            checkout_date: room.checkout_date || bookingData.departure_date,
+            channex_booking_room_id: room.booking_room_id || room.id,
+            is_cancelled: room.is_cancelled || false,
+          }
         }
       })
+    )
 
-      console.log('🔍 [DEBUG] Rooms processed:', rooms.length)
+    console.log('🔍 [DEBUG] Rooms processed successfully:', rooms.length)
 
-      // Mapper les données Channex vers notre format
-      const reservationData: ReservationCreationData = {
-        hotel_id: hotelId,
-        arrived_date: bookingData.arrival_date,
-        depart_date: bookingData.departure_date,
-        created_by: userId,
+    // Mapper les données Channex vers notre format
+    const reservationData: ReservationCreationData = {
+      hotel_id: hotelId,
+      arrived_date: bookingData.arrival_date,
+      depart_date: bookingData.departure_date,
+      created_by: userId,
+      
+      // ✅ CORRECTION: Données client sécurisées
+      guest: {
+        firstName: customerName,
+        lastName: customerSurname,
+        email: customerEmail,
+        phone: customerPhone,
+        address: customer.address,
+        city: customer.city,
+        country: customer.country,
+        postalCode: customer.zip,
+        language: customer.language,
+      },
+
+      // ✅ CORRECTION: Chambres transformées AVEC MAPPING
+      rooms: rooms,
+
+      // ✅ CORRECTION: Utilisation du statut mappé
+      status: mappedStatus,
+      total_amount: parseFloat(bookingData.amount || '0'),
+      special_requests: bookingData.notes,
+      payment_type: bookingData.payment_type,
+      channex_booking_id: bookingId,
+      reservation_number: bookingData.unique_id,
+    }
+
+    console.log('🔍 [DEBUG] Final reservation data:', {
+      hotel_id: reservationData.hotel_id,
+      arrived_date: reservationData.arrived_date,
+      depart_date: reservationData.depart_date,
+      guest: `${reservationData.guest?.firstName} ${reservationData.guest?.lastName}`,
+      rooms_count: reservationData.rooms?.length,
+      status: reservationData.status,
+      room_types: reservationData.rooms?.map(r => r.room_type_id),
+      channex_booking_id: reservationData.channex_booking_id,
+      revision_id: revisionId // ← Montrer qu'on a le revision_id
+    })
+
+    // Créer la réservation
+    const creationResult = await this.createReservation(reservationData, ctx)
+
+    // ✅ CORRECTION: ENVOYER L'ACCUSÉ AVEC LE REVISION_ID
+    if (creationResult.success && creationResult.reservationId) {
+      if (revisionId) {
+        console.log(`📤 [ACKNOWLEDGE] Envoi accusé avec revision_id: ${revisionId}`)
         
-        // ✅ CORRECTION: Données client sécurisées
-        guest: {
-          firstName: customerName,
-          lastName: customerSurname,
-          email: customerEmail,
-          phone: customerPhone,
-          address: customer.address,
-          city: customer.city,
-          country: customer.country,
-          postalCode: customer.zip,
-          language: customer.language,
-        },
-
-        // ✅ CORRECTION: Chambres transformées
-        rooms: rooms,
-
-        // ✅ CORRECTION: Utilisation du statut mappé
-        status: mappedStatus,
-        total_amount: parseFloat(bookingData.amount || '0'),
-        special_requests: bookingData.notes,
-        payment_type: bookingData.payment_type,
-        channex_booking_id: channexBooking.id,
-        reservation_number: bookingData.unique_id,
-      }
-
-      console.log('🔍 [DEBUG] Final reservation data:', {
-        hotel_id: reservationData.hotel_id,
-        arrived_date: reservationData.arrived_date,
-        depart_date: reservationData.depart_date,
-        guest: `${reservationData.guest?.firstName} ${reservationData.guest?.lastName}`,
-        rooms_count: reservationData.rooms?.length,
-        status: reservationData.status
-      })
-
-      return await this.createReservation(reservationData, ctx)
-    } catch (error) {
-      console.error('💥 [ERROR] Error in createFromChannex:', error)
-      console.error('💥 [ERROR] Channex booking that caused error:', channexBooking)
-      return {
-        success: false,
-        error: `Failed to process Channex booking: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        const acknowledged = await this.sendAcknowledgeToChannex(
+          revisionId, // ← UTILISER LE REVISION_ID ICI
+          creationResult.reservationId,
+          userId,
+          ctx
+        )
+        
+        // Ajouter l'information d'accusé au résultat
+        creationResult.acknowledgedToChannex = acknowledged
+        
+        if (acknowledged) {
+          creationResult.message += ' (Accusé de réception envoyé à Channex)'
+          console.log(`✅ [SUCCESS] Accusé de réception réussi avec revision_id: ${revisionId}`)
+        } else {
+          creationResult.message += ' (Échec envoi accusé de réception à Channex)'
+          console.warn(`⚠️ [FAILED] Accusé échoué avec revision_id: ${revisionId}`)
+        }
+      } else {
+        console.warn('❌ [SKIP] Aucun revision_id trouvé dans les données Channex')
+        creationResult.message += ' (Aucun revision_id pour accusé)'
+        creationResult.acknowledgedToChannex = false
       }
     }
+
+    return creationResult
+  } catch (error) {
+    console.error('💥 [ERROR] Error in createFromChannex:', error)
+    console.error('💥 [ERROR] Channex booking that caused error:', {
+      id: channexBooking.id,
+      rooms: channexBooking.attributes?.rooms,
+      unit_assignments: channexBooking.attributes?.unit_assignments
+    })
+    return {
+      success: false,
+      error: `Failed to process Channex booking: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    }
+  }
   }
 
   /**

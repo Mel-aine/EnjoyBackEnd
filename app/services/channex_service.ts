@@ -7,15 +7,27 @@ import env from '#start/env'
  * Base URL: https://api.channex.io/v1
  * Authentication: API Key via X-API-Key header
  */
+interface RestrictionData {
+  rate_plan_id: string
+  date_from: string
+  date_to: string
+  closed_to_arrival?: boolean
+  closed_to_departure?: boolean
+  stop_sell?: boolean
+  min_stay_arrival?: number
+  min_stay_through?: number
+  max_stay?: number
+  [key: string]: any
+}
 export class ChannexService {
   private client: AxiosInstance
   private baseURL: string
   private apiKey: string
 
   constructor() {
-    this.apiKey = env.get('CHANNEX_API_KEY')||'uDLcCU1XVVraqAVOGfKNvXqVaTyE73jnmDXdPr8gufyR0SF91CQeIwJjWm2qrOX3'
-    this.baseURL =env.get('CHANNEX_BASE_URL')||'https://staging.channex.io/api/v1'
-    
+    this.apiKey = env.get('CHANNEX_API_KEY') || 'uDLcCU1XVVraqAVOGfKNvXqVaTyE73jnmDXdPr8gufyR0SF91CQeIwJjWm2qrOX3'
+    this.baseURL = env.get('CHANNEX_BASE_URL') || 'https://staging.channex.io/api/v1'
+
     // Initialize HTTP client with base configuration
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -152,7 +164,7 @@ export class ChannexService {
     // Required fields
     title: string
     currency: string // 3 symbols (e.g., "GBP", "USD")
-    
+
     // Optional fields
     email?: string | null
     phone?: string | null
@@ -167,7 +179,7 @@ export class ChannexService {
     facilities?: string[] | null // List of facility IDs
     property_type?: string | null // e.g., "hotel"
     group_id?: string | null // UUID
-    
+
     // Settings object
     settings?: {
       allow_availability_autoupdate_on_confirmation?: boolean
@@ -181,7 +193,7 @@ export class ChannexService {
       cut_off_days?: number
       max_day_advance?: number | null
     }
-    
+
     // Content object
     content?: {
       description?: string
@@ -194,7 +206,7 @@ export class ChannexService {
         description?: string
       }>
     }
-    
+
     logo_url?: string // URL
     website?: string // URL
   }) {
@@ -202,7 +214,7 @@ export class ChannexService {
     const requestData = {
       property: propertyData
     }
-    
+
     return this.post('/properties', requestData)
   }
 
@@ -335,7 +347,7 @@ export class ChannexService {
    * Create a new room type
    * POST /properties/{property_id}/room_types
    */
-  async createRoomType(propertyId: string, roomTypeData: { 
+  async createRoomType(propertyId: string, roomTypeData: {
     [key: string]: any
   }) {
     return this.post(`/room_types`, roomTypeData)
@@ -428,13 +440,16 @@ export class ChannexService {
    * PUT /properties/{property_id}/availability
    */
   async updateAvailability(propertyId: string, availabilityData: {
-    rate_plan_id: string
-    date_from: string
-    date_to: string
-    availability: number
-    [key: string]: any
-  }[]) {
-    return this.put(`/properties/${propertyId}/availability`, availabilityData)
+    "values": {
+      room_type_id: string
+      property_id:string
+      date_from: string
+      date_to: string
+      availability: number
+      [key: string]: any
+    }[]
+  }) {
+    return this.post(`/availability`, availabilityData)
   }
 
   /**
@@ -479,21 +494,12 @@ export class ChannexService {
    * Update restrictions for rate plans
    * PUT /properties/{property_id}/restrictions
    */
-  async updateRestrictions(propertyId: string, restrictionsData: {
-    rate_plan_id: string
-    date_from: string
-    date_to: string
-    closed_to_arrival?: boolean
-    closed_to_departure?: boolean
-    stop_sell?: boolean
-    min_stay_arrival?: number
-    min_stay_through?: number
-    max_stay?: number
-    [key: string]: any
-  }[]) {
-    return this.put(`/properties/${propertyId}/restrictions`, restrictionsData)
-  }
 
+  async updateRestrictions(propertyId: string, restrictionsData: {
+    "values": RestrictionData[]
+  }[]) {
+    return this.post(`/restrictions`, restrictionsData)
+  }
   /**
    * Bulk update ARI (Availability, Rates, and Restrictions)
    * PUT /properties/{property_id}/ari
@@ -618,60 +624,65 @@ export class ChannexService {
     return this.get('/booking_revisions/feed', params)
   }
 
-    // =============================================================================
+  // =============================================================================
   // BOOKINGS API METHODS2
   // =============================================================================
 
-    /**
-   * List bookings for a property
-   * GET /properties/{property_id}/bookings
+  /**
+ * List bookings for a property
+ * GET /properties/{property_id}/bookings
+ */
+  async listBooking() {
+    return this.get(`/bookings`)
+  }
+
+  async getBookingByFilter(params: {
+    page: number,
+    limit: number
+  }) {
+    return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
+  }
+
+  /**
+   * Get a specific booking
+   * GET /properties/{property_id}/bookings/{booking_id}
    */
-    async listBooking() {
-      return this.get(`/bookings`)
-    }
-  
-    async getBookingByFilter( params :{
-      page: number,
-      limit: number}){
-        return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
-      }
+  async getBookings(bookingId: string) {
+    return this.get(`/bookings/${bookingId}`)
+  }
 
-    /**
-     * Get a specific booking
-     * GET /properties/{property_id}/bookings/{booking_id}
-     */
-    async getBookings( bookingId: string) {
-      return this.get(`/bookings/${bookingId}`)
-    }
-    
-    /**
-     * Post Acknowledge Booking Revision receiving
-     * POST /booking_revisions/${id}
-     */
-
-    async postAcknowledge(id:number){
-      return this.post(`/booking_revisions/${id}/ack`)
-    }
-
-      /**
-   * Get booking revisions
-   * GET /properties/{property_id}/bookings/{booking_id}/revisions
+  /**
+   * Post Acknowledge Booking Revision receiving
+   * POST /booking_revisions/${id}
    */
 
-    async getBookingRevision() {
-      return this.get(`/booking_revisions`)
-    }
+  async postAcknowledge(id: string) {
+    return this.post(`/booking_revisions/${id}/ack`)
+  }
 
-      /**
-   * Get booking revisions feed
-   * GET /booking_revisions/feed
-   */
+  /**
+* Get booking revisions
+* GET /properties/{property_id}/bookings/{booking_id}/revisions
+*/
 
-    async getBookingRevisionFeed(params?: { property_id?: string }) {
-      const filter = params && params.property_id ? `?filter[property_id]=${params.property_id}` : '';
-      return this.get(`/booking_revisions/feed${filter}`);
-    }
-  
+  async getBookingRevision() {
+    return this.get(`/booking_revisions`)
+  }
+  async getBookingRevisionById(id: string) {
+    return this.get(`/booking_revisions/${id}`)
+  }
+
+
+  /**
+* Get booking revisions feed
+* GET /booking_revisions/feed
+*/
+
+  async getBookingRevisionFeed(params?: { property_id?: string }) {
+    const filter = params && params.property_id ? `?filter[property_id]=${params.property_id}` : '';
+    return this.get(`/booking_revisions/feed${filter}`);
+  }
+
 
 
 
@@ -888,7 +899,7 @@ export class ChannexService {
    * POST /hotel_policies
    */
   async createHotelPolicy(hotelPolicyData: {
- 
+
     [key: string]: any
   }) {
     return this.post('/hotel_policies', { hotel_policy: hotelPolicyData })
@@ -1029,7 +1040,7 @@ export class ChannexService {
   }): Promise<string> {
     // Import Hotel model dynamically to avoid circular dependencies
     const { default: Hotel } = await import('../models/hotel.js')
-    
+
     // Fetch hotel data
     const hotel = await Hotel.find(hotelId)
     if (!hotel) {
@@ -1048,7 +1059,7 @@ export class ChannexService {
       username: options?.username || 'admin'
     }
 
-    const tokenResponse:any = await this.generateOneTimeToken(tokenData)
+    const tokenResponse: any = await this.generateOneTimeToken(tokenData)
     const oneTimeToken = tokenResponse.data?.token
 
     if (!oneTimeToken) {

@@ -535,6 +535,7 @@ export default class ChannexMigrationController {
       // Fetch room rates from local database
       const roomRates = await RoomRate.query()
         .preload('roomType')
+        .preload('rateType')
         .whereHas('roomType', (query) => {
           query.where('hotel_id', hotelId)
         })
@@ -544,10 +545,10 @@ export default class ChannexMigrationController {
 
       for (const roomRate of roomRates) {
         // Skip if we already processed this room type
-        if (processedRoomTypes.has(roomRate.roomTypeId)) {
+        if (processedRoomTypes.has(roomRate.id)) {
           continue
         }
-        processedRoomTypes.add(roomRate.roomTypeId)
+        processedRoomTypes.add(roomRate.id)
 
         // Find corresponding Channex room type
         if (!roomRate.roomType.channexRoomTypeId) {
@@ -560,10 +561,10 @@ export default class ChannexMigrationController {
 
         const ratePlanData = {
           "rate_plan": {
-            title: `Rate Plan for ${roomRate.roomType.roomTypeName}`,
+            title: `${roomRate.roomType.roomTypeName} ${roomRate.rateType.rateTypeName}`,
             room_type_id: roomRate.roomType.channexRoomTypeId,
             property_id: channexPropertyId,
-            currency: 'XAF',
+            currency: 'XAF',// TODO Change this to de default Cuureny 
             sell_mode: 'per_room',
             rate_mode: 'manual',
             options: [
@@ -590,7 +591,7 @@ export default class ChannexMigrationController {
         const channexRatePlan: any = await this.channexService.createRatePlan(channexPropertyId, ratePlanData)
 
         // Save Channex rate plan ID to local room rate record
-        roomRate.channexRateId = channexRatePlan.id
+        roomRate.channexRateId = channexRatePlan.data.id
         await roomRate.save()
 
         migratedRatePlans.push({
@@ -598,12 +599,12 @@ export default class ChannexMigrationController {
           channexId: channexRatePlan.id,
           name: `${roomRate.roomType.roomTypeName}`,
           roomTypeId: roomRate.roomType.channexRoomTypeId,
-          channexData: channexRatePlan
+          channexData: channexRatePlan,
         })
 
         console.log('Rate plan migrated', {
           localRoomRateId: roomRate.id,
-          channexRatePlanId: channexRatePlan.id,
+          channexRatePlanId: channexRatePlan.data.id,
           roomTypeName: roomRate.roomType.roomTypeName
         })
       }
@@ -1201,7 +1202,7 @@ export default class ChannexMigrationController {
         throw new Error(`Hotel with ID ${hotelId} not found`)
       }
   
-      const channexPropertyId = '8ef93c2e-d782-4d2b-8df1-eec9ef79feca'
+      const channexPropertyId = hotel.channexPropertyId;
       
       console.log(`🎯 Synchronisation des 3 DERNIÈRES bookings Channex pour property ${channexPropertyId}`)
   
@@ -1246,7 +1247,7 @@ export default class ChannexMigrationController {
       })
   
       // 🎯 MODIFICATION: Traiter uniquement les 3 dernières réservations
-      for (const booking of lastThreeBookings) {
+      for (const booking of ourBookings) {
         try {
           const bookingData = booking.attributes
           const bookingId = booking.id

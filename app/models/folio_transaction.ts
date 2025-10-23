@@ -365,6 +365,23 @@ export default class FolioTransaction extends BaseModel {
   @column()
   declare internalNotes: string
 
+   @column({
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => value ? JSON.stringify(value) : null,
+    consume: (value: string | object | null) => {
+      if (value === null) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return typeof value === 'object' ? value : null;
+    }
+  })
+  declare itemSummary: object | null
+
   @column()
   declare guestNotes: string
 

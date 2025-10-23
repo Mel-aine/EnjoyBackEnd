@@ -364,7 +364,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      const balanceSummary = this.calculateBalanceSummary(reservation.folios)
+      const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
       console.log('💰 Balance summary calculated:', balanceSummary)
 
       // Check if there's an outstanding balance
@@ -867,7 +867,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ])
         })
         .preload('folios', (query) => {
-          query.preload('transactions')
+          query.preload('transactions', (tq) => {
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED)
+          })
         })
 
         .preload('bookingSource')
@@ -880,7 +882,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .preload('roomRates', (queryRoom: any) => {
               queryRoom.preload('rateType')
             })
-            .preload('roomType')
         })
         .first()
 
@@ -889,7 +890,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Calculate balance summary from folio transactions
-      const balanceSummary = this.calculateBalanceSummary(reservation.folios)
+      const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
 
       // Calculate average daily rate
       const avgDailyRate = this.calculateAvgDailyRate(reservation)
@@ -919,7 +920,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * Calculate balance summary from folio transactions
    */
-  private calculateBalanceSummary(folios: any[]) {
+  public static calculateBalanceSummary(folios: any[]) {
     let totalCharges = 0
     let totalPayments = 0
     let totalAdjustments = 0
@@ -1887,7 +1888,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Calculate balanceSummary and availableActions for each reservation
       const enrichedReservations = reservations.map((reservation) => {
-        const balanceSummary = this.calculateBalanceSummary(reservation.folios)
+        const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
         const availableActions = this.getAvailableActions(
           reservation,
           JSON.parse(auth.user?.permisPrivileges || '[]')
@@ -2184,7 +2185,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .firstOrFail()
 
       // Calculer balanceSummary et availableActions
-      const balanceSummary = this.calculateBalanceSummary(reservation.folios)
+      const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
       const availableActions = this.getAvailableActions(
         reservation,
         JSON.parse(auth.user?.permisPrivileges || '[]')
@@ -2896,7 +2897,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .first()
 
       if (updatedFolio) {
-        const balance = this.calculateBalanceSummary([updatedFolio])
+        const balance = ReservationsController.calculateBalanceSummary([updatedFolio])
         let newPaymentStatus = reservation.paymentStatus
 
         if (balance.outstandingBalance <= 0) {
@@ -3560,7 +3561,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         await trx.commit()
 
         // Calculate balance using calculateBalanceSummary to ensure transfers are handled
-        const balanceSummary = this.calculateBalanceSummary([sourceFolio])
+        const balanceSummary = ReservationsController.calculateBalanceSummary([sourceFolio])
         const amountToTransfer = Math.abs(balanceSummary.outstandingBalance || 0)
 
         // If payments exist on the source folio, move ALL transactions to the destination folio
@@ -5424,7 +5425,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (!reservation) {
         return response.notFound({ message: 'Reservation not found' })
       }
-      const totalsSummary = this.calculateBalanceSummary(reservation.folios)
+      const totalsSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
 
       logger.info(totalsSummary)
       // Generate guest card HTML content
