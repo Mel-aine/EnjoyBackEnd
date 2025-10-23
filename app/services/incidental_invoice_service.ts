@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import IncidentalInvoice from '#models/incidental_invoice'
 import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
+import ExtraCharge from '#models/extra_charge'
 import Guest from '#models/guest'
 import Hotel from '#models/hotel'
 import PaymentMethod from '#models/payment_method'
@@ -82,417 +83,530 @@ export default class IncidentalInvoiceService {
       actorId: createdBy,
       action: 'CREATE',
       entityType: 'incidental_invoice',
-      entityId: 'process_start',
+      entityId: 0,
       description: 'Starting incidental invoice creation process',
       ctx: ctx,
       meta: logContext,
       hotelId: data.hotelId
     })
 
-    return await db.transaction(async (trx) => {
-      try {
-        let folio: Folio | null = null
-        let invoice: IncidentalInvoice | null = null
-        const transactions = []
+    try {
+      let folio: Folio | null = null
+      let invoice: IncidentalInvoice | null = null
+      const transactions = []
 
-        // 1. Validate guest and hotel
-        logEntries.push({
-          actorId: createdBy,
-          action: 'UPDATE',
-          entityType: 'incidental_invoice',
-          entityId: 'validation',
-          description: 'Validating guest and hotel',
-          ctx: ctx,
-          meta: { ...logContext, step: 'validate_entities' },
-          hotelId: data.hotelId
-        })
-        const guest = await Guest.findOrFail(data.guestId)
-        const paymentMethod = await PaymentMethod.findOrFail(data.paymentMethodId)
-        const hotel = await Hotel.findOrFail(data.hotelId)
-        logEntries.push({
-          actorId: createdBy,
-          action: 'UPDATE',
-          entityType: 'incidental_invoice',
-          entityId: 'validation_success',
-          description: `Entities validated - Guest: ${guest.firstName} ${guest.lastName}, Payment: ${paymentMethod.methodName}`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'validate_entities', guestName: `${guest.firstName} ${guest.lastName}`, hotelName: hotel.hotelName },
-          hotelId: data.hotelId
-        })
+      // 1. Validate guest and hotel
+      logEntries.push({
+        actorId: createdBy,
+        action: 'UPDATE',
+        entityType: 'incidental_invoice',
+        entityId: 0,
+        description: 'Validating guest and hotel',
+        ctx: ctx,
+        meta: { ...logContext, step: 'validate_entities' },
+        hotelId: data.hotelId
+      })
+      const guest = await Guest.findOrFail(data.guestId)
+      const paymentMethod = await PaymentMethod.findOrFail(data.paymentMethodId)
+      const hotel = await Hotel.findOrFail(data.hotelId)
+      logEntries.push({
+        actorId: createdBy,
+        action: 'UPDATE',
+        entityType: 'incidental_invoice',
+        entityId: 0,
+        description: `Entities validated - Guest: ${guest.firstName} ${guest.lastName}, Payment: ${paymentMethod.methodName}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'validate_entities', guestName: `${guest.firstName} ${guest.lastName}`, hotelName: hotel.hotelName },
+        hotelId: data.hotelId
+      })
 
-        // 2. Generate folio number
-        logEntries.push({
-          actorId: createdBy,
-          action: 'UPDATE',
-          entityType: 'incidental_invoice',
-          entityId: 'folio_generation',
-          description: 'Generating folio number',
-          ctx: ctx,
-          meta: { ...logContext, step: 'generate_folio_number' },
-          hotelId: data.hotelId
-        })
-        
-        const folioNumber = await this.generateFolioNumber(data.hotelId)
-        logEntries.push({
-          actorId: createdBy,
-          action: 'UPDATE',
-          entityType: 'incidental_invoice',
-          entityId: 'folio_generation_success',
-          description: `Folio number generated: ${folioNumber}`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'generate_folio_number', folioNumber },
-          hotelId: data.hotelId
-        })
+      // 2. Generate folio number
+      logEntries.push({
+        actorId: createdBy,
+        action: 'UPDATE',
+        entityType: 'incidental_invoice',
+        entityId: 0,
+        description: 'Generating folio number',
+        ctx: ctx,
+        meta: { ...logContext, step: 'generate_folio_number' },
+        hotelId: data.hotelId
+      })
 
-        // 3. Create the folio with "Voice Incidence" type
-        logEntries.push({
-          actorId: createdBy,
-          action: 'CREATE',
-          entityType: 'folio',
-          entityId: 'creation_start',
-          description: 'Creating folio for voice incidence',
-          ctx: ctx,
-          meta: { ...logContext, step: 'create_folio' },
-          hotelId: data.hotelId
-        })
-        folio = await Folio.create({
-          hotelId: data.hotelId,
-          guestId: data.guestId,
-          folioNumber: folioNumber,
-          folioName: `Voice Incidence - ${guest.firstName} ${guest.lastName}`,
-          folioType: FolioType.VOICE_INCIDENTAL, // Using correct enum value for incidental folios
-          status: FolioStatus.OPEN,
-          settlementStatus: SettlementStatus.SETTLED,
-          workflowStatus: WorkflowStatus.ACTIVE,
-          openedDate: data.date,
-          openedBy: createdBy,
-          totalCharges: 0,
-          totalPayments: 0,
-          totalAdjustments: 0,
-          totalTaxes: 0,
-          totalServiceCharges: 0,
-          totalDiscounts: 0,
-          balance: 0,
-          creditLimit: 0,
-          currencyCode: 'XAF',
-          exchangeRate: 1.0,
-          createdBy: createdBy,
-          lastModifiedBy: createdBy
-        }, { client: trx })
-        logEntries.push({
-          actorId: createdBy,
-          action: 'CREATE',
-          entityType: 'folio',
-          entityId: folio.id,
-          description: `Folio created successfully with ID: ${folio.id}`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'create_folio', folioId: folio.id },
-          hotelId: data.hotelId
-        })
+      const folioNumber = await this.generateFolioNumber(data.hotelId)
+      logEntries.push({
+        actorId: createdBy,
+        action: 'UPDATE',
+        entityType: 'incidental_invoice',
+        entityId: 0,
+        description: `Folio number generated: ${folioNumber}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'generate_folio_number', folioNumber },
+        hotelId: data.hotelId
+      })
 
-        // 4. Calculate totals
-        let totalCharges = 0
-        let totalTaxes = 0
-        let totalDiscounts = 0
+      // 3. Create the folio with "Voice Incidence" type
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'folio',
+        entityId: 'creation_start',
+        description: 'Creating folio for voice incidence',
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_folio' },
+        hotelId: data.hotelId
+      })
+      folio = await Folio.create({
+        hotelId: data.hotelId,
+        guestId: data.guestId,
+        folioNumber: folioNumber,
+        folioName: `VC-${guest.firstName} ${guest.lastName}`,
+        folioType: FolioType.VOICE_INCIDENTAL, // Using correct enum value for incidental folios
+        status: FolioStatus.OPEN,
+        settlementStatus: SettlementStatus.SETTLED,
+        workflowStatus: WorkflowStatus.ACTIVE,
+        openedDate: data.date,
+        openedBy: createdBy,
+        totalCharges: 0,
+        totalPayments: 0,
+        totalAdjustments: 0,
+        totalTaxes: 0,
+        totalServiceCharges: 0,
+        totalDiscounts: 0,
+        balance: 0,
+        creditLimit: 0,
+        currencyCode: 'XAF',
+        exchangeRate: 1.0,
+        createdBy: createdBy,
+        lastModifiedBy: createdBy
+      })
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'folio',
+        entityId: folio.id,
+        description: `Folio created successfully with ID: ${folio.id}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_folio', folioId: folio.id },
+        hotelId: data.hotelId
+      })
 
-        // 5. Create charge transactions
-        logEntries.push({
-          actorId: createdBy,
-          action: 'CREATE',
-          entityType: 'folio_transaction',
-          entityId: 'charges_start',
-          description: `Creating ${data.charges.length} charge transactions`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'create_charges', chargeCount: data.charges.length },
-          hotelId: data.hotelId
-        })
-        for (const [index, charge] of data.charges.entries()) {
-          const transactionNumber = await this.generateTransactionNumber(data.hotelId)
+      // 4. Calculate totals
+      let totalCharges = 0
+      let totalTaxes = 0
+      let totalDiscounts = 0
 
-          // Use provided taxAmount or calculate default
-          const taxAmount = charge.taxAmount || (charge.amount * 0.1)
-          const unitPrice = charge.unitPrice || (charge.amount / charge.quantity)
-          const netAmount = charge.amount
-          const grossAmount = charge.amount + taxAmount
+      // 5. Create charge transactions
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'folio_transaction',
+        entityId: 'charges_start',
+        description: `Creating ${data.charges.length} charge transactions`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_charges', chargeCount: data.charges.length },
+        hotelId: data.hotelId
+      })
+      for (const [index, charge] of data.charges.entries()) {
+        const transactionNumber = await this.generateTransactionNumber(data.hotelId)
 
-          const transaction = await FolioTransaction.create({
-            hotelId: data.hotelId,
-            folioId: folio.id,
-            transactionNumber: transactionNumber,
-            transactionCode: generateTransactionCode('CHG'),
-            transactionType: charge.transactionType ? TransactionType.CHARGE : TransactionType.CHARGE,
-            category: this.mapChargeCategory(charge.category),
-            description: charge.description || 'Incidental Charge',
-            particular: charge.description || 'Voice Incidence Charge',
-            extraChargeId: charge.extraChargeId || null,
-            amount: charge.amount,
-            totalAmount: grossAmount,
-            quantity: charge.quantity,
-            unitPrice: unitPrice,
-            taxAmount: taxAmount,
-            taxRate: taxAmount / charge.amount,
-            serviceChargeAmount: 0,
-            serviceChargeRate: 0,
-            discountAmount: 0,
-            discountRate: 0,
-            netAmount: netAmount,
-            grossAmount: grossAmount,
-            transactionDate: data.date,
-            transactionTime: '00:00:00',
-            postingDate: data.date,
-            serviceDate: data.date,
-            status: TransactionStatus.POSTED,
-            createdBy: createdBy,
-            lastModifiedBy: createdBy
-          }, { client: trx })
+        const quantity = Number(charge.quantity) || 1
+        const inclusiveAmount = Number(charge.amount) || 0
 
-          transactions.push(transaction)
-          totalCharges += charge.amount
-          totalTaxes += taxAmount
-
-          logEntries.push({
-            actorId: createdBy,
-            action: 'CREATE',
-            entityType: 'folio_transaction',
-            entityId: transaction.id,
-            description: `Charge transaction ${index + 1} created: ${charge.description}`,
-            ctx: ctx,
-            meta: { ...logContext, step: 'create_charges', transactionId: transaction.id, amount: charge.amount },
-            hotelId: data.hotelId
-          })
+        // Load tax rates from ExtraCharge if available
+        let taxRates: any[] = []
+        if (charge.extraChargeId) {
+          const extraCharge = await ExtraCharge.query()
+            .where('id', charge.extraChargeId)
+            .preload('taxRates')
+            .first()
+          taxRates = extraCharge?.taxRates ?? []
         }
 
-        const grandTotal = totalCharges + totalTaxes - totalDiscounts
+        // Compute percentage and flat sums
+        let percentageSum = 0
+        let flatSum = 0
+        for (const tax of taxRates) {
+          if (tax.postingType === 'flat_percentage' && tax.percentage) {
+            percentageSum += Number(tax.percentage) || 0
+          } else if (tax.postingType === 'flat_amount' && tax.amount) {
+            flatSum += Number(tax.amount) || 0
+          }
+        }
+        const percRate = percentageSum > 0 ? (percentageSum / 100) : 0
 
-        // 6. Create payment transaction that matches folio balance
-        logEntries.push({
-          actorId: createdBy,
-          action: 'CREATE',
-          entityType: 'folio_transaction',
-          entityId: 'payment_start',
-          description: `Creating payment transaction for amount: ${grandTotal}`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'create_payment', amount: grandTotal },
-          hotelId: data.hotelId
-        })
-        const paymentTransactionNumber = await this.generateTransactionNumber(data.hotelId)
-        const paymentTransaction = await FolioTransaction.create({
+        // Derive net amount from inclusive amount
+        let netAmount = inclusiveAmount
+        if (taxRates.length > 0) {
+          netAmount = Math.max(0, +(((inclusiveAmount - flatSum) / (1 + percRate)).toFixed(2)))
+        }
+
+        // Per-tax breakdown
+        const taxBreakdown: { taxRateId: number, shortName: string, taxAmount: number, percentage: number }[] = []
+        let totalTaxAmount = 0
+        for (const tax of taxRates) {
+          let tAmt = 0
+          if (tax.postingType === 'flat_percentage' && tax.percentage) {
+            tAmt = +(netAmount * ((Number(tax.percentage) || 0) / 100)).toFixed(2)
+          } else if (tax.postingType === 'flat_amount' && tax.amount) {
+            tAmt = +(Number(tax.amount) || 0)
+          }
+          if (tAmt > 0) {
+            totalTaxAmount += tAmt
+            taxBreakdown.push({
+              taxRateId: tax.taxRateId,
+              shortName: tax.shortName,
+              taxAmount: tAmt,
+              percentage: Number(tax.percentage) || 0
+            })
+          }
+        }
+
+        // Adjust net to ensure net + taxes equals inclusive amount
+        if (taxRates.length > 0) {
+          netAmount = +((inclusiveAmount - totalTaxAmount).toFixed(2))
+        }
+
+        const unitPrice = charge.unitPrice ? Number(charge.unitPrice) : +(netAmount / quantity).toFixed(6)
+
+        // Create the main charge transaction as net (taxes posted separately)
+        const transaction = await FolioTransaction.create({
           hotelId: data.hotelId,
           folioId: folio.id,
-          transactionNumber: paymentTransactionNumber,
-          transactionCode: generateTransactionCode('PY'),
-          transactionType: TransactionType.PAYMENT,
-          category: TransactionCategory.PAYMENT,
-          description: `Payment - ${data.paymentType}`,
-          particular: 'Payment Received',
-          amount: -grandTotal, // Negative for payment
-          totalAmount: -grandTotal,
-          quantity: 1,
-          unitPrice: -grandTotal,
+          transactionNumber: transactionNumber,
+          transactionCode: generateTransactionCode('CHG'),
+          transactionType: TransactionType.CHARGE,
+          category: this.mapChargeCategory(charge.category),
+          description: charge.description || 'Incidental Charge',
+          particular: `${charge.description??''} - QT(${charge.quantity})`,
+          extraChargeId: charge.extraChargeId || null,
+          amount: netAmount,
+          totalAmount: netAmount,
+          quantity: quantity,
+          unitPrice: unitPrice,
           taxAmount: 0,
-          taxRate: 0,
+          taxRate: percRate,
           serviceChargeAmount: 0,
           serviceChargeRate: 0,
           discountAmount: 0,
           discountRate: 0,
-          netAmount: -grandTotal,
-          grossAmount: -grandTotal,
+          netAmount: netAmount,
+          grossAmount: netAmount,
           transactionDate: data.date,
           transactionTime: '00:00:00',
           postingDate: data.date,
           serviceDate: data.date,
-          paymentMethodId: data.paymentMethodId,
           status: TransactionStatus.POSTED,
           createdBy: createdBy,
           lastModifiedBy: createdBy
-        }, { client: trx })
+        })
 
-        transactions.push(paymentTransaction)
+        // Attach tax breakdown on pivot
+        if (taxBreakdown.length > 0) {
+          const attachData: Record<number, { tax_amount: number, tax_rate_percentage: number, taxable_amount: number }> = {}
+          for (const tb of taxBreakdown) {
+            attachData[tb.taxRateId] = {
+              tax_amount: tb.taxAmount,
+              tax_rate_percentage: tb.percentage,
+              taxable_amount: netAmount
+            }
+          }
+          await transaction.related('taxes').attach(attachData)
+        }
+
+        transactions.push(transaction)
+        totalCharges += netAmount
+        totalTaxes += totalTaxAmount
+
         logEntries.push({
           actorId: createdBy,
           action: 'CREATE',
           entityType: 'folio_transaction',
-          entityId: paymentTransaction.id,
-          description: `Payment transaction created with ID: ${paymentTransaction.id}`,
+          entityId: transaction.id,
+          description: `Charge transaction ${index + 1} created: ${charge.description}`,
           ctx: ctx,
-          meta: { ...logContext, step: 'create_payment', transactionId: paymentTransaction.id },
+          meta: { ...logContext, step: 'create_charges', transactionId: transaction.id, amount: netAmount },
           hotelId: data.hotelId
         })
 
-        // 7. Update folio totals and mark as settled
-        logEntries.push({
-          actorId: createdBy,
-          action: 'UPDATE',
-          entityType: 'folio',
-          entityId: folio.id,
-          description: 'Updating folio totals and settling',
-          ctx: ctx,
-          meta: { ...logContext, step: 'update_folio', totalCharges, totalTaxes, grandTotal },
-          hotelId: data.hotelId
-        })
-        await folio.useTransaction(trx).merge({
-          totalCharges: totalCharges,
-          totalPayments: grandTotal,
-          totalTaxes: totalTaxes,
-          totalDiscounts: totalDiscounts,
-          balance: 0, // Should be zero since payment matches charges
-          settlementStatus: SettlementStatus.SETTLED,
-          // settlementDate: data.date,
-          status: FolioStatus.CLOSED,
-          workflowStatus: WorkflowStatus.FINALIZED,
-          closedDate: data.date,
-          // finalizedDate: data.date,
-          closedBy: createdBy,
-          lastModifiedBy: createdBy
-        }).save()
-        logEntries.push({
-          actorId: createdBy,
-          action: 'UPDATE',
-          entityType: 'folio',
-          entityId: folio.id,
-          description: 'Folio updated and settled successfully',
-          ctx: ctx,
-          meta: { ...logContext, step: 'update_folio', folioId: folio.id },
-          hotelId: data.hotelId
-        })
+        // Create individual tax transactions
+        for (const tb of taxBreakdown) {
+          const taxTransactionNumber = await this.generateTransactionNumber(data.hotelId)
+          const taxTransaction = await FolioTransaction.create({
+            hotelId: data.hotelId,
+            folioId: folio.id,
+            transactionNumber: taxTransactionNumber,
+            transactionCode: generateTransactionCode('TAX'),
+            transactionType: TransactionType.TAX,
+            category: TransactionCategory.TAX,
+            description: `${tb.shortName} - ${charge.description || 'Incidental Charge'}`,
+            particular: `Tax ${tb.shortName}`,
+            extraChargeId: charge.extraChargeId || null,
+            amount: tb.taxAmount,
+            totalAmount: tb.taxAmount,
+            quantity: 1,
+            unitPrice: tb.taxAmount,
+            taxAmount: tb.taxAmount,
+            taxRate: (tb.percentage || 0) / 100,
+            serviceChargeAmount: 0,
+            serviceChargeRate: 0,
+            discountAmount: 0,
+            discountRate: 0,
+            netAmount: tb.taxAmount,
+            grossAmount: tb.taxAmount,
+            transactionDate: data.date,
+            transactionTime: '00:00:00',
+            postingDate: data.date,
+            serviceDate: data.date,
+            originalTransactionId: transaction.id,
+            status: TransactionStatus.POSTED,
+            createdBy: createdBy,
+            lastModifiedBy: createdBy
+          })
 
-        // 8. Generate invoice number and reference number
-        logEntries.push({
-          actorId: createdBy,
-          action: 'GENERATE',
-          entityType: 'incidental_invoice',
-          entityId: 'number_generation',
-          description: 'Generating invoice and reference numbers',
-          ctx: ctx,
-          meta: { ...logContext, step: 'generate_numbers' },
-          hotelId: data.hotelId
-        })
-        const invoiceNumber = await IncidentalInvoice.generateInvoiceNumber(data.hotelId)
-        const referenceNumber = data.referenceNumber || await this.generateReferenceNumber(data.hotelId)
-        logEntries.push({
-          actorId: createdBy,
-          action: 'GENERATE',
-          entityType: 'incidental_invoice',
-          entityId: 'number_generation',
-          description: `Numbers generated - Invoice: ${invoiceNumber}, Reference: ${referenceNumber}`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'generate_numbers', invoiceNumber, referenceNumber },
-          hotelId: data.hotelId
-        })
-
-        // 9. Create the incidental invoice
-        logEntries.push({
-          actorId: createdBy,
-          action: 'CREATE',
-          entityType: 'incidental_invoice',
-          entityId: 'invoice_start',
-          description: 'Creating incidental invoice record',
-          ctx: ctx,
-          meta: { ...logContext, step: 'create_invoice' },
-          hotelId: data.hotelId
-        })
-        invoice = await IncidentalInvoice.create({
-          hotelId: data.hotelId,
-          folioId: folio.id,
-          guestId: data.guestId,
-          invoiceNumber: invoiceNumber,
-          referenceNumber: referenceNumber,
-          invoiceDate: data.date,
-          totalAmount: totalCharges,
-          taxAmount: totalTaxes,
-          serviceChargeAmount: 0,
-          discountAmount: totalDiscounts,
-          netAmount: grandTotal,
-          currencyCode: 'USD',
-          exchangeRate: 1.0,
-          baseCurrencyAmount: grandTotal,
-          paymentMethodId: data.paymentMethodId,
-          paymentType: data.paymentType,
-          status: 'paid', // Since payment was made
-          type: 'Voice Incidence',
-          description: data.description,
-          notes: data.notes,
-          billingName: data.billingName,
-          billingAddress: data.billingAddress,
-          billingCity: data.billingCity,
-          billingState: data.billingState,
-          billingZip: data.billingZip,
-          billingCountry: data.billingCountry,
-          emailInvoice: data.emailInvoice || false,
-          emailAddress: data.emailAddress,
-          paymentMethod: paymentMethod.methodName,
-          amount: grandTotal,
-          dueDate: data.dueDate,
-          paidDate: data.date,
-          paidAmount: grandTotal,
-          outstandingAmount: 0,
-          createdBy: createdBy,
-          lastModifiedBy: createdBy
-        }, { client: trx })
-        logEntries.push({
-          actorId: createdBy,
-          action: 'CREATE',
-          entityType: 'incidental_invoice',
-          entityId: invoice.id,
-          description: `Incidental invoice created successfully with ID: ${invoice.id}`,
-          ctx: ctx,
-          meta: { ...logContext, step: 'create_invoice', invoiceId: invoice.id, invoiceNumber },
-          hotelId: data.hotelId
-        })
-
-        // 10. Load relationships for response
-        logEntries.push({
-          actorId: createdBy,
-          action: 'READ',
-          entityType: 'incidental_invoice',
-          entityId: invoice.id,
-          description: 'Loading relationships for response',
-          ctx: ctx,
-          meta: { ...logContext, step: 'load_relationships' },
-          hotelId: data.hotelId
-        })
-        await invoice.load('hotel')
-        await invoice.load('folio')
-        await invoice.load('guest')
-        await folio.load('transactions')
-
-        logEntries.push({
-          actorId: createdBy,
-          action: 'COMPLETE',
-          entityType: 'incidental_invoice',
-          entityId: invoice.id,
-          description: 'Incidental invoice creation completed successfully',
-          ctx: ctx,
-          meta: { ...logContext, step: 'complete', invoiceId: invoice.id, folioId: folio.id },
-          hotelId: data.hotelId
-        })
-
-        // Bulk log all entries at once
-        await LoggerService.bulkLog(logEntries)
-
-        return {
-          invoice,
-          folio,
-          transactions
+          transactions.push(taxTransaction)
+          logEntries.push({
+            actorId: createdBy,
+            action: 'CREATE',
+            entityType: 'folio_transaction',
+            entityId: taxTransaction.id,
+            description: `Tax transaction created: ${tb.shortName} (${tb.taxAmount})`,
+            ctx: ctx,
+            meta: { ...logContext, step: 'create_taxes', transactionId: taxTransaction.id, taxRateId: tb.taxRateId, amount: tb.taxAmount, parentTransactionId: transaction.id },
+            hotelId: data.hotelId
+          })
         }
-      } catch (error) {
-        // Log the error using bulk logging
-        const errorLogEntry = {
-          actorId: createdBy,
-          action: 'ERROR',
-          entityType: 'incidental_invoice',
-          entityId: 'creation_error',
-          description: `Error creating incidental invoice: ${error.message}`,
-          ctx: ctx,
-          meta: { ...logContext, error: error.message, stack: error.stack },
-          hotelId: data.hotelId
-        }
-        await LoggerService.bulkLog([errorLogEntry])
-
-        // Transaction will automatically rollback due to the error
-        throw new Error(`Failed to create incidental invoice: ${error.message}`)
       }
-    })
+
+      const grandTotal = totalCharges + totalTaxes - totalDiscounts
+
+      // 6. Create payment transaction that matches folio balance
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'folio_transaction',
+        entityId: 'payment_start',
+        description: `Creating payment transaction for amount: ${grandTotal}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_payment', amount: grandTotal },
+        hotelId: data.hotelId
+      })
+      const paymentTransactionNumber = await this.generateTransactionNumber(data.hotelId)
+      const paymentTransaction = await FolioTransaction.create({
+        hotelId: data.hotelId,
+        folioId: folio.id,
+        transactionNumber: paymentTransactionNumber,
+        transactionCode: generateTransactionCode('PY'),
+        transactionType: TransactionType.PAYMENT,
+        category: TransactionCategory.PAYMENT,
+        description: `Payment - ${data.paymentType}`,
+        particular: 'Payment Received',
+        amount: -grandTotal, // Negative for payment
+        totalAmount: -grandTotal,
+        quantity: 1,
+        unitPrice: -grandTotal,
+        taxAmount: 0,
+        taxRate: 0,
+        serviceChargeAmount: 0,
+        serviceChargeRate: 0,
+        discountAmount: 0,
+        discountRate: 0,
+        netAmount: -grandTotal,
+        grossAmount: -grandTotal,
+        transactionDate: data.date,
+        transactionTime: '00:00:00',
+        postingDate: data.date,
+        serviceDate: data.date,
+        paymentMethodId: data.paymentMethodId,
+        status: TransactionStatus.POSTED,
+        createdBy: createdBy,
+        lastModifiedBy: createdBy
+      })
+
+      transactions.push(paymentTransaction)
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'folio_transaction',
+        entityId: paymentTransaction.id,
+        description: `Payment transaction created with ID: ${paymentTransaction.id}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_payment', transactionId: paymentTransaction.id },
+        hotelId: data.hotelId
+      })
+
+      // 7. Update folio totals and mark as settled
+      logEntries.push({
+        actorId: createdBy,
+        action: 'UPDATE',
+        entityType: 'folio',
+        entityId: folio.id,
+        description: 'Updating folio totals and settling',
+        ctx: ctx,
+        meta: { ...logContext, step: 'update_folio', totalCharges, totalTaxes, grandTotal },
+        hotelId: data.hotelId
+      })
+      await folio.merge({
+        totalCharges: totalCharges,
+        totalPayments: grandTotal,
+        totalTaxes: totalTaxes,
+        totalDiscounts: totalDiscounts,
+        balance: 0, // Should be zero since payment matches charges
+        settlementStatus: SettlementStatus.SETTLED,
+        // settlementDate: data.date,
+        status: FolioStatus.CLOSED,
+        workflowStatus: WorkflowStatus.FINALIZED,
+        closedDate: data.date,
+        // finalizedDate: data.date,
+        closedBy: createdBy,
+        lastModifiedBy: createdBy
+      }).save()
+      logEntries.push({
+        actorId: createdBy,
+        action: 'UPDATE',
+        entityType: 'folio',
+        entityId: folio.id,
+        description: 'Folio updated and settled successfully',
+        ctx: ctx,
+        meta: { ...logContext, step: 'update_folio', folioId: folio.id },
+        hotelId: data.hotelId
+      })
+
+      // 8. Generate invoice number and reference number
+      logEntries.push({
+        actorId: createdBy,
+        action: 'GENERATE',
+        entityType: 'incidental_invoice',
+        entityId: 'number_generation',
+        description: 'Generating invoice and reference numbers',
+        ctx: ctx,
+        meta: { ...logContext, step: 'generate_numbers' },
+        hotelId: data.hotelId
+      })
+      const invoiceNumber = await IncidentalInvoice.generateInvoiceNumber(data.hotelId)
+      const referenceNumber = data.referenceNumber || await this.generateReferenceNumber(data.hotelId)
+      logEntries.push({
+        actorId: createdBy,
+        action: 'GENERATE',
+        entityType: 'incidental_invoice',
+        entityId: 'number_generation',
+        description: `Numbers generated - Invoice: ${invoiceNumber}, Reference: ${referenceNumber}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'generate_numbers', invoiceNumber, referenceNumber },
+        hotelId: data.hotelId
+      })
+
+      // 9. Create the incidental invoice
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'incidental_invoice',
+        entityId: 'invoice_start',
+        description: 'Creating incidental invoice record',
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_invoice' },
+        hotelId: data.hotelId
+      })
+      invoice = await IncidentalInvoice.create({
+        hotelId: data.hotelId,
+        folioId: folio.id,
+        guestId: data.guestId,
+        invoiceNumber: invoiceNumber,
+        referenceNumber: referenceNumber,
+        invoiceDate: data.date,
+        totalAmount: totalCharges,
+        taxAmount: totalTaxes,
+        serviceChargeAmount: 0,
+        discountAmount: totalDiscounts,
+        netAmount: grandTotal,
+        currencyCode: 'USD',
+        exchangeRate: 1.0,
+        baseCurrencyAmount: grandTotal,
+        paymentMethodId: data.paymentMethodId,
+        paymentType: data.paymentType,
+        status: 'paid', // Since payment was made
+        type: 'Voice Incidence',
+        description: data.description,
+        notes: data.notes,
+        billingName: data.billingName,
+        billingAddress: data.billingAddress,
+        billingCity: data.billingCity,
+        billingState: data.billingState,
+        billingZip: data.billingZip,
+        billingCountry: data.billingCountry,
+        emailInvoice: data.emailInvoice || false,
+        emailAddress: data.emailAddress,
+        paymentMethod: paymentMethod.methodName,
+        amount: grandTotal,
+        dueDate: data.dueDate,
+        paidDate: data.date,
+        paidAmount: grandTotal,
+        outstandingAmount: 0,
+        createdBy: createdBy,
+        lastModifiedBy: createdBy
+      })
+      logEntries.push({
+        actorId: createdBy,
+        action: 'CREATE',
+        entityType: 'incidental_invoice',
+        entityId: invoice.id,
+        description: `Incidental invoice created successfully with ID: ${invoice.id}`,
+        ctx: ctx,
+        meta: { ...logContext, step: 'create_invoice', invoiceId: invoice.id, invoiceNumber },
+        hotelId: data.hotelId
+      })
+
+      // 10. Load relationships for response
+      logEntries.push({
+        actorId: createdBy,
+        action: 'READ',
+        entityType: 'incidental_invoice',
+        entityId: invoice.id,
+        description: 'Loading relationships for response',
+        ctx: ctx,
+        meta: { ...logContext, step: 'load_relationships' },
+        hotelId: data.hotelId
+      })
+      await invoice.load('hotel')
+      await invoice.load('folio')
+      await invoice.load('guest')
+      await folio.load('transactions')
+
+      logEntries.push({
+        actorId: createdBy,
+        action: 'COMPLETE',
+        entityType: 'incidental_invoice',
+        entityId: invoice.id,
+        description: 'Incidental invoice creation completed successfully',
+        ctx: ctx,
+        meta: { ...logContext, step: 'complete', invoiceId: invoice.id, folioId: folio.id },
+        hotelId: data.hotelId
+      })
+
+      // Bulk log all entries at once
+      await LoggerService.bulkLog(logEntries)
+
+      return {
+        invoice,
+        folio,
+        transactions
+      }
+    } catch (error) {
+      // Log the error using bulk logging
+      const errorLogEntry = {
+        actorId: createdBy,
+        action: 'ERROR',
+        entityType: 'incidental_invoice',
+        entityId: 'creation_error',
+        description: `Error creating incidental invoice: ${error.message}`,
+        ctx: ctx,
+        meta: { ...logContext, error: error.message, stack: error.stack },
+        hotelId: data.hotelId
+      }
+      await LoggerService.bulkLog([errorLogEntry])
+
+      // Transaction will automatically rollback due to the error
+      throw new Error(`Failed to create incidental invoice: ${error.message}`)
+    }
   }
 
   /**
@@ -527,8 +641,8 @@ export default class IncidentalInvoiceService {
     if (filters.status) {
       query.where('status', filters.status)
     }
-    if(filters.hideVoided){
-      query.whereNot('status','voided')
+    if (filters.hideVoided) {
+      query.whereNot('status', 'voided')
     }
     if (filters.type) {
       query.where('type', filters.type)
@@ -654,8 +768,8 @@ export default class IncidentalInvoiceService {
             entityType: 'folio_transaction',
             entityId: transaction.id,
             description: `Voided transaction ${transaction.transactionNumber} - ${transaction.description}`,
-            meta: { 
-              voidReason, 
+            meta: {
+              voidReason,
               transactionNumber: transaction.transactionNumber,
               amount: transaction.amount,
               transactionType: transaction.transactionType
@@ -682,8 +796,8 @@ export default class IncidentalInvoiceService {
         entityType: 'folio',
         entityId: invoice.folio.id,
         description: `Voided folio ${invoice.folio.folioNumber}`,
-        meta: { 
-          voidReason, 
+        meta: {
+          voidReason,
           folioNumber: invoice.folio.folioNumber,
           balance: invoice.folio.balance
         },
@@ -705,8 +819,8 @@ export default class IncidentalInvoiceService {
         entityType: 'incidental_invoice',
         entityId: invoice.id,
         description: `Successfully voided incidental invoice ${invoice.invoiceNumber}`,
-        meta: { 
-          voidReason, 
+        meta: {
+          voidReason,
           invoiceNumber: invoice.invoiceNumber,
           totalAmount: invoice.totalAmount,
           transactionsVoided: transactions.length
