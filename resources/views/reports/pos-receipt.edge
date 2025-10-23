@@ -84,7 +84,7 @@
         }
 
         .info-label {
-            font-weight: 700;
+            font-weight: 800;
             width: 30%;
             min-width: 60px; /* Largeur minimale pour les labels */
         }
@@ -97,7 +97,7 @@
         .item-table {
             width: 100%;
             margin-top: 0;
-            padding: 0 20px; /* Suppression du padding en haut et en bas */
+            padding: 0; /* Suppression de tout padding */
             overflow: hidden; /* Empêche le débordement */
         }
 
@@ -105,13 +105,13 @@
             display: flex;
             font-weight: 700;
             border-bottom: 1px solid black;
-            padding-bottom: 5px;
+            padding: 5px 20px; /* Padding interne mais la bordure touche les bords */
             margin-bottom: 5px;
         }
 
         .item-row {
             display: flex;
-            padding: 2px 0;
+            padding: 2px 20px; /* Ajout du padding horizontal pour aligner avec le header */
             line-height: 1.4;
         }
 
@@ -156,6 +156,7 @@
         .total-label {
             text-align: left;
             width: 60%;
+            font-weight: 800;
         }
 
         .total-value {
@@ -283,7 +284,7 @@
                     <span class="info-label">Room Nos:</span> 
                     <span class="info-value">
                         @if(room && roomType)
-                            {{ room.roomNumber }} - {{ roomType.roomTyeame }}
+                            {{ room.roomNumber }} - {{ roomType.roomTypeName }}
                         @else
                             N/A
                         @endif
@@ -361,14 +362,14 @@
                 <div class="total-value">{{ transaction.tip || 0 }}</div>
             </div>
             
-            <div class="total-row total-payable">
+            <div class="total-row">
                 <div class="total-label">Payable</div>
                 <div class="total-value">{{ transaction.amount }} {{ currency }}</div>
             </div>
         </section>
         
         <!-- SECTION TVA DÉTAILLÉE -->
-        @if(transaction.taxAmount && transaction.taxAmount > 0)
+        
         <section class="tax-section text-sm">
             <div class="tax-header">
                 <div class="tax-col-desc">Description</div>
@@ -381,7 +382,7 @@
                 <div class="tax-col-tax">{{ transaction.taxAmount }}</div>
             </div>
         </section>
-        @endif
+    
 
         <!-- FOOTER ET SIGNATURES -->
         <footer class="footer">
