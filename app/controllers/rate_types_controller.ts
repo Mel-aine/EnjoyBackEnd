@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import RateType from '#models/rate_type'
-import RoomType from '#models/room_type'
 import { createRateTypeValidator, updateRateTypeValidator } from '#validators/rate_type'
 import Database from '@adonisjs/lucid/services/db'
 import RoomRate from '../models/room_rate.js'
@@ -24,7 +23,9 @@ export default class RateTypesController {
 
       const query = RateType.query()
         .preload('hotel')
-        .preload('roomTypes')
+        .preload('roomTypes', (roomTypesQuery) => {
+          roomTypesQuery.orderBy('sort_order', 'asc')
+        })
         .preload('createdByUser')
         .preload('updatedByUser')
 
@@ -146,159 +147,159 @@ export default class RateTypesController {
       })
     }
   }
-/***
- * get Rates by hotel id with room rates
- * @param {*} params
- * @returns
- */
-async getRatesByHotelId({ params, response }: HttpContext) {
-  try {
-    const rateTypes = await RateType.query()
-      .where('hotel_id', params.hotelId)
-      .where('is_deleted', false)
-      .preload('roomTypes', (roomTypesQuery) => {
-        roomTypesQuery.preload('roomRates')
-      })
-      let res:any =[]
-    // Filter room rates to match the rate type after preloading
-    for (const rateType of rateTypes) {
+  /***
+   * get Rates by hotel id with room rates
+   * @param {*} params
+   * @returns
+   */
+  async getRatesByHotelId({ params, response }: HttpContext) {
+    try {
+      const rateTypes = await RateType.query()
+        .where('hotel_id', params.hotelId)
+        .where('is_deleted', false)
+        .preload('roomTypes', (roomTypesQuery) => {
+          roomTypesQuery.preload('roomRates')
+        })
+      let res: any = []
+      // Filter room rates to match the rate type after preloading
+      for (const rateType of rateTypes) {
 
-      let rate = {
-        rateTypeName:rateType.rateTypeName,
-        rateTypeId:rateType.id,
-        roomTypes: [] as any[]
+        let rate = {
+          rateTypeName: rateType.rateTypeName,
+          rateTypeId: rateType.id,
+          roomTypes: [] as any[]
 
-      }
-      for (const roomType of rateType.roomTypes) {
-        const rates= roomType.roomRates.filter(rate => rate.rateTypeId === rateType.id)
-        let roomT = {
-          roomTypeName: roomType.roomTypeName,
-          roomTypeId:roomType.id,
-          roomRate: (rates && rates.length>0)?rates[0].baseRate:null
         }
-        rate.roomTypes.push(roomT)
-      }
-      res.push(rate)
-    }
-    return response.ok({
-      message: 'Rate types retrieved successfully',
-      data: res
-    })
-  } catch (error) {
-    return response.badRequest({
-      message: 'Failed to retrieve rate types',
-      error: error.message
-    })
-  }
-}
-
-
-/**
- * Get rate types with full room rate details for a specific room type
- * This includes baseRate, mealPlan, taxes, etc.
- */
-async getRatesByHotelIdAndRoomType({ params, response }: HttpContext) {
-  try {
-    const { hotelId, roomTypeId } = params
-
-    if (!hotelId) {
-      return response.badRequest({
-        message: 'hotelId is required'
-      })
-    }
-
-    if (!roomTypeId) {
-      return response.badRequest({
-        message: 'roomTypeId is required'
-      })
-    }
-
-    const rateTypes = await RateType.query()
-      .where('hotel_id', hotelId)
-      .where('is_deleted', false)
-      .preload('roomTypes', (roomTypesQuery) => {
-        roomTypesQuery
-          .where('room_types.id', roomTypeId)
-          .preload('roomRates', (roomRatesQuery) => {
-            roomRatesQuery
-              .where('status', 'active')
-              .preload('mealPlan', (mealPlanQuery) => {
-                mealPlanQuery.preload('extraCharges')
-              })
-              .preload('rateType')
-              .preload('season')
-              .orderBy('created_at', 'desc')
-          })
-      })
-
-    const result = []
-
-    for (const rateType of rateTypes) {
-      // Only include rate types that have rates for this room type
-      if (rateType.roomTypes.length > 0) {
-        const roomType = rateType.roomTypes[0]
-
-        // Get the most recent active rate for this combination
-        const activeRate = roomType.roomRates.find(
-          rate => rate.rateTypeId === rateType.id && rate.status === 'active'
-        )
-
-        if (activeRate) {
-          result.push({
-            rateTypeId: rateType.id,
-            rateTypeName: rateType.rateTypeName,
-            shortCode: rateType.shortCode,
-            isPackage: rateType.isPackage,
-            status: rateType.status,
-            roomTypeId: roomType.id,
+        for (const roomType of rateType.roomTypes) {
+          const rates = roomType.roomRates.filter(rate => rate.rateTypeId === rateType.id)
+          let roomT = {
             roomTypeName: roomType.roomTypeName,
-            // Rate details
-            baseRate: activeRate.baseRate,
-            extraAdultRate: activeRate.extraAdultRate,
-            extraChildRate: activeRate.extraChildRate,
-            taxInclude: activeRate.taxInclude,
-            mealPlanRateInclude: activeRate.mealPlanRateInclude,
-            mealPlanId: activeRate.mealPlanId,
-            mealPlan: activeRate.mealPlan ? {
-              id: activeRate.mealPlan.id,
-              name: activeRate.mealPlan.name,
-              shortCode: activeRate.mealPlan.shortCode,
-              description: activeRate.mealPlan.description,
-              isAllInclusive: activeRate.mealPlan.isAllInclusive,
-              extraCharges: activeRate.mealPlan.extraCharges?.map(charge => ({
-                id: charge.id,
-                name: charge.name,
-                shortCode: charge.shortCode,
-                rate: charge.rate,
-                rateInclusiveTax: charge.rateInclusiveTax,
-                fixedPrice: charge.fixedPrice,
-                description: charge.description
-              })) || []
-            } : null,
-            seasonId: activeRate.seasonId,
-            season: activeRate.season,
-            effectiveFrom: activeRate.effectiveFrom,
-            effectiveTo: activeRate.effectiveTo,
-            minimumNights: activeRate.minimumNights,
-            maximumNights: activeRate.maximumNights,
-            rateId: activeRate.id
-          })
+            roomTypeId: roomType.id,
+            roomRate: (rates && rates.length > 0) ? rates[0].baseRate : null
+          }
+          rate.roomTypes.push(roomT)
+        }
+        res.push(rate)
+      }
+      return response.ok({
+        message: 'Rate types retrieved successfully',
+        data: res
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to retrieve rate types',
+        error: error.message
+      })
+    }
+  }
+
+
+  /**
+   * Get rate types with full room rate details for a specific room type
+   * This includes baseRate, mealPlan, taxes, etc.
+   */
+  async getRatesByHotelIdAndRoomType({ params, response }: HttpContext) {
+    try {
+      const { hotelId, roomTypeId } = params
+
+      if (!hotelId) {
+        return response.badRequest({
+          message: 'hotelId is required'
+        })
+      }
+
+      if (!roomTypeId) {
+        return response.badRequest({
+          message: 'roomTypeId is required'
+        })
+      }
+
+      const rateTypes = await RateType.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .preload('roomTypes', (roomTypesQuery) => {
+          roomTypesQuery
+            .where('room_types.id', roomTypeId)
+            .preload('roomRates', (roomRatesQuery) => {
+              roomRatesQuery
+                .where('status', 'active')
+                .preload('mealPlan', (mealPlanQuery) => {
+                  mealPlanQuery.preload('extraCharges')
+                })
+                .preload('rateType')
+                .preload('season')
+                .orderBy('created_at', 'desc')
+            })
+        })
+
+      const result = []
+
+      for (const rateType of rateTypes) {
+        // Only include rate types that have rates for this room type
+        if (rateType.roomTypes.length > 0) {
+          const roomType = rateType.roomTypes[0]
+
+          // Get the most recent active rate for this combination
+          const activeRate = roomType.roomRates.find(
+            rate => rate.rateTypeId === rateType.id && rate.status === 'active'
+          )
+
+          if (activeRate) {
+            result.push({
+              rateTypeId: rateType.id,
+              rateTypeName: rateType.rateTypeName,
+              shortCode: rateType.shortCode,
+              isPackage: rateType.isPackage,
+              status: rateType.status,
+              roomTypeId: roomType.id,
+              roomTypeName: roomType.roomTypeName,
+              // Rate details
+              baseRate: activeRate.baseRate,
+              extraAdultRate: activeRate.extraAdultRate,
+              extraChildRate: activeRate.extraChildRate,
+              taxInclude: activeRate.taxInclude,
+              mealPlanRateInclude: activeRate.mealPlanRateInclude,
+              mealPlanId: activeRate.mealPlanId,
+              mealPlan: activeRate.mealPlan ? {
+                id: activeRate.mealPlan.id,
+                name: activeRate.mealPlan.name,
+                shortCode: activeRate.mealPlan.shortCode,
+                description: activeRate.mealPlan.description,
+                isAllInclusive: activeRate.mealPlan.isAllInclusive,
+                extraCharges: activeRate.mealPlan.extraCharges?.map(charge => ({
+                  id: charge.id,
+                  name: charge.name,
+                  shortCode: charge.shortCode,
+                  rate: charge.rate,
+                  rateInclusiveTax: charge.rateInclusiveTax,
+                  fixedPrice: charge.fixedPrice,
+                  description: charge.description
+                })) || []
+              } : null,
+              seasonId: activeRate.seasonId,
+              season: activeRate.season,
+              effectiveFrom: activeRate.effectiveFrom,
+              effectiveTo: activeRate.effectiveTo,
+              minimumNights: activeRate.minimumNights,
+              maximumNights: activeRate.maximumNights,
+              rateId: activeRate.id
+            })
+          }
         }
       }
-    }
 
-    return response.ok({
-      message: 'Rate types with rates retrieved successfully',
-      data: result
-    })
-  } catch (error) {
-    console.error('Error in getRatesByHotelIdAndRoomType:', error)
-    return response.badRequest({
-      message: 'Failed to retrieve rate types',
-      error: error.message
-    })
+      return response.ok({
+        message: 'Rate types with rates retrieved successfully',
+        data: result
+      })
+    } catch (error) {
+      console.error('Error in getRatesByHotelIdAndRoomType:', error)
+      return response.badRequest({
+        message: 'Failed to retrieve rate types',
+        error: error.message
+      })
+    }
   }
-}
 
 
 
@@ -481,33 +482,33 @@ async getRatesByHotelIdAndRoomType({ params, response }: HttpContext) {
     }
   }
 
-   /**
-     * Get roomtype for a hotel // Récupérer tous les types de chambres pour un hôtel donné
-   */
+  /**
+    * Get roomtype for a hotel // Récupérer tous les types de chambres pour un hôtel donné
+  */
   async showByHotel({ params, response }: HttpContext) {
-      try {
-        const hotelId = Number(params.id)
-        console.log('Fetching room types for hotelId:', hotelId)
+    try {
+      const hotelId = Number(params.id)
+      console.log('Fetching room types for hotelId:', hotelId)
 
-        if (isNaN(hotelId)) {
-          return response.badRequest({ message: 'Invalid hotelId parameter' })
-        }
-
-        const rateTypes = await RateType.query()
-          .where('hotel_id', hotelId)
-          .andWhere('is_deleted', false)
-
-        return response.ok({
-          message: 'Rate types retrieved successfully',
-          data: rateTypes
-        })
-      } catch (error) {
-        console.error(error)
-        return response.internalServerError({
-          message: 'Error retrieving rate types',
-          error: error.message
-        })
+      if (isNaN(hotelId)) {
+        return response.badRequest({ message: 'Invalid hotelId parameter' })
       }
+
+      const rateTypes = await RateType.query()
+        .where('hotel_id', hotelId)
+        .andWhere('is_deleted', false)
+
+      return response.ok({
+        message: 'Rate types retrieved successfully',
+        data: rateTypes
+      })
+    } catch (error) {
+      console.error(error)
+      return response.internalServerError({
+        message: 'Error retrieving rate types',
+        error: error.message
+      })
+    }
   }
 
   /**
@@ -515,39 +516,39 @@ async getRatesByHotelIdAndRoomType({ params, response }: HttpContext) {
    */
 
 
-public async getByRoomType({ params, response }: HttpContext) {
-  try {
-    const roomTypeId = Number(params.id)
+  public async getByRoomType({ params, response }: HttpContext) {
+    try {
+      const roomTypeId = Number(params.id)
 
-    if (isNaN(roomTypeId)) {
-      return response.status(400).json({ message: 'Invalid room type ID' })
+      if (isNaN(roomTypeId)) {
+        return response.status(400).json({ message: 'Invalid room type ID' })
+      }
+
+      // Récupérer les RoomRate avec leurs RateType
+      const roomRates = await RoomRate.query()
+        .where('room_type_id', roomTypeId)
+        .preload('rateType')
+
+      if (roomRates.length === 0) {
+        return response.status(404).json({ message: 'No rates found for this room type' })
+      }
+
+      // Extraire les RateType uniques
+      const rateTypes = [
+        ...new Map(
+          roomRates.map((rr) => [rr.rateType.id, rr.rateType])
+        ).values()
+      ]
+
+      return response.json({
+        roomTypeId,
+        rateTypes
+      })
+    } catch (error) {
+      console.error(error)
+      return response.status(500).json({ message: 'Error fetching rate types' })
     }
-
-    // Récupérer les RoomRate avec leurs RateType
-    const roomRates = await RoomRate.query()
-      .where('room_type_id', roomTypeId)
-      .preload('rateType')
-
-    if (roomRates.length === 0) {
-      return response.status(404).json({ message: 'No rates found for this room type' })
-    }
-
-    // Extraire les RateType uniques
-    const rateTypes = [
-      ...new Map(
-        roomRates.map((rr) => [rr.rateType.id, rr.rateType])
-      ).values()
-    ]
-
-    return response.json({
-      roomTypeId,
-      rateTypes
-    })
-  } catch (error) {
-    console.error(error)
-    return response.status(500).json({ message: 'Error fetching rate types' })
   }
-}
 
 
 

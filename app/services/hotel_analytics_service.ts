@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import Room from '#models/room'
 import RoomBlock from '#models/room_block'
 import logger from '@adonisjs/core/services/logger'
+import ReservationsController from '../controllers/reservations_controller.js'
 
 export class HotelAnalyticsService {
     /**
@@ -18,69 +19,6 @@ export class HotelAnalyticsService {
         ]
 
         return womenTitles.includes(title.toLowerCase().trim())
-    }
-
-    /**
-     * Calculate balance summary from folios and their transactions
-     */
-    private static calculateBalanceSummary(folios: any[]) {
-        let totalCharges = 0
-        let totalPayments = 0
-        let totalAdjustments = 0
-        let totalTaxes = 0
-        let totalServiceCharges = 0
-        let totalDiscounts = 0
-
-        folios.forEach(folio => {
-            if (folio.transactions) {
-                folio.transactions.forEach((transaction: any) => {
-                    const amount = parseFloat(transaction.amount) || 0
-
-                    switch (transaction.transactionType) {
-                        case 'charge':
-                            totalCharges += amount
-                            break
-                        case 'payment':
-                            totalPayments += amount
-                            break
-                        case 'adjustment':
-                            totalAdjustments += amount
-                            break
-                        case 'tax':
-                            totalTaxes += amount
-                            break
-                        case 'discount':
-                            totalDiscounts += Math.abs(amount) // Discounts are typically negative
-                            break
-                        case 'refund':
-                            totalPayments -= amount // Refunds reduce payments
-                            break
-                    }
-
-                    // Add service charges and taxes from transaction details
-                    if (transaction.serviceChargeAmount) {
-                        totalServiceCharges += parseFloat(transaction.serviceChargeAmount) || 0
-                    }
-                    if (transaction.taxAmount) {
-                        totalTaxes += parseFloat(transaction.taxAmount) || 0
-                    }
-                })
-            }
-        })
-
-        const outstandingBalance = totalCharges + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts + totalAdjustments
-
-        return {
-            totalCharges: parseFloat(totalCharges.toFixed(2)),
-            totalPayments: parseFloat(totalPayments.toFixed(2)),
-            totalAdjustments: parseFloat(totalAdjustments.toFixed(2)),
-            totalTaxes: parseFloat(totalTaxes.toFixed(2)),
-            totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
-            totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
-            outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
-            totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes).toFixed(2)),
-            balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
-        }
     }
 
     public static async getDailyOccupancyAndReservations(
@@ -102,21 +40,64 @@ export class HotelAnalyticsService {
             }
         }
 
-        // 2. Get all room types for the hotel
-        const roomTypes = await Room.query()
+        // 2. Derive room types for the hotel and build fast indexes
+        const roomTypes = Array.from(
+            new Map(
+                allRooms
+                    .filter((r) => r.roomType)
+                    .map((r) => [r.roomType!.id, r.roomType!])
+            ).values()
+        ).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+        // Indexes for fast lookups
+        const roomTypeByRoomId = new Map<number, number>()
+        const roomsByTypeTotal = new Map<number, number>()
+        const staticBlockedOrOO = new Set<number>()
+        const staticDirtyOrCleaning = new Set<number>()
+
+        for (const room of allRooms) {
+            if (room.roomTypeId) {
+                roomTypeByRoomId.set(room.id, room.roomTypeId)
+                roomsByTypeTotal.set(room.roomTypeId, (roomsByTypeTotal.get(room.roomTypeId) || 0) + 1)
+            }
+            if (
+                room.status === 'blocked' ||
+                room.status === 'out_of_order' ||
+                room.status === 'maintenance' ||
+                room.housekeepingStatus === 'out_of_order'
+            ) {
+                staticBlockedOrOO.add(room.id)
+            }
+            if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
+                staticDirtyOrCleaning.add(room.id)
+            }
+        }
+
+        const staticExcludedByTypeCount = new Map<number, number>()
+        for (const roomId of staticBlockedOrOO) {
+            const typeId = roomTypeByRoomId.get(roomId)
+            if (typeId !== undefined) {
+                staticExcludedByTypeCount.set(typeId, (staticExcludedByTypeCount.get(typeId) || 0) + 1)
+            }
+        }
+
+        // Prefetch room blocks for the date range once (used both per-day and in final response)
+        const roomBlocks = await RoomBlock.query()
             .where('hotel_id', hotelId)
-            .preload('roomType', (roomTypeQuery) => {
-                roomTypeQuery.orderBy('sort_order', 'asc')
+            .where((query) => {
+                query
+                    .whereBetween('block_from_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+                    .orWhereBetween('block_to_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+                    .orWhere((subQuery) => {
+                        subQuery
+                            .where('block_from_date', '<=', startDate.toFormat('yyyy-MM-dd'))
+                            .andWhere('block_to_date', '>=', endDate.toFormat('yyyy-MM-dd'))
+                    })
             })
-            .then(rooms => {
-                const uniqueTypes = new Map()
-                rooms.forEach(room => {
-                    if (room.roomType) {
-                        uniqueTypes.set(room.roomType.id, room.roomType)
-                    }
-                })
-                return Array.from(uniqueTypes.values())
-            })
+            .preload('room')
+            .preload('blockedBy')
+            .preload('roomType')
+            .orderBy('block_from_date', 'desc')
 
         // 3. Get all relevant reservations that overlap with the date range
         const reservations = await Reservation.query()
@@ -125,7 +106,7 @@ export class HotelAnalyticsService {
             .where('arrived_date', '<=', endDate.toISODate()!)
             .whereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
             .preload('reservationRooms', (rspQuery) => {
-                rspQuery.preload('room', (spQuery) => {
+                rspQuery.preload('room', (spQuery:any) => {
                     spQuery.preload('roomType')
                 })
             })
@@ -152,7 +133,7 @@ export class HotelAnalyticsService {
                 if (reservation.reservationRooms.length > 0) {
                     for (const rsp of reservation.reservationRooms) {
                         if (rsp.roomId) {
-                            occupiedRoomIds.add(rsp.id)
+                            occupiedRoomIds.add(rsp.roomId)
                             isAssignedForToday = true
                         }
                     }
@@ -168,29 +149,28 @@ export class HotelAnalyticsService {
 
             const occupancyRate = totalRooms > 0 ? (occupiedRoomIds.size / totalRooms) * 100 : 0
 
-            // Calculate available rooms per room type
-            const availableRoomsByType: { [key: string]: { room_type_id: number, room_type_name: string, available_count: number } } = {}
+            // Calculate available rooms per room type using precomputed totals
+            const availableRoomsByType: { [key: number]: { room_type_id: number, room_type_name: string, available_count: number } } = {}
 
-            // Initialize with all room types
             roomTypes.forEach(roomType => {
+                const baseAvailable = (roomsByTypeTotal.get(roomType.id) || 0) - (staticExcludedByTypeCount.get(roomType.id) || 0)
                 availableRoomsByType[roomType.id] = {
                     room_type_id: roomType.id,
                     room_type_name: roomType.roomTypeName,
-                    available_count: 0
+                    available_count: baseAvailable
                 }
             })
 
-            // Get blocked room IDs for this specific date
+            // Get blocked room IDs for this specific date from preloaded blocks
             const blockedRoomIds = new Set<number>()
-            const roomBlocksForDate = await RoomBlock.query()
-                .where('hotel_id', hotelId)
-                .where('block_from_date', '<=', currentDate.toFormat('yyyy-MM-dd'))
-                .where('block_to_date', '>=', currentDate.toFormat('yyyy-MM-dd'))
-                .preload('room')
-
-            roomBlocksForDate.forEach(block => {
-                if (block.room) {
-                    blockedRoomIds.add(block.room.id)
+            const currentDateStr = currentDate.toFormat('yyyy-MM-dd')
+            roomBlocks.forEach(block => {
+                const fromStr = (block.blockFromDate as any)?.toFormat ? (block.blockFromDate as any).toFormat('yyyy-MM-dd') : String(block.blockFromDate)
+                const toStr = (block.blockToDate as any)?.toFormat ? (block.blockToDate as any).toFormat('yyyy-MM-dd') : String(block.blockToDate)
+                if (fromStr && toStr && fromStr <= currentDateStr && toStr >= currentDateStr) {
+                    if (block.room) {
+                        blockedRoomIds.add(block.room.id)
+                    }
                 }
             })
 
@@ -204,18 +184,18 @@ export class HotelAnalyticsService {
                 })
             })
 
-            // Count available rooms by type (exclude reserved, blocked, and maintenance rooms)
-            allRooms.forEach(room => {
-                if (room.roomTypeId &&
-                    !reservedRoomIds.has(room.id) &&
-                    !blockedRoomIds.has(room.id) &&
-                    room.status !== 'blocked' &&
-                    room.status !== 'out_of_order' &&
-                    room.status !== 'maintenance' &&
-                    room.housekeepingStatus !== 'out_of_order') {
-                    if (availableRoomsByType[room.roomTypeId]) {
-                        availableRoomsByType[room.roomTypeId].available_count++
-                    }
+            // Subtract reserved and blocked from base availability per type
+            reservedRoomIds.forEach(roomId => {
+                const typeId = roomTypeByRoomId.get(roomId)
+                if (typeId !== undefined && availableRoomsByType[typeId]) {
+                    availableRoomsByType[typeId].available_count = Math.max(0, availableRoomsByType[typeId].available_count - 1)
+                }
+            })
+
+            blockedRoomIds.forEach(roomId => {
+                const typeId = roomTypeByRoomId.get(roomId)
+                if (typeId !== undefined && availableRoomsByType[typeId]) {
+                    availableRoomsByType[typeId].available_count = Math.max(0, availableRoomsByType[typeId].available_count - 1)
                 }
             })
 
@@ -235,8 +215,6 @@ export class HotelAnalyticsService {
             // Count unassigned reservation rooms by their intended room type
             activeReservationsForDay.forEach(reservation => {
                 reservation.reservationRooms.forEach(rr => {
-                    logger.info('rr')
-                    logger.info(rr.roomId)
                     if (!rr.roomId && rr.roomTypeId) {
                         const roomTypeId = rr.roomTypeId
                         if (unassignedRoomReservationsByType[roomTypeId]) {
@@ -251,51 +229,64 @@ export class HotelAnalyticsService {
                 })
             })
 
-            // Calculate room status statistics
+            // Calculate room status statistics using sets to avoid per-room scans
+            const checkingOutToday = reservations.filter(
+                (r) => r.departDate?.hasSame(currentDate, 'day') && r.status === 'checked_in'
+            )
+            const arrivingToday = reservations.filter(
+                (r) => r.arrivedDate?.hasSame(currentDate, 'day') && r.status === 'confirmed'
+            )
+
+            const dueOutRooms = new Set<number>()
+            checkingOutToday.forEach((r) => {
+                r.reservationRooms.forEach((rr) => {
+                    if (rr.roomId) dueOutRooms.add(rr.roomId)
+                })
+            })
+
+            const arrivingRooms = new Set<number>()
+            arrivingToday.forEach((r) => {
+                r.reservationRooms.forEach((rr) => {
+                    if (rr.roomId) arrivingRooms.add(rr.roomId)
+                })
+            })
+
+            const blockedSet = new Set<number>(blockedRoomIds)
+            staticBlockedOrOO.forEach((id) => blockedSet.add(id))
+
             const roomStatusStats = {
                 all: totalRooms,
                 vacant: 0,
-                occupied: 0,
+                occupied: occupiedRoomIds.size,
                 reserved: 0,
                 blocked: 0,
                 dueOut: 0,
                 dirty: 0
             }
 
-            // Get reservations checking out today
-            const checkingOutToday = reservations.filter(
-                (r) => r.departDate?.hasSame(currentDate, 'day') && r.status === 'checked_in'
+            // dueOut count = occupied rooms departing today
+            dueOutRooms.forEach((id) => {
+                if (occupiedRoomIds.has(id)) roomStatusStats.dueOut++
+            })
+
+            // reserved count = arriving rooms not already occupied
+            arrivingRooms.forEach((id) => {
+                if (!occupiedRoomIds.has(id)) roomStatusStats.reserved++
+            })
+
+            // blocked count = blocked rooms not occupied or reserved
+            blockedSet.forEach((id) => {
+                if (!occupiedRoomIds.has(id) && !arrivingRooms.has(id)) roomStatusStats.blocked++
+            })
+
+            // dirty count = dirty or cleaning rooms not occupied/reserved/blocked
+            staticDirtyOrCleaning.forEach((id) => {
+                if (!occupiedRoomIds.has(id) && !arrivingRooms.has(id) && !blockedSet.has(id)) roomStatusStats.dirty++
+            })
+
+            roomStatusStats.vacant = Math.max(0,
+                totalRooms - roomStatusStats.occupied - roomStatusStats.reserved - roomStatusStats.blocked - roomStatusStats.dirty
             )
-
-            // Get reservations arriving today
-            const arrivingToday = reservations.filter(
-                (r) => r.arrivedDate?.hasSame(currentDate, 'day') && r.status === 'confirmed'
-            )
-
-            for (const room of allRooms) {
-                const isOccupied = occupiedRoomIds.has(room.id)
-                const isDueOut = checkingOutToday.some(r =>
-                    r.reservationRooms.some(rr => rr.roomId === room.id)
-                )
-                const isReserved = arrivingToday.some(r =>
-                    r.reservationRooms.some(rr => rr.roomId === room.id)
-                )
-
-                if (isOccupied) {
-                    roomStatusStats.occupied++
-                    if (isDueOut) {
-                        roomStatusStats.dueOut++
-                    }
-                } else if (isReserved) {
-                    roomStatusStats.reserved++
-                } else if (room.status === 'blocked' || room.status === 'out_of_order') {
-                    roomStatusStats.blocked++
-                } else if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
-                    roomStatusStats.dirty++
-                } else {
-                    roomStatusStats.vacant++
-                }
-            }
 
             dailyMetrics.push({
                 date: currentDate.toISODate(),
@@ -332,6 +323,18 @@ export class HotelAnalyticsService {
             return reservation.status
         }
 
+        // Precompute occupied rooms for today
+        const todaysOccupiedRooms = new Set<number>()
+        reservations.forEach((r) => {
+            r.reservationRooms.forEach((rr) => {
+                const ci = rr.checkInDate || r.arrivedDate
+                const co = rr.checkOutDate || r.departDate
+                if (rr.roomId && ci && co && ci <= today && co > today) {
+                    todaysOccupiedRooms.add(rr.roomId)
+                }
+            })
+        })
+
         for (const room of allRooms) {
             const roomType = room.roomType?.roomTypeName || 'Uncategorized'
             if (!groupedDetails[roomType]) {
@@ -346,16 +349,10 @@ export class HotelAnalyticsService {
             }
             groupedDetails[roomType].total_rooms_of_type++
 
-            // Find if there's a booking for this specific room today
-            const todaysBooking = reservations
-                .flatMap((r) => r.reservationRooms)
-                .find((rsp) => rsp.roomId === room.id && rsp.checkInDate <= today && rsp.checkInDate > today)
-
             let roomStatus = 'Available'
-            if (todaysBooking) {
+            if (todaysOccupiedRooms.has(room.id)) {
                 roomStatus = 'Occupied'
             } else if (room.status && room.status !== 'active') {
-                // Assuming room model has a status field for maintenance, cleaning, etc.
                 roomStatus = room.status
             }
 
@@ -373,7 +370,7 @@ export class HotelAnalyticsService {
 
         for (const reservation of reservations) {
             // Calculate balance summary for this reservation
-            const balanceSummary = this.calculateBalanceSummary(reservation.folios || [])
+            const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios || [])
             const isBalance = balanceSummary.outstandingBalance > 0
 
             // Process each reservation room as a separate reservation entry
@@ -460,23 +457,7 @@ export class HotelAnalyticsService {
             (r) => r.arrivedDate && r.arrivedDate >= startDate && r.arrivedDate <= endDate && r.status === 'confirmed'
         )
 
-        // Get room blocks within the same time frame
-        const roomBlocks = await RoomBlock.query()
-            .where('hotel_id', hotelId)
-            .where((query) => {
-                query
-                    .whereBetween('block_from_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
-                    .orWhereBetween('block_to_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
-                    .orWhere((subQuery) => {
-                        subQuery
-                            .where('block_from_date', '<=', startDate.toFormat('yyyy-MM-dd'))
-                            .andWhere('block_to_date', '>=', endDate.toFormat('yyyy-MM-dd'))
-                    })
-            })
-            .preload('room')
-            .preload('blockedBy')
-            .preload('roomType')
-            .orderBy('block_from_date', 'desc')
+        // roomBlocks already prefetched above; reuse here
 
         // Calculate global room status for each room
         for (const room of allRooms) {
