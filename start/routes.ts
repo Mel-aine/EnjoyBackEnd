@@ -52,6 +52,7 @@ import CityLedgerController from '#controllers/city_ledger_controller'
 import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
+import ChannexController from '#controllers/channex_controller'
 import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '#controllers/audit_trail_controller'
 import EmailAccountsController from '#controllers/email_accounts_controller'
@@ -143,6 +144,7 @@ const cityLedgerController = new CityLedgerController()
 const companyFolioController = new CompanyFolioController()
 const nightAuditController = new NightAuditController()
 const channexMigrationController = new ChannexMigrationController()
+const channexController = new ChannexController()
 const configurationController = new ConfigurationController()
 const auditTrailController = new AuditTrailController()
 const emailAccountsController = new EmailAccountsController()
@@ -1610,6 +1612,11 @@ router
         router.get('/booking', channexMigrationController.listBookings.bind(channexMigrationController))
         router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
         )
+
+        // ARI endpoints
+        router.get('/properties/:propertyId/availability', channexController.getAvailability.bind(channexController))
+        router.put('/properties/:propertyId/availability', channexController.updateAvailability.bind(channexController))
+        router.put('/properties/:propertyId/restrictions', channexController.updateRestrictions.bind(channexController))
       })
       .prefix('channex');
 
