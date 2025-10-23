@@ -17,6 +17,7 @@ export class PricingService {
     children: number
   ): Promise<{
     totalAmount: number
+    basePrice: number
     averageNightlyRate: number
     baseAmount: number
     taxAmount: number
@@ -38,10 +39,10 @@ export class PricingService {
       .firstOrFail()
 
     // Prix de base
-    const basePrice = roomRate.baseRate || 0
-    const taxRate = roomRate.hotel?.taxRate ?? 0
-    // Taxes/frais (à adapter selon ton modèle)
-    const taxAmount = basePrice * taxRate
+    const basePrice = Number(roomRate.baseRate) || 0
+    let taxRate = roomRate.hotel?.taxRate ?? 0
+    if (taxRate>0) taxRate = taxRate / 100
+    const taxAmount = basePrice + (basePrice * taxRate)
     const feesAmount = 0 // frais supplémentaires
     const discountAmount = 0 // réduction éventuelle
 
@@ -51,6 +52,7 @@ export class PricingService {
     return {
       totalAmount,
       averageNightlyRate,
+      basePrice: basePrice,
       baseAmount: basePrice * nights,
       taxAmount: taxAmount * nights,
       feesAmount: feesAmount * nights,

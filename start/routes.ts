@@ -1608,7 +1608,7 @@ router.get('/reservations/:id', reservationsController.getReservationById.bind(r
 
         // Booking Revisions Feed
         router.get('/booking-revisions/feed', channexMigrationController.getBookingRevisionsFeed.bind(channexMigrationController)) // Fetch booking revisions from Channex and create reservations
-        
+
         router.get('/booking', channexMigrationController.listBookings.bind(channexMigrationController))
         router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
         )
@@ -1653,6 +1653,8 @@ router
     router.get('/hotels/:hotelId/info', otaController.hotelInfo.bind(otaController))
     router.get('/hotels/:hotelId/room-types', otaController.getRoomTypes.bind(otaController))
     router.get('/hotels/:hotelId/availability', otaController.getAvailability.bind(otaController))
+    router.get('/hotels/reservation/:id', otaController.getReservationById.bind(otaController))
+    router.get('/hotels/cancellation-summary/:id', otaController.getCancelSummary.bind(otaController))
   })
   .prefix('api/ota')
 
