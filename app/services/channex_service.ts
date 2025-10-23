@@ -495,7 +495,6 @@ export class ChannexService {
    * PUT /properties/{property_id}/restrictions
    */
 
-
   async updateRestrictions(propertyId: string, restrictionsData: {
     "values": RestrictionData[]
   }[]) {
