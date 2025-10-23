@@ -8619,6 +8619,8 @@ export default class ReportsController {
         formattedAmount: transaction.amount,
         currency: 'XAF'
       }
+
+      console.log('data.send@@@@', receiptData)
       const { default: edge } = await import('edge.js')
       const path = await import('path')
       // Configure Edge with views directory

@@ -190,389 +190,399 @@ export default class PdfGenerationService {
     const amountInWords = this.numberToWords(totals.grandTotal)
 
     return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tax Invoice - ${hotel.name}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
-
-        body {
-            background-color: #f5f5f5;
-            padding: 10px;
-            font-size: 12px;
-        }
-
-        .invoice-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: white;
-            border: 2px solid;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            text-align: center;
-            padding: 10px;
-            border-bottom: 2px solid;
-        }
-
-        .hotel-name {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .hotel-info {
-            font-size: 11px;
-            line-height: 1.3;
-        }
-
-        .registration-info {
-            font-size: 11px;
-            margin-top: 5px;
-        }
-
-        .tax-invoice-title {
-            text-align: center;
-            padding: 10px 0;
-            font-size: 14px;
-            font-weight: bold;
-            text-decoration: underline;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-        }
-
-        th, td {
-            padding: 5px;
-            border: 2px solid;
-        }
-
-        th {
-            background-color: #f0f0f0;
-            font-weight: bold;
-        }
-
-        .invoice-details {
-            padding: 5px;
-        }
-
-        .invoice-details table {
-            border: none;
-        }
-
-        .invoice-details td {
-            border: none;
-            padding: 1px 5px;
-            vertical-align: top;
-        }
-
-        .label {
-            font-weight: bold;
-        }
-
-        .guest-table, .stay-table {
-            margin-bottom: 5px;
-        }
-
-        .charges-table {
-            margin-bottom: 5px;
-        }
-
-        .charges-table td {
-            padding: 3px 5px;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .totals-section {
-            padding: 5px;
-            margin-bottom: 5px;
-        }
-
-        .totals-section table {
-            border: none;
-        }
-
-        .totals-section td {
-            border: none;
-            padding: 2px 5px;
-        }
-
-        .amount-in-words {
-            padding: 5px;
-            margin-bottom: 5px;
-        }
-
-        .amount-in-words table {
-            border: 2px solid;
-        }
-
-        .bill-to-section {
-            padding: 5px;
-            margin-bottom: 5px;
-        }
-
-        .bill-to-section table {
-            border: none;
-        }
-
-        .bill-to-section td {
-            border: none;
-            padding: 2px 5px;
-            vertical-align: top;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 10px;
-            font-size: 11px;
-            border-top: 2px solid;
-        }
-
-        .folio-notice {
-            padding: 5px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .verification-info {
-            padding: 5px;
-            font-size: 11px;
-        }
-
-        .verification-info table {
-            border: none;
-        }
-
-        .verification-info td {
-            border: none;
-            padding: 2px 5px;
-        }
-
-        .page-info {
-            text-align: right;
-            padding: 5px;
-            font-size: 11px;
-        }
-
-        .url {
-            padding: 5px;
-            font-size: 10px;
-            text-align: center;
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <div class="invoice-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="hotel-name">${hotel.name}</div>
-            <div class="hotel-info">
-                ${hotel.address}<br>
-                Phone: ${hotel.phone}; Email: ${hotel.email}<br>
-                URL: ${hotel.website || 'N/A'}
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tax Invoice - ${hotel.name}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif;
+            }
+    
+            body {
+                background-color: #f5f5f5;
+                padding: 10px;
+                font-size: 12px;
+            }
+    
+            .invoice-container {
+                max-width: 800px;
+                margin: 0 auto;
+                background-color: white;
+                border: 2px solid #000;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+    
+            .header {
+                text-align: center;
+                padding: 10px;
+                border-bottom: 2px solid #000;
+            }
+    
+            .hotel-name {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+    
+            .hotel-info {
+                font-size: 11px;
+                line-height: 1.3;
+            }
+    
+            .registration-info {
+                font-size: 11px;
+                margin-top: 5px;
+            }
+    
+            .tax-invoice-title {
+                text-align: center;
+                padding: 10px 0;
+                font-size: 14px;
+                font-weight: bold;
+                text-decoration: underline;
+            }
+    
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 11px;
+            }
+    
+            th, td {
+                padding: 5px;
+                border-top: 2px solid #000;
+                border-bottom: 2px solid #000;
+                border-left: none;
+                border-right: none;
+            }
+    
+            th {
+                background-color: #f0f0f0;
+                font-weight: bold;
+            }
+    
+            .invoice-details {
+                padding: 5px;
+            }
+    
+            .invoice-details table {
+                border: none;
+            }
+    
+            .invoice-details td {
+                border: none;
+                padding: 1px 5px;
+                vertical-align: top;
+            }
+    
+            .label {
+                font-weight: bold;
+            }
+    
+            .guest-table, .stay-table {
+                margin-bottom: 5px;
+            }
+    
+            .charges-table {
+                margin-bottom: 5px;
+            }
+    
+            .charges-table td {
+                padding: 3px 5px;
+            }
+    
+            .text-right {
+                text-align: right;
+            }
+    
+            .text-center {
+                text-align: center;
+            }
+    
+            .totals-section {
+                padding: 5px;
+                margin-bottom: 5px;
+            }
+    
+            .totals-section table {
+                border: none;
+            }
+    
+            .totals-section td {
+                border: none;
+                padding: 2px 5px;
+            }
+    
+            .amount-in-words {
+                padding: 5px;
+                margin-bottom: 5px;
+            }
+    
+            .amount-in-words table {
+                border-top: 2px solid #000;
+                border-bottom: 2px solid #000;
+                border-left: none;
+                border-right: none;
+            }
+    
+            .amount-in-words td {
+                border: none;
+            }
+    
+            .bill-to-section {
+                padding: 5px;
+                margin-bottom: 5px;
+            }
+    
+            .bill-to-section table {
+                border: none;
+            }
+    
+            .bill-to-section td {
+                border: none;
+                padding: 2px 5px;
+                vertical-align: top;
+            }
+    
+            .footer {
+                text-align: center;
+                padding: 10px;
+                font-size: 11px;
+                border-top: 2px solid #000;
+            }
+    
+            .folio-notice {
+                padding: 5px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+    
+            .verification-info {
+                padding: 5px;
+                font-size: 11px;
+            }
+    
+            .verification-info table {
+                border: none;
+            }
+    
+            .verification-info td {
+                border: none;
+                padding: 2px 5px;
+            }
+    
+            .page-info {
+                text-align: right;
+                padding: 5px;
+                font-size: 11px;
+            }
+    
+            .url {
+                padding: 5px;
+                font-size: 10px;
+                text-align: center;
+                color: #666;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="invoice-container">
+            <!-- Header -->
+            <div class="header">
+                <div class="hotel-name">${hotel.name}</div>
+                <div class="hotel-info">
+                    ${hotel.address}<br>
+                    Phone: ${hotel.phone}; Email: ${hotel.email}<br>
+                    URL: ${hotel.website || 'N/A'}
+                </div>
+                <div class="registration-info">
+                    M${hotel.registrationNumber || 'N/A'}<br>
+                    RC${hotel.rcNumber || 'N/A'}
+                </div>
+                <div class="tax-invoice-title">Tax Invoice</div>
             </div>
-            <div class="registration-info">
-                M${hotel.registrationNumber || 'N/A'}<br>
-                RC${hotel.rcNumber || 'N/A'}
+    
+            <!-- Invoice Details -->
+            <div class="invoice-details">
+                <table>
+                    <tr>
+                        <td style="width: 50%;">
+                            <span class="label">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}<br>
+                            <span class="label">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}<br>
+                            <span class="label">Company Name</span> : ${reservation.guest?.companyName || 'None'}
+                        </td>
+                        <td style="width: 25%;">
+                            <span class="label">Invoice No.</span> : ${folio.folioNumber || 'N/A'}
+                        </td>
+                        <td style="width: 25%;">
+                            <span class="label">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}
+                        </td>
+                    </tr>
+                </table>
             </div>
-            <div class="tax-invoice-title">Tax Invoice</div>
-        </div>
-
-        <!-- Invoice Details -->
-        <div class="invoice-details">
-            <table>
+    
+            <!-- Guest Details Table -->
+            <table class="guest-table">
                 <tr>
-                    <td style="width: 50%;">
-                        <span class="label">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}<br>
-                        <span class="label">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}<br>
-                        <span class="label">Company Name</span> : ${reservation.guest?.companyName || 'None'}
-                    </td>
-                    <td style="width: 25%;">
-                        <span class="label">Invoice No.</span> : ${folio.folioNumber || 'N/A'}
-                    </td>
-                    <td style="width: 25%;">
-                        <span class="label">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}
-                    </td>
+                    <th>Nationality</th>
+                    <th>No of Pax</th>
+                    <th>Adult Child</th>
+                    <th>G.R. Card No</th>
+                    <th>Room No</th>
+                </tr>
+                <tr>
+                    <td>${reservation.guest?.nationality || ''}</td>
+                    <td>${reservation.adults + reservation.children || 1}</td>
+                    <td>${reservation.adults || 1} / ${reservation.children || 0}</td>
+                    <td>${reservation.guest?.guestCode || 'N/A'}</td>
+                    <td>${reservation.rooms?.map(r => r.roomNumber).join(', ') || 'N/A'}</td>
                 </tr>
             </table>
-        </div>
-
-        <!-- Guest Details Table -->
-        <table class="guest-table">
-            <tr>
-                <th>Nationality</th>
-                <th>No of Pax</th>
-                <th>Adult Child</th>
-                <th>G.R. Card No</th>
-                <th>Room No</th>
-            </tr>
-            <tr>
-                <td>${reservation.guest?.nationality || ''}</td>
-                <td>${reservation.adults + reservation.children || 1}</td>
-                <td>${reservation.adults || 1} / ${reservation.children || 0}</td>
-                <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                <td>${reservation.rooms?.map(r => r.roomNumber).join(', ') || 'N/A'}</td>
-            </tr>
-        </table>
-
-        <!-- Stay Details Table -->
-        <table class="stay-table">
-            <tr>
-                <th>Date of Arrival</th>
-                <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
-                <th>Date of Departure</th>
-                <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td>
-                <th>Tariff</th>
-                <td>${totals.roomCharges?.toLocaleString() || '0'}</td>
-            </tr>
-            <tr>
-                <th>Time Of Arrival</th>
-                <td>${this.formatTimeShort(reservation.checkInDate)}</td>
-                <th>Time of Departure</th>
-                <td>${this.formatTimeShort(reservation.checkOutDate)}</td>
-                <th>Rate Type</th>
-                <td>${reservation.rateType || 'N/A'}</td>
-            </tr>
-        </table>
-
-        <!-- Charges Table -->
-        <table class="charges-table">
-            <thead>
+    
+            <!-- Stay Details Table -->
+            <table class="stay-table">
                 <tr>
-                    <th>Date</th>
-                    <th>Ref.No.</th>
-                    <th>Particular</th>
-                    <th class="text-right">Charges</th>
-                    <th class="text-right">Payment</th>
-                    <th class="text-right">Balance</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${transactions?.map((transaction, index) => `
-                <tr>
-                    <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
-                    <td>${transaction.transactionNumber || ''}</td>
-                    <td>${transaction.description}</td>
-                    <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatAmount(transaction.amount) : '0'}</td>
-                    <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
-                    <td class="text-right">${this.formatAmount(transaction.netAmount)}</td>
-                </tr>
-                `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
-            </tbody>
-        </table>
-
-        <!-- Totals Section -->
-        <div class="totals-section">
-            <table>
-                <tr>
-                    <td style="width: 85%; text-align: right;" class="label">Grand Total</td>
-                    <td style="width: 5%; text-align: right;">${totals.totalCharges?.toLocaleString() || '0'}</td>
-                    <td style="width: 5%; text-align: right;">-${totals.totalPayments?.toLocaleString() || '0'}</td>
-                    <td style="width: 5%;"></td>
+                    <th>Date of Arrival</th>
+                    <td>${new Date(reservation.arrivedDate).toLocaleDateString('fr-FR')}</td>
+                    <th>Date of Departure</th>
+                    <td>${new Date(reservation.departDate).toLocaleDateString('fr-FR')}</td>
+                    <th>Tariff</th>
+                    <td>${totals.roomCharges?.toLocaleString() || '0'}</td>
                 </tr>
                 <tr>
-                    <td style="text-align: right;" class="label">Tax</td>
-                    <td style="text-align: right;">${totals.totalTax?.toLocaleString() || '0'}</td>
-                    <td></td>
-                    <td></td>
+                    <th>Time Of Arrival</th>
+                    <td>${this.formatTimeShort(reservation.checkInDate)}</td>
+                    <th>Time of Departure</th>
+                    <td>${this.formatTimeShort(reservation.checkOutDate)}</td>
+                    <th>Rate Type</th>
+                    <td>${reservation.rateType || 'N/A'}</td>
                 </tr>
             </table>
-        </div>
-
-        <!-- Amount in words section -->
-        <div class="amount-in-words">
-            <table>
-                <tr>
-                    <td style="width: 20%;" class="label">This Folio is in :</td>
-                    <td style="width: 30%;">XAF</td>
-                    <td style="width: 30%;">${amountInWords}</td>
-                    <td style="width: 10%;" class="label">Total Paid</td>
-                    <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
-                </tr>
-                <tr>
-                    <td colspan="3"></td>
-                    <td class="label">Balance</td>
-                    <td style="text-align: right;">${totals.balance.toLocaleString()}</td>
-                </tr>
+    
+            <!-- Charges Table -->
+            <table class="charges-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Ref.No.</th>
+                        <th>Particular</th>
+                        <th class="text-right">Charges</th>
+                        <th class="text-right">Payment</th>
+                        <th class="text-right">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${transactions?.map((transaction, index) => `
+                    <tr>
+                        <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
+                        <td>${transaction.transactionNumber || ''}</td>
+                        <td>${transaction.description}</td>
+                        <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatAmount(transaction.amount) : '0'}</td>
+                        <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
+                        <td class="text-right">${this.formatAmount(transaction.netAmount)}</td>
+                    </tr>
+                    `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
+                </tbody>
             </table>
+    
+            <!-- Totals Section -->
+            <div class="totals-section">
+                <table>
+                    <tr>
+                        <td style="width: 85%; text-align: right;" class="label">Grand Total</td>
+                        <td style="width: 5%; text-align: right;">${totals.totalCharges?.toLocaleString() || '0'}</td>
+                        <td style="width: 5%; text-align: right;">-${totals.totalPayments?.toLocaleString() || '0'}</td>
+                        <td style="width: 5%;"></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: right;" class="label">Tax</td>
+                        <td style="text-align: right;">${totals.totalTax?.toLocaleString() || '0'}</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+    
+            <!-- Amount in words section -->
+            <div class="amount-in-words">
+                <table>
+                    <tr>
+                        <td style="width: 20%;" class="label">This Folio is in :</td>
+                        <td style="width: 30%;">XAF</td>
+                        <td style="width: 30%;">${amountInWords}</td>
+                        <td style="width: 10%;" class="label">Total Paid</td>
+                        <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3"></td>
+                        <td class="label">Balance</td>
+                        <td style="text-align: right;">${totals.balance.toLocaleString()}</td>
+                    </tr>
+                </table>
+            </div>
+    
+            <!-- Bill To Section -->
+            <div class="bill-to-section">
+                <table>
+                    <tr>
+                        <td style="width: 10%;" class="label">Bill To</td>
+                        <td style="width: 40%;">: ${reservation.guest?.displayName || 'N/A'}</td>
+                        <td style="width: 50%;"></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Address</td>
+                        <td>: ${reservation.guest?.address || reservation.guest?.country || 'N/A'}</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Remark</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+    
+            <!-- Footer -->
+            <div class="footer">
+                <p>Thank you for your stay with us. Please visit us again.</p>
+            </div>
+    
+            <!-- Folio Notice -->
+            <div class="folio-notice">
+                <p>Folio NOTICE</p>
+                <p>Folio NOTICE</p>
+            </div>
+    
+            <!-- Verification Info -->
+            <div class="verification-info">
+                <table>
+                    <tr>
+                        <td style="width: 33%;"><span class="label">Reserved By :</span> ${reservation.reservedBy || 'N/A'}</td>
+                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy || 'N/A'}</td>
+                        <td style="width: 33%;"><span class="label">Checked Out By :</span> ${reservation.checkedOutBy || 'N/A'}</td>
+                        <td style="width: 33%;"><span class="label">Modified by :</span> ${reservation.modifier || 'N/A'}</td>
+                    </tr>
+                    </tr>
+                </table>
+            </div>
+    
+            <!-- Page Info -->
+            <div class="page-info">
+                Page 1 of 1
+            </div>
+    
+            <!-- URL -->
+            <div class="url">
+                https://live.jpms247.com/frontoffice/stayview
+            </div>
         </div>
-
-        <!-- Bill To Section -->
-        <div class="bill-to-section">
-            <table>
-                <tr>
-                    <td style="width: 10%;" class="label">Bill To</td>
-                    <td style="width: 40%;">: ${reservation.guest?.displayName || 'N/A'}</td>
-                    <td style="width: 50%;"></td>
-                </tr>
-                <tr>
-                    <td class="label">Address</td>
-                    <td>: ${reservation.guest?.address || reservation.guest?.country || 'N/A'}</td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td class="label">Remark</td>
-                    <td></td>
-                    <td></td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>Thank you for your stay with us. Please visit us again.</p>
-        </div>
-
-        <!-- Folio Notice -->
-        <div class="folio-notice">
-            <p>Folio NOTICE</p>
-            <p>Folio NOTICE</p>
-        </div>
-
-        <!-- Verification Info -->
-        <div class="verification-info">
-            <table>
-                <tr>
-                    <td style="width: 33%;"><span class="label">Reserved By :</span> ${reservation.reservedBy || 'N/A'}</td>
-                    <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy || 'N/A'}</td>
-                    <td style="width: 33%;"><span class="label">Checked Out By :</span> ${reservation.checkedOutBy || 'N/A'}</td>
-                    <td style="width: 33%;"><span class="label">Modified by :</span> ${reservation.modifier || 'N/A'}</td>
-                </tr>
-                </tr>
-            </table>
-        </div>
-
-        <!-- Page Info -->
-        <div class="page-info">
-            Page 1 of 1
-        </div>
-
-        <!-- URL -->
-        <div class="url">
-            https://live.jpms247.com/frontoffice/stayview
-        </div>
-    </div>
-</body>
+    </body>
     </html>`
   }
 
