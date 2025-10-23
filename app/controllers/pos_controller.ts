@@ -151,7 +151,8 @@ export default class PosController {
         amount,
         description,
         userName,
-        transactionDate
+        transactionDate,
+        itemSummary
       } = request.only([
         'folioId',
         'reservationRoomId',
@@ -159,7 +160,8 @@ export default class PosController {
         'amount',
         'description',
         'userName',
-        'transactionDate'
+        'transactionDate',
+        'itemSummary'
       ])
 
       // Validate required fields
@@ -196,6 +198,22 @@ export default class PosController {
       }
       const transactionNumber = parseInt(Date.now().toString().slice(-9));
       const transactionCode =generateTransactionCode('RMP');
+
+      // Normalize itemSummary to an object (optional)
+      let itemSummaryData: object | null = null
+      const rawItemSummary = itemSummary ?? request.input('itemSummary')
+      if (rawItemSummary) {
+        if (typeof rawItemSummary === 'string') {
+          try {
+            itemSummaryData = JSON.parse(rawItemSummary)
+          } catch {
+            itemSummaryData = { value: rawItemSummary }
+          }
+        } else if (typeof rawItemSummary === 'object') {
+          itemSummaryData = rawItemSummary as object
+        }
+      }
+
       // Create the transaction
       const transaction = await FolioTransaction.create({
         folioId: parseInt(folioId),
@@ -215,6 +233,7 @@ export default class PosController {
         transactionDate: transactionDate ? DateTime.fromISO(transactionDate) : DateTime.now(),
         //  createdBy: userName,
         posting_date: DateTime.now().toFormat('yyyy-MM-dd'),
+        itemSummary: itemSummaryData,
         status: TransactionStatus.COMPLETED
       })
 
