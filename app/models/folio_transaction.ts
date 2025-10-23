@@ -423,6 +423,9 @@ export default class FolioTransaction extends BaseModel {
   declare createdBy: number
 
   @column()
+  declare table: string | null
+
+  @column()
   declare lastModifiedBy: number
 
   @column.dateTime({ autoCreate: true })

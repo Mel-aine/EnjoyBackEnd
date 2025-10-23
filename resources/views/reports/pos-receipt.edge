@@ -95,10 +95,12 @@
         }
         
         .item-table {
-            width: 100%;
-            margin-top: 0;
-            padding: 0; /* Suppression de tout padding */
-            overflow: hidden; /* Empêche le débordement */
+        width: 100%;
+        margin-top: 0;
+        padding: 0;
+        padding-bottom: 10px; /* Ajouter un peu d'espace */
+        border-bottom: 1px solid black; /* ← Ajoutez cette ligne */
+        overflow: hidden;
         }
 
         .table-header-row {
@@ -131,7 +133,7 @@
         }
         .item-qty, .item-unit, .item-amount {
             width: 15%;
-            text-align: right;
+            text-align: left;
         }
         .item-amount {
             font-weight: 500;
@@ -243,6 +245,7 @@
                 width: 100%;
                 margin-left: 0;
                 padding-right: 0;
+;
             }
             
             .item-name, .item-category {
@@ -274,7 +277,7 @@
                 </div>
                 <div class="info-item">
                     <span class="info-label">Table:</span> 
-                    <span class="info-value">{{ transaction.tableNumber || 'N/A' }}</span>
+                    <span class="info-value">{{ transaction.table || 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Guests:</span> 
@@ -303,31 +306,30 @@
                 </div>
             </div>
         </section>
-
         <!-- TABLEAU DES ARTICLES -->
         <section class="item-table text-sm">
             <div class="table-header-row">
                 <div class="item-name">Item Name</div>
                 <div class="item-category">Category</div>
                 <div class="item-qty text-right">Quantity</div>
-                <div class="item-unit text-right">Unit</div>
+                <div class="item-unit text-right">Unit Price</div>
                 <div class="item-amount text-right">Amount</div>
             </div>
 
-            @if(transaction.items && transaction.items.length > 0)
-                @each(item in transaction.items)
+            @if(transaction.itemSummary && transaction.itemSummary.length > 0)
+                @each(item in transaction.itemSummary)
                 <div class="item-row">
-                    <div class="item-name">{{ item.name || item.description }}</div>
-                    <div class="item-category">{{ item.category || 'N/A' }}</div>
-                    <div class="item-qty">{{ item.quantity || 1 }}</div>
-                    <div class="item-unit">{{ item.unitPrice || item.amount }}</div>
-                    <div class="item-amount">{{ item.totalAmount || item.amount }}</div>
+                    <div class="item-name">{{ item.nom }}</div>
+                    <div class="item-category">{{ item.categorie || 'N/A' }}</div>
+                    <div class="item-qty">{{ item.quantite }}</div>
+                    <div class="item-unit">{{ item.prix_unitaire }}</div>
+                    <div class="item-amount">{{ item.prix_unitaire * item.quantite }}</div>
                 </div>
                 @endeach
             @else
                 <div class="item-row">
                     <div class="item-name">{{ transaction.description || 'Transaction' }}</div>
-                    <div class="item-category">{{ transaction.category || 'Service' }}</div>
+                    <div class="item-category">Service</div>
                     <div class="item-qty">1</div>
                     <div class="item-unit">{{ transaction.amount }}</div>
                     <div class="item-amount">{{ transaction.amount }}</div>
@@ -369,7 +371,7 @@
         </section>
         
         <!-- SECTION TVA DÉTAILLÉE -->
-        
+        @if(transaction.taxAmount && transaction.taxAmount > 0)
         <section class="tax-section text-sm">
             <div class="tax-header">
                 <div class="tax-col-desc">Description</div>
@@ -382,7 +384,7 @@
                 <div class="tax-col-tax">{{ transaction.taxAmount }}</div>
             </div>
         </section>
-    
+        @endif
 
         <!-- FOOTER ET SIGNATURES -->
         <footer class="footer">

@@ -150,6 +150,7 @@ export default class PosController {
         roomId,
         amount,
         description,
+        table,
         userName,
         transactionDate,
         articles
@@ -159,6 +160,7 @@ export default class PosController {
         'roomId',
         'amount',
         'description',
+        'table',
         'userName',
         'transactionDate',
         'articles'
@@ -201,7 +203,7 @@ export default class PosController {
 
       // Normalize articles to an object (optional)
       let itemSummaryData: object | null = null
-      const rawItemSummary = articles ?? request.input('articles')
+      const rawItemSummary = articles ?? request.input('intem_summary')
       if (rawItemSummary) {
         if (typeof rawItemSummary === 'string') {
           try {
@@ -225,6 +227,7 @@ export default class PosController {
         description: description,
         transactionCode: transactionCode,
         transactionNumber: transactionNumber,
+        table: table,
         transaction_time: DateTime.now().toFormat('HH:mm:ss'),
         category: TransactionCategory.POSTING, // Fixed category as specified
         particular: 'Room Posting',
@@ -233,7 +236,7 @@ export default class PosController {
         transactionDate: transactionDate ? DateTime.fromISO(transactionDate) : DateTime.now(),
         //  createdBy: userName,
         posting_date: DateTime.now().toFormat('yyyy-MM-dd'),
-        articles: itemSummaryData,
+        itemSummary: itemSummaryData,
         status: TransactionStatus.COMPLETED
       })
 
