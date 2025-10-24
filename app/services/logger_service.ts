@@ -25,6 +25,7 @@ interface LogActivityData {
   resourceType: string
   resourceId: number | string
   details?: any
+  description?: string
   ipAddress?: string
   userAgent?: string
   hotelId?:number
@@ -101,7 +102,7 @@ export default class LoggerService {
         action: data.action,
         entityType: data.resourceType,
         entityId: Number(data.resourceId),
-        description: JSON.stringify(data.details) || null,
+        description: data.description || null,
         changes: data.details ?? null,
         hotelId:data.hotelId??null,
         createdBy: data.userId || null,

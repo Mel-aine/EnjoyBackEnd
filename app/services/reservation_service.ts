@@ -219,6 +219,7 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
       nationality: data.nationality,
       maidenName: data.maiden_name,
       contactType: data.contact_type,
+      contactTypeValue: data.contact_type_value,
       addressLine: data.address_line,
       country: data.country,
       stateProvince: data.state,
@@ -323,13 +324,13 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
     // Log guest creation if actorId is available
     if (data.created_by) {
       await LoggerService.logActivity({
-        actorId: data.created_by,
+        userId: data.created_by,
         action: 'CREATE',
-        entityType: 'Guest',
-        entityId: guest.id,
+        resourceType: 'Guest',
+        resourceId: guest.id,
         hotelId: data.hotel_id,
         description: `Guest "${guest.firstName} ${guest.lastName}" created via reservation service`,
-        changes: LoggerService.extractChanges({}, guest.toJSON())
+        details: LoggerService.extractChanges({}, guest.toJSON())
       })
     }
   }
@@ -377,6 +378,7 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
         placeOfBirth: guestData.placeOfBirth,
         maidenName: guestData.maiden_name,
         contactType: guestData.contact_type,
+        contactTypeValue: guestData.contact_type_value,
         addressLine: guestData.address_line,
         country: guestData.country,
         stateProvince: guestData.state,
@@ -388,12 +390,12 @@ public static async createOrFindGuest(data: ReservationData, trx?: any): Promise
       // Log guest creation
       if (createdBy) {
         await LoggerService.logActivity({
-          actorId: createdBy,
+          userId: createdBy,
           action: 'CREATE',
-          entityType: 'Guest',
-          entityId: guest.id,
+          resourceType: 'Guest',
+          resourceId: guest.id,
           description: `Guest "${guest.firstName} ${guest.lastName}" created from guest data`,
-          changes: LoggerService.extractChanges({}, guest.toJSON())
+          details: LoggerService.extractChanges({}, guest.toJSON())
         })
       }
     }

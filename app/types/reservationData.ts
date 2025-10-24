@@ -22,6 +22,7 @@ export interface GuestData {
   emergency_phone?: string
   notes?: string
   contact_type?: string
+  contact_type_value?: string
   maiden_name?: string
   nationality?: string
   dateOfBirth?: string
@@ -46,6 +47,7 @@ export interface ReservationData {
   zipcode?: string
   payment: number
   contact_type?: string
+  contact_type_value?: string
   maiden_name?: string
   nationality?: string
   dateOfBirth?: string
