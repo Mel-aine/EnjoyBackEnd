@@ -25,7 +25,9 @@ export default class RoomOwnersController {
 
       let query = includeDeleted ? RoomOwner.withDeleted() : RoomOwner.withoutDeleted()
 
-      query = query.preload('createdBy').preload('updatedBy').preload('rooms')
+      query = query.preload('createdBy').preload('updatedBy').preload('rooms', (roomQuery: any) => {
+        roomQuery.orderBy('sort_key', 'asc')
+      })
 
       // Restrict to the specific hotel
       query.where('hotel_id', hotelId)
@@ -129,7 +131,9 @@ export default class RoomOwnersController {
         .where('id', params.id)
         .preload('createdBy')
         .preload('updatedBy')
-        .preload('rooms')
+        .preload('rooms', (roomQuery: any) => {
+          roomQuery.orderBy('sort_key', 'asc')
+        })
         .firstOrFail()
 
       return response.ok({
@@ -317,6 +321,7 @@ export default class RoomOwnersController {
     try {
       const rooms = await Room.query()
         .select('id', 'room_number', 'room_type_id')
+        .orderBy('sort_key', 'asc')
         .preload('roomType', (query) => {
           query.select('id', 'name')
         })

@@ -41,6 +41,7 @@ export default class RoomTypesController {
         .preload('updatedByUser')
         .preload('rooms',(query)=>{
           query.preload('taxRates')
+          query.orderBy('sort_key', 'asc')
         })
         .preload('roomRates')
         .orderBy('sort_order', 'asc')
@@ -93,7 +94,9 @@ export default class RoomTypesController {
       const roomType = await RoomType.query()
         .where('id', params.id)
         .preload('hotel')
-        .preload('rooms')
+        .preload('rooms', (roomQuery) => {
+          roomQuery.orderBy('sort_key', 'asc')
+        })
         .preload('roomRates')
         .firstOrFail()
 
@@ -365,6 +368,7 @@ export default class RoomTypesController {
         .andWhere('is_deleted', false)
         .preload('rooms',(query)=>{
           query.preload('taxRates')
+          query.orderBy('sort_key', 'asc')
         })
         .preload('roomRates')
         .orderBy('sort_order', 'asc')

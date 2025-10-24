@@ -30,6 +30,7 @@ export class HotelAnalyticsService {
         const allRooms = await Room.query()
             .where('hotel_id', hotelId)
             .preload('roomType')
+            .orderBy('sort_key', 'asc')
 
         const totalRooms = allRooms.length
 

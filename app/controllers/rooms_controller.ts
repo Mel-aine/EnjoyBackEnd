@@ -84,6 +84,7 @@ export default class RoomsController {
         .preload('modifier')
         .preload('taxRates')
         .preload('creator')
+        .orderBy('sort_key', 'asc')
         .orderBy('floor_number', 'asc')
         .orderBy('room_number', 'asc')
         .paginate(page, limit)
@@ -469,7 +470,6 @@ export default class RoomsController {
           if (reservations.length === 0) {
             availableRoomIds.push(room.id)
           }
-          console.log(`Room ${room.id} reservations overlapping:`, reservations.length)
         }
 
         availableRooms = availableRooms.filter((room) => availableRoomIds.includes(room.id))
@@ -529,6 +529,7 @@ export default class RoomsController {
         .where('room_type_id', roomTypeId)
         .where('status', 'occupied')
         .preload('roomType')
+        .orderBy('sort_key', 'asc')
       console.log(
         'All rooms of this type:',
         rooms.map((r) => r.id)
@@ -666,6 +667,7 @@ export default class RoomsController {
     try {
       const rooms = await Room.query()
         .where('hotel_id', hotelId)
+        .orderBy('sort_key', 'asc')
         .preload('roomType')
         .preload('blocks')
         .preload('assignedHousekeeper', (query) => {

@@ -67,7 +67,9 @@ export default class ReservationRoomService {
       })
     }
 
-    const allRooms = await roomQuery.preload('roomType')
+    const allRooms = await roomQuery
+      .orderBy('sort_key', 'asc')
+      .preload('roomType')
 
     // Filter out rooms that are already booked for the given dates
     const availableRooms: Room[] = []
