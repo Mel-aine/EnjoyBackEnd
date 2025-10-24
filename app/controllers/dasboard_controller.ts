@@ -708,7 +708,7 @@ export default class DashboardController {
             id: activity.id,
             description: activity.description,
             action: activity.action,
-            user: activity.user?.username || 'System',
+            user: activity.user?.fullName,
             userId: activity.user?.id || null,
             timestamp: activity.createdAt.toFormat('HH:mm'),
             fullTimestamp: activity.createdAt.toISO(),
@@ -986,6 +986,7 @@ export default class DashboardController {
     const roomTypes = await RoomType
       .query({ client: trx })
       .where('hotel_id', serviceId)
+      .where('is_deleted', false)
       .orderBy('sort_order', 'asc')
       .select(['id', 'room_type_name', 'sort_order'])
 
