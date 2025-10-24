@@ -28,6 +28,7 @@ export default class RoomStatusReportsController {
           roomQuery
             .where('isDeleted', false)
             .preload('assignedHousekeeper')
+            .orderBy('sort_key', 'asc')
             .orderBy('roomNumber', 'asc')
         })
         .orderBy('room_type_name', 'asc')

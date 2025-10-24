@@ -355,6 +355,7 @@ export default class DailyReceiptReportsController {
                 taxRateQuery.whereIn('tax_rates.tax_rate_id', taxIds)
               }
             })
+            roomQuery.orderBy('sort_key', 'asc')
           })
         })
         .preload('reservationRooms', (reservationRoomQuery) => {
@@ -613,6 +614,7 @@ export default class DailyReceiptReportsController {
                 taxRateQuery.whereIn('tax_rates.tax_rate_id', taxIds)
               }
             })
+            roomQuery.orderBy('sort_key', 'asc')
           })
         })
         .preload('reservationRooms', (reservationRoomQuery) => {

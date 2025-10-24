@@ -1270,6 +1270,7 @@ export class FrontOfficeReportsService {
     const query = Room.query()
       .preload('hotel')
       .preload('roomType')
+      .orderBy('sort_key', 'asc')
       .orderBy('roomNumber', 'asc')
 
     if (filters.hotelId) {

@@ -257,7 +257,9 @@ export default class HotelsController {
       const hotel = await Hotel.query()
         .where('id', params.id)
         .preload('roomTypes')
-        .preload('rooms')
+        .preload('rooms', (roomQuery) => {
+          roomQuery.orderBy('sort_key', 'asc')
+        })
         .preload('ratePlans')
         .preload('discounts')
         .preload('roomChargesTaxRates')
@@ -795,6 +797,7 @@ export default class HotelsController {
 
       const query = Hotel.query()
         .preload('rooms', (roomQuery: any) => {
+          roomQuery.orderBy('sort_key', 'asc')
           roomQuery.preload('roomType', (typeQuery: any) => {
             typeQuery.select(['id', 'type_name'])
           })
