@@ -430,7 +430,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const reservationRoom of reservationRoomRecords) {
         // Update reservation room status
         reservationRoom.status = 'checked_out'
-        //reservationRoom.actualCheckOutTime = checkOutDateTime
+        reservationRoom.checkOutDate = checkOutDateTime
         reservationRoom.checkedOutBy = auth.user!.id
         reservationRoom.lastModifiedBy = auth.user!.id
 
@@ -465,7 +465,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         console.log('✅ All rooms checked out, updating reservation status')
         reservation.checkOutDate = checkOutDateTime
         reservation.status = ReservationStatus.CHECKED_OUT
-        //reservation.checkedOutBy = auth.user!.id
+        reservation.checkedOutBy = auth.user!.id
         await reservation.useTransaction(trx).save()
       }
 
@@ -718,9 +718,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ success: false, message: 'Reservation not found' })
       }
 
-      const todayISO = DateTime.now().toISODate()
-      const checkedOutTodayAtReservationLevel =
-        reservation.checkOutDate && reservation.checkOutDate.toISODate() === todayISO
+      const todayISO = DateTime.now().toJSDate()
+      logger.info(reservation.departDate)
+    /* const checkedOutTodayAtReservationLevel =
+        reservation.checkOutDate && reservation.checkOutDate.toJSDate() === todayISO*/
 
       const roomsToUndo = await ReservationRoom.query({ client: trx })
         .whereIn('id', reservationRooms)
@@ -743,7 +744,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // If reservation-level checkout is set, enforce same-day undo
-      if (!checkedOutTodayAtReservationLevel) {
+     /* if (!checkedOutTodayAtReservationLevel) {
         // fallback: allow if any selected room updated today (best effort)
         const anySelectedUpdatedToday = roomsToUndo.some(
           (rr) => rr.updatedAt && rr.updatedAt.toISODate() === todayISO
@@ -755,7 +756,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             message: 'Undo check-out only allowed for check-outs performed today',
           })
         }
-      }
+      }*/
 
       const updatedRooms: any[] = []
       for (const rr of roomsToUndo) {
@@ -823,6 +824,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         },
       })
     } catch (error) {
+       logger.info(error)
       await trx.rollback()
       logger.error('Error during undo check-out:', {
         reservationId: params.reservationId,
