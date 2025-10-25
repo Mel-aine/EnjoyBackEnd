@@ -45,7 +45,10 @@ export default class Guest extends BaseModel {
   declare phonePrimary: string
 
   @column()
-  declare mobileNumber: string
+  declare phoneSecondary: string
+
+  @column()
+  declare contactTypeValue: string
 
   @column()
   declare alternatePhone: string
@@ -61,6 +64,10 @@ export default class Guest extends BaseModel {
 
   @column()
   declare contactType: string
+
+
+  @column()
+  declare emailSecondary: string
 
   @column()
   declare nationality: string
