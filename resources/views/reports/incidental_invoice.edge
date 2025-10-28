@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facture SUITA HOTEL</title>
+    <title>Facture {{ hotel.hotelName }}</title>
     <style>
         * {
             margin: 0;
@@ -53,7 +53,7 @@
         
         .guest-info {
             font-size: 11px;
-            margin-bottom: 20px;
+            margin-bottom: 0px;
         }
         
         .guest-info table {
@@ -62,7 +62,7 @@
         }
         
         .guest-info td {
-            padding: 2px 5px;
+            padding: 2px;
         }
         
         .guest-info td:first-child {
@@ -304,11 +304,14 @@
 <body>
     <div class="invoice-container">
         <div class="header">
-            <div class="company-name">TAMI SARL (SUITA HOTEL)</div>
+            <div class="company-name">{{ hotel.hotelName }}</div>
             <div class="company-details">
-                Carrefour Bastos, Yaounde, Centre, 2723, Cameroon<br>
-                Phone: 658858585; E-mail : reservation@suita-hotel.com<br>
-                GST ID No : M090100012509Y RC/YAO/2015/M/7
+                {{ hotel.address }}, {{ hotel.city }}, {{ hotel.stateProvince }}, {{ hotel.postalCode }}, {{ hotel.country }}<br>
+                Phone: {{ hotel.phoneNumber }}; E-mail : {{ hotel.email }}<br>
+                webSite: {{ hotel.website }}<br>
+                @if(hotel.registrationNo1)
+                GST ID No : {{ hotel.registrationNo1 }}
+                @endif
             </div>
         </div>
         
@@ -318,31 +321,35 @@
             <table>
                 <tr>
                     <td><strong>Guest Name</strong></td>
-                    <td>: Mr.CLIENT</td>
+                    <td>: {{ guest.title }} {{ guest.firstName }} {{ guest.lastName }}</td>
                     <td><strong>Invoice No</strong></td>
-                    <td>: 135</td>
+                    <td>: 
+                        @each(folio in folios)
+                            {{ folio.folioNumber }}
+                        @endeach
+                    </td>
                 </tr>
                 <tr>
                     <td><strong>Guest GST ID</strong></td>
-                    <td>:</td>
+                    <td>: {{ guest.gstinNo || 'N/A' }}</td>
                     <td><strong>Invoice Date</strong></td>
-                    <td>: 18-10-2025</td>
+                    <td>: {{ currentDate.split(' ')[0] }}</td>
                 </tr>
                 <tr>
                     <td><strong>Address</strong></td>
-                    <td>: Douala,</td>
+                    <td>: {{ guest.addressLine }},</td>
                     <td></td>
                     <td></td>
                 </tr>
                 <tr>
                     <td></td>
-                    <td>douala -</td>
+                    <td>{{ guest.city }} - {{ guest.postalCode }}</td>
                     <td></td>
                     <td></td>
                 </tr>
                 <tr>
                     <td><strong>Nationality</strong></td>
-                    <td>:</td>
+                    <td>: {{ guest.nationality }}</td>
                     <td></td>
                     <td></td>
                 </tr>
@@ -356,34 +363,44 @@
                     <th>Ref. No.</th>
                     <th>Tax Code</th>
                     <th>Particular</th>
-                    <th>Debit (XAF)</th>
-                    <th>Credit (XAF)</th>
+                    <th>Debit ({{ currency }})</th>
+                    <th>Credit ({{ currency }})</th>
                 </tr>
             </thead>
             <tbody>
+                <!-- Afficher toutes les transactions dans l'ordre -->
+                @each(transaction in transactions)
                 <tr>
-                    <td>18-10-2025</td>
-                    <td>29566</td>
-                    <td>0</td>
-                    <td>Massage ( 01 ADULTE [Qty 1] )</td>
-                    <td>15 000</td>
-                    <td></td>
+                    <td>{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+                    <td>{{ transaction.transactionNumber }}</td>
+                    <td>
+                    0
+                    </td>
+                    <td>{{ transaction.particular || transaction.description }}</td>
+                    <td>
+                        @if(transaction.transactionType !== 'payment')
+                        {{ formatNumber(Math.abs(parseFloat(transaction.amount))) }}
+                        @else
+                        0
+                        @endif
+                    </td>
+                    <td>
+                        @if(transaction.transactionType === 'payment')
+                        {{ formatNumber(Math.abs(parseFloat(transaction.amount))) }}
+                        @else
+                        0
+                        @endif
+                    </td>
                 </tr>
-                <tr>
-                    <td>18-10-2025</td>
-                    <td>01269</td>
-                    <td>0</td>
-                    <td>Especes ( 01 ADULTE )</td>
-                    <td></td>
-                    <td>15 000</td>
-                </tr>
+                @endeach
+                
                 <tr class="total-row-table">
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td style="text-align: right; padding-right: 10px;"><strong>Total (XAF)</strong></td>
-                    <td><strong>15 000</strong></td>
-                    <td><strong>15 000</strong></td>
+                    <td style="text-align: right; padding-right: 10px;"><strong>Total ({{ currency }})</strong></td>
+                    <td><strong>{{ formatNumber(summary.totalCharges + summary.totalTaxes) }}</strong></td>
+                    <td><strong>{{ formatNumber(summary.totalPayments) }}</strong></td>
                 </tr>
             </tbody>
         </table>
@@ -391,39 +408,32 @@
         <div class="summary-section">
             <table class="summary-table">
                 <tr>
-                    <td>Total Charges (XAF) :</td>
-                    <td>12 579</td>
+                    <td style="font-weight: bold;">Total Charges ({{ currency }}) :</td>
+                    <td>{{ formatNumber(summary.totalCharges) }}</td>
                 </tr>
                 <tr class="discount-row">
-                    <td>Total Tax (Exclusive GST) (XAF) :</td>
-                    <td>2421</td>
-                </tr>
-                <tr>
-                    <td>Total Tax (Exclusive GST) (XAF) :</td>
-                    <td>15000</td>
+                    <td style="font-weight: bold;">TVA ({{ currency }}) :</td>
+                    <td>{{ formatNumber(summary.totalTaxes) }}</td>
                 </tr>
                 <tr class="payable-row">
-                    <td>Total GST @ 6% (XAF) :</td>
-                    <td>0</td>
+                    <td style="font-weight: bold;">Total Payable ({{ currency }}) :</td>
+                    <td>{{ formatNumber(summary.totalCharges + summary.totalTaxes) }}</td>
                 </tr>
                 <tr>
-                    <td>Total Payable (XAF) :</td>
-                    <td>15 000</td>
-                </tr>
-                <tr>
-                    <td>Flat Discount (XAF)  :</td>
-                    <td>0</td>
+                    <td style="font-weight: bold;">Flat Discount ({{ currency }}) :</td>
+                    <td>{{ formatNumber(summary.totalDiscounts) }}</td>
                 </tr>
                 <tr class="payment-row">
-                    <td>Payment (XAF) :</td>
-                    <td>15 000</td>
+                    <td style="font-weight: bold;">Payment ({{ currency }}) :</td>
+                    <td>{{ formatNumber(summary.totalPayments) }}</td>
                 </tr>
                 <tr class="balance-row">
-                    <td>Balance (XAF) :</td>
-                    <td>0</td>
+                    <td style="font-weight: bold;">Balance ({{ currency }}) :</td>
+                    <td>{{ formatNumber((summary.totalCharges + summary.totalTaxes) - summary.totalPayments) }}</td>
                 </tr>
             </table>
         </div>
+        
     </div>
 </body>
 </html>

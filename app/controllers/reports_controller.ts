@@ -8657,18 +8657,18 @@ export default class ReportsController {
   }
   async printIncidentalInvoice({ request, response }: HttpContext) {
     try {
-      const { transactionId } = request.params()
-
-      if (!transactionId) {
+      const { transactionIds } = request.only(['transactionIds'])
+  
+      if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
         return response.badRequest({
           success: false,
-          message: 'Transaction ID is required'
+          message: 'Transaction IDs array is required'
         })
       }
-
-      // Get transaction with all related data
-      const transaction = await FolioTransaction.query()
-        .where('id', transactionId)
+  
+      // Get all transactions with their related data
+      const transactions = await FolioTransaction.query()
+        .whereIn('id', transactionIds)
         .preload('folio', (folioQuery: any) => {
           folioQuery.preload('hotel')
           folioQuery.preload('guest')
@@ -8679,38 +8679,81 @@ export default class ReportsController {
           })
         })
         .preload('paymentMethod')
-        .first()
-
-      if (!transaction) {
+        .orderBy('transactionDate', 'asc')
+        .orderBy('createdAt', 'asc')
+  
+      if (!transactions || transactions.length === 0) {
         return response.notFound({
           success: false,
-          message: 'Transaction not found'
+          message: 'Transactions not found'
         })
       }
-
+  
+      // Get unique folios (au cas où les transactions viennent de différents folios)
+      const uniqueFolios = [...new Set(transactions.map(t => t.folio))]
+      const primaryFolio = transactions[0].folio
+      const hotel = primaryFolio.hotel
+      const guest = primaryFolio.guest
+  
+      // Separate charges, taxes and payments
+      const charges = transactions.filter(t => t.transactionType === 'charge')
+      const taxes = transactions.filter(t => t.transactionType === 'tax')
+      const payments = transactions.filter(t => t.transactionType === 'payment')
+  
+      // Calculate totals CORRIGÉS
+      const totalCharges = charges.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+      const totalTaxes = taxes.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+      const totalPayments = payments.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+      const totalDiscounts = charges.reduce((sum, t) => sum + parseFloat(t.discountAmount || 0), 0)
+      
+      // Calculs finaux CORRIGÉS
+      const totalPayable = totalCharges + totalTaxes
+      const balance = totalPayable - totalPayments
+  
       // Prepare receipt data for the template
       const receiptData = {
-        transaction,
-        folio: transaction.folio,
-        hotel: transaction.folio.hotel,
-        guest: transaction.folio.guest,
-        room: transaction.folio.reservationRoom?.room,
-        roomType: transaction.folio.reservationRoom?.room?.roomType,
-        paymentMethod: transaction.paymentMethod,
+        transactions, // Toutes les transactions
+        charges: [...charges, ...taxes], // Charges incluant les taxes pour l'affichage
+        payments,     // Seulement les paiements
+        folios: uniqueFolios, // Tous les folios concernés
+        hotel,
+        guest,
+        room: primaryFolio.reservationRoom?.room,
+        roomType: primaryFolio.reservationRoom?.room?.roomType,
         currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
-        formattedAmount: transaction.amount,
-        currency: 'XAF'
+        currency: hotel.currencyCode || 'XAF',
+        summary: {
+          totalCharges,
+          totalPayments,
+          totalTaxes,
+          totalDiscounts,
+          totalPayable, // NOUVEAU: Total à payer (charges + TVA)
+          balance,
+          transactionCount: transactions.length,
+          chargeCount: charges.length,
+          taxCount: taxes.length,
+          paymentCount: payments.length
+        }
       }
-
+  
       console.log('data.send@@@@', receiptData)
+      
       const { default: edge } = await import('edge.js')
       const path = await import('path')
+      
       // Configure Edge with views directory
       edge.mount(path.join(process.cwd(), 'resources/views'))
-
+  
+      // Ajouter la fonction helper formatNumber
+      edge.global('formatNumber', (number) => {
+        if (!number && number !== 0) return '0';
+        const num = parseFloat(number);
+        return new Intl.NumberFormat('fr-FR').format(num);
+      })
+  
       // Render the POS receipt template
       const html = await edge.render('reports/incidental_invoice', receiptData)
-
+  
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: {
@@ -8720,19 +8763,19 @@ export default class ReportsController {
           left: '10px'
         }
       })
-
+  
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `inline; filename="pos-receipt-${transaction.transactionNumber}.pdf"`)
-
+      response.header('Content-Disposition', `inline; filename="incidental-invoice-${DateTime.now().toFormat('yyyy-MM-dd')}.pdf"`)
+  
       return response.send(pdfBuffer)
-
+  
     } catch (error) {
-      logger.error('Error generating POS receipt PDF:')
+      logger.error('Error generating incidental invoice PDF:')
       logger.info(error)
       return response.internalServerError({
         success: false,
-        message: 'Error generating POS receipt PDF',
+        message: 'Error generating incidental invoice PDF',
         error: error.message
       })
     }
