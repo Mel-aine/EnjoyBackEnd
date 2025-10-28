@@ -5,6 +5,7 @@ import Folio from '#models/folio'
 import ReceiptService from '#services/receipt_service'
 import LoggerService from '#services/logger_service'
 import { TransactionCategory, TransactionStatus, TransactionType } from '#app/enums'
+import FolioService from '#services/folio_service'
 import { createFolioTransactionValidator, updateFolioTransactionValidator } from '#validators/folio_transaction'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
@@ -215,6 +216,7 @@ export default class FolioTransactionsController {
         //unitPrice: payload.unit_price || payload.amount,
         //taxAmount: payload.tax_amount || 0,
         // taxRate: payload.tax_rate || 0,
+        extraChargeId: payload.extraChargeId,
         serviceChargeAmount: payload.serviceChargeAmount || 0,
         serviceChargeRate: payload.serviceChargeRate || 0,
         discountAmount: 0,
@@ -222,6 +224,7 @@ export default class FolioTransactionsController {
         reservationId: payload.reservationId,
         netAmount: payload.amount,
         grossAmount: payload.amount,
+        
         transactionDate: payload.transactionDate ? DateTime.fromJSDate(new Date(payload.transactionDate)) : DateTime.now(),
         postingDate: payload.postingDate ? DateTime.fromJSDate(new Date(payload.postingDate)) : DateTime.now(),
         serviceDate: DateTime.now(),
@@ -334,136 +337,65 @@ export default class FolioTransactionsController {
    */
   async update({ params, request, response, auth }: HttpContext) {
     try {
-      const transaction = await FolioTransaction.findOrFail(params.id)
-
-      if (transaction.status === TransactionStatus.POSTED) {
-        return response.badRequest({
-          message: 'Cannot update posted transactions'
-        })
-      }
-
       const payload = await request.validateUsing(updateFolioTransactionValidator)
 
-      // Map validator properties to model properties
-      if (payload.hotelId) transaction.hotelId = payload.hotelId
-      if (payload.folioId) transaction.folioId = payload.folioId
-      if (payload.transactionType) transaction.transactionType = payload.transactionType
-      if (payload.category) {
-        transaction.category = payload.category as TransactionCategory
-        // Update particular field when category changes
-        switch (payload.category as TransactionCategory) {
-          case TransactionCategory.ROOM:
-            transaction.particular = 'Room Charge'
-            break
-          case TransactionCategory.FOOD_BEVERAGE:
-            transaction.particular = 'Food & Beverage'
-            break
-          case TransactionCategory.TELEPHONE:
-            transaction.particular = 'Telephone Charge'
-            break
-          case TransactionCategory.LAUNDRY:
-            transaction.particular = 'Laundry Service'
-            break
-          case TransactionCategory.MINIBAR:
-            transaction.particular = 'Minibar Charge'
-            break
-          case TransactionCategory.SPA:
-            transaction.particular = 'Spa Service'
-            break
-          case TransactionCategory.BUSINESS_CENTER:
-            transaction.particular = 'Business Center'
-            break
-          case TransactionCategory.PARKING:
-            transaction.particular = 'Parking Fee'
-            break
-          case TransactionCategory.INTERNET:
-            transaction.particular = 'Internet Service'
-            break
-          case TransactionCategory.PAYMENT:
-            transaction.particular = 'Payment Received'
-            break
-          case TransactionCategory.ADJUSTMENT:
-            transaction.particular = 'Folio Adjustment'
-            break
-          case TransactionCategory.TAX:
-            transaction.particular = 'Tax Charge'
-            break
-          case TransactionCategory.SERVICE_CHARGE:
-            transaction.particular = 'Service Charge'
-            break
-          case TransactionCategory.CANCELLATION_FEE:
-            transaction.particular = 'Cancellation Fee'
-            break
-          case TransactionCategory.NO_SHOW_FEE:
-            transaction.particular = 'No Show Fee'
-            break
-          case TransactionCategory.EARLY_DEPARTURE_FEE:
-            transaction.particular = 'Early Departure Fee'
-            break
-          case TransactionCategory.LATE_CHECKOUT_FEE:
-            transaction.particular = 'Late Checkout Fee'
-            break
-          case TransactionCategory.EXTRA_BED:
-            transaction.particular = 'Extra Bed Charge'
-            break
-          case TransactionCategory.CITY_TAX:
-            transaction.particular = 'City Tax'
-            break
-          case TransactionCategory.RESORT_FEE:
-            transaction.particular = 'Resort Fee'
-            break
-          case TransactionCategory.TRANSFER_IN:
-            transaction.particular = 'Transfer In'
-            break
-          case TransactionCategory.TRANSFER_OUT:
-            transaction.particular = 'Transfer Out'
-            break
-          case TransactionCategory.VOID:
-            transaction.particular = 'Void Transaction'
-            break
-          case TransactionCategory.REFUND:
-            transaction.particular = 'Refund'
-            break
-          case TransactionCategory.EXTRACT_CHARGE:
-            transaction.particular = 'Extract Charge'
-            break
-          default:
-            transaction.particular = 'Miscellaneous Charge'
-        }
+      const transactionId = Number(params.id)
+      if (!transactionId) {
+        return response.badRequest({ message: 'Transaction ID is required' })
       }
-      if (payload.description) transaction.description = payload.description
-      if (payload.amount) transaction.amount = payload.amount
-      if (payload.quantity) transaction.quantity = payload.quantity
-      if (payload.unitPrice) transaction.unitPrice = payload.unitPrice
-      if (payload.taxAmount) transaction.taxAmount = payload.taxAmount
-      if (payload.taxRate) transaction.taxRate = payload.taxRate
-      if (payload.serviceChargeAmount) transaction.serviceChargeAmount = payload.serviceChargeAmount
-      if (payload.serviceChargeRate) transaction.serviceChargeRate = payload.serviceChargeRate
-      //if (payload.discountAmount) transaction.discountAmount = payload.discountAmount
-      if (payload.externalReference) transaction.externalReference = payload.externalReference
-      if (payload.status) transaction.status = payload.status
-      if (payload.transactionDate) transaction.transactionDate = DateTime.fromJSDate(new Date(payload.transactionDate))
-      if (payload.postingDate) transaction.postingDate = DateTime.fromJSDate(new Date(payload.postingDate))
 
-      transaction.lastModifiedBy = auth.user?.id || 0
+      // Prepare data for service-level update mirroring postTransaction logic
+      const dataForService = {
+        description: payload.description,
+        category: payload.category as TransactionCategory,
+        transactionType: payload.transactionType as TransactionType,
+        paymentMethodId: payload.paymentMethodId,
+        notes: payload.internalNotes || payload.notes,
+        amount: payload.amount,
+        quantity: payload.quantity,
+        unitPrice: payload.unitPrice,
+        taxAmount: payload.taxAmount,
+        discountAmount: payload.discountAmount,
+        discountId: payload.discountId,
+        serviceChargeAmount: payload.serviceChargeAmount,
+        transactionDate: payload.transactionDate ? DateTime.fromJSDate(new Date(payload.transactionDate)) : undefined,
+      }
 
-      await transaction.save()
+      const updated = await FolioService.updateTransaction(transactionId, dataForService, auth.user!.id)
 
-      // Update folio totals
-      await this.updateFolioTotals(transaction.folioId)
+      // Apply additional optional fields not handled by service
+      if (payload.externalReference) updated.externalReference = payload.externalReference
+      if (payload.status) updated.status = payload.status
+      if (payload.postingDate) updated.postingDate = DateTime.fromJSDate(new Date(payload.postingDate))
 
-      await transaction.load('hotel')
-      await transaction.load('folio')
-      await transaction.load('paymentMethod')
+      updated.lastModifiedBy = auth.user?.id || 0
+      await updated.save()
+
+      // Update folio totals (service does this, but keeping consistent here)
+      await this.updateFolioTotals(updated.folioId)
 
       return response.ok({
         message: 'Folio transaction updated successfully',
-        data: transaction
+        data: updated,
       })
     } catch (error) {
+      // Provide field-level details on validation failures
+      if ((error as any)?.code === 'E_VALIDATION_ERROR') {
+        const err: any = error
+        const fields = Array.isArray(err.errors)
+          ? err.errors.map((e: any) => ({ field: e.field, message: e.message, rule: e.rule }))
+          : []
+
+        return response.badRequest({
+          message: 'Validation failed',
+          errors: typeof err.messages === 'function' ? err.messages() : err.messages,
+          fields,
+        })
+      }
+
       return response.badRequest({
         message: 'Failed to update folio transaction',
-        error: error.message
+        error: (error as any)?.message
       })
     }
   }

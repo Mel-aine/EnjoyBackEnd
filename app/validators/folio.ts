@@ -19,6 +19,7 @@ export const postTransactionValidator = vine.compile(
     departmentId: vine.number().positive().optional(),
     revenueCenterId: vine.number().positive().optional(),
     costCenterId: vine.number().positive().optional(),
+    extraChargeId: vine.number().positive().optional(),
     glAccountCode: vine.string().optional(),
     paymentMethodId: vine.number().positive().optional(),
     reference: vine.string().optional(),

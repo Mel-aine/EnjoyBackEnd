@@ -1127,7 +1127,25 @@ export default class FoliosController {
         data: transaction
       })
     } catch (error) {
-      return response.badRequest({ message: error.message })
+      // Return field-level validation errors when schema fails
+      const messages = (error as any)?.messages
+      if (Array.isArray(messages)) {
+        const errors: Record<string, string[]> = {}
+        const fields: string[] = []
+        for (const m of messages) {
+          const field = m.field || 'unknown'
+          if (!errors[field]) errors[field] = []
+          errors[field].push(m.message)
+          fields.push(field)
+        }
+        return response.status(422).send({
+          message: 'Validation failed',
+          errors,
+          fields: Array.from(new Set(fields)),
+          details: messages.map((m: any) => ({ field: m.field, message: m.message, rule: m.rule }))
+        })
+      }
+      return response.badRequest({ message: (error as any)?.message || 'Failed to post transaction' })
     }
   }
 
@@ -1874,14 +1892,17 @@ async updateRoomCharge({ request, response, auth }: HttpContext) {
 
   /**
    * Add folio adjustment
-   */
+  */
   async addAdjustment({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(addFolioAdjustmentValidator)
 
-      const transaction = await FolioService.addFolioAdjustment({
-        ...payload,
-        postedBy: auth.user!.id
+      const transaction = await db.transaction(async (trx) => {
+        const created = await FolioService.addFolioAdjustment({
+          ...payload,
+          postedBy: auth.user!.id
+        }, trx)
+        return created
       })
 
       return response.created({
@@ -1899,9 +1920,23 @@ async updateRoomCharge({ request, response, auth }: HttpContext) {
         }
       })
     } catch (error) {
+      // Rollback occurs automatically on error; provide validation details if available
+      if ((error as any)?.code === 'E_VALIDATION_ERROR') {
+        const err: any = error
+        const fields = Array.isArray(err.errors)
+          ? err.errors.map((e: any) => ({ field: e.field, message: e.message, rule: e.rule }))
+          : []
+
+        return response.status(422).send({
+          message: 'Validation failed',
+          errors: typeof err.messages === 'function' ? err.messages() : err.messages,
+          fields,
+        })
+      }
+
       return response.badRequest({
         message: 'Failed to add folio adjustment',
-        error: error.message
+        error: (error as any)?.message
       })
     }
   }

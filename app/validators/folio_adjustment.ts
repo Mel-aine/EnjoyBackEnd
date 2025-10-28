@@ -7,7 +7,7 @@ export const addFolioAdjustmentValidator = vine.compile(
     hotelId: vine.number().positive(),
     type: vine.string().trim().minLength(1).maxLength(500),
     amount: vine.number(),
-    comment: vine.string().trim().minLength(1).maxLength(500),
+    comment: vine.string().trim().minLength(1).maxLength(500).optional(),
     date: vine.date(),
   })
 )
