@@ -19,6 +19,7 @@ export const createFolioTransactionValidator = vine.compile(
     currency: vine.string().fixedLength(3).optional(),
     exchangeRate: vine.number().min(0).optional(),
     localAmount: vine.number().optional(),
+    extraChargeId:vine.number().optional(),
     
     // Description and Reference
     description: vine.string(),
@@ -194,6 +195,8 @@ export const updateFolioTransactionValidator = vine.compile(
     currency: vine.string().fixedLength(3).optional(),
     exchangeRate: vine.number().min(0).optional(),
     localAmount: vine.number().optional(),
+    discountAmount: vine.number().min(0).optional(),
+    discountId: vine.number().positive().optional(),
     
     // Description and Reference
     description: vine.string().optional(),

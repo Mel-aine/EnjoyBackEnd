@@ -352,7 +352,12 @@ export default class FolioService {
 
       //  Préparer les valeurs de base
       const quantity = Number(data.quantity ?? transaction.quantity ?? 1)
-      const amount = Number(data.amount ?? transaction.amount ?? 0)
+      const unitPrice =
+        data.unitPrice !== undefined
+          ? Number(data.unitPrice)
+          : data.amount !== undefined
+            ? Number(data.amount)
+            : Number(transaction.unitPrice ?? ((transaction.amount ?? 0) / (transaction.quantity || 1)))
       let calculatedDiscountAmount = Number(data.discountAmount ?? transaction.discountAmount ?? 0)
 
       //  Calcul du discount si discountId fourni
@@ -363,15 +368,16 @@ export default class FolioService {
           throw new Error('Discount is not active or has been deleted')
         }
 
+        const baseAmountForDiscount = data.amount !== undefined ? Number(data.amount) : unitPrice
         if (discount.type === 'percentage') {
-          calculatedDiscountAmount = amount * (discount.value / 100)
+          calculatedDiscountAmount = baseAmountForDiscount * (discount.value / 100)
         } else if (discount.type === 'flat') {
-          calculatedDiscountAmount = Math.min(discount.value, amount)
+          calculatedDiscountAmount = Math.min(discount.value, baseAmountForDiscount)
         }
       }
 
       //  Recalcul des totaux
-      const totalAmount = amount
+      const grossAmount = quantity * unitPrice
       const targetCategory = (data.category ?? transaction.category) as TransactionCategory
       const isHotelTaxCategory = [TransactionCategory.ROOM, TransactionCategory.CANCELLATION_FEE, TransactionCategory.NO_SHOW_FEE].includes(targetCategory)
       const computedTax =
@@ -381,7 +387,7 @@ export default class FolioService {
             ? await FolioService._getHotelTaxAmountForCategory(
               folio.hotelId,
               targetCategory,
-              totalAmount
+              grossAmount
             )
             : Number(transaction.taxAmount ?? 0)
       const taxAmount = Number(
@@ -392,26 +398,72 @@ export default class FolioService {
             : transaction.taxAmount ?? 0
       )
       const serviceChargeAmount = Number(data.serviceChargeAmount ?? transaction.serviceChargeAmount ?? 0)
-      const netAmount = totalAmount - calculatedDiscountAmount
-      const grossAmount = totalAmount + taxAmount + serviceChargeAmount
+      const netAmount = grossAmount - calculatedDiscountAmount
+      const totalAmount = netAmount + taxAmount + serviceChargeAmount
+
+      // Compute 'particular' label when category is provided, mirroring postTransaction
+      let particular = transaction.particular
+      if (data.category) {
+        switch (targetCategory) {
+          case TransactionCategory.ROOM: particular = 'Room Charge'; break
+          case TransactionCategory.FOOD_BEVERAGE: particular = 'Food & Beverage'; break
+          case TransactionCategory.TELEPHONE: particular = 'Telephone Charge'; break
+          case TransactionCategory.LAUNDRY: particular = 'Laundry Service'; break
+          case TransactionCategory.MINIBAR: particular = 'Minibar Charge'; break
+          case TransactionCategory.SPA: particular = 'Spa Service'; break
+          case TransactionCategory.BUSINESS_CENTER: particular = 'Business Center'; break
+          case TransactionCategory.PARKING: particular = 'Parking Fee'; break
+          case TransactionCategory.INTERNET: particular = 'Internet Service'; break
+          case TransactionCategory.PAYMENT: particular = 'Payment Received'; break
+          case TransactionCategory.ADJUSTMENT: particular = 'Folio Adjustment'; break
+          case TransactionCategory.TAX: particular = 'Tax Charge'; break
+          case TransactionCategory.SERVICE_CHARGE: particular = 'Service Charge'; break
+          case TransactionCategory.CANCELLATION_FEE: particular = 'Cancellation Fee'; break
+          case TransactionCategory.NO_SHOW_FEE: particular = 'No Show Fee'; break
+          case TransactionCategory.EARLY_DEPARTURE_FEE: particular = 'Early Departure Fee'; break
+          case TransactionCategory.LATE_CHECKOUT_FEE: particular = 'Late Checkout Fee'; break
+          case TransactionCategory.EXTRA_BED: particular = 'Extra Bed Charge'; break
+          case TransactionCategory.CITY_TAX: particular = 'City Tax'; break
+          case TransactionCategory.RESORT_FEE: particular = 'Resort Fee'; break
+          case TransactionCategory.TRANSFER_IN: particular = 'Transfer In'; break
+          case TransactionCategory.TRANSFER_OUT: particular = 'Transfer Out'; break
+          case TransactionCategory.VOID: particular = 'Void Transaction'; break
+          case TransactionCategory.REFUND: particular = 'Refund'; break
+          case TransactionCategory.EXTRACT_CHARGE: particular = 'Extra Charge'; break
+          default: particular = 'Miscellaneous Charge';
+        }
+      }
+
+      // Build a concise price-only update summary with updater and timestamp
+      const baseDescription = (data.description ?? transaction.description ?? '').trim()
+      const prevGross = transaction.grossAmount ?? transaction.amount ?? 0
+      const prevNet = transaction.netAmount ?? (prevGross - (transaction.discountAmount ?? 0))
+      const prevTax = transaction.taxAmount ?? 0
+      const prevService = transaction.serviceChargeAmount ?? 0
+      const prevTotal = transaction.totalAmount ?? (prevNet + prevTax + prevService)
+      const when = DateTime.now().toFormat('yyyy-LL-dd HH:mm')
+      const changeSummary = `Price update by user ${updatedBy} at ${when}: gross ${prevGross} -> ${grossAmount}, net ${prevNet} -> ${netAmount}, tax ${prevTax} -> ${taxAmount}, service ${prevService} -> ${serviceChargeAmount}, total ${prevTotal} -> ${totalAmount}`
+      const descriptionWithSummary = baseDescription ? `${baseDescription}\n${changeSummary}` : changeSummary
 
       // Mise à jour des champs
       transaction.merge({
-        description: data.description ?? transaction.description,
+        description: descriptionWithSummary,
         category: data.category ?? transaction.category,
         transactionType: data.transactionType ?? transaction.transactionType,
+        particular,
         paymentMethodId: data.paymentMethodId ?? transaction.paymentMethodId,
-        notes: data.notes ?? transaction.notes,
+        notes: descriptionWithSummary ?? transaction.notes,
         discountId: data.discountId ?? transaction.discountId,
         discountAmount: calculatedDiscountAmount,
         taxAmount,
         serviceChargeAmount,
-        amount,
+        amount: grossAmount,
         totalAmount,
         netAmount,
         grossAmount,
         quantity,
-        unitPrice: data.unitPrice ?? transaction.unitPrice ?? amount,
+        unitPrice,
+        transactionDate: data.transactionDate ?? transaction.transactionDate,
         lastModifiedBy: updatedBy,
         updatedAt: DateTime.now(),
       })
@@ -1243,7 +1295,7 @@ export default class FolioService {
       let particular: string
       switch (data.chargeSubtype) {
         case 'cancellation_revenue':
-          category = TransactionCategory.ADJUSTMENT
+          category = TransactionCategory.ROOM
           particular = 'Cancellation Revenue'
           break
         case 'day_user_charge':
@@ -1425,7 +1477,7 @@ export default class FolioService {
       if (data.chargeSubtype) {
         switch (data.chargeSubtype) {
           case 'cancellation_revenue':
-            category = TransactionCategory.ADJUSTMENT
+            category = TransactionCategory.ROOM
             particular = 'Cancellation Revenue'
             break
           case 'day_user_charge':
@@ -1512,11 +1564,11 @@ export default class FolioService {
     hotelId: number
     type: string
     amount: number
-    comment: string
+    comment?: string
     date: Date
     postedBy: number
-  }): Promise<FolioTransaction> {
-    return await db.transaction(async (trx) => {
+  }, trx?: TransactionClientContract): Promise<FolioTransaction> {
+    const execute = async (useTrx: TransactionClientContract): Promise<FolioTransaction> => {
       // Validate folio exists and can be modified
       const folio = await Folio.findOrFail(data.folioId)
 
@@ -1525,27 +1577,23 @@ export default class FolioService {
       }
 
       // Generate transaction number
-      const transactionNumber = await this.generateTransactionNumber(folio.hotelId, trx)
+      const transactionNumber = await this.generateTransactionNumber(folio.hotelId, useTrx)
 
       // Map category to particular
-      let category: TransactionCategory
-      let particular: string
-
-      category = TransactionCategory.ADJUSTMENT
-      particular = data.type
-
+      const category: TransactionCategory = TransactionCategory.ADJUSTMENT
+      const particular: string = data.type
 
       // Create adjustment transaction
       const transaction = await FolioTransaction.create({
         hotelId: folio.hotelId,
         folioId: data.folioId,
-        reservationId: data.reservationId!,
+        reservationId: data.reservationId ?? undefined,
         transactionNumber,
         transactionCode: transactionNumber.toString(),
         transactionType: TransactionType.ADJUSTMENT,
         category: category,
         subcategory: 'adjustment',
-        description: data.comment,
+        description: data.comment ?? 'adjustment',
         particular: particular,
         amount: data.amount,
         totalAmount: data.amount,
@@ -1566,11 +1614,10 @@ export default class FolioService {
         status: TransactionStatus.POSTED,
         createdBy: data.postedBy,
         lastModifiedBy: data.postedBy
-
-      }, { client: trx })
+      }, { client: useTrx })
 
       // Update folio totals
-      await this.updateFolioTotals(data.folioId, trx)
+      await this.updateFolioTotals(data.folioId, useTrx)
 
       // Log the adjustment activity
       await LoggerService.logActivity({
@@ -1585,9 +1632,16 @@ export default class FolioService {
           particular: particular,
           comment: data.comment
         }
-      }, trx)
+      }, useTrx)
 
       return transaction
+    }
+
+    if (trx) {
+      return await execute(trx)
+    }
+    return await db.transaction(async (internalTrx) => {
+      return await execute(internalTrx)
     })
   }
 

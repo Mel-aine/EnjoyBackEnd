@@ -203,7 +203,7 @@ export default class ReservationFolioService {
       }
 
       const targetFolioId = reservation.folios[0].id
-      
+
       // Find next transaction number for hotel's batch
       const lastTx = await FolioTransaction.query({ client: localTrx })
         .where('hotelId', reservation.hotelId)
@@ -217,7 +217,7 @@ export default class ReservationFolioService {
 
       for (const reservationRoom of reservation.reservationRooms) {
         const rawNights = reservationRoom.nights
-      const effectiveNights = rawNights === 0 ? 1 : rawNights
+        const effectiveNights = rawNights === 0 ? 1 : rawNights
         const grossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
         let baseAmount = grossDailyRate
         let totalDailyAmount = grossDailyRate
@@ -275,7 +275,8 @@ export default class ReservationFolioService {
             notes: `Auto-posted room charge for reservation ${reservation.confirmationNumber}${rawNights === 0 ? ' - Day use' : ` - Night ${night}`}`,
             transactionCode: generateTransactionCode(),
             transactionTime: nowIsoTime,
-            postingDate: DateTime.now(),
+            // Ensure both dates reflect the exact charge date: arrivedDate + (night - 1)
+            postingDate: transactionDate ?? DateTime.now(),
             transactionDate,
             status: TransactionStatus.POSTED,
             createdBy: postedBy,
@@ -379,8 +380,12 @@ export default class ReservationFolioService {
     return await Folio.query()
       .where('reservationId', reservationId)
       .preload('guest')
-      .preload('transactions',(query)=>
-      query.preload('paymentMethod'))
+      .preload('transactions', (query) =>
+        query
+          .orderBy('postingDate', 'asc')
+          .preload('paymentMethod')
+          .preload('modifier')
+    )
       .orderBy('folioType', 'asc')
       .orderBy('createdAt', 'asc')
   }
