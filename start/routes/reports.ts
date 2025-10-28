@@ -28,6 +28,7 @@ router.group(() => {
   router.get('/', [ReportsController, 'index'])
 
   // Generate a specific report
+
   router.post('/generate', [ReportsController, 'generate'])
 
   // Export report in different formats (CSV, PDF, Excel)
@@ -49,7 +50,7 @@ router.group(() => {
 
   // POS Receipt printing route
   router.get('/pos-receipt/:transactionId', [ReportsController, 'printPosReceipt'])
-  router.get('/incidental-invoice/:transactionId', [ReportsController, 'printIncidentalInvoice'])
+  router.post('/incidental-invoice', [ReportsController, 'printIncidentalInvoice'])
 
 
 
