@@ -49,8 +49,7 @@ router.group(() => {
 
   // POS Receipt printing route
   router.get('/pos-receipt/:transactionId', [ReportsController, 'printPosReceipt'])
-
-
+  router.get('/incidental-invoice/:transactionId', [ReportsController, 'printIncidentalInvoice'])
 
 
 
