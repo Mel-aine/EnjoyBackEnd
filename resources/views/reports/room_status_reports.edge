@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport Statut des Chambres - Suita Hotel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+        }
+        
+        table {
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            border: 1px solid #e5e7eb;
+        }
+        
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .font-mono {
+            font-family: 'Courier New', monospace;
+        }
+        
+        .whitespace-nowrap {
+            white-space: nowrap;
+        }
+        
+        .btn-export {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-export:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- En-tête -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">STATUT DES CHAMBRES SUITA HOTEL</h1>
+                <p class="text-gray-600 mt-1">Données du 15 octobre 2023</p>
+            </div>
+            <button class="btn-export flex items-center">
+        </div>
+        
+        <!-- Tableau principal -->
+        <div class="rapport-export-table">
+            <div class="overflow-x-auto shadow-md rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase" colspan="4">
+                                SUITE (Suite)
+                            </th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase" colspan="4">
+                                DELUXE (Deluxe)
+                            </th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase" colspan="4">
+                                STANDARD (Standard)
+                            </th>
+                        </tr>
+                        <tr>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">CHAMBRE</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">ETAT MT</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">ETAT SOIR</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">OBSERVATIONS</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">CHAMBRE</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">ETAT MT</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">ETAT SOIR</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">OBSERVATIONS</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">CHAMBRE</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">ETAT MT</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">ETAT SOIR</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600">OBSERVATIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-center text-sm">101</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-sm text-left">RAS</td>
+                            <td class="px-4 py-3 text-center text-sm">201</td>
+                            <td class="px-4 py-3 text-center text-sm">LP</td>
+                            <td class="px-4 py-3 text-center text-sm">LP</td>
+                            <td class="px-4 py-3 text-sm text-left">RAS</td>
+                            <td class="px-4 py-3 text-center text-sm">301</td>
+                            <td class="px-4 py-3 text-center text-sm">OS</td>
+                            <td class="px-4 py-3 text-center text-sm">LS</td>
+                            <td class="px-4 py-3 text-sm text-left">Nettoyage en cours</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-center text-sm">102</td>
+                            <td class="px-4 py-3 text-center text-sm">LS</td>
+                            <td class="px-4 py-3 text-center text-sm">LP</td>
+                            <td class="px-4 py-3 text-sm text-left">RAS</td>
+                            <td class="px-4 py-3 text-center text-sm">202</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-sm text-left">RAS</td>
+                            <td class="px-4 py-3 text-center text-sm">302</td>
+                            <td class="px-4 py-3 text-center text-sm">AR</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-sm text-left">Arrivée prévue à 14h</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-center text-sm">103</td>
+                            <td class="px-4 py-3 text-center text-sm">DP</td>
+                            <td class="px-4 py-3 text-center text-sm">LS</td>
+                            <td class="px-4 py-3 text-sm text-left">Départ à 11h</td>
+                            <td class="px-4 py-3 text-center text-sm">203</td>
+                            <td class="px-4 py-3 text-center text-sm">DT</td>
+                            <td class="px-4 py-3 text-center text-sm">LS</td>
+                            <td class="px-4 py-3 text-sm text-left">Départ tardif 16h</td>
+                            <td class="px-4 py-3 text-center text-sm">303</td>
+                            <td class="px-4 py-3 text-center text-sm">HS</td>
+                            <td class="px-4 py-3 text-center text-sm">HS</td>
+                            <td class="px-4 py-3 text-sm text-left">Réparation climatisation</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-center text-sm">104</td>
+                            <td class="px-4 py-3 text-center text-sm">RS</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-sm text-left">Réservation confirmée</td>
+                            <td class="px-4 py-3 text-center text-sm">204</td>
+                            <td class="px-4 py-3 text-center text-sm">RM</td>
+                            <td class="px-4 py-3 text-center text-sm">OP</td>
+                            <td class="px-4 py-3 text-sm text-left">Client refuse ménage</td>
+                            <td class="px-4 py-3 text-center text-sm">304</td>
+                            <td class="px-4 py-3 text-center text-sm">DL</td>
+                            <td class="px-4 py-3 text-center text-sm">LS</td>
+                            <td class="px-4 py-3 text-sm text-left">Délogement pour maintenance</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Légende -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h3 class="text-lg font-bold mb-3">Légende</h3>
+                
+                <!-- Légende des statuts -->
+                <div class="mt-4">
+                    <div class="grid grid-cols-1 gap-2 text-sm font-mono">
+                        <div class="flex justify-between">
+                            <span class="font-semibold whitespace-nowrap">OP : OCCUPE PROPRE.................08      OS : OCCUPER SALE.................02</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold whitespace-nowrap">LP : LIBRE PROPRE..................12      LS : LIBRE SALE..................03</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold whitespace-nowrap">AR : Arrivée........................05      DP : Départ......................04</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold whitespace-nowrap">DT : Départ tardif.................01      DL : Délogement..................01</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold whitespace-nowrap">RS : Réservation...................03      HS : HORS SERVICE...............01</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-semibold whitespace-nowrap">CN : CUMULE Nuitée.................25      RM : Refus ménage................01</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note RAS -->
+                <div class="mt-4 pt-4 border-t border-gray-300">
+                    <div class="text-sm">
+                        <span class="font-medium">• RAS:</span>
+                        <span class="ml-2">Rien à signaler</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

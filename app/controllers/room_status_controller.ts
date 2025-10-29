@@ -4,8 +4,12 @@ import Hotel from '#models/hotel'
 import RoomType from '#models/room_type'
 import CleaningStatus from '#models/cleaning_status'
 import { createRoomStatusReportValidator } from '#validators/room_status_report'
+import PdfService from '#services/pdf_service'
+import logger from '@adonisjs/core/services/logger'
+import edge from 'edge.js'
+import { join } from 'node:path'
 
-export default class RoomStatusReportsController {
+export default class RoomStatusReportsController {    
   async generateRoomsByStatus({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createRoomStatusReportValidator)
@@ -98,7 +102,6 @@ export default class RoomStatusReportsController {
       }
 
       // Compteurs pour les statistiques globales
-      // IMPORTANT: On compte CHAQUE apparition du statut (matin ET soir)
       let statsCount = {
         OP: 0,  // Occupé Propre
         OS: 0,  // Occupé Sale
@@ -140,8 +143,7 @@ export default class RoomStatusReportsController {
           const etatMatin = cleaningStatus?.morningStatus || getStatusCode(room.status, room.housekeepingStatus)
           const etatSoir = cleaningStatus?.eveningStatus || getStatusCode(room.status, room.housekeepingStatus)
           
-          // CORRECTION: Compter CHAQUE apparition séparément (matin ET soir)
-          // On ne vérifie plus si etatMatin !== etatSoir
+          // Compter CHAQUE apparition séparément (matin ET soir)
           if (statsCount.hasOwnProperty(etatMatin) && etatMatin !== 'None') {
             statsCount[etatMatin]++
           }
@@ -199,7 +201,9 @@ export default class RoomStatusReportsController {
           hotelId: hotel.id,
           hotelName: hotel.hotelName,
           address: hotel.address,
-          email: hotel.email
+          email: hotel.email,
+          phone: hotel.phone || '',
+          logo: hotel.logo || ''
         },
         reportDate: reportDate.toFormat('yyyy-MM-dd'),
         dateFormatted: reportDate.toFormat('dd MMMM yyyy', { locale: 'fr' }),
@@ -225,19 +229,94 @@ export default class RoomStatusReportsController {
         }
       }
 
-      return response.ok({
-        success: true,
-        message: 'Rapport des statuts des chambres généré avec succès',
-        data: responseData,
-        filters: {
-          date,
-          hotelId
-        },
-        generatedAt: DateTime.now().toISO(),
-        generatedBy: auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Système'
+      // ============================================
+      // GÉNÉRATION DES DEUX FORMATS
+      // ============================================
+      
+      // Configuration d'Edge pour les templates
+      edge.mount(join(process.cwd(), 'resources/views'))
+
+      // Ajouter la fonction helper formatNumber
+      edge.global('formatNumber', (number) => {
+        if (!number && number !== 0) return '0'
+        const num = parseFloat(number)
+        return new Intl.NumberFormat('fr-FR').format(num)
       })
 
+      // Préparer les données pour le template
+      const templateData = {
+        hotel,
+        ...responseData,
+        currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
+        currency: hotel.currencyCode || 'XAF',
+        generatedBy: auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Système',
+        generatedAt: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+      }
+
+      // Générer le PDF
+      let pdfBuffer: Buffer | null = null
+      
+      try {
+        // Render le template Edge pour le rapport de statut des chambres
+        const html = await edge.render('reports/room_status_reports', templateData)
+
+        // Générer le PDF à partir du HTML
+        pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+          format: 'A4',
+          landscape: true,
+          margin: {
+            top: '10mm',
+            right: '10mm',
+            bottom: '10mm',
+            left: '10mm'
+          },
+          printBackground: true
+        })
+      } catch (pdfError) {
+        logger.error('Error generating PDF:', pdfError)
+        pdfBuffer = null
+      }
+
+      // Vérifier si le client demande le PDF ou le JSON
+      const acceptHeader = request.header('accept')
+      const wantsPdf = acceptHeader?.includes('application/pdf') || request.qs().format === 'pdf'
+
+      if (wantsPdf && pdfBuffer) {
+        // Retourner directement le PDF
+        response.header('Content-Type', 'application/pdf')
+        response.header(
+          'Content-Disposition', 
+          `inline; filename="rapport-statut-chambres-${reportDate.toFormat('yyyy-MM-dd')}.pdf"`
+        )
+        return response.send(pdfBuffer)
+      } else {
+        // Retourner le JSON avec les données + le PDF en buffer
+        return response.ok({
+          success: true,
+          message: 'Rapport des statuts des chambres généré avec succès',
+          data: responseData,
+          pdf: pdfBuffer ? {
+            available: true,
+            buffer: pdfBuffer,
+            filename: `rapport-statut-chambres-${reportDate.toFormat('yyyy-MM-dd')}.pdf`,
+            contentType: 'application/pdf',
+            size: pdfBuffer.length
+          } : {
+            available: false,
+            error: 'Échec de la génération du PDF'
+          },
+          filters: {
+            date,
+            hotelId
+          },
+          generatedAt: DateTime.now().toISO(),
+          generatedBy: auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Système'
+        })
+      }
+
     } catch (error) {
+      logger.error('Error generating room status report:', error)
+      
       console.error('Error generating room status report', {
         error: error.message,
         stack: error.stack,
