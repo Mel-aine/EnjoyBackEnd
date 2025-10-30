@@ -5,6 +5,7 @@ import RoomType from '#models/room_type'
 import CleaningStatus from '#models/cleaning_status'
 import { createRoomStatusReportValidator } from '#validators/room_status_report'
 import PdfService from '#services/pdf_service'
+
 import logger from '@adonisjs/core/services/logger'
 import edge from 'edge.js'
 import { join } from 'node:path'
@@ -61,6 +62,7 @@ export default class RoomStatusReportsController {
       const reportData = await this.getRoomStatusReportData(date, hotelId, auth)
       const pdfBuffer = await this.generatePdfBuffer(reportData)
 
+      console.log('data@@@@', reportData )
       if (!pdfBuffer) {
         throw new Error('Échec de la génération du PDF')
       }
@@ -75,7 +77,7 @@ export default class RoomStatusReportsController {
 
     } catch (error) {
       logger.error('Error generating room status PDF report:', error)
-      
+      console.log(error)
       return response.badRequest({
         success: false,
         message: 'Échec de la génération du PDF du rapport',
@@ -333,23 +335,47 @@ export default class RoomStatusReportsController {
         ...reportData.responseData,
         currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
         currency: reportData.hotel.currencyCode || 'XAF',
+        hotelName: reportData.hotel.hotelName,
         generatedBy: reportData.generatedBy,
         generatedAt: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
       }
+      
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
       // Render le template Edge pour le rapport de statut des chambres
       const html = await edge.render('reports/room_status_reports', templateData)
+      const headerTemplate = `
+      <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+        <!-- Hotel name and report title -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:3px;">
+          <div style="font-weight:bold; color:#00008B; font-size:13px;">${templateData.hotelName}</div>
+          <div style="font-size:13px; color:#8B0000; font-weight:bold;">Room Status Report</div>
+        </div>
+
+        <div style="font-size:10px; margin-bottom:3px; border-bottom:1px solid #333;">
+          <span style="margin-right:10px;"><strong>Report of the </strong> ${templateData.dateFormatted}</span>
+        </div>
+      `
+      // Create footer template
+      const footerTemplate = `
+      <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${templateData.generatedAt}</span></div>
+        <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${templateData.generatedBy}</span></div>
+        <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+      </div>`
 
       // Générer le PDF à partir du HTML
-      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
-        format: 'A4',
-        landscape: true,
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
+        format: 'A4', 
         margin: {
-          top: '10mm',
-          right: '10mm',
-          bottom: '10mm',
-          left: '10mm'
+          top: '90px',
+          right: '10px',
+          bottom: '70px',
+          left: '10px'
         },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
         printBackground: true
       })
 
@@ -361,62 +387,4 @@ export default class RoomStatusReportsController {
     }
   }
 
-  /**
-   * Endpoint combiné pour les deux formats (optionnel - pour la rétrocompatibilité)
-   */
-  async generateRoomsByStatusCombined({ request, response, auth }: HttpContext) {
-    try {
-      const payload = await request.validateUsing(createRoomStatusReportValidator)
-      const { date, hotelId } = payload
-
-      const reportData = await this.getRoomStatusReportData(date, hotelId, auth)
-      const pdfBuffer = await this.generatePdfBuffer(reportData)
-
-      // Vérifier si le client demande le PDF ou le JSON
-      const acceptHeader = request.header('accept')
-      const wantsPdf = acceptHeader?.includes('application/pdf') || request.qs().format === 'pdf'
-
-      if (wantsPdf && pdfBuffer) {
-        // Retourner directement le PDF
-        response.header('Content-Type', 'application/pdf')
-        response.header(
-          'Content-Disposition', 
-          `inline; filename="rapport-statut-chambres-${reportData.reportDate.toFormat('yyyy-MM-dd')}.pdf"`
-        )
-        return response.send(pdfBuffer)
-      } else {
-        // Retourner le JSON avec les données + le PDF en buffer
-        return response.ok({
-          success: true,
-          message: 'Rapport des statuts des chambres généré avec succès',
-          data: reportData.responseData,
-          pdf: pdfBuffer ? {
-            available: true,
-            buffer: pdfBuffer,
-            filename: `rapport-statut-chambres-${reportData.reportDate.toFormat('yyyy-MM-dd')}.pdf`,
-            contentType: 'application/pdf',
-            size: pdfBuffer.length
-          } : {
-            available: false,
-            error: 'Échec de la génération du PDF'
-          },
-          filters: {
-            date,
-            hotelId
-          },
-          generatedAt: DateTime.now().toISO(),
-          generatedBy: reportData.generatedBy
-        })
-      }
-
-    } catch (error) {
-      logger.error('Error generating combined room status report:', error)
-      
-      return response.badRequest({
-        success: false,
-        message: 'Échec de la génération du rapport des statuts des chambres',
-        error: error.message
-      })
-    }
-  }
 }

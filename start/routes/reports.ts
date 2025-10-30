@@ -101,6 +101,7 @@ router.group(() => {
     // PDF
     router.post('/room-availability-pdf', [ReportsController, 'generateRoomAvailabilityPdf'])
     router.post('/rooms-status', [RoomStatusReportsController, 'generateRoomsByStatus'])
+    router.post('/rooms-status-pdf', [RoomStatusReportsController, 'generateRoomsByStatusPdf'])
 
     // In-house reservations filtered by roomId and roomTypeId (JSON)
     router.get('/inhouse-guests', [ReservationsController, 'getInHouseReservations'])
