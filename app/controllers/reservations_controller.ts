@@ -166,6 +166,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const now = actualCheckInTime ? DateTime.fromISO(actualCheckInTime) : DateTime.now()
       const checkedInRooms = []
+      // Vérifier que toutes les chambres ont un roomId valide
+      const invalidRooms = reservationRoomsToCheckIn.filter((rr) => !rr.roomId)
+      if (invalidRooms.length > 0) {
+        console.log('Invalid reservation rooms without roomId:', invalidRooms.map(r => r.id))
+        await trx.rollback()
+        return response.badRequest({
+
+          message: `Cannot check in reservation rooms without an assigned room.`
+        })
+      }
+
 
       //  Mise à jour de chaque chambre
       for (const reservationRoom of reservationRoomsToCheckIn) {
@@ -1961,7 +1972,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const hotelId = params.id
 
       // Total reservations count (with same filters)
-      const totalQuery = Reservation.query().where('hotel_id', hotelId).whereNotNull('hotel_id')
+      const totalQuery = Reservation.query().where('hotel_id', hotelId).whereNotNull('hotel_id').whereNot('status', 'voided')
       if (searchText) {
         totalQuery.where((builder) => {
           builder

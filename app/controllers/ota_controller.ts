@@ -218,7 +218,7 @@ export default class OtaController {
 
           const features = []
           if (mealPlan) features.push(mealPlan.name)
-          if (roomRate.taxInclude) features.push('Tax Included')
+          // if (roomRate.taxInclude) features.push('Tax Included')
           if (roomRate.mealPlanRateInclude) features.push('Meal Plan Included')
 
           ratePlans.push({
@@ -475,52 +475,141 @@ export default class OtaController {
   }
 
   /**
-   * get cancel summary
+   * get cance0l summary
    */
-  public async getCancelSummary({ params, response }: HttpContext) {
+
+
+public async getCancelSummary({ params, response }: HttpContext) {
     try {
-      const reservationId = params.id
+        const reservationId = params.id
 
-      // Validation de l'ID
-      if (!reservationId) {
-        return response.badRequest({
-          message: 'Reservation ID is required',
+
+        if (!reservationId) {
+            return response.badRequest({
+                message: 'Reservation ID is required',
+            })
+        }
+
+
+        const reservation = await Reservation.query()
+            .where('id', reservationId)
+            .preload('hotel', (hotelQuery) => {
+                // Précharge les taxes d'annulation définies sur l'hôtel
+                hotelQuery.preload('cancellationRevenueTaxRates')
+            })
+            .preload('reservationRooms', (roomQuery) => {
+                roomQuery
+                    .preload('roomType', (rtQuery: any) => {
+                        rtQuery.select('id', 'roomTypeName', 'shortCode')
+                    })
+                    .preload('rateType', (rateQuery: any) => {
+                        rateQuery.select('id', 'rateTypeName', 'shortCode')
+                    })
+
+                    .preload('guest')
+            })
+            .firstOrFail()
+
+        // Récupération des données de base
+        const firstReservationRoom = reservation.reservationRooms[0]
+        // Assure que le guest est pris depuis la première ReservationRoom préchargée
+        const guestDisplayName = firstReservationRoom?.guest?.displayName ?? 'N/A'
+
+        const rawCancelFeeHT = Number(reservation.totalAmount ?? 0)
+
+        // Récupère les taxes d'annulation de l'hôtel
+        const cancellationTaxes = reservation.hotel?.cancellationRevenueTaxRates || []
+
+        let totalTaxAmount = 0
+        const taxDetails: { taxName: string, taxRate: number | null, taxAmount: number }[] = []
+
+        // Application simplifiée des taxes
+        for (const taxRate of cancellationTaxes) {
+
+            // On ne considère que les taxes actives
+            if (!taxRate.isActive) {
+                continue
+            }
+
+            let currentTaxAmount = 0;
+
+            if (taxRate.postingType === 'flat_percentage' && taxRate.percentage) {
+
+                const taxPercentage = taxRate.percentage / 100
+                currentTaxAmount = rawCancelFeeHT * taxPercentage
+
+                taxDetails.push({
+                    taxName: taxRate.taxName,
+                    taxRate: taxRate.percentage,
+                    taxAmount: parseFloat(currentTaxAmount.toFixed(2)),
+                })
+
+            } else if (taxRate.postingType === 'flat_amount' && taxRate.amount) {
+                currentTaxAmount = taxRate.amount
+
+                taxDetails.push({
+                    taxName: taxRate.taxName,
+                    taxRate: taxRate.amount,
+                    taxAmount: parseFloat(currentTaxAmount.toFixed(2)),
+                })
+            }
+
+            totalTaxAmount += currentTaxAmount
+        }
+
+        // Frais d'annulation totaux (HT + Taxes)
+        const finalCancelFeeTTC = rawCancelFeeHT + totalTaxAmount
+
+        // Montant remboursable (Payé - Frais d'annulation TTC)
+        const refundAmount = Number(reservation.paidAmount) - finalCancelFeeTTC
+
+        //  Construction du résumé
+        const cancelSummary = {
+            reservation_id: reservation.id,
+            guest: guestDisplayName,
+            roomType: firstReservationRoom?.roomType?.roomTypeName || '',
+            rateType: firstReservationRoom?.rateType?.rateTypeName || '',
+            check_in_date: reservation.arrivedDate
+                ? reservation.arrivedDate.toFormat('yyyy-MM-dd')
+                : null,
+            check_out_date: reservation.departDate ? reservation.departDate.toFormat('yyyy-MM-dd') : null,
+
+            // Détails financiers de la réservation
+            total_amount: reservation.totalAmount,
+            paid_amount: reservation.paidAmount,
+            currency: 'XAF',
+
+            // Détails des frais d'annulation
+            raw_cancel_fee_ht: rawCancelFeeHT,
+            total_tax_amount: parseFloat(totalTaxAmount.toFixed(2)),
+            final_cancel_fee_ttc: finalCancelFeeTTC,
+            tax_details: taxDetails,
+            reservationRooms : reservation.reservationRooms.map((resRoom) => ({
+                id: resRoom.id
+            })),
+
+            // Montant du remboursement
+            refund_amount: parseFloat((refundAmount > 0 ? refundAmount : 0).toFixed(2)),
+        }
+
+        return response.ok({
+            message: 'Cancellation summary retrieved successfully',
+            data: cancelSummary,
         })
-      }
 
-      // Requête pour récupérer la réservation
-      const reservation = await Reservation.findOrFail(reservationId)
-
-      // Logique de calcul du résumé d'annulation (à adapter selon les règles métier)
-      const cancelFee = (reservation.totalAmount ?? 0 )* 0.1
-      const refundAmount = (reservation.paidAmount  ?? 0)- cancelFee
-
-      const cancelSummary = {
-        reservation_id: reservation.id,
-        total_amount: reservation.totalAmount,
-        paid_amount: reservation.paidAmount,
-        cancel_fee: cancelFee,
-        refund_amount: refundAmount > 0 ? refundAmount : 0,
-        currency:  'XAF',
-      }
-
-      return response.ok({
-        message: 'Cancellation summary retrieved successfully',
-        data: cancelSummary,
-      })
     } catch (error) {
-      console.error('Error fetching cancellation summary: %o', error)
+        console.error('Error fetching cancellation summary: %o', error)
 
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({
-          message: 'Reservation not found',
+        if (error.code === 'E_ROW_NOT_FOUND') {
+            return response.notFound({
+                message: 'Reservation not found',
+            })
+        }
+
+        return response.internalServerError({
+            message: 'An error occurred while fetching the cancellation summary.',
+            error: error.message,
         })
-      }
-
-      return response.internalServerError({
-        message: 'An error occurred while fetching the cancellation summary.',
-        error: error.message,
-      })
     }
-  }
+}
 }

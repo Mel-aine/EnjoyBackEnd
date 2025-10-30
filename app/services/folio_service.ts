@@ -772,6 +772,9 @@ export default class FolioService {
     return await Folio.query()
       .where('id', folioId)
       .preload('guest')
+      .preload('reservationRoom', (roomQuery) => {
+        roomQuery.preload('room')
+      })
       .preload('reservation', (reservationQuery) => {
         reservationQuery.preload('reservationRooms', (roomQuery) => {
           roomQuery.preload('room')
@@ -1084,52 +1087,36 @@ export default class FolioService {
       }
 
       // Ensure folio is not closed
-      if (originalFolio.status === FolioStatus.CLOSED) {
+      /*if (originalFolio.status === FolioStatus.CLOSED) {
         throw new Error('Cannot cut a closed folio')
-      }
+      }*/
 
       // Validate at least one transaction type is selected
       if (!data.roomCharges && !data.Payment && !data.extractCharges) {
         throw new Error('At least one transaction type must be selected for cutting')
       }
 
-      const transactionsToTransfer: FolioTransaction[] = []
-
-      // Collect room charges if requested
-      if (data.roomCharges) {
-        const roomChargeTransactions = await FolioTransaction.query({ client: trx })
-          .where('folioId', data.folioId)
-          .where('status', '!=', TransactionStatus.VOIDED)
-          .whereIn('transactionType', [TransactionType.CHARGE])
-
-        transactionsToTransfer.push(...roomChargeTransactions)
-      }
-
-      // Collect payments if requested
-      if (data.Payment) {
-        const paymentTransactions = await FolioTransaction.query({ client: trx })
-          .where('folioId', data.folioId)
-          .where('status', '!=', TransactionStatus.VOIDED)
-          .where('transactionType', TransactionType.PAYMENT)
-
-        transactionsToTransfer.push(...paymentTransactions)
-      }
-
-      // Collect extract charges if requested
-      if (data.extractCharges) {
-        const extractChargeTransactions = await FolioTransaction.query({ client: trx })
-          .where('folioId', data.folioId)
-          .where('status', '!=', TransactionStatus.VOIDED)
-          .whereIn('category', [
-            TransactionCategory.FOOD_BEVERAGE,
-            TransactionCategory.SPA,
-            TransactionCategory.LAUNDRY,
-            TransactionCategory.MINIBAR,
-            TransactionCategory.MISCELLANEOUS
-          ])
-
-        transactionsToTransfer.push(...extractChargeTransactions)
-      }
+      // Collect transactions to transfer in a single query based on selected flags
+      const transactionsToTransfer: FolioTransaction[] = await FolioTransaction
+        .query({ client: trx })
+        .where('folioId', data.folioId)
+        .where('status', '!=', TransactionStatus.VOIDED)
+        .where((q) => {
+          let applied = false
+          if (data.roomCharges) {
+            q.where((qq) => qq.where('transactionType', TransactionType.CHARGE).where('category', TransactionCategory.ROOM))
+            applied = true
+          }
+          if (data.Payment) {
+            if (applied) q.orWhere('transactionType', TransactionType.PAYMENT)
+            else q.where('transactionType', TransactionType.PAYMENT)
+            applied = true
+          }
+          if (data.extractCharges) {
+            if (applied) q.orWhere('category', TransactionCategory.EXTRACT_CHARGE)
+            else q.where('category', TransactionCategory.EXTRACT_CHARGE)
+          }
+        })
 
       // Check if there are transactions to transfer
       if (transactionsToTransfer.length === 0) {
@@ -1144,10 +1131,10 @@ export default class FolioService {
 
       const newFolio = await this.createFolio({
         hotelId: data.hotelId,
-        guestId: originalFolio.guestId,
-        reservationId: originalFolio.reservationId,
+        guestId: originalFolio.guestId!,
+        reservationId: originalFolio.reservationId!,
         folioType: originalFolio.folioType,
-        folioName: `${originalFolio.folioName || 'Cut'}`,
+        folioName: `${originalFolio.folioName}`,
         notes: data.notes || `Cut from folio ${originalFolio.folioNumber} - ${typeDescriptions.join(', ')}`,
         createdBy: data.cutBy
       })
@@ -1156,22 +1143,21 @@ export default class FolioService {
       const transactionIds = transactionsToTransfer.map(t => t.id)
       const cutMessage = data.notes ? `Cut to folio ${newFolio.folioNumber}: ${data.notes}` : `Cut to folio ${newFolio.folioNumber}`
 
-      // Get existing transactions to preserve their descriptions
-      const existingTransactions = await FolioTransaction.query({ client: trx })
-        .whereIn('id', transactionIds)
-        .select('id', 'description')
 
-      // Update transactions with new folio ID and description
-      for (const transaction of existingTransactions) {
-        const newDescription = transaction.description ? `${transaction.description} | ${cutMessage}` : cutMessage
+      // Append cut message to description per transaction without raw SQL
+      for (const t of transactionsToTransfer) {
+        const newDescription = t.description && t.description.length > 0
+          ? `${t.description} | ${cutMessage}`
+          : cutMessage
 
-        await FolioTransaction.query({ client: trx })
-          .where('id', transaction.id)
+        await db.from('folio_transactions')
+          .useTransaction(trx)
+          .where('id', t.id)
           .update({
-            folioId: newFolio.id,
-            lastModifiedBy: data.cutBy,
-            updatedAt: DateTime.now(),
-            description: newDescription
+            description: newDescription,
+            folio_id: newFolio.id,
+            last_modified_by: data.cutBy,
+            updated_at: DateTime.now(),
           })
       }
 

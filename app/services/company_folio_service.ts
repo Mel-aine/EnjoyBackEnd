@@ -575,7 +575,7 @@ export default class CompanyFolioService {
     return Folio.query()
       .where('companyId', companyId)
       .where('hotelId', hotelId)
-      .where('status', FolioStatus.OPEN)
+      // .where('status', FolioStatus.OPEN)
       .preload('transactions', (query) => {
         query.orderBy('postingDate', 'desc')
       })

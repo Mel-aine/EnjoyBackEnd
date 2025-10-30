@@ -353,7 +353,7 @@ export default class FolioInquiryService {
   }> {
     const query = Folio.query()
       .preload('guest', (guestQuery) => {
-        guestQuery.select(['id', 'firstName', 'lastName', 'email',])
+        guestQuery.select(['id','title' ,'firstName', 'lastName', 'email',])
       })
       .preload('reservation', (resQuery) => {
         resQuery
