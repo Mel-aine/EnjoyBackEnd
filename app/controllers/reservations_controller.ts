@@ -1972,7 +1972,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const hotelId = params.id
 
       // Total reservations count (with same filters)
-      const totalQuery = Reservation.query().where('hotel_id', hotelId).whereNotNull('hotel_id')
+      const totalQuery = Reservation.query().where('hotel_id', hotelId).whereNotNull('hotel_id').whereNot('status', 'voided')
       if (searchText) {
         totalQuery.where((builder) => {
           builder
