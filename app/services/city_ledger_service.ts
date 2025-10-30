@@ -79,7 +79,7 @@ export default class CityLedgerService {
     const cityLedgerPaymentMethod = await PaymentMethod.query()
       .where('hotel_id', filters.hotelId || companyAccount.hotelId)
       .where('method_type', PaymentMethodType.CITY_LEDGER)
-      .where('method_name', 'ILIKE', `%${companyAccount.companyName}%`)
+      .where('company_id', companyAccount.id)
       .where('is_active', true)
       .first()
     

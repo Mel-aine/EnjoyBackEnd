@@ -9,7 +9,6 @@ export const createPaymentMethodValidator = vine.compile(
     methodCode: vine.string().minLength(1).maxLength(20),
     shortCode: vine.string().minLength(1).maxLength(10),
     methodType: vine.enum(Object.values(PaymentMethodType)),
-    type: vine.enum(['CASH', 'BANK']),
     cardProcessing: vine.boolean().optional(),
     
     // Status
@@ -178,7 +177,6 @@ export const updatePaymentMethodValidator = vine.compile(
     methodCode: vine.string().minLength(1).maxLength(20).optional(),
     shortCode: vine.string().minLength(1).maxLength(10).optional(),
     methodType: vine.enum(Object.values(PaymentMethodType)).optional(),
-    type: vine.enum(['CASH', 'BANK']).optional(),
     cardProcessing: vine.boolean().optional(),
     
     // Status
