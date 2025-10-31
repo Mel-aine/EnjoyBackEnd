@@ -4,7 +4,9 @@ import FolioTransaction from '#models/folio_transaction'
 import Folio from '#models/folio'
 import ReceiptService from '#services/receipt_service'
 import LoggerService from '#services/logger_service'
-import { TransactionCategory, TransactionStatus, TransactionType } from '#app/enums'
+import { TransactionCategory, TransactionStatus, TransactionType, PaymentMethodType } from '#app/enums'
+import PaymentMethod from '#models/payment_method'
+import CityLedgerService from '#services/city_ledger_service'
 import FolioService from '#services/folio_service'
 import { createFolioTransactionValidator, updateFolioTransactionValidator } from '#validators/folio_transaction'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
@@ -258,7 +260,56 @@ export default class FolioTransactionsController {
             folioTransactionId: transaction.id,
             currency: folio.currencyCode || 'XAF'
           })
+          // If payment method is City Ledger, create a child transaction on company folio
+          try {
+            const pm = await PaymentMethod.find(payload.paymentMethodId)
+            if (pm && pm.methodType === PaymentMethodType.CITY_LEDGER) {
+              // Ensure folio has guest and reservationRoom->room preloaded before creating CL child
+              await transaction.load('folio', (folioQuery: any) => {
+                folioQuery.preload('guest')
+                folioQuery.preload('reservationRoom', (roomQuery: any) => {
+                  roomQuery.preload('room')
+                })
+              })
+              const result = await CityLedgerService.createCityLedgerChildForPayment({
+                originalTransaction: transaction,
+                postedBy: auth.user?.id || 0,
+                ctx
+              })
 
+              if (result) {
+                await LoggerService.log({
+                  actorId: auth.user?.id || 0,
+                  action: 'CREATE',
+                  entityType: 'CityLedgerChildTransaction',
+                  entityId: result.child.id,
+                  description: 'Created City Ledger child transaction for payment',
+                  meta: {
+                    parentTransactionId: transaction.id,
+                    childTransactionId: result.child.id,
+                    companyFolioId: result.child.folioId,
+                    currentBalance: result.currentBalance,
+                  },
+                  hotelId: transaction.hotelId,
+                  ctx
+                })
+              }
+            }
+          } catch (clError) {
+            await LoggerService.log({
+              actorId: auth.user?.id || 0,
+              action: 'ERROR',
+              entityType: 'CityLedgerChildTransaction',
+              entityId: transaction.id,
+              description: 'Failed to create City Ledger child transaction',
+              meta: {
+                error: clError.message,
+                parentTransactionId: transaction.id,
+              },
+              hotelId: transaction.hotelId,
+              ctx
+            })
+          }
           await LoggerService.log({
             actorId: auth.user?.id || 0,
             action: 'CREATE',
@@ -529,6 +580,98 @@ export default class FolioTransactionsController {
             ctx: { request, response }
           })
         }
+      }
+
+      // Cascade voiding to child transactions linked via originalTransactionId
+      try {
+        const childTransactions = await FolioTransaction.query()
+          .where('originalTransactionId', transaction.id)
+          .where('isVoided', false)
+
+        for (const child of childTransactions) {
+          child.isVoided = true
+          child.voidedAt = DateTime.now()
+          child.voidedBy = auth.user?.id || 0
+          child.voidReason = reason || `Parent transaction ${transaction.id} voided`
+          child.lastModifiedBy = auth.user?.id || 0
+          child.status = TransactionStatus.VOIDED
+          child.notes = `${child.notes || ''}\nVoid reason: ${child.voidReason}`
+          await child.save()
+
+          // Update child folio totals
+          await this.updateFolioTotals(child.folioId)
+
+          // Void receipt if child is a payment transaction
+          if (child.transactionType === TransactionType.PAYMENT) {
+            try {
+              await ReceiptService.voidReceipt({
+                transactionId: child.id,
+                voidedBy: auth.user?.id!,
+                voidReason: child.voidReason
+              })
+
+              await LoggerService.log({
+                actorId: auth.user?.id || 0,
+                action: 'VOID',
+                entityType: 'Receipt',
+                entityId: child.id,
+                description: 'Receipt voided for child payment transaction',
+                meta: {
+                  parentTransactionId: transaction.id,
+                  childTransactionId: child.id,
+                  folioId: child.folioId,
+                },
+                hotelId: child.hotelId,
+                ctx: { request, response }
+              })
+            } catch (childReceiptError) {
+              await LoggerService.log({
+                actorId: auth.user?.id || 0,
+                action: 'ERROR',
+                entityType: 'Receipt',
+                entityId: child.id,
+                description: 'Failed to void receipt for child payment transaction',
+                meta: {
+                  error: childReceiptError.message,
+                  parentTransactionId: transaction.id,
+                  childTransactionId: child.id,
+                  folioId: child.folioId,
+                },
+                hotelId: child.hotelId,
+                ctx: { request, response }
+              })
+            }
+          }
+
+          await LoggerService.log({
+            actorId: auth.user?.id || 0,
+            action: 'VOID',
+            entityType: 'FolioTransaction',
+            entityId: child.id,
+            description: 'Child transaction voided due to parent void',
+            meta: {
+              parentTransactionId: transaction.id,
+              childTransactionId: child.id,
+              voidReason: child.voidReason,
+            },
+            hotelId: child.hotelId,
+            ctx: { request, response }
+          })
+        }
+      } catch (cascadeError) {
+        await LoggerService.log({
+          actorId: auth.user?.id || 0,
+          action: 'ERROR',
+          entityType: 'FolioTransaction',
+          entityId: transaction.id,
+          description: 'Failed cascading void to child transactions',
+          meta: {
+            error: cascadeError.message,
+            parentTransactionId: transaction.id,
+          },
+          hotelId: transaction.hotelId,
+          ctx: { request, response }
+        })
       }
 
       return response.ok({

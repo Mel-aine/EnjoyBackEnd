@@ -14,6 +14,9 @@ export default class PaymentMethod extends BaseModel {
   declare hotelId: number
 
   @column()
+  declare companyId: number | null
+
+  @column()
   declare methodName: string
 
   @column()
@@ -385,9 +388,6 @@ export default class PaymentMethod extends BaseModel {
   // New fields based on requirements
   @column()
   declare shortCode: string
-
-  @column()
-  declare type: 'CASH' | 'BANK'| string
 
   @column()
   declare cardProcessing: boolean

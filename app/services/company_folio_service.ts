@@ -8,6 +8,7 @@ import Database from '@adonisjs/lucid/services/db'
 import LoggerService from '#app/services/logger_service'
 import type { HttpContext } from '@adonisjs/core/http'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
+import FolioService from './folio_service.js'
 
 export interface CompanyPaymentData {
   companyId: number
@@ -73,7 +74,6 @@ export default class CompanyFolioService {
     let folio = await Folio.query()
       .where('companyId', companyId)
       .where('hotelId', hotelId)
-      .where('status', FolioStatus.OPEN)
       .first()
 
     if (folio) {
@@ -100,7 +100,7 @@ export default class CompanyFolioService {
       openedBy: userId || 1, // Use authenticated user or fallback to system user
       balance: 0,
       creditLimit: company.creditLimit || 0,
-      currencyCode: 'USD', // Should be configurable
+      currencyCode: 'XAF', // Should be configurable
       exchangeRate: 1,
       //  baseCurrencyAmount: 0,
       createdBy: userId || 1, // Use authenticated user or fallback to system user
@@ -161,15 +161,14 @@ export default class CompanyFolioService {
         { client: trx }
       )
 
-      // Update folio balance
-      await folio
-        .merge({
-          totalPayments: folio.totalPayments + Math.abs(paymentData.amount),
-          balance: folio.balance - Math.abs(paymentData.amount),
-          lastModifiedBy: paymentData.postedBy,
-        })
-        .useTransaction(trx)
-        .save()
+      // Recalculate folio totals and set transaction running balance
+      await FolioService.updateFolioTotals(folio.id, trx)
+      const updatedFolio = await Folio.query({ client: trx }).where('id', folio.id).first()
+      if (updatedFolio) {
+        await FolioTransaction.query({ client: trx })
+          .where('id', transaction.id)
+          .update({ balance: updatedFolio.balance })
+      }
 
       // Log payment creation
       if (paymentData.ctx) {
@@ -290,6 +289,7 @@ export default class CompanyFolioService {
           assignmentDate: assignmentDate,
           notes: paymentData.notes || `Bulk assignment from payment ${transaction.transactionNumber}`,
           autoAssigned: true,
+          unassignedAmount :assignmentDifference,
           paymentTransactionId: transaction.id
         }
 
@@ -304,16 +304,14 @@ export default class CompanyFolioService {
           .save()
       }
 
-      // Update folio balance
-      await folio
-        .merge({
-          totalPayments: folio.totalPayments + paymentAmount,
-          balance: folio.balance - paymentAmount,
-          lastModifiedBy: paymentData.postedBy,
-        })
-        .useTransaction(trx)
-        .save()
-
+      // Recalculate folio totals and set transaction running balance
+      await FolioService.updateFolioTotals(folio.id, trx)
+      const updatedFolio = await Folio.query({ client: trx }).where('id', folio.id).first()
+      if (updatedFolio) {
+        await FolioTransaction.query({ client: trx })
+          .where('id', transaction.id)
+          .update({ balance: updatedFolio.balance })
+      }
       // Bulk logging for payment creation and assignments
       if (paymentData.ctx) {
         const logEntries = []
