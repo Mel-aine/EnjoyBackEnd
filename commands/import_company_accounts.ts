@@ -209,7 +209,7 @@ export default class ImportCompanyAccounts extends BaseCommand {
   public async run() {
     // Defaults; adjust as needed
     const DEFAULT_FILE = path.resolve('docs', 'company_ABS.csv')
-    const HOTEL_ID = 3
+    const HOTEL_ID = 5
     const LOG_DIR = path.resolve('tmp')
     const LOG_FILE = path.resolve(LOG_DIR, 'import_company_accounts.log')
     const service = new CompanyAccountService()

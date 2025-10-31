@@ -22,7 +22,7 @@ export default class CompanyAccountsController {
         filters.hotel_id = Number(params.hotelId)
       }
       const page = request.input('page', 1)
-      const perPage = request.input('perPage', 20)
+      const perPage = request.input('perPage', 10)
       const sortBy = request.input('sortBy', 'id')
       const order = request.input('order', 'asc')
 
@@ -305,10 +305,13 @@ export default class CompanyAccountsController {
   /**
    * Get city ledger accounts for a hotel (doNotCountAsCityLedger = false)
    */
-  async getCityLedger({ params, response }: HttpContext) {
+  async getCityLedger({ params,request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
-      const cityLedgerAccounts = await this.service.getCityLedgerAccounts(hotelId)
+      const page = parseInt(request.input('page', '1'))
+    const limit = parseInt(request.input('limit', '10'))
+    const searchText = request.input('searchText', '').trim()
+      const cityLedgerAccounts = await this.service.getCityLedgerAccounts(hotelId, page, limit, searchText)
 
       return response.ok({
         success: true,

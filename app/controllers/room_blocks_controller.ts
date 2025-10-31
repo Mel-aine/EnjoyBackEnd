@@ -12,11 +12,11 @@ export default class RoomBlocksController {
     try {
       const payload = await createRoomBlockValidator.validate(request.all())
       console.log('Creating room block with payload:', payload)
-  
+
       // Convertir les dates en Luxon DateTime
       const fromDate = DateTime.fromISO(payload.block_from_date.toISOString())
       const toDate = DateTime.fromISO(payload.block_to_date.toISOString())
-  
+
       if (!fromDate.isValid || !toDate.isValid) {
         return response.badRequest({
           success: false,
@@ -25,7 +25,7 @@ export default class RoomBlocksController {
           errors: { dates: ['Invalid date format'] },
         })
       }
-  
+
       if (fromDate >= toDate) {
         return response.conflict({
           success: false,
@@ -34,7 +34,7 @@ export default class RoomBlocksController {
           errors: { dates: ['block_from_date cannot be after or equal to block_to_date'] },
         })
       }
-  
+
       // Vérifier les réservations existantes
       const overlappingReservations = await db
         .from('reservation_rooms')
@@ -49,7 +49,7 @@ export default class RoomBlocksController {
           })
         })
         .count('* as total')
-  
+
       if (Number(overlappingReservations[0].total) > 0) {
         return response.conflict({
           success: false,
@@ -58,7 +58,7 @@ export default class RoomBlocksController {
           errors: { reservations: ['Room has active reservations for these dates'] },
         })
       }
-  
+
       // Vérifier les blocks existants
       const overlappingBlocks = await RoomBlock.query()
         .where('room_id', payload.room_id)
@@ -72,7 +72,7 @@ export default class RoomBlocksController {
           })
         })
         .count('* as total')
-  
+
       if (Number(overlappingBlocks[0].$extras.total) > 0) {
         return response.conflict({
           success: false,
@@ -81,7 +81,7 @@ export default class RoomBlocksController {
           errors: { blocks: ['Room is already blocked for the selected dates'] },
         })
       }
-  
+
       // Création du block
       const roomBlock = await RoomBlock.create({
         ...payload,
@@ -89,15 +89,15 @@ export default class RoomBlocksController {
         blockToDate: toDate,
         blockedByUserId: auth.user?.id,
       })
-  
+
       // Preload les relations pour la réponse
       await roomBlock.load('room')
       await roomBlock.load('blockedBy')
       await roomBlock.load('hotel')
       await roomBlock.load('roomType')
-  
+
       console.log('Room block created successfully:', roomBlock.toJSON())
-  
+
       return response.created({
         success: true,
         message: 'Bloc de maintenance créé avec succès',
@@ -105,7 +105,7 @@ export default class RoomBlocksController {
       })
     } catch (error) {
       console.error('Error creating room block:', error)
-  
+
       if (error.code === 'E_VALIDATION_FAILURE') {
         return response.badRequest({
           success: false,
@@ -114,7 +114,7 @@ export default class RoomBlocksController {
           errors: error.messages,
         })
       }
-  
+
       return response.internalServerError({
         success: false,
         message: 'Erreur lors de la création du bloc de maintenance',
@@ -123,7 +123,7 @@ export default class RoomBlocksController {
       })
     }
   }
-  
+
   /**
    * Retrieve Room Blocks
    */
@@ -177,9 +177,11 @@ export default class RoomBlocksController {
   /**
    * Get Room Block by hotel ID
    */
-  public async getByHotelId({ params, response }: HttpContext) {
+  public async getByHotelId({ params,request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
+      const page = request.input('page', 1)
+      const perPage = request.input('perPage', 10)
       console.log('Fetching room blocks for hotel ID:', hotelId)
 
       const blocks = await RoomBlock.query()
@@ -190,7 +192,7 @@ export default class RoomBlocksController {
         .preload('blockedBy')
         .preload('hotel')
         .preload('roomType')
-        .orderBy('created_at', 'desc')
+        .orderBy('created_at', 'desc').paginate(page, perPage)
 
       console.log(`Retrieved ${blocks.length} room blocks for hotel ${hotelId}`)
 

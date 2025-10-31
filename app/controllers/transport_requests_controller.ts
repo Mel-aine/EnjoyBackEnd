@@ -51,7 +51,10 @@ async store({ request, response, auth }: HttpContext) {
       const transactionNumber = parseInt(Date.now().toString().slice(-9));
 
 
+      const now = DateTime.now();
 
+
+      const transactionTimeFormat = now.toISOTime({ suppressMilliseconds: true });
       // Créer une transaction de folio pour traçabilité
       await FolioTransaction.create({
         folioId: folio.id,
@@ -67,6 +70,8 @@ async store({ request, response, auth }: HttpContext) {
         postingDate: DateTime.now(),
         transactionCode: transactionCode,
         transactionNumber: transactionNumber,
+        transactionTime : transactionTimeFormat,
+        category:'service_charge',
         createdBy: user.id,
       }, { client: trx })
 

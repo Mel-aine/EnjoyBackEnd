@@ -597,19 +597,13 @@ export class ReservationReportsService {
       .preload('folios')
       //.preload('creator')
       .whereBetween('cancellation_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
-      .where('reservation_status', 'Cancelled')
+      //.where('reservation_status', 'Cancelled')
       .orderBy('cancellation_date', 'desc')
 
     if (filters.hotelId) {
       query.where('hotel_id', filters.hotelId)
     }
 
-    if (filters.arrivalFrom && filters.arrivalTo) {
-      query.whereBetween('updated_at', [
-        DateTime.fromFormat(filters.arrivalFrom, 'yyyy-MM-dd').toString(),
-        DateTime.fromFormat(filters.arrivalTo, 'yyyy-MM-dd').toString(),
-      ])
-    }
 
     // Filtre par type de chambre
     if (filters.roomType) {
@@ -649,7 +643,7 @@ export class ReservationReportsService {
         // Données de base pour les colonnes principales
         //hotelName: reservation.hotel?.hotelName || 'N/A',
         resNo: reservation.reservationNumber || 'N/A',
-        bookingDate: reservation.reservationDatetime?.toFormat('dd/MM/yyyy') || 'N/A',
+        bookingDate: reservation.reservationDatetime?.toFormat('yyyy-MM-dd') || 'N/A',
         guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'N/A',
         rateType: reservation.ratePlan?.planName || 'N/A',
         arrival: reservation.arrivedDate?.toFormat('dd/MM') || 'N/A',
@@ -662,7 +656,7 @@ export class ReservationReportsService {
         balance: folio?.balance ? Number(folio.balance).toFixed(2) : '0.00',
         source: reservation.bookingSource?.sourceName || 'N/A',
         cancelledBy: reservation.creator ? `${reservation.creator.firstName} ${reservation.creator.lastName}` : 'System',
-        cancelledDate: reservation.cancellationDate?.toFormat('dd/MM/yyyy') || 'N/A',
+        cancelledDate: reservation.cancellationDate?.toFormat('yyyy-MM-dd') || 'N/A',
         remarks: reservation.cancellationReason || ''
       }
     })
@@ -798,20 +792,14 @@ export class ReservationReportsService {
       .preload('folios')
       //.preload('creator')
       .whereBetween('voided_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')]) 
-      .where('reservation_status', 'Void')
+      //.where('reservation_status', 'Void')
       .orderBy('voided_date', 'desc')
 
     if (filters.hotelId) {
       query.where('hotel_id', filters.hotelId)
     }
 
-    if (filters.startDate && filters.endDate) {
-      query.whereBetween('updated_at', [
-        DateTime.fromFormat(filters.startDate, 'dd/MM/yyyy').toString(),
-        DateTime.fromFormat(filters.endDate, 'dd/MM/yyyy').toString()
-      ])
-    }
-
+ 
     const reservations = await query
     const totalRecords = reservations.length
 
@@ -822,11 +810,11 @@ export class ReservationReportsService {
         // Données de base pour les colonnes principales
         hotelName: reservation.hotel?.hotelName || 'N/A',
         resNo: reservation.reservationNumber || 'N/A',
-        bookingDate: reservation.reservationDatetime?.toFormat('dd/MM/yyyy') || 'N/A',
+        bookingDate: reservation.reservationDatetime?.toFormat('yyyy-MM-dd') || 'N/A',
         guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'N/A',
         rateType: reservation.ratePlan?.planName || 'N/A',
-        arrival: reservation.arrivedDate?.toFormat('dd/MM') || 'N/A',
-        departure: reservation.departDate?.toFormat('dd/MM') || 'N/A',
+        arrival: reservation.arrivedDate?.toFormat('yyyy-MM-dd') || 'N/A',
+        departure: reservation.departDate?.toFormat('yyyy-MM-dd') || 'N/A',
         folioNo: folio?.folioNumber || 'N/A',
         adr: reservation.roomRate ? Number(reservation.roomRate).toFixed(2) : '0.00',
         carRevenue: '0.00', // À adapter selon votre modèle de données
@@ -835,7 +823,7 @@ export class ReservationReportsService {
         balance: folio?.balance ? Number(folio.balance).toFixed(2) : '0.00',
         source: reservation.bookingSource?.sourceName || 'N/A',
         cancelledBy: reservation.creator ? `${reservation.creator.firstName} ${reservation.creator.lastName}` : 'System',
-        cancelledDate: reservation.voidedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+        cancelledDate: reservation.voidedDate?.toFormat('yyyy-MM-dd') || 'N/A',
         remarks: reservation.cancellationReason || ''
       }
     })
@@ -889,7 +877,7 @@ export class FrontOfficeReportsService {
       .preload('bookingSource')
       .preload('ratePlan')
       //.preload('creator')
-      .where('reservation_status', 'Checked_in')
+      //.where('reservation_status', 'Checked_in')
       .orderBy('check_in_date', 'desc')
 
     // Filtre par hôtel

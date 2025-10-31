@@ -4,6 +4,9 @@ import Guest from '#models/guest'
 import { createGuestValidator, updateGuestValidator } from '#validators/guest'
 import { generateGuestCode } from '../utils/generate_guest_code.js'
 import LoggerService from '#services/logger_service'
+import Reservation from '#models/reservation'
+import Folio from '#models/folio'
+import ActivityLog from '#models/activity_log'
 
 type ChangeLog = {
   [key: string]: { old: any; new: any }
@@ -554,4 +557,354 @@ export default class GuestsController {
       })
     }
   }
+
+  //récupérer les détails du client
+public async getCustomerDetails({ params, response }: HttpContext) {
+  const customerId = Number(params.id)
+
+  if (isNaN(customerId)) {
+    return response.badRequest({ message: 'Invalid customer ID.' })
+  }
+
+  try {
+    const customer = await Guest.query()
+      .where('id', customerId)
+      .preload('vipStatuses')
+      .firstOrFail()
+
+    return response.ok({
+      customerDetails: customer.serialize()
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Customer not found' })
+    }
+    console.error('Error fetching customer details:', error)
+    return response.internalServerError({
+      message: 'Failed to fetch customer details',
+      error: error.message,
+    })
+  }
+}
+
+//  les réservations de l'utilisateur
+public async getCustomerReservations({ params, response }: HttpContext) {
+  const customerId = Number(params.id)
+
+  if (isNaN(customerId)) {
+    return response.badRequest({ message: 'Invalid customer ID.' })
+  }
+
+  try {
+    // Vérifier que le client existe
+    await Guest.findOrFail(customerId)
+
+    const reservations = await Reservation.query()
+      .whereHas('reservationRooms', (roomQuery) => {
+        roomQuery.where('guest_id', customerId)
+      })
+      .preload('hotel')
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.where('guest_id', customerId).preload('room').preload('roomType')
+      })
+      .orderBy('arrivedDate', 'desc')
+
+    const now = DateTime.now()
+
+    // Réservation actuelle (checked_in)
+    const currentReservation = reservations.find((r) => r.status === 'checked_in')
+    let currentReservationDetails = null
+
+    if (currentReservation) {
+      currentReservationDetails = currentReservation.serialize()
+    }
+
+    // Dernière visite (completed/checked_out dans le passé)
+    const lastVisit = reservations.find(
+      (r) =>
+        (r.status === 'checked_out' || r.status === 'completed') &&
+        r.departDate! < now
+    )
+
+    const lastVisitDetails = lastVisit
+      ? {
+          reservationId: lastVisit.id,
+          reservationNumber: lastVisit.reservationNumber,
+          serviceName: lastVisit.hotel.hotelName,
+          checkInDate: lastVisit.arrivedDate?.toISODate(),
+          checkOutDate: lastVisit.departDate?.toISODate(),
+        }
+      : null
+
+    // Prochaine visite (confirmed/pending dans le futur)
+    const upcomingVisit = reservations
+      .filter(
+        (r) =>
+          (r.status === 'confirmed' || r.status === 'pending') &&
+          r.arrivedDate &&
+          r.arrivedDate > now
+      )
+      .sort((a, b) => a.arrivedDate!.toMillis() - b.arrivedDate!.toMillis())[0]
+
+    const upcomingVisitDetails = upcomingVisit
+      ? {
+          reservationId: upcomingVisit.id,
+          reservationNumber: upcomingVisit.reservationNumber,
+          serviceName: upcomingVisit.hotel.hotelName,
+          checkInDate: upcomingVisit.arrivedDate?.toISODate(),
+          checkOutDate: upcomingVisit.departDate?.toISODate(),
+        }
+      : null
+
+    // Statut de l'hôtel
+    const hotelStatus = {
+      isPresent: !!currentReservation,
+      reservationDetails: currentReservationDetails ? {
+        reservationId: currentReservationDetails?.id,
+        reservationNumber: currentReservationDetails?.reservationNumber,
+        serviceName: currentReservationDetails?.hotel?.hotelName,
+        checkInDate: currentReservationDetails?.arrivedDate,
+        checkOutDate: currentReservationDetails?.departDate,
+        rooms: currentReservationDetails?.reservationRooms?.map((rr: any) => ({
+          roomNumber: rr?.room?.roomNumber,
+          roomType: rr?.room?.roomType,
+        })),
+      } : null,
+    }
+
+    // Soldes impayés
+    const unpaidReservations = reservations.filter(
+      (r) => r.remainingAmount && r.remainingAmount > 0 && r.status !== 'cancelled'
+    )
+
+    const totalRemainingAmount = unpaidReservations.reduce(
+      (sum, r) => sum + (parseFloat(`${r.remainingAmount}`) || 0),
+      0
+    )
+
+    let dueDate: string | null = null
+    let description = ''
+
+    if (unpaidReservations.length > 0) {
+      const earliestReservation = unpaidReservations.reduce((earliest, current) => {
+        if (!earliest.departDate) return current
+        if (!current.departDate) return earliest
+        return current.departDate < earliest.departDate ? current : earliest
+      })
+
+      dueDate = earliestReservation.departDate?.toISODate() ?? null
+
+      if (unpaidReservations.length === 1) {
+        const r = unpaidReservations[0]
+        description = `This is the final payment for booking #${r.reservationNumber} at ${r.hotel.hotelName}.`
+      } else {
+        description = `This is the final payment for your flight and hotel bookings. You have ${unpaidReservations.length} outstanding payments.`
+      }
+    }
+
+    const outstandingBalances = {
+      hasOutstanding: unpaidReservations.length > 0,
+      totalRemainingAmount,
+      dueDate,
+      description,
+      details: unpaidReservations.map((r) => ({
+        reservationId: r.id,
+        reservationNumber: r.reservationNumber,
+        remainingAmount: r.remainingAmount,
+      })),
+    }
+
+    return response.ok({
+      reservations: reservations.map((r) => r.serialize()),
+      hotelStatus,
+      outstandingBalances,
+      lastVisitDetails,
+      upcomingVisitDetails,
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Customer not found' })
+    }
+    console.error('Error fetching customer reservations:', error)
+    return response.internalServerError({
+      message: 'Failed to fetch customer reservations',
+      error: error.message,
+    })
+  }
+}
+
+//  les transactions regroupées par folio
+
+public async getCustomerTransactions({ params, request, response }: HttpContext) {
+  const customerId = Number(params.id)
+  const page = request.input('page', 1)
+  const perPage = request.input('perPage', 10)
+
+  if (isNaN(customerId)) {
+    return response.badRequest({ message: 'Invalid customer ID.' })
+  }
+
+  try {
+    // Vérifier que le client existe
+    await Guest.findOrFail(customerId)
+
+
+    const folios = await Folio.query()
+      .where('guest_id', customerId)
+      .preload('reservation', (query) => {
+        query.preload('hotel')
+      })
+      .preload('transactions', (query) => {
+        query
+          .orderBy('created_at', 'desc')
+          .preload('paymentMethod')
+      })
+      .orderBy('created_at', 'desc')
+      .paginate(page, perPage)
+
+    // Formater les données des folios
+    const folioList = folios.all().map((folio) => {
+      const transactions = folio.transactions.map((transaction) => ({
+        id: transaction.id,
+        transactionNumber: transaction.transactionNumber,
+        transactionCode: transaction.transactionCode,
+        transactionType: transaction.transactionType,
+        category: transaction.category,
+        subcategory: transaction.subcategory,
+        description: transaction.description,
+        particular: transaction.particular,
+        amount: transaction.amount,
+        totalAmount: transaction.totalAmount,
+        balance: transaction.balance,
+        quantity: transaction.quantity,
+        unitPrice: transaction.unitPrice,
+        taxAmount: transaction.taxAmount,
+        discountAmount: transaction.discountAmount,
+        netAmount: transaction.netAmount,
+        grossAmount: transaction.grossAmount,
+        transactionDate: transaction.transactionDate,
+        postingDate: transaction.postingDate,
+        serviceDate: transaction.serviceDate,
+        reference: transaction.reference,
+        paymentMethodId: transaction.paymentMethodId,
+        paymentMethod: transaction.paymentMethod?.methodName || null,
+        paymentReference: transaction.paymentReference,
+        status: transaction.status,
+        isVoided: transaction.isVoided,
+        voidReason: transaction.voidReason,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      }))
+
+      return {
+        folioId: folio.id,
+        folioNumber: folio.folioNumber,
+        reservationId: folio.reservationId,
+        reservationNumber: folio.reservation?.reservationNumber || 'N/A',
+        hotelName: folio.reservation?.hotel?.hotelName || 'N/A',
+        totalCharges: folio.totalCharges,
+        totalPayments: folio.totalPayments,
+        totalAdjustments: folio.totalAdjustments,
+        totalTaxes: folio.totalTaxes,
+        totalDiscounts: folio.totalDiscounts,
+        balance: folio.balance,
+        status: folio.status,
+        createdAt: folio.createdAt,
+        transactions,
+      }
+    })
+
+    return response.ok({
+      data: folioList,
+      meta: {
+        total: folios.total,
+        perPage: folios.perPage,
+        currentPage: folios.currentPage,
+        lastPage: folios.lastPage,
+        firstPage: 1,
+        hasMorePages: folios.hasMorePages,
+        isEmpty: folios.isEmpty,
+      },
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Customer not found' })
+    }
+    console.error('Error fetching customer transactions:', error)
+    return response.internalServerError({
+      message: 'Failed to fetch customer transactions',
+      error: error.message,
+    })
+  }
+}
+
+//  les logs d'activité de l'utilisateur
+public async getCustomerActivityLogs({ params, response, request }: HttpContext) {
+  const customerId = Number(params.id)
+
+  if (isNaN(customerId)) {
+    return response.badRequest({ message: 'Invalid customer ID.' })
+  }
+
+  try {
+    // Vérifier que le client existe
+    await Guest.findOrFail(customerId)
+
+    // Paramètres de pagination
+    const page = request.input('page', 1)
+    const limit = request.input('limit', 50)
+
+    // Récupérer les réservations du guest
+    const reservations = await Reservation.query()
+      .whereHas('reservationRooms', (roomQuery) => {
+        roomQuery.where('guest_id', customerId)
+      })
+      .select('id')
+    const reservationIds = reservations.map((r) => r.id.toString())
+
+    // Récupérer les paiements liés aux réservations du guest
+    const payments = await Folio.query()
+      .whereIn('reservation_id', reservations.map(r => r.id))
+      .select('id')
+    const paymentIds = payments.map((p) => p.id.toString())
+
+    // Récupérer les logs d'activité
+    const activityLogsQuery = ActivityLog.query()
+      .where((query) => {
+        query
+
+          .where((subQuery) => {
+            subQuery.where('entity_type', 'Guest').andWhere('entity_id', customerId.toString())
+          })
+          .orWhere((subQuery) => {
+            subQuery.where('entity_type', 'Reservation').whereIn('entity_id', reservationIds)
+          })
+          .orWhere((subQuery) => {
+            subQuery.where('entity_type', 'Payment').whereIn('entity_id', paymentIds)
+          })
+      })
+      .orderBy('created_at', 'desc')
+
+    const activityLogs = await activityLogsQuery.paginate(page, limit)
+
+    return response.ok({
+      logs: activityLogs.serialize(),
+      meta: {
+        total: activityLogs.total,
+        perPage: activityLogs.perPage,
+        currentPage: activityLogs.currentPage,
+        lastPage: activityLogs.lastPage,
+      },
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Customer not found' })
+    }
+    console.error('Error fetching customer activity logs:', error)
+    return response.internalServerError({
+      message: 'Failed to fetch customer activity logs',
+      error: error.message,
+    })
+  }
+}
 }
