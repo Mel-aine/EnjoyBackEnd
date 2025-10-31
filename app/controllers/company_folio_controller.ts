@@ -2,8 +2,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import CompanyFolioService from '#app/services/company_folio_service'
 import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
-import auth from '../../config/auth.js'
-
 export default class CompanyFolioController {
   private companyFolioService = new CompanyFolioService()
 
@@ -126,7 +124,7 @@ export default class CompanyFolioController {
               transactionId: vine.number().positive(),
               newAssignedAmount: vine.number().min(0),
             })
-          ).minLength(1),
+          ).optional(),
           //assignedBy: vine.number().positive(),
           assignmentDate: vine.string().optional(),
           notes: vine.string().optional().nullable(),

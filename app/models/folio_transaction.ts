@@ -50,6 +50,9 @@ export default class FolioTransaction extends BaseModel {
   declare totalAmount: number
 
   @column()
+  declare balance: number
+
+  @column()
   declare quantity: number
 
   @column()
