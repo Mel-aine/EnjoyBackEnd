@@ -1488,7 +1488,7 @@ router
             router.put('/bulk-assignment', companyFolioController.updateBulkAssignments.bind(companyFolioController)) // Update bulk payment assignments
             router.get('/:companyId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
           })
-          .prefix('company_folios')
+          .prefix('/company_accounts/company_folios')
       })
       .prefix('configuration/hotels/:hotelId')
 

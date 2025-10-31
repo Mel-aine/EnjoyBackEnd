@@ -581,6 +581,14 @@ export default class FolioService {
     }, { client: trx })
 
     await this.updateFolioTotals(data.folioId, trx)
+    // After updating folio totals, set the transaction's running balance to the folio's current balance
+    const updatedFolio = await Folio.query({ client: trx }).where('id', data.folioId).first()
+    if (updatedFolio) {
+      await FolioTransaction.query({ client: trx })
+        .where('id', transaction.id)
+        .update({ balance: updatedFolio.balance })
+    }
+
     return transaction
   }
 
