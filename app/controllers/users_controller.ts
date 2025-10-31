@@ -364,7 +364,7 @@ export default class UsersController extends CrudController<typeof User> {
       // 1. Fetch user and their primary role
       const user = await User.query().where('id', userId).preload('role').firstOrFail()
 
-      
+
       // 2. Fetch all service assignments for the user, with department and service info
       const assignments = await ServiceUserAssignment.query()
         .where('user_id', userId)

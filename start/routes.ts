@@ -757,6 +757,14 @@ router
 
         // Guest analytics and history
         router.get('/:id/profile', guestsController.profile.bind(guestsController)) // Get guest profile with stay history
+        router.get('/customers/:id/details', guestsController.getCustomerDetails.bind(guestsController))
+
+        //Réservations du client
+        router.get('/customers/:id/reservations', guestsController.getCustomerReservations.bind(guestsController))
+
+        // Transactions regroupées par folio
+        router.get('/customers/:id/transactions', guestsController.getCustomerTransactions.bind(guestsController))
+
 
         // Guest status management
         router.patch('/:id/update-vip-status', guestsController.updateVipStatus.bind(guestsController)) // Update VIP status

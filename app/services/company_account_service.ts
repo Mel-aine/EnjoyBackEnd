@@ -277,13 +277,23 @@ export default class CompanyAccountService {
   /**
    * Get city ledger accounts for a hotel (doNotCountAsCityLedger = false)
    */
-  async getCityLedgerAccounts(hotelId: number) {
-    return await CompanyAccount.query()
-      .where('hotel_id', hotelId)
-      .where('do_not_count_as_city_ledger', false)
-      .andWhereNot('account_status', 'Closed')
-      .orderBy('company_name', 'asc')
+async getCityLedgerAccounts(hotelId: number, page: number, perPage: number, searchText: string) {
+  const query = CompanyAccount.query()
+    .where('hotel_id', hotelId)
+    .where('do_not_count_as_city_ledger', false)
+    .andWhereNot('account_status', 'Closed')
+
+  if (searchText) {
+    query.andWhere('company_name', 'like', `%${searchText}%`)
   }
+
+  const results = await query.orderBy('company_name', 'asc').paginate(page, perPage)
+
+  return results
+}
+
+
+
 
   /**
    * Create a business source from company account data
