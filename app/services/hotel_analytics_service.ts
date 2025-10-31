@@ -44,8 +44,19 @@ export class HotelAnalyticsService {
   ) {
     // 1. Get all rooms for the service
     const allRooms = await Room.query()
+      .select([
+        'id',
+        'room_type_id',
+        'status',
+        'housekeeping_status',
+        'room_number',
+        'sort_key',
+        'smoking_allowed',
+      ])
       .where('hotel_id', hotelId)
-      .preload('roomType')
+      .preload('roomType', (rtQuery) => {
+        rtQuery.select(['id', 'room_type_name', 'sort_order', 'max_adult'])
+      })
       .orderBy('sort_key', 'asc')
 
     const totalRooms = allRooms.length
@@ -96,6 +107,18 @@ export class HotelAnalyticsService {
 
     // Prefetch room blocks for the date range once (used both per-day and in final response)
     const roomBlocks = await RoomBlock.query()
+      .select([
+        'id',
+        'room_id',
+        'room_type_id',
+        'status',
+        'hotel_id',
+        'block_from_date',
+        'block_to_date',
+        'reason',
+        'created_at',
+        'updated_at',
+      ])
       .where('hotel_id', hotelId)
       .where((query) => {
         query
@@ -113,27 +136,78 @@ export class HotelAnalyticsService {
               .andWhere('block_to_date', '>=', endDate.toFormat('yyyy-MM-dd'))
           })
       })
-      .preload('room')
-      .preload('blockedBy')
-      .preload('roomType')
+      .preload('room', (roomQuery) => {
+        roomQuery.select(['id', 'room_number', 'floor_number'])
+      })
+      .preload('roomType', (rtQuery) => {
+        rtQuery.select(['id', 'room_type_name'])
+      })
       .orderBy('block_from_date', 'desc')
 
     // 3. Get all relevant reservations that overlap with the date range
     const reservations = await Reservation.query()
+      .select([
+        'id',
+        'arrived_date',
+        'depart_date',
+        'status',
+        'guest_count',
+        'reservation_number',
+        'total_amount',
+        'remaining_amount',
+        'customer_type',
+        'company_name',
+        'group_name',
+        'number_of_nights',
+        'payment_status',
+        "guestId",
+        "bookingSourceId"
+      ])
       .where('hotel_id', hotelId)
       .where('depart_date', '>=', startDate.toISODate()!)
       .where('arrived_date', '<=', endDate.toISODate()!)
       .whereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
       .preload('reservationRooms', (rspQuery) => {
-        rspQuery.preload('room', (spQuery: any) => {
-          spQuery.preload('roomType')
+        rspQuery
+          .select([
+            'id',
+            'room_id',
+            'room_type_id',
+            'check_in_date',
+            'check_out_date',
+            'check_in_time',
+            'check_out_time',
+            'adults',
+            'children',
+            'special_requests',
+            'room_rate',
+          ])
+          .preload('room', (spQuery: any) => {
+            spQuery
+              .select(['id', 'room_number', 'room_type_id'])
+              .preload('roomType', (rtQuery) => {
+                rtQuery.select(['id', 'room_type_name'])
+              })
+          })
+      })
+      .preload('guest', (gq) => {
+        gq.select(['id', 'title', 'first_name', 'last_name'])
+      })
+      .preload('folios', (folioQuery) => {
+        folioQuery.select(['id']).preload('transactions', (txQuery) => {
+          txQuery.select([
+            'amount',
+            'transaction_type',
+            'status',
+            'is_voided',
+            'service_charge_amount',
+            'tax_amount',
+          ])
         })
       })
-      .preload('guest')
-      .preload('folios', (folioQuery) => {
-        folioQuery.preload('transactions')
+      .preload('bookingSource', (bsQuery) => {
+        bsQuery.select(['id', 'source_name', 'source_code'])
       })
-      .preload('bookingSource')
 
     // 4. Calculate daily occupancy metrics
     const dailyMetrics = []
@@ -496,9 +570,12 @@ export class HotelAnalyticsService {
 
 
     const allCheckedInReservations = await Reservation.query()
+      .select(['id', 'arrived_date', 'depart_date', 'status'])
       .where('hotel_id', hotelId)
       .where('status', 'checked_in')
-      .preload('reservationRooms')
+      .preload('reservationRooms', (rrq) => {
+        rrq.select(['room_id', 'check_out_date'])
+      })
 
 
    const dueOutReservations = allCheckedInReservations.filter((reservation) =>
@@ -531,9 +608,12 @@ export class HotelAnalyticsService {
     console.log('Due out rooms (all checked-in):', globalRoomStatusStats.dueOut)
 
     const allConfirmedReservations = await Reservation.query()
+      .select(['id', 'status'])
       .where('hotel_id', hotelId)
       .where('status', 'confirmed')
-      .preload('reservationRooms')
+      .preload('reservationRooms', (rrq) => {
+        rrq.select(['room_id'])
+      })
 
     console.log('Total confirmed reservations:', allConfirmedReservations.length)
 
@@ -554,9 +634,12 @@ export class HotelAnalyticsService {
     const allBlockedRoomIds = new Set<number>(staticBlockedOrOO)
 
     const allRoomBlocks = await RoomBlock.query()
+      .select(['id', 'room_id', 'status'])
       .where('hotel_id', hotelId)
       .whereNot('status', 'completed')
-      .preload('room')
+      .preload('room', (rq) => {
+        rq.select(['id'])
+      })
 
 
     allRoomBlocks.forEach((block) => {

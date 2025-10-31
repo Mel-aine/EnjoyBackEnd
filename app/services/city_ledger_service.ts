@@ -149,8 +149,6 @@ export default class CityLedgerService {
 
     // Calculate running balance and format transactions
     const transactions: CityLedgerTransaction[] = []
-    let runningBalance = companyAccount.currentBalance || 0
-
     // Process transactions in reverse order to calculate running balance correctly
     const reversedTransactions = [...paginatedResult.all()].reverse()
 
@@ -428,9 +426,10 @@ export default class CityLedgerService {
       .from('folio_transactions')
       .where('hotel_id', hotelId)
       .whereIn('folio_id', folioIds)
-      .where('transaction_type', TransactionType.CHARGE)
+      .where('transaction_type', TransactionType.TRANSFER)
       .where('is_voided', false)
-      .sum('amount as total')
+      .where('unassigned_amount', '>', 0)
+      .sum('unassigned_amount as total')
       .first()
 
     const unpaidInvoices = Math.abs(parseFloat(unpaidInvoicesResult?.total || '0'))

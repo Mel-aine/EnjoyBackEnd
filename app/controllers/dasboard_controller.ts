@@ -511,7 +511,6 @@ export default class DashboardController {
    * - Activity feeds
    */
   public async getFrontOfficeDashboard({ params, response, request }: HttpContext) {
-    const trx = await db.transaction()
     try {
       const serviceId = parseInt(params.serviceId)
       if (!serviceId || isNaN(serviceId)) {
@@ -648,23 +647,24 @@ export default class DashboardController {
         unpaidFoliosData,
         recentActivities
       ] = await Promise.all([
-        this.getArrivalsData(serviceId, targetDate, trx),
-        this.getDeparturesData(serviceId, targetDate, trx),
-        this.getInHouseData(serviceId, targetDate, trx),
-        this.getRoomStatusData(serviceId, trx, startDate),
-        this.getRevenueData(serviceId, startDate, endDate, trx),
-        this.getSuiteOccupancyData(serviceId, trx),
-        this.getHousekeepingData(serviceId, trx),
-        // this.getWeeklyData(serviceId, selectedDate, trx),
-        this.getNotificationData(serviceId, targetDate, trx),
-        this.getUnpaidFoliosData(serviceId, trx),
+        this.getArrivalsData(serviceId, targetDate),
+        this.getDeparturesData(serviceId, targetDate),
+        this.getInHouseData(serviceId, targetDate),
+        this.getRoomStatusData(serviceId, startDate),
+        this.getRevenueData(serviceId, startDate, endDate),
+        this.getSuiteOccupancyData(serviceId),
+        this.getHousekeepingData(serviceId),
+        // this.getWeeklyData(serviceId, selectedDate),
+        this.getNotificationData(serviceId, targetDate),
+        this.getUnpaidFoliosData(serviceId),
 
-        ActivityLog.query({ client: trx })
+        ActivityLog.query()
           .where('hotel_id', serviceId)
           .whereBetween('created_at', [startDate.toSQL()!, endDate.toSQL()!])
+          .select('id', 'description', 'action', 'created_at', 'entity_type', 'entity_id', 'user_id')
           .orderBy('created_at', 'desc')
           .limit(5)
-          .preload('user'),
+          .preload('user', (userQuery) => userQuery.select('id', 'first_name', 'last_name')),
       ])
 
 
@@ -689,8 +689,6 @@ export default class DashboardController {
           occupancyRate: roomStatusData.occupancyRate,
         },
       }
-      await trx.commit()
-
       return response.ok({
         success: true,
         data: {
@@ -729,7 +727,6 @@ export default class DashboardController {
         },
       })
     } catch (error) {
-      await trx.rollback()
       console.error('Error fetching front office dashboard data:', error)
       return response.internalServerError({
         success: false,
@@ -794,8 +791,8 @@ export default class DashboardController {
     return 'low'
   }
 
-  private async getArrivalsData(serviceId: number, targetDate: string, trx: any) {
-    const grouped = await Reservation.query({ client: trx })
+  private async getArrivalsData(serviceId: number, targetDate: string, trx?: any) {
+    const grouped = await Reservation.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('arrived_date', targetDate)
       .whereIn('status', ['confirmed', 'checked_in'])
@@ -812,8 +809,8 @@ export default class DashboardController {
     }
   }
 
-  private async getDeparturesData(serviceId: number, targetDate: string, trx: any) {
-    const grouped = await Reservation.query({ client: trx })
+  private async getDeparturesData(serviceId: number, targetDate: string, trx?: any) {
+    const grouped = await Reservation.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('depart_date', targetDate)
       .whereIn('status', ['checked_in', 'checked_out'])
@@ -830,8 +827,8 @@ export default class DashboardController {
     }
   }
 
-  private async getInHouseData(serviceId: number, targetDate: string, trx: any) {
-    const aggregate = await Reservation.query({ client: trx })
+  private async getInHouseData(serviceId: number, targetDate: string, trx?: any) {
+    const aggregate = await Reservation.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('status', 'checked_in')
       .where('arrived_date', '<=', targetDate)
@@ -857,31 +854,32 @@ export default class DashboardController {
     }
   }
 
-  private async getRoomStatusData(serviceId: number, trx: any, currentDate?: DateTime) {
+  private async getRoomStatusData(serviceId: number, currentDate?: DateTime, trx?: any) {
     const targetDate = currentDate || DateTime.now();
 
     const [roomStatusCounts, roomStatusDayUse, roomStatusComplimentary, roomBlocksForDate] = await Promise.all([
-      Room.query({ client: trx })
+      Room.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .groupBy('status')
         .select('status')
         .count('* as total'),
-      ReservationRoom.query({ client: trx })
+      ReservationRoom.query(trx ? { client: trx } : undefined)
         .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
         .where('reservations.hotel_id', serviceId)
         .where('reservation_rooms.status', 'day_use')
         .count('* as total'),
-      Reservation.query({ client: trx })
+      Reservation.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('complimentary_room', 'true')
         .count('* as total'),
       // Récupération des chambres bloquées pour la date donnée
-      RoomBlock.query({ client: trx })
+      RoomBlock.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('block_from_date', '<=', targetDate.toFormat('yyyy-MM-dd'))
         .where('block_to_date', '>=', targetDate.toFormat('yyyy-MM-dd'))
         .whereNot('status', 'completed')
-        .preload('room')
+        .select('id', 'room_id', 'block_from_date', 'block_to_date', 'reason', 'description')
+        .preload('room', (roomQuery) => roomQuery.select('id', 'room_number'))
     ])
 
     // Créer un Set des IDs des chambres bloquées
@@ -938,8 +936,8 @@ export default class DashboardController {
     }
   }
 
-  private async getRevenueData(serviceId: number, startDate: DateTime, endDate: DateTime, trx: any) {
-    const revenueDataOptimized = await ReservationRoom.query({ client: trx })
+  private async getRevenueData(serviceId: number, startDate: DateTime, endDate: DateTime, trx?: any) {
+    const revenueDataOptimized = await ReservationRoom.query(trx ? { client: trx } : undefined)
       .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
       .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
       .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
@@ -960,11 +958,11 @@ export default class DashboardController {
     }
     revenueByRateType['total'] = totalRevenue
 
-    const occupiedRooms = await Reservation.query({ client: trx })
+    const occupiedRooms = await Reservation.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('status', 'checked_in')
       .count('* as total')
-    const totalRooms = await Room.query({ client: trx }).where('hotel_id', serviceId).count('* as total')
+    const totalRooms = await Room.query(trx ? { client: trx } : undefined).where('hotel_id', serviceId).count('* as total')
 
     return {
       revenue: {
@@ -981,10 +979,10 @@ export default class DashboardController {
     }
   }
 
-  private async getSuiteOccupancyData(serviceId: number, trx: any) {
+  private async getSuiteOccupancyData(serviceId: number, trx?: any) {
     // Aggregated counts by room type to avoid heavy preloads
     const roomTypes = await RoomType
-      .query({ client: trx })
+      .query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('is_deleted', false)
       .orderBy('sort_order', 'asc')
@@ -1038,16 +1036,16 @@ export default class DashboardController {
 
 
 
-  private async getHousekeepingData(serviceId: number, trx: any, targetDate?: DateTime) {
+  private async getHousekeepingData(serviceId: number, targetDate?: DateTime, trx?: any) {
     const date = targetDate || DateTime.now()
-    const housekeepingStatusCounts = await Room.query({ client: trx })
+    const housekeepingStatusCounts = await Room.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .groupBy('housekeeping_status')
       .select('housekeeping_status')
       .count('* as total')
     const totalRooms = [{ $extras: { total: housekeepingStatusCounts.reduce((sum, row) => sum + Number(row.$extras.total || 0), 0) } }]
 
-    const blockedCountResult = await RoomBlock.query({ client: trx })
+    const blockedCountResult = await RoomBlock.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('block_from_date', '<=', date.toFormat('yyyy-MM-dd'))
       .where('block_to_date', '>=', date.toFormat('yyyy-MM-dd'))
@@ -1096,7 +1094,7 @@ export default class DashboardController {
   }
 
 
-  private async getNotificationData(serviceId: number, targetDate: string, trx: any) {
+  private async getNotificationData(serviceId: number, targetDate: string, trx?: any) {
     const [
       unpaidFolios,
       overbookedRooms,
@@ -1109,7 +1107,7 @@ export default class DashboardController {
       tasksCount,
       reviewCount,
     ] = await Promise.all([
-      Folio.query({ client: trx })
+      Folio.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('balance', '>', 0)
         .where('settlement_status', '!=', 'settled')
@@ -1118,40 +1116,40 @@ export default class DashboardController {
           query.whereNotIn('status', ['confirmed', 'pending'])
         })
         .count('* as total'),
-      Reservation.query({ client: trx })
+      Reservation.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('status', 'overbooked')
         .where('check_in_date', targetDate)
         .count('* as total'),
-      WorkOrder.query({ client: trx })
+      WorkOrder.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('status', '!=', 'completed')
         .count('* as total'),
-      Reservation.query({ client: trx })
+      Reservation.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('status', 'inquiry')
         .count('* as total'),
-      Reservation.query({ client: trx })
+      Reservation.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('payment_status', 'failed')
         .count('* as total'),
-      Guest.query({ client: trx })
+      Guest.query(trx ? { client: trx } : undefined)
         .whereHas('reservations', (query) => {
           query.where('hotel_id', serviceId).where('status', 'checked_in')
         })
         .count('* as total'),
-      ActivityLog.query({ client: trx })
+      ActivityLog.query(trx ? { client: trx } : undefined)
         .where('entity_type', 'guest_message')
         .where('action', 'unread')
         .whereRaw('DATE(created_at) = ?', [targetDate])
         .count('* as total'),
-      Task.query({ client: trx })
+      Task.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
         .where('task_type', 'cardkey_issue')
         .where('status', '!=', 'done')
         .count('* as total'),
-      Task.query({ client: trx }).where('hotel_id', serviceId).where('status', '!=', 'done').count('* as total'),
-      ActivityLog.query({ client: trx })
+      Task.query(trx ? { client: trx } : undefined).where('hotel_id', serviceId).where('status', '!=', 'done').count('* as total'),
+      ActivityLog.query(trx ? { client: trx } : undefined)
         .where('entity_type', 'review')
         .where('action', 'pending')
         .whereRaw('DATE(created_at) = ?', [targetDate])
@@ -1175,7 +1173,7 @@ export default class DashboardController {
         action: 'view_unpaid_folios',
       })
     }
-    const roomsInMaintenanceCount = await Room.query({ client: trx })
+    const roomsInMaintenanceCount = await Room.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('status', 'in_maintenance')
       .count('* as total')
@@ -1215,8 +1213,8 @@ export default class DashboardController {
     }
   }
 
-  private async getUnpaidFoliosData(serviceId: number, trx: any, startDate?: string, endDate?: string, status?: string) {
-    const query = Folio.query({ client: trx })
+  private async getUnpaidFoliosData(serviceId: number, startDate?: string, endDate?: string, status?: string, trx?: any) {
+    const query = Folio.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('balance', '>', 0)
       .where('status', 'open')
@@ -1244,11 +1242,21 @@ export default class DashboardController {
         }
       })
 
+    // Select only fields used for rendering and necessary foreign keys for preloads
+    query.select('id', 'folio_number', 'balance', 'guest_id', 'reservation_id', 'reservation_room_id')
+
     const unpaidFolios = await query
-      .preload('guest')
-      .preload('reservation', (reservationQuery) => reservationQuery.preload('guest'))
-      .preload('reservationRoom', (roomQuery) => roomQuery.preload('room'))
-      .preload('transactions', (transactionQuery) => transactionQuery.where('is_voided', false).orderBy('transaction_date', 'desc'))
+      .preload('guest', (guestQuery) => guestQuery.select('id', 'title', 'first_name', 'last_name'))
+      .preload('reservation', (reservationQuery) =>
+        reservationQuery
+          .select('id', 'reservation_number', 'arrived_date', 'depart_date', 'status','guest_id')
+          .preload('guest', (guestQuery) => guestQuery.select('id', 'title', 'first_name', 'last_name'))
+      )
+      .preload('reservationRoom', (roomQuery) =>
+        roomQuery
+          .select('id', 'room_id')
+          .preload('room', (roomInnerQuery) => roomInnerQuery.select('id', 'room_number'))
+      )
       .orderBy('balance', 'desc')
       .limit(20)
 
