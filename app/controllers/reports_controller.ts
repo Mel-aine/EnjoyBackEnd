@@ -5243,7 +5243,7 @@ export default class ReportsController {
           const res = rr.reservation
           const guest = res?.guest || rr.guest
           const businessSourceName = res?.businessSource?.name || res?.sourceOfBusiness || 'N/A'
-          const roomNumber = rr.room?.roomNumber || '—'
+          const roomNumber = rr.roomType?.rooms[0]?.roomNumber 
           const roomTypeName = rr.roomType?.roomTypeName || '—'
           const folioNumber = (res?.folios && res.folios[0]?.folioNumber) || '—'
           const rateTypeName = rr.rateType?.rateTypeName || '—'
@@ -5281,7 +5281,9 @@ export default class ReportsController {
           })
           .preload('guest')
           .preload('room')
-          .preload('roomType')
+          .preload('roomType', (roomQuery=> {
+            roomQuery.preload('rooms')
+          }))
           .preload('rateType')
       }
   
@@ -5421,11 +5423,20 @@ export default class ReportsController {
       const html = await edge.render('reports/daily_operations', reportData)
   
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+            
       const headerTemplate = `
-        <div style="font-size:10px; width:100%; padding:6px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between;">
-          <div style="font-weight:600; color:#1e40af; font-size:12px;">${hotel.hotelName}</div>
-          <div style="font-size:9px; color:#555;">Daily Operations Report - ${reportDate.toFormat('yyyy-MM-dd')}</div>
-        </div>`
+      <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+        <!-- Hotel name and report title -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:3px;">
+          <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+          <div style="font-size:13px; color:#8B0000; font-weight:bold;">Daily Operation Report</div>
+        </div>
+
+        <div style="font-size:10px; margin-bottom:3px; border-bottom:1px solid #333;">
+          <span style="margin-right:10px;"><strong>As On Date</strong> ${reportDate.toFormat('yyyy-MM-dd')}</span>
+        </div>
+      `
       const footerTemplate = `
         <div style="font-size:9px; width:100%; padding:6px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
           <div>Report date: ${reportDate.toFormat('yyyy-MM-dd')}</div>
@@ -5435,10 +5446,10 @@ export default class ReportsController {
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: {
-          top: '60px',
-          right: '20px',
-          bottom: '60px',
-          left: '20px'
+          top: '90px',
+          right: '10px',
+          bottom: '70px',
+          left: '10px'
         },
         displayHeaderFooter: true,
         headerTemplate,
