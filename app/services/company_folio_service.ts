@@ -43,6 +43,7 @@ export interface BulkPaymentAssignmentData {
   assignedBy: number
   assignmentDate?: DateTime
   notes?: string
+  paymentTransactionId?: number
   ctx?: HttpContext
 }
 
@@ -57,6 +58,7 @@ export interface CompanyPaymentWithAssignmentData {
   postedBy: number
   postingDate?: DateTime
   transactionDate?: DateTime
+  transactionId?: number
   // Assignment data
   mappings: BulkAssignmentMapping[]
   assignedBy: number
@@ -434,13 +436,20 @@ export default class CompanyFolioService {
    * Update multiple payment assignments atomically
    */
   public async updateBulkPaymentAssignments(
-    bulkAssignmentData: BulkPaymentAssignmentData
+    bulkAssignmentData: CompanyPaymentWithAssignmentData
   ): Promise<FolioTransaction[]> {
     const trx = await Database.transaction()
 
     try {
       const updatedTransactions: FolioTransaction[] = []
-      const assignmentTimestamp = DateTime.now().toISO()
+      const assignmentDate = bulkAssignmentData.assignmentDate || DateTime.now()
+      const assignmentTimestamp = assignmentDate.toISO()
+
+      // Optional: load payment transaction to reference transaction number and update its totals later
+      let paymentTransaction: FolioTransaction | null = null
+      if (bulkAssignmentData.transactionId) {
+        paymentTransaction = await FolioTransaction.findOrFail(bulkAssignmentData.transactionId, { client: trx })
+      }
 
       // Validate and process each mapping
       for (const mapping of bulkAssignmentData.mappings) {
@@ -453,28 +462,61 @@ export default class CompanyFolioService {
           )
         }
 
-        // Calculate new unassigned amount (should be 0 for full assignment)
-        const newUnassignedAmount = Math.abs(transaction.amount) - mapping.newAssignedAmount
+        // Calculate assignment difference relative to current assigned
+        const currentAssignedAmount = transaction.assignedAmount || 0
+        const newAssignedAmount = mapping.newAssignedAmount
+        const assignmentDifference = newAssignedAmount - currentAssignedAmount
 
-        // Update the transaction with new assignment values
+        // Calculate new unassigned amount based on new assignment value
+        const newUnassignedAmount = Math.abs(transaction.amount) - newAssignedAmount
+
+        // Update the transaction with new assignment values and history
         await transaction.useTransaction(trx).merge({
-          assignedAmount: mapping.newAssignedAmount,
+          assignedAmount: newAssignedAmount,
           unassignedAmount: newUnassignedAmount,
           lastModifiedBy: bulkAssignmentData.assignedBy,
           assignmentHistory: {
             ...transaction.assignmentHistory,
             [assignmentTimestamp]: {
-              previousAssignedAmount: transaction.assignedAmount,
-              newAssignedAmount: mapping.newAssignedAmount,
+              assignedAmount: newAssignedAmount,
               assignedBy: bulkAssignmentData.assignedBy,
-              assignmentDate: bulkAssignmentData.assignmentDate || DateTime.now(),
-              notes: bulkAssignmentData.notes,
-              bulkUpdate: true
+              assignmentDate: assignmentDate,
+              notes: bulkAssignmentData.notes || (paymentTransaction ? `Bulk assignment from payment ${paymentTransaction.transactionNumber}` : 'Bulk assignment update'),
+              autoAssigned: Boolean(paymentTransaction),
+              unassignedAmount: assignmentDifference,
+              paymentTransactionId: paymentTransaction?.id
             },
           },
         }).save()
 
         updatedTransactions.push(transaction)
+      }
+
+      // If a payment transaction is provided, update its assigned/unassigned totals to reflect mappings
+      if (paymentTransaction) {
+        const totalAssignedAmount = bulkAssignmentData.mappings.reduce(
+          (sum, m) => sum + m.newAssignedAmount,
+          0
+        )
+
+        const paymentNewAssigned = totalAssignedAmount
+        const paymentNewUnassigned = Math.abs(paymentTransaction.amount) - paymentNewAssigned
+
+        await paymentTransaction.useTransaction(trx).merge({
+          assignedAmount: paymentNewAssigned,
+          unassignedAmount: paymentNewUnassigned,
+          lastModifiedBy: bulkAssignmentData.assignedBy,
+          assignmentHistory: {
+            ...paymentTransaction.assignmentHistory,
+            [assignmentTimestamp]: {
+              assignedAmount: paymentNewAssigned,
+              assignedBy: bulkAssignmentData.assignedBy,
+              assignmentDate: assignmentDate,
+              notes: bulkAssignmentData.notes || 'Payment assignment totals updated from bulk mappings',
+              bulkUpdate: true,
+            },
+          },
+        }).save()
       }
 
       // Bulk logging for assignment updates
@@ -494,8 +536,10 @@ export default class CompanyFolioService {
             meta: {
               previousAssignedAmount: transaction.assignedAmount,
               newAssignedAmount: mapping.newAssignedAmount,
-              assignmentDate: bulkAssignmentData.assignmentDate?.toISO(),
+              assignmentDate: assignmentDate.toISO(),
               notes: bulkAssignmentData.notes,
+              autoAssigned: Boolean(paymentTransaction),
+              paymentTransactionId: paymentTransaction?.id,
               bulkUpdate: true,
               batchSize: bulkAssignmentData.mappings.length
             },
@@ -503,6 +547,25 @@ export default class CompanyFolioService {
             ctx: bulkAssignmentData.ctx
           }
         })
+
+        // Add a log entry for the payment transaction total update
+        if (paymentTransaction) {
+          logEntries.push({
+            actorId: bulkAssignmentData.assignedBy,
+            action: 'UPDATE',
+            entityType: 'FolioTransaction',
+            entityId: paymentTransaction.id,
+            description: `Updated payment assignment totals via bulk mappings: ${paymentTransaction.assignedAmount}`,
+            meta: {
+              newTotalAssigned: paymentTransaction.assignedAmount,
+              remainingUnassigned: paymentTransaction.unassignedAmount,
+              assignmentDate: assignmentDate.toISO(),
+              batchSize: bulkAssignmentData.mappings.length
+            },
+            hotelId: paymentTransaction.hotelId,
+            ctx: bulkAssignmentData.ctx
+          })
+        }
 
         await LoggerService.bulkLog(logEntries)
       }

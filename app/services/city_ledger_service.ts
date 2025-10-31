@@ -40,7 +40,8 @@ export interface CityLedgerTransaction {
   debit: number
   balance: number
   voucherNumber?: string
-  isVoided: boolean
+  isVoided: boolean,
+  paymentTypeId:number
 }
 
 export interface CityLedgerTotals {
@@ -182,6 +183,7 @@ export default class CityLedgerService {
         transactionType: transaction.transactionType,
         description: transaction.description || transaction.particular,
         paymentType: transaction.paymentMethod?.methodName,
+        paymentTypeId: transaction.paymentMethod?.id,
         guestName: transaction.folio?.guest?.fullName || transaction.guestName,
         folioNo: transaction.folio?.folioNumber,
         user: transaction.creator?.fullName || transaction.folio?.guest?.fullName,

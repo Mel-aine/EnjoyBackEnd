@@ -106,29 +106,51 @@ export default class CompanyFolioController {
   public async postPaymentWithAssignment(ctx: HttpContext) {
   const  {request, auth, response} = ctx;
     try {
-      // Validate request data
+      // Choose validation schema based on whether a payment transactionId is provided
+      const hasTransactionId = !!request.input('transactionId')
+
       const validator = vine.compile(
-        vine.object({
-          companyId: vine.number().positive(),
-          hotelId: vine.number().positive(),
-          amount: vine.number().positive(),
-          description: vine.string().minLength(1),
-          reference: vine.string().optional().nullable(),
-          voucher: vine.string().optional().nullable(),
-          paymentMethodId: vine.number().positive().optional(),
-          //postedBy: vine.number().positive(),
-          postingDate:vine.string().optional(),
-          transactionDate: vine.string().optional(),
-          mappings: vine.array(
-            vine.object({
+        hasTransactionId
+          // Mapping-only mode (no new payment creation)
+          ? vine.object({
+              companyId: vine.number().positive(),
+              hotelId: vine.number().positive(),
               transactionId: vine.number().positive(),
-              newAssignedAmount: vine.number().min(0),
+              paymentMethodId: vine.number().positive().optional(),
+              reference: vine.string().optional().nullable(),
+              voucher: vine.string().optional().nullable(),
+              postingDate: vine.string().optional(),
+              transactionDate: vine.string().optional(),
+              mappings: vine.array(
+                vine.object({
+                  transactionId: vine.number().positive(),
+                  newAssignedAmount: vine.number().min(0),
+                })
+              ).minLength(1),
+              assignmentDate: vine.string().optional(),
+              notes: vine.string().optional().nullable(),
             })
-          ).optional(),
-          //assignedBy: vine.number().positive(),
-          assignmentDate: vine.string().optional(),
-          notes: vine.string().optional().nullable(),
-        })
+          // Create payment + bulk assignment mode
+          : vine.object({
+              companyId: vine.number().positive(),
+              hotelId: vine.number().positive(),
+              amount: vine.number().positive(),
+              description: vine.string().minLength(1),
+              reference: vine.string().optional().nullable(),
+              voucher: vine.string().optional().nullable(),
+              transactionId: vine.number().positive().optional(),
+              paymentMethodId: vine.number().positive().optional(),
+              postingDate: vine.string().optional(),
+              transactionDate: vine.string().optional(),
+              mappings: vine.array(
+                vine.object({
+                  transactionId: vine.number().positive(),
+                  newAssignedAmount: vine.number().min(0),
+                })
+              ).optional(),
+              assignmentDate: vine.string().optional(),
+              notes: vine.string().optional().nullable(),
+            })
       )
 
       const payload = await request.validateUsing(validator)
@@ -144,6 +166,27 @@ export default class CompanyFolioController {
         ctx: ctx,
       }
 
+      // If a payment transactionId is provided, only update mappings; do not create a new record
+      if (hasTransactionId) {
+        const updatedTransactions = await this.companyFolioService.updateBulkPaymentAssignments(paymentData)
+
+        return response.ok({
+          success: true,
+          message: 'Payment mappings updated successfully',
+          data: {
+            paymentTransactionId: paymentData.transactionId,
+            updatedCount: updatedTransactions.length,
+            transactions: updatedTransactions.map((t) => ({
+              transactionId: t.id,
+              assignedAmount: t.assignedAmount,
+              unassignedAmount: t.unassignedAmount,
+              totalAmount: Math.abs(t.amount),
+            })),
+          },
+        })
+      }
+
+      // Otherwise, create the payment and apply bulk assignments
       const transaction = await this.companyFolioService.postCompanyPaymentWithAssignment(paymentData)
 
       return response.created({
@@ -157,7 +200,7 @@ export default class CompanyFolioController {
           assignedAmount: transaction.assignedAmount,
           unassignedAmount: transaction.unassignedAmount,
           assignmentHistory: transaction.assignmentHistory,
-          mappingsApplied: paymentData.mappings.length,
+          mappingsApplied: paymentData.mappings?.length,
         },
       })
     } catch (error) {
