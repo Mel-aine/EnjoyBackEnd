@@ -3,12 +3,13 @@ import Folio from '#app/models/folio'
 import FolioTransaction from '#app/models/folio_transaction'
 import CompanyAccount from '#app/models/company_account'
 import PaymentMethod from '#app/models/payment_method'
-import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionType, TransactionCategory, PaymentMethodType } from '#app/enums'
+import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionType, TransactionCategory, PaymentMethodType, TransactionStatus } from '#app/enums'
 import Database from '@adonisjs/lucid/services/db'
 import LoggerService from '#app/services/logger_service'
 import type { HttpContext } from '@adonisjs/core/http'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
 import FolioService from './folio_service.js'
+import logger from '@adonisjs/core/services/logger'
 
 export interface CompanyPaymentData {
   companyId: number
@@ -456,7 +457,7 @@ export default class CompanyFolioService {
         const transaction = await FolioTransaction.findOrFail(mapping.transactionId, { client: trx })
 
         // Validate that the new assigned amount doesn't exceed the transaction amount
-        if (mapping.newAssignedAmount > Math.abs(transaction.amount)) {
+        if (mapping.newAssignedAmount > Math.abs(transaction.unassignedAmount)) {
           throw new Error(
             `Cannot assign ${mapping.newAssignedAmount} to transaction ${mapping.transactionId}. Maximum assignable amount is ${Math.abs(transaction.amount)}`
           )
@@ -465,14 +466,14 @@ export default class CompanyFolioService {
         // Calculate assignment difference relative to current assigned
         const currentAssignedAmount = transaction.assignedAmount || 0
         const newAssignedAmount = mapping.newAssignedAmount
-        const assignmentDifference = newAssignedAmount - currentAssignedAmount
+        const assignmentTotal = Math.abs(Number(newAssignedAmount)) + currentAssignedAmount
 
         // Calculate new unassigned amount based on new assignment value
-        const newUnassignedAmount = Math.abs(transaction.amount) - newAssignedAmount
+        const newUnassignedAmount = Math.abs(transaction.unassignedAmount) - newAssignedAmount
 
         // Update the transaction with new assignment values and history
         await transaction.useTransaction(trx).merge({
-          assignedAmount: newAssignedAmount,
+          assignedAmount: assignmentTotal,
           unassignedAmount: newUnassignedAmount,
           lastModifiedBy: bulkAssignmentData.assignedBy,
           assignmentHistory: {
@@ -483,7 +484,7 @@ export default class CompanyFolioService {
               assignmentDate: assignmentDate,
               notes: bulkAssignmentData.notes || (paymentTransaction ? `Bulk assignment from payment ${paymentTransaction.transactionNumber}` : 'Bulk assignment update'),
               autoAssigned: Boolean(paymentTransaction),
-              unassignedAmount: assignmentDifference,
+              unassignedAmount: newUnassignedAmount,
               paymentTransactionId: paymentTransaction?.id
             },
           },
@@ -493,14 +494,15 @@ export default class CompanyFolioService {
       }
 
       // If a payment transaction is provided, update its assigned/unassigned totals to reflect mappings
+      logger.info(paymentTransaction)
       if (paymentTransaction) {
         const totalAssignedAmount = bulkAssignmentData.mappings.reduce(
           (sum, m) => sum + m.newAssignedAmount,
           0
         )
 
-        const paymentNewAssigned = totalAssignedAmount
-        const paymentNewUnassigned = Math.abs(paymentTransaction.amount) - paymentNewAssigned
+        const paymentNewAssigned = Number(paymentTransaction.assignedAmount) + totalAssignedAmount
+        const paymentNewUnassigned = Math.abs(paymentTransaction.unassignedAmount) - totalAssignedAmount
 
         await paymentTransaction.useTransaction(trx).merge({
           assignedAmount: paymentNewAssigned,
@@ -573,6 +575,80 @@ export default class CompanyFolioService {
       await trx.commit()
       return updatedTransactions
 
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
+  }
+
+  /**
+   * Void a company payment transaction and update subsequent balances and folio totals
+   */
+  public async voidCompanyPaymentTransaction(params: {
+    transactionId: number
+    voidedBy: number
+    voidReason: string
+    ctx?: HttpContext
+  }): Promise<{ transaction: FolioTransaction; updatedCount: number; folio: Folio }>
+  {
+    const trx = await Database.transaction()
+
+    try {
+      const transaction = await FolioTransaction.findOrFail(params.transactionId, { client: trx })
+
+      if (transaction.transactionType !== TransactionType.PAYMENT) {
+        throw new Error('Only payment transactions can be voided via this route')
+      }
+
+      transaction.isVoided = true
+      transaction.voidedAt = DateTime.now()
+      transaction.voidedDate = DateTime.now()
+      transaction.voidedBy = params.voidedBy
+      transaction.voidReason = params.voidReason!
+      transaction.status = TransactionStatus.VOIDED
+      transaction.lastModifiedBy = params.voidedBy
+      await transaction.useTransaction(trx).save()
+
+      // Adjust balances of transactions created after the voided one
+      const delta = Math.abs(transaction.totalAmount || transaction.amount || 0)
+      const subsequentTransactions = await FolioTransaction.query({ client: trx })
+        .where('folioId', transaction.folioId)
+        .where('isVoided', false)
+        .where('created_at', '>', transaction.createdAt?.toSQL()!)
+
+      let updatedCount = 0
+      for (const t of subsequentTransactions) {
+        logger.info(t.balance)
+        logger.info(t.totalAmount)
+        const newBalance = Number((t.balance || 0)) + Number(delta)
+        await t.merge({ balance: newBalance, lastModifiedBy: params.voidedBy }).useTransaction(trx).save()
+        updatedCount++
+      }
+
+      // Recalculate folio totals after void
+      await FolioService.updateFolioTotals(transaction.folioId, trx)
+      const folio = await Folio.query({ client: trx }).where('id', transaction.folioId).firstOrFail()
+
+      // Log void action
+      if (params.ctx) {
+        await LoggerService.log({
+          actorId: params.voidedBy,
+          action: 'VOID',
+          entityType: 'FolioTransaction',
+          entityId: transaction.id,
+          description: 'Voided company payment transaction',
+          meta: {
+            deltaApplied: delta,
+            subsequentUpdatedCount: updatedCount,
+            folioId: transaction.folioId
+          },
+          hotelId: transaction.hotelId,
+          ctx: params.ctx
+        })
+      }
+
+      await trx.commit()
+      return { transaction, updatedCount, folio }
     } catch (error) {
       await trx.rollback()
       throw error

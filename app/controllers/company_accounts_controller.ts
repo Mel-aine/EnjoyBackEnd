@@ -305,12 +305,12 @@ export default class CompanyAccountsController {
   /**
    * Get city ledger accounts for a hotel (doNotCountAsCityLedger = false)
    */
-  async getCityLedger({ params,request, response }: HttpContext) {
+  async getCityLedger({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
       const page = parseInt(request.input('page', '1'))
-    const limit = parseInt(request.input('limit', '10'))
-    const searchText = request.input('searchText', '').trim()
+      const limit = parseInt(request.input('limit', '10'))
+      const searchText = request.input('searchText', '').trim()
       const cityLedgerAccounts = await this.service.getCityLedgerAccounts(hotelId, page, limit, searchText)
 
       return response.ok({

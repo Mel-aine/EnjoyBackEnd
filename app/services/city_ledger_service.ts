@@ -138,7 +138,9 @@ export default class CityLedgerService {
 
     // Apply void filter
     if (filters.showVoided !== undefined) {
-      query.where('is_voided', filters.showVoided)
+      if(!filters.showVoided) {
+        query.where('is_voided', false)
+      }
     }
 
     // Order by date (most recent first)

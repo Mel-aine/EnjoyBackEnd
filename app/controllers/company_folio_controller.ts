@@ -223,6 +223,60 @@ export default class CompanyFolioController {
   }
 
   /**
+   * Void a company payment transaction in city ledger and update balances
+   */
+  public async voidPaymentTransaction({ params, request, response, auth }: HttpContext) {
+    try {
+      const validator = vine.compile(
+        vine.object({
+          reason: vine.string(),
+        })
+      )
+
+      const payload = await request.validateUsing(validator)
+      const transactionId = params?.id ? parseInt(params.id, 10) : undefined
+      if (!transactionId) {
+        return response.badRequest({
+          success: false,
+          message: 'Missing transaction id in path params'
+        })
+      }
+
+      const result = await this.companyFolioService.voidCompanyPaymentTransaction({
+        transactionId,
+        voidReason: payload.reason,
+        voidedBy: auth.user?.id!,
+        ctx: { request, response } as HttpContext,
+      })
+
+      return response.ok({
+        success: true,
+        message: 'Company payment transaction voided successfully',
+        data: {
+          transactionId: result.transaction.id,
+          folioId: result.transaction.folioId,
+          subsequentUpdatedCount: result.updatedCount,
+          newFolioBalance: result.folio.balance,
+        },
+      })
+    } catch (error) {
+      if (error.code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({
+          success: false,
+          message: 'Validation failure',
+          errors: error.messages,
+        })
+      }
+
+      return response.badRequest({
+        success: false,
+        message: 'Failed to void company payment transaction',
+        error: error.message,
+      })
+    }
+  }
+
+  /**
    * Update payment assignment
    */
   public async updateAssignment({ request, response }: HttpContext) {

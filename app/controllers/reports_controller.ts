@@ -6,6 +6,7 @@ import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import { PaymentMethodType, ReservationStatus, TransactionCategory, TransactionType, TransactionStatus } from '#app/enums'
 import PaymentMethod from '#models/payment_method'
+import CompanyAccount from '#models/company_account'
 import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
 import Database from '@adonisjs/lucid/services/db'
@@ -8468,7 +8469,7 @@ export default class ReportsController {
         room: transaction.folio.reservationRoom?.room,
         roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
-        printedBy: auth.user?.fullName || 'System',
+        printedBy: auth.user?.fullName,
         printedAt: DateTime.now()
       }
       console.log(receiptData)
@@ -8579,6 +8580,187 @@ export default class ReportsController {
       return response.internalServerError({
         success: false,
         message: 'Error generating receipt PDF',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Print company receipt for a transaction
+   */
+  async printCompanyReceipt({ params, response, auth }: HttpContext) {
+    try {
+      const transactionId = parseInt(params.transactionId)
+
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
+            })
+          })
+        })
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+
+      const companyId = transaction.folio.companyId
+      const company = companyId ? await CompanyAccount.find(companyId) : null
+
+      const totalAmountNumber = parseFloat(transaction.totalAmount?.toString() || '0')
+      const amountInWords = this.calculateAmountInWords(totalAmountNumber)
+
+      const receiptData = {
+        transaction,
+        amountInWords,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        folio: transaction.folio,
+        reservations: transaction.folio.reservationRoom,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room?.roomType,
+        paymentMethod: transaction.paymentMethod,
+        company,
+        printedBy: auth.user?.fullName,
+        printedAt: DateTime.now()
+      }
+
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      const html = await edge.render('reports/company_receipt', receiptData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+      })
+
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="company-receipt-${transaction.transactionNumber}.pdf"`)
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating company receipt PDF:', error)
+      return response.internalServerError({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Print company voucher for a transaction
+   */
+  async printCompanyVoucher({ params, request, response, auth }: HttpContext) {
+    try {
+      const companyId = parseInt(params.companyId)
+      const fromDateStr = request.input('fromDate')
+      const toDateStr = request.input('toDate')
+
+      if (!companyId || !fromDateStr || !toDateStr) {
+        return response.badRequest({
+          success: false,
+          message: 'companyId, fromDate and toDate are required'
+        })
+      }
+
+      const fromDate = DateTime.fromISO(fromDateStr)
+      const toDate = DateTime.fromISO(toDateStr)
+
+      if (!fromDate.isValid || !toDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+        })
+      }
+
+      const company = await CompanyAccount.find(companyId)
+      if (!company) {
+        return response.notFound({
+          success: false,
+          message: 'Company account not found'
+        })
+      }
+
+      const transactions = await FolioTransaction.query()
+        .whereBetween('transaction_date', [fromDate.startOf('day'), toDate.endOf('day')])
+        .where('is_voided', false)
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.where('company_id', companyId)
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
+            })
+          })
+        })
+        .preload('paymentMethod')
+        .orderBy('transaction_date', 'asc')
+
+      if (!transactions || transactions.length === 0) {
+        return response.notFound({
+          success: false,
+          message: 'No transactions found for company in the given date range'
+        })
+      }
+
+      const totalAmountNumber = transactions.reduce((sum, t) => {
+        const val = parseFloat(t.totalAmount?.toString() || '0')
+        return sum + (isNaN(val) ? 0 : val)
+      }, 0)
+      const amountInWords = this.calculateAmountInWords(totalAmountNumber)
+
+      // Resolve hotel from company or first transaction's folio
+      let hotel = null as any
+      if ((company as any)?.hotelId) {
+        hotel = await Hotel.find((company as any).hotelId)
+      }
+      if (!hotel) {
+        hotel = transactions[0].folio?.hotel
+      }
+
+      const voucherData = {
+        transactions,
+        totalAmount: totalAmountNumber,
+        amountInWords,
+        hotel,
+        company,
+        dateRange: { from: fromDate, to: toDate },
+        printedBy: auth.user?.fullName || 'System',
+        printedAt: DateTime.now()
+      }
+
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      const html = await edge.render('reports/company_voucher', voucherData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+      })
+
+      response.header('Content-Type', 'application/pdf')
+      const filename = `company-voucher-company-${companyId}-${fromDate.toFormat('yyyyLLdd')}-${toDate.toFormat('yyyyLLdd')}.pdf`
+      response.header('Content-Disposition', `inline; filename="${filename}"`)
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating company voucher PDF:', error)
+      return response.internalServerError({
+        success: false,
         error: error.message
       })
     }

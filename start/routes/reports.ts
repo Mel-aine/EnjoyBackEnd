@@ -48,6 +48,10 @@ router.group(() => {
 
   router.get('/invoice/:transactionId', [ReportsController, 'printInvoice'])
 
+  // Company printing routes
+  router.get('/company-receipt/:transactionId', [ReportsController, 'printCompanyReceipt'])
+  router.get('/company-voucher/:companyId', [ReportsController, 'printCompanyVoucher'])
+
   // POS Receipt printing route
   router.get('/pos-receipt/:transactionId', [ReportsController, 'printPosReceipt'])
   router.post('/incidental-invoice', [ReportsController, 'printIncidentalInvoice'])

@@ -1495,6 +1495,7 @@ router
             router.put('/assignment', companyFolioController.updateAssignment.bind(companyFolioController)) // Update payment assignment
             router.put('/bulk-assignment', companyFolioController.updateBulkAssignments.bind(companyFolioController)) // Update bulk payment assignments
             router.get('/:companyId/unassigned', companyFolioController.getUnassignedAmount.bind(companyFolioController)) // Get unassigned payment amount
+            router.post('/payments/:id/void', companyFolioController.voidPaymentTransaction.bind(companyFolioController)) // Void a company payment transaction and update balances
           })
           .prefix('/company_accounts/company_folios')
       })
