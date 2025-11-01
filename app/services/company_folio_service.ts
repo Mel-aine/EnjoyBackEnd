@@ -466,7 +466,7 @@ export default class CompanyFolioService {
         // Calculate assignment difference relative to current assigned
         const currentAssignedAmount = transaction.assignedAmount || 0
         const newAssignedAmount = mapping.newAssignedAmount
-        const assignmentTotal = Math.abs(Number(newAssignedAmount)) + currentAssignedAmount
+        const assignmentTotal = Math.abs(Number(newAssignedAmount)) + Math.abs(currentAssignedAmount)
 
         // Calculate new unassigned amount based on new assignment value
         const newUnassignedAmount = Math.abs(transaction.unassignedAmount) - newAssignedAmount
