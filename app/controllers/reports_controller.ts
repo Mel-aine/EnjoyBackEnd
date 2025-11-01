@@ -8596,12 +8596,6 @@ export default class ReportsController {
         .where('id', transactionId)
         .preload('folio', (folioQuery: any) => {
           folioQuery.preload('hotel')
-          folioQuery.preload('guest')
-          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
-            reservationRoomQuery.preload('room', (roomQuery: any) => {
-              roomQuery.preload('roomType')
-            })
-          })
         })
         .preload('paymentMethod')
         .first()
@@ -8623,11 +8617,7 @@ export default class ReportsController {
         transaction,
         amountInWords,
         hotel: transaction.folio.hotel,
-        guest: transaction.folio.guest,
         folio: transaction.folio,
-        reservations: transaction.folio.reservationRoom,
-        room: transaction.folio.reservationRoom?.room,
-        roomType: transaction.folio.reservationRoom?.room?.roomType,
         paymentMethod: transaction.paymentMethod,
         company,
         printedBy: auth.user?.fullName,
@@ -8650,7 +8640,8 @@ export default class ReportsController {
       return response.send(pdfBuffer)
 
     } catch (error) {
-      logger.error('Error generating company receipt PDF:', error)
+      logger.error('Error generating company receipt PDF:')
+      logger.info(error)
       return response.internalServerError({
         success: false,
         error: error.message
@@ -8698,12 +8689,6 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.where('company_id', companyId)
           folioQuery.preload('hotel')
-          folioQuery.preload('guest')
-          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
-            reservationRoomQuery.preload('room', (roomQuery: any) => {
-              roomQuery.preload('roomType')
-            })
-          })
         })
         .preload('paymentMethod')
         .orderBy('transaction_date', 'asc')
@@ -8715,11 +8700,23 @@ export default class ReportsController {
         })
       }
 
-      const totalAmountNumber = transactions.reduce((sum, t) => {
-        const val = parseFloat(t.totalAmount?.toString() || '0')
-        return sum + (isNaN(val) ? 0 : val)
-      }, 0)
-      const amountInWords = this.calculateAmountInWords(totalAmountNumber)
+      // Build view model: Date, Description, Payment Type, Credit, Debit
+      const voucherTransactions = transactions.map((t) => {
+        const credit = t.transactionType === TransactionType.PAYMENT ? Math.abs(t.amount || 0) : 0
+        const debit = t.category === TransactionCategory.TRANSFER_IN ? Math.abs(t.amount || 0) : 0
+        return {
+          date: t.transactionDate,
+          description: t.description || t.particular || '',
+          paymentType: t.paymentMethod?.methodName || t.subcategory || t.category || '',
+          credit,
+          debit,
+        }
+      })
+
+      const totalCredit = voucherTransactions.reduce((sum, tx) => sum + (tx.credit || 0), 0)
+      const totalDebit = voucherTransactions.reduce((sum, tx) => sum + (tx.debit || 0), 0)
+      const balance = totalDebit - totalCredit
+      const balanceInWords = this.calculateAmountInWords(Math.abs(balance))
 
       // Resolve hotel from company or first transaction's folio
       let hotel = null as any
@@ -8731,9 +8728,11 @@ export default class ReportsController {
       }
 
       const voucherData = {
-        transactions,
-        totalAmount: totalAmountNumber,
-        amountInWords,
+        transactions: voucherTransactions,
+        totalCredit,
+        totalDebit,
+        balance,
+        balanceInWords,
         hotel,
         company,
         dateRange: { from: fromDate, to: toDate },

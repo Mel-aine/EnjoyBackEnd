@@ -64,24 +64,18 @@
                 </td>
             </tr>
             <tr>
-                <td style="width: 20%;"><strong>Room No</strong></td>
-                <td style="width: 30%; border-right: none;">{{ room.roomNumber }}</td>
-                <td style="width: 20%; border-left: none;"><strong>Date</strong></td>
-                <td style="width: 30%;">{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+                <td style="width: 20%;"><strong>Date</strong></td>
+                <td style="width: 30%; border-right: none;">{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+                <td style="width: 20%; border-left: none;"><strong>Receipt No.</strong></td>
+                <td style="width: 30%;">{{ transaction.transactionNumber }}</td>
             </tr>
             <tr>
                 <td><strong>Reg No</strong></td>
-                <td style="border-right: none;">{{ hotel.registrationNo1 || 'NA' }}</td>
-                <td style="border-left: none;"><strong>Receipt No.</strong></td>
-                <td>{{ transaction.transactionNumber }}</td>
+                <td colspan="3">{{ hotel.registrationNo1 || 'NA' }}</td>
             </tr>
             <tr>
-                <td class="label-cell">Guest Name</td>
-                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.type }})</td>
-            </tr>
-            <tr>
-                <td class="label-cell">Company Name</td>
-                <td colspan="3" style="padding: 10px 10px 50px 10px; position: relative;">
+                <td class="label-cell">Payer (Company)</td>
+                <td colspan="3" style="padding: 10px 10px 20px 10px; position: relative;">
                     @if(company)
                         {{ company.companyName }}
                     @else
@@ -94,7 +88,6 @@
                 <td class="label-cell" style="width: 30%; padding-top: 5px;">
                     <div>Amount</div>
                     <div style="margin-top: 5px;">Towards</div>
-                    <div style="margin-top: 5px;">Arr & Dep Details</div>
                 </td>
                 <td style="width: 70%; padding-top: 5px; position: relative;" colspan="3">
                     <div style="display: flex; align-items: baseline;">
@@ -102,7 +95,6 @@
                         <div style="flex: 1; text-align: center; font-size: 11px; position: relative; top: -4px; white-space: normal; word-break: break-word;">{{ amountInWords }}</div>
                     </div>
                     <div style="margin-top: 5px;">{{ paymentMethod.methodName }}</div>
-                    <div style="margin-top: 5px;">{{ reservations.checkInDate.toFormat('dd-MM-yyyy HH:mm:ss') }} &nbsp;&nbsp;&nbsp;&nbsp; <strong>To</strong> &nbsp;&nbsp; {{ reservations.checkOutDate.toFormat('dd-MM-yyyy HH:mm:ss') }}</div>
                 </td>
             </tr>
             <tr>
@@ -115,7 +107,7 @@
                             <span>{{ printedAt.toFormat('HH:mm:ss') }}</span>
                         </div>
                         <div class="signature-right">
-                            <strong>Guest Signature</strong>
+                            <strong>Company Signature</strong>
                         </div>
                     </div>
                 </td>
@@ -161,24 +153,18 @@
                 </td>
             </tr>
             <tr>
-                <td style="width: 20%;"><strong>Room No</strong></td>
-                <td style="width: 30%; border-right: none;">{{ room.roomNumber }}</td>
-                <td style="width: 20%; border-left: none;"><strong>Date</strong></td>
-                <td style="width: 30%;">{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+                <td style="width: 20%;"><strong>Date</strong></td>
+                <td style="width: 30%; border-right: none;">{{ transaction.transactionDate.toFormat('dd-MM-yyyy') }}</td>
+                <td style="width: 20%; border-left: none;"><strong>Receipt No.</strong></td>
+                <td style="width: 30%;">{{ transaction.transactionNumber }}</td>
             </tr>
             <tr>
                 <td><strong>Reg No</strong></td>
-                <td style="border-right: none;">{{ hotel.registrationNo1 || 'NA' }}</td>
-                <td style="border-left: none;"><strong>Receipt No.</strong></td>
-                <td>{{ transaction.transactionNumber }}</td>
+                <td colspan="3">{{ hotel.registrationNo1 || 'NA' }}</td>
             </tr>
             <tr>
-                <td class="label-cell">Guest Name</td>
-                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.type }})</td>
-            </tr>
-            <tr>
-                <td class="label-cell">Company Name</td>
-                <td colspan="3" style="padding: 10px 10px 50px 10px; position: relative;">
+                <td class="label-cell">Payer (Company)</td>
+                <td colspan="3" style="padding: 10px 10px 20px 10px; position: relative;">
                     @if(company)
                         {{ company.companyName }}
                     @else
@@ -191,7 +177,6 @@
                 <td class="label-cell" style="width: 30%; padding-top: 5px;">
                     <div>Amount</div>
                     <div style="margin-top: 5px;">Towards</div>
-                    <div style="margin-top: 5px;">Arr & Dep Details</div>
                 </td>
                 <td style="width: 70%; padding-top: 5px; position: relative;" colspan="3">
                     <div style="display: flex; align-items: baseline;">
@@ -199,7 +184,6 @@
                         <div style="flex: 1; text-align: center; font-size: 11px; position: relative; top: -4px; white-space: normal; word-break: break-word;">{{ amountInWords }}</div>
                     </div>
                     <div style="margin-top: 5px;">{{ paymentMethod.methodName }}</div>
-                    <div style="margin-top: 5px;">{{ reservations.checkInDate.toFormat('dd-MM-yyyy HH:mm:ss') }} &nbsp;&nbsp;&nbsp;&nbsp; <strong>To</strong> &nbsp;&nbsp; {{ reservations.checkOutDate.toFormat('dd-MM-yyyy HH:mm:ss') }}</div>
                 </td>
             </tr>
         </table>
