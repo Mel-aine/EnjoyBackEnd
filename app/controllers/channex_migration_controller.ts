@@ -1207,7 +1207,7 @@ export default class ChannexMigrationController {
       console.log(`🎯 Synchronisation des 3 DERNIÈRES bookings Channex pour property ${channexPropertyId}`)
   
       // Récupérer tous les bookings
-      const bookingsResponse: any = await this.channexService.getBookingByFilter({
+      const bookingsResponse: any = await this.channexService.getBookingRevisionFeedByFilter({
         page: 1,
         limit: 100  // Récupérer assez pour avoir les 3 dernières
       })

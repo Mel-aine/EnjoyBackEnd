@@ -389,7 +389,7 @@ export class ChannexService {
    * Get a specific rate plan
    * GET /properties/{property_id}/rate_plans/{rate_plan_id}
    */
-  async getRatePlan(propertyId: string, ratePlanId: string) {
+  async getRatePlan( ratePlanId: string) {
     return this.get(`/rate_plans/${ratePlanId}`)
   }
 
@@ -642,12 +642,12 @@ export class ChannexService {
     return this.get(`/bookings`)
   }
 
-  async getBookingByFilter(params: {
-    page: number,
-    limit: number
-  }) {
-    return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
-  }
+    async getBookingByFilter(params: {
+      page: number,
+      limit: number
+    }) {
+      return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
+    }
 
   /**
    * Get a specific booking
@@ -684,10 +684,18 @@ export class ChannexService {
 * GET /booking_revisions/feed
 */
 
-  async getBookingRevisionFeed(params?: { property_id?: string }) {
+  async getBookingRevisionFeed(params?: { property_id?: string, }) {
     const filter = params && params.property_id ? `?filter[property_id]=${params.property_id}` : '';
     return this.get(`/booking_revisions/feed${filter}`);
   }
+
+  async getBookingRevisionFeedByFilter(params: {
+    page: number,
+    limit: number
+  }) {
+    return this.get(`/booking_revisions/feed?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
+  }
+
 
 
 
