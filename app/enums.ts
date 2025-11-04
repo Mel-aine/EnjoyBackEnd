@@ -138,3 +138,18 @@ export enum PaymentMethodType {
   CITY_LEDGER = 'city_ledger',
   OTHER = 'other'
 }
+
+export enum ChannexRestrictionType {
+  RATE = 'rate',
+  AVAILABILITY = 'availability',
+  MIN_STAY_ARRIVAL = 'min_stay_arrival',
+  MIN_STAY_THROUGH = 'min_stay_through',
+  MIN_STAY = 'min_stay',
+  CLOSED_TO_ARRIVAL = 'closed_to_arrival',
+  CLOSED_TO_DEPARTURE = 'closed_to_departure',
+  STOP_SELL = 'stop_sell',
+  MAX_STAY = 'max_stay',
+  AVAILABILITY_OFFSET = 'availability_offset',
+  MAX_AVAILABILITY = 'max_availability'
+}
+

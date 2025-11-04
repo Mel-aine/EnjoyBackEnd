@@ -61,6 +61,7 @@ import TransportRequestsController from '#controllers/transport_requests_control
 import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
 import OtaController from '#controllers/ota_controller'
+import ChannexRestrictionsController from '#controllers/channex_restrictions_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 // Root route that presents Enjoys API documentation and test examples
@@ -154,6 +155,7 @@ const transportRequestsController = new TransportRequestsController()
 const workOrdersController = new WorkOrdersController()
 const houseKeepersController = new HouseKeepersController()
 const otaController = new OtaController()
+const channexRestrictionsController = new ChannexRestrictionsController()
 
 
 router.get('/swagger', async () => {
@@ -1630,6 +1632,7 @@ router
         router.get('/properties/:propertyId/availability', channexController.getAvailability.bind(channexController))
         router.put('/properties/:propertyId/availability', channexController.updateAvailability.bind(channexController))
         router.put('/properties/:propertyId/restrictions', channexController.updateRestrictions.bind(channexController))
+        router.post('/properties/:propertyId/restrictions', channexRestrictionsController.getRestrictions.bind(channexRestrictionsController))
       })
       .prefix('channex');
 
