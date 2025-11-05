@@ -353,24 +353,17 @@ export default class RoomTypesController {
   async showByHotel({ params, request, response }: HttpContext) {
     try {
       const hotelId = Number(params.hotelId)
-      console.log('Fetching room types for hotelId:', hotelId)
-
       if (isNaN(hotelId)) {
         return response.badRequest({ message: 'Invalid hotelId parameter' })
       }
 
       // Récupérer la page et la limite depuis les query params, sinon valeurs par défaut
       const page = Number(request.input('page', 1))
-      const limit = Number(request.input('limit', 10))
+      const limit = Number(request.input('limit', 100))
 
       const roomTypes = await RoomType.query()
         .where('hotel_id', hotelId)
         .andWhere('is_deleted', false)
-        .preload('rooms',(query)=>{
-          query.preload('taxRates')
-          query.orderBy('sort_key', 'asc')
-        })
-        .preload('roomRates')
         .orderBy('sort_order', 'asc')
         .paginate(page, limit)
 

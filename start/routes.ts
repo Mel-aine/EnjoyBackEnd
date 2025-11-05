@@ -890,6 +890,7 @@ router
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
         router.get('/available-by-room-type/:roomTypeId', roomsController.getAvailableRoomsByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
         router.get('/roomByType/:roomTypeId', roomsController.getRoomByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
+        router.get('/frontoffice/bookingrooom',roomsController.getFrontOfficeBookingData.bind(roomsController))
       })
       .prefix('configuration/hotels/:hotelId/rooms')
 

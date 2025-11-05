@@ -7,6 +7,7 @@ import { createRoomValidator, updateRoomValidator } from '#validators/room'
 import LoggerService from '#services/logger_service'
 import RoomBlock from '#models/room_block'
 import HouseKeeper from '#models/house_keeper'
+import logger from '@adonisjs/core/services/logger'
 
 export default class RoomsController {
   /**
@@ -496,18 +497,109 @@ export default class RoomsController {
             status: room.status,
             housekeepingStatus: room.housekeepingStatus,
             taxRates: room.taxRates?.map((tax) => ({
-            id: tax.taxRateId,
-            name: tax.taxName,
-            postingType: tax.postingType,
-            amount: tax.amount,
-            percentage: tax.percentage,
-          })) || [],
+              id: tax.taxRateId,
+              name: tax.taxName,
+              postingType: tax.postingType,
+              amount: tax.amount,
+              percentage: tax.percentage,
+            })) || [],
           })),
         },
       })
     } catch (error) {
       console.error('Error fetching available rooms:', error)
       return response.badRequest({
+        message: 'Failed to retrieve available rooms',
+        error: error.message,
+      })
+    }
+  }
+  async getFrontOfficeBookingData({ params, request, response }: HttpContext) {
+    try {
+      const hotelId = params.hotelId
+      // Extract dates, default to current day for simplicity if not provided
+      const { startDate, endDate } = request.only(['startDate', 'endDate'])
+
+      // **Validation and Date Preparation**
+      if (!startDate || !endDate) {
+        return response.badRequest({
+          message: 'Both startDate and endDate are required.',
+        })
+      }
+
+      // Convert input dates to Luxon DateTime objects
+      const checkInDate = DateTime.fromISO(startDate)
+      const checkOutDate = DateTime.fromISO(endDate)
+
+      if (!checkInDate.isValid || !checkOutDate.isValid) {
+        return response.badRequest({
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD).',
+        })
+      }
+
+      // **1. Get All Room Types and their Rooms**
+      const roomsByType = await RoomType.query()
+        .where('hotel_id', hotelId)
+        .preload('roomRates', (queryRate) => {
+          queryRate.select(['id', 'room_type_id','rate_type_id'])
+          queryRate.preload('rateType', (queryRateType) => {
+            queryRateType.select(['id', 'rate_type_name'])
+          })
+        })
+        .preload('rooms', (queryRoom) => {
+          queryRoom.select(['id', 'room_number', 'status', 'housekeeping_status'])
+        })
+        .select(['id', 'room_type_name','base_adult','base_child',"max_adult","max_child"])
+
+      const setRoomTypesIds = roomsByType.map((e) => e.id)
+
+      // **2. Identify Blocked Rooms**
+      const blockedRoomsResult = await RoomBlock.query()
+        .whereIn('room_type_id', setRoomTypesIds)
+        // Block duration overlaps with the requested period
+        .where(function (query) {
+          query.where('block_from_date', '>=', checkInDate.toISODate()).where('block_to_date', '<=', checkOutDate.toISODate())
+        })
+        .select('room_id')
+
+      // Extract the IDs of blocked rooms
+      const blockedRoomIds = blockedRoomsResult.map((b) => b.roomId)
+
+      // **3. Identify Reserved Rooms**
+      const reservedRoomsResult = await ReservationRoom.query()
+        // Reservation period overlaps with the requested period
+        .whereBetween('check_in_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+        .orWhereBetween('check_out_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+        .whereIn('status', ['confirmed', 'checked_in', 'reserved']) // Add 'reserved' if needed
+        .select(['room_id'])
+      // Extract the IDs of reserved rooms
+      const reservedRoomIds = reservedRoomsResult.map((r) => r.roomId)
+
+      // **4. Combine Exclusions and Filter Rooms**
+      // Rooms that are blocked OR reserved are unavailable
+      const unavailableRoomIds = [...blockedRoomIds, ...reservedRoomIds]
+
+      // Iterate and filter the rooms within each room type
+      const finalRoomsData = roomsByType.map((roomType) => {
+        // Filter out rooms whose ID is in the unavailable list
+        const availableRooms = roomType.rooms.filter(
+          (room) => !unavailableRoomIds.includes(room.id)
+        )
+
+        // Return a new object with only the available rooms
+        return {
+          ...roomType.toJSON(), // Convert model instance to plain object
+          rooms: availableRooms,
+        }
+      })
+
+      return response.ok({
+        message: 'Available rooms retrieved successfully',
+        data: finalRoomsData,
+      })
+    } catch (error) {
+      console.error('Error fetching available rooms:', error)
+      return response.internalServerError({ // Changed to 500 for general server error
         message: 'Failed to retrieve available rooms',
         error: error.message,
       })

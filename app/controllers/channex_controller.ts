@@ -84,39 +84,39 @@ export default class ChannexController {
     }
   }
 
-    // GET /api/channex/properties/:propertyId/room-types
-    public async getRoomTypes({ params, response }: HttpContext) {
-      try {
-        const propertyId = params.propertyId
-  
-        if (!propertyId) {
-          return response.badRequest({ message: 'propertyId is required' })
-        }
-  
-        const data = await this.service.getRoomType(propertyId)
-        return response.ok({ message: 'Room types fetched', data })
-      } catch (error: any) {
-        return response.internalServerError({ 
-          message: error.message || 'Failed to fetch room types' 
-        })
+  // GET /api/channex/properties/:propertyId/room-types
+  public async getRoomTypes({ params, response }: HttpContext) {
+    try {
+      const propertyId = params.propertyId
+
+      if (!propertyId) {
+        return response.badRequest({ message: 'propertyId is required' })
       }
+
+      const data = await this.service.getRoomType(propertyId)
+      return response.ok({ message: 'Room types fetched', data })
+    } catch (error: any) {
+      return response.internalServerError({
+        message: error.message || 'Failed to fetch room types'
+      })
     }
-  
-    // GET /api/channex/properties/:propertyId/rate-plans
-    public async getRatePlans({ params, response }: HttpContext) {
-      try {
-        const propertyId = params.propertyId
-  
-        if (!propertyId) {
-          return response.badRequest({ message: 'propertyId is required' })
-        }
-  
-        const data = await this.service.getRatePlan(propertyId)
-        return response.ok({ message: 'Rate plans fetched', data })
-      } catch (error: any) {
-        return response.internalServerError({ 
-          message: error.message || 'Failed to fetch rate plans' 
-        })
+  }
+
+  // GET /api/channex/properties/:propertyId/rate-plans
+  public async getRatePlans({ params, response }: HttpContext) {
+    try {
+      const propertyId = params.propertyId
+
+      if (!propertyId) {
+        return response.badRequest({ message: 'propertyId is required' })
       }
+
+      const data = await this.service.getRatePlan(propertyId)
+      return response.ok({ message: 'Rate plans fetched', data })
+    } catch (error: any) {
+      return response.internalServerError({
+        message: error.message || 'Failed to fetch rate plans'
+      })
     }
+  }
 }
