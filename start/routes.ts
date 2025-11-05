@@ -1633,9 +1633,10 @@ router
         router.get('/properties/:propertyId/availability', channexController.getAvailability.bind(channexController))
         router.get('/properties/:propertyId/room-types', channexController.getRoomTypes.bind(channexController))
         router.get('/properties/:propertyId/rate-plans', channexController.getRatePlans.bind(channexController))
+        router.get('/properties/:propertyId/room-types-with-rate-plans', channexController.getRoomTypesWithRatePlans.bind(channexController))
         router.put('/properties/:propertyId/availability', channexController.updateAvailability.bind(channexController))
         router.put('/properties/:propertyId/restrictions', channexController.updateRestrictions.bind(channexController))
-        router.get('/properties/:propertyId/restrictions', channexRestrictionsController.getRestrictions.bind(channexRestrictionsController))
+        router.post('/properties/:propertyId/restrictions', channexRestrictionsController.getRestrictions.bind(channexRestrictionsController))
         router.post('/properties/:propertyId/updateRestrictions', channexRestrictionsController.updateRestrictions.bind(channexRestrictionsController))
       })
       .prefix('channex');

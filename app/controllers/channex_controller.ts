@@ -119,4 +119,94 @@ export default class ChannexController {
       })
     }
   }
+
+    // Ajouter cette méthode dans la classe ChannexController
+
+// GET /api/channex/properties/:propertyId/room-types-with-rate-plans
+public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
+  try {
+    const propertyId = params.propertyId
+
+    if (!propertyId) {
+      return response.badRequest({ message: 'propertyId is required' })
+    }
+
+    // Récupérer les room types et rate plans en parallèle
+    const [roomTypesData, ratePlansData] = await Promise.all([
+      this.service.getRoomType(propertyId),
+      this.service.getRatePlan(propertyId)
+    ])
+
+    // Grouper les rate plans par room_type_id
+    const roomTypesMap = new Map()
+
+    // D'abord, initialiser tous les room types
+    if (roomTypesData && typeof roomTypesData === 'object' && 'data' in roomTypesData && Array.isArray((roomTypesData as any).data)) {
+      (roomTypesData as any).data.forEach((roomType: any) => {
+        roomTypesMap.set(roomType.id, {
+          roomType: {
+            id: roomType.id,
+            title: roomType.attributes?.title || 'Unknown',
+            occupancy: roomType.attributes?.occupancy || null,
+            ...roomType.attributes
+          },
+          ratePlans: []
+        })
+      })
+    }
+
+    // Ensuite, associer les rate plans aux room types
+    if (
+      ratePlansData &&
+      typeof ratePlansData === 'object' &&
+      'data' in ratePlansData &&
+      Array.isArray((ratePlansData as any).data)
+    ) {
+      (ratePlansData as any).data.forEach((ratePlan: any) => {
+        const roomTypeId = ratePlan.relationships?.room_type?.data?.id
+
+        if (roomTypeId && roomTypesMap.has(roomTypeId)) {
+          roomTypesMap.get(roomTypeId).ratePlans.push({
+            id: ratePlan.id,
+            title: ratePlan.attributes?.title || 'Unknown',
+            currency: ratePlan.attributes?.currency,
+            options: ratePlan.attributes?.options || [],
+            mealType: ratePlan.attributes?.meal_type,
+            rateMode: ratePlan.attributes?.rate_mode,
+            sellMode: ratePlan.attributes?.sell_mode,
+            childrenFee: ratePlan.attributes?.children_fee,
+            infantFee: ratePlan.attributes?.infant_fee,
+            closedToArrival: ratePlan.attributes?.closed_to_arrival,
+            closedToDeparture: ratePlan.attributes?.closed_to_departure,
+            minStayArrival: ratePlan.attributes?.min_stay_arrival,
+            minStayThrough: ratePlan.attributes?.min_stay_through,
+            maxStay: ratePlan.attributes?.max_stay,
+            stopSell: ratePlan.attributes?.stop_sell,
+            cancellationPolicyId: ratePlan.attributes?.cancellation_policy_id,
+            taxSetId: ratePlan.attributes?.tax_set_id
+          })
+        }
+      })
+    }
+
+    // Convertir la Map en tableau
+    const result = Array.from(roomTypesMap.values())
+
+    return response.ok({
+      message: 'Room types with rate plans fetched',
+      data: {
+        propertyId,
+        roomTypes: result,
+        totalRoomTypes: result.length,
+        totalRatePlans: (typeof ratePlansData === 'object' && ratePlansData !== null && 'data' in ratePlansData && Array.isArray((ratePlansData as any).data))
+          ? (ratePlansData as any).data.length
+          : 0
+    }
+    })
+  } catch (error: any) {
+    return response.internalServerError({
+      message: error.message || 'Failed to fetch room types with rate plans'
+    })
+  }
+}
 }
