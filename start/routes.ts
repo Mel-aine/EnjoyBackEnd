@@ -1630,6 +1630,8 @@ router
 
         // ARI endpoints
         router.get('/properties/:propertyId/availability', channexController.getAvailability.bind(channexController))
+        router.get('/properties/:propertyId/room-types', channexController.getRoomTypes.bind(channexController))
+        router.get('/properties/:propertyId/rate-plans', channexController.getRatePlans.bind(channexController))
         router.put('/properties/:propertyId/availability', channexController.updateAvailability.bind(channexController))
         router.put('/properties/:propertyId/restrictions', channexController.updateRestrictions.bind(channexController))
         router.post('/properties/:propertyId/restrictions', channexRestrictionsController.getRestrictions.bind(channexRestrictionsController))

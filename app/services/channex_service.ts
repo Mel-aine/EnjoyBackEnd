@@ -339,8 +339,11 @@ export class ChannexService {
    * Get a specific room type
    * GET /properties/{property_id}/room_types/{room_type_id}
    */
-  async getRoomType(roomTypeId: string) {
+  async getRoomTypeById(roomTypeId: string) {
     return this.get(`/room_types/${roomTypeId}`)
+  }
+  async getRoomType(propertyId: string) {
+    return this.get(`/properties/room_types?filter[property_id]=${propertyId}`)
   }
 
   /**
@@ -389,8 +392,11 @@ export class ChannexService {
    * Get a specific rate plan
    * GET /properties/{property_id}/rate_plans/{rate_plan_id}
    */
-  async getRatePlan( ratePlanId: string) {
+  async getRatePlanById( ratePlanId: string) {
     return this.get(`/rate_plans/${ratePlanId}`)
+  }
+  async getRatePlan( propertyId: string) {
+    return this.get(`/properties/rate_plans?filter[property_id]=${propertyId}`)
   }
 
   /**
