@@ -343,7 +343,7 @@ export class ChannexService {
     return this.get(`/room_types/${roomTypeId}`)
   }
   async getRoomType(propertyId: string) {
-    return this.get(`/properties/room_types?filter[property_id]=${propertyId}`)
+    return this.get(`/room_types?filter[property_id]=${propertyId}`)
   }
 
   /**
@@ -396,7 +396,7 @@ export class ChannexService {
     return this.get(`/rate_plans/${ratePlanId}`)
   }
   async getRatePlan( propertyId: string) {
-    return this.get(`/properties/rate_plans?filter[property_id]=${propertyId}`)
+    return this.get(`/rate_plans`)
   }
 
   /**
@@ -489,6 +489,7 @@ export class ChannexService {
    * GET /properties/{property_id}/restrictions
    */
   async getRestrictions(propertyId: string, params: {
+    rate_plan_ids: string[] | null
     date_from: string // YYYY-MM-DD format
     date_to: string   // YYYY-MM-DD format
     restrictions:string //rate,availability,min_stay_arrival,min_stay_through,min_stay,closed_to_arrival,closed_to_departure,stop_sell,max_stay,availability_offset,max_availability
