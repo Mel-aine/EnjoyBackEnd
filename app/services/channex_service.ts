@@ -396,7 +396,7 @@ export class ChannexService {
     return this.get(`/rate_plans/${ratePlanId}`)
   }
   async getRatePlan( propertyId: string) {
-    return this.get(`/rate_plans`)
+    return this.get(`/rate_plans?filter[property_id]=${propertyId}`)
   }
 
   /**

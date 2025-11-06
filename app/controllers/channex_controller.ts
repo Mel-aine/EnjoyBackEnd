@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { ChannexService } from '#services/channex_service'
+import logger from '@adonisjs/core/services/logger'
 
 export default class ChannexController {
   private service: ChannexService
@@ -137,60 +138,72 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
       this.service.getRatePlan(propertyId)
     ])
 
-    // Grouper les rate plans par room_type_id
-    const roomTypesMap = new Map()
-
-    // D'abord, initialiser tous les room types
-    if (roomTypesData && typeof roomTypesData === 'object' && 'data' in roomTypesData && Array.isArray((roomTypesData as any).data)) {
-      (roomTypesData as any).data.forEach((roomType: any) => {
-        roomTypesMap.set(roomType.id, {
-          roomType: {
-            id: roomType.id,
-            title: roomType.attributes?.title || 'Unknown',
-            occupancy: roomType.attributes?.occupancy || null,
-            ...roomType.attributes
-          },
-          ratePlans: []
-        })
-      })
+    // Helper to safely extract 'data' array
+    const getArrayData = (data: unknown) => {
+      if (
+        typeof data === 'object' &&
+        data !== null &&
+        'data' in data &&
+        Array.isArray((data as any).data)
+      ) {
+        return (data as any).data
+      }
+      return []
     }
+
+    const roomTypesArray = getArrayData(roomTypesData)
+    const ratePlansArray = getArrayData(ratePlansData)
+
+    // Grouper les room types et initialiser la structure.
+    // Utiliser un objet simple pour le groupement (sans Map).
+    // Clé: roomType.id, Valeur: { roomType: {...}, ratePlans: [] }
+    let roomTypesObject: any= {}
+    logger.info(ratePlansArray)
+    // D'abord, initialiser tous les room types dans l'objet
+    roomTypesArray.forEach((roomType: any) => {
+      roomTypesObject[roomType.id] = {
+        roomType: {
+          id: roomType.id,
+          title: roomType.attributes?.title || 'Unknown',
+          occupancy: roomType.attributes?.occupancy || null,
+          ...roomType.attributes
+        },
+        ratePlans: []
+      }
+    })
 
     // Ensuite, associer les rate plans aux room types
-    if (
-      ratePlansData &&
-      typeof ratePlansData === 'object' &&
-      'data' in ratePlansData &&
-      Array.isArray((ratePlansData as any).data)
-    ) {
-      (ratePlansData as any).data.forEach((ratePlan: any) => {
-        const roomTypeId = ratePlan.relationships?.room_type?.data?.id
+    ratePlansArray.forEach((ratePlan: any) => {
+      const roomTypeId = ratePlan.relationships?.room_type?.data?.id
+      logger.info(roomTypeId)
+      logger.info( roomTypesObject[roomTypeId])
+      // Vérifier si le room type existe dans l'objet de groupement
+      if (roomTypeId && roomTypesObject[roomTypeId]) {
+        // La structure est déjà une référence, donc la modification est directe
+        roomTypesObject[roomTypeId].ratePlans.push({
+          id: ratePlan.id,
+          title: ratePlan.attributes?.title || 'Unknown',
+          currency: ratePlan.attributes?.currency,
+          options: ratePlan.attributes?.options || [],
+          mealType: ratePlan.attributes?.meal_type,
+          rateMode: ratePlan.attributes?.rate_mode,
+          sellMode: ratePlan.attributes?.sell_mode,
+          childrenFee: ratePlan.attributes?.children_fee,
+          infantFee: ratePlan.attributes?.infant_fee,
+          closedToArrival: ratePlan.attributes?.closed_to_arrival,
+          closedToDeparture: ratePlan.attributes?.closed_to_departure,
+          minStayArrival: ratePlan.attributes?.min_stay_arrival,
+          minStayThrough: ratePlan.attributes?.min_stay_through,
+          maxStay: ratePlan.attributes?.max_stay,
+          stopSell: ratePlan.attributes?.stop_sell,
+          cancellationPolicyId: ratePlan.attributes?.cancellation_policy_id,
+          taxSetId: ratePlan.attributes?.tax_set_id
+        })
+      }
+    })
 
-        if (roomTypeId && roomTypesMap.has(roomTypeId)) {
-          roomTypesMap.get(roomTypeId).ratePlans.push({
-            id: ratePlan.id,
-            title: ratePlan.attributes?.title || 'Unknown',
-            currency: ratePlan.attributes?.currency,
-            options: ratePlan.attributes?.options || [],
-            mealType: ratePlan.attributes?.meal_type,
-            rateMode: ratePlan.attributes?.rate_mode,
-            sellMode: ratePlan.attributes?.sell_mode,
-            childrenFee: ratePlan.attributes?.children_fee,
-            infantFee: ratePlan.attributes?.infant_fee,
-            closedToArrival: ratePlan.attributes?.closed_to_arrival,
-            closedToDeparture: ratePlan.attributes?.closed_to_departure,
-            minStayArrival: ratePlan.attributes?.min_stay_arrival,
-            minStayThrough: ratePlan.attributes?.min_stay_through,
-            maxStay: ratePlan.attributes?.max_stay,
-            stopSell: ratePlan.attributes?.stop_sell,
-            cancellationPolicyId: ratePlan.attributes?.cancellation_policy_id,
-            taxSetId: ratePlan.attributes?.tax_set_id
-          })
-        }
-      })
-    }
-
-    // Convertir la Map en tableau
-    const result = Array.from(roomTypesMap.values())
+    // Convertir l'objet en tableau de valeurs (similaire à Array.from(Map.values()))
+    const result = Object.values(roomTypesObject)
 
     return response.ok({
       message: 'Room types with rate plans fetched',
@@ -198,10 +211,8 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
         propertyId,
         roomTypes: result,
         totalRoomTypes: result.length,
-        totalRatePlans: (typeof ratePlansData === 'object' && ratePlansData !== null && 'data' in ratePlansData && Array.isArray((ratePlansData as any).data))
-          ? (ratePlansData as any).data.length
-          : 0
-    }
+        totalRatePlans: ratePlansArray.length
+      }
     })
   } catch (error: any) {
     return response.internalServerError({
