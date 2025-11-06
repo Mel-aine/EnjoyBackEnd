@@ -13,28 +13,16 @@ export default class ChannexController {
   public async getAvailability({ params, request, response }: HttpContext) {
     try {
       const propertyId = params.propertyId
-      const ratePlanIdsInput = request.input('rate_plan_ids')
       const date_from = request.input('date_from')
-      const date_to = request.input('date_to')
+      const date_to = request.input('date_to')    
 
-      let rate_plan_ids: string[] = []
-      if (Array.isArray(ratePlanIdsInput)) {
-        rate_plan_ids = ratePlanIdsInput
-      } else if (typeof ratePlanIdsInput === 'string') {
-        rate_plan_ids = ratePlanIdsInput
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      }
-
-      if (!propertyId || !date_from || !date_to || rate_plan_ids.length === 0) {
+      if (!propertyId || !date_from || !date_to) {
         return response.badRequest({
           message: 'propertyId, rate_plan_ids, date_from, and date_to are required',
         })
       }
 
       const data = await this.service.getAvailability(propertyId, {
-        rate_plan_ids,
         date_from,
         date_to,
       })

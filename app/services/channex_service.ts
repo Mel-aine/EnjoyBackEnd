@@ -392,10 +392,10 @@ export class ChannexService {
    * Get a specific rate plan
    * GET /properties/{property_id}/rate_plans/{rate_plan_id}
    */
-  async getRatePlanById( ratePlanId: string) {
+  async getRatePlanById(ratePlanId: string) {
     return this.get(`/rate_plans/${ratePlanId}`)
   }
-  async getRatePlan( propertyId: string) {
+  async getRatePlan(propertyId: string) {
     return this.get(`/rate_plans?filter[property_id]=${propertyId}`)
   }
 
@@ -434,11 +434,14 @@ export class ChannexService {
    * GET /properties/{property_id}/availability
    */
   async getAvailability(propertyId: string, params: {
-    rate_plan_ids: string[]
     date_from: string // YYYY-MM-DD format
     date_to: string   // YYYY-MM-DD format
   }) {
-    return this.get(`/properties/${propertyId}/availability`, params)
+    return this.get(`/availability`, {
+      "filter[property_id]": propertyId,
+      "filter[date][gte]": params.date_from,
+      "filter[date][lte]": params.date_to,
+    })
   }
 
   /**
@@ -448,7 +451,7 @@ export class ChannexService {
   async updateAvailability(propertyId: string, availabilityData: {
     "values": {
       room_type_id: string
-      property_id:string
+      property_id: string
       date_from: string
       date_to: string
       availability: number
@@ -492,13 +495,13 @@ export class ChannexService {
     rate_plan_ids: string[] | null
     date_from: string // YYYY-MM-DD format
     date_to: string   // YYYY-MM-DD format
-    restrictions:string //rate,availability,min_stay_arrival,min_stay_through,min_stay,closed_to_arrival,closed_to_departure,stop_sell,max_stay,availability_offset,max_availability
+    restrictions: string //rate,availability,min_stay_arrival,min_stay_through,min_stay,closed_to_arrival,closed_to_departure,stop_sell,max_stay,availability_offset,max_availability
   }) {
     return this.get(`/restrictions`, {
-      "filter[property_id]":propertyId,
-      "filter[date][gte]":params.date_from,
-      "filter[date][lte]":params.date_to,
-      "filter[restrictions]":params.restrictions
+      "filter[property_id]": propertyId,
+      "filter[date][gte]": params.date_from,
+      "filter[date][lte]": params.date_to,
+      "filter[restrictions]": params.restrictions
     })
   }
 
@@ -557,7 +560,12 @@ export class ChannexService {
       [key: string]: any
     }
   }) {
-    return this.get(`/properties/${propertyId}/bookings`, params)
+    return this.get(`/properties/${propertyId}/bookings`, {
+      "pagination[page]": params?.page || 1,
+      "pagination[per_page]": params?.per_page || 100,
+      "order[inserted_at]": "desc",
+      "filter[property_id]": propertyId,
+    })
   }
 
   /**
@@ -648,12 +656,12 @@ export class ChannexService {
     return this.get(`/bookings`)
   }
 
-    async getBookingByFilter(params: {
-      page: number,
-      limit: number
-    }) {
-      return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
-    }
+  async getBookingByFilter(params: {
+    page: number,
+    limit: number
+  }) {
+    return this.get(`/bookings?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
+  }
 
   /**
    * Get a specific booking
