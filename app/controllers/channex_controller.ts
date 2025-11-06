@@ -111,7 +111,7 @@ export default class ChannexController {
 
     // Ajouter cette méthode dans la classe ChannexController
 
-// GET /api/channex/properties/:propertyId/room-types-with-rate-plans
+  // GET /api/channex/properties/:propertyId/room-types-with-rate-plans
 public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
   try {
     const propertyId = params.propertyId
@@ -208,4 +208,22 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
     })
   }
 }
+
+  // GET /api/channex/properties/:propertyId/bookings
+  public async listBookings({ params, request, response }: HttpContext) {
+    try {
+      const propertyId = params.propertyId
+      const page = Number(request.input('page', 1))
+      const per_page = Number(request.input('per_page', 100))
+
+      if (!propertyId) {
+        return response.badRequest({ message: 'propertyId is required' })
+      }
+
+      const data = await this.service.listBookings(propertyId, { page, per_page })
+      return response.ok({ message: 'Bookings fetched', data })
+    } catch (error: any) {
+      return response.internalServerError({ message: error.message || 'Failed to fetch bookings' })
+    }
+  }
 }

@@ -1625,7 +1625,8 @@ router
         // Booking Revisions Feed
         router.get('/booking-revisions/feed', channexMigrationController.getBookingRevisionsFeed.bind(channexMigrationController)) // Fetch booking revisions from Channex and create reservations
 
-        router.get('/booking', channexMigrationController.listBookings.bind(channexMigrationController))
+        // List bookings for a property
+        router.get('/properties/:propertyId/bookings', channexController.listBookings.bind(channexController))
         router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
         )
 

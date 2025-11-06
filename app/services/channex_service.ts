@@ -547,20 +547,8 @@ export class ChannexService {
   async listBookings(propertyId: string, params?: {
     page?: number
     per_page?: number
-    filter?: {
-      arrival_date_from?: string
-      arrival_date_to?: string
-      departure_date_from?: string
-      departure_date_to?: string
-      created_at_from?: string
-      created_at_to?: string
-      updated_at_from?: string
-      updated_at_to?: string
-      status?: string[]
-      [key: string]: any
-    }
   }) {
-    return this.get(`/properties/${propertyId}/bookings`, {
+    return this.get(`/bookings`, {
       "pagination[page]": params?.page || 1,
       "pagination[per_page]": params?.per_page || 100,
       "order[inserted_at]": "desc",
