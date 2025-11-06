@@ -11,7 +11,7 @@ import ReservationRoom from '../models/reservation_room.js'
 import logger from '@adonisjs/core/services/logger'
 import axios from 'axios'
 import { generateGuestCode } from '../utils/generate_guest_code.js'
-import  ReservationCreationService  from '../services/reservation_creation_service.js'
+import ReservationCreationService from '../services/reservation_creation_service.js'
 import env from '#start/env'
 import { DateTime } from 'luxon'
 
@@ -1016,10 +1016,10 @@ export default class ChannexMigrationController {
               adults: roomData.occupancy?.adults || revisionData.occupancy.adults,
               children: roomData.occupancy?.children || revisionData.occupancy.children,
               infants: roomData.occupancy?.infants || 0,
-              roomRate:  parseFloat(roomData.rate || revisionData.amount),
-              totalRoomCharges:  parseFloat(roomData.rate || revisionData.amount),
+              roomRate: parseFloat(roomData.rate || revisionData.amount),
+              totalRoomCharges: parseFloat(roomData.rate || revisionData.amount),
               roomCharges: parseFloat(roomData.rate || revisionData.amount),
-              netAmount:  parseFloat(roomData.rate || revisionData.amount),
+              netAmount: parseFloat(roomData.rate || revisionData.amount),
               status: 'reserved',
               createdBy: 1 // System user
             })
@@ -1082,7 +1082,7 @@ export default class ChannexMigrationController {
       // Ajouter les filtres si fournis
       if (arrivalDateFrom || arrivalDateTo || status) {
         params.filter = {}
-        
+
         if (arrivalDateFrom) params.filter.arrival_date_from = arrivalDateFrom
         if (arrivalDateTo) params.filter.arrival_date_to = arrivalDateTo
         if (status) params.filter.status = Array.isArray(status) ? status : [status]
@@ -1122,10 +1122,10 @@ export default class ChannexMigrationController {
     }
   }
 
-/**
- * Récupérer les détails d'une réservation spécifique
- * GET /api/channex/bookings/:bookingId/details
- */
+  /**
+   * Récupérer les détails d'une réservation spécifique
+   * GET /api/channex/bookings/:bookingId/details
+   */
   async getBookingDetails({ params, response, auth }: HttpContext) {
     const { bookingId } = params
     const userId = auth.user?.id
@@ -1172,15 +1172,15 @@ export default class ChannexMigrationController {
     const { params, response, auth } = ctx
     const { hotelId } = params
     const userId = auth.user?.id
-  
+
     if (!userId) {
       return response.unauthorized({ error: 'Authentication required' })
     }
-  
+
     if (!hotelId) {
       return response.badRequest({ error: 'Hotel ID is required' })
     }
-  
+
     const syncResults = {
       hotelId,
       status: 'started',
@@ -1194,37 +1194,38 @@ export default class ChannexMigrationController {
       startTime: new Date(),
       endTime: null as Date | null
     }
-  
+
     try {
       // Récupérer l'hôtel
       const hotel = await Hotel.find(hotelId)
       if (!hotel) {
         throw new Error(`Hotel with ID ${hotelId} not found`)
       }
-  
+
       const channexPropertyId = hotel.channexPropertyId;
-      
+
       console.log(`🎯 Synchronisation des 3 DERNIÈRES bookings Channex pour property ${channexPropertyId}`)
-  
+
       // Récupérer tous les bookings
       const bookingsResponse: any = await this.channexService.getBookingRevisionFeedByFilter({
         page: 1,
-        limit: 100  // Récupérer assez pour avoir les 3 dernières
+        limit: 100,  // Récupérer assez pour avoir les 3 dernières
+        property_id: channexPropertyId!
       })
-      
+
       const allBookings = Array.isArray(bookingsResponse) ? bookingsResponse : bookingsResponse.data || []
       syncResults.totalFetched = allBookings.length
-  
+
       console.log(`📥 ${allBookings.length} bookings récupérés au total`)
-  
+
       // Filtrer pour notre property
       const ourBookings = allBookings.filter(booking => {
         const propertyId = booking.attributes?.property_id
         return propertyId === channexPropertyId
       })
-  
+
       console.log(`🎯 ${ourBookings.length} bookings pour notre property`)
-  
+
       if (ourBookings.length === 0) {
         const allProperties = [...new Set(allBookings.map(b => b.attributes?.property_id).filter(Boolean))]
         return response.ok({
@@ -1238,50 +1239,40 @@ export default class ChannexMigrationController {
         })
       }
 
-      // 🎯 NOUVEAU: PRENDRE UNIQUEMENT LES 3 DERNIÈRES RÉSERVATIONS
-      const lastThreeBookings = ourBookings.slice(-3)
-      
-      console.log(`🎯 Traitement des 3 DERNIÈRES réservations sur ${ourBookings.length} totales:`)
-      lastThreeBookings.forEach((booking, index) => {
-        console.log(`   ${index + 1}. ${booking.attributes?.unique_id} - ${booking.attributes?.arrival_date}`)
-      })
-  
+
       // 🎯 MODIFICATION: Traiter uniquement les 3 dernières réservations
       for (const booking of ourBookings) {
         try {
           const bookingData = booking.attributes
           const bookingId = booking.id
-  
-          console.log(`\n--- Processing LAST booking ${bookingId} (${bookingData.unique_id}) ---`)
-          console.log(`Status: ${bookingData.status}, Arrival: ${bookingData.arrival_date}`)
-  
+
           // Vérifier si la réservation existe déjà
           let existingReservation = await Reservation.query()
             .where('reservation_number', bookingData.unique_id)
             .orWhere('channex_booking_id', bookingId)
             .first()
-  
+
           if (existingReservation) {
             // ============================================
             // CAS 1: MISE À JOUR D'UNE RÉSERVATION EXISTANTE
             // ============================================
             console.log(`🔄 Réservation existante trouvée: ${existingReservation.id}`)
-            
+
             const customerData = bookingData.customer || {}
             const totalAdults = bookingData.occupancy?.adults || 0
             const totalChildren = bookingData.occupancy?.children || 0
             const totalAmount = parseFloat(bookingData.amount || '0')
-            
+
             const statusMapping: any = {
               'new': 'confirmed',
-              'modified': 'confirmed', 
+              'modified': 'confirmed',
               'cancelled': 'cancelled'
             }
             const reservationStatus = statusMapping[bookingData.status] || 'pending'
-  
+
             existingReservation.merge({
-              arrivedDate: bookingData.arrival_date ,
-              departDate: bookingData.departure_date ,
+              arrivedDate: bookingData.arrival_date,
+              departDate: bookingData.departure_date,
               status: reservationStatus,
               adults: totalAdults,
               children: totalChildren,
@@ -1290,32 +1281,33 @@ export default class ChannexMigrationController {
               channexBookingId: bookingId,
               paymentType: bookingData.payment_type,
             })
-            
+
             await existingReservation.save()
+            const acknowledged = await ReservationCreationService.sendAcknowledgeToChannex(
+              existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
+              existingReservation.id,
+              userId,
+              ctx
+            )
             syncResults.totalUpdated++
-            console.log(`✅ Reservation mise à jour: ${existingReservation.id}`)
-            
+            logger.info('acknowledged');
+            logger.info(acknowledged);
+
           } else {
             // ============================================
             // CAS 2: CRÉATION D'UNE NOUVELLE RÉSERVATION
             // ============================================
             console.log(`➕ Création d'une nouvelle réservation via ReservationCreationService`)
-            
+
             const creationResult = await ReservationCreationService.createFromChannex(
               booking,
               parseInt(hotelId),
               userId,
               ctx
             )
-  
+
             if (creationResult.success) {
               syncResults.totalCreated++
-              console.log(`✅ Nouvelle réservation créée: ${creationResult.reservationId}`)
-              console.log(`   - Confirmation: ${creationResult.confirmationNumber}`)
-              console.log(`   - Type: ${creationResult.reservationType}`)
-              console.log(`   - Invités: ${creationResult.totalGuests}`)
-              console.log(`   - Chambres: ${creationResult.hasRooms ? 'Oui' : 'Non'}`)
-              
               if (creationResult.folios && creationResult.folios.length > 0) {
                 console.log(`   - Folios: ${creationResult.folios.length} créé(s)`)
               }
@@ -1328,15 +1320,15 @@ export default class ChannexMigrationController {
                 validationErrors: creationResult.validationErrors
               })
               console.error(`❌ Échec création réservation:`, creationResult.message || creationResult.error)
-              
+
               if (creationResult.validationErrors) {
                 console.error(`   Erreurs de validation:`, creationResult.validationErrors)
               }
             }
           }
-  
+
           syncResults.totalProcessed++
-  
+
         } catch (error: any) {
           syncResults.totalErrors++
           syncResults.errors.push({
@@ -1348,10 +1340,10 @@ export default class ChannexMigrationController {
           console.error(`❌ Erreur processing booking ${booking?.id}:`, error)
         }
       }
-  
+
       syncResults.status = syncResults.totalErrors > 0 ? 'completed_with_errors' : 'completed'
       syncResults.endTime = new Date()
-  
+
       // Log global de la synchronisation
       await LoggerService.log({
         actorId: userId,
@@ -1367,47 +1359,36 @@ export default class ChannexMigrationController {
           totalErrors: syncResults.totalErrors,
           errors: syncResults.errors,
           duration: syncResults.endTime.getTime() - syncResults.startTime.getTime(),
-          lastThreeBookings: lastThreeBookings.map(b => ({
-            id: b.id,
-            unique_id: b.attributes?.unique_id,
-            arrival_date: b.attributes?.arrival_date
-          }))
         },
         hotelId: parseInt(hotelId),
         ctx: ctx
       })
-  
+
       return response.ok({
         success: true,
         message: `Synchronisation des 3 DERNIÈRES réservations terminée: ${syncResults.totalCreated} créées, ${syncResults.totalUpdated} mises à jour`,
         data: {
           ...syncResults,
-          lastThreeProcessed: lastThreeBookings.length,
-          processedBookings: lastThreeBookings.map(b => ({
-            id: b.id,
-            unique_id: b.attributes?.unique_id,
-            status: b.attributes?.status
-          }))
         }
       })
-  
+
     } catch (error: any) {
       console.error('❌ Sync error:', error)
-      
+
       await LoggerService.log({
         actorId: userId,
         action: 'CHANNEX_LAST_THREE_BOOKINGS_SYNC_FAILED',
         entityType: 'Hotel',
         entityId: hotelId,
         description: `Échec de la synchronisation des 3 DERNIÈRES réservations Channex: ${error.message}`,
-        meta: { 
+        meta: {
           error: error.message,
           stack: error.stack
         },
         hotelId: parseInt(hotelId),
         ctx: ctx
       })
-  
+
       return response.status(500).json({
         success: false,
         message: 'Last three bookings synchronization failed',

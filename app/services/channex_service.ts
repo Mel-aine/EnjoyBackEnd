@@ -693,9 +693,10 @@ export class ChannexService {
 
   async getBookingRevisionFeedByFilter(params: {
     page: number,
-    limit: number
+    limit: number,
+    property_id:string
   }) {
-    return this.get(`/booking_revisions/feed?pagination[page]=${params.page}&pagination[limit]=${params.limit}`)
+    return this.get(`/booking_revisions/feed?pagination[page]=${params.page}&pagination[limit]=${params.limit}&filter[property_id]=${params.property_id}`)
   }
 
 
