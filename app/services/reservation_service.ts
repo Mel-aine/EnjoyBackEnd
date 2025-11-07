@@ -519,7 +519,7 @@ export default class ReservationService {
       allGuests = await this.createGuestsForReservation(reservationId, allGuestsData, createdBy, trx)
 
       // S'assurer que primaryGuest est bien l'invité principal
-      const primaryGuestFromList = allGuests.find(g => g.email.toLowerCase() === data.email.toLowerCase())
+      const primaryGuestFromList = allGuests.find(g => g.email?.toLowerCase() === data.email?.toLowerCase())
       if (primaryGuestFromList) {
         primaryGuest = primaryGuestFromList
       }

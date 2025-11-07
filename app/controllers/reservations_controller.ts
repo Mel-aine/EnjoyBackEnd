@@ -2456,7 +2456,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
 
         // Create reservation
-        logger.info('Creating reservation with data: %o', guest)
         const reservation = await Reservation.create(
           {
             hotelId: data.hotel_id,
@@ -2510,7 +2509,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         )
 
         // Vérifier que la réservation a bien été créée avec un ID
-        logger.info('Réservation créée avec ID:', reservation.id)
         if (!reservation.id) {
           throw new Error("La réservation n'a pas pu être créée correctement - ID manquant")
         }
@@ -2657,7 +2655,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
           await LoggerService.log({
             actorId: auth.user?.id!,
-            action: 'FOLIOS_CREATED',
+            action: 'CREATE_FOLIOS',
             entityType: 'Guest',
             entityId: guest.id,
             hotelId: reservation.hotelId,
