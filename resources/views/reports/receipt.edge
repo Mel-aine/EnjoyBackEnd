@@ -136,18 +136,18 @@
             </tr>
             <tr>
                 <td><strong>Reg No</strong></td>
-                <td style="border-right: none;">{{ hotel.registrationNo1 || 'NA' }}</td>
+                <td style="border-right: none;">{{ hotel.registrationNo1 || 'N/A' }}</td>
                 <td style="border-left: none;"><strong>Receipt No.</strong></td>
                 <td>{{ transaction.transactionNumber }}</td>
             </tr>
             <tr>
                 <td class="label-cell">Guest Name</td>
-                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.type }})</td>
+                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.methodType }})</td>
             </tr>
             <tr>
                 <td class="label-cell">Company Name</td>
                 <td colspan="3" style="padding: 10px 10px 50px 10px; position: relative;">
-                    {{ guest.companyName || 'NA' }}
+                    {{ guest.companyName || 'N/A' }}
                     <div style="position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-weight: bold; font-size: 12px; z-index:0; line-height: 1;">Authorization</div>
                 </td>
             </tr>
@@ -220,18 +220,18 @@
             </tr>
             <tr>
                 <td><strong>Reg No</strong></td>
-                <td style="border-right: none;">{{ hotel.registrationNo1 || 'NA' }}</td>
+                <td style="border-right: none;">{{ hotel.registrationNo1 || 'N/A' }}</td>
                 <td style="border-left: none;"><strong>Receipt No.</strong></td>
                 <td>{{ transaction.transactionNumber }}</td>
             </tr>
             <tr>
                 <td class="label-cell">Guest Name</td>
-                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.type }})</td>
+                <td colspan="3">{{ guest.title }} {{ guest.firstName }} {{ guest.lastName }} // ({{paymentMethod.methodType }})</td>
             </tr>
             <tr>
                 <td class="label-cell">Company Name</td>
                 <td colspan="3" style="padding: 10px 10px 50px 10px; position: relative;">
-                    {{ guest.companyName || 'NA' }}
+                    {{ guest.companyName || 'N/A' }}
                     <div style="position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-weight: bold; font-size: 12px; z-index:0; line-height: 1;">Authorization</div>
                 </td>
             </tr>

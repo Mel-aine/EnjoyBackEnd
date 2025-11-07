@@ -99,6 +99,9 @@ export class FolioPrintService {
       .where('id', folioId)
       .preload('hotel')
       .preload('guest')
+      .preload('reservationRoom', (roomQuery) => {
+        roomQuery.preload('room')
+      })
       .preload('reservation', (reservationQuery) => {
         reservationQuery
          // .preload('hotel')
@@ -130,7 +133,9 @@ export class FolioPrintService {
       .where('id', reservationId)
       //.preload('hotel')
       .preload('guest')
-      .preload('roomType')
+      .preload('roomType', (roomTypeQuery) => {
+        roomTypeQuery.preload('rooms')
+      })
       .preload('checkedInByUser')
       .preload('checkedOutByUser')
       .preload('reservedByUser')
@@ -174,7 +179,7 @@ export class FolioPrintService {
       website: folio.hotel.website || '',
       logo: folio.hotel.logoUrl || undefined,
       registrationNumber:folio.hotel.registrationNo1,
-      rcNumber:folio.hotel.registrationNo2
+      rcNumber:folio.hotel.registrationNo2,
     }
 
     // Prepare reservation information
@@ -183,9 +188,12 @@ export class FolioPrintService {
       id: reservation.id,
       confirmationCode: reservation.confirmationCode,
       guestName: reservation.guest?.firstName + ' ' + reservation.guest?.lastName || 'Guest',
+      arrivalDate: reservation.arrivedDate || reservation.scheduledArrivalDate,
+      departureDate: reservation.departDate || reservation.scheduledDepartureDate,
       checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
       checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
       numberOfNights: reservation.numberOfNights || 1,
+      roomNumber: reservation.roomType?.rooms?.[0].roomNumber,
       roomType: reservation.roomType?.roomTypeName || 'Standard Room',
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
@@ -210,7 +218,8 @@ export class FolioPrintService {
       openedDate: folio.openedDate,
       closedDate: folio.closedDate || undefined,
       currencyCode: folio.currencyCode,
-      exchangeRate: folio.exchangeRate || 1
+      exchangeRate: folio.exchangeRate || 1,
+      roomNumber: folio.reservationRoom?.room?.roomNumber
     }
 
     // Prepare transactions

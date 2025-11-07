@@ -441,7 +441,7 @@ export default class PdfGenerationService {
                     <td>${reservation.adults + reservation.children || 1}</td>
                     <td>${reservation.adults || 1} / ${reservation.children || 0}</td>
                     <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                    <td>${reservation.rooms?.map(r => r.roomNumber).join(', ') || 'N/A'}</td>
+                    <td>${folio.roomNumber}</td>
                 </tr>
             </table>
     
@@ -449,9 +449,9 @@ export default class PdfGenerationService {
             <table class="stay-table">
                 <tr>
                     <th>Date of Arrival</th>
-                    <td>${new Date(reservation.arrivedDate).toLocaleDateString('fr-FR')}</td>
+                    <td>${new Date(reservation.arrivalDate).toLocaleDateString('fr-FR')}</td>
                     <th>Date of Departure</th>
-                    <td>${new Date(reservation.departDate).toLocaleDateString('fr-FR')}</td>
+                    <td>${new Date(reservation.departureDate).toLocaleDateString('fr-FR')}</td>
                     <th>Tariff</th>
                     <td>${totals.roomCharges?.toLocaleString() || '0'}</td>
                 </tr>
@@ -514,7 +514,7 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 20%;" class="label">This Folio is in :</td>
-                        <td style="width: 30%;">XAF</td>
+                        <td style="width: 30%;">${totals.grandTotal.toLocaleString()}XAF</td>
                         <td style="width: 30%;">${amountInWords}</td>
                         <td style="width: 10%;" class="label">Total Paid</td>
                         <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
