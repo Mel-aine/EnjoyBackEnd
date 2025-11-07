@@ -45,10 +45,19 @@ export default class CurrenciesController {
         digitsAfterDecimal: vine.number().range([0, 10]),
         exchangeRate: vine.number().range([0.000001, 999999]),
         isEditable: vine.boolean().optional(),
+        // Accept isDefault at creation time
+        isDefault: vine.boolean().optional(),
         hotelId: vine.number()
       })
 
-      const payload = await vine.validate({ schema: validationSchema, data: request.all() })
+      // Normalize snake_case 'is_default' to camelCase 'isDefault' for validation
+      const incomingData = { ...request.all() }
+      if (incomingData.is_default !== undefined && incomingData.isDefault === undefined) {
+        incomingData.isDefault = incomingData.is_default
+        delete (incomingData as any).is_default
+      }
+
+      const payload = await vine.validate({ schema: validationSchema, data: incomingData })
       
       const currency = await Currency.create({
         ...payload,
@@ -122,6 +131,14 @@ export default class CurrenciesController {
         exchangeRate: vine.number().range([0.000001, 999999]).optional(),
         isEditable: vine.boolean().optional()
       })
+
+      // Block attempts to change default status via update endpoint
+      if (request.input('isDefault') !== undefined || request.input('is_default') !== undefined) {
+        return response.badRequest({
+          success: false,
+          message: 'isDefault cannot be updated. Set it only at creation.'
+        })
+      }
 
       const payload = await vine.validate({ schema: validationSchema, data: request.all() })
       

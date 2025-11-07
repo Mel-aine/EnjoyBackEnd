@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, beforeCreate, beforeUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import User from './user.js'
@@ -31,6 +31,9 @@ export default class Currency extends BaseModel {
 
   @column()
   declare isEditable: boolean
+
+  @column({ columnName: 'is_default' })
+  declare isDefault: boolean
 
   @column()
   declare hotelId: number
@@ -66,4 +69,26 @@ export default class Currency extends BaseModel {
     foreignKey: 'updatedByUserId',
   })
   declare updatedBy: BelongsTo<typeof User>
+
+  // Hooks
+  @beforeCreate()
+  public static async ensureSingleDefaultPerHotel(model: Currency) {
+    if (model.isDefault === true) {
+      const existingDefault = await Currency.query()
+        .where('hotel_id', model.hotelId)
+        .where('is_default', true)
+        .first()
+
+      if (existingDefault) {
+        throw new Error('Only one default currency per hotel is allowed')
+      }
+    }
+  }
+
+  @beforeUpdate()
+  public static preventIsDefaultUpdate(model: Currency) {
+    if (model.$dirty && Object.prototype.hasOwnProperty.call(model.$dirty, 'isDefault')) {
+      throw new Error('The default currency flag (isDefault) is not updatable')
+    }
+  }
 }
