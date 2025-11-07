@@ -1,14 +1,16 @@
-import redis from '@adonisjs/redis/services/main'
 import env from '#start/env'
 import Currency from '#models/currency'
 
 /**
- * CurrencyCacheService caches the default currency per hotel in Redis.
- * - Key: currency:default:hotel:<hotelId>
+ * CurrencyCacheService caches the default currency per hotel in-memory.
+ * - Key: hotelId (number)
  * - TTL: Configurable via env CURRENCY_CACHE_TTL_SECONDS (default 7 days)
  * - Invalidation: Call invalidateHotelCurrency on create/update events
  */
 export default class CurrencyCacheService {
+  // Simple in-memory cache: hotelId -> { payload, expiresAt }
+  private static cache: Map<number, { payload: any; expiresAt: number }> = new Map()
+
   static keyForHotel(hotelId: number) {
     return `currency:default:hotel:${hotelId}`
   }
@@ -22,14 +24,14 @@ export default class CurrencyCacheService {
    * Get cached default currency payload for a hotel (JSON object) if present.
    */
   static async getCachedHotelCurrency(hotelId: number): Promise<any | null> {
-    const key = this.keyForHotel(hotelId)
-    const cached = await redis.get(key)
-    if (!cached) return null
-    try {
-      return JSON.parse(cached)
-    } catch {
+    const record = this.cache.get(hotelId)
+    const now = Date.now()
+    if (!record) return null
+    if (record.expiresAt <= now) {
+      this.cache.delete(hotelId)
       return null
     }
+    return record.payload
   }
 
   /**
@@ -55,16 +57,15 @@ export default class CurrencyCacheService {
    * Set cached default currency JSON with TTL.
    */
   static async setHotelCurrency(hotelId: number, payload: any) {
-    const key = this.keyForHotel(hotelId)
     const ttl = this.ttlSeconds()
-    await redis.set(key, JSON.stringify(payload), 'EX', ttl)
+    const expiresAt = Date.now() + ttl * 1000
+    this.cache.set(hotelId, { payload, expiresAt })
   }
 
   /**
    * Invalidate cached default currency for a hotel.
    */
   static async invalidateHotelCurrency(hotelId: number) {
-    const key = this.keyForHotel(hotelId)
-    await redis.del(key)
+    this.cache.delete(hotelId)
   }
 }

@@ -55,10 +55,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   // CLOUDINARY_API_KEY: Env.schema.string(),
   // CLOUDINARY_API_SECRET: Env.schema.string(),
 
-  REDIS_HOST: Env.schema.string({ format: 'host' }),
-  REDIS_PORT: Env.schema.number(),
-  REDIS_PASSWORD: Env.schema.string.optional(),
-
   // TTL for cached default currency in seconds (optional)
   CURRENCY_CACHE_TTL_SECONDS: Env.schema.number.optional(),
 })

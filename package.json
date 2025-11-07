@@ -57,7 +57,6 @@
     "@adonisjs/cors": "^2.2.1",
     "@adonisjs/lucid": "^21.6.1",
     "@adonisjs/mail": "^9.2.2",
-    "@adonisjs/redis": "^9.2.0",
     "@adonisjs/validator": "^13.0.2",
     "@vinejs/vine": "^3.0.0",
     "adonis-autoswagger": "^3.73.0",

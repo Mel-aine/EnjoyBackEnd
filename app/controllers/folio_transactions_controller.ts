@@ -9,6 +9,8 @@ import PaymentMethod from '#models/payment_method'
 import CityLedgerService from '#services/city_ledger_service'
 import FolioService from '#services/folio_service'
 import { createFolioTransactionValidator, updateFolioTransactionValidator } from '#validators/folio_transaction'
+import Currency from '#models/currency'
+import CurrencyCacheService from '#services/currency_cache_service'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
 
 export default class FolioTransactionsController {
@@ -107,9 +109,19 @@ export default class FolioTransactionsController {
       // Get folio to access hotel information
       const folio = await Folio.findOrFail(payload.folioId)
 
+      // Resolve default/base currency for the hotel
+      const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(folio.hotelId)
+      if (!defaultCurrencyPayload) {
+        return response.badRequest({
+          message: 'Default currency not configured for this hotel'
+        })
+      }
+      const baseCurrencyCode: string = defaultCurrencyPayload.currencyCode
+
       // Generate transaction number
       const lastTransaction = await FolioTransaction.query()
         .where('hotelId', folio.hotelId)
+        .select(['id','transactionNumber'])
         .orderBy('transactionNumber', 'desc')
         .first()
       const transactionNumber = (lastTransaction?.transactionNumber || 0) + 1
@@ -202,6 +214,29 @@ export default class FolioTransactionsController {
           particular = 'Miscellaneous Charge'
       }
 
+      // Currency conversion
+      const transactionCurrencyCode: string = (payload.currency || baseCurrencyCode).toUpperCase()
+      let usedExchangeRate = 1
+      let baseAmount = payload.amount
+
+      // Look up the exchange rate for the transaction currency from the currencies table
+      let exchangeRateDate = DateTime.now()
+      if (transactionCurrencyCode !== baseCurrencyCode) {
+        const currencyRow = await Currency.query()
+          .where('hotel_id', folio.hotelId)
+          .where('currency_code', transactionCurrencyCode)
+          .first()
+
+        usedExchangeRate = currencyRow?.exchangeRate ?? 1
+        // Use the currency's last update time as the effective date of the rate, fallback to now
+        exchangeRateDate = currencyRow?.updatedAt ?? DateTime.now()
+        baseAmount = Number((payload.amount * usedExchangeRate).toFixed(2))
+      } else {
+        usedExchangeRate = 1
+        baseAmount = Number(payload.amount.toFixed(2))
+        exchangeRateDate = DateTime.now()
+      }
+
       const transaction = await FolioTransaction.create({
         hotelId: folio.hotelId,
         folioId: payload.folioId,
@@ -211,29 +246,35 @@ export default class FolioTransactionsController {
         category: category,
         particular: particular,
         description: payload.description,
-        amount: payload.amount,
+
+        // Persist base amount into the canonical amount fields
+        amount: baseAmount,
+        totalAmount: baseAmount,
+        netAmount: baseAmount,
+        grossAmount: baseAmount,
+        baseCurrencyAmount: baseAmount,
+
+        // Track original/source currency details
+        originalAmount: payload.amount,
+        originalCurrency: transactionCurrencyCode,
+        exchangeRate: usedExchangeRate,
+        exchangeRateDate,
+        currencyCode: baseCurrencyCode,
+
         quantity: payload.quantity || 1,
-        totalAmount: payload.amount,
         paymentMethodId: payload.paymentMethodId,
-        //unitPrice: payload.unit_price || payload.amount,
-        //taxAmount: payload.tax_amount || 0,
-        // taxRate: payload.tax_rate || 0,
         extraChargeId: payload.extraChargeId,
         serviceChargeAmount: payload.serviceChargeAmount || 0,
         serviceChargeRate: payload.serviceChargeRate || 0,
         discountAmount: 0,
         discountRate: 0,
         reservationId: payload.reservationId,
-        netAmount: payload.amount,
-        grossAmount: payload.amount,
         
         transactionDate: payload.transactionDate ? DateTime.fromJSDate(new Date(payload.transactionDate)) : DateTime.now(),
         postingDate: payload.postingDate ? DateTime.fromJSDate(new Date(payload.postingDate)) : DateTime.now(),
         serviceDate: DateTime.now(),
         transactionTime: DateTime.now().toISOTime(),
 
-        //reference: payload.reference || '',
-        //externalReference: payload.external_reference || '',
         status: payload.status,
         cashierId: auth.user?.id || 0,
         createdBy: auth.user?.id || 0
