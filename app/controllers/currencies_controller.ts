@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Currency from '#models/currency'
 import vine from '@vinejs/vine'
+import CurrencyCacheService from '#services/currency_cache_service'
 
 export default class CurrenciesController {
   public async index({ params, request, response }: HttpContext) {
@@ -163,6 +164,24 @@ export default class CurrenciesController {
         message: 'Failed to update currency',
         error: error.message
       })
+    }
+  }
+
+  public async current({ params, response }: HttpContext) {
+    try {
+      const hotelId = Number(params.hotelId)
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
+
+      const cached = await CurrencyCacheService.getHotelDefaultCurrency(hotelId)
+      if (!cached) {
+        return response.notFound({ success: false, message: 'No default currency set for this hotel' })
+      }
+
+      return response.ok({ success: true, data: cached, message: 'Current currency retrieved' })
+    } catch (error) {
+      return response.badRequest({ success: false, message: 'Failed to get current currency', error: error.message })
     }
   }
 

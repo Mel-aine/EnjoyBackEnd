@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, beforeCreate, beforeUpdate } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, beforeCreate, beforeUpdate, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import User from './user.js'
+import CurrencyCacheService from '#services/currency_cache_service'
 
 export default class Currency extends BaseModel {
   @column({ isPrimary: true })
@@ -89,6 +90,21 @@ export default class Currency extends BaseModel {
   public static preventIsDefaultUpdate(model: Currency) {
     if (model.$dirty && Object.prototype.hasOwnProperty.call(model.$dirty, 'isDefault')) {
       throw new Error('The default currency flag (isDefault) is not updatable')
+    }
+  }
+
+  // Invalidate cache when any currency for a hotel is created/updated
+  @afterCreate()
+  public static async invalidateCacheOnCreate(model: Currency) {
+    if (model.hotelId) {
+      await CurrencyCacheService.invalidateHotelCurrency(model.hotelId)
+    }
+  }
+
+  @afterUpdate()
+  public static async invalidateCacheOnUpdate(model: Currency) {
+    if (model.hotelId) {
+      await CurrencyCacheService.invalidateHotelCurrency(model.hotelId)
     }
   }
 }
