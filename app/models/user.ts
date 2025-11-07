@@ -17,7 +17,7 @@ const AuthFinder = withAuthFinder(() => hash.use('argon'), {
   passwordColumnName: 'password',
 })
 
-export default class User extends AuthFinder(BaseModel) {
+export default class  User extends AuthFinder(BaseModel) {
   @column({ isPrimary: true })
   declare id: number
 
