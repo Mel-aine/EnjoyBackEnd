@@ -549,8 +549,8 @@ export default class RoomsController {
         .preload('rooms', (queryRoom) => {
           queryRoom.select(['id', 'room_number', 'status', 'housekeeping_status'])
         })
-        .select(['id', 'room_type_name','base_adult','base_child',"max_adult","max_child"])
-        .orderBy('sort_key', 'asc')
+        .select(['id', 'room_type_name','base_adult','base_child',"max_adult","max_child","sort_order"])
+        .orderBy('sort_order', 'asc')
 
 
       const setRoomTypesIds = roomsByType.map((e) => e.id)
