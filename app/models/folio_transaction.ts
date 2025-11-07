@@ -178,6 +178,9 @@ export default class FolioTransaction extends BaseModel {
   @column()
   declare originalCurrency: string
 
+  @column.date()
+  declare exchangeRateDate: DateTime
+
   @column()
   declare roomNumber: string
 

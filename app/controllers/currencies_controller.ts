@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Currency from '#models/currency'
 import vine from '@vinejs/vine'
+import CurrencyCacheService from '#services/currency_cache_service'
 
 export default class CurrenciesController {
   public async index({ params, request, response }: HttpContext) {
@@ -45,10 +46,19 @@ export default class CurrenciesController {
         digitsAfterDecimal: vine.number().range([0, 10]),
         exchangeRate: vine.number().range([0.000001, 999999]),
         isEditable: vine.boolean().optional(),
+        // Accept isDefault at creation time
+        isDefault: vine.boolean().optional(),
         hotelId: vine.number()
       })
 
-      const payload = await vine.validate({ schema: validationSchema, data: request.all() })
+      // Normalize snake_case 'is_default' to camelCase 'isDefault' for validation
+      const incomingData = { ...request.all() }
+      if (incomingData.is_default !== undefined && incomingData.isDefault === undefined) {
+        incomingData.isDefault = incomingData.is_default
+        delete (incomingData as any).is_default
+      }
+
+      const payload = await vine.validate({ schema: validationSchema, data: incomingData })
       
       const currency = await Currency.create({
         ...payload,
@@ -123,6 +133,14 @@ export default class CurrenciesController {
         isEditable: vine.boolean().optional()
       })
 
+      // Block attempts to change default status via update endpoint
+      if (request.input('isDefault') !== undefined || request.input('is_default') !== undefined) {
+        return response.badRequest({
+          success: false,
+          message: 'isDefault cannot be updated. Set it only at creation.'
+        })
+      }
+
       const payload = await vine.validate({ schema: validationSchema, data: request.all() })
       
       currency.merge({
@@ -146,6 +164,24 @@ export default class CurrenciesController {
         message: 'Failed to update currency',
         error: error.message
       })
+    }
+  }
+
+  public async current({ params, response }: HttpContext) {
+    try {
+      const hotelId = Number(params.hotelId)
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
+
+      const cached = await CurrencyCacheService.getHotelDefaultCurrency(hotelId)
+      if (!cached) {
+        return response.notFound({ success: false, message: 'No default currency set for this hotel' })
+      }
+
+      return response.ok({ success: true, data: cached, message: 'Current currency retrieved' })
+    } catch (error) {
+      return response.badRequest({ success: false, message: 'Failed to get current currency', error: error.message })
     }
   }
 
