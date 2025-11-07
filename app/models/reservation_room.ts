@@ -68,6 +68,16 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare roomRate: number
 
+  // Original pricing snapshot from the OTA payload
+  @column({ columnName: 'original_room_rate' })
+  declare originalRoomRate: number | null
+
+  @column({ columnName: 'original_currency_code' })
+  declare originalCurrencyCode: string | null
+
+  @column({ columnName: 'original_exchange_rate' })
+  declare originalExchangeRate: number | null
+
   @column()
   declare totalRoomCharges: number
 

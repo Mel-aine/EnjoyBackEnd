@@ -240,6 +240,19 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'channex_booking_id' })
   declare channexBookingId: string | null
 
+  // OTA integration fields
+  @column({ columnName: 'ota_reservation_code' })
+  declare otaReservationCode: string | null
+
+  @column({ columnName: 'ota_name' })
+  declare otaName: string | null
+
+  @column({ columnName: 'ota_status' })
+  declare otaStatus: string | null
+
+  @column({ columnName: 'ota_guarantee' })
+  declare otaGuarantee: object | null
+
   @column()
   declare checkInTime: string
 
