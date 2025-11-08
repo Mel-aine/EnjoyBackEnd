@@ -549,15 +549,6 @@ export default class ChannexMigrationController {
         }
         processedRoomTypes.add(roomRate.id)
 
-        // Find corresponding Channex room type
-        if (!roomRate.roomType.channexRoomTypeId) {
-          console.warn('Room type mapping not found for room rate', {
-            roomRateId: roomRate.id,
-            roomTypeId: roomRate.roomTypeId
-          })
-          continue
-        }
-
         const ratePlanData = {
           "rate_plan": {
             title: `${roomRate.roomType.roomTypeName} ${roomRate.rateType.rateTypeName}`,
@@ -1241,8 +1232,9 @@ export default class ChannexMigrationController {
         .filter((v: any) => !!v)
 
       const existingReservations = await Reservation.query()
+        .where('hotel_id', hotelId)
         .whereIn('reservation_number', uniqueIds)
-        .orWhereIn('channex_booking_id', channexIds)
+        .whereIn('channex_booking_id', channexIds)
 
       const existingByUniqueId = new Map<string, Reservation>()
       const existingByChannexId = new Map<string, Reservation>()
@@ -1348,6 +1340,7 @@ export default class ChannexMigrationController {
               // Recharger la réservation avec les relations nécessaires
               const ReservationModel = (await import('../models/reservation.js')).default
               const reservation = await ReservationModel.query()
+              
                 .where('id', existingReservation.id)
                 .preload('reservationRooms')
                 .preload('folios')
