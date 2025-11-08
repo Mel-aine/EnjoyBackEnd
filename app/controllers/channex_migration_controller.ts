@@ -9,6 +9,7 @@ import Reservation from '../models/reservation.js'
 import Guest from '../models/guest.js'
 import ReservationRoom from '../models/reservation_room.js'
 import FolioTransaction from '../models/folio_transaction.js'
+import TaxRate from '../models/tax_rate.js'
 import logger from '@adonisjs/core/services/logger'
 import ReservationCreationService from '../services/reservation_creation_service.js'
 import env from '#start/env'
@@ -48,8 +49,10 @@ export default class ChannexMigrationController {
       steps: {
         property: { status: 'pending', data: null, error: null },
         hotelPolicy: { status: 'pending', data: null, error: null },
+        taxes: { status: 'pending', data: [], error: null },
         roomTypes: { status: 'pending', data: [], error: null },
         ratePlans: { status: 'pending', data: [], error: null },
+        taxSets: { status: 'pending', data: [], error: null },
         //rates: { status: 'pending', data: [], error: null },
         //availability: { status: 'pending', data: [], error: null }
       },
@@ -142,7 +145,39 @@ export default class ChannexMigrationController {
         })
       }
 
-      // Step 3: Migrate Room Types
+      // Step 3: Migrate Taxes
+      migrationResults.steps.taxes.status = 'in_progress'
+      const taxesResult = await this.migrateTaxes(hotelId, channexPropertyId)
+      migrationResults.steps.taxes = taxesResult
+
+      if (taxesResult.error) {
+        migrationResults.totalErrors++
+        console.error('Taxes migration failed', { hotelId, error: taxesResult.error })
+
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXES_MIGRATION_FAILED',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Taxes migration failed for hotel ${hotelId}: ${taxesResult.error}`,
+          meta: { error: taxesResult.error },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      } else {
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXES_MIGRATION_SUCCESS',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Taxes migration completed successfully for hotel ${hotelId}. Migrated ${taxesResult.data?.length || 0} taxes`,
+          meta: { count: taxesResult.data?.length || 0 },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      }
+
+      // Step 4: Migrate Room Types
       migrationResults.steps.roomTypes.status = 'in_progress'
       const roomTypesResult = await this.migrateRoomTypes(hotelId, channexPropertyId)
       migrationResults.steps.roomTypes = roomTypesResult
@@ -202,6 +237,38 @@ export default class ChannexMigrationController {
           entityId: hotelId,
           description: `Rate plans migration completed successfully for hotel ${hotelId}. Migrated ${ratePlansResult.data?.length || 0} rate plans`,
           meta: { count: ratePlansResult.data?.length || 0 },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      }
+
+      // Step 5: Migrate Tax Set (room charges)
+      migrationResults.steps.taxSets = migrationResults.steps.taxSets || { status: 'pending', data: [], error: null }
+      migrationResults.steps.taxSets.status = 'in_progress'
+      const taxSetResult = await this.migrateTaxSet(hotelId, channexPropertyId)
+      migrationResults.steps.taxSets = taxSetResult
+
+      if (taxSetResult.error) {
+        migrationResults.totalErrors++
+        console.error('Tax set migration failed', { hotelId, error: taxSetResult.error })
+
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXSET_MIGRATION_FAILED',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Tax set migration failed for hotel ${hotelId}: ${taxSetResult.error}`,
+          meta: { error: taxSetResult.error },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      } else {
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXSET_MIGRATION_SUCCESS',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Tax set migration completed successfully for hotel ${hotelId}`,
           hotelId: parseInt(hotelId),
           ctx: ctx
         })
@@ -610,6 +677,182 @@ export default class ChannexMigrationController {
         status: 'failed',
         data: [],
         error: error.message
+      }
+    }
+  }
+
+  /**
+   * Migrate taxes to Channex
+   */
+  private async migrateTaxes(hotelId: string, channexPropertyId: string) {
+    try {
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      // Fetch tax rates for the hotel
+      const taxRates = await TaxRate.query()
+        .where('hotel_id', Number(hotelId))
+        .andWhere('is_active', true)
+
+      const migratedTaxes: any[] = []
+
+      for (const tax of taxRates) {
+        // Map local tax type to Channex type
+        const chxType: 'tax' | 'fee' | 'city tax' =
+          tax.type === 'service_fee' ? 'fee' : tax.type === 'city_tax' ? 'city tax' : 'tax'
+
+        // Determine logic and rate
+        let logic: 'percent' | 'per_booking' | 'per_room' | 'per_room_per_night' | 'per_person' | 'per_person_per_night' | 'per_night' = 'per_booking'
+        let rate: string = '0.00'
+        let currency: string | null = null
+
+        if (tax.postingType === 'flat_percentage' && tax.percentage !== null) {
+          logic = 'percent'
+          rate = (+tax.percentage).toFixed(2)
+        } else if (tax.postingType === 'flat_amount' && tax.amount !== null) {
+          logic = 'per_room_per_night' // Default to per_booking for fixed amount
+          rate = (+tax.amount).toFixed(2)
+          currency = hotel.currencyCode
+        } else {
+          // Unsupported or missing payload (e.g., slab) — skip with note
+          migratedTaxes.push({
+            localId: tax.taxRateId,
+            status: 'skipped',
+            reason: `Unsupported posting type: ${tax.postingType}`
+          })
+          continue
+        }
+
+        // Applicable date ranges
+        const ranges: { after: string, before: string }[] = []
+        if (tax.effectiveDate && tax.endDate) {
+          ranges.push({
+            after: tax.effectiveDate.toISODate()!,
+            before: tax.endDate.toISODate()!
+          })
+        }
+
+        const payload: any = {
+          title: tax.taxName || tax.shortName || 'Tax',
+          logic,
+          type: chxType,
+          rate,
+          is_inclusive: true, // default; adjust if system provides a flag later
+          property_id: channexPropertyId,
+        }
+
+        // Include currency only for fixed-amount taxes
+        if (logic !== 'percent' && currency) {
+          payload.currency = currency
+        }
+
+        // Include optional fields only if present
+        if (typeof (tax as any).skipNights === 'number') {
+          payload.skip_nights = (tax as any).skipNights
+        }
+        if (typeof tax.exemptAfter === 'number') {
+          payload.max_nights = tax.exemptAfter
+        }
+        if (ranges.length > 0) {
+          payload.applicable_date_ranges = ranges
+        }
+
+        const resp: any = await this.channexService.createTax(payload)
+        console.log(resp)
+        // Save Channex tax id
+        tax.channexTaxId = resp?.data?.id || resp?.data?.attributes?.id || resp?.id || null
+        await tax.save()
+
+        migratedTaxes.push({
+          localId: tax.taxRateId,
+          channexTaxId: tax.channexTaxId,
+          title: payload.title,
+          logic: payload.logic,
+          type: payload.type,
+          rate: payload.rate,
+          currency: payload.currency,
+          channexData: resp
+        })
+      }
+
+      return {
+        status: 'completed',
+        data: migratedTaxes,
+        error: null
+      }
+    } catch (error: any) {
+      return {
+        status: 'failed',
+        data: [],
+        error: error.message
+      }
+    }
+  }
+
+  /**
+   * Migrate Tax Set for hotel room charges taxes
+   * Uses hotel's roomChargesTaxRates and associated Channex rate plans.
+   */
+  private async migrateTaxSet(hotelId: string, channexPropertyId: string) {
+    try {
+      const hotel = await Hotel.findOrFail(hotelId)
+      await hotel.load('roomChargesTaxRates')
+
+      // Collect taxes from hotel's room charges tax rates that have been migrated to Channex
+      const taxes = (hotel.roomChargesTaxRates || [])
+        .filter((t) => Boolean(t.isActive) && Boolean(t.channexTaxId))
+        .map((t) => ({ id: t.channexTaxId as string, level: 0 }))
+
+      // Collect associated rate plan ids for this hotel's room rates
+      const roomRates = await RoomRate.query()
+        .preload('roomType')
+        .whereHas('roomType', (q) => q.where('hotel_id', Number(hotelId)))
+
+      const associatedRatePlanIds = roomRates
+        .map((rr) => rr.channexRateId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+      if (taxes.length === 0) {
+        return {
+          status: 'skipped',
+          data: [],
+          error: 'No eligible taxes with channexTaxId in roomChargesTaxRates',
+        }
+      }
+
+      if (associatedRatePlanIds.length === 0) {
+        return {
+          status: 'skipped',
+          data: [],
+          error: 'No associated rate plans found for hotel',
+        }
+      }
+
+      const payload = {
+        title: `Room Charges Tax Set - ${hotel.hotelName || 'Hotel '}`,
+        property_id: channexPropertyId,
+        associated_rate_plan_ids: associatedRatePlanIds,
+        taxes,
+        currency: hotel.currencyCode || undefined,
+      }
+
+      const resp: any = await this.channexService.createTaxSet(payload)
+
+      return {
+        status: 'completed',
+        data: [{
+          title: payload.title,
+          channexTaxSetId: resp?.data?.id || resp?.id || null,
+          taxesCount: taxes.length,
+          associatedRatePlanCount: associatedRatePlanIds.length,
+          channexData: resp,
+        }],
+        error: null,
+      }
+    } catch (error: any) {
+      return {
+        status: 'failed',
+        data: [],
+        error: error.message,
       }
     }
   }

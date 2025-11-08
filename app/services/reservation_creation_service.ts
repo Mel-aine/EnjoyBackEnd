@@ -498,6 +498,7 @@ export default class ReservationCreationService {
           ota_status: data.ota_status,
           ota_name: data.ota_name,
           ota_reservation_code: data.ota_reservation_code,
+          specialRequests: data.special_requests,
           holdReleaseDate:
             data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
           releaseTem: data.isHold ? data.ReleaseTem : null,

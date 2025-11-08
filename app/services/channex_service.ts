@@ -922,6 +922,77 @@ export class ChannexService {
     return this.post('/hotel_policies', { hotel_policy: hotelPolicyData })
   }
 
+  // =============================================================================
+  // TAXES API METHODS
+  // =============================================================================
+
+  /**
+   * Create a tax
+   * POST /taxes
+   *
+   * Expected payload shape (wrapped in { tax: ... }):
+   * {
+   *   tax: {
+   *     title: string,
+   *     logic: 'percent' | 'per_room' | 'per_room_per_night' | 'per_person' | 'per_person_per_night' | 'per_night' | 'per_booking',
+   *     type: 'tax' | 'fee' | 'city tax',
+   *     rate: string, // decimal string
+   *     is_inclusive: boolean,
+   *     property_id: string, // UUID
+   *     currency?: string, // required if logic != 'percent'
+   *     skip_nights?: number,
+   *     max_nights?: number,
+   *     applicable_date_ranges?: { after: string, before: string }[]
+   *   }
+   * }
+   */
+  async createTax(taxData: {
+    title: string
+    logic: 'percent' | 'per_room' | 'per_room_per_night' | 'per_person' | 'per_person_per_night' | 'per_night' | 'per_booking'
+    type: 'tax' | 'fee' | 'city tax'
+    rate: string
+    is_inclusive: boolean
+    property_id: string
+    currency?: string | null
+    skip_nights?: number
+    max_nights?: number
+    applicable_date_ranges?: { after: string, before: string }[]
+    [key: string]: any
+  }) {
+    console.log(taxData);
+    return this.post('/taxes', { tax: taxData })
+  }
+
+  // =============================================================================
+  // TAX SETS API METHODS
+  // =============================================================================
+
+  /**
+   * Create a tax set
+   * POST /tax_sets
+   *
+   * Expected payload shape (wrapped in { tax_set: ... }):
+   * {
+   *   tax_set: {
+   *     title: string,
+   *     property_id: string,
+   *     associated_rate_plan_ids: string[],
+   *     taxes: { id: string, level: number }[],
+   *     currency?: string
+   *   }
+   * }
+   */
+  async createTaxSet(taxSetData: {
+    title: string
+    property_id: string
+    associated_rate_plan_ids: string[]
+    taxes: { id: string, level: number }[]
+    currency?: string
+    [key: string]: any
+  }) {
+    return this.post('/tax_sets', { tax_set: taxSetData })
+  }
+
   /**
    * List hotel policies
    * GET /hotel_policies
