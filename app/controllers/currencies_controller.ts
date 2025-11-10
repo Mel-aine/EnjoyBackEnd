@@ -7,6 +7,8 @@ export default class CurrenciesController {
   public async index({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
       if (!hotelId) {
         return response.badRequest({ success: false, message: 'hotelId is required' })
       }
@@ -19,7 +21,7 @@ export default class CurrenciesController {
 
       query = query.where('hotel_id', Number(hotelId))
 
-      const currencies = await query.orderBy('created_at', 'desc')
+      const currencies = await query.orderBy('created_at', 'desc').paginate(page,limit)
 
       return response.ok({
         success: true,
