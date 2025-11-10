@@ -182,6 +182,7 @@ export default class BookingSourceService {
       .preload('hotel')
       .preload('creator')
       .preload('modifier')
+      .orderBy('priority','desc')
 
     if (filters.hotelId) {
       query.where('hotelId', filters.hotelId)

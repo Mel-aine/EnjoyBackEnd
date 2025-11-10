@@ -7,20 +7,22 @@ export default class IdentityTypesController {
   public async index({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
       if (!hotelId) {
         return response.badRequest({ success: false, message: 'hotelId is required' })
       }
-      
+
       let query = IdentityType.query()
         .where('is_deleted', false)
         .preload('hotel')
         .preload('createdBy')
         .preload('updatedBy')
-      
+
       query = query.where('hotel_id', Number(hotelId))
-      
-      const identityTypes = await query.orderBy('created_at', 'desc')
-      
+
+      const identityTypes = await query.orderBy('created_at', 'desc').paginate(page, limit)
+
       return response.ok({
         success: true,
         data: identityTypes,
@@ -44,7 +46,8 @@ export default class IdentityTypesController {
       })
 
       const payload = await vine.validate({ schema: validationSchema, data: request.all() })
-      
+      console.log('payload',payload)
+
       const identityType = await IdentityType.create({
         ...payload,
         createdByUserId: auth.user?.id,
@@ -105,12 +108,12 @@ export default class IdentityTypesController {
       })
 
       const payload = await vine.validate({ schema: validationSchema, data: request.all() })
-      
+
       identityType.merge({
         ...payload,
         updatedByUserId: auth.user?.id
       })
-      
+
       await identityType.save()
       await identityType.preload('hotel')
       await identityType.preload('createdBy')
@@ -142,7 +145,7 @@ export default class IdentityTypesController {
         deletedAt: DateTime.now(),
         updatedByUserId: auth.user?.id
       })
-      
+
       await identityType.save()
 
       return response.ok({

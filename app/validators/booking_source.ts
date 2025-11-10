@@ -23,8 +23,7 @@ export const createBookingSourceValidator = vine.compile(
     paymentTerms: vine.string().trim().optional(),
     cancellationPolicy: vine.string().trim().optional(),
     priority: vine.number().positive().optional(),
-    notes: vine.string().trim().optional(),
-    color:vine.string().trim().optional()
+    notes: vine.string().trim().optional()
   })
 )
 

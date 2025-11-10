@@ -45,6 +45,7 @@ export default class DiscountsController {
       }
 
       const discounts = await query
+        .where('isDeleted','false')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -276,7 +277,7 @@ export default class DiscountsController {
   async getByStatus({ params, response }: HttpContext) {
     try {
       const { status } = params
-      
+
       if (!['active', 'inactive'].includes(status)) {
         return response.badRequest({
           success: false,
