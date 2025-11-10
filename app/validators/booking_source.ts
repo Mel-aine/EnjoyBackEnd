@@ -5,7 +5,7 @@ export const createBookingSourceValidator = vine.compile(
     hotelId: vine.number().positive(),
     sourceName: vine.string().trim().minLength(1).maxLength(255),
     sourceCode: vine.string().trim().minLength(1).maxLength(50),
-    sourceType: vine.string().trim().minLength(1).maxLength(50),
+    sourceType: vine.string().trim().minLength(1).maxLength(50).optional(),
     description: vine.string().trim().optional(),
     commissionRate: vine.number().min(0).max(100).optional(),
     contactPerson: vine.string().trim().optional(),
@@ -24,6 +24,7 @@ export const createBookingSourceValidator = vine.compile(
     cancellationPolicy: vine.string().trim().optional(),
     priority: vine.number().positive().optional(),
     notes: vine.string().trim().optional(),
+    color:vine.string().trim().optional()
   })
 )
 
