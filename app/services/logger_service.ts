@@ -22,13 +22,19 @@ interface LogData {
 interface LogActivityData {
   userId?: number
   action: string
-  resourceType: string
-  resourceId: number | string
+  resourceType?: string
+  resourceId?: number | string
   details?: any
   description?: string
   ipAddress?: string
   userAgent?: string
-  hotelId?:number
+  hotelId?: number
+  // Tolerate alias fields used by some callers
+  actorId?: number
+  entityType?: string
+  entityId?: number | string
+  changes?: any
+  ctx?: HttpContext
 }
 
 export default class LoggerService {
@@ -36,16 +42,20 @@ export default class LoggerService {
     try {
       const actor = await User.find(data.actorId)
 
+      const numericEntityId =
+        data.entityId === undefined || data.entityId === null ? null : Number(data.entityId)
+      const entityId = Number.isNaN(numericEntityId as any) ? null : numericEntityId
+
       await ActivityLog.create({
         userId: data.actorId,
         username: actor?.firstName || 'System',
         action: data.action,
         entityType: data.entityType,
-        entityId: Number(data.entityId),
+        entityId,
         description: data.description,
         changes: data.changes ?? null,
         meta: data.meta ?? null,
-        hotelId:data.hotelId??null,
+        hotelId: data.hotelId ?? null,
         createdBy: data.actorId,
         ipAddress: data.ctx.request.ip(),
         userAgent: data.ctx.request.header('user-agent'),
@@ -94,20 +104,34 @@ export default class LoggerService {
 
   public static async logActivity(data: LogActivityData, trx?: any) {
     try {
-      const actor = data.userId ? await User.find(data.userId) : null
+      // Accept both proper keys and common alias keys
+      const userId = data.userId ?? data.actorId ?? null
+      const actor = userId ? await User.find(userId) : null
+
+      const resourceType = data.resourceType ?? data.entityType ?? 'System'
+      const rawResourceId = data.resourceId ?? data.entityId
+      const numericEntityId =
+        rawResourceId === undefined || rawResourceId === null
+          ? null
+          : Number(rawResourceId)
+
+      const entityId = Number.isNaN(numericEntityId as any) ? null : numericEntityId
+
+      const ipAddress = data.ipAddress ?? data.ctx?.request?.ip() ?? null
+      const userAgent = data.userAgent ?? data.ctx?.request?.header('user-agent') ?? null
 
       const logData = {
-        userId: data.userId || null,
+        userId,
         username: actor?.firstName || 'System',
         action: data.action,
-        entityType: data.resourceType,
-        entityId: Number(data.resourceId),
+        entityType: resourceType,
+        entityId,
         description: data.description || null,
-        changes: data.details ?? null,
-        hotelId:data.hotelId??null,
-        createdBy: data.userId || null,
-        ipAddress: data.ipAddress || null,
-        userAgent: data.userAgent || null,
+        changes: (data.details ?? data.changes) ?? null,
+        hotelId: data.hotelId ?? null,
+        createdBy: userId,
+        ipAddress,
+        userAgent,
       }
 
       if (trx) {

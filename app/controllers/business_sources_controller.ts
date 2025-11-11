@@ -23,6 +23,7 @@ export default class BusinessSourcesController {
         .preload('marketCode')
         .preload('createdByUser')
         .preload('updatedByUser')
+        .orderBy('name','asc')
 
       query.where('hotel_id', Number(hotelId))
 

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -17,6 +17,7 @@ import Folio from './folio.js'
 import ReservationType from './reservation_type.js'
 import PaymentMethod from './payment_method.js'
 import MarketCode from './market_code.js'
+import ReservationHook from '../hooks/reservation_hooks.js'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -239,6 +240,19 @@ export default class Reservation extends BaseModel {
 
   @column({ columnName: 'channex_booking_id' })
   declare channexBookingId: string | null
+
+  // OTA integration fields
+  @column({ columnName: 'ota_reservation_code' })
+  declare otaReservationCode: string | null
+
+  @column({ columnName: 'ota_name' })
+  declare otaName: string | null
+
+  @column({ columnName: 'ota_status' })
+  declare otaStatus: string | null
+
+  @column({ columnName: 'ota_guarantee' })
+  declare otaGuarantee: object | null
 
   @column()
   declare checkInTime: string
@@ -625,6 +639,16 @@ declare reservations: HasMany<typeof Reservation>
 
     // Arrondir à 2 décimales
     return Math.round(diffInHours * 100) / 100
+  }
+
+  // Background hook: notify Channex availability when a reservation is created
+  @afterCreate()
+  public static notifyAfterCreate(reservation: Reservation) {
+    try {
+     // ReservationHook.notifyAvailabilityOnCreate(reservation)
+    } catch {
+      // swallow errors; hook must not interrupt user flow
+    }
   }
 
 }

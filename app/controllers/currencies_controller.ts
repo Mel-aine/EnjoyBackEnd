@@ -7,20 +7,22 @@ export default class CurrenciesController {
   public async index({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
       if (!hotelId) {
         return response.badRequest({ success: false, message: 'hotelId is required' })
       }
-      
+
       let query = Currency.query()
         .where('is_deleted', false)
         .preload('hotel')
         .preload('createdBy')
         .preload('updatedBy')
-      
+
       query = query.where('hotel_id', Number(hotelId))
-      
-      const currencies = await query.orderBy('created_at', 'desc')
-      
+
+      const currencies = await query.orderBy('created_at', 'desc').paginate(page,limit)
+
       return response.ok({
         success: true,
         data: currencies,
@@ -59,7 +61,7 @@ export default class CurrenciesController {
       }
 
       const payload = await vine.validate({ schema: validationSchema, data: incomingData })
-      
+
       const currency = await Currency.create({
         ...payload,
         createdByUserId: auth.user?.id,
@@ -142,12 +144,12 @@ export default class CurrenciesController {
       }
 
       const payload = await vine.validate({ schema: validationSchema, data: request.all() })
-      
+
       currency.merge({
         ...payload,
         updatedByUserId: auth.user?.id
       })
-      
+
       await currency.save()
       await currency.preload('hotel')
       await currency.preload('createdBy')
@@ -204,7 +206,7 @@ export default class CurrenciesController {
         isDeleted: true,
         updatedByUserId: auth.user?.id
       })
-      
+
       await currency.save()
 
       return response.ok({
@@ -236,7 +238,7 @@ export default class CurrenciesController {
         createdByUserId: userId,
         updatedByUserId: userId
       })
-      
+
       return defaultCurrency
     } catch (error) {
       console.error('Failed to create default currency:', error)

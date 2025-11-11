@@ -53,8 +53,9 @@ export default class ImportCurrencies extends BaseCommand {
    * node ace import:currencies --hotelId=5 --file="C:\\Users\\styve\\Documents\\Enjoy\\Suita Configuration\\master\\currency.json"
    */
   public async run() {
-    const HOTEL_ID = 5
-    const filePath = 'C://Users//styve//Documents//Enjoy//Suita Configuration//master//currency.json'
+    const flags = (this.parsed?.flags ?? {}) as { hotelId?: string | number; file?: string }
+    const HOTEL_ID = Number(flags.hotelId ?? 3)
+    const filePath = flags.file ?? 'C://Users//styve//Documents//Enjoy//Suita Configuration//master//currency.json'
 
     if (!fs.existsSync(filePath)) {
       this.logger.error(`File not found: ${filePath}`)

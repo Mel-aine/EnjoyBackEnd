@@ -18,6 +18,8 @@ const createTaxRateValidator = vine.compile(
     applyTax: vine.enum(['before_discount', 'after_discount']),
     applyTaxOnRackRate: vine.boolean().optional(),
     status: vine.enum(['active', 'inactive']).optional(),
+    type: vine.enum(['vat', 'service_fee', 'city_tax']).optional(),
+    channexTaxId: vine.string().trim().optional(),
     taxApplyAfter: vine.array(vine.number()).optional(),
     isActive: vine.boolean().optional(),
     appliesToRoomRate: vine.boolean().optional(),
@@ -42,6 +44,8 @@ const updateTaxRateValidator = vine.compile(
     applyTax: vine.enum(['before_discount', 'after_discount']).optional(),
     applyTaxOnRackRate: vine.boolean().optional(),
     status: vine.enum(['active', 'inactive']).optional(),
+    type: vine.enum(['vat', 'service_fee', 'city_tax']).optional(),
+    channexTaxId: vine.string().trim().optional(),
     taxApplyAfter: vine.array(vine.number()).optional(),
     isActive: vine.boolean().optional(),
     appliesToRoomRate: vine.boolean().optional(),
@@ -127,6 +131,8 @@ export default class TaxRatesController {
         applyTax: payload.applyTax,
         applyTaxOnRackRate: payload.applyTaxOnRackRate ?? false,
         status: payload.status ?? 'active',
+        type: payload.type ?? null,
+        channexTaxId: payload.channexTaxId ?? null,
         isActive: payload.isActive ?? true,
         appliesToRoomRate: payload.appliesToRoomRate ?? true,
         appliesToFnb: payload.appliesToFnb ?? false,
@@ -215,6 +221,8 @@ export default class TaxRatesController {
       if (payload.applyTax !== undefined) updateData.applyTax = payload.applyTax
       if (payload.applyTaxOnRackRate !== undefined) updateData.applyTaxOnRackRate = payload.applyTaxOnRackRate
       if (payload.status !== undefined) updateData.status = payload.status
+      if (payload.type !== undefined) updateData.type = payload.type
+      if (payload.channexTaxId !== undefined) updateData.channexTaxId = payload.channexTaxId
       if (payload.isActive !== undefined) updateData.isActive = payload.isActive
       if (payload.appliesToRoomRate !== undefined) updateData.appliesToRoomRate = payload.appliesToRoomRate
       if (payload.appliesToFnb !== undefined) updateData.appliesToFnb = payload.appliesToFnb

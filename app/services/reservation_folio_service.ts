@@ -195,6 +195,11 @@ export default class ReservationFolioService {
             roomQuery.preload('roomType')
           })
           query.preload('roomRates')
+          query.preload('mealPlan', (mpQuery: any) => {
+            mpQuery.preload('extraCharges', (ecQ: any) => {
+              ecQ.preload('taxRates')
+            })
+          })
         })
         .firstOrFail()
 
@@ -282,6 +287,75 @@ export default class ReservationFolioService {
             createdBy: postedBy,
             lastModifiedBy: postedBy,
           } as any)
+
+          // Post meal plan extra charges per day based on guests
+          const mealPlan = (reservationRoom as any).mealPlan
+          if (mealPlan && Array.isArray(mealPlan.extraCharges) && mealPlan.extraCharges.length > 0) {
+            for (const extra of mealPlan.extraCharges as any[]) {
+              const qtyPerDay: number = Number(extra.$extras?.pivot_quantity_per_day ?? 0)
+              const adults = Number(reservationRoom.adults || reservation.adults || 0)
+              const children = Number(reservationRoom.children || reservation.children || 0)
+              const infants = Number(reservationRoom.infants || reservation.infants || 0)
+
+              let guestsCount = adults + children + infants
+              const quantity = Math.max(0, qtyPerDay * guestsCount)
+              const unitPriceGross = Number(extra.rate || 0)
+              const extAmountGross = unitPriceGross * quantity
+
+              // Compute included tax portion based on extra charge related taxes
+              let percentageSum = 0
+              let flatSum = 0
+              const extraTaxes = Array.isArray((extra as any).taxRates) && (extra as any).taxRates.length
+                ? (extra as any).taxRates
+                : ((extra as any).taxRate ? [(extra as any).taxRate] : [])
+
+              for (const t of extraTaxes as any[]) {
+                const postingType = (t as any)?.postingType
+                if (postingType === 'flat_percentage' && (t as any)?.percentage) {
+                  percentageSum += Number((t as any).percentage) || 0
+                } else if (postingType === 'flat_amount' && (t as any)?.amount) {
+                  flatSum += Number((t as any).amount) || 0
+                }
+              }
+
+              // Adjust for flat taxes (assumed per unit) and extract net from gross for percentage taxes
+              const adjustedGross = Math.max(0, extAmountGross - (flatSum * quantity))
+              const percRate = percentageSum > 0 ? percentageSum / 100 : 0
+              const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
+              const includedTaxAmount = Math.max(0, extAmountGross - netWithoutTax)
+              const unitPriceNet = quantity > 0 ? (netWithoutTax / quantity) : netWithoutTax
+
+              if (quantity > 0 && unitPriceNet > 0) {
+                batch.push({
+                  hotelId: reservation.hotelId,
+                  folioId: targetFolioId,
+                  reservationId: reservation.id,
+                  transactionNumber: nextNumber++,
+                  transactionType: TransactionType.CHARGE,
+                  category: TransactionCategory.EXTRACT_CHARGE,
+                  particular: `${extra.name} Qt(${quantity})`,
+                  description: `${extra.name || 'Meal Component'} - ${mealPlan.name || 'Meal Plan'}, Night ${night}`,
+                  amount: netWithoutTax,
+                  quantity,
+                  unitPrice: unitPriceNet,
+                  taxAmount: includedTaxAmount,
+                  serviceChargeAmount: 0,
+                  discountAmount: 0,
+                  netAmount: netWithoutTax,
+                  grossAmount: netWithoutTax,
+                  totalAmount: netWithoutTax + includedTaxAmount,
+                  notes: `Auto-posted meal plan extra charge for reservation ${reservation.confirmationNumber} - Night ${night}`,
+                  transactionCode: generateTransactionCode(),
+                  transactionTime: nowIsoTime,
+                  postingDate: transactionDate ?? DateTime.now(),
+                  transactionDate,
+                  status: TransactionStatus.POSTED,
+                  createdBy: postedBy,
+                  lastModifiedBy: postedBy,
+                } as any)
+              }
+            }
+          }
         }
       }
 
@@ -385,7 +459,7 @@ export default class ReservationFolioService {
           .orderBy('postingDate', 'asc')
           .preload('paymentMethod')
           .preload('modifier')
-    )
+      )
       .orderBy('folioType', 'asc')
       .orderBy('createdAt', 'asc')
   }

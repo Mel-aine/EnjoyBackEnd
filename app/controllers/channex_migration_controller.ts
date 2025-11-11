@@ -8,9 +8,9 @@ import RoomRate from '../models/room_rate.js'
 import Reservation from '../models/reservation.js'
 import Guest from '../models/guest.js'
 import ReservationRoom from '../models/reservation_room.js'
+import FolioTransaction from '../models/folio_transaction.js'
+import TaxRate from '../models/tax_rate.js'
 import logger from '@adonisjs/core/services/logger'
-import axios from 'axios'
-import { generateGuestCode } from '../utils/generate_guest_code.js'
 import ReservationCreationService from '../services/reservation_creation_service.js'
 import env from '#start/env'
 import { DateTime } from 'luxon'
@@ -49,8 +49,10 @@ export default class ChannexMigrationController {
       steps: {
         property: { status: 'pending', data: null, error: null },
         hotelPolicy: { status: 'pending', data: null, error: null },
+        taxes: { status: 'pending', data: [], error: null },
         roomTypes: { status: 'pending', data: [], error: null },
         ratePlans: { status: 'pending', data: [], error: null },
+        taxSets: { status: 'pending', data: [], error: null },
         //rates: { status: 'pending', data: [], error: null },
         //availability: { status: 'pending', data: [], error: null }
       },
@@ -143,7 +145,39 @@ export default class ChannexMigrationController {
         })
       }
 
-      // Step 3: Migrate Room Types
+      // Step 3: Migrate Taxes
+      migrationResults.steps.taxes.status = 'in_progress'
+      const taxesResult = await this.migrateTaxes(hotelId, channexPropertyId)
+      migrationResults.steps.taxes = taxesResult
+
+      if (taxesResult.error) {
+        migrationResults.totalErrors++
+        console.error('Taxes migration failed', { hotelId, error: taxesResult.error })
+
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXES_MIGRATION_FAILED',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Taxes migration failed for hotel ${hotelId}: ${taxesResult.error}`,
+          meta: { error: taxesResult.error },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      } else {
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXES_MIGRATION_SUCCESS',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Taxes migration completed successfully for hotel ${hotelId}. Migrated ${taxesResult.data?.length || 0} taxes`,
+          meta: { count: taxesResult.data?.length || 0 },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      }
+
+      // Step 4: Migrate Room Types
       migrationResults.steps.roomTypes.status = 'in_progress'
       const roomTypesResult = await this.migrateRoomTypes(hotelId, channexPropertyId)
       migrationResults.steps.roomTypes = roomTypesResult
@@ -203,6 +237,38 @@ export default class ChannexMigrationController {
           entityId: hotelId,
           description: `Rate plans migration completed successfully for hotel ${hotelId}. Migrated ${ratePlansResult.data?.length || 0} rate plans`,
           meta: { count: ratePlansResult.data?.length || 0 },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      }
+
+      // Step 5: Migrate Tax Set (room charges)
+      migrationResults.steps.taxSets = migrationResults.steps.taxSets || { status: 'pending', data: [], error: null }
+      migrationResults.steps.taxSets.status = 'in_progress'
+      const taxSetResult = await this.migrateTaxSet(hotelId, channexPropertyId)
+      migrationResults.steps.taxSets = taxSetResult
+
+      if (taxSetResult.error) {
+        migrationResults.totalErrors++
+        console.error('Tax set migration failed', { hotelId, error: taxSetResult.error })
+
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXSET_MIGRATION_FAILED',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Tax set migration failed for hotel ${hotelId}: ${taxSetResult.error}`,
+          meta: { error: taxSetResult.error },
+          hotelId: parseInt(hotelId),
+          ctx: ctx
+        })
+      } else {
+        logEntries.push({
+          actorId: userId,
+          action: 'CHANNEX_TAXSET_MIGRATION_SUCCESS',
+          entityType: 'Hotel',
+          entityId: hotelId,
+          description: `Tax set migration completed successfully for hotel ${hotelId}`,
           hotelId: parseInt(hotelId),
           ctx: ctx
         })
@@ -550,15 +616,6 @@ export default class ChannexMigrationController {
         }
         processedRoomTypes.add(roomRate.id)
 
-        // Find corresponding Channex room type
-        if (!roomRate.roomType.channexRoomTypeId) {
-          console.warn('Room type mapping not found for room rate', {
-            roomRateId: roomRate.id,
-            roomTypeId: roomRate.roomTypeId
-          })
-          continue
-        }
-
         const ratePlanData = {
           "rate_plan": {
             title: `${roomRate.roomType.roomTypeName} ${roomRate.rateType.rateTypeName}`,
@@ -620,6 +677,182 @@ export default class ChannexMigrationController {
         status: 'failed',
         data: [],
         error: error.message
+      }
+    }
+  }
+
+  /**
+   * Migrate taxes to Channex
+   */
+  private async migrateTaxes(hotelId: string, channexPropertyId: string) {
+    try {
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      // Fetch tax rates for the hotel
+      const taxRates = await TaxRate.query()
+        .where('hotel_id', Number(hotelId))
+        .andWhere('is_active', true)
+
+      const migratedTaxes: any[] = []
+
+      for (const tax of taxRates) {
+        // Map local tax type to Channex type
+        const chxType: 'tax' | 'fee' | 'city tax' =
+          tax.type === 'service_fee' ? 'fee' : tax.type === 'city_tax' ? 'city tax' : 'tax'
+
+        // Determine logic and rate
+        let logic: 'percent' | 'per_booking' | 'per_room' | 'per_room_per_night' | 'per_person' | 'per_person_per_night' | 'per_night' = 'per_booking'
+        let rate: string = '0.00'
+        let currency: string | null = null
+
+        if (tax.postingType === 'flat_percentage' && tax.percentage !== null) {
+          logic = 'percent'
+          rate = (+tax.percentage).toFixed(2)
+        } else if (tax.postingType === 'flat_amount' && tax.amount !== null) {
+          logic = 'per_room_per_night' // Default to per_booking for fixed amount
+          rate = (+tax.amount).toFixed(2)
+          currency = hotel.currencyCode
+        } else {
+          // Unsupported or missing payload (e.g., slab) — skip with note
+          migratedTaxes.push({
+            localId: tax.taxRateId,
+            status: 'skipped',
+            reason: `Unsupported posting type: ${tax.postingType}`
+          })
+          continue
+        }
+
+        // Applicable date ranges
+        const ranges: { after: string, before: string }[] = []
+        if (tax.effectiveDate && tax.endDate) {
+          ranges.push({
+            after: tax.effectiveDate.toISODate()!,
+            before: tax.endDate.toISODate()!
+          })
+        }
+
+        const payload: any = {
+          title: tax.taxName || tax.shortName || 'Tax',
+          logic,
+          type: chxType,
+          rate,
+          is_inclusive: true, // default; adjust if system provides a flag later
+          property_id: channexPropertyId,
+        }
+
+        // Include currency only for fixed-amount taxes
+        if (logic !== 'percent' && currency) {
+          payload.currency = currency
+        }
+
+        // Include optional fields only if present
+        if (typeof (tax as any).skipNights === 'number') {
+          payload.skip_nights = (tax as any).skipNights
+        }
+        if (typeof tax.exemptAfter === 'number') {
+          payload.max_nights = tax.exemptAfter
+        }
+        if (ranges.length > 0) {
+          payload.applicable_date_ranges = ranges
+        }
+
+        const resp: any = await this.channexService.createTax(payload)
+        console.log(resp)
+        // Save Channex tax id
+        tax.channexTaxId = resp?.data?.id || resp?.data?.attributes?.id || resp?.id || null
+        await tax.save()
+
+        migratedTaxes.push({
+          localId: tax.taxRateId,
+          channexTaxId: tax.channexTaxId,
+          title: payload.title,
+          logic: payload.logic,
+          type: payload.type,
+          rate: payload.rate,
+          currency: payload.currency,
+          channexData: resp
+        })
+      }
+
+      return {
+        status: 'completed',
+        data: migratedTaxes,
+        error: null
+      }
+    } catch (error: any) {
+      return {
+        status: 'failed',
+        data: [],
+        error: error.message
+      }
+    }
+  }
+
+  /**
+   * Migrate Tax Set for hotel room charges taxes
+   * Uses hotel's roomChargesTaxRates and associated Channex rate plans.
+   */
+  private async migrateTaxSet(hotelId: string, channexPropertyId: string) {
+    try {
+      const hotel = await Hotel.findOrFail(hotelId)
+      await hotel.load('roomChargesTaxRates')
+
+      // Collect taxes from hotel's room charges tax rates that have been migrated to Channex
+      const taxes = (hotel.roomChargesTaxRates || [])
+        .filter((t) => Boolean(t.isActive) && Boolean(t.channexTaxId))
+        .map((t) => ({ id: t.channexTaxId as string, level: 0 }))
+
+      // Collect associated rate plan ids for this hotel's room rates
+      const roomRates = await RoomRate.query()
+        .preload('roomType')
+        .whereHas('roomType', (q) => q.where('hotel_id', Number(hotelId)))
+
+      const associatedRatePlanIds = roomRates
+        .map((rr) => rr.channexRateId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+      if (taxes.length === 0) {
+        return {
+          status: 'skipped',
+          data: [],
+          error: 'No eligible taxes with channexTaxId in roomChargesTaxRates',
+        }
+      }
+
+      if (associatedRatePlanIds.length === 0) {
+        return {
+          status: 'skipped',
+          data: [],
+          error: 'No associated rate plans found for hotel',
+        }
+      }
+
+      const payload = {
+        title: `Room Charges Tax Set - ${hotel.hotelName || 'Hotel '}`,
+        property_id: channexPropertyId,
+        associated_rate_plan_ids: associatedRatePlanIds,
+        taxes,
+        currency: hotel.currencyCode || undefined,
+      }
+
+      const resp: any = await this.channexService.createTaxSet(payload)
+
+      return {
+        status: 'completed',
+        data: [{
+          title: payload.title,
+          channexTaxSetId: resp?.data?.id || resp?.id || null,
+          taxesCount: taxes.length,
+          associatedRatePlanCount: associatedRatePlanIds.length,
+          channexData: resp,
+        }],
+        error: null,
+      }
+    } catch (error: any) {
+      return {
+        status: 'failed',
+        data: [],
+        error: error.message,
       }
     }
   }
@@ -1204,8 +1437,6 @@ export default class ChannexMigrationController {
 
       const channexPropertyId = hotel.channexPropertyId;
 
-      console.log(`🎯 Synchronisation des 3 DERNIÈRES bookings Channex pour property ${channexPropertyId}`)
-
       // Récupérer tous les bookings
       const bookingsResponse: any = await this.channexService.getBookingRevisionFeedByFilter({
         page: 1,
@@ -1216,18 +1447,14 @@ export default class ChannexMigrationController {
       const allBookings = Array.isArray(bookingsResponse) ? bookingsResponse : bookingsResponse.data || []
       syncResults.totalFetched = allBookings.length
 
-      console.log(`📥 ${allBookings.length} bookings récupérés au total`)
-
       // Filtrer pour notre property
-      const ourBookings = allBookings.filter(booking => {
+      const ourBookings = allBookings.filter((booking:any) => {
         const propertyId = booking.attributes?.property_id
         return propertyId === channexPropertyId
       })
 
-      console.log(`🎯 ${ourBookings.length} bookings pour notre property`)
-
       if (ourBookings.length === 0) {
-        const allProperties = [...new Set(allBookings.map(b => b.attributes?.property_id).filter(Boolean))]
+        const allProperties = [...new Set(allBookings.map((b:any) => b.attributes?.property_id).filter(Boolean))]
         return response.ok({
           success: false,
           message: 'Aucun booking trouvé pour cette property',
@@ -1238,19 +1465,63 @@ export default class ChannexMigrationController {
           }
         })
       }
+      // === Preload existing reservations by unique_id and channex_booking_id to avoid per-item queries ===
+      const uniqueIds: string[] = ourBookings
+        .map((b: any) => b?.attributes?.unique_id)
+        .filter((v: any) => !!v)
 
+      const channexIds: string[] = ourBookings
+        .map((b: any) => b?.id)
+        .filter((v: any) => !!v)
 
-      // 🎯 MODIFICATION: Traiter uniquement les 3 dernières réservations
+      const existingReservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereIn('reservation_number', uniqueIds)
+        .whereIn('channex_booking_id', channexIds)
+
+      const existingByUniqueId = new Map<string, Reservation>()
+      const existingByChannexId = new Map<string, Reservation>()
+      for (const r of existingReservations) {
+        if (r.reservationNumber) existingByUniqueId.set(r.reservationNumber, r)
+        if (r.channexBookingId) existingByChannexId.set(r.channexBookingId, r)
+      }
+
+      // === Preload room types and room rates once (mapping per channex ids) ===
+      const roomTypes = await RoomType.query()
+        .where('hotel_id', hotelId)
+        .select('id', 'channex_room_type_id')
+
+      const roomTypeByChannexId = new Map<string, number>()
+      for (const rt of roomTypes) {
+        // @ts-ignore ensure we read raw column name if model property differs
+        const channexRoomTypeId: string | null = (rt as any).channexRoomTypeId || (rt as any).channex_room_type_id || null
+        if (channexRoomTypeId) roomTypeByChannexId.set(channexRoomTypeId, rt.id)
+      }
+
+      const roomRates = await RoomRate.query()
+        .where('hotel_id', hotelId)
+        .select('id', 'rate_type_id', 'channex_rate_id')
+
+      const roomRateByChannexRateId = new Map<string, { roomRateId: number, rateTypeId: number }>()
+      for (const rr of roomRates) {
+        // @ts-ignore read model camelCase or raw column
+        const channexRateId: string | null = (rr as any).channexRateId || (rr as any).channex_rate_id || null
+        if (channexRateId) roomRateByChannexRateId.set(channexRateId, { roomRateId: rr.id, rateTypeId: rr.rateTypeId || (rr as any).rate_type_id })
+      }
+
+      // Attach preloaded maps to ctx so downstream creation can use them
+      ;(ctx as any).preloaded = {
+        roomTypeByChannexId,
+        roomRateByChannexRateId,
+      }
+
       for (const booking of ourBookings) {
         try {
           const bookingData = booking.attributes
           const bookingId = booking.id
 
-          // Vérifier si la réservation existe déjà
-          let existingReservation = await Reservation.query()
-            .where('reservation_number', bookingData.unique_id)
-            .orWhere('channex_booking_id', bookingId)
-            .first()
+          // Vérifier si la réservation existe déjà via les maps préchargées
+          const existingReservation = existingByUniqueId.get(bookingData.unique_id) || existingByChannexId.get(bookingId)
 
           if (existingReservation) {
             // ============================================
@@ -1280,9 +1551,266 @@ export default class ChannexMigrationController {
               specialRequests: bookingData.notes,
               channexBookingId: bookingId,
               paymentType: bookingData.payment_type,
+              // OTA fields
+              otaName: bookingData.ota_name ?? existingReservation.otaName ?? null,
+              otaReservationCode: bookingData.ota_reservation_code ?? existingReservation.otaReservationCode ?? null,
+              otaStatus: bookingData.status ?? existingReservation.otaStatus ?? null,
+              otaGuarantee: bookingData.guarantee ?? existingReservation.otaGuarantee ?? null,
             })
 
             await existingReservation.save()
+
+            // === MISE À JOUR COMPLÈTE: devise, invité, chambres et folios ===
+            try {
+              // Préparer la devise de base de l'hôtel et le taux de change à appliquer
+              const CurrencyCacheService = (await import('../services/currency_cache_service.js')).default
+              const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(existingReservation.hotelId)
+              const baseCurrencyCode = (defaultCurrencyPayload?.currencyCode || '').toUpperCase()
+              const rawBookingCurrency = (bookingData.currency || bookingData.currency_code || '').toUpperCase()
+              const isCrossRate = !!rawBookingCurrency && rawBookingCurrency !== baseCurrencyCode
+
+              let exchangeRate = 1
+              if (isCrossRate) {
+                const Currency = (await import('../models/currency.js')).default
+                const sourceCurrency = await Currency.query()
+                  .where('hotelId', existingReservation.hotelId)
+                  .where('currencyCode', rawBookingCurrency)
+                  .select('exchangeRate', 'currencyCode')
+                  .first()
+                exchangeRate = sourceCurrency?.exchangeRate || 1
+              }
+              console.log('Exhange rate:', exchangeRate)
+              // Recharger la réservation avec les relations nécessaires
+              const ReservationModel = (await import('../models/reservation.js')).default
+              const reservation = await ReservationModel.query()
+              
+                .where('id', existingReservation.id)
+                .preload('reservationRooms')
+                .preload('folios')
+                .firstOrFail()
+
+              // Ne pas enregistrer la devise/taux au niveau réservation si les colonnes n'existent pas
+              // Nous appliquerons le taux au niveau des chambres et des folios uniquement
+
+              // Mettre à jour l'invité principal si des changements sont détectés
+              const customerData = bookingData?.customer || bookingData?.guest || bookingData?.guestDetails || null
+              const primaryGuestId = reservation.guestId
+              if (primaryGuestId && customerData) {
+                const Guest = (await import('../models/guest.js')).default
+                const guest = await Guest.find(primaryGuestId)
+                if (guest) {
+                  const firstName = customerData.name || customerData.first_name || guest.firstName
+                  const lastName = customerData.surname || customerData.last_name || guest.lastName
+                  const email = customerData.mail || customerData.email || guest.email
+                  const phone = customerData.phone || guest.phonePrimary
+                  const address = customerData.address || guest.addressLine
+                  const city = customerData.city || guest.city
+                  const country = customerData.country || guest.country
+                  const zipcode = customerData.zip || guest.zipcode
+
+                  await guest
+                    .merge({
+                      firstName,
+                      lastName,
+                      email,
+                      phonePrimary: phone,
+                      addressLine: address,
+                      city,
+                      country,
+                      postalCode:zipcode,
+                    })
+                    .save()
+                }
+              }
+
+              // Normaliser les chambres issues des données Channex et appliquer le taux de change
+              const roomsData = (bookingData.rooms || bookingData.unit_assignments || []) as any[]
+              const incomingRooms: Array<{
+                roomTypeId: number | null
+                roomRateId: number | null
+                adults: number
+                children: number
+                nights: number
+                roomRate: number
+                taxes: number
+                originalRoomRate: number | null
+                originalCurrencyCode: string | null
+                originalExchangeRate: number | null
+                checkInDate: string
+                checkOutDate: string
+              }> = []
+
+              for (const room of roomsData) {
+                const checkinStr = room.checkin_date || bookingData.arrival_date
+                const checkoutStr = room.checkout_date || bookingData.departure_date
+                const checkinDt = DateTime.fromISO(checkinStr)
+                const checkoutDt = DateTime.fromISO(checkoutStr)
+                const nights = checkinDt.isValid && checkoutDt.isValid
+                  ? Math.max(0, Math.ceil(checkoutDt.diff(checkinDt, 'days').days))
+                  : (reservation.numberOfNights || 0)
+
+                const totalStayAmountSrc = parseFloat(room.amount ?? room.rate ?? '0')
+                let firstDayAmountSrc: number | undefined
+                if (Array.isArray(room.days) && room.days.length > 0) {
+                  firstDayAmountSrc = parseFloat(room.days[0]?.amount ?? room.days[0]?.rate ?? '0')
+                } else if (room.days && typeof room.days === 'object') {
+                  const dayKeys = Object.keys(room.days as Record<string, any>)
+                  if (dayKeys.length > 0) {
+                    const earliestKey = dayKeys.sort()[0]
+                    const rawVal = (room.days as Record<string, any>)[earliestKey]
+                    const parsedVal = parseFloat(typeof rawVal === 'string' ? rawVal : String(rawVal))
+                    if (!isNaN(parsedVal)) {
+                      firstDayAmountSrc = parsedVal
+                    }
+                  }
+                }
+                const nightlyRateSrc = firstDayAmountSrc !== undefined
+                  ? firstDayAmountSrc
+                  : (nights && nights > 0 ? (totalStayAmountSrc / nights) : totalStayAmountSrc)
+
+                // Mapper channex_room_type_id et channex_rate_id vers IDs locaux
+                let mappedRoomTypeId: number | null = null
+                if (room.room_type_id) {
+                  const rt = await RoomType.query()
+                    .where('channex_room_type_id', room.room_type_id)
+                    .where('hotel_id', reservation.hotelId)
+                    .select('id')
+                    .first()
+                  mappedRoomTypeId = rt?.id ?? null
+                }
+
+                let mappedRoomRateId: number | null = null
+                const channexRateId: string | undefined = room.rate_plan_id || room.rate_plan
+                if (channexRateId) {
+                  const rr = await RoomRate.query()
+                    .where('channex_rate_id', channexRateId)
+                    .where('hotel_id', reservation.hotelId)
+                    .select('id',"rate_type_id")
+                    .first()
+                  mappedRoomRateId = rr?.rateTypeId ?? null
+                }
+
+                incomingRooms.push({
+                  roomTypeId: mappedRoomTypeId,
+                  roomRateId: mappedRoomRateId,
+                  adults: room.occupancy?.adults || 0,
+                  children: room.occupancy?.children || 0,
+                  nights: nights || 0,
+                  roomRate: (isCrossRate ? exchangeRate : 1) * (parseFloat(`${nightlyRateSrc}`) || 0),
+                  taxes: room.taxes !== undefined ? (isCrossRate ? exchangeRate : 1) * (parseFloat(`${room.taxes}`) || 0) : 0,
+                  originalRoomRate: parseFloat(`${nightlyRateSrc}`) || null,
+                  originalCurrencyCode: rawBookingCurrency || baseCurrencyCode,
+                  originalExchangeRate: isCrossRate ? exchangeRate : 1,
+                  checkInDate: checkinStr,
+                  checkOutDate: checkoutStr,
+                })
+              }
+
+              // Appliquer le diff chambres: mettre à jour, ajouter, supprimer
+              const existingRooms = reservation.reservationRooms || []
+              const minLen = Math.min(existingRooms.length, incomingRooms.length)
+
+              // Mettre à jour les chambres existantes alignées sur les nouvelles données
+              for (let i = 0; i < minLen; i++) {
+                const rr = existingRooms[i]
+                const inc = incomingRooms[i]
+                const nights = inc.nights ?? rr.nights ?? 0
+                const newRoomRate = inc.roomRate
+                const totalRoomCharges = nights === 0 ? newRoomRate : newRoomRate * nights
+                const taxPerNight = inc.taxes || 0
+                const totalTaxesAmount = nights === 0 ? taxPerNight : taxPerNight * nights
+
+                rr.merge({
+                  roomTypeId: inc.roomTypeId ?? rr.roomTypeId,
+                  roomRateId: inc.roomRateId ?? rr.roomRateId,
+                  adults: inc.adults,
+                  children: inc.children,
+                  nights,
+                  roomRate: newRoomRate,
+                  totalRoomCharges,
+                  taxAmount: taxPerNight,
+                  totalTaxesAmount,
+                  totalAmount: totalRoomCharges,
+                  originalRoomRate: inc.originalRoomRate ?? rr.originalRoomRate ?? newRoomRate,
+                  originalExchangeRate: inc.originalExchangeRate ?? rr.originalExchangeRate ?? 1,
+                  originalCurrencyCode: inc.originalCurrencyCode ?? rr.originalCurrencyCode ?? baseCurrencyCode,
+                })
+                await rr.save()
+              }
+
+              // Ajouter les nouvelles chambres si le nombre a augmenté
+              if (incomingRooms.length > existingRooms.length) {
+                for (let i = existingRooms.length; i < incomingRooms.length; i++) {
+                  const inc = incomingRooms[i]
+                  const nights = inc.nights || reservation.numberOfNights || 0
+                  const totalRoomCharges = nights === 0 ? inc.roomRate : inc.roomRate * nights
+                  const totalTaxesAmount = nights === 0 ? inc.taxes : inc.taxes * nights
+
+                  await ReservationRoom.create({
+                    reservationId: reservation.id,
+                    roomTypeId: inc.roomTypeId ?? existingRooms[0]?.roomTypeId ?? 1,
+                    roomRateId: inc.roomRateId ?? null,
+                    roomId: null,
+                    guestId: reservation.guestId!,
+                    isOwner: false,
+                    checkInDate: DateTime.fromISO(inc.checkInDate || reservation.arrivedDate.toISODate()),
+                    checkOutDate: DateTime.fromISO(inc.checkOutDate || reservation.departDate.toISODate()),
+                    checkInTime: reservation.checkInTime,
+                    checkOutTime: reservation.checkOutTime,
+                    totalAmount: totalRoomCharges,
+                    nights,
+                    adults: inc.adults,
+                    children: inc.children,
+                    roomRate: inc.roomRate,
+                    originalRoomRate: inc.originalRoomRate,
+                    originalCurrencyCode: inc.originalCurrencyCode,
+                    originalExchangeRate: inc.originalExchangeRate,
+                    paymentMethodId: reservation.paymentMethodId ?? null,
+                    hotelId: reservation.hotelId,
+                    totalRoomCharges,
+                    taxAmount: inc.taxes,
+                    totalTaxesAmount,
+                    netAmount: totalRoomCharges + totalTaxesAmount,
+                    status: nights === 0 ? 'day_use' : 'reserved',
+                    rateTypeId: null,
+                    mealPlanId: null,
+                  })
+                }
+              }
+
+              // Supprimer les chambres excédentaires si le nombre a diminué
+              if (incomingRooms.length < existingRooms.length) {
+                for (let i = incomingRooms.length; i < existingRooms.length; i++) {
+                  const rr = existingRooms[i]
+                  await ReservationRoom.query().where('id', rr.id).delete()
+                }
+              }
+
+              // Mettre à jour les compteurs de la réservation (adultes, enfants, guestCount)
+              const totalAdults = incomingRooms.reduce((sum, r) => sum + (r.adults || 0), 0)
+              const totalChildren = incomingRooms.reduce((sum, r) => sum + (r.children || 0), 0)
+              reservation.merge({ adults: totalAdults, children: totalChildren, guestCount: totalAdults + totalChildren })
+              await reservation.save()
+
+              // Réinitialiser les transactions des folios et recréer les room charges
+              if (reservation.folios && reservation.folios.length > 0) {
+                const FolioService = (await import('../services/folio_service.js')).default
+                const ReservationFolioService = (await import('../services/reservation_folio_service.js')).default
+
+                for (const folio of reservation.folios) {
+                  await FolioTransaction.query().where('folioId', folio.id).delete()
+                }
+
+                await ReservationFolioService.postRoomCharges(reservation.id, userId)
+
+                for (const folio of reservation.folios) {
+                  await FolioService.updateFolioTotals(folio.id)
+                }
+              }
+            } catch (updateErr) {
+              console.warn('⚠️ Erreur durant la mise à jour complète de la réservation:', updateErr)
+            }
+
             const acknowledged = await ReservationCreationService.sendAcknowledgeToChannex(
               existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
               existingReservation.id,
@@ -1290,14 +1818,10 @@ export default class ChannexMigrationController {
               ctx
             )
             syncResults.totalUpdated++
-            logger.info('acknowledged');
-            logger.info(acknowledged);
-
           } else {
             // ============================================
             // CAS 2: CRÉATION D'UNE NOUVELLE RÉSERVATION
             // ============================================
-            console.log(`➕ Création d'une nouvelle réservation via ReservationCreationService`)
 
             const creationResult = await ReservationCreationService.createFromChannex(
               booking,
@@ -1369,6 +1893,7 @@ export default class ChannexMigrationController {
         message: `Synchronisation des 3 DERNIÈRES réservations terminée: ${syncResults.totalCreated} créées, ${syncResults.totalUpdated} mises à jour`,
         data: {
           ...syncResults,
+          bookingsResponse
         }
       })
 

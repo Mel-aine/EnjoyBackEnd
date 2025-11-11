@@ -47,6 +47,13 @@ export default class TaxRate extends BaseModel {
   @column()
   declare status: string // 'active', 'inactive'
 
+  // New fields
+  @column({ columnName: 'type' })
+  declare type: 'vat' | 'service_fee' | 'city_tax' | null
+
+  @column({ columnName: 'channex_tax_id' })
+  declare channexTaxId: string | null
+
   @manyToMany(() => TaxRate, {
     pivotTable: 'tax_rate_dependencies',
     localKey: 'taxRateId',

@@ -9,13 +9,6 @@ export default class extends BaseSeeder {
 
     const defaultBookingSources = [
       {
-        sourceName: 'Directly',
-        sourceCode: 'Directly',
-        sourceType: 'direct',
-        commissionRate: 0,
-        description: 'Guests who come to the front desk without a prior reservation'
-      },
-      {
         sourceName: 'Walk-in',
         sourceCode: 'WALKIN',
         sourceType: 'walk_in',
@@ -35,6 +28,20 @@ export default class extends BaseSeeder {
         sourceType: 'phone',
         commissionRate: 0,
         description: 'Reservations made over the phone'
+      },
+      {
+        sourceName: 'Outlook Email',
+        sourceCode: 'OUTLOOK',
+        sourceType: 'email',
+        commissionRate: 0,
+        description: 'Reservations received via Outlook email inbox'
+      },
+      {
+        sourceName: 'WhatsApp',
+        sourceCode: 'WHATSAPP',
+        sourceType: 'whatsapp',
+        commissionRate: 0,
+        description: 'Reservations received via WhatsApp messaging'
       }
     ]
 

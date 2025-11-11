@@ -1152,7 +1152,6 @@ router
             router.get('/:id', currenciesController.show.bind(currenciesController)) // Get specific currency details
             router.put('/:id', currenciesController.update.bind(currenciesController)) // Update currency information (only if editable)
             router.delete('/:id', currenciesController.destroy.bind(currenciesController)) // Soft delete currency (only if editable)
-            router.get('/current', currenciesController.current.bind(currenciesController)) // Get current default currency (cached)
           })
           .prefix('currencies')
 

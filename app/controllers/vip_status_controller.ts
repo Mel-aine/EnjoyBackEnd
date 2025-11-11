@@ -61,7 +61,7 @@ export default class VipStatusController {
   async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createVipStatusValidator)
-      
+
       // Validate color format
       if (!VipStatus.validateColor(payload.color)) {
         return response.badRequest({
@@ -151,11 +151,11 @@ export default class VipStatusController {
       }
 
       // Validate icon if provided
-      if (payload.icon && !VipStatus.validateIcon(payload.icon)) {
-        return response.badRequest({
-          message: 'Invalid icon format. Icon must be a non-empty string with maximum 100 characters'
-        })
-      }
+      // if (payload.icon && !VipStatus.validateIcon(payload.icon)) {
+      //   return response.badRequest({
+      //     message: 'Invalid icon format. Icon must be a non-empty string with maximum 100 characters'
+      //   })
+      // }
 
       vipStatus.merge({
         ...payload,
@@ -184,14 +184,15 @@ export default class VipStatusController {
    */
   async destroy({ params, request, response }: HttpContext) {
     try {
-      const hotelId = request.input('hotel_id')
-
+      // const hotelId = request.input('hotel_id')
+      const hotelId = params.hotelId
       // HotelId is mandatory for all operations
       if (!hotelId) {
         return response.badRequest({
           message: 'hotel_id is required as a query parameter'
         })
       }
+
 
       const vipStatus = await VipStatus.query()
         .where('id', params.id)

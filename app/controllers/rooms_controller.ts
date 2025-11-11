@@ -8,11 +8,18 @@ import LoggerService from '#services/logger_service'
 import RoomBlock from '#models/room_block'
 import HouseKeeper from '#models/house_keeper'
 import logger from '@adonisjs/core/services/logger'
+import SupabaseService from '#services/supabase_service'
 
 export default class RoomsController {
+  private supabaseService: SupabaseService
+
+  constructor() {
+    this.supabaseService = new SupabaseService()
+  }
   /**
    * Display a list of rooms
    */
+
   async index({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
@@ -108,11 +115,34 @@ export default class RoomsController {
   async store(ctx: HttpContext) {
     const { request, response, auth } = ctx
     try {
+      const roomImages = request.files('roomImages', {
+        size: '5mb',
+        extnames: ['jpg', 'jpeg', 'png', 'webp']
+      })
+
       const payload = await request.validateUsing(createRoomValidator)
       const { taxRateIds, ...roomData } = payload
 
+       const uploadedImageUrls: string[] = []
+
+      if (roomImages && roomImages.length > 0) {
+        const imagesToUpload = roomImages.slice(0, 2)
+
+        for (const image of imagesToUpload) {
+          try {
+
+            const result = await this.supabaseService.uploadFile(image, 'hotel', 'rooms')
+            uploadedImageUrls.push(result.url)
+
+          } catch (uploadError) {
+            console.error(` Failed to upload ${image.clientName}:`, uploadError.message)
+          }
+        }
+      }
+
       const room = await Room.create({
         ...roomData,
+        images: uploadedImageUrls,
         createdBy: auth.user?.id,
       })
 
@@ -177,16 +207,56 @@ export default class RoomsController {
   /**
    * Update a room
    */
+
   async update(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     try {
       const room = await Room.findOrFail(params.id)
       const oldData = room.toJSON()
+
+      //  Récupérer les nouveaux fichiers uploadés
+      const roomImages = request.files('roomImages', {
+        size: '5mb',
+        extnames: ['jpg', 'jpeg', 'png', 'webp']
+      })
+
+
       const payload = await request.validateUsing(updateRoomValidator)
       const { taxRateIds, ...roomData } = payload
 
+      //  Gérer le remplacement des images
+      let updatedImageUrls = room.images || []
+
+      if (roomImages && roomImages.length > 0) {
+        // Supprimer les anciennes images de Supabase
+        if (room.images && Array.isArray(room.images) && room.images.length > 0) {
+          for (const oldImageUrl of room.images) {
+            try {
+              const filePath = this.supabaseService.extractFilePathFromUrl(oldImageUrl, 'hotel')
+              await this.supabaseService.deleteFile(filePath, 'hotel')
+            } catch (deleteError) {
+              console.error(` Erreur suppression ancienne image:`, deleteError.message)
+            }
+          }
+        }
+
+        // Upload les nouvelles images
+        updatedImageUrls = []
+        const imagesToUpload = roomImages.slice(0, 2)
+
+        for (const image of imagesToUpload) {
+          try {
+            const result = await this.supabaseService.uploadFile(image, 'hotel', 'rooms')
+            updatedImageUrls.push(result.url)
+          } catch (uploadError) {
+            console.error(` Failed to upload ${image.clientName}:`, uploadError.message)
+          }
+        }
+      }
+
       room.merge({
         ...roomData,
+        images: updatedImageUrls,
         lastModifiedBy: auth.user?.id,
       })
 
@@ -251,6 +321,17 @@ export default class RoomsController {
           message: 'Cannot delete room with active reservations',
         })
       }
+
+      if (room.images && Array.isArray(room.images) && room.images.length > 0) {
+      for (const imageUrl of room.images) {
+        try {
+          const filePath = this.supabaseService.extractFilePathFromUrl(imageUrl, 'hotel')
+          await this.supabaseService.deleteFile(filePath, 'hotel')
+        } catch (deleteError) {
+          console.error(`Erreur lors de la suppression de l'image ${imageUrl}:`, deleteError.message)
+        }
+      }
+    }
 
       await room.delete()
 
@@ -549,8 +630,8 @@ export default class RoomsController {
         .preload('rooms', (queryRoom) => {
           queryRoom.select(['id', 'room_number', 'status', 'housekeeping_status'])
         })
-        .select(['id', 'room_type_name','base_adult','base_child',"max_adult","max_child"])
-        .orderBy('sort_key', 'asc')
+        .select(['id', 'room_type_name','base_adult','base_child',"max_adult","max_child","sort_order"])
+        .orderBy('sort_order', 'asc')
 
 
       const setRoomTypesIds = roomsByType.map((e) => e.id)
