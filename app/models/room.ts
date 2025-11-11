@@ -129,8 +129,32 @@ declare housekeepingRemarks: any[]
   @column.dateTime()
   declare outOfOrderTo: DateTime
 
-  @column()
-  declare images: object
+  @column({
+    consume: (value: string) => {
+      try {
+        if (!value) return []
+        // Si c'est déjà un tableau, le retourner
+        if (Array.isArray(value)) return value
+        // Si c'est une string, essayer de la parser comme JSON
+        if (typeof value === 'string') {
+          // Vérifier si c'est une URL simple (pas un JSON)
+          if (value.startsWith('http')) {
+            return [value] // Convertir en tableau avec un élément
+          }
+          return JSON.parse(value)
+        }
+        return []
+      } catch {
+        // Si le parsing échoue, retourner un tableau vide
+        return []
+      }
+    },
+    prepare: (value: string[]) => {
+      if (!value || value.length === 0) return '[]'
+      return JSON.stringify(value)
+    }
+  })
+  declare images: string[]
 
   @column()
   declare virtualTourUrl: string
