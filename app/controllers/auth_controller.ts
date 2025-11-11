@@ -171,6 +171,7 @@ export default class AuthController {
 
       const bookingSources = await BookingSource.query()
         .whereIn('hotel_id', hotelIds)
+        .where('isDeleted', false)
 
 
 
