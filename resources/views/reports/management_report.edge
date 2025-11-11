@@ -940,91 +940,91 @@
 
       <table>
         <tbody>
-          @each(outlet in content.posSummary?.outlets)
+        @each(outlet in content.posSummary?.outlets)
+          <tr>
+            <td class="section-title" style="width: 40%;">
+              {{ outlet.outlet }}
+            </td>
+            <td style="width: 20%;">
+            </td>
+            <td style="width: 20%;">
+            </td>
+            <td style="width: 20%;">
+            </td>
+          </tr>
+          @each(category in outlet.categories)
             <tr>
-              <td class="section-title">
-                {{ outlet.outlet }}
+              <td style="width: 40%;">
+                {{ category.name }}
               </td>
-              <td>
+              <td class="currency" style="width: 20%;">
+                {{ formatCurrency(category?.today) }}
               </td>
-              <td>
+              <td class="currency" style="width: 20%;">
+                {{ formatCurrency(category?.ptd) }}
               </td>
-              <td>
-              </td>
-            </tr>
-            @each(category in outlet.categories)
-              <tr>
-                <td>
-                  {{ category.name }}
-                </td>
-                <td class="currency">
-                  {{ formatCurrency(category?.today) }}
-                </td>
-                <td class="currency">
-                  {{ formatCurrency(category?.ptd) }}
-                </td>
-                <td class="currency">
-                  {{ formatCurrency(category?.ytd) }}
-                </td>
-              </tr>
-            @endeach
-            <tr class="section-total-top">
-              <td class="section-title">
-                Total Revenue without Tax
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.today) }}
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.ptd) }}
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.ytd) }}
-              </td>
-            </tr>
-            <tr class="section-total-bottom">
-              <td class="section-title">
-                Total Revenue with Tax
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.today) }}
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.ptd) }}
-              </td>
-              <td class="currency">
-                {{ formatCurrency(outlet.totalWithoutTax.ytd) }}
+              <td class="currency" style="width: 20%;">
+                {{ formatCurrency(category?.ytd) }}
               </td>
             </tr>
           @endeach
-          <tr class="">
-            <td>
-              <strong>All Outlet's Total Revenue without Tax</strong>
+          <tr class="section-total-top">
+            <td class="section-title" style="width: 40%;">
+              Total Revenue without Tax
             </td>
-            <td class="currency">
-              <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.today) }}</strong>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(outlet.totalWithoutTax.today) }}
             </td>
-            <td class="currency">
-              <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.ptd) }}</strong>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(outlet.totalWithoutTax.ptd) }}
             </td>
-            <td class="currency">
-              <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.ytd) }}</strong>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(outlet.totalWithoutTax.ytd) }}
             </td>
           </tr>
           <tr class="section-total-bottom">
-            <td>
-              <strong>All Outlet's Total Revenue with Tax</strong>
+            <td class="section-title" style="width: 40%;">
+              Total Revenue with Tax
             </td>
-            <td class="currency">
-              <strong>{{ formatCurrency(content.posSummary?.totalWithTax.today) }}</strong>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(outlet.totalWithTax.today) }}
             </td>
-            <td class="currency">
-              <strong>{{ formatCurrency(content.posSummary?.totalWithTax.ptd) }}</strong>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(outlet.totalWithTax.ptd) }}
             </td>
-            <td class="currency">
-              <strong>{{ formatCurrency(content.posSummary?.totalWithTax.ytd) }}</strong>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(outlet.totalWithTax.ytd) }}
             </td>
           </tr>
+        @endeach
+        <tr class="">
+          <td style="width: 40%;">
+            <strong>All Outlet's Total Revenue without Tax</strong>
+          </td>
+          <td class="currency" style="width: 20%;">
+            <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.today) }}</strong>
+          </td>
+          <td class="currency" style="width: 20%;">
+            <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.ptd) }}</strong>
+          </td>
+          <td class="currency" style="width: 20%;">
+            <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.ytd) }}</strong>
+          </td>
+        </tr>
+        <tr class="section-total-bottom">
+          <td style="width: 40%;">
+            <strong>All Outlet's Total Revenue with Tax</strong>
+          </td>
+          <td class="currency" style="width: 20%;">
+            <strong>{{ formatCurrency(content.posSummary?.totalWithTax.today) }}</strong>
+          </td>
+          <td class="currency" style="width: 20%;">
+            <strong>{{ formatCurrency(content.posSummary?.totalWithTax.ptd) }}</strong>
+          </td>
+          <td class="currency" style="width: 20%;">
+            <strong>{{ formatCurrency(content.posSummary?.totalWithTax.ytd) }}</strong>
+          </td>
+        </tr>
         </tbody>
       </table>
 
@@ -1041,58 +1041,58 @@
         <tbody>
           @each(outlet in content.posPayment?.outlets)
             <tr>
-              <td class="section-title">
+              <td class="section-title" style="width: 40%;">
                 {{ outlet.outlet }}
               </td>
-              <td>
+              <td style="width: 20%;">
               </td>
-              <td>
+              <td style="width: 20%;">
               </td>
-              <td>
+              <td style="width: 20%;">
               </td>
             </tr>
             @each(payment in outlet.payments)
               <tr>
-                <td>
+                <td style="width: 40%;">
                   {{ payment.name }}
                 </td>
-                <td class="currency">
+                <td class="currency" style="width: 20%;">
                   {{ formatCurrency(payment?.today) }}
                 </td>
-                <td class="currency">
+                <td class="currency" style="width: 20%;">
                   {{ formatCurrency(payment?.ptd) }}
                 </td>
-                <td class="currency">
+                <td class="currency" style="width: 20%;">
                   {{ formatCurrency(payment?.ytd) }}
                 </td>
               </tr>
             @endeach
             <tr class="section-total">
-              <td class="section-title">
+              <td class="section-title" style="width: 40%;">
                 Total
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(outlet.total.today) }}
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(outlet.total.ptd) }}
               </td>
-              <td class="currency">
+              <td class="currency" style="width: 20%;">
                 {{ formatCurrency(outlet.total.ytd) }}
               </td>
             </tr>
           @endeach
           <tr class="">
-            <td>
+            <td style="width: 40%;">
               <strong>All Outlet's Payment Total</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.posPayment?.total.today) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.posPayment?.total.ptd) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.posPayment?.total.ytd) }}</strong>
             </td>
           </tr>
