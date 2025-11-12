@@ -1,7 +1,7 @@
 import { HttpContext } from '@adonisjs/core/http'
 import hash from '@adonisjs/core/services/hash'
 //import app from '@adonisjs/core/services/app'
-import { cuid } from '@adonisjs/core/helpers'
+import { cuid, Secret } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
 import LoggerService from '#services/logger_service'
@@ -299,10 +299,33 @@ export default class AuthController {
     }
   }
 
-  // Rafraîchir le token via un Refresh Token (Authorization: Bearer <refresh_token>)
-  async refresh_token({ auth, response }: HttpContext) {
-    const user = await auth.authenticate()
-    const current = user.currentAccessToken
+  // Rafraîchir le token via un Refresh Token
+  // Priorité: Authorization Bearer. Fallback: cookie httpOnly 'refresh_token'.
+  async refresh_token({ auth, request, response }: HttpContext) {
+    let user: User
+    let current: any
+
+    // 1) Essai via Authorization Bearer
+    try {
+      user = await auth.authenticate()
+      current = user.currentAccessToken
+    } catch {
+      // 2) Fallback via cookie httpOnly
+      const cookieVal = request.cookiesList()?.refresh_token
+      if (!cookieVal) {
+        return response.unauthorized({ message: 'Missing refresh token' })
+      }
+
+      const verified = await User.accessTokens.verify(new Secret(cookieVal))
+      if (!verified) {
+        return response.unauthorized({ message: 'Invalid refresh token' })
+      }
+
+      // Charger l’utilisateur par tokenableId
+      const tokenUserId = Number(verified.tokenableId)
+      user = await User.findOrFail(isNaN(tokenUserId) ? String(verified.tokenableId) as any : tokenUserId)
+      current = verified
+    }
 
     // Vérifie que le token présenté possède la capacité 'refresh'
     const isRefresh = Array.isArray(current?.abilities) && current!.abilities.includes('refresh')
