@@ -1376,7 +1376,7 @@ export default class HotelsController {
         lastModifiedBy: user.id,
         hotelId: hotelId,
       }
-      
+
       if (trx) {
         adminRole = await Role.create(roleCreateData, { client: trx })
       } else {
@@ -1407,5 +1407,51 @@ export default class HotelsController {
     await user.save();
     return user
   }
+
+  async checkHotelExists({ params, response }: HttpContext) {
+  try {
+    const hotelId = params.hotelId
+
+    // Validate hotel ID
+    if (!hotelId || isNaN(Number(hotelId))) {
+      return response.badRequest({
+        message: 'Invalid hotel ID',
+        exists: false
+      })
+    }
+
+    // Find hotel and check if it's active
+    const hotel = await Hotel.query()
+      .where('id', hotelId)
+      .where('status', 'active')
+      .select(['id', 'hotel_name', 'status', 'hotel_code'])
+      .first()
+
+    if (!hotel) {
+      return response.notFound({
+        message: 'Hotel not found or inactive',
+        exists: false
+      })
+    }
+
+    return response.ok({
+      message: 'Hotel exists and is active',
+      exists: true,
+      data: {
+        id: hotel.id,
+        name: hotel.hotelName,
+        code: hotel.hotelCode,
+        status: hotel.status
+      }
+    })
+  } catch (error) {
+    logger.error('Error checking hotel existence:', error)
+    return response.internalServerError({
+      message: 'Failed to check hotel existence',
+      exists: false,
+      error: error.message
+    })
+  }
+}
 
 }
