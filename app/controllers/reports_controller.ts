@@ -40,28 +40,68 @@ export default class ReportsController {
   async generate({ request, response }: HttpContext) {
     try {
       const { reportType, filters = {} } = request.only(['reportType', 'filters'])
-
+  
       if (!reportType) {
         return response.badRequest({
           success: false,
           message: 'Le type de rapport est requis'
         })
       }
+  
+      // ============================================
+      // CONSTRUCTION COMPLÈTE DES FILTRES
+      // ============================================
       const reportFilters: ReportFilters = {
+        // Filtres de base
         hotelId: filters.hotelId ? parseInt(filters.hotelId) : undefined,
         startDate: filters.startDate,
         endDate: filters.endDate,
+        
+        // Filtres de réservation
         roomTypeId: filters.roomTypeId ? parseInt(filters.roomTypeId) : undefined,
         guestId: filters.guestId ? parseInt(filters.guestId) : undefined,
         userId: filters.userId ? parseInt(filters.userId) : undefined,
         status: filters.status,
+        
+        // Filtres de service
         departmentId: filters.departmentId ? parseInt(filters.departmentId) : undefined,
         bookingSourceId: filters.bookingSourceId ? parseInt(filters.bookingSourceId) : undefined,
-        ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined
+        ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined,
+        
+        // ============================================
+        // TOUS LES FILTRES DISPONIBLES
+        // ============================================
+        // Filtres commerciaux
+        company: filters.company,
+        travelAgent: filters.travelAgent,
+        businessSource: filters.businessSource,
+        market: filters.market,
+        
+        // Fourchette de prix
+        rateFrom: filters.rateFrom ? parseFloat(filters.rateFrom) : undefined,
+        rateTo: filters.rateTo ? parseFloat(filters.rateTo) : undefined,
+        
+        // Type et options d'affichage
+        reservationType: filters.reservationType,
+        showAmount: filters.showAmount, // 'rent_per_night' ou 'total_amount'
+        taxInclusive: filters.taxInclusive === true || filters.taxInclusive === 'true',
+        
+        // Colonnes sélectionnées
+        selectedColumns: Array.isArray(filters.selectedColumns) 
+          ? filters.selectedColumns 
+          : (filters.selectedColumns ? [filters.selectedColumns] : undefined),
+        
+        // Filtres additionnels pour les rapports Front Office
+        arrivalFrom: filters.arrivalFrom,
+        arrivalTo: filters.arrivalTo,
+        roomType: filters.roomType,
+        rateType: filters.rateType,
+        user: filters.user,
+        checkin: filters.checkin
       }
-
+  
       let reportData
-
+  
       switch (reportType) {
         // Reservation Reports
         case 'arrivalList':
@@ -85,6 +125,7 @@ export default class ReportsController {
         case 'voidReservations':
           reportData = await ReportsService.getVoidReservations(reportFilters)
           break
+        
         // Front Office Reports
         case 'guestCheckedIn':
           reportData = await ReportsService.getGuestCheckedIn(reportFilters)
@@ -101,7 +142,7 @@ export default class ReportsController {
         case 'taskList':
           reportData = await ReportsService.getTaskList(reportFilters)
           break
-
+  
         // Back Office Reports
         case 'revenueReport':
           reportData = await ReportsService.getRevenueReport(reportFilters)
@@ -112,12 +153,12 @@ export default class ReportsController {
         case 'cashierReport':
           reportData = await ReportsService.getCashierReport(reportFilters)
           break
-
+  
         // Audit Reports
         case 'userActivityLog':
           reportData = await ReportsService.getUserActivityLog(reportFilters)
           break
-
+  
         // Statistical Reports
         case 'occupancyReport':
           reportData = await ReportsService.getOccupancyReport(reportFilters)
@@ -134,23 +175,25 @@ export default class ReportsController {
         case 'sourceOfBusinessReport':
           reportData = await ReportsService.getSourceOfBusinessReport(reportFilters)
           break
-
+  
         default:
           return response.badRequest({
             success: false,
             message: `Type de rapport non reconnu: ${reportType}`
           })
       }
-
+  
       return response.ok({
         success: true,
         data: reportData
       })
     } catch (error) {
+      console.log(error)
       return response.internalServerError({
         success: false,
-        message: 'Erreur lors de la génération du rapport',
-        error: error.message
+        error,
+        // message: 'Erreur lors de la génération du rapport',
+        // error: error.message
       })
     }
   }
@@ -176,22 +219,60 @@ export default class ReportsController {
         })
       }
 
-      // Generate the report data first
+      // ============================================
+      // CONSTRUCTION COMPLÈTE DES FILTRES POUR L'EXPORT
+      // ============================================
       const reportFilters: ReportFilters = {
+        // Filtres de base
         hotelId: filters.hotelId ? parseInt(filters.hotelId) : undefined,
         startDate: filters.startDate,
         endDate: filters.endDate,
+        
+        // Filtres de réservation
         roomTypeId: filters.roomTypeId ? parseInt(filters.roomTypeId) : undefined,
         guestId: filters.guestId ? parseInt(filters.guestId) : undefined,
         userId: filters.userId ? parseInt(filters.userId) : undefined,
         status: filters.status,
+        
+        // Filtres de service
         departmentId: filters.departmentId ? parseInt(filters.departmentId) : undefined,
         bookingSourceId: filters.bookingSourceId ? parseInt(filters.bookingSourceId) : undefined,
-        ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined
+        ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined,
+        
+        // ============================================
+        // TOUS LES FILTRES DISPONIBLES
+        // ============================================
+        // Filtres commerciaux
+        company: filters.company,
+        travelAgent: filters.travelAgent,
+        businessSource: filters.businessSource,
+        market: filters.market,
+        
+        // Fourchette de prix
+        rateFrom: filters.rateFrom ? parseFloat(filters.rateFrom) : undefined,
+        rateTo: filters.rateTo ? parseFloat(filters.rateTo) : undefined,
+        
+        // Type et options d'affichage
+        reservationType: filters.reservationType,
+        showAmount: filters.showAmount,
+        taxInclusive: filters.taxInclusive === true || filters.taxInclusive === 'true',
+        
+        // Colonnes sélectionnées
+        selectedColumns: Array.isArray(filters.selectedColumns) 
+          ? filters.selectedColumns 
+          : (filters.selectedColumns ? [filters.selectedColumns] : undefined),
+        
+        // Filtres additionnels pour les rapports Front Office
+        arrivalFrom: filters.arrivalFrom,
+        arrivalTo: filters.arrivalTo,
+        roomType: filters.roomType,
+        rateType: filters.rateType,
+        user: filters.user,
+        checkin: filters.checkin
       }
 
       // Get report data using the same logic as generate method
-      let reportData: HtmlReport
+      let reportData: HtmlReport | ReportData
       switch (reportType) {
         case 'arrivalList':
           reportData = await ReportsService.getArrivalList(reportFilters)
@@ -7404,7 +7485,7 @@ export default class ReportsController {
         const primaryRoom = reservation.reservationRooms.find(room => room.isOwner) || reservation.reservationRooms[0]
 
         return {
-          guestName: `${reservation.guest.displayName}`,
+          guestName: reservation.guest?.displayName || 'Guest not found',
           roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
           checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
           checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
@@ -7426,11 +7507,13 @@ export default class ReportsController {
       })
 
     } catch (error) {
-      logger.error('Error generating guest list report:', error)
+      //logger.error('Error generating guest list report:', error)
+      console.log(error)
       return response.internalServerError({
         success: false,
-        message: 'Error generating guest list report',
-        error: error.message
+        error,
+        // message: 'Error generating guest list report',
+        // error: error.message
       })
     }
   }

@@ -198,15 +198,9 @@ export class FolioPrintService {
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
       status: reservation.status || reservation.reservationStatus,
-      checkedInBy: reservation.checkedInByUser 
-      ? `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}`
-      : 'N/A',
-      checkedOutBy: reservation.checkedOutByUser 
-        ? `${reservation.checkedOutByUser.firstName} ${reservation.checkedOutByUser.lastName}`
-        : 'N/A',
-      reservedBy: reservation.reservedByUser 
-        ? `${reservation.reservedByUser.firstName} ${reservation.reservedByUser.lastName}`
-        : 'N/A'
+      checkedInBy: reservation.checkedInByUser.fullName,
+      checkedOutBy: reservation.checkedOutByUser.fullName,
+      reservedBy: reservation.reservedByUser.fullName
     } 
 
     // Prepare folio information

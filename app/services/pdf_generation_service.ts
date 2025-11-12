@@ -564,7 +564,7 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 33%;"><span class="label">Reserved By :</span> ${reservation.reservedBy || 'N/A'}</td>
-                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy || 'N/A'}</td>
+                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy}</td>
                         <td style="width: 33%;"><span class="label">Checked Out By :</span> ${reservation.checkedOutBy || 'N/A'}</td>
                         <td style="width: 33%;"><span class="label">Modified by :</span> ${reservation.modifier || 'N/A'}</td>
                     </tr>

@@ -364,6 +364,8 @@ export default class RoomTypesController {
       const roomTypes = await RoomType.query()
         .where('hotel_id', hotelId)
         .andWhere('is_deleted', false)
+        .preload('createdByUser')
+        .preload('updatedByUser')
         .orderBy('sort_order', 'asc')
         .paginate(page, limit)
 

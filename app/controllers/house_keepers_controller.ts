@@ -35,7 +35,7 @@ export default class HouseKeepersController {
     }
   }
 
-  public async store({ request, response }: HttpContext) {
+  public async store({ request, response,auth }: HttpContext) {
     try {
       const hotel_id = Number(request.input('hotel_id'))
       const name = request.input('name')
@@ -47,14 +47,20 @@ export default class HouseKeepersController {
       if (!name) return response.badRequest({ message: 'name is required' })
       if (!phone) return response.badRequest({ message: 'phone is required' })
 
-      const hk = await houseKeeperService.create({ hotel_id, name, phone })
+      // const hk = await houseKeeperService.create({ hotel_id, name, phone, })
+      const hk = await houseKeeperService.create({
+      hotel_id,
+      name: name.trim(),
+      phone: phone.trim(),
+      createdByUserId: auth.user?.id
+    } as any)
       return response.created({ message: 'HouseKeeper created successfully', data: hk })
     } catch (error) {
       return response.internalServerError({ message: 'Failed to create HouseKeeper', error: error.message })
     }
   }
 
-  public async update({ params, request, response }: HttpContext) {
+  public async update({ params, request, response,auth }: HttpContext) {
     try {
       const id = Number(params.id)
       if (Number.isNaN(id)) return response.badRequest({ message: 'Invalid id' })
@@ -67,6 +73,9 @@ export default class HouseKeepersController {
       }
       if (request.input('name') !== undefined) payload.name = request.input('name')
       if (request.input('phone') !== undefined) payload.phone = request.input('phone')
+      if (Object.keys(payload).length > 0 && auth.user?.id) {
+        payload.updatedByUserId = auth.user.id
+      }
 
       const hk = await houseKeeperService.update(id, payload)
       return response.ok({ message: 'HouseKeeper updated successfully', data: hk })

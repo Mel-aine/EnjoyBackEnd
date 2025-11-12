@@ -12,505 +12,384 @@ export interface HtmlReport {
 export class HtmlReportGenerator {
 
     // Génère un rapport HTML pour la liste d'arrivée
-static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
-    // Mapping des colonnes disponibles
-    const availableColumns = {
-      'pickUp': { key: 'pickUp', label: 'Pick Up' },
-      'dropOff': { key: 'dropOff', label: 'Drop Off' },
-      'resType': { key: 'resType', label: 'Res.Type' },
-      'company': { key: 'company', label: 'Company' },
-      'user': { key: 'user', label: 'User' },
-      'deposit': { key: 'deposit', label: 'Deposit' },
-      'balanceDue': { key: 'balanceDue', label: 'Balance Due' },
-      'marketCode': { key: 'marketCode', label: 'Market Code' },
-      'businessSource': { key: 'businessSource', label: 'Business Source' },
-      'mealPlan': { key: 'mealPlan', label: 'Meal Plan' },
-      'rateType': { key: 'rateType', label: 'Rate Type' }
-    }
-
-    // Colonnes de base toujours visibles
-    const baseColumns = [
-      { key: 'reservationNumber', label: 'Res. No' },
-      { key: 'guestName', label: 'Guest' },
-      { key: 'roomInfo', label: 'Room' },
-      { key: 'ratePerNight', label: 'Rate' },
-      { key: 'arrivalDate', label: 'Arrival' },
-      { key: 'departureDate', label: 'Departure' },
-      { key: 'paxInfo', label: 'Pax' }
-    ]
-
-    // Colonnes supplémentaires sélectionnées
-    const selectedAdditionalColumns = (filters.selectedColumns || [])
-      .filter(col => availableColumns[col])
-      .map(col => availableColumns[col])
-
-    // Toutes les colonnes à afficher
-    const allColumns = [...baseColumns, ...selectedAdditionalColumns]
-
-    // Générer les en-têtes du tableau
-    const tableHeaders = allColumns.map(column => 
-      `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">${column.label}</th>`
-    ).join('')
-
-    // Générer les lignes du tableau
-    const tableRows = data.map((item, index) => {
-      const roomInfo = `${item.roomNumber || 'N/A'} ${item.roomType ? `- ${item.roomType}` : ''}`
-      const paxInfo = `${item.adults || 0}/${item.children || 0}`
-      
-      // Fonction pour formater les valeurs
-      const formatValue = (value: any, key: string) => {
-        if (value === undefined || value === null) return '-'
-        
-        // Formater les montants financiers
-        if (['ratePerNight', 'finalAmount', 'deposit', 'balanceDue'].includes(key)) {
-          return Number(value).toFixed(2)
+    static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+        // Mapping des colonnes disponibles
+        const availableColumns = {
+          'pickUp': { key: 'pickUp', label: 'Pick Up' },
+          'dropOff': { key: 'dropOff', label: 'Drop Off' },
+          'resType': { key: 'resType', label: 'Res.Type' },
+          'company': { key: 'company', label: 'Company' },
+          'user': { key: 'user', label: 'User' },
+          'deposit': { key: 'deposit', label: 'Deposit' },
+          'balanceDue': { key: 'balanceDue', label: 'Balance Due' },
+          'marketCode': { key: 'marketCode', label: 'Market Code' },
+          'businessSource': { key: 'businessSource', label: 'Business Source' },
+          'mealPlan': { key: 'mealPlan', label: 'Meal Plan' },
+          'rateType': { key: 'rateType', label: 'Rate Type' }
         }
-        
-        return value.toString()
-      }
-
-      // Cellules de base
-      const baseCells = [
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.reservationNumber, 'reservationNumber')}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.guestName, 'guestName')}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${roomInfo}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.ratePerNight, 'ratePerNight')}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.arrivalDate, 'arrivalDate')}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${formatValue(item.departureDate, 'departureDate')}</td>`,
-        `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${paxInfo}</td>`
-      ]
-
-      // Cellules supplémentaires basées sur la sélection
-      const additionalCells = selectedAdditionalColumns.map(column => {
-        const value = formatValue(item[column.key], column.key)
-        return `<td class="px-4 py-4 text-sm text-gray-900 dark:text-white">${value}</td>`
-      })
-
-      const rowClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'
-      return `<tr class="${rowClass} hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors cursor-pointer">${[...baseCells, ...additionalCells].join('')}</tr>`
-    }).join('')
-
-    // Formater les dates pour l'affichage des filtres
-    const formatDate = (dateString: string) => {
-      if (!dateString) return 'N/A'
-      try {
-        return DateTime.fromISO(dateString).toFormat('dd/MM/yyyy')
-      } catch {
-        return dateString
-      }
-    }
-
-    // Compter le nombre de filtres actifs
-    const activeFilters = Object.keys(filters).filter(key => 
-      key !== 'startDate' && 
-      key !== 'endDate' && 
-      key !== 'hotelId' && 
-      key !== 'selectedColumns' &&
-      filters[key] !== undefined && 
-      filters[key] !== '' &&
-      filters[key] !== null &&
-      filters[key] !== false
-    ).length
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrival List Report - ${generatedAt.toFormat('dd/MM/yyyy')}</title>
-    <style>
-        body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            background-color: #f8fafc; 
-            color: #1f2937; 
+    
+        // Colonnes de base toujours visibles
+        const baseColumns = [
+          { key: 'reservationNumber', label: 'Res. No' },
+          { key: 'guestName', label: 'Guest' },
+          { key: 'roomInfo', label: 'Room' },
+          { key: 'ratePerNight', label: 'Rate<br>(Rs)' },
+          { key: 'arrivalDate', label: 'Arrival' },
+          { key: 'departureDate', label: 'Departure' },
+          { key: 'paxInfo', label: 'Pax' }
+        ]
+    
+        // Colonnes supplémentaires sélectionnées
+        const selectedAdditionalColumns = (filters.selectedColumns || [])
+          .filter(col => availableColumns[col])
+          .map(col => availableColumns[col])
+    
+        // Toutes les colonnes à afficher
+        const allColumns = [...baseColumns, ...selectedAdditionalColumns]
+    
+        // Générer les en-têtes du tableau
+        const tableHeaders = allColumns.map(column => 
+          `<th>${column.label}</th>`
+        ).join('')
+    
+        // Mapping des clés de données vers les colonnes
+        const dataKeyMapping = {
+          'pickUp': 'pickUp',
+          'dropOff': 'dropOff',
+          'resType': 'reservationType',
+          'company': 'company',
+          'user': 'createdBy',
+          'deposit': 'depositPaid',
+          'balanceDue': 'balanceDue',
+          'marketCode': 'marketSegment',
+          'businessSource': 'businessSource',
+          'mealPlan': 'mealPlan',
+          'rateType': 'ratePlan'
         }
-        
-        .report-container { 
-            max-width: 100%; 
-            margin: 0 auto; 
-            background-color: white; 
-            border-radius: 8px; 
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+    
+        // Fonction pour formater les valeurs
+        const formatValue = (value: any, key: string) => {
+          if (value === undefined || value === null) return ''
+          
+          // Formater les montants financiers
+          if (['ratePerNight', 'displayAmount', 'depositPaid', 'balanceDue', 'finalAmount', 'totalAmount'].includes(key)) {
+            return Number(value).toFixed(2)
+          }
+          
+          return value.toString()
         }
-        
-        .dark .report-container {
-            background-color: #1f2937;
-            color: #e5e7eb;
+    
+        // Formater les dates avec heure pour l'arrivée
+        const formatArrivalDate = (dateString: string, timeString: string) => {
+          if (!dateString) return ''
+          const time = timeString || '12:00 PM'
+          return `${dateString}<br><span class="time">${time}</span>`
         }
-        
-        .report-header { 
-            padding: 20px 24px; 
-            background-color: white;
+    
+        // Générer les lignes du tableau
+        const tableRows = data.map((item, index) => {
+          const roomInfo = `${item.roomNumber || 'N/A'}${item.roomType ? ` - ${item.roomType}` : ''}`
+          const paxInfo = `${item.adults || 0}/${item.children || 0}`
+          
+          // Montant à afficher selon le filtre showAmount
+          const displayRate = filters.showAmount === 'total_rent' 
+            ? (item.totalAmount || item.finalAmount || 0)
+            : (item.ratePerNight || 0)
+    
+          // Cellules de base
+          const baseCells = [
+            `<td class="res-number">${formatValue(item.reservationNumber, 'reservationNumber')}</td>`,
+            `<td>${formatValue(item.guestName, 'guestName')}</td>`,
+            `<td>${roomInfo}</td>`,
+            `<td class="rate-cell">${formatValue(displayRate, 'displayAmount')}</td>`,
+            `<td>${item.arrivalDate}</td>`,
+            `<td>${item.departureDate || ''}</td>`,
+            `<td>${paxInfo}</td>`
+          ]
+    
+          // Cellules supplémentaires basées sur la sélection
+          const additionalCells = selectedAdditionalColumns.map(column => {
+            const dataKey = dataKeyMapping[column.key] || column.key
+            const value = formatValue(item[dataKey], dataKey)
+            // Appliquer la classe user-cell pour la colonne User
+            const cellClass = column.key === 'user' ? ' class="user-cell"' : ''
+            return `<td${cellClass}>${value}</td>`
+          })
+    
+          return `<tr>${[...baseCells, ...additionalCells].join('')}</tr>`
+        }).join('')
+    
+        // Formater les dates pour l'affichage des filtres
+        const formatDate = (dateString: string) => {
+          if (!dateString) return 'N/A'
+          try {
+            return DateTime.fromISO(dateString).toFormat('dd/MM/yyyy')
+          } catch {
+            return dateString
+          }
         }
-        
-        .dark .report-header {
-            background-color: #1f2937;
-        }
-        
-        .report-title { 
-            font-size: 24px; 
-            font-weight: 600; 
-            color: #111827; 
-            margin-bottom: 8px; 
-        }
-        
-        .dark .report-title {
-            color: #f9fafb; 
-        }
-        
-        .report-subtitle { 
-            font-size: 14px; 
-            color: #6b7280; 
-        }
-        
-        .dark .report-subtitle {
-            color: #9ca3af;
-        }
-        
-        .filters-info { 
-            padding: 16px 24px; 
-            background-color: #f8fafc; 
-            font-size: 14px; 
-            color: #6b7280; 
-            border-top: 1px solid #e5e7eb;
-        }
-        
-        .dark .filters-info {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #d1d5db;
-        }
-        
-        .filters-info span { 
-            margin-right: 16px; 
-        }
-        
-        .results-section { 
-            background-color: white;
-        }
-        
-        .dark .results-section {
-            background-color: #1f2937;
-        }
-        
-        .results-header { 
-            padding: 20px 24px;
-            border-top: 1px solid #e5e7eb;
-        }
-        
-        .dark .results-header {
-            border-color: #4b5563;
-        }
-        
-        .results-title { 
-            font-size: 18px; 
-            font-weight: 600; 
-            color: #111827; 
-            margin: 0;
-        }
-        
-        .dark .results-title {
-            color: #f9fafb;
-        }
-        
-        .results-meta { 
-            font-size: 12px; 
-            color: #6b7280; 
-            margin-top: 4px;
-        }
-        
-        .dark .results-meta {
-            color: #9ca3af;
-        }
-        
-        .table-container {
-            background-color: white;
-        }
-        
-        .dark .table-container {
-            background-color: #1f2937;
-        }
-        
-        .results-table { 
-            width: 100%; 
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 14px; 
-        }
-        
-        .results-table th { 
-            background-color: #f9fafb; 
-            padding: 12px 16px; 
-            text-align: left; 
-            font-weight: 500; 
-            color: #6b7280; 
-            font-size: 12px; 
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            position: sticky;
-            top: 0;
-        }
-        
-        .dark .results-table th {
-            background-color: #374151;
-            color: #9ca3af;
-        }
-        
-        .results-table td { 
-            padding: 16px; 
-            font-size: 14px; 
-        }
-        
-        .dark .results-table td {
-            color: #e5e7eb;
-        }
-        
-        .results-table tr:hover { 
-            background-color: #f0f9ff !important; 
-        }
-        
-        .dark .results-table tr:hover {
-            background-color: #374151 !important;
-        }
-        
-        .results-footer { 
-            padding: 20px 24px; 
-            background-color: #f9fafb; 
-            border-top: 1px solid #e5e7eb; 
-            font-size: 14px; 
-            font-weight: 500; 
-            color: #374151; 
-        }
-        
-        .dark .results-footer {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #d1d5db;
-        }
-        
-        .summary-stats { 
-            display: flex; 
-            gap: 20px; 
-            margin-top: 12px; 
-            flex-wrap: wrap; 
-        }
-        
-        .summary-stat { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            min-width: 80px; 
-        }
-        
-        .stat-value { 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #3b82f6; 
-        }
-        
-        .dark .stat-value {
-            color: #60a5fa;
-        }
-        
-        .stat-label { 
-            font-size: 12px; 
-            color: #6b7280; 
-        }
-        
-        .dark .stat-label {
-            color: #9ca3af;
-        }
-        
-        .report-meta { 
-            margin-top: 20px; 
-            padding-top: 16px; 
-            border-top: 1px solid #e5e7eb; 
-            font-size: 12px; 
-            color: #6b7280; 
-            text-align: center; 
-        }
-        
-        .dark .report-meta {
-            border-color: #4b5563;
-            color: #9ca3af;
-        }
-        
-        .selected-columns-info { 
-            background-color: #eff6ff; 
-            padding: 8px 12px; 
-            border-radius: 4px; 
-            margin: 8px 0; 
-            font-size: 12px; 
-        }
-        
-        .dark .selected-columns-info {
-            background-color: #1e40af;
-            color: #dbeafe;
-        }
-        
-        .filters-applied {
-            background-color: #ecfdf5;
-            padding: 12px 16px;
-            border-left: 4px solid #10b981;
-            margin: 10px 0;
-            font-size: 14px;
-            color: #065f46;
-        }
-        
-        .dark .filters-applied {
-            background-color: #064e3b;
-            color: #a7f3d0;
-            border-left-color: #34d399;
-        }
-        
-        .no-data {
-            padding: 60px 20px;
-            text-align: center;
-            color: #6b7280;
-            font-size: 16px;
-            font-weight: 500;
-        }
-        
-        .dark .no-data {
-            color: #9ca3af;
-        }
-        
-        /* Responsive design */
-        @media (max-width: 768px) {
+    
+        // Calculer le nombre total de pax
+        const totalPax = `${summary.totalAdults || 0}/${summary.totalChildren || 0}`
+    
+        return `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${data[0].hotelName} - Arrival List</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+    
+            @page {
+                margin: 20mm 15mm;
+                @top-center {
+                    content: element(pageHeader);
+                }
+                @bottom-center {
+                    content: element(pageFooter);
+                }
+            }
+    
             body {
-                padding: 10px;
+                font-family: Arial, sans-serif;
+                padding: 20px;
+                background-color: #f5f5f5;
             }
-            
-            .report-container {
-                border-radius: 0;
+    
+            .page-header {
+                position: running(pageHeader);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 0;
+                border-bottom: 1px solid #999;
+                margin-bottom: 20px;
             }
-            
-            .results-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
+    
+            .page-footer {
+                position: running(pageFooter);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 0;
+                border-top: 1px solid #999;
+                margin-top: 20px;
+                font-size: 12px;
+                color: #666;
             }
-            
-            .summary-stats {
-                justify-content: center;
+    
+            .container {
+                background-color: white;
+                border: 2px solid #666;
+                padding: 20px;
+                max-width: 1200px;
+                margin: 0 auto;
             }
-            
-            .summary-stat {
-                min-width: 60px;
+    
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #999;
             }
-            
-            .filters-info span {
-                display: block;
-                margin-bottom: 8px;
-                margin-right: 0;
+    
+            .header h1 {
+                font-size: 24px;
+                font-weight: bold;
+                color: #000;
             }
-            
-            .results-table th,
-            .results-table td {
+    
+            .arrival-btn {
+                border: 2px solid #c00;
+                background: white;
+                color: #c00;
+                padding: 8px 20px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+    
+            .filters {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                margin-bottom: 20px;
+                font-size: 13px;
+                flex-wrap: wrap;
+            }
+    
+            .filters label {
+                font-weight: bold;
+            }
+    
+            .filters input,
+            .filters select {
+                border: none;
+                padding: 4px 8px;
+                font-size: 13px;
+                background-color: transparent;
+            }
+    
+            .filters select {
+                appearance: none;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+            }
+    
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+            }
+    
+            table th {
+                background-color: transparent;
+                border: none;
+                border-top: 1px solid #999;
+                border-bottom: 1px solid #999;
                 padding: 8px;
+                text-align: left;
+                font-weight: bold;
                 font-size: 12px;
             }
-        }
-    </style>
-</head>
-<body class="bg-gray-50 dark:bg-gray-900">
-    <div class="report-container">
-        <div class="report-header">
-            <h1 class="report-title">Arrival List Report</h1>
-            <p class="report-subtitle">View and manage upcoming guest arrivals</p>
+    
+            table td {
+                border: none;
+                border-bottom: 1px solid #999;
+                padding: 8px;
+                font-size: 13px;
+            }
+    
+            .res-number {
+                color: #000;
+                text-decoration: none;
+                cursor: default;
+            }
+    
+            .user-cell {
+                color: #000;
+                text-decoration: none;
+                cursor: default;
+            }
+    
+            .rate-cell {
+                text-align: center;
+            }
+    
+            .time {
+                font-size: 11px;
+                color: #666;
+            }
+    
+            .footer-row {
+                background-color: #fff;
+                font-weight: bold;
+            }
+    
+            .no-data {
+                padding: 40px 20px;
+                text-align: center;
+                color: #666;
+                font-size: 14px;
+            }
+    
+            @media print {
+                body {
+                    background-color: white;
+                    padding: 0;
+                }
+    
+                .container {
+                    border: none;
+                    max-width: 100%;
+                }
+    
+                .arrival-btn {
+                    display: none;
+                }
+    
+                @page {
+                    margin: 20mm 15mm;
+                }
+    
+                .page-break {
+                    page-break-after: always;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Header pour l'impression -->
+        <div class="page-header">
+            <h1 style="font-size: 18px; margin: 0;">${data[0].hotelName || 'Hotel Nihal'}</h1>
+            <div style="font-weight: bold;">Arrival List</div>
         </div>
-        
-        ${activeFilters > 0 ? `
-        <div class="filters-applied">
-            <strong>${activeFilters} filtre(s) appliqué(s) :</strong> 
-            Les résultats respectent toutes les conditions des filtres sélectionnés
-        </div>
-        ` : ''}
-        
-        <div class="filters-info">
-            <span><strong>Hotel:</strong> ${data[0].hotelName || 'All Hotels'}</span>
-            <span><strong>Date From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
-            <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>
-            ${filters.showAmount ? `<span><strong>Show Amount:</strong> ${filters.showAmount}</span>` : ''}
-        </div>
-        
-        ${selectedAdditionalColumns.length > 0 ? `
-        <div class="filters-info selected-columns-info">
-            <strong>Selected Columns:</strong> 
-            ${selectedAdditionalColumns.map(col => col.label).join(', ')}
-        </div>
-        ` : ''}
-        
-        <div class="results-section">
+    
+        <!-- Footer pour l'impression -->
+    
+        <div class="container">
+    
+            <div class="filters">
+                <label>Date From</label>
+                <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
+                <label>To</label>
+                <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
+                <label>Tax Inclusive Rates (Disc./Adj. included, if applied)</label>
+                <select disabled>
+                    <option>${filters.taxInclusive ? 'Yes' : 'No'}</option>
+                </select>
+            </div>
+    
             ${data.length > 0 ? `
-            <div class="table-container">
-                <table class="results-table">
-                    <thead>
-                        <tr>${tableHeaders}</tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
-            </div>
-            
-            <div class="results-footer">
-                <div style="margin-bottom: 8px;">
-                    <span>Total Reservations: #${summary.totalArrivals || 1} • Total Pax: ${(summary.totalAdults || 0) + (summary.totalChildren || 0)}</span>
-                </div>
-                
-                <div class="summary-stats">
-                    <div class="summary-stat">
-                        <span class="stat-value">${summary.totalArrivals || 0}</span>
-                        <span class="stat-label">Total Arrivals</span>
-                    </div>
-                    <div class="summary-stat">
-                        <span class="stat-value">${summary.totalRevenue ? Number(summary.totalRevenue).toFixed(2) : '0.00'}</span>
-                        <span class="stat-label">Total Revenue</span>
-                    </div>
-                    <div class="summary-stat">
-                        <span class="stat-value">${summary.totalNights || 0}</span>
-                        <span class="stat-label">Total Nights</span>
-                    </div>
-                    <div class="summary-stat">
-                        <span class="stat-value">${summary.averageRate ? Number(summary.averageRate).toFixed(2) : '0.00'}</span>
-                        <span class="stat-label">Average Rate</span>
-                    </div>
-                </div>
-            </div>
+            <table>
+                <thead>
+                    <tr>${tableHeaders}</tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                    <tr class="footer-row">
+                        <td colspan="2"><strong>Total Reservation</strong></td>
+                        <td><strong>#(${summary.totalArrivals || 0})</strong></td>
+                        <td colspan="${allColumns.length - 3}"><strong>${totalPax}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
             ` : `
             <div class="no-data">
-                Aucune donnée ne correspond à tous les filtres sélectionnés
+                No data matches the selected filters
             </div>
             `}
-            
-            <div class="report-meta">
-                <p>Generated on ${generatedAt.toFormat('dd/MM/yyyy HH:mm:ss')} | ${data.length} records | ${allColumns.length} columns displayed</p>
-            </div>
         </div>
-    </div>
-
-    <script>
-        // Script pour détecter le mode sombre du système
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.body.classList.add('dark');
-        }
-        
-        // Écouter les changements de mode sombre
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-            if (e.matches) {
-                document.body.classList.add('dark');
-            } else {
-                document.body.classList.remove('dark');
-            }
-        });
-    <\/script>
-</body>
-</html>
-    `
-  }
+    
+        <script>
+            // Pagination pour l'impression
+            window.addEventListener('load', function() {
+                const pageNumbers = document.querySelectorAll('.page-number');
+                const pageCounts = document.querySelectorAll('.page-count');
+                
+                pageNumbers.forEach(el => el.textContent = '1');
+                pageCounts.forEach(el => el.textContent = '1');
+            });
+    
+            // Gestion de l'impression avec pagination
+            window.addEventListener('beforeprint', function() {
+                // Le navigateur gère automatiquement la pagination
+                // On peut ajouter des sauts de page personnalisés si nécessaire
+            });
+        <\/script>
+    </body>
+    </html>
+        `
+      }
    //Génère un prapport HTML pour la liste de depart
   static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     // Colonnes à afficher (basées sur le template Vue.js)
@@ -828,7 +707,6 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
         </div>
         
         <div class="filters-info">
-            <span><strong>Hotel:</strong> ${data[0].hotelName || 'Hotel Nihal'}</span>
             <span><strong>Departure From:</strong> ${filters.startDate ? formatDate(filters.startDate) : 'N/A'} <strong>To:</strong> ${filters.endDate ? formatDate(filters.endDate) : 'N/A'}</span>
             <span><strong>Order By:</strong> Room</span>
             <span><strong>Tax Inclusive:</strong> ${filters.taxInclusive ? 'Yes' : 'No'}</span>

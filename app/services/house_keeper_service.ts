@@ -13,7 +13,7 @@ export default class HouseKeeperService {
     const page = options.page ?? 1
     const limit = options.limit ?? 20
 
-    const query = HouseKeeper.query().preload('hotel')
+    const query = HouseKeeper.query().preload('hotel').preload('createdByUser').preload('updatedByUser')
 
     if (options.hotelId) {
       query.where('hotel_id', options.hotelId)
@@ -33,19 +33,21 @@ export default class HouseKeeperService {
     return HouseKeeper.query().where('id', id).preload('hotel').first()
   }
 
-  async create(payload: { hotel_id: number; name: string; phone: string }) {
+  async create(payload: { hotel_id: number; name: string; phone: string;createdByUserId:any }) {
     return HouseKeeper.create({
       hotelId: payload.hotel_id,
       name: payload.name,
       phone: payload.phone,
+      createdByUserId : payload.createdByUserId
     })
   }
 
-  async update(id: number, payload: Partial<{ hotel_id: number; name: string; phone: string }>) {
+  async update(id: number, payload: Partial<{ hotel_id: number; name: string; phone: string;updatedByUserId:any }>) {
     const hk = await HouseKeeper.findOrFail(id)
     if (payload.hotel_id !== undefined) hk.hotelId = payload.hotel_id
     if (payload.name !== undefined) hk.name = payload.name
     if (payload.phone !== undefined) hk.phone = payload.phone
+    if (payload.updatedByUserId !== undefined) hk.updatedByUserId = payload.updatedByUserId
     await hk.save()
     await hk.load('hotel')
     return hk
