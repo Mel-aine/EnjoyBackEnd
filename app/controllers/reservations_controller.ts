@@ -2497,6 +2497,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             paymentType: data.payment_type,
             taxExempt: data.tax_exempt,
             isHold: data.isHold,
+            otaReservationCode :data.ota_reservation_code,
+            otaName : data.ota_name,
             holdReleaseDate:
               data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
             releaseTem: data.isHold ? data.ReleaseTem : null,
