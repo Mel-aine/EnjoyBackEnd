@@ -1850,6 +1850,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         roomType = '',
         checkInDate = '',
         checkOutDate = '',
+        rateType = '',
+        source = '',
+        dateType = '',
+        dateStart = '',
+        dateEnd = '',
+        stayCheckInDate = '',
+        stayCheckOutDate = '',
       } = request.qs()
       const params = request.params()
 
@@ -1895,13 +1902,45 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // 3. Filter by date range (check for overlapping reservations)
       if (checkInDate && checkOutDate) {
-        const startDate = DateTime.fromISO(checkInDate).toISODate()
-        const endDate = DateTime.fromISO(checkOutDate).toISODate()
+          const startDate = DateTime.fromISO(checkInDate).toISODate()
+          const endDate = DateTime.fromISO(checkOutDate).toISODate()
+
+          if (startDate && endDate) {
+            // A reservation overlaps if its start is before the search's end
+            // AND its end is after the search's start.
+            query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+          }
+        }
+
+        if (stayCheckInDate && stayCheckOutDate) {
+        const startDate = DateTime.fromISO(stayCheckInDate).toISODate()
+        const endDate = DateTime.fromISO(stayCheckOutDate).toISODate()
+        if (startDate && endDate) {
+          // Rechercher les réservations qui sont présentes pendant cette période
+          query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+        }
+      }
+
+      if (dateType && dateStart && dateEnd) {
+        const startDate = DateTime.fromISO(dateStart).toISODate()
+        const endDate = DateTime.fromISO(dateEnd).toISODate()
 
         if (startDate && endDate) {
-          // A reservation overlaps if its start is before the search's end
-          // AND its end is after the search's start.
-          query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+          switch (dateType) {
+            case 'arrival':
+              query.where('arrived_date', '>=', startDate).where('arrived_date', '<=', endDate)
+              break
+            case 'departure':
+              query.where('depart_date', '>=', startDate).where('depart_date', '<=', endDate)
+              break
+            case 'created':
+              query.where('created_at', '>=', startDate).where('created_at', '<=', endDate)
+              break
+            case 'cancelled':
+
+              query.where('status', 'cancelled')
+              break
+          }
         }
       }
 
@@ -1912,6 +1951,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
             spQuery.where('room_type_id', roomType)
           })
         })
+      }
+      if (rateType) {
+        query.whereHas('reservationRooms', (rspQuery) => {
+          rspQuery.whereHas('rateType', (rateTypeQuery: any) => {
+            rateTypeQuery.where('rate_type_name', 'like', `%${rateType}%`)
+          })
+        })
+      }
+      if (source) {
+        if (source === 'web' || source === 'channel') {
+          // Web/Channel = a un ota_name ou ota_reservation_code
+          query.where((builder) => {
+            builder
+              .whereNotNull('ota_name')
+              .orWhereNotNull('ota_reservation_code')
+          })
+        } else if (source === 'pms') {
+          // PMS = n'a ni ota_name ni ota_reservation_code
+          query.where((builder) => {
+            builder
+              .whereNull('ota_name')
+              .whereNull('ota_reservation_code')
+          })
+        }
       }
 
       // Preload related data for the response
