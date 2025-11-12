@@ -11,9 +11,9 @@ interface RestrictionData {
   rate_plan_id: string
   date_from: string
   date_to: string
-  closed_to_arrival?: boolean
-  closed_to_departure?: boolean
-  stop_sell?: boolean
+  closed_to_arrival?: boolean | number
+  closed_to_departure?: boolean | number
+  stop_sell?: boolean | number
   min_stay_arrival?: number
   min_stay_through?: number
   max_stay?: number
@@ -512,7 +512,7 @@ export class ChannexService {
 
   async updateRestrictions(propertyId: string, restrictionsData: {
     "values": RestrictionData[]
-  }[]) {
+  }) {
     return this.post(`/restrictions`, restrictionsData)
   }
   /**

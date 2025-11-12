@@ -1642,6 +1642,7 @@ router
         router.put('/properties/:propertyId/restrictions', channexController.updateRestrictions.bind(channexController))
         router.post('/properties/:propertyId/restrictions', channexRestrictionsController.getRestrictions.bind(channexRestrictionsController))
         router.post('/properties/:propertyId/updateRestrictions', channexRestrictionsController.updateRestrictions.bind(channexRestrictionsController))
+        router.post('/properties/:propertyId/ari', channexController.bulkUpdateARI.bind(channexController))
       })
       .prefix('channex');
 

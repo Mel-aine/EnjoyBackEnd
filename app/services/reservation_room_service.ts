@@ -88,6 +88,73 @@ export default class ReservationRoomService {
   }
 
   /**
+   * Compute available rooms count per room type in a single pass (no per-room queries)
+   */
+  async getAvailableRoomCountsByRoomType(
+    hotelId: number,
+    roomTypeIds: number[],
+    checkInDate: Date,
+    checkOutDate: Date
+  ): Promise<Record<number, number>> {
+    if (!roomTypeIds.length) return {}
+
+    const rooms = await Room.query()
+      .where('hotel_id', hotelId)
+      .whereIn('room_type_id', roomTypeIds)
+      .where('status', 'available')
+      .where('housekeeping_status', 'clean')
+      .select(['id', 'room_type_id'])
+
+    const roomIds = rooms.map((r) => r.id)
+    if (roomIds.length === 0) {
+      // No rooms, return zero counts for each requested room type
+      const zeroMap: Record<number, number> = {}
+      for (const rtId of roomTypeIds) zeroMap[rtId] = 0
+      return zeroMap
+    }
+
+    // Fetch reservations overlapping the date range for these rooms (exclude cancelled)
+    const reservations = await ReservationRoom.query()
+      .where('hotel_id', hotelId)
+      .where('status', '!=', 'cancelled')
+      .whereIn('room_id', roomIds)
+      .where((subQuery) => {
+        subQuery
+          .whereBetween('check_in_date', [checkInDate, checkOutDate])
+          .orWhereBetween('check_out_date', [checkInDate, checkOutDate])
+          .orWhere((dateQuery) => {
+            dateQuery
+              .where('check_in_date', '<=', checkInDate)
+              .where('check_out_date', '>=', checkOutDate)
+          })
+      })
+      .select(['room_id'])
+
+    const reservedRoomIds = new Set<number>(reservations.map((r) => r.roomId!).filter((id) => !!id))
+
+    // Build total rooms per type and subtract reserved
+    const totalsPerType: Record<number, number> = {}
+    const reservedPerType: Record<number, number> = {}
+
+    for (const room of rooms) {
+      const rtId = room.roomTypeId
+      totalsPerType[rtId] = (totalsPerType[rtId] || 0) + 1
+      if (reservedRoomIds.has(room.id)) {
+        reservedPerType[rtId] = (reservedPerType[rtId] || 0) + 1
+      }
+    }
+
+    const availableCounts: Record<number, number> = {}
+    for (const rtId of roomTypeIds) {
+      const total = totalsPerType[rtId] || 0
+      const reserved = reservedPerType[rtId] || 0
+      availableCounts[rtId] = Math.max(0, total - reserved)
+    }
+
+    return availableCounts
+  }
+
+  /**
    * Calculate total charges for a reservation room
    */
   async calculateTotalCharges(reservationRoomId: number): Promise<number> {
