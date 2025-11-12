@@ -395,6 +395,8 @@ router
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login'])
 router.post('api/authLogin', [AuthController, 'signin'])
+// Refresh token route for Vue.js client
+router.post('api/refresh-token', [AuthController, 'refresh_token'])
 router.post('api/initSpace', [AuthController, 'initSpace'])
 router.post('api/authLogout', [AuthController, 'logout'])
 router.get('api/auth', [AuthController, 'user'])

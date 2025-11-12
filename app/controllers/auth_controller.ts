@@ -43,7 +43,9 @@ export default class AuthController {
       const login = await hash.verify(password, user.password)
       if (!login) return this.responseError('Invalid credentials', 401)
 
-      const token = await User.accessTokens.create(user, ['*'], { name: email ?? cuid() })
+      // Crée un access token (pour les requêtes API) et un refresh token dédié
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '10m' })
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
 
       await LoggerService.log({
         actorId: user.id,
@@ -54,7 +56,17 @@ export default class AuthController {
         ctx: ctx,
       })
 
-      return this.response('Login successfully', { user, user_token: token })
+      // Place le refresh_token en cookie httpOnly
+      const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+      ctx.response.cookie('refresh_token', refreshValue, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/refresh-token',
+        maxAge: 7 * 24 * 60 * 60, // 7 jours
+      })
+
+      return this.response('Login successfully', { user, user_token: accessToken, access_token: accessToken, refresh_token: refreshToken })
     } catch (error: any) {
       return this.responseError('Invalid credentials', 400)
     }
@@ -86,8 +98,10 @@ export default class AuthController {
         return response.unauthorized({ message: 'Invalid credentials' })
       }
 
-      const token = await User.accessTokens.create(user, ['*'], { name: email })
-      console.log('🪪 Token généré:', token)
+      // Génère un access token (API) et un refresh token séparé
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '10m' })
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
+      console.log('🪪 Tokens générés:', { accessToken, refreshToken })
 
 
       await LoggerService.log({
@@ -100,11 +114,23 @@ export default class AuthController {
       })
       console.log('📝 Log enregistré dans LoggerService')
 
+      // Place le refresh_token en cookie httpOnly
+      const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+      response.cookie('refresh_token', refreshValue, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/refresh-token',
+        maxAge: 7 * 24 * 60 * 60, // 7 jours
+      })
+
       return response.ok({
         message: 'Login successful',
         data: {
           user,
-          user_token: token,
+          user_token: accessToken,
+          access_token: accessToken,
+          refresh_token: refreshToken,
         },
       })
     } catch (error) {
@@ -169,25 +195,17 @@ export default class AuthController {
 
       const hotelIds = userServices.map(h => h.id)
 
-      const bookingSources = await BookingSource.query()
-        .whereIn('hotel_id', hotelIds)
-        .where('isDeleted', false)
-
-
-
-      const businessSources = await BusinessSource.query()
-        .whereIn('hotel_id', hotelIds)
-        .where('isDeleted', false)
-
-
-      const reservationTypes = await ReservationType.query()
-        .whereIn('hotel_id', hotelIds)
-        .where('isDeleted', false)
-
-
-      const currencies = await Currency.query()
-        .whereIn('hotel_id', hotelIds)
-        .where('isDeleted', false)
+      const [
+        bookingSources,
+        businessSources,
+        reservationTypes,
+        currencies,
+      ] = await Promise.all([
+        BookingSource.query().whereIn('hotel_id', hotelIds),
+        BusinessSource.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+        ReservationType.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+        Currency.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+      ])
 
       console.log('💱 Currencies:', currencies.length)
 
@@ -281,13 +299,42 @@ export default class AuthController {
     }
   }
 
-  // Rafraîchir le token
-  async refresh_token({ auth }: HttpContext) {
+  // Rafraîchir le token via un Refresh Token (Authorization: Bearer <refresh_token>)
+  async refresh_token({ auth, response }: HttpContext) {
     const user = await auth.authenticate()
-    await User.accessTokens.delete(user, user.currentAccessToken.identifier)
+    const current = user.currentAccessToken
 
-    const token = await User.accessTokens.create(user, ['*'], { name: cuid() })
-    this.response('Refresh token successfully', { user, user_token: token })
+    // Vérifie que le token présenté possède la capacité 'refresh'
+    const isRefresh = Array.isArray(current?.abilities) && current!.abilities.includes('refresh')
+    if (!isRefresh) {
+      return response.forbidden({ message: 'Invalid token type for refresh' })
+    }
+
+    // Rotation du refresh token: révoque l’ancien et émet un nouveau
+    await User.accessTokens.delete(user, current!.identifier)
+
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10m' })
+    const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
+
+    // Met à jour le cookie httpOnly avec le nouveau refresh token
+    const newRefreshValue = (newRefreshToken as any)?.value || (newRefreshToken as any)?.token || String(newRefreshToken)
+    response.cookie('refresh_token', newRefreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+    return response.ok({
+      message: 'Refresh token successfully',
+      data: {
+        user,
+        user_token: accessToken,
+        access_token: accessToken,
+        refresh_token: newRefreshToken,
+      },
+    })
   }
 
   public async logout(ctx: HttpContext) {
