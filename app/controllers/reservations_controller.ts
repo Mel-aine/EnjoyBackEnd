@@ -1852,11 +1852,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         checkOutDate = '',
         rateType = '',
         source = '',
+        showBookings = '',
         dateType = '',
         dateStart = '',
         dateEnd = '',
         stayCheckInDate = '',
         stayCheckOutDate = '',
+        reservationType = ''
       } = request.qs()
       const params = request.params()
 
@@ -1866,14 +1868,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (searchText) {
         query.where((builder) => {
           builder
-            .where('reservation_number', 'like', `%${searchText}%`)
+            .where('reservation_number', 'ILIKE', `%${searchText}%`)
             .orWhere('group_name', 'like', `%${searchText}%`)
             .orWhere('company_name', 'like', `%${searchText}%`)
             .orWhere('source_of_business', 'like', `%${searchText}%`)
             .orWhereHas('guest', (userQuery) => {
               userQuery
-                .where('first_name', 'like', `%${searchText}%`)
-                .orWhere('last_name', 'like', `%${searchText}%`)
+                .where('first_name', 'ILIKE', `%${searchText}%`)
+                .orWhere('last_name', 'ILIKE', `%${searchText}%`)
                 .orWhere('email', 'like', `%${searchText}%`)
                 .orWhere('phone_primary', 'like', `%${searchText}%`)
             })
@@ -1912,12 +1914,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
           }
         }
 
-        if (stayCheckInDate && stayCheckOutDate) {
+
+      if (stayCheckInDate && stayCheckOutDate) {
         const startDate = DateTime.fromISO(stayCheckInDate).toISODate()
         const endDate = DateTime.fromISO(stayCheckOutDate).toISODate()
         if (startDate && endDate) {
-          // Rechercher les réservations qui sont présentes pendant cette période
-          query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+          // Rechercher les réservations qui sont en cours pendant cette période
+          query
+            .where('arrived_date', '<=', endDate)
+            .andWhere('depart_date', '>=', startDate)
+            .andWhere('status', 'checked_in')
         }
       }
 
@@ -1960,21 +1966,40 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
       if (source) {
-        if (source === 'web' || source === 'channel') {
-          // Web/Channel = a un ota_name ou ota_reservation_code
-          query.where((builder) => {
-            builder
-              .whereNotNull('ota_name')
-              .orWhereNotNull('ota_reservation_code')
-          })
-        } else if (source === 'pms') {
-          // PMS = n'a ni ota_name ni ota_reservation_code
-          query.where((builder) => {
-            builder
-              .whereNull('ota_name')
-              .whereNull('ota_reservation_code')
-          })
-        }
+         query.where('businessSourceId',source)
+      }
+
+      // Filter par showBookings (toggles)
+
+      if (showBookings) {
+        const bookingTypes = showBookings.split(',')
+
+        query.where((builder) => {
+          // Si 'web' ou 'channel' est sélectionné
+          if (bookingTypes.includes('web')) {
+            builder.orWhere((b) => {
+              b.whereNotNull('ota_name').orWhereNotNull('ota_reservation_code')
+            })
+          }
+
+           if (bookingTypes.includes('channel')) {
+            builder.orWhere((b) => {
+              b.whereNotNull('channex_booking_id')
+            })
+          }
+
+          // Si 'pms' est sélectionné
+          if (bookingTypes.includes('pms')) {
+            builder.orWhere((b) => {
+              b.whereNull('ota_name').whereNull('ota_reservation_code')
+            })
+          }
+        })
+      }
+
+
+      if(reservationType){
+        query.where('reservationTypeId',reservationType)
       }
 
       // Preload related data for the response
@@ -1984,6 +2009,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('guest')
         .preload('roomType')
         .preload('bookingSource')
+        .preload('reservationType',(sQuery:any) => {
+              sQuery.select(['id', 'name'])
+        })
         .preload('discount')
         .preload('paymentMethod')
         .preload('folios', (folioQuery) => {
@@ -1991,7 +2019,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         //.preload('hotel')
         .preload('reservationRooms', (rspQuery) => {
-          rspQuery.preload('room')
+          rspQuery.preload('room').preload('rateType',(sQuery:any) => {
+              sQuery.select(['id', 'rate_type_name'])
+            })
         })
         .orderBy('created_at', 'desc')
         .limit(50)
@@ -2562,6 +2592,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             isHold: data.isHold,
             otaReservationCode :data.ota_reservation_code,
             otaName : data.ota_name,
+            bookingDate: data.booking_date
+              ? DateTime.fromISO(data.booking_date)
+              : DateTime.now(),
             holdReleaseDate:
               data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
             releaseTem: data.isHold ? data.ReleaseTem : null,
