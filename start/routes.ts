@@ -783,6 +783,7 @@ router
       .group(() => {
         // Basic CRUD operations for room types
         router.get('/', roomTypesController.showByHotel.bind(roomTypesController)) // Get all room types with filtering by hotel
+        router.get('/index', roomTypesController.index.bind(roomTypesController)) // Get all room types with filtering by hotel
         router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
         router.get('/:id', roomTypesController.showByHotel.bind(roomTypesController)) // Get specific room type details
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
