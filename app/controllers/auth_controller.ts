@@ -1,5 +1,5 @@
 import { HttpContext } from '@adonisjs/core/http'
-import hash from '@adonisjs/core/services/hash'
+import Hash from '@adonisjs/core/services/hash'
 //import app from '@adonisjs/core/services/app'
 import { cuid, Secret } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
@@ -40,12 +40,12 @@ export default class AuthController {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
 
-      const login = await hash.verify(password, user.password)
+      const login = await Hash.verify(password, user.password)
       if (!login) return this.responseError('Invalid credentials', 401)
 
       // Crée un access token (pour les requêtes API) et un refresh token dédié
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '15m' })
-      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` , expiresIn: '7d'})
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '10m' })
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
 
       await LoggerService.log({
         actorId: user.id,
@@ -78,70 +78,68 @@ export default class AuthController {
     this.response('User retrieved successfully', user)
   }
 
-
-
   public async signin(ctx: HttpContext) {
-    const { request, response } = ctx
-    const { email } = request.only(['email', 'password'])
+  const { request, response } = ctx
+  const { email, password } = request.only(['email', 'password'])
 
-    console.log('📩 Requête de connexion reçue:', { email })
+  console.log('📩 Requête de connexion reçue:', { email })
 
-    try {
-      const user = await User.query().where('email', email).preload('role').firstOrFail()
-      console.log('✅ Utilisateur trouvé:', user.id, user.email)
+  try {
+    const user = await User.query().where('email', email).preload('role').firstOrFail()
+    console.log('✅ Utilisateur trouvé:', user.id, user.email)
 
-      const passwordValid = true // ⚠️ à remplacer par une vraie vérification
-      console.log('🔑 Vérification mot de passe:', passwordValid)
+    const passwordValid = await Hash.verify(user.password, password)
+    console.log('🔑 Vérification mot de passe:', passwordValid)
 
-      if (!passwordValid) {
-        console.warn('❌ Mot de passe invalide pour:', email)
-        return response.unauthorized({ message: 'Invalid credentials' })
-      }
-
-      // Génère un access token (API) et un refresh token séparé
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '15m' })
-      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
-      console.log('🪪 Tokens générés:', { accessToken, refreshToken })
-
-
-      await LoggerService.log({
-        actorId: user.id,
-        action: 'LOGIN',
-        entityType: 'User',
-        entityId: user.id.toString(),
-        description: `Connexion de l'utilisateur ${email}`,
-        ctx: ctx,
-      })
-      console.log('📝 Log enregistré dans LoggerService')
-
-      // Place le refresh_token en cookie httpOnly
-      const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-      response.cookie('refresh_token', refreshValue, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/api/refresh-token',
-        maxAge: 7 * 24 * 60 * 60, // 7 jours
-      })
-
-      return response.ok({
-        message: 'Login successful',
-        data: {
-          user,
-          user_token: accessToken,
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-      })
-    } catch (error) {
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        console.warn('❌ Utilisateur introuvable:', email)
-        return response.unauthorized({ message: 'Invalid credentials' })
-      }
-      console.error('🔥 Erreur lors de la connexion:', error)
-      return response.badRequest({ message: 'Login failed' })
+    if (!passwordValid) {
+      console.warn('❌ Mot de passe invalide pour:', email)
+      return response.unauthorized({ message: 'Invalid credentials' })
     }
+
+    // Génère un access token (API) et un refresh token séparé
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '15m' })
+    const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
+    console.log('🪪 Tokens générés:', { accessToken, refreshToken })
+
+    // Log
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Connexion de l'utilisateur ${email}`,
+      ctx: ctx,
+    })
+    console.log('📝 Log enregistré dans LoggerService')
+
+    // Cookie refresh token
+    const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+    response.cookie('refresh_token', refreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+    return response.ok({
+      message: 'Login successful',
+      data: {
+        user,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      console.warn('❌ Utilisateur introuvable:', email)
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+    console.error('🔥 Erreur lors de la connexion:', error)
+    return response.badRequest({ message: 'Login failed' })
   }
+}
+
 
   public async initSpace(ctx: HttpContext) {
     const { request, response } = ctx
@@ -279,7 +277,7 @@ export default class AuthController {
       }
 
       if (output.password) {
-        userToUpdate.password = await hash.make(output.password)
+        userToUpdate.password = await Hash.make(output.password)
         console.log('Mot de passe haché et prêt à être sauvegardé.')
       }
 
@@ -301,95 +299,64 @@ export default class AuthController {
 
   // Rafraîchir le token via un Refresh Token
   // Priorité: Authorization Bearer. Fallback: cookie httpOnly 'refresh_token'.
-async refresh_token({ auth, request, response }: HttpContext) {
-  let user: User
-  let current: any
+  async refresh_token({ auth, request, response }: HttpContext) {
+    let user: User
+    let current: any
 
-  console.log('=== [REFRESH TOKEN] Début du processus ===')
-
-  try {
-    console.log('[1] Tentative via Authorization Bearer')
-    user = await auth.authenticate()
-    current = user.currentAccessToken
-    console.log('[1] Token Bearer authentifié')
-  } catch (error) {
-    console.warn('[2] Échec du Bearer, fallback cookie httpOnly')
-
-    const cookieVal = request.cookiesList()?.refresh_token
-    console.log('[2] Cookie refresh_token présent:', !!cookieVal)
-
-    if (!cookieVal) {
-      console.error('[2] Aucun refresh token trouvé')
-      return response.unauthorized({ message: 'Missing refresh token' })
-    }
-
+    // 1) Essai via Authorization Bearer
     try {
-      const verified = await User.accessTokens.verify(new Secret(cookieVal))
-      console.log('[2] Token cookie vérifié avec succès')
+      user = await auth.authenticate()
+      current = user.currentAccessToken
+    } catch {
+      // 2) Fallback via cookie httpOnly
+      const cookieVal = request.cookiesList()?.refresh_token
+      if (!cookieVal) {
+        return response.unauthorized({ message: 'Missing refresh token' })
+      }
 
+      const verified = await User.accessTokens.verify(new Secret(cookieVal))
       if (!verified) {
-        console.error('[2] Token de refresh invalide')
         return response.unauthorized({ message: 'Invalid refresh token' })
       }
 
+      // Charger l’utilisateur par tokenableId
       const tokenUserId = Number(verified.tokenableId)
       user = await User.findOrFail(isNaN(tokenUserId) ? String(verified.tokenableId) as any : tokenUserId)
       current = verified
-      console.log('[2] Utilisateur trouvé:', user.id)
-    } catch (verifyError) {
-      console.error('[2] Erreur de vérification du token:', verifyError)
-      return response.unauthorized({ message: 'Invalid refresh token' })
     }
+
+    // Vérifie que le token présenté possède la capacité 'refresh'
+    const isRefresh = Array.isArray(current?.abilities) && current!.abilities.includes('refresh')
+    if (!isRefresh) {
+      return response.forbidden({ message: 'Invalid token type for refresh' })
+    }
+
+    // Rotation du refresh token: révoque l’ancien et émet un nouveau
+    await User.accessTokens.delete(user, current!.identifier)
+
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10m' })
+    const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
+
+    // Met à jour le cookie httpOnly avec le nouveau refresh token
+    const newRefreshValue = (newRefreshToken as any)?.value || (newRefreshToken as any)?.token || String(newRefreshToken)
+    response.cookie('refresh_token', newRefreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+    return response.ok({
+      message: 'Refresh token successfully',
+      data: {
+        user,
+        user_token: accessToken,
+        access_token: accessToken,
+        refresh_token: newRefreshToken,
+      },
+    })
   }
-
-  console.log('[3] Vérification des capacités du token')
-
-  const isRefresh = Array.isArray(current?.abilities) && current.abilities.includes('refresh')
-  if (!isRefresh) {
-    console.error('[3] Token sans capacité refresh')
-    return response.forbidden({ message: 'Invalid token type for refresh' })
-  }
-
-  console.log('[4] Rotation du refresh token')
-  await User.accessTokens.delete(user, current.identifier)
-
-  console.log('[5] Création des nouveaux tokens')
-  const accessToken = await User.accessTokens.create(user, ['*'], {
-    name: cuid(),
-    expiresIn: '15m',
-  })
-
-  const newRefreshToken = await User.accessTokens.create(user, ['refresh'], {
-    name: `refresh:${cuid()}`,
-  })
-
-  const newRefreshValue =
-    (newRefreshToken as any)?.value ||
-    (newRefreshToken as any)?.token ||
-    String(newRefreshToken)
-
-  console.log('[6] Mise à jour du cookie')
-  response.cookie('refresh_token', newRefreshValue, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/api/refresh-token',
-    maxAge: 7 * 24 * 60 * 60,
-  })
-
-  console.log('[7] Tokens émis avec succès pour l\'utilisateur:', user.id)
-  console.log('=== [REFRESH TOKEN] Fin du processus ===')
-
-  return response.ok({
-    message: 'Refresh token successfully',
-    data: {
-      user,
-      user_token: accessToken,
-      access_token: accessToken,
-      refresh_token: newRefreshToken,
-    },
-  })
-}
 
   public async logout(ctx: HttpContext) {
     const { auth, response } = ctx
@@ -429,32 +396,35 @@ async refresh_token({ auth, request, response }: HttpContext) {
   }
 
   public async validatePassword({ request, response }: HttpContext) {
-    const { email, password } = request.only(['email', 'password'])
+  const { email, password } = request.only(['email', 'password'])
 
-    try {
-      const user = await User.findBy('email', email)
+  try {
+    const user = await User.findBy('email', email)
 
-      if (!user) {
-        return response.status(401).json({
-          message: 'Invalid credentials (email)',
-        })
-      }
-
-      const passwordValid = await hash.verify(password, user.password)
-
-      if (!passwordValid) {
-        return response.status(401).json({
-          message: 'Invalid Password',
-        })
-      }
-
-      return response.status(200).json({
-        message: 'valid Password',
-      })
-    } catch (error) {
-      return response.status(500).json({
-        message: 'server error',
+    if (!user) {
+      return response.status(401).json({
+        message: 'Invalid credentials (email)',
       })
     }
+
+    // ✅ Utilisez Hash (majuscule) et le bon ordre des paramètres
+    const passwordValid = await Hash.verify(user.password, password)
+
+    if (!passwordValid) {
+      return response.status(401).json({
+        message: 'Invalid Password',
+      })
+    }
+
+    return response.status(200).json({
+      message: 'Valid Password',
+    })
+  } catch (error) {
+    console.error('❌ Erreur validatePassword:', error)
+    return response.status(500).json({
+      message: 'Server error',
+      error: error.message // Utile pour déboguer
+    })
   }
+}
 }
