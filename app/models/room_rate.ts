@@ -238,20 +238,13 @@ export default class RoomRate extends BaseModel {
    */
   @afterSave()
   static async syncWithChannex(roomRate: RoomRate) {
-    // Synchroniser seulement si certains champs critiques changent
-    const syncFields = ['baseRate', 'availableRooms', 'stopSell', 'minimumNights', 'maximumNights', 'closedToArrival', 'closedToDeparture']
+    const hotel = await roomRate.related('hotel').query().first()
     
-    if (roomRate.$dirty.any(syncFields)) {
-      const hotel = await roomRate.related('hotel').query().first()
-      
-      if (hotel && hotel.channexPropertyId) {
-
-        
-        try {
-          await this.channexRatePlanService.syncRoomRate(roomRate, hotel.channexPropertyId)
-        } catch (error) {
-          console.error('Failed to sync room rate with Channex:', error)
-        }
+    if (hotel && hotel.channexPropertyId) {
+      try { 
+        await this.channexRatePlanService.syncRoomRate(roomRate, hotel.channexPropertyId)
+      } catch (error) {
+        console.error('Failed to sync room rate with Channex:', error)
       }
     }
   }

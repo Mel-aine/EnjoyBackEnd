@@ -4,7 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import RoomRate from '#models/room_rate'
 import RoomType from '#models/room_type'
 
-export default class ChannexRoomTypeService {
+export default class ChannexRatePlanService {
   private channexService: ChannexService
 
   constructor() {
@@ -24,22 +24,22 @@ export default class ChannexRoomTypeService {
       }
 
       const ratePlanData = {
-        data: {
-          type: 'rate_plan',
-          attributes: {
+        
+        "rate_plan": {
+            type: 'rate_plan',
             title: await this.getRatePlanTitle(roomRate),
+            property_id: hotelChannexId,
+            room_type_id: roomRate.roomType.channexRoomTypeId,
             sell_mode: 'per_room',
-            rate_mode: this.mapRateMode(roomRate),
-            currency: 'EUR', // Vous pouvez ajouter une colonne currency dans RoomRate si nécessaire
-            children_fee: roomRate.extraChildRate?.toString() || '0.00',
-            infant_fee: '0.00',
-            max_stay: this.getMaxStayArray(roomRate),
-            min_stay_arrival: this.getMinStayArrivalArray(roomRate),
-            min_stay_through: this.getMinStayThroughArray(roomRate),
-            closed_to_arrival: this.getClosedToArrivalArray(roomRate),
-            closed_to_departure: this.getClosedToDepartureArray(roomRate),
-            stop_sell: this.getStopSellArray(roomRate),
-            options: await this.getRateOptions(roomRate),
+            rate_mode: 'manual',
+            currency: 'XAF', // Vous pouvez ajouter une colonne currency dans RoomRate si nécessaire
+            options: [
+              {
+                occupancy: roomRate.roomType.maxAdult,
+                is_primary: true,
+                rate: roomRate.baseRate || 100
+              }
+            ],
             inherit_rate: false,
             inherit_closed_to_arrival: false,
             inherit_closed_to_departure: false,
@@ -51,24 +51,11 @@ export default class ChannexRoomTypeService {
             inherit_max_sell: false,
             inherit_max_availability: false,
             auto_rate_settings: null,
-            meal_type: await this.mapMealType(roomRate)
-          },
-          relationships: {
-            room_type: {
-              data: {
-                type: 'room_type',
-                id: roomRate.roomType.channexRoomTypeId
-              }
-            },
-            property: {
-              data: {
-                type: 'property',
-                id: hotelChannexId
-              }
-            }
-          }
+          
         }
       }
+
+      console.log('ratePlanData', ratePlanData)
 
       logger.info(`Syncing room rate ${roomRate.id} with Channex`, {
         roomRateId: roomRate.id,
@@ -249,16 +236,26 @@ export default class ChannexRoomTypeService {
     }
   }
 
-  /**
-   * Obtenir le titre du rate plan basé sur RoomRate
+ /**
+   * Obtenir le titre du rate plan basé sur RoomRate - CORRIGÉ
    */
-  private async getRatePlanTitle(roomRate: RoomRate): Promise<string> {
-    await roomRate.load('roomType')
+ private async getRatePlanTitle(roomRate: RoomRate): Promise<string> {
+
+     roomRate.load('roomType')
+     roomRate.load('rateType')
     
-    const roomTypeName = roomRate.roomType?.roomTypeName || 'Unknown'
-    const rateDate = roomRate.rateDate?.toFormat('dd/MM/yyyy') || 'Dynamic'
+    const roomTypeName = roomRate.roomType?.roomTypeName  
+    const rateTypeName = roomRate.rateType?.rateTypeName
     
-    return `${roomTypeName} - ${rateDate}`
+    // S'assurer que le titre n'est jamais vide et a une longueur raisonnable
+    let title = `${roomTypeName} - ${rateTypeName} `
+    
+    // Tronquer si trop long (max 255 caractères pour Channex)
+    if (title.length > 255) {
+      title = title.substring(0, 252) + '...'
+    }
+    
+    return title
   }
 
   /**
@@ -269,26 +266,26 @@ export default class ChannexRoomTypeService {
   }
 
   /**
-   * Obtenir le tableau max_stay
+   * Obtenir le tableau max_stay - CORRIGÉ (doit être positif)
    */
   private getMaxStayArray(roomRate: RoomRate): number[] {
-    const maxStay = roomRate.maximumNights || 0
+    const maxStay = Math.max(roomRate.maximumNights || 0, 0) // Éviter les valeurs négatives
     return [maxStay, maxStay, maxStay, maxStay, maxStay, maxStay, maxStay]
   }
 
   /**
-   * Obtenir le tableau min_stay_arrival
+   * Obtenir le tableau min_stay_arrival - CORRIGÉ (doit être positif)
    */
   private getMinStayArrivalArray(roomRate: RoomRate): number[] {
-    const minStay = roomRate.minimumNights || 1
+    const minStay = Math.max(roomRate.minimumNights || 1, 1) // Au moins 1
     return [minStay, minStay, minStay, minStay, minStay, minStay, minStay]
   }
 
   /**
-   * Obtenir le tableau min_stay_through
+   * Obtenir le tableau min_stay_through - CORRIGÉ (doit être positif)
    */
   private getMinStayThroughArray(roomRate: RoomRate): number[] {
-    const minStay = roomRate.minimumNights || 1
+    const minStay = Math.max(roomRate.minimumNights || 1, 1) // Au moins 1
     return [minStay, minStay, minStay, minStay, minStay, minStay, minStay]
   }
 

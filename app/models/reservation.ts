@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, afterSave, afterDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -17,7 +17,7 @@ import Folio from './folio.js'
 import ReservationType from './reservation_type.js'
 import PaymentMethod from './payment_method.js'
 import MarketCode from './market_code.js'
-import ReservationHook from '../hooks/reservation_hooks.js'
+import ChannexAvailabilityService from '#app/services/channex_availability_service'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -31,6 +31,7 @@ export enum ReservationStatus {
 }
 
 export default class Reservation extends BaseModel {
+  private static channexAvailabilityService = new ChannexAvailabilityService()
   @column({ isPrimary: true })
   declare id: number
 
@@ -641,14 +642,116 @@ declare reservations: HasMany<typeof Reservation>
     return Math.round(diffInHours * 100) / 100
   }
 
-  // Background hook: notify Channex availability when a reservation is created
-  @afterCreate()
-  public static notifyAfterCreate(reservation: Reservation) {
-    try {
-     // ReservationHook.notifyAvailabilityOnCreate(reservation)
-    } catch {
-      // swallow errors; hook must not interrupt user flow
+  /**
+   * Hook: Après la sauvegarde (création ou modification)
+   */
+  @afterSave()
+  static async syncAvailabilityWithChannex(reservation: Reservation) {
+    console.log('🔄 HOOK AFTER SAVE TRIGGERED for reservation:', reservation.id)
+    console.log('📊 Reservation status:', reservation.status)
+    
+    // CHARGER les reservationRooms pour obtenir le vrai roomTypeId
+    await reservation.load('reservationRooms', (query) => {
+      query.preload('roomType')
+    })
+    
+    console.log('🔍 Reservation rooms count:', reservation.reservationRooms.length)
+    
+    // Prendre le premier reservationRoom (ou gérer plusieurs rooms si besoin)
+    const reservationRoom = reservation.reservationRooms[0]
+    
+    if (!reservationRoom) {
+      console.error(`❌ No reservation rooms found for reservation ${reservation.id}`)
+      return
+    }
+    
+    console.log('🔍 Reservation room roomTypeId:', reservationRoom.roomTypeId)
+    console.log('🔍 Room type after load:', reservationRoom.roomType)
+    console.log('🔍 Channex room type ID:', reservationRoom.roomType?.channexRoomTypeId)
+    
+    const hotel = await reservation.related('hotel').query().first()
+    
+    if (hotel && hotel.channexPropertyId) {
+      // Vérifier si le roomType existe et a un channexRoomTypeId
+      if (!reservationRoom.roomType) {
+        console.error(`❌ Room type relation is NULL for reservation ${reservation.id}`, {
+          reservationId: reservation.id,
+          roomTypeId: reservationRoom.roomTypeId,
+          hotelId: reservation.hotelId
+        })
+        return
+      }
+      
+      if (!reservationRoom.roomType.channexRoomTypeId) {
+        console.warn(`❌ Room type ${reservationRoom.roomType.id} not synced with Channex for reservation ${reservation.id}`, {
+          roomTypeId: reservationRoom.roomType.id,
+          roomTypeName: reservationRoom.roomType.roomTypeName,
+          channexRoomTypeId: reservationRoom.roomType.channexRoomTypeId
+        })
+        return
+      }
+      
+      try {
+        console.log('🎯 Determining action for status:', reservation.status)
+        
+        // Déterminer quelle méthode appeler selon le statut
+        if (Reservation.shouldRestoreAvailability(reservation)) {
+          console.log('🔄 Action: RESTORE availability')
+          await this.channexAvailabilityService.syncAvailabilityAfterReservationCancellation(reservation, hotel.channexPropertyId)
+        } else if (Reservation.shouldReduceAvailability(reservation)) {
+          console.log('🔻 Action: REDUCE availability')
+          await this.channexAvailabilityService.syncAvailabilityAfterReservation(reservation, hotel.channexPropertyId)
+        } else {
+          console.log('⏸️ Action: NO ACTION for status:', reservation.reservationStatus)
+        }
+        
+      } catch (error) {
+        console.error('❌ Failed to sync availability with Channex:', error)
+      }
+    } else {
+      console.log('⚠️ No hotel or channexPropertyId found', {
+        hasHotel: !!hotel,
+        channexPropertyId: hotel?.channexPropertyId
+      })
     }
   }
+
+  /**
+   * Hook: Après la suppression
+   */
+  @afterDelete()
+  static async syncAvailabilityAfterDelete(reservation: Reservation) {
+    // Charger roomType avant
+    await reservation.load('roomType')
+    
+    const hotel = await reservation.related('hotel').query().first()
+    
+    if (hotel && hotel.channexPropertyId && reservation.roomType?.channexRoomTypeId) {
+      try {
+        await this.channexAvailabilityService.syncAvailabilityAfterReservationCancellation(reservation, hotel.channexPropertyId)
+      } catch (error) {
+        console.error('Failed to sync availability after delete:', error)
+      }
+    } else {
+      console.warn(`Cannot sync availability after delete - missing data for reservation ${reservation.id}`)
+    }
+  }
+
+  /**
+   * Détermine si on doit RESTAURER la disponibilité (annulation, no-show, voided)
+   */
+  private static shouldRestoreAvailability(reservation: Reservation): boolean {
+    const restoreStatuses = ['cancelled', 'no_show', 'voided'] // AJOUT de Voided
+    return restoreStatuses.includes(reservation.status)
+  }
+
+  /**
+   * Détermine si on doit RÉDUIRE la disponibilité (confirmation, check-in)
+   */
+  private static shouldReduceAvailability(reservation: Reservation): boolean {
+    const reduceStatuses = ['confirmed', 'checked_in', 'guaranteed']
+    return reduceStatuses.includes(reservation.status)
+  }
+
 
 }
