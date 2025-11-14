@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, afterSave, beforeDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import RoomType from './room_type.js'
@@ -9,8 +9,11 @@ import Season from './season.js'
 import BusinessSource from './business_source.js'
 import User from './user.js'
 import MealPlan from './meal_plan.js'
+import ChannexRatePlanService from '#app/services/channex_rate_plan_service'
 
 export default class RoomRate extends BaseModel {
+  private static channexRatePlanService = new ChannexRatePlanService()
+
   @column({ isPrimary: true })
   declare id: number
 
@@ -228,5 +231,45 @@ export default class RoomRate extends BaseModel {
 
   get isAvailable() {
     return !this.stopSell && this.availableRooms > 0
+  }
+
+  /**
+   * Hook: Après la sauvegarde (création ou modification)
+   */
+  @afterSave()
+  static async syncWithChannex(roomRate: RoomRate) {
+    // Synchroniser seulement si certains champs critiques changent
+    const syncFields = ['baseRate', 'availableRooms', 'stopSell', 'minimumNights', 'maximumNights', 'closedToArrival', 'closedToDeparture']
+    
+    if (roomRate.$dirty.any(syncFields)) {
+      const hotel = await roomRate.related('hotel').query().first()
+      
+      if (hotel && hotel.channexPropertyId) {
+
+        
+        try {
+          await this.channexRatePlanService.syncRoomRate(roomRate, hotel.channexPropertyId)
+        } catch (error) {
+          console.error('Failed to sync room rate with Channex:', error)
+        }
+      }
+    }
+  }
+
+  /**
+   * Hook: Avant la suppression
+   */
+  @beforeDelete()
+  static async deleteFromChannex(roomRate: RoomRate) {
+    const hotel = await roomRate.related('hotel').query().first()
+    
+    if (hotel && hotel.channexPropertyId && roomRate.channexRateId) {
+      
+      try {
+        await this.channexRatePlanService.deleteRoomRate(roomRate, hotel.channexPropertyId)
+      } catch (error) {
+        console.error('Failed to delete room rate from Channex:', error)
+      }
+    }
   }
 }

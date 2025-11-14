@@ -336,7 +336,7 @@ export default class AuthController {
     // Rotation du refresh token: révoque l’ancien et émet un nouveau
     await User.accessTokens.delete(user, current!.identifier)
 
-    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10m' })
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10h' })
     const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
 
     // Met à jour le cookie httpOnly avec le nouveau refresh token
