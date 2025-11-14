@@ -95,4 +95,17 @@ export default class RoomBlock extends BaseModel {
       console.log('⚠️ No hotel or channexPropertyId found for room block sync')
     }
   }
+
+  get isActive(): boolean {
+    return this.status === 'pending' || this.status === 'inProgress'
+  }
+
+  get durationInDays(): number {
+    return this.blockToDate.diff(this.blockFromDate, 'days').days
+  }
+
+  get isCurrent(): boolean {
+    const now = DateTime.now()
+    return now >= this.blockFromDate && now <= this.blockToDate
+  }
 }

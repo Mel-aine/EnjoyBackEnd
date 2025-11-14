@@ -287,14 +287,10 @@ export default class ChannexBlockService {
     stopSell: boolean
   }> {
     try {
-      const totalRooms = await this.getTotalRoomsCount(roomTypeId)
-      const blockedRooms = await this.getBlockedRoomsCount(roomTypeId, date)
-      
-      const availableRooms = Math.max(0, totalRooms - blockedRooms)
+      // ✅ CORRECTION: Calculer la disponibilité réelle
+      const availableRooms = await this.getAvailableRoomsCount(roomTypeId, date)
 
       logger.debug(`📊 Current availability for roomType ${roomTypeId} on ${date.toISODate()}`, {
-        totalRooms,
-        blockedRooms,
         availableRooms
       })
 
@@ -313,15 +309,47 @@ export default class ChannexBlockService {
   }
 
   /**
-   * Obtenir le nombre total de chambres pour un room type (depuis la table Room)
+   * Obtenir le nombre de chambres DISPONIBLES pour un room type à une date donnée
+   */
+  private async getAvailableRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
+    try {
+      // 1. Obtenir le nombre total de chambres actives
+      const totalRooms = await this.getTotalRoomsCount(roomTypeId)
+      
+      // 2. Obtenir le nombre de chambres occupées/réservées
+      const occupiedRooms = await this.getOccupiedRoomsCount(roomTypeId, date)
+      
+      // 3. Obtenir le nombre de chambres bloquées (hors-service permanentes + blocs temporaires)
+      const blockedRooms = await this.getBlockedRoomsCount(roomTypeId, date)
+
+      // ✅ CALCUL CORRECT: Disponible = Total - Occupées - Bloquées
+      const availableRooms = Math.max(0, totalRooms - occupiedRooms - blockedRooms)
+
+      logger.debug(`🏨 Available rooms calculation for ${date.toISODate()}`, {
+        roomTypeId,
+        totalRooms,
+        occupiedRooms,
+        blockedRooms,
+        availableRooms
+      })
+
+      return availableRooms
+
+    } catch (error) {
+      logger.error(`❌ Error calculating available rooms:`, error)
+      return 10 // Fallback
+    }
+  }
+
+  /**
+   * Obtenir le nombre total de chambres actives pour un room type
    */
   private async getTotalRoomsCount(roomTypeId: number): Promise<number> {
     try {
       const roomsCount = await Room.query()
         .where('room_type_id', roomTypeId)
-        .where('is_deleted', false) // Seulement les chambres non supprimées
-        .whereNotIn('status', ['out_of_order', 'maintenance']) // Exclure les chambres hors service permanentes
-        .count<{ total: number }[]>('* as total')
+        .where('is_deleted', false)
+        .count('* as total')
 
       const count = roomsCount[0]?.$extras.total || 0
       
@@ -336,56 +364,11 @@ export default class ChannexBlockService {
   }
 
   /**
-   * Obtenir le nombre de chambres bloquées pour un room type à une date donnée
+   * Obtenir le nombre de chambres OCCUPÉES/RÉSERVÉES pour une date
    */
-  private async getBlockedRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
+  private async getOccupiedRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
     try {
-      // 1. Compter les blocs de chambres actifs
-      const blockedCount = await RoomBlock.query()
-        .where('room_type_id', roomTypeId)
-        .where('block_from_date', '<=', date.toISODate())
-        .where('block_to_date', '>', date.toISODate())
-        .whereIn('status', ['pending', 'inProgress']) // Seuls les blocs actifs
-        .count('* as total')
-
-      const blockCount = blockedCount[0]?.$extras.total || 0
-
-      // 2. Compter les chambres occupées par des réservations
-      const reservedCount = await this.getReservedRoomsCount(roomTypeId, date)
-
-      // 3. Compter les chambres hors-service permanentes
-      const outOfOrderCount = await Room.query()
-        .where('room_type_id', roomTypeId)
-        .where('is_deleted', false)
-        .whereIn('status', ['out_of_order', 'maintenance'])
-        .count('* as total')
-
-      const permanentBlockCount = outOfOrderCount[0]?.$extras.total || 0
-
-      const totalBlocked = blockCount + reservedCount + permanentBlockCount
-
-      logger.debug(`🚫 Blocked rooms count for roomType ${roomTypeId} on ${date.toISODate()}`, {
-        roomBlocks: blockCount,
-        reservations: reservedCount,
-        permanent: permanentBlockCount,
-        totalBlocked
-      })
-
-      return totalBlocked
-
-    } catch (error) {
-      logger.error(`❌ Error counting blocked rooms:`, error)
-      return 0
-    }
-  }
-
-  /**
-   * Obtenir le nombre de chambres réservées pour un room type à une date donnée
-   */
-  private async getReservedRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
-    try {
-      // Compter les chambres occupées par des réservations actives
-      const reservedCount = await Room.query()
+      const occupiedCount = await Room.query()
         .where('room_type_id', roomTypeId)
         .where('is_deleted', false)
         .whereHas('reservationRooms', (query) => {
@@ -396,10 +379,54 @@ export default class ChannexBlockService {
         })
         .count('* as total')
 
-      return reservedCount[0]?.$extras.total || 0
+      const count = occupiedCount[0]?.$extras.total || 0
+
+      logger.debug(`🚫 Occupied rooms for roomType ${roomTypeId} on ${date.toISODate()}: ${count}`)
+
+      return count
 
     } catch (error) {
-      logger.error(`❌ Error counting reserved rooms:`, error)
+      logger.error(`❌ Error counting occupied rooms:`, error)
+      return 0
+    }
+  }
+
+  /**
+   * Obtenir le nombre de chambres BLOQUÉES pour un room type à une date donnée
+   */
+  private async getBlockedRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
+    try {
+      // 1. Blocs temporaires (RoomBlock)
+      const temporaryBlocks = await RoomBlock.query()
+        .where('room_type_id', roomTypeId)
+        .where('block_from_date', '<=', date.toISODate())
+        .where('block_to_date', '>', date.toISODate())
+        .whereIn('status', ['pending', 'inProgress'])
+        .count('* as total')
+
+      const temporaryCount = temporaryBlocks[0]?.$extras.total || 0
+
+      // 2. Chambres hors-service permanentes
+      const permanentBlocks = await Room.query()
+        .where('room_type_id', roomTypeId)
+        .where('is_deleted', false)
+        .whereIn('status', ['out_of_order', 'maintenance'])
+        .count('* as total')
+
+      const permanentCount = permanentBlocks[0]?.$extras.total || 0
+
+      const totalBlocked = temporaryCount + permanentCount
+
+      logger.debug(`🚫 Blocked rooms for roomType ${roomTypeId} on ${date.toISODate()}`, {
+        temporaryBlocks: temporaryCount,
+        permanentBlocks: permanentCount,
+        totalBlocked
+      })
+
+      return totalBlocked
+
+    } catch (error) {
+      logger.error(`❌ Error counting blocked rooms:`, error)
       return 0
     }
   }
@@ -481,11 +508,13 @@ export default class ChannexBlockService {
   async debugAvailability(roomTypeId: number, date: DateTime) {
     try {
       const totalRooms = await this.getTotalRoomsCount(roomTypeId)
+      const occupiedRooms = await this.getOccupiedRoomsCount(roomTypeId, date)
       const blockedRooms = await this.getBlockedRoomsCount(roomTypeId, date)
-      const availableRooms = Math.max(0, totalRooms - blockedRooms)
+      const availableRooms = await this.getAvailableRoomsCount(roomTypeId, date)
 
       logger.info(`🔍 DEBUG Availability for roomType ${roomTypeId} on ${date.toISODate()}`, {
         totalRooms,
+        occupiedRooms,
         blockedRooms,
         availableRooms,
         stopSell: availableRooms === 0
@@ -493,6 +522,7 @@ export default class ChannexBlockService {
 
       return {
         totalRooms,
+        occupiedRooms,
         blockedRooms,
         availableRooms,
         stopSell: availableRooms === 0

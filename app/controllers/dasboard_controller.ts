@@ -1034,8 +1034,6 @@ export default class DashboardController {
   }
 
 
-
-
   private async getHousekeepingData(serviceId: number, targetDate?: DateTime, trx?: any) {
     const date = targetDate || DateTime.now()
     const housekeepingStatusCounts = await Room.query(trx ? { client: trx } : undefined)
