@@ -391,6 +391,7 @@ router
   .group(() => {
     // Basic CRUD operations for hotels
     router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
+    router.get('/:hotelId/check', [HotelsController, 'checkHotelExists'])
   })
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login'])

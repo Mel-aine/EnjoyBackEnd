@@ -10,6 +10,7 @@ import User from './user.js'
 import Currency from './currency.js'
 import PaymentMethod from './payment_method.js'
 import TaxRate from './tax_rate.js'
+import Amenity from './amenity.js'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
@@ -488,24 +489,27 @@ export default class Hotel extends BaseModel {
   @hasMany(() => PaymentMethod)
   declare paymentMethods: HasMany<typeof PaymentMethod>
 
+  @hasMany(() => Amenity)
+  declare amenity: HasMany<typeof Amenity>
+
   @beforeCreate()
   static async generateHotelCode(hotel: Hotel) {
     if (!hotel.hotelCode) {
       let isUnique = false
       let hotelCode = ''
-      
+
       while (!isUnique) {
         // Generate Y + 4 random digits
         const randomDigits = Math.floor(1000 + Math.random() * 9000)
         hotelCode = `Y${randomDigits}`
-        
+
         // Check if this code already exists
         const existingHotel = await Hotel.query().where('hotel_code', hotelCode).first()
         if (!existingHotel) {
           isUnique = true
         }
       }
-      
+
       hotel.hotelCode = hotelCode
     }
   }

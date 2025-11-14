@@ -44,8 +44,8 @@ export default class AuthController {
       if (!login) return this.responseError('Invalid credentials', 401)
 
       // Crée un access token (pour les requêtes API) et un refresh token dédié
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '10m' })
-      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '15m' })
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` , expiresIn: '7d'})
 
       await LoggerService.log({
         actorId: user.id,
@@ -99,7 +99,7 @@ export default class AuthController {
       }
 
       // Génère un access token (API) et un refresh token séparé
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '10m' })
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '15m' })
       const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
       console.log('🪪 Tokens générés:', { accessToken, refreshToken })
 
@@ -301,64 +301,95 @@ export default class AuthController {
 
   // Rafraîchir le token via un Refresh Token
   // Priorité: Authorization Bearer. Fallback: cookie httpOnly 'refresh_token'.
-  async refresh_token({ auth, request, response }: HttpContext) {
-    let user: User
-    let current: any
+async refresh_token({ auth, request, response }: HttpContext) {
+  let user: User
+  let current: any
 
-    // 1) Essai via Authorization Bearer
+  console.log('=== [REFRESH TOKEN] Début du processus ===')
+
+  try {
+    console.log('[1] Tentative via Authorization Bearer')
+    user = await auth.authenticate()
+    current = user.currentAccessToken
+    console.log('[1] Token Bearer authentifié')
+  } catch (error) {
+    console.warn('[2] Échec du Bearer, fallback cookie httpOnly')
+
+    const cookieVal = request.cookiesList()?.refresh_token
+    console.log('[2] Cookie refresh_token présent:', !!cookieVal)
+
+    if (!cookieVal) {
+      console.error('[2] Aucun refresh token trouvé')
+      return response.unauthorized({ message: 'Missing refresh token' })
+    }
+
     try {
-      user = await auth.authenticate()
-      current = user.currentAccessToken
-    } catch {
-      // 2) Fallback via cookie httpOnly
-      const cookieVal = request.cookiesList()?.refresh_token
-      if (!cookieVal) {
-        return response.unauthorized({ message: 'Missing refresh token' })
-      }
-
       const verified = await User.accessTokens.verify(new Secret(cookieVal))
+      console.log('[2] Token cookie vérifié avec succès')
+
       if (!verified) {
+        console.error('[2] Token de refresh invalide')
         return response.unauthorized({ message: 'Invalid refresh token' })
       }
 
-      // Charger l’utilisateur par tokenableId
       const tokenUserId = Number(verified.tokenableId)
       user = await User.findOrFail(isNaN(tokenUserId) ? String(verified.tokenableId) as any : tokenUserId)
       current = verified
+      console.log('[2] Utilisateur trouvé:', user.id)
+    } catch (verifyError) {
+      console.error('[2] Erreur de vérification du token:', verifyError)
+      return response.unauthorized({ message: 'Invalid refresh token' })
     }
-
-    // Vérifie que le token présenté possède la capacité 'refresh'
-    const isRefresh = Array.isArray(current?.abilities) && current!.abilities.includes('refresh')
-    if (!isRefresh) {
-      return response.forbidden({ message: 'Invalid token type for refresh' })
-    }
-
-    // Rotation du refresh token: révoque l’ancien et émet un nouveau
-    await User.accessTokens.delete(user, current!.identifier)
-
-    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10h' })
-    const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
-
-    // Met à jour le cookie httpOnly avec le nouveau refresh token
-    const newRefreshValue = (newRefreshToken as any)?.value || (newRefreshToken as any)?.token || String(newRefreshToken)
-    response.cookie('refresh_token', newRefreshValue, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/api/refresh-token',
-      maxAge: 7 * 24 * 60 * 60,
-    })
-
-    return response.ok({
-      message: 'Refresh token successfully',
-      data: {
-        user,
-        user_token: accessToken,
-        access_token: accessToken,
-        refresh_token: newRefreshToken,
-      },
-    })
   }
+
+  console.log('[3] Vérification des capacités du token')
+
+  const isRefresh = Array.isArray(current?.abilities) && current.abilities.includes('refresh')
+  if (!isRefresh) {
+    console.error('[3] Token sans capacité refresh')
+    return response.forbidden({ message: 'Invalid token type for refresh' })
+  }
+
+  console.log('[4] Rotation du refresh token')
+  await User.accessTokens.delete(user, current.identifier)
+
+  console.log('[5] Création des nouveaux tokens')
+  const accessToken = await User.accessTokens.create(user, ['*'], {
+    name: cuid(),
+    expiresIn: '15m',
+  })
+
+  const newRefreshToken = await User.accessTokens.create(user, ['refresh'], {
+    name: `refresh:${cuid()}`,
+  })
+
+  const newRefreshValue =
+    (newRefreshToken as any)?.value ||
+    (newRefreshToken as any)?.token ||
+    String(newRefreshToken)
+
+  console.log('[6] Mise à jour du cookie')
+  response.cookie('refresh_token', newRefreshValue, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/api/refresh-token',
+    maxAge: 7 * 24 * 60 * 60,
+  })
+
+  console.log('[7] Tokens émis avec succès pour l\'utilisateur:', user.id)
+  console.log('=== [REFRESH TOKEN] Fin du processus ===')
+
+  return response.ok({
+    message: 'Refresh token successfully',
+    data: {
+      user,
+      user_token: accessToken,
+      access_token: accessToken,
+      refresh_token: newRefreshToken,
+    },
+  })
+}
 
   public async logout(ctx: HttpContext) {
     const { auth, response } = ctx

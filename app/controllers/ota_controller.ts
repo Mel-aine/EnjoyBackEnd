@@ -18,18 +18,37 @@ export default class OtaController {
         return response.badRequest({ message: 'Invalid hotelId parameter' })
       }
 
-      const hotel = await Hotel.find(hotelId)
+       const hotel = await Hotel.query()
+        .where('id', hotelId)
+        .preload('amenity',(amentyQuery) =>{
+          amentyQuery
+            .select('id', 'amenity_name', 'amenity_type', 'is_deleted')
+            .where('amenity_type', 'Hotel')
+            .andWhere('is_deleted', false)
+          })
+        .preload('rooms', (roomQuery) => {
+          roomQuery
+            .select('id', 'room_number', 'images', 'room_type_id')
+            .whereNull('deleted_at')
+        })
+        .first()
       if (!hotel) {
         return response.notFound({ message: `Hotel ${hotelId} not found` })
       }
-
+        const allRoomImages: string[] = []
+          hotel.rooms?.forEach((room) => {
+            if (room.images && Array.isArray(room.images)) {
+              allRoomImages.push(...room.images)
+            }
+          })
       return response.ok({
         message: 'Hotel info retrieved successfully',
         data: {
           id: hotel.id,
           name: hotel.hotelName,
           description: hotel.description,
-          amenities: hotel.amenities,
+          amenities: hotel.amenity,
+          images: allRoomImages,
           address: {
             address: hotel.address,
             city: hotel.city,
@@ -255,6 +274,7 @@ export default class OtaController {
           rooms: availableRooms.map((room) => ({
             id: room.id,
             roomNumber: room.roomNumber,
+            images:room.images,
             status: room.status,
           })),
           capacity: {
