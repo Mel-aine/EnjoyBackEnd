@@ -308,21 +308,34 @@ export default class CompanyAccountsController {
   async getCityLedger({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
+      const companyIdRaw = params.companyId ?? request.input('companyId')
+      const companyId =
+        companyIdRaw !== undefined && companyIdRaw !== null && `${companyIdRaw}`.trim() !== ''
+          ? Number(companyIdRaw)
+          : undefined
+
       const page = parseInt(request.input('page', '1'))
       const limit = parseInt(request.input('limit', '10'))
       const searchText = request.input('searchText', '').trim()
-      const cityLedgerAccounts = await this.service.getCityLedgerAccounts(hotelId, page, limit, searchText)
+
+      const cityLedgerAccounts = await this.service.getCityLedgerAccounts(
+        Number(hotelId),
+        companyId,
+        page,
+        limit,
+        searchText
+      )
 
       return response.ok({
         success: true,
         data: cityLedgerAccounts,
-        message: 'City ledger accounts retrieved successfully'
+        message: 'City ledger accounts retrieved successfully',
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error fetching city ledger accounts',
-        error: error.message,
+        error: (error as Error).message,
       })
     }
   }
