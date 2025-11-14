@@ -321,7 +321,7 @@ export default class ChannexBlockService {
         .where('room_type_id', roomTypeId)
         .where('is_deleted', false) // Seulement les chambres non supprimées
         .whereNotIn('status', ['out_of_order', 'maintenance']) // Exclure les chambres hors service permanentes
-        .count('* as total')
+        .count<{ total: number }[]>('* as total')
 
       const count = roomsCount[0]?.$extras.total || 0
       

@@ -7,6 +7,9 @@ import Room from '#models/room'
 import { DateTime } from 'luxon'
 
 export default class ChannexBlockService {
+  static query() {
+    throw new Error('Method not implemented.')
+  }
   private channexService: ChannexService
 
   constructor() {
