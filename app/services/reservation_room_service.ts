@@ -1,6 +1,7 @@
 import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
 import { DateTime } from 'luxon'
+import { ReservationStatus, RoomStatus } from '../enums.js'
 
 export default class ReservationRoomService {
   /**
@@ -101,8 +102,8 @@ export default class ReservationRoomService {
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
       .whereIn('room_type_id', roomTypeIds)
-      .where('status', 'available')
-      .where('housekeeping_status', 'clean')
+      //.where('status', 'available')
+      //.where('housekeeping_status', 'clean')
       .select(['id', 'room_type_id'])
 
     const roomIds = rooms.map((r) => r.id)
@@ -116,7 +117,7 @@ export default class ReservationRoomService {
     // Fetch reservations overlapping the date range for these rooms (exclude cancelled)
     const reservations = await ReservationRoom.query()
       .where('hotel_id', hotelId)
-      .where('status', '!=', 'cancelled')
+      .whereNotIn('status', [ReservationStatus.CANCELLED, ReservationStatus.NOSHOW,ReservationStatus.VOIDED])
       .whereIn('room_id', roomIds)
       .where((subQuery) => {
         subQuery
@@ -152,6 +153,74 @@ export default class ReservationRoomService {
     }
 
     return availableCounts
+  }
+
+  async getDailyAvailableRoomCountsByRoomType(
+    hotelId: number,
+    roomTypeIds: number[],
+    startDate: Date,
+    endDate: Date
+  ): Promise<Record<string, Record<number, number>>> {
+    if (!roomTypeIds.length) return {}
+
+    const rooms = await Room.query()
+      .where('hotel_id', hotelId)
+      .whereIn('room_type_id', roomTypeIds)
+      .select(['id', 'room_type_id'])
+
+    const roomIds = rooms.map((r) => r.id)
+    const totalsPerType: Record<number, number> = {}
+    const roomTypeByRoomId: Record<number, number> = {}
+    for (const room of rooms) {
+      const rtId = room.roomTypeId
+      totalsPerType[rtId] = (totalsPerType[rtId] || 0) + 1
+      roomTypeByRoomId[room.id] = rtId
+    }
+
+    const reservations = await ReservationRoom.query()
+      .where('hotel_id', hotelId)
+      .whereNotIn('status', [ReservationStatus.CANCELLED, ReservationStatus.NOSHOW, ReservationStatus.VOIDED])
+      .whereIn('room_id', roomIds)
+      .where((subQuery) => {
+        subQuery
+          .whereBetween('check_in_date', [startDate, endDate])
+          .orWhereBetween('check_out_date', [startDate, endDate])
+          .orWhere((dateQuery) => {
+            dateQuery
+              .where('check_in_date', '<=', startDate)
+              .andWhere('check_out_date', '>=', endDate)
+          })
+      })
+      .select(['room_id', 'check_in_date', 'check_out_date'])
+
+    const start = DateTime.fromJSDate(startDate).startOf('day')
+    const end = DateTime.fromJSDate(endDate).startOf('day')
+    const daily: Record<string, Record<number, number>> = {}
+
+    let cursor = start
+    while (cursor <= end) {
+      const key = cursor.toISODate()!
+      const counts: Record<number, number> = {}
+      for (const rtId of roomTypeIds) {
+        counts[rtId] = totalsPerType[rtId] || 0
+      }
+
+      for (const res of reservations) {
+        const ci = res.checkInDate ? (res.checkInDate as any).toJSDate?.() ?? (res as any).checkInDate : undefined
+        const co = res.checkOutDate ? (res.checkOutDate as any).toJSDate?.() ?? (res as any).checkOutDate : undefined
+        if (!ci || !co) continue
+        const d = cursor.toJSDate()
+        if (d >= ci && d < co) {
+          const rtId = roomTypeByRoomId[res.roomId!]
+          if (rtId) counts[rtId] = Math.max(0, (counts[rtId] || 0) - 1)
+        }
+      }
+
+      daily[key] = counts
+      cursor = cursor.plus({ days: 1 })
+    }
+
+    return daily
   }
 
   /**
