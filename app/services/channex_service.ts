@@ -361,7 +361,7 @@ export class ChannexService {
    * PUT /properties/{property_id}/room_types/{room_type_id}
    */
   async updateRoomType(propertyId: string, roomTypeId: string, roomTypeData: any) {
-    return this.put(` /room_types/${roomTypeId}`, roomTypeData)
+    return this.put(`/room_types/${roomTypeId}`, roomTypeData)
   }
 
   /**

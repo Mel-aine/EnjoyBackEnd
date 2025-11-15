@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -37,7 +37,7 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'hotel_id' })
   declare hotelId: number
 
-   @column({ columnName: 'complimentary_room' })
+  @column({ columnName: 'complimentary_room' })
   declare complimentaryRoom: boolean
 
   @column({ columnName: 'guest_id' })
@@ -88,13 +88,13 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'custom_type' })
   declare customType: string | null
 
-   @column({ columnName: 'bill_to' })
+  @column({ columnName: 'bill_to' })
   declare billTo: string | null
 
-   @column({ columnName: 'payment_type' })
+  @column({ columnName: 'payment_type' })
   declare paymentType: string | null
 
-   @column({ columnName: 'market_code_id' })
+  @column({ columnName: 'market_code_id' })
   declare marketCodeId: number | null
 
   @column({ columnName: 'source_of_business' })
@@ -474,7 +474,7 @@ export default class Reservation extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'createdBy' })
   declare creator: BelongsTo<typeof User>
 
-   @belongsTo(() => MarketCode, { foreignKey: 'marketCodeId' })
+  @belongsTo(() => MarketCode, { foreignKey: 'marketCodeId' })
   declare marketCode: BelongsTo<typeof MarketCode>
 
   @belongsTo(() => User, { foreignKey: 'last_modified_by' })
@@ -506,7 +506,7 @@ export default class Reservation extends BaseModel {
   declare payments: HasMany<typeof Payment>
 
   // Enhanced relationships
-  @belongsTo(() => Hotel,{ foreignKey: 'hotelId' })
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => Guest)
@@ -553,7 +553,7 @@ export default class Reservation extends BaseModel {
   declare guests: ManyToMany<typeof Guest>
 
   @hasMany(() => Reservation, { foreignKey: 'guest_id' })
-declare reservations: HasMany<typeof Reservation>
+  declare reservations: HasMany<typeof Reservation>
 
 
   // Computed properties
@@ -645,9 +645,16 @@ declare reservations: HasMany<typeof Reservation>
   @afterCreate()
   public static notifyAfterCreate(reservation: Reservation) {
     try {
-     // ReservationHook.notifyAvailabilityOnCreate(reservation)
+      ReservationHook.notifyAvailabilityOnCreate(reservation)
     } catch {
-      // swallow errors; hook must not interrupt user flow
+    }
+  }
+
+  @afterUpdate()
+  public static notifyAfterUpdate(reservation: Reservation) {
+    try {
+      ReservationHook.notifyAvailabilityOnUpdate(reservation)
+    } catch {
     }
   }
 
