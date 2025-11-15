@@ -1557,6 +1557,7 @@ router
       })
       .prefix('room-blocks')
 
+    router.post('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'create'])
     // Night Audit Routes
     router
       .group(() => {
