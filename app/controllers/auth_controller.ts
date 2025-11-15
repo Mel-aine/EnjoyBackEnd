@@ -172,7 +172,7 @@ export default class AuthController {
       }))
 
       const filteredPermissions = detailedPermissions.filter((p) => p !== null)
-      console.log('✅ Permissions détaillées filtrées:', filteredPermissions.length)
+      console.log('Permissions détaillées filtrées:', filteredPermissions.length)
 
       const userServices = assignments
         .map((assignment) => assignment.hotel)
