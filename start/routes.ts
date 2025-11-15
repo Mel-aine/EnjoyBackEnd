@@ -588,26 +588,7 @@ router
       router.put('/activity-logs/:id', activityLogsController.update.bind(activityLogsController))
     })
 
-    // TODO: Implement ReservationServiceProductsController
-    // Reservation service product routes will be added once the controller is implemented
 
-
-
-    // TODO: Implement PaymentsController
-    // Payment routes will be added once the controller is implemented
-
-
-    // router.group(() => {
-    //   router.post('/schedules', schedulesController.create.bind(SchedulesController))
-    //   router.get('/schedules', schedulesController.lister.bind(SchedulesController))
-    // })
-
-    // router.group(() => {
-    //   router.get(
-    //     '/services/:serviceId/products/grouped',
-    //     serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController)
-    //   )
-    // })
 
     router.group(() => {
       router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
