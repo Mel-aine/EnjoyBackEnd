@@ -1558,6 +1558,9 @@ router
       .prefix('room-blocks')
 
     router.post('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'create'])
+    router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
+    router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
+    router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
     // Night Audit Routes
     router
       .group(() => {
