@@ -404,6 +404,8 @@ router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
+router.post('api/auth/forgot-password', [AuthController, 'forgotPassword'])
+router.post('api/auth/reset-password', [AuthController, 'resetPassword'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
