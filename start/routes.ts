@@ -85,14 +85,12 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
 import DashboardController from '#controllers/dasboard_controller'
-import EmploymentContractsController from '#controllers/employment_contracts_controller'
 import PayrollsController from '#controllers/payrolls_controller'
 // Import dynamique
 const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 
 const usersController = new UsersController()
-const employmentContractController = new EmploymentContractsController()
 const payrollController = new PayrollsController()
 const rolesController = new RolesController()
 const stockCategoriesController = new StockCategoriesController()
