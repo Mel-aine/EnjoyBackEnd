@@ -3,8 +3,9 @@ import { ChannexService } from '#services/channex_service'
 import logger from '@adonisjs/core/services/logger'
 import Reservation from '#models/reservation'
 import RoomType from '#models/room_type'
-import RoomRate from '#models/room_rate'
 import Room from '#models/room'
+import ReservationRoom from '#models/reservation_room'
+import RoomBlock from '#models/room_block'
 import { DateTime } from 'luxon'
 
 export default class ChannexAvailabilityService {
@@ -15,190 +16,157 @@ export default class ChannexAvailabilityService {
   }
 
   /**
-   * Synchroniser la disponibilité après un événement de réservation (réduction)
+   * SYNCHRONISATION UNIFIÉE - Respecte toutes les conditions
+   * Déclenché par: Nouvelle réservation, modification, annulation, suppression
    */
-  async syncAvailabilityAfterReservation(reservation: Reservation, hotelChannexId: string) {
+  async syncAvailabilityForReservation(reservation: Reservation, hotelChannexId: string) {
     try {
-      logger.info(`🔄 START syncAvailabilityAfterReservation for reservation ${reservation.id}`)
-  
-      // Charger les reservationRooms avec roomType
+      logger.info(`🔄 SYNC AVAILABILITY for reservation ${reservation.id}`, {
+        reservationId: reservation.id,
+        status: reservation.status,
+        hotelChannexId,
+        trigger: 'reservation_event'
+      })
+
+      // Charger toutes les reservationRooms avec roomType
       await reservation.load('reservationRooms', (query) => {
         query.preload('roomType')
       })
       
-      const reservationRoom = reservation.reservationRooms[0]
-      
-      if (!reservationRoom) {
+      if (reservation.reservationRooms.length === 0) {
         logger.warn(`❌ No reservation rooms found for reservation ${reservation.id}`)
         return
       }
-      
-      if (!reservationRoom.roomType?.channexRoomTypeId) {
-        logger.warn(`❌ Cannot sync availability - room type not synced for reservation ${reservation.id}`, {
-          reservationId: reservation.id,
-          roomTypeId: reservationRoom.roomTypeId,
-          hasRoomType: !!reservationRoom.roomType,
-          channexRoomTypeId: reservationRoom.roomType?.channexRoomTypeId
-        })
-        return
-      }
-  
-      const arrivalDate = reservation.arrivedDate || reservation.scheduledArrivalDate
-      const departureDate = reservation.departDate || reservation.scheduledDepartureDate
-  
-      if (!arrivalDate || !departureDate) {
-        logger.warn(`❌ Cannot sync availability - missing dates for reservation ${reservation.id}`)
-        return
-      }
-  
-      const impactedDates = this.getImpactedDates(arrivalDate, departureDate)
-      
-      // RÉDUIRE la disponibilité
-      const availabilityData = await this.calculateUpdatedAvailability(
-        reservationRoom.roomTypeId, // Utiliser le roomTypeId de ReservationRoom
-        reservationRoom.roomType.channexRoomTypeId,
+
+      // ✅ CALCULER LA DISPONIBILITÉ POUR CHAQUE ROOM TYPE IMPACTÉ
+      const roomTypeAvailabilityData = await this.calculateAllRoomTypesAvailability(
+        reservation.hotelId,
+        reservation.reservationRooms,
         hotelChannexId,
-        impactedDates,
-        reservation,
-        'reduce'
-      )
-  
-      const updateResult = await this.updateAvailabilityOnChannex(hotelChannexId, availabilityData)
-  
-      logger.info(`✅ Availability REDUCED after reservation ${reservation.id}`, {
-        reservationId: reservation.id,
-        roomTypeId: reservationRoom.roomTypeId,
-        channexRoomTypeId: reservationRoom.roomType.channexRoomTypeId,
-        status: reservation.reservationStatus,
-        datesCount: impactedDates.length,
-        action: 'reduce',
-        updateSuccess: true
-      })
-  
-      return updateResult
-  
-    } catch (error) {
-      logger.error(`❌ FAILED syncAvailabilityAfterReservation for reservation ${reservation.id}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Synchroniser la disponibilité après annulation/no-show/voided (restauration)
-   */
-  async syncAvailabilityAfterReservationCancellation(reservation: Reservation, hotelChannexId: string) {
-    try {
-      logger.info(`🔄 START syncAvailabilityAfterReservationCancellation for reservation ${reservation.id}`, {
-        reservationId: reservation.id,
-        hotelChannexId,
-        status: reservation.reservationStatus
-      })
-
-      // Charger les reservationRooms avec roomType pour l'annulation aussi
-      await reservation.load('reservationRooms', (query) => {
-        query.preload('roomType')
-      })
-      
-      const reservationRoom = reservation.reservationRooms[0]
-      
-      if (!reservationRoom) {
-        logger.warn(`❌ No reservation rooms found for cancellation ${reservation.id}`)
-        return
-      }
-
-      if (!reservationRoom.roomType?.channexRoomTypeId) {
-        logger.warn(`❌ Cannot sync availability cancellation - room type not synced for reservation ${reservation.id}`)
-        return
-      }
-
-      const arrivalDate = reservation.arrivedDate || reservation.scheduledArrivalDate
-      const departureDate = reservation.departDate || reservation.scheduledDepartureDate
-
-      if (!arrivalDate || !departureDate) {
-        logger.warn(`❌ Cannot sync availability cancellation - missing dates for reservation ${reservation.id}`)
-        return
-      }
-
-      const impactedDates = this.getImpactedDates(arrivalDate, departureDate)
-      
-      logger.info(`📅 Processing ${impactedDates.length} dates for cancellation ${reservation.id}`, {
-        arrivalDate: arrivalDate.toISODate(),
-        departureDate: departureDate.toISODate(),
-        dates: impactedDates.map(d => d.toISODate())
-      })
-      
-      // RESTAURER la disponibilité
-      const availabilityData = await this.calculateUpdatedAvailability(
-        reservationRoom.roomTypeId,
-        reservationRoom.roomType.channexRoomTypeId,
-        hotelChannexId,
-        impactedDates,
-        reservation,
-        'restore' // RESTAURER les chambres disponibles
+        reservation
       )
 
-      const updateResult = await this.updateAvailabilityOnChannex(hotelChannexId, availabilityData)
+      if (roomTypeAvailabilityData.values.length === 0) {
+        logger.info(`ℹ️ No room types to sync for reservation ${reservation.id}`)
+        return
+      }
 
-      logger.info(`✅ Availability RESTORED after reservation ${reservation.id}`, {
+      // ✅ ENVOI UNIQUE À CHANNEX (Batch Update)
+      const updateResult = await this.updateAvailabilityOnChannex(hotelChannexId, roomTypeAvailabilityData)
+
+      logger.info(`✅ AVAILABILITY SYNC COMPLETE for reservation ${reservation.id}`, {
         reservationId: reservation.id,
-        roomTypeId: reservationRoom.roomTypeId,
-        channexRoomTypeId: reservationRoom.roomType.channexRoomTypeId,
-        status: reservation.reservationStatus,
-        datesCount: impactedDates.length,
-        action: 'restore',
-        updateSuccess: true
+        roomTypesCount: new Set(reservation.reservationRooms.map(rr => rr.roomTypeId)).size,
+        datesCount: roomTypeAvailabilityData.values.length,
+        updateSuccess: true,
+        action: this.getActionFromReservationStatus(reservation.status)
       })
 
       return updateResult
 
     } catch (error) {
-      logger.error(`❌ FAILED syncAvailabilityAfterReservationCancellation for reservation ${reservation.id}:`, {
-        reservationId: reservation.id,
-        error: error.message,
-        stack: error.stack
-      })
+      logger.error(`❌ FAILED syncAvailabilityForReservation for reservation ${reservation.id}:`, error)
       throw error
     }
   }
 
   /**
-   * Calculer la disponibilité mise à jour avec action spécifique
+   * CALCULER LA DISPONIBILITÉ POUR TOUS LES ROOM TYPES IMPACTÉS
    */
-  private async calculateUpdatedAvailability(
+  private async calculateAllRoomTypesAvailability(
+    hotelId: number,
+    reservationRooms: ReservationRoom[],
+    hotelChannexId: string,
+    reservation: Reservation
+  ): Promise<any> {
+    // Regrouper les reservationRooms par roomTypeId
+    const roomTypesMap = new Map<number, ReservationRoom[]>()
+    
+    reservationRooms.forEach(reservationRoom => {
+      // ✅ SUPPRIMER TOUTE CONDITION SUR LE STATUT DU ROOMTYPE
+      if (reservationRoom.roomType?.channexRoomTypeId) {
+        if (!roomTypesMap.has(reservationRoom.roomTypeId)) {
+          roomTypesMap.set(reservationRoom.roomTypeId, [])
+        }
+        roomTypesMap.get(reservationRoom.roomTypeId)!.push(reservationRoom)
+      }
+    })
+
+    const allValues = []
+
+    // ✅ POUR CHAQUE ROOM TYPE IMPACTÉ
+    for (const [roomTypeId, rooms] of roomTypesMap.entries()) {
+      const roomType = rooms[0].roomType!
+      const action = this.getActionFromReservationStatus(reservation.status)
+      
+      if (!action) {
+        logger.info(`⏸️ No action for reservation ${reservation.id}, status: ${reservation.status}`)
+        continue
+      }
+
+      // ✅ DÉTERMINER LES DATES IMPACTÉES (union de toutes les dates des reservationRooms)
+      const allImpactedDates = this.getAllImpactedDates(rooms)
+      
+      logger.info(`🧮 Calculating availability for roomType ${roomTypeId}`, {
+        roomTypeId,
+        roomTypeName: roomType.roomTypeName,
+        channexRoomTypeId: roomType.channexRoomTypeId,
+        action,
+        roomsCount: rooms.length,
+        datesCount: allImpactedDates.length,
+        dates: allImpactedDates.map(d => d.toISODate())
+      })
+
+      // ✅ CALCULER LA DISPONIBILITÉ POUR CHAQUE DATE
+      const roomTypeValues = await this.calculateRoomTypeAvailability(
+        hotelId,
+        roomTypeId,
+        roomType.channexRoomTypeId!,
+        hotelChannexId,
+        allImpactedDates,
+        rooms.length, // Nombre de chambres impactées
+        action
+      )
+
+      allValues.push(...roomTypeValues)
+    }
+
+    return { values: allValues }
+  }
+
+  /**
+   * CALCULER LA DISPONIBILITÉ POUR UN ROOM TYPE SPÉCIFIQUE
+   */
+  private async calculateRoomTypeAvailability(
+    hotelId: number,
     roomTypeId: number,
     roomTypeChannexId: string,
     hotelChannexId: string,
     dates: DateTime[],
-    reservation: Reservation,
+    roomsImpacted: number,
     action: 'reduce' | 'restore'
-  ): Promise<any> {
-    logger.info(`🧮 Calculating updated availability for ${dates.length} dates`, {
-      roomTypeId,
-      roomTypeChannexId,
-      hotelChannexId,
-      action,
-      roomsRequested: reservation.roomsRequested || 1
-    })
-
+  ): Promise<any[]> {
     const values = []
 
     for (const date of dates) {
-      const currentAvailability = await this.getCurrentAvailability(roomTypeId, date)
+      // ✅ CALCUL EXACT COMME getRoomStatusData
+      const currentAvailability = await this.calculateRoomAvailability(hotelId, date, roomTypeId)
       
-      // Calculer la nouvelle disponibilité selon l'action
-      const updatedAvailability = await this.calculateNewAvailability(
+      // ✅ APPLIQUER L'ACTION (réduction ou restauration)
+      const updatedAvailability = this.applyAvailabilityAction(
         currentAvailability,
-        reservation,
-        date,
+        roomsImpacted,
         action
       )
 
-      logger.debug(`📊 Availability calculation for ${date.toISODate()}`, {
+      logger.debug(`📊 RoomType ${roomTypeId} availability for ${date.toISODate()}`, {
         date: date.toISODate(),
-        currentAvailability: currentAvailability.availableRooms,
-        updatedAvailability: updatedAvailability.availableRooms,
-        stopSell: updatedAvailability.stopSell,
-        action
+        roomTypeId,
+        currentAvailable: currentAvailability.availableRooms,
+        updatedAvailable: updatedAvailability.availableRooms,
+        roomsImpacted,
+        action,
+        stopSell: updatedAvailability.stopSell
       })
 
       values.push({
@@ -211,38 +179,106 @@ export default class ChannexAvailabilityService {
       })
     }
 
-    logger.info(`✅ Calculated availability data for ${values.length} dates`, {
-      roomTypeChannexId,
-      sampleDate: values[0]?.date_from,
-      sampleAvailability: values[0]?.availability
-    })
-
-    return { values }
+    return values
   }
 
   /**
-   * Calculer la nouvelle disponibilité avec gestion des actions
+   * CALCUL DE DISPONIBILITÉ - MÊME LOGIQUE QUE getRoomStatusData
    */
-  private async calculateNewAvailability(
-    currentAvailability: { availableRooms: number; stopSell: boolean },
-    reservation: Reservation,
-    date: DateTime,
-    action: 'reduce' | 'restore'
-  ): Promise<{ availableRooms: number; stopSell: boolean }> {
-    const roomsRequested = reservation.roomsRequested || 1
-    let updatedRooms = currentAvailability.availableRooms
+  private async calculateRoomAvailability(hotelId: number, date: DateTime, roomTypeId?: number): Promise<{
+    availableRooms: number
+    occupiedRooms: number
+    blockedRooms: number
+    totalRooms: number
+  }> {
+    const targetDate = date
 
-    // Logique basée sur l'ACTION plutôt que le statut
-    if (action === 'reduce') {
-      // RÉDUIRE la disponibilité
-      updatedRooms = Math.max(0, currentAvailability.availableRooms - roomsRequested)
-    } else if (action === 'restore') {
-      // RESTAURER la disponibilité
-      updatedRooms = currentAvailability.availableRooms + roomsRequested
+    const [roomStatusCounts, roomStatusDayUse, roomStatusComplimentary, roomBlocksForDate] = await Promise.all([
+      Room.query()
+        .where('hotel_id', hotelId)
+        .if(roomTypeId, (query) => query.where('room_type_id', roomTypeId!))
+        .groupBy('status')
+        .select('status')
+        .count('* as total'),
+      
+      ReservationRoom.query()
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .where('reservations.hotel_id', hotelId)
+        .where('reservation_rooms.status', 'day_use')
+        .if(roomTypeId, (query) => query.whereHas('room', (roomQuery) => roomQuery.where('room_type_id', roomTypeId!)))
+        .count('* as total'),
+      
+      Reservation.query()
+        .where('hotel_id', hotelId)
+        .where('complimentary_room', true)
+        .if(roomTypeId, (query) => query.whereHas('reservationRooms', (rrQuery) => {
+          rrQuery.whereHas('room', (roomQuery) => roomQuery.where('room_type_id', roomTypeId!))
+        }))
+        .count('* as total'),
+      
+      RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .where('block_from_date', '<=', targetDate.toFormat('yyyy-MM-dd'))
+        .where('block_to_date', '>=', targetDate.toFormat('yyyy-MM-dd'))
+        .whereNot('status', 'completed')
+        .if(roomTypeId, (query) => query.where('room_type_id', roomTypeId!))
+        .select('id', 'room_id', 'block_from_date', 'block_to_date', 'reason', 'description')
+        .preload('room', (roomQuery) => roomQuery.select('id', 'room_number'))
+    ])
+
+    // MÊME LOGIQUE QUE getRoomStatusData
+    const blockedRoomIds = new Set<number>()
+    roomBlocksForDate.forEach(block => {
+      if (block.room) {
+        blockedRoomIds.add(block.room.id)
+      }
+    })
+
+    const statusCounts = new Map<string, number>()
+    for (const item of roomStatusCounts) {
+      statusCounts.set(item.status as any, Number(item.$extras.total || 0))
     }
 
-    // Déterminer si stop sell (si plus de chambres disponibles)
-    const stopSell = currentAvailability.stopSell || updatedRooms === 0
+    const totalRooms = Array.from(statusCounts.values()).reduce((sum, n) => sum + n, 0)
+    const occupiedRooms =
+      (statusCounts.get('occupied') || 0) +
+      Number(roomStatusDayUse[0].$extras.total || '0') +
+      Number(roomStatusComplimentary[0].$extras.total || '0')
+
+    const roomsInMaintenanceCount = statusCounts.get('in_maintenance') || 0
+    const blockedRoomsCount = blockedRoomIds.size
+
+    const availableRooms = Math.max(0, totalRooms - occupiedRooms - roomsInMaintenanceCount - blockedRoomsCount)
+
+    return {
+      availableRooms,
+      occupiedRooms,
+      blockedRooms: roomsInMaintenanceCount + blockedRoomsCount,
+      totalRooms
+    }
+  }
+
+  /**
+   * APPLIQUER L'ACTION DE DISPONIBILITÉ
+   */
+  private applyAvailabilityAction(
+    currentAvailability: { availableRooms: number; totalRooms: number; blockedRooms: number },
+    roomsImpacted: number,
+    action: 'reduce' | 'restore'
+  ): { availableRooms: number; stopSell: boolean } {
+    
+    let updatedRooms = currentAvailability.availableRooms
+
+    if (action === 'reduce') {
+      // RÉDUIRE la disponibilité
+      updatedRooms = Math.max(0, currentAvailability.availableRooms - roomsImpacted)
+    } else if (action === 'restore') {
+      // RESTAURER la disponibilité - ne pas dépasser le maximum théorique
+      const theoreticalMax = currentAvailability.totalRooms - currentAvailability.blockedRooms
+      updatedRooms = Math.min(theoreticalMax, currentAvailability.availableRooms + roomsImpacted)
+    }
+
+    const stopSell = updatedRooms === 0
 
     return {
       availableRooms: updatedRooms,
@@ -251,254 +287,97 @@ export default class ChannexAvailabilityService {
   }
 
   /**
-   * Récupérer la disponibilité actuelle pour une date donnée
+   * OBTENIR TOUTES LES DATES IMPACTÉES (union de toutes les reservationRooms)
    */
-  private async getCurrentAvailability(roomTypeId: number, date: DateTime): Promise<{
-    availableRooms: number
-    stopSell: boolean
-  }> {
-    try {
-      logger.debug(`🔍 Getting current availability for roomType ${roomTypeId} on ${date.toISODate()}`)
+  private getAllImpactedDates(reservationRooms: ReservationRoom[]): DateTime[] {
+    const allDates = new Set<string>()
+    
+    reservationRooms.forEach(room => {
+      const dates = this.getImpactedDates(room.checkInDate, room.checkOutDate)
+      dates.forEach(date => allDates.add(date.toISODate()!))
+    })
 
-      // Récupérer depuis RoomRate
-      const roomRate = await RoomRate.query()
-        .where('roomTypeId', roomTypeId)
-        .where('rateDate', date.toISODate() as string)
-        .first()
-
-      if (roomRate) {
-        logger.debug(`📋 Found RoomRate record for ${date.toISODate()}`, {
-          availableRooms: roomRate.availableRooms,
-          stopSell: roomRate.stopSell
-        })
-        return {
-          availableRooms: roomRate.availableRooms || 0,
-          stopSell: roomRate.stopSell || false
-        }
-      }
-
-      // Calculer la disponibilité en temps réel
-      const realTimeAvailability = await this.calculateRealTimeAvailability(roomTypeId, date)
-      logger.debug(`🔄 Using real-time availability for ${date.toISODate()}`, {
-        availableRooms: realTimeAvailability.availableRooms,
-        stopSell: realTimeAvailability.stopSell
-      })
-
-      return realTimeAvailability
-
-    } catch (error) {
-      logger.error(`❌ Error getting current availability for ${date.toISODate()}:`, error)
-      return {
-        availableRooms: 10,
-        stopSell: false
-      }
-    }
+    return Array.from(allDates).map(dateStr => DateTime.fromISO(dateStr))
   }
 
   /**
-   * Calculer la disponibilité en temps réel depuis la table Room
-   */
-  private async calculateRealTimeAvailability(roomTypeId: number, date: DateTime): Promise<{
-    availableRooms: number
-    stopSell: boolean
-  }> {
-    try {
-      // 1. Obtenir le nombre total de chambres actives
-      const totalRooms = await this.getTotalRoomsCount(roomTypeId)
-      
-      // 2. Obtenir le nombre de chambres occupées/réservées
-      const occupiedRooms = await this.getOccupiedRoomsCount(roomTypeId, date)
-      
-      // 3. Obtenir le nombre de chambres bloquées (hors-service)
-      const blockedRooms = await this.getBlockedRoomsCount(roomTypeId, date)
-
-      const availableRooms = Math.max(0, totalRooms - occupiedRooms - blockedRooms)
-
-      logger.debug(`📊 Real-time availability calculation for ${date.toISODate()}`, {
-        roomTypeId,
-        totalRooms,
-        occupiedRooms,
-        blockedRooms,
-        availableRooms
-      })
-
-      return {
-        availableRooms,
-        stopSell: availableRooms === 0
-      }
-
-    } catch (error) {
-      logger.error(`❌ Error calculating real-time availability:`, error)
-      return {
-        availableRooms: 10,
-        stopSell: false
-      }
-    }
-  }
-
-  /**
-   * Obtenir le nombre total de chambres actives pour un room type
-   */
-  private async getTotalRoomsCount(roomTypeId: number): Promise<number> {
-    try {
-      const roomsCount = await Room.query()
-        .where('room_type_id', roomTypeId)
-        .where('is_deleted', false)
-        .whereNotIn('status', ['out_of_order', 'maintenance']) // Exclure les chambres hors service permanentes
-        .count('* as total')
-
-      const count = roomsCount[0]?.$extras.total || 0
-      
-      logger.debug(`🏨 Total active rooms for roomType ${roomTypeId}: ${count}`)
-      
-      return count
-
-    } catch (error) {
-      logger.warn(`⚠️ Error counting total rooms, using default 10 for roomType ${roomTypeId}:`, error)
-      return 10
-    }
-  }
-
-  /**
-   * Obtenir le nombre de chambres occupées/réservées pour une date
-   */
-  private async getOccupiedRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
-    try {
-      const occupiedCount = await Room.query()
-        .where('room_type_id', roomTypeId)
-        .where('is_deleted', false)
-        .whereHas('reservationRooms', (query) => {
-          query
-            .where('check_in_date', '<=', date.toISODate())
-            .where('check_out_date', '>', date.toISODate())
-            .whereIn('status', ['reserved', 'checked_in'])
-        })
-        .count('* as total')
-
-      return occupiedCount[0]?.$extras.total || 0
-
-    } catch (error) {
-      logger.error(`❌ Error counting occupied rooms:`, error)
-      return 0
-    }
-  }
-
-  /**
-   * Obtenir le nombre de chambres bloquées (hors-service) pour une date
-   */
-  private async getBlockedRoomsCount(roomTypeId: number, date: DateTime): Promise<number> {
-    try {
-      // Compter les chambres en maintenance ou hors-service permanentes
-      const blockedCount = await Room.query()
-        .where('room_type_id', roomTypeId)
-        .where('is_deleted', false)
-        .whereIn('status', ['out_of_order', 'maintenance'])
-        .count('* as total')
-
-      return blockedCount[0]?.$extras.total || 0
-
-    } catch (error) {
-      logger.error(`❌ Error counting blocked rooms:`, error)
-      return 0
-    }
-  }
-
-  /**
-   * Mettre à jour la disponibilité sur Channex
-   */
-  private async updateAvailabilityOnChannex(propertyId: string, availabilityData: any) {
-    try {
-      logger.info(`🚀 START updateAvailabilityOnChannex for property ${propertyId}`, {
-        propertyId,
-        updatesCount: availabilityData.values?.length || 0,
-        dates: availabilityData.values?.map((v: any) => v.date_from)
-      })
-
-      console.log('🔥 AVAILABILITY PAYLOAD:', JSON.stringify(availabilityData, null, 2))
-
-      const response = await this.channexService.updateAvailability(propertyId, availabilityData)
-
-      // Vérifier la réponse de Channex
-      if (response && (response as any)?.success !== false) {
-        logger.info(`✅ SUCCESS updateAvailabilityOnChannex for property ${propertyId}`, {
-          propertyId,
-          updatesCount: availabilityData.values?.length || 0,
-          responseId: (response as any)?.id ?? (response as any)?.data?.id,
-          responseStatus: (response as any)?.status ?? (response as any)?.data?.status
-        })
-
-        console.log('✅ CHANNEX RESPONSE SUCCESS:', JSON.stringify(response, null, 2))
-      } else {
-        logger.warn(`⚠️ PARTIAL SUCCESS updateAvailabilityOnChannex for property ${propertyId}`, {
-          propertyId,
-          response: response,
-          hasError: (response as any)?.error || (response as any)?.errors
-        })
-
-        console.log('⚠️ CHANNEX RESPONSE WARNING:', JSON.stringify(response, null, 2))
-      }
-
-      return response
-
-    } catch (error) {
-      logger.error(`❌ FAILED updateAvailabilityOnChannex for property ${propertyId}:`, {
-        propertyId,
-        error: error.message,
-        stack: error.stack,
-        payloadSize: availabilityData.values?.length || 0
-      })
-
-      console.log('❌ CHANNEX UPDATE FAILED:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Obtenir les dates impactées par une réservation
+   * OBTENIR LES DATES IMPACTÉES POUR UNE RÉSERVATION
    */
   private getImpactedDates(startDate: DateTime, endDate: DateTime): DateTime[] {
     const dates: DateTime[] = []
     let currentDate = startDate.startOf('day')
-
-    logger.debug(`📅 Calculating impacted dates from ${startDate.toISODate()} to ${endDate.toISODate()}`)
 
     while (currentDate < endDate) {
       dates.push(currentDate)
       currentDate = currentDate.plus({ days: 1 })
     }
 
-    logger.debug(`📅 Found ${dates.length} impacted dates`, {
-      dates: dates.map(d => d.toISODate())
-    })
-
     return dates
   }
 
   /**
-   * Méthode de debug pour analyser la disponibilité
+   * DÉTERMINER L'ACTION SELON LE STATUT
    */
-  async debugAvailability(roomTypeId: number, date: DateTime) {
+  private getActionFromReservationStatus(status: string): 'reduce' | 'restore' | null {
+    const statusMap: { [key: string]: 'reduce' | 'restore' | null } = {
+      // ✅ RÉDUIRE la disponibilité
+      'confirmed': 'reduce',
+      'checked_in': 'reduce',
+      'guaranteed': 'reduce',
+      
+      // ✅ RESTAURER la disponibilité  
+      'cancelled': 'restore',
+      'no_show': 'restore',
+      'voided': 'restore',
+      'rejected': 'restore',
+      
+      // ⏸️ PAS D'ACTION
+      'pending': null,
+      'inquiry': null,
+      'waitlist': null,
+      'checked_out': null
+    }
+
+    return statusMap[status] || null
+  }
+
+  /**
+   * MISE À JOUR UNIQUE SUR CHANNEX (Batch Update)
+   */
+  private async updateAvailabilityOnChannex(propertyId: string, availabilityData: any) {
     try {
-      const totalRooms = await this.getTotalRoomsCount(roomTypeId)
-      const occupiedRooms = await this.getOccupiedRoomsCount(roomTypeId, date)
-      const blockedRooms = await this.getBlockedRoomsCount(roomTypeId, date)
-      const availableRooms = Math.max(0, totalRooms - occupiedRooms - blockedRooms)
+      logger.info(`🚀 BATCH UPDATE to Channex for ${availabilityData.values.length} date/roomType combinations`)
+
+      const response = await this.channexService.updateAvailability(propertyId, availabilityData)
+
+      if (response && (response as any)?.success !== false) {
+        logger.info(`✅ BATCH UPDATE SUCCESS to Channex`)
+      } else {
+        logger.warn(`⚠️ BATCH UPDATE PARTIAL SUCCESS to Channex`)
+      }
+
+      return response
+
+    } catch (error) {
+      logger.error(`❌ BATCH UPDATE FAILED to Channex:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * MÉTHODE DE DEBUG
+   */
+  async debugAvailability(hotelId: number, roomTypeId: number, date: DateTime) {
+    try {
+      const availability = await this.calculateRoomAvailability(hotelId, date, roomTypeId)
 
       logger.info(`🔍 DEBUG Availability for roomType ${roomTypeId} on ${date.toISODate()}`, {
-        totalRooms,
-        occupiedRooms,
-        blockedRooms,
-        availableRooms,
-        stopSell: availableRooms === 0
+        hotelId,
+        roomTypeId,
+        ...availability
       })
 
-      return {
-        totalRooms,
-        occupiedRooms,
-        blockedRooms,
-        availableRooms,
-        stopSell: availableRooms === 0
-      }
+      return availability
 
     } catch (error) {
       logger.error(`❌ Error in debugAvailability:`, error)
