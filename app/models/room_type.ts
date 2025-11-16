@@ -1,12 +1,11 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterSave, afterDelete, beforeDelete } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import Room from './room.js'
 import RoomRate from './room_rate.js'
 import RateType from './rate_type.js'
 import User from './user.js'
-import RoomTypeSync from '../Listerners/room_type_sync.js'
 
 export default class RoomType extends BaseModel {
   @column({ isPrimary: true })
@@ -155,24 +154,17 @@ declare rateTypes: ManyToMany<typeof RateType>
     return this.baseAdult + this.baseChild
   }
 
-   @afterSave()
-   public static async syncRoomTypeChanges(roomType: RoomType) {
-     // Ne pas synchroniser si publishToWebsite n'est pas true
-     if (!roomType.publishToWebsite) {
-      console.log('🔥 Room type is not published to website, skipping sync')
-       return
-     }
-     
-     // Ne pas synchroniser pendant la création (attendre que les relations soient établies)
-     if (roomType.$dirty.channexRoomTypeId) {
-       return
-     }
-     
-     await RoomTypeSync.handleRoomTypeChange(roomType)
-   }
- 
-   @beforeDelete()
-   public static async syncBeforeDelete(roomType: RoomType) {
-     await RoomTypeSync.handleRoomTypeDeletion(roomType)
-   }
+  @afterCreate()
+  public static notifyAfterCreate(roomType: RoomType) {
+    try {
+      RoomTypeHook.notifyChannexOnCreate(roomType)
+    } catch {}
+  }
+
+  @afterUpdate()
+  public static notifyAfterUpdate(roomType: RoomType) {
+    try {
+      RoomTypeHook.notifyChannexOnUpdate(roomType)
+    } catch {}
+  }
 }

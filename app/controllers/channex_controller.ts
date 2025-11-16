@@ -328,13 +328,15 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
 
         const rrService = new ReservationRoomService()
         const localRoomTypeIds = Array.from(channexToRoomTypeId.values())
-        const countsByRoomType = await rrService.getAvailableRoomCountsByRoomType(
+        const dailyCounts = await rrService.getDailyAvailableRoomCountsByRoomType(
           hotelId,
           localRoomTypeIds,
           checkIn.toJSDate(),
           checkOut.toJSDate()
         )
 
+        const startDay = DateTime.fromISO(singleDate ?? dateRange.from).startOf('day')
+        const endDay = DateTime.fromISO(singleDate ?? dateRange.to).startOf('day')
         for (const channexRoomTypeId of selectedRooms) {
           if (!channexRoomTypeId) continue
           const localId = channexToRoomTypeId.get(channexRoomTypeId)
@@ -342,13 +344,31 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
             logger.warn(`RoomType not mapped for hotel ${hotelId} channex_room_type_id=${channexRoomTypeId}`)
             continue
           }
-          const availabilityCount = countsByRoomType[localId] ?? 0
+          let segStart = startDay
+          let current = dailyCounts[startDay.toISODate()!]?.[localId] ?? 0
+          let cursor = startDay.plus({ days: 1 })
+          while (cursor <= endDay) {
+            const key = cursor.toISODate()!
+            const val = dailyCounts[key]?.[localId] ?? 0
+            if (val !== current) {
+              availabilityValues.push({
+                room_type_id: channexRoomTypeId,
+                property_id: hotel.channexPropertyId,
+                date_from: segStart.toISODate()!,
+                date_to: cursor.minus({ days: 1 }).toISODate()!,
+                availability: current,
+              })
+              segStart = cursor
+              current = val
+            }
+            cursor = cursor.plus({ days: 1 })
+          }
           availabilityValues.push({
             room_type_id: channexRoomTypeId,
             property_id: hotel.channexPropertyId,
-            date_from: singleDate ? singleDate : dateRange.from,
-            date_to: singleDate ? singleDate : dateRange.to,
-            availability: availabilityCount,
+            date_from: segStart.toISODate()!,
+            date_to: endDay.toISODate()!,
+            availability: current,
           })
         }
       }
@@ -397,7 +417,7 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
             rate: String(Number((roomRate as any).baseRate).toFixed(2)),
             min_stay_arrival: roomRate.minimumNights ?? undefined,
             min_stay_through: roomRate.minimumNights ?? undefined,
-            min_stay: roomRate.minimumNights ?? undefined,
+            //min_stay: roomRate.minimumNights ?? undefined,
             max_stay: roomRate.maximumNights ?? undefined,
             // Send closed_to_arrival and closed_to_departure as 0/1
             closed_to_arrival:
