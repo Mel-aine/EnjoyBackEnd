@@ -57,6 +57,7 @@ import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '#controllers/audit_trail_controller'
 import EmailAccountsController from '#controllers/email_accounts_controller'
 import EmailTemplateController from '#controllers/email_template_controller'
+import IpConfigurationsController from '#controllers/ip_configurations_controller'
 import TransportRequestsController from '#controllers/transport_requests_controller'
 import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
@@ -137,6 +138,7 @@ const bookingSourcesController = new BookingSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
 const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
+const ipConfigurationsController = new IpConfigurationsController()
 const lostFoundController = new LostFoundController()
 const reservationsController = new ReservationsController()
 const roomBlocksController = new RoomBlocksController()
@@ -394,8 +396,8 @@ router
     router.get('/:hotelId/check', [HotelsController, 'checkHotelExists'])
   })
   .prefix('api/hotels')
-router.post('api/auth', [AuthController, 'login'])
-router.post('api/authLogin', [AuthController, 'signin'])
+router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction())
+router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
 router.post('api/initSpace', [AuthController, 'initSpace'])
@@ -1561,6 +1563,16 @@ router
     router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
     router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
     router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
+
+    router
+      .group(() => {
+        router.get('/', ipConfigurationsController.index.bind(ipConfigurationsController))
+        router.post('/', ipConfigurationsController.store.bind(ipConfigurationsController))
+        router.get('/:id', ipConfigurationsController.show.bind(ipConfigurationsController))
+        router.put('/:id', ipConfigurationsController.update.bind(ipConfigurationsController))
+        router.delete('/:id', ipConfigurationsController.destroy.bind(ipConfigurationsController))
+      })
+      .prefix('configuration/hotels/:hotelId/ip_configurations')
     // Night Audit Routes
     router
       .group(() => {
@@ -1658,6 +1670,7 @@ router
 
   })
   .prefix('/api')
+  .use(middleware.ipRestriction())
   .use(
     middleware.auth({
       guards: ['api'],
