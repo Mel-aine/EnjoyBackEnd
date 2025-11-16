@@ -43,7 +43,7 @@ export default class IpRestrictionMiddleware {
           ctx,
           hotelId,
         })
-        return ctx.response.unauthorized({ message: 'IP address not allowed' })
+        return ctx.response.unauthorized({ message: `IP address not allowed ${clientIp}` })
       }
 
       return next()
