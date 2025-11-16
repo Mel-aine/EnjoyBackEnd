@@ -504,7 +504,7 @@ export default class Reservation extends BaseModel {
   declare payments: HasMany<typeof Payment>
 
   // Enhanced relationships
-  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
+  @belongsTo(() => Hotel,{ foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => Guest)
@@ -551,8 +551,7 @@ export default class Reservation extends BaseModel {
   declare guests: ManyToMany<typeof Guest>
 
   @hasMany(() => Reservation, { foreignKey: 'guest_id' })
-declare reservations: HasMany<typeof Reservation>
-
+  declare reservations: HasMany<typeof Reservation>
 
   // Computed properties
   get totalOccupancy() {
@@ -639,14 +638,70 @@ declare reservations: HasMany<typeof Reservation>
     return Math.round(diffInHours * 100) / 100
   }
 
-  // Background hook: notify Channex availability when a reservation is created
-  @afterCreate()
-  public static notifyAfterCreate(reservation: Reservation) {
+  /**
+   * Hook: Après la sauvegarde (création ou modification)
+   */
+@afterSave()
+  static async syncOnStatusChange(reservation: Reservation) {
+    // Seulement si le statut a changé
+    if (!reservation.$dirty.status) {
+      return
+    }
+
+    console.log('🔄 Reservation status changed - Syncing availability')
+    
     try {
-     // ReservationHook.notifyAvailabilityOnCreate(reservation)
-    } catch {
-      // swallow errors; hook must not interrupt user flow
+      // Charger les relations nécessaires
+      await reservation.load('hotel')
+      await reservation.load('reservationRooms', (query) => {
+        query.preload('roomType')
+      })
+
+      if (!reservation.hotel?.channexPropertyId) {
+        console.warn('⚠️ No hotel or channexPropertyId found')
+        return
+      }
+
+      // Vérifier qu'on a des rooms avec roomType synced
+      const validRooms = reservation.reservationRooms.filter(
+        rr => rr.roomType?.channexRoomTypeId
+      )
+
+      if (validRooms.length === 0) {
+        console.warn('⚠️ No valid reservation rooms with synced room types')
+        return
+      }
+
+      const channexAvailabilityService = new ChannexAvailabilityService()
+      
+      // Utiliser la même logique que dans ReservationRoom
+      if (this.shouldRestoreAvailability(reservation)) {
+        console.log('🔄 Action: RESTORE availability (status change)')
+        await channexAvailabilityService.syncAvailabilityForReservation(
+          reservation, 
+          reservation.hotel.channexPropertyId
+        )
+      } else if (this.shouldReduceAvailability(reservation)) {
+        console.log('🔻 Action: REDUCE availability (status change)')
+        await channexAvailabilityService.syncAvailabilityForReservation(
+          reservation, 
+          reservation.hotel.channexPropertyId
+        )
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to sync availability on status change:', error)
     }
   }
 
+  // Garder ces méthodes utilitaires
+  private static shouldRestoreAvailability(reservation: Reservation): boolean {
+    const restoreStatuses = ['cancelled', 'no_show', 'voided']
+    return restoreStatuses.includes(reservation.status)
+  }
+
+  private static shouldReduceAvailability(reservation: Reservation): boolean {
+    const reduceStatuses = ['confirmed', 'checked_in', 'guaranteed']
+    return reduceStatuses.includes(reservation.status)
+  }
 }
