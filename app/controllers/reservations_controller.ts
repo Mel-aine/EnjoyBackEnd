@@ -1850,6 +1850,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
         roomType = '',
         checkInDate = '',
         checkOutDate = '',
+        rateType = '',
+        source = '',
+        showBookings = '',
+        dateType = '',
+        dateStart = '',
+        dateEnd = '',
+        stayCheckInDate = '',
+        stayCheckOutDate = '',
+        reservationType = ''
       } = request.qs()
       const params = request.params()
 
@@ -1859,14 +1868,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (searchText) {
         query.where((builder) => {
           builder
-            .where('reservation_number', 'like', `%${searchText}%`)
+            .where('reservation_number', 'ILIKE', `%${searchText}%`)
             .orWhere('group_name', 'like', `%${searchText}%`)
             .orWhere('company_name', 'like', `%${searchText}%`)
             .orWhere('source_of_business', 'like', `%${searchText}%`)
             .orWhereHas('guest', (userQuery) => {
               userQuery
-                .where('first_name', 'like', `%${searchText}%`)
-                .orWhere('last_name', 'like', `%${searchText}%`)
+                .where('first_name', 'ILIKE', `%${searchText}%`)
+                .orWhere('last_name', 'ILIKE', `%${searchText}%`)
                 .orWhere('email', 'like', `%${searchText}%`)
                 .orWhere('phone_primary', 'like', `%${searchText}%`)
             })
@@ -1895,13 +1904,49 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // 3. Filter by date range (check for overlapping reservations)
       if (checkInDate && checkOutDate) {
-        const startDate = DateTime.fromISO(checkInDate).toISODate()
-        const endDate = DateTime.fromISO(checkOutDate).toISODate()
+          const startDate = DateTime.fromISO(checkInDate).toISODate()
+          const endDate = DateTime.fromISO(checkOutDate).toISODate()
+
+          if (startDate && endDate) {
+            // A reservation overlaps if its start is before the search's end
+            // AND its end is after the search's start.
+            query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+          }
+        }
+
+
+      if (stayCheckInDate && stayCheckOutDate) {
+        const startDate = DateTime.fromISO(stayCheckInDate).toISODate()
+        const endDate = DateTime.fromISO(stayCheckOutDate).toISODate()
+        if (startDate && endDate) {
+          // Rechercher les réservations qui sont en cours pendant cette période
+          query
+            .where('arrived_date', '<=', endDate)
+            .andWhere('depart_date', '>=', startDate)
+            .andWhere('status', 'checked_in')
+        }
+      }
+
+      if (dateType && dateStart && dateEnd) {
+        const startDate = DateTime.fromISO(dateStart).toISODate()
+        const endDate = DateTime.fromISO(dateEnd).toISODate()
 
         if (startDate && endDate) {
-          // A reservation overlaps if its start is before the search's end
-          // AND its end is after the search's start.
-          query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
+          switch (dateType) {
+            case 'arrival':
+              query.where('arrived_date', '>=', startDate).where('arrived_date', '<=', endDate)
+              break
+            case 'departure':
+              query.where('depart_date', '>=', startDate).where('depart_date', '<=', endDate)
+              break
+            case 'created':
+              query.where('created_at', '>=', startDate).where('created_at', '<=', endDate)
+              break
+            case 'cancelled':
+
+              query.where('status', 'cancelled')
+              break
+          }
         }
       }
 
@@ -1913,6 +1958,49 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         })
       }
+      if (rateType) {
+        query.whereHas('reservationRooms', (rspQuery) => {
+          rspQuery.whereHas('rateType', (rateTypeQuery: any) => {
+            rateTypeQuery.where('rate_type_name', 'like', `%${rateType}%`)
+          })
+        })
+      }
+      if (source) {
+         query.where('businessSourceId',source)
+      }
+
+      // Filter par showBookings (toggles)
+
+      if (showBookings) {
+        const bookingTypes = showBookings.split(',')
+
+        query.where((builder) => {
+          // Si 'web' ou 'channel' est sélectionné
+          if (bookingTypes.includes('web')) {
+            builder.orWhere((b) => {
+              b.whereNotNull('ota_name').orWhereNotNull('ota_reservation_code')
+            })
+          }
+
+           if (bookingTypes.includes('channel')) {
+            builder.orWhere((b) => {
+              b.whereNotNull('channex_booking_id')
+            })
+          }
+
+          // Si 'pms' est sélectionné
+          if (bookingTypes.includes('pms')) {
+            builder.orWhere((b) => {
+              b.whereNull('ota_name').whereNull('ota_reservation_code')
+            })
+          }
+        })
+      }
+
+
+      if(reservationType){
+        query.where('reservationTypeId',reservationType)
+      }
 
       // Preload related data for the response
       query
@@ -1921,6 +2009,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('guest')
         .preload('roomType')
         .preload('bookingSource')
+        .preload('reservationType',(sQuery:any) => {
+              sQuery.select(['id', 'name'])
+        })
         .preload('discount')
         .preload('paymentMethod')
         .preload('folios', (folioQuery) => {
@@ -1928,7 +2019,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         //.preload('hotel')
         .preload('reservationRooms', (rspQuery) => {
-          rspQuery.preload('room')
+          rspQuery.preload('room').preload('rateType',(sQuery:any) => {
+              sQuery.select(['id', 'rate_type_name'])
+            })
         })
         .orderBy('created_at', 'desc')
         .limit(50)
@@ -2497,6 +2590,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
             paymentType: data.payment_type,
             taxExempt: data.tax_exempt,
             isHold: data.isHold,
+            otaReservationCode :data.ota_reservation_code,
+            otaName : data.ota_name,
+            bookingDate: data.booking_date
+              ? DateTime.fromISO(data.booking_date)
+              : DateTime.now(),
             holdReleaseDate:
               data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
             releaseTem: data.isHold ? data.ReleaseTem : null,

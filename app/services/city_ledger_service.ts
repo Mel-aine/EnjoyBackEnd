@@ -41,7 +41,7 @@ export interface CityLedgerTransaction {
   balance: number
   voucherNumber?: string
   isVoided: boolean,
-  paymentTypeId:number
+  paymentTypeId: number
 }
 
 export interface CityLedgerTotals {
@@ -90,7 +90,30 @@ export default class CityLedgerService {
 
     const folioIds = companyFolios.map((f) => f.id)
     if (folioIds.length === 0) {
-      throw new Error(`No company folio found for city ledger: ${companyAccount.companyName}`)
+      return {
+        data: [],
+        totals: {
+          unpaidInvoices: 0,
+          unassignedPayments: 0,
+          assignedPayments: 0,
+          openingBalance: 0,
+          totalCredit: 0,
+          totalDebit: 0,
+          currentBalance: 0,
+        },
+        meta: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+        companyAccount: {
+          id: companyAccount.id,
+          companyName: companyAccount.companyName,
+          companyCode: companyAccount.companyCode ?? '',
+          currentBalance: companyAccount.currentBalance,
+        },
+      }
     }
 
     // Build the main query for transactions
@@ -138,7 +161,7 @@ export default class CityLedgerService {
 
     // Apply void filter
     if (filters.showVoided !== undefined) {
-      if(!filters.showVoided) {
+      if (!filters.showVoided) {
         query.where('is_voided', false)
       }
     }
@@ -175,7 +198,7 @@ export default class CityLedgerService {
         debit = Math.abs(transaction.amount)
         // For charges, check if they are assigned to specific folios
         assigned = transaction.assignedAmount;
-        unassigned = transaction.unassignedAmount ;
+        unassigned = transaction.unassignedAmount;
       }
 
 

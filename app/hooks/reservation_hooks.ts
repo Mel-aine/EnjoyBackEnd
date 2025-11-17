@@ -3,6 +3,7 @@ import Reservation from '../models/reservation.js'
 import Hotel from '../models/hotel.js'
 import RoomType from '../models/room_type.js'
 import { ChannexService } from '../services/channex_service.js'
+import LoggerService from '#services/logger_service'
 import ReservationRoomService from '../services/reservation_room_service.js'
 
 /**
@@ -15,7 +16,6 @@ export default class ReservationHook {
    * when a reservation is created. Runs asynchronously to avoid blocking the UI.
    */
   public static notifyAvailabilityOnCreate(reservation: Reservation) {
-    // Fire-and-forget to avoid interrupting the user flow
     setTimeout(async () => {
       try {
         const hotel = await Hotel.find(reservation.hotelId)
@@ -23,69 +23,195 @@ export default class ReservationHook {
           return
         }
 
-        // Determine impacted room type
-        let roomTypeId: number | null = reservation.primaryRoomTypeId || (reservation as any).roomTypeId || null
-        if (!roomTypeId) {
-          // Fallback: try first reservation room if available
-          try {
-            await reservation.load('reservationRooms')
-            const firstRoom = reservation.reservationRooms?.[0]
-            roomTypeId = firstRoom ? (firstRoom as any).roomTypeId || (firstRoom as any).room_type_id || null : null
-          } catch {
-            // ignore preload errors
-          }
+        await reservation.load('reservationRooms')
+        const rtIdsSet = new Set<number>()
+        for (const rr of reservation.reservationRooms || []) {
+          const rid = (rr as any).roomTypeId || (rr as any).room_type_id
+          if (rid) rtIdsSet.add(rid)
         }
-        if (!roomTypeId) {
+        if (rtIdsSet.size === 0) {
           return
         }
 
-        const roomType = await RoomType.find(roomTypeId)
-        // Date range
-        const arrival = reservation.scheduledArrivalDate || reservation.checkInDate
-        const departure = reservation.scheduledDepartureDate || reservation.checkOutDate
+        const arrival = reservation.arrivedDate
+        const departure = reservation.departDate
         if (!arrival || !departure) {
           return
         }
 
-        const dateFrom = (arrival as DateTime).toISODate()
-        const dateTo = (departure as DateTime).toISODate()
-
-        // Quantity of rooms to offset (default 1)
-        const roomsQty = reservation.roomsRequested && reservation.roomsRequested > 0 ? reservation.roomsRequested : 1
-
-        // Require a mapped Channex room_type_id to adjust availability
-        if (!roomType?.channexRoomTypeId) {
+        const rtIds = Array.from(rtIdsSet)
+        const roomTypes = await RoomType.query().whereIn('id', rtIds)
+        const channexMap = new Map<number, string>()
+        for (const rt of roomTypes) {
+          if (rt.channexRoomTypeId) channexMap.set(rt.id, rt.channexRoomTypeId)
+        }
+        if (channexMap.size === 0) {
           return
         }
 
-        // Compute absolute availability: available rooms minus newly reserved quantity
         const rrService = new ReservationRoomService()
-        const availableRooms = await rrService.findAvailableRooms(
+        const daily = await rrService.getDailyAvailableRoomCountsByRoomType(
           reservation.hotelId,
+          Array.from(channexMap.keys()),
           (arrival as DateTime).toJSDate(),
-          (departure as DateTime).toJSDate(),
-          roomTypeId || undefined
+          (departure as DateTime).toJSDate()
         )
 
-        const availableCount = Math.max(0, availableRooms.length - roomsQty)
-
-        const channexService = new ChannexService()
-        // Update availability with absolute value for the impacted range
-        const payload = {
-          values: [
-            {
-              room_type_id: roomType.channexRoomTypeId,
-              property_id: hotel.channexPropertyId,
-              date_from: dateFrom,
-              date_to: dateTo,
-              availability: availableCount,
-            },
-          ],
+        const startDay = (arrival as DateTime).startOf('day')
+        const endDay = (departure as DateTime).startOf('day')
+        const values: any[] = []
+        for (const rtId of channexMap.keys()) {
+          let segStart = startDay
+          let current = daily[startDay.toISODate()!]?.[rtId] ?? 0
+          let cursor = startDay.plus({ days: 1 })
+          while (cursor <= endDay) {
+            const key = cursor.toISODate()!
+            const val = daily[key]?.[rtId] ?? 0
+            if (val !== current) {
+              values.push({
+                room_type_id: channexMap.get(rtId)!,
+                property_id: hotel.channexPropertyId,
+                date_from: segStart.toISODate()!,
+                date_to: cursor.minus({ days: 1 }).toISODate()!,
+                availability: current,
+              })
+              segStart = cursor
+              current = val
+            }
+            cursor = cursor.plus({ days: 1 })
+          }
+          values.push({
+            room_type_id: channexMap.get(rtId)!,
+            property_id: hotel.channexPropertyId,
+            date_from: segStart.toISODate()!,
+            date_to: endDay.toISODate()!,
+            availability: current,
+          })
         }
 
-        await channexService.updateAvailability(hotel.channexPropertyId, payload)
+        const channexService = new ChannexService()
+        await channexService.updateAvailability(hotel.channexPropertyId, { values })
       } catch (err) {
-        console.error('Channex availability notification failed:', err)
+        try {
+          await LoggerService.logActivity({
+            action: 'ERROR',
+            resourceType: 'ChannexAvailability',
+            resourceId: reservation.id,
+            description: 'notifyAvailabilityOnCreate failed',
+            details: { error: (err as any)?.message, stack: (err as any)?.stack },
+            hotelId: reservation.hotelId,
+          })
+        } catch {}
+      }
+    }, 0)
+  }
+
+  public static notifyAvailabilityOnUpdate(reservation: Reservation) {
+    setTimeout(async () => {
+      try {
+        const hotel = await Hotel.find(reservation.hotelId)
+        if (!hotel || !hotel.channexPropertyId) {
+          return
+        }
+
+        await reservation.load('reservationRooms')
+        const rtIdsSet = new Set<number>()
+        for (const rr of reservation.reservationRooms || []) {
+          const rid = (rr as any).roomTypeId || (rr as any).room_type_id
+          if (rid) rtIdsSet.add(rid)
+        }
+        if (rtIdsSet.size === 0) {
+          return
+        }
+
+        const prevArrivalRaw = (reservation as any).$original?.arrivedDate
+        const prevDepartureRaw = (reservation as any).$original?.departDate
+        const currArrivalRaw = reservation.arrivedDate
+        const currDepartureRaw = reservation.departDate
+        if (!currArrivalRaw || !currDepartureRaw) {
+          return
+        }
+
+        const toDt = (v: any) => {
+          if (!v) return undefined
+          if (typeof v === 'string') return DateTime.fromISO(v)
+          if ((v as any).toISO) return v as DateTime
+          if ((v as any).toJSDate) return DateTime.fromJSDate((v as any).toJSDate())
+          if (v instanceof Date) return DateTime.fromJSDate(v)
+          return undefined
+        }
+
+        const prevArrival = toDt(prevArrivalRaw)
+        const prevDeparture = toDt(prevDepartureRaw)
+        const currArrival = toDt(currArrivalRaw)!
+        const currDeparture = toDt(currDepartureRaw)!
+
+        const unionStart = prevArrival ? (prevArrival < currArrival ? prevArrival : currArrival) : currArrival
+        const unionEnd = prevDeparture ? (prevDeparture > currDeparture ? prevDeparture : currDeparture) : currDeparture
+
+        const rtIds = Array.from(rtIdsSet)
+        const roomTypes = await RoomType.query().whereIn('id', rtIds)
+        const channexMap = new Map<number, string>()
+        for (const rt of roomTypes) {
+          if (rt.channexRoomTypeId) channexMap.set(rt.id, rt.channexRoomTypeId)
+        }
+        if (channexMap.size === 0) {
+          return
+        }
+
+        const rrService = new ReservationRoomService()
+        const daily = await rrService.getDailyAvailableRoomCountsByRoomType(
+          reservation.hotelId,
+          Array.from(channexMap.keys()),
+          unionStart.toJSDate(),
+          unionEnd.toJSDate()
+        )
+
+        const startDay = unionStart.startOf('day')
+        const endDay = unionEnd.startOf('day')
+        const values: any[] = []
+        for (const rtId of channexMap.keys()) {
+          let segStart = startDay
+          let current = daily[startDay.toISODate()!]?.[rtId] ?? 0
+          let cursor = startDay.plus({ days: 1 })
+          while (cursor <= endDay) {
+            const key = cursor.toISODate()!
+            const val = daily[key]?.[rtId] ?? 0
+            if (val !== current) {
+              values.push({
+                room_type_id: channexMap.get(rtId)!,
+                property_id: hotel.channexPropertyId,
+                date_from: segStart.toISODate()!,
+                date_to: cursor.minus({ days: 1 }).toISODate()!,
+                availability: current,
+              })
+              segStart = cursor
+              current = val
+            }
+            cursor = cursor.plus({ days: 1 })
+          }
+          values.push({
+            room_type_id: channexMap.get(rtId)!,
+            property_id: hotel.channexPropertyId,
+            date_from: segStart.toISODate()!,
+            date_to: endDay.toISODate()!,
+            availability: current,
+          })
+        }
+
+        const channexService = new ChannexService()
+        await channexService.updateAvailability(hotel.channexPropertyId, { values })
+      } catch (err) {
+        try {
+          await LoggerService.logActivity({
+            action: 'ERROR',
+            resourceType: 'ChannexAvailability',
+            resourceId: reservation.id,
+            description: 'notifyAvailabilityOnUpdate failed',
+            details: { error: (err as any)?.message, stack: (err as any)?.stack },
+            hotelId: reservation.hotelId,
+          })
+        } catch {}
       }
     }, 0)
   }

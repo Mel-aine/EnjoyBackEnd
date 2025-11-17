@@ -277,20 +277,29 @@ export default class CompanyAccountService {
   /**
    * Get city ledger accounts for a hotel (doNotCountAsCityLedger = false)
    */
-async getCityLedgerAccounts(hotelId: number, page: number, perPage: number, searchText: string) {
-  const query = CompanyAccount.query()
-    .where('hotel_id', hotelId)
-    .where('do_not_count_as_city_ledger', false)
-    .andWhereNot('account_status', 'Closed')
+  async getCityLedgerAccounts(
+    hotelId: number,
+    companyId: number | undefined,
+    page: number,
+    perPage: number,
+    searchText: string
+  ) {
+    const query = CompanyAccount.query()
+      .where('hotel_id', hotelId)
+      .where('do_not_count_as_city_ledger', false)
+      .andWhereNot('account_status', 'Closed')
 
-  if (searchText) {
-    query.andWhere('company_name', 'like', `%${searchText}%`)
+    if (companyId !== undefined && !Number.isNaN(companyId)) {
+      query.andWhere('id', companyId)
+    }
+  
+    if (searchText) {
+      query.andWhere('company_name', 'like', `%${searchText}%`)
+    }
+  
+    const results = await query.orderBy('company_name', 'asc').paginate(page, perPage)
+    return results
   }
-
-  const results = await query.orderBy('company_name', 'asc').paginate(page, perPage)
-
-  return results
-}
 
 
 

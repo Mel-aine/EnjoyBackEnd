@@ -17,12 +17,6 @@ export default class CompanyFolioController {
         parseInt(hotelId)
       )
 
-      if (!folio) {
-        return response.notFound({
-          message: 'Company folio not found',
-        })
-      }
-
       return response.ok({
         success: true,
         data: folio,

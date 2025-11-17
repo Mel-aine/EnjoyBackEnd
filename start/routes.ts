@@ -391,6 +391,7 @@ router
   .group(() => {
     // Basic CRUD operations for hotels
     router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
+    router.get('/:hotelId/check', [HotelsController, 'checkHotelExists'])
   })
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login'])
@@ -587,26 +588,7 @@ router
       router.put('/activity-logs/:id', activityLogsController.update.bind(activityLogsController))
     })
 
-    // TODO: Implement ReservationServiceProductsController
-    // Reservation service product routes will be added once the controller is implemented
 
-
-
-    // TODO: Implement PaymentsController
-    // Payment routes will be added once the controller is implemented
-
-
-    // router.group(() => {
-    //   router.post('/schedules', schedulesController.create.bind(SchedulesController))
-    //   router.get('/schedules', schedulesController.lister.bind(SchedulesController))
-    // })
-
-    // router.group(() => {
-    //   router.get(
-    //     '/services/:serviceId/products/grouped',
-    //     serviceProductsController.getGroupedByAccommodationType.bind(ServiceProductsController)
-    //   )
-    // })
 
     router.group(() => {
       router.get('/assigmentUser', assigmentUsersController.list.bind(assigmentUsersController))
@@ -782,6 +764,7 @@ router
       .group(() => {
         // Basic CRUD operations for room types
         router.get('/', roomTypesController.showByHotel.bind(roomTypesController)) // Get all room types with filtering by hotel
+        router.get('/index', roomTypesController.index.bind(roomTypesController)) // Get all room types with filtering by hotel
         router.post('/', roomTypesController.store.bind(roomTypesController)) // Create a new room type
         router.get('/:id', roomTypesController.showByHotel.bind(roomTypesController)) // Get specific room type details
         router.put('/:id', roomTypesController.update.bind(roomTypesController)) // Update room type information
@@ -1574,6 +1557,10 @@ router
       })
       .prefix('room-blocks')
 
+    router.post('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'create'])
+    router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
+    router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
+    router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
     // Night Audit Routes
     router
       .group(() => {
