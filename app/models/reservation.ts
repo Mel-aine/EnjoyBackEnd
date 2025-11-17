@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterSave, afterDelete } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -17,8 +17,7 @@ import Folio from './folio.js'
 import ReservationType from './reservation_type.js'
 import PaymentMethod from './payment_method.js'
 import MarketCode from './market_code.js'
-import ChannexAvailabilityService from '#app/services/channex_availability_service'
-
+import ReservationHook from '../hooks/reservation_hooks.js'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -28,6 +27,7 @@ export enum ReservationStatus {
   COMPLETED = 'completed',
   VOIDED = 'voided',
   NOSHOW = 'no_show',
+
 }
 
 export default class Reservation extends BaseModel {
@@ -196,6 +196,7 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'number_of_seats' })
   declare numberOfSeats: number | null
 
+
   @column({ columnName: 'check_in_date' })
   declare checkInDate: DateTime | null
 
@@ -230,6 +231,7 @@ export default class Reservation extends BaseModel {
   declare invoiceAvailable: boolean
 
   // Enhanced reservation fields
+
   @column()
   declare roomTypeId: number
 
@@ -504,7 +506,7 @@ export default class Reservation extends BaseModel {
   declare payments: HasMany<typeof Payment>
 
   // Enhanced relationships
-  @belongsTo(() => Hotel,{ foreignKey: 'hotelId' })
+  @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
   @belongsTo(() => Guest)
@@ -552,6 +554,7 @@ export default class Reservation extends BaseModel {
 
   @hasMany(() => Reservation, { foreignKey: 'guest_id' })
   declare reservations: HasMany<typeof Reservation>
+
 
   // Computed properties
   get totalOccupancy() {
@@ -638,70 +641,21 @@ export default class Reservation extends BaseModel {
     return Math.round(diffInHours * 100) / 100
   }
 
-  /**
-   * Hook: Après la sauvegarde (création ou modification)
-   */
-@afterSave()
-  static async syncOnStatusChange(reservation: Reservation) {
-    // Seulement si le statut a changé
-    if (!reservation.$dirty.status) {
-      return
-    }
-
-    console.log('🔄 Reservation status changed - Syncing availability')
-    
+  // Background hook: notify Channex availability when a reservation is created
+  @afterCreate()
+  public static notifyAfterCreate(reservation: Reservation) {
     try {
-      // Charger les relations nécessaires
-      await reservation.load('hotel')
-      await reservation.load('reservationRooms', (query) => {
-        query.preload('roomType')
-      })
-
-      if (!reservation.hotel?.channexPropertyId) {
-        console.warn('⚠️ No hotel or channexPropertyId found')
-        return
-      }
-
-      // Vérifier qu'on a des rooms avec roomType synced
-      const validRooms = reservation.reservationRooms.filter(
-        rr => rr.roomType?.channexRoomTypeId
-      )
-
-      if (validRooms.length === 0) {
-        console.warn('⚠️ No valid reservation rooms with synced room types')
-        return
-      }
-
-      const channexAvailabilityService = new ChannexAvailabilityService()
-      
-      // Utiliser la même logique que dans ReservationRoom
-      if (this.shouldRestoreAvailability(reservation)) {
-        console.log('🔄 Action: RESTORE availability (status change)')
-        await channexAvailabilityService.syncAvailabilityForReservation(
-          reservation, 
-          reservation.hotel.channexPropertyId
-        )
-      } else if (this.shouldReduceAvailability(reservation)) {
-        console.log('🔻 Action: REDUCE availability (status change)')
-        await channexAvailabilityService.syncAvailabilityForReservation(
-          reservation, 
-          reservation.hotel.channexPropertyId
-        )
-      }
-      
-    } catch (error) {
-      console.error('❌ Failed to sync availability on status change:', error)
+      ReservationHook.notifyAvailabilityOnCreate(reservation)
+    } catch {
     }
   }
 
-  // Garder ces méthodes utilitaires
-  private static shouldRestoreAvailability(reservation: Reservation): boolean {
-    const restoreStatuses = ['cancelled', 'no_show', 'voided']
-    return restoreStatuses.includes(reservation.status)
+  @afterUpdate()
+  public static notifyAfterUpdate(reservation: Reservation) {
+    try {
+      ReservationHook.notifyAvailabilityOnUpdate(reservation)
+    } catch {
+    }
   }
 
-  private static shouldReduceAvailability(reservation: Reservation): boolean {
-    const reduceStatuses = ['confirmed', 'checked_in', 'guaranteed']
-    return reduceStatuses.includes(reservation.status)
-  }
 }
