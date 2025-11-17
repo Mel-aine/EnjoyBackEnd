@@ -364,24 +364,4 @@ export default class ChannexAvailabilityService {
     }
   }
 
-  /**
-   * MÉTHODE DE DEBUG
-   */
-  async debugAvailability(hotelId: number, roomTypeId: number, date: DateTime) {
-    try {
-      const availability = await this.calculateRoomAvailability(hotelId, date, roomTypeId)
-
-      logger.info(`🔍 DEBUG Availability for roomType ${roomTypeId} on ${date.toISODate()}`, {
-        hotelId,
-        roomTypeId,
-        ...availability
-      })
-
-      return availability
-
-    } catch (error) {
-      logger.error(`❌ Error in debugAvailability:`, error)
-      throw error
-    }
-  }
 }

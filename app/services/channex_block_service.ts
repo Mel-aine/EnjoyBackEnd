@@ -306,25 +306,4 @@ export default class ChannexBlockService {
     }
   }
 
-  /**
-   * Méthode de debug avec la même logique
-   */
-  async debugAvailability(serviceId: number, roomTypeId?: number, date?: DateTime) {
-    try {
-      const targetDate = date || DateTime.now()
-      const availability = await this.calculateRoomAvailability(serviceId, targetDate, roomTypeId)
-
-      logger.info(`🔍 DEBUG Availability for ${targetDate.toISODate()}`, {
-        serviceId,
-        roomTypeId: roomTypeId || 'ALL',
-        ...availability
-      })
-
-      return availability
-
-    } catch (error) {
-      logger.error(`❌ Error in debugAvailability:`, error)
-      throw error
-    }
-  }
 }
