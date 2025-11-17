@@ -176,7 +176,7 @@ declare rateTypes: ManyToMany<typeof RateType>
    public static async syncBeforeDelete(roomType: RoomType) {
      await RoomTypeSync.handleRoomTypeDeletion(roomType)
    }
-   @afterCreate()
+  /* @afterCreate()
    public static notifyAfterCreate(roomType: RoomType) {
      try {
        RoomTypeHook.notifyChannexOnCreate(roomType)
@@ -188,5 +188,5 @@ declare rateTypes: ManyToMany<typeof RateType>
      try {
        RoomTypeHook.notifyChannexOnUpdate(roomType)
      } catch {}
-   }
+   }*/
 }
