@@ -645,7 +645,7 @@ export default class Reservation extends BaseModel {
   @afterCreate()
   public static notifyAfterCreate(reservation: Reservation) {
     try {
-      ReservationHook.notifyAvailabilityOnCreate(reservation)
+      //ReservationHook.notifyAvailabilityOnCreate(reservation)
     } catch {
     }
   }
@@ -653,7 +653,11 @@ export default class Reservation extends BaseModel {
   @beforeSave()
   public static notifyAfterUpdate(reservation: Reservation) {
     try {
-     // ReservationHook.notifyAvailabilityOnUpdate(reservation)
+      console.log('reservation', reservation.$original)
+      ReservationHook.notifyAvailabilityOnUpdate(reservation, {
+        arrivedDate: reservation.$original.arrivedDate,
+        departDate: reservation.$original.departDate,
+      })
     } catch {
     }
   }

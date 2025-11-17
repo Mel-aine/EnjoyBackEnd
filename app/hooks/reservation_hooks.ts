@@ -143,7 +143,10 @@ export default class ReservationHook {
         if (!currArrivalRaw || !currDepartureRaw) {
           return
         }
-
+        console.log('prevArrivalRaw', prevArrivalRaw)
+        console.log('prevDepartureRaw', prevDepartureRaw)
+        console.log('currArrivalRaw', currArrivalRaw)
+        console.log('currDepartureRaw', currDepartureRaw)
         const toDt = (v: any) => {
           if (!v) return undefined
           if (typeof v === 'string') return DateTime.fromISO(v)

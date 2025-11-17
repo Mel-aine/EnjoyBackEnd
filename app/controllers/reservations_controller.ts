@@ -1701,49 +1701,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
       }
-      // if (reservation.reservationRooms) {
-
-      //   for (const resService of reservation.reservationRooms) {
-      //     resService.status = ReservationProductStatus.CANCELLED
-      //     resService.lastModifiedBy = auth.user!.id
-      //     await resService.save()
-
-      //     // Rendre la chambre physique "available"
-      //     const room = await Room.find(resService.roomId)
-      //     if (room) {
-      //       room.status = 'available'
-      //       await room.save()
-      //       room.lastModifiedBy = auth.user!.id
-      //     }
-
-      //     // Log pour chaque chambre annulée
-      //     await LoggerService.log({
-      //       actorId: auth.user!.id,
-      //       action: 'CANCEL',
-      //       entityType: 'ReservationRoom',
-      //       entityId: resService.id,
-      //       hotelId: reservation.hotelId,
-      //       description: `Reservation #${resService.id} cancelled.`,
-      //       ctx: ctx,
-      //     })
-
-      //     //for guest
-      //     await LoggerService.log({
-      //       actorId: auth.user!.id,
-      //       action: 'CANCEL',
-      //       entityType: 'Guest',
-      //       entityId: reservation.guestId,
-      //       hotelId: reservation.hotelId,
-      //       description: `Reservation #${reservation.reservationNumber} was cancelled. Reason: ${reason || 'N/A'}.`,
-      //       meta: {
-      //         reason: reason,
-      //         cancellationFee: cancellationFee,
-      //       },
-      //       ctx: ctx,
-      //     })
-      //   }
-      // }
-
+   
       const allRoomsCancelled = reservation.reservationRooms?.every(
         (room) => room.status === ReservationProductStatus.CANCELLED
       )
@@ -3372,13 +3330,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reason: reason || 'Stay amendment requested',
         timestamp: DateTime.now(),
       }
-      try {
-        ReservationHook.notifyAvailabilityOnUpdate(reservation, {
-          arrivedDate: originalData.arrivalDate,
-          departDate: originalData.departureDate,
-        })
-      } catch {
-      }
       //  Mise à jour des folios si la réservation a des folios existants
       if (reservation.folios && reservation.folios.length > 0) {
         await this.updateFoliosAfterAmendment(reservation, null, auth.user?.id || 1)
@@ -4761,10 +4712,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       reservation.noShowFees = noShowFees
       reservation.markNoShowBy = auth.user?.id || null
       reservation.lastModifiedBy = auth.user?.id || null
-      await reservation.useTransaction(trx).save()
-
-      console.log('Reservation and rooms updated, start processing folios')
-
       // --- Folio fees et voids ---
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)
@@ -4891,6 +4838,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
       await trx.commit()
+
+      await reservation.save() // update the reservation at the end 
+
       console.log('Transaction committed', { durationMs: Date.now() - startTime })
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
@@ -4929,11 +4879,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const requestBody = request.body()
       const { reason, selectedReservations } = requestBody
 
-      // Debug logging
-      console.log('Void reservation params:', { reservationId })
-      console.log('Void reservation body:', requestBody)
-      console.log('Selected reservations:', selectedReservations)
-      console.log('Reason:', reason)
 
       // Validate required fields
       if (!reason || reason.trim() === '') {
@@ -4954,9 +4899,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('reservationRooms')
         .preload('folios')
         .first()
-
-      console.log('Found reservation:', reservation ? reservation.id : 'null')
-      console.log('Reservation rooms:', reservation?.reservationRooms?.length || 0)
 
       if (!reservation) {
         await trx.rollback()
@@ -4988,12 +4930,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Partial void - void only selected rooms
         // Convert to strings for consistency
         roomsToVoid = selectedReservations.map((id) => id.toString())
-
-        console.log('Rooms to void:', roomsToVoid)
-        console.log(
-          'Available reservation room IDs:',
-          reservation.reservationRooms.map((rr) => rr.roomId!.toString())
-        )
 
         // Validate that selected rooms belong to this reservation
         const reservationRoomIds = reservation.reservationRooms.map((rr) => rr.roomId!.toString())
@@ -5053,18 +4989,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
-      // Update reservation status (only if it's a full void)
+      let shouldVoidReservation = false
       if (!isPartialVoid) {
-        await reservation
-          .useTransaction(trx)
-          .merge({
-            status: ReservationStatus.VOIDED,
-            voidedDate: DateTime.now(),
-            voidReason: reason,
-            voidedBy: auth.user?.id,
-            lastModifiedBy: auth.user?.id,
-          })
-          .save()
+        shouldVoidReservation = true
       }
 
       // Update selected reservation rooms to voided status
@@ -5099,16 +5026,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // If all rooms are voided and reservation wasn't already voided, void the reservation
       if (allRoomsVoided && reservation.status !== ReservationStatus.VOIDED) {
-        await reservation
-          .useTransaction(trx)
-          .merge({
-            status: ReservationStatus.VOIDED,
-            voidedDate: DateTime.now(),
-            voidReason: reason,
-            voidedBy: auth.user?.id,
-            lastModifiedBy: auth.user?.id,
-          })
-          .save()
+        shouldVoidReservation = true
 
         // Also void all folios if not already done
         if (isPartialVoid && reservation.folios && reservation.folios.length > 0) {
@@ -5194,6 +5112,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
       await trx.commit()
+
+      if (shouldVoidReservation) {
+        try {
+          const freshReservation = await Reservation.find(numericReservationId)
+          if (freshReservation) {
+            await freshReservation
+              .merge({
+                status: ReservationStatus.VOIDED,
+                voidedDate: DateTime.now(),
+                voidReason: reason,
+                voidedBy: auth.user?.id,
+                lastModifiedBy: auth.user?.id,
+              })
+              .save()
+          }
+        } catch {}
+      }
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
 
