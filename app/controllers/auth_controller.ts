@@ -43,7 +43,7 @@ export default class AuthController {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
       if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
-        const login = await Hash.verify(password, user.password)
+           const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
       // Crée un access token (pour les requêtes API) et un refresh token dédié
@@ -89,7 +89,7 @@ export default class AuthController {
       const user = await User.query().where('email', email).preload('role').firstOrFail()
 
       if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
-        const login = await Hash.verify(user.password,password)
+        const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
       // Génère un access token (API) et un refresh token séparé
@@ -326,7 +326,7 @@ export default class AuthController {
     // Rotation du refresh token: révoque l’ancien et émet un nouveau
     await User.accessTokens.delete(user, current!.identifier)
 
-    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10m' })
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '15m' })
     const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
 
     // Met à jour le cookie httpOnly avec le nouveau refresh token
