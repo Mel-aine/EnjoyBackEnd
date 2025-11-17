@@ -18,6 +18,7 @@ export default class ReservationHook {
   public static notifyAvailabilityOnCreate(reservation: Reservation) {
     setTimeout(async () => {
       try {
+        reservation.$trx = undefined
         const hotel = await Hotel.find(reservation.hotelId)
         if (!hotel || !hotel.channexPropertyId) {
           return
@@ -101,14 +102,19 @@ export default class ReservationHook {
             details: { error: (err as any)?.message, stack: (err as any)?.stack },
             hotelId: reservation.hotelId,
           })
-        } catch {}
+        } catch { }
       }
     }, 0)
   }
 
-  public static notifyAvailabilityOnUpdate(reservation: Reservation) {
+  public static notifyAvailabilityOnUpdate(
+    reservation: Reservation,
+    prev?: { arrivedDate?: any; departDate?: any }
+  ) {
     setTimeout(async () => {
+      console.log('Hook')
       try {
+        reservation.$trx = undefined
         const hotel = await Hotel.find(reservation.hotelId)
         if (!hotel || !hotel.channexPropertyId) {
           return
@@ -124,8 +130,14 @@ export default class ReservationHook {
           return
         }
 
-        const prevArrivalRaw = (reservation as any).$original?.arrivedDate
-        const prevDepartureRaw = (reservation as any).$original?.departDate
+        const prevArrivalRaw =
+          (prev && prev.arrivedDate) ||
+          (reservation as any).$original?.arrivedDate ||
+          (reservation as any).$original?.arrived_date
+        const prevDepartureRaw =
+          (prev && prev.departDate) ||
+          (reservation as any).$original?.departDate ||
+          (reservation as any).$original?.depart_date
         const currArrivalRaw = reservation.arrivedDate
         const currDepartureRaw = reservation.departDate
         if (!currArrivalRaw || !currDepartureRaw) {
@@ -211,7 +223,7 @@ export default class ReservationHook {
             details: { error: (err as any)?.message, stack: (err as any)?.stack },
             hotelId: reservation.hotelId,
           })
-        } catch {}
+        } catch { }
       }
     }, 0)
   }
