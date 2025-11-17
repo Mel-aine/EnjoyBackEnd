@@ -57,6 +57,7 @@ import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '#controllers/audit_trail_controller'
 import EmailAccountsController from '#controllers/email_accounts_controller'
 import EmailTemplateController from '#controllers/email_template_controller'
+import IpConfigurationsController from '#controllers/ip_configurations_controller'
 import TransportRequestsController from '#controllers/transport_requests_controller'
 import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
@@ -84,14 +85,12 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
 import DashboardController from '#controllers/dasboard_controller'
-import EmploymentContractsController from '#controllers/employment_contracts_controller'
 import PayrollsController from '#controllers/payrolls_controller'
 // Import dynamique
 const dashboardController = new DashboardController()
 const StaffDashboardsController = () => import('#controllers/staff_dashboards_controller')
 
 const usersController = new UsersController()
-const employmentContractController = new EmploymentContractsController()
 const payrollController = new PayrollsController()
 const rolesController = new RolesController()
 const stockCategoriesController = new StockCategoriesController()
@@ -137,6 +136,7 @@ const bookingSourcesController = new BookingSourcesController()
 const payoutReasonsController = new PayoutReasonsController()
 const extraChargesController = new ExtraChargesController()
 const taxRatesController = new TaxRatesController()
+const ipConfigurationsController = new IpConfigurationsController()
 const lostFoundController = new LostFoundController()
 const reservationsController = new ReservationsController()
 const roomBlocksController = new RoomBlocksController()
@@ -394,8 +394,8 @@ router
     router.get('/:hotelId/check', [HotelsController, 'checkHotelExists'])
   })
   .prefix('api/hotels')
-router.post('api/auth', [AuthController, 'login'])
-router.post('api/authLogin', [AuthController, 'signin'])
+router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction())
+router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
 router.post('api/initSpace', [AuthController, 'initSpace'])
@@ -404,6 +404,8 @@ router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
+router.post('api/auth/forgot-password', [AuthController, 'forgotPassword'])
+router.post('api/auth/reset-password', [AuthController, 'resetPassword'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
   return response.ok({ status: 'alive', timestamp: new Date().toISOString() })
@@ -1561,6 +1563,16 @@ router
     router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
     router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
     router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
+
+    router
+      .group(() => {
+        router.get('/', ipConfigurationsController.index.bind(ipConfigurationsController))
+        router.post('/', ipConfigurationsController.store.bind(ipConfigurationsController))
+        router.get('/:id', ipConfigurationsController.show.bind(ipConfigurationsController))
+        router.put('/:id', ipConfigurationsController.update.bind(ipConfigurationsController))
+        router.delete('/:id', ipConfigurationsController.destroy.bind(ipConfigurationsController))
+      })
+      .prefix('configuration/hotels/:hotelId/ip_configurations')
     // Night Audit Routes
     router
       .group(() => {
@@ -1658,6 +1670,7 @@ router
 
   })
   .prefix('/api')
+  .use(middleware.ipRestriction())
   .use(
     middleware.auth({
       guards: ['api'],

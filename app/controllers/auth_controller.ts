@@ -10,6 +10,9 @@ import BookingSource from '#models/booking_source'
 import BusinessSource from '#models/business_source'
 import ReservationType from '#models/reservation_type'
 import Currency from '../models/currency.js'
+import PasswordResetToken from '#models/password_reset_token'
+import { DateTime } from 'luxon'
+import MailService from '#services/mail_service'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -415,6 +418,104 @@ export default class AuthController {
         message: 'Server error',
         error: error.message // Utile pour déboguer
       })
+    }
+  }
+
+  public async forgotPassword({ request, response }: HttpContext) {
+    const validator = vine.compile(
+      vine.object({
+        email: vine.string().trim().email(),
+      })
+    )
+    try {
+      const { email } = await request.validateUsing(validator)
+      const user = await User.findBy('email', email)
+      const token = cuid()
+      const expiresAt = DateTime.now().plus({ hours: 1 })
+
+      if (user) {
+        await PasswordResetToken.create({ userId: user.id, token, expiresAt, usedAt: null })
+        const baseUrl = `${request.protocol()}://${request.host()}`
+        const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`
+
+        await MailService.send({
+          to: email,
+          subject: 'Reset your password',
+          text: `We received a request to reset your password.
+Use this link to set a new password:
+${resetUrl}
+This link expires in 1 hour.`,
+          html: `<p>We received a request to reset your password.</p>
+<p><a href="${resetUrl}" target="_blank">Click here to reset your password</a></p>
+<p>This link expires in 1 hour.</p>`,
+        })
+
+        await LoggerService.log({
+          actorId: user.id,
+          action: 'FORGOT_PASSWORD_CREATE',
+          entityType: 'User',
+          entityId: user.id.toString(),
+          description: 'Password reset token created and email sent',
+          ctx: { request, response } as any,
+        })
+      }
+
+      return response.ok({
+        message: 'If the email exists, a reset link was sent',
+      })
+    } catch (error) {
+      console.log('error',error)
+      if ((error as any).code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({ message: 'Validation failed', errors: (error as any).messages })
+      }
+      return response.badRequest({ message: 'Failed to start password reset', error: (error as any).message })
+    }
+  }
+
+  public async resetPassword(ctx: HttpContext) {
+    const { request, response } = ctx
+    const validator = vine.compile(
+      vine.object({
+        token: vine.string().trim().minLength(10),
+        password: vine.string().trim().minLength(6),
+      })
+    )
+    try {
+      const { token, password } = await request.validateUsing(validator)
+      const rec = await PasswordResetToken.query().where('token', token).first()
+      if (!rec) {
+        return response.badRequest({ message: 'Invalid token' })
+      }
+      if (rec.usedAt) {
+        return response.badRequest({ message: 'Token already used' })
+      }
+      if (DateTime.now() > rec.expiresAt) {
+        return response.badRequest({ message: 'Token expired' })
+      }
+      const user = await User.find(rec.userId)
+      if (!user) {
+        return response.badRequest({ message: 'Invalid token' })
+      }
+      user.password = await Hash.make(password)
+      await user.save()
+      rec.usedAt = DateTime.now()
+      await rec.save()
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'PASSWORD_RESET',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: 'User password has been reset',
+        ctx: ctx,
+      })
+
+      return response.ok({ message: 'Password reset successfully' })
+    } catch (error) {
+      if ((error as any).code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({ message: 'Validation failed', errors: (error as any).messages })
+      }
+      return response.badRequest({ message: 'Failed to reset password', error: (error as any).message })
     }
   }
 }
