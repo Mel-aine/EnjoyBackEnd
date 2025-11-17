@@ -406,7 +406,6 @@ export class ChannexService {
   async createRatePlan(propertyId: string, ratePlanData: {
     [key: string]: any[]
   }) {
-    console.log('ratePlanData?????', ratePlanData)
     return this.post(`/rate_plans`, ratePlanData)
   }
 

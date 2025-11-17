@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, afterDelete, afterSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import RoomType from './room_type.js'
@@ -12,7 +12,6 @@ import PaymentMethod from './payment_method.js'
 import Hotel from './hotel.js'
 import RateType from './rate_type.js'
 import MealPlan from './meal_plan.js'
-import ChannexAvailabilityService from '#app/services/channex_availability_service'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -721,123 +720,6 @@ export default class ReservationRoom extends BaseModel {
   @belongsTo(() => MealPlan, { foreignKey: 'mealPlanId' })
   declare mealPlan: BelongsTo<typeof MealPlan>
 
-
-
-  /**
-   * Hook: Après la sauvegarde (création ou modification d'une room)
-   */
-  @afterSave()
-  static async syncAvailabilityAfterRoomAssignment(reservationRoom: ReservationRoom) {
-    console.log('🔄 RESERVATION ROOM AFTER SAVE:', reservationRoom.id)
-    
-    try {
-      await this.syncReservationAvailability(reservationRoom, 'save')
-    } catch (error) {
-      console.error('❌ Failed to sync availability from reservation room save:', error)
-    }
-  }
-
-  /**
-   * Hook: Après la suppression d'une ReservationRoom
-   */
-  @afterDelete()
-  static async syncAvailabilityAfterRoomRemoval(reservationRoom: ReservationRoom) {
-    console.log('🗑️ RESERVATION ROOM AFTER DELETE:', reservationRoom.id)
-    
-    try {
-      await this.syncReservationAvailability(reservationRoom, 'delete')
-    } catch (error) {
-      console.error('❌ Failed to sync availability from reservation room delete:', error)
-    }
-  }
-
-  /**
-   * Méthode centrale pour synchroniser la disponibilité
-   */
-  private static async syncReservationAvailability(
-    reservationRoom: ReservationRoom, 
-    action: 'save' | 'delete'
-  ) {
-    // Charger les relations nécessaires
-    await reservationRoom.load('reservation', (query) => {
-      query.preload('hotel')
-    })
-    
-    await reservationRoom.load('roomType')
-
-    const reservation = reservationRoom.reservation
-    const hotel = reservation?.hotel
-    const roomType = reservationRoom.roomType
-    
-    console.log('🔍 Loaded data:', {
-      reservationId: reservation?.id,
-      reservationStatus: reservation?.status,
-      hotelId: hotel?.id,
-      channexPropertyId: hotel?.channexPropertyId,
-      roomTypeId: roomType?.id,
-      channexRoomTypeId: roomType?.channexRoomTypeId,
-      action
-    })
-
-    // Validations
-    if (!reservation || !hotel?.channexPropertyId) {
-      console.log('⚠️ Missing reservation or hotel data')
-      return
-    }
-    
-    if (!roomType?.channexRoomTypeId) {
-      console.warn(`❌ Room type ${roomType?.id} not synced with Channex`)
-      return
-    }
-
-    const channexAvailabilityService = new ChannexAvailabilityService()
-    
-    console.log('🎯 Determining action for reservation status:', reservation.status)
-    
-    // Pour une suppression, on RESTAURE toujours la disponibilité
-    if (action === 'delete') {
-      console.log('🔄 Action: RESTORE availability (room deletion)')
-      await channexAvailabilityService.syncAvailabilityForReservation(
-        reservation, 
-        hotel.channexPropertyId
-      )
-      return
-    }
-
-    // Pour une sauvegarde, on détermine l'action selon le statut
-    if (this.shouldRestoreAvailability(reservation)) {
-      console.log('🔄 Action: RESTORE availability')
-      await channexAvailabilityService.syncAvailabilityForReservation(
-        reservation, 
-        hotel.channexPropertyId
-      )
-    } else if (this.shouldReduceAvailability(reservation)) {
-      console.log('🔻 Action: REDUCE availability')
-      await channexAvailabilityService.syncAvailabilityForReservation(
-        reservation, 
-        hotel.channexPropertyId
-      )
-    } else {
-      console.log('⏸️ Action: NO ACTION for status:', reservation.status)
-    }
-  }
-
-  /**
-   * Détermine si on doit RESTAURER la disponibilité
-   */
-  private static shouldRestoreAvailability(reservation: Reservation): boolean {
-    const restoreStatuses = ['cancelled', 'no_show', 'voided']
-    return restoreStatuses.includes(reservation.status)
-  }
-
-  /**
-   * Détermine si on doit RÉDUIRE la disponibilité
-   */
-  private static shouldReduceAvailability(reservation: Reservation): boolean {
-    const reduceStatuses = ['confirmed', 'checked_in', 'guaranteed']
-    return reduceStatuses.includes(reservation.status)
-  }
-
   // Computed properties
   get isCheckedIn() {
     return this.status === 'checked_in'
@@ -902,7 +784,7 @@ export default class ReservationRoom extends BaseModel {
   }
 
   get roomStatusColor() {
-    const colors = {
+    const colors :any = {
       'reserved': 'blue',
       'checked_in': 'green',
       'checked_out': 'gray',
