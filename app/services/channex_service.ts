@@ -404,7 +404,7 @@ export class ChannexService {
    * POST /properties/{property_id}/rate_plans
    */
   async createRatePlan(propertyId: string, ratePlanData: {
-    [key: string]: any
+    [key: string]: any[]
   }) {
     return this.post(`/rate_plans`, ratePlanData)
   }
@@ -422,7 +422,7 @@ export class ChannexService {
    * DELETE /properties/{property_id}/rate_plans/{rate_plan_id}
    */
   async deleteRatePlan(propertyId: string, ratePlanId: string) {
-    return this.delete(`/properties/${propertyId}/rate_plans/${ratePlanId}`)
+    return this.delete(`/rate_plans/${ratePlanId}`)
   }
 
   // =============================================================================
@@ -457,7 +457,9 @@ export class ChannexService {
       availability: number
       [key: string]: any
     }[]
-  }) {
+  }) 
+  {
+    console.log('data.updateAvailability@@@@', availabilityData)
     return this.post(`/availability`, availabilityData)
   }
 

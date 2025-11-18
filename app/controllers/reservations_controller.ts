@@ -40,6 +40,7 @@ import { updateReservationDetailsValidator } from '#validators/reservation_updat
 import { applyRoomChargeDiscountValidator } from '#validators/reservation_apply_discount'
 import TaxRate from '#models/tax_rate'
 import GuestSummaryService from '#services/guest_summary_service'
+import ReservationHook from '../hooks/reservation_hooks.js'
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -236,57 +237,57 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Logs d’audit
 
-        const checkedRoomNumbers = checkedInRooms.map((r) => r.roomNumber).join(', ') || 'N/A'
-        const checkInType = allRoomsCheckedIn ? 'FULL' : 'PARTIAL'
-        const checkInTimeStr = now.toFormat('yyyy-MM-dd HH:mm')
+      const checkedRoomNumbers = checkedInRooms.map((r) => r.roomNumber).join(', ') || 'N/A'
+      const checkInType = allRoomsCheckedIn ? 'FULL' : 'PARTIAL'
+      const checkInTimeStr = now.toFormat('yyyy-MM-dd HH:mm')
 
-        const logDescription = allRoomsCheckedIn
-          ? `Full check-in completed for Reservation #${reservation.reservationNumber}. Rooms: ${checkedRoomNumbers}. Checked in at ${checkInTimeStr}.`
-          : `🟡 Partial check-in for Reservation #${reservation.reservationNumber}. Rooms: ${checkedRoomNumbers}. Checked in at ${checkInTimeStr}.`
+      const logDescription = allRoomsCheckedIn
+        ? `Full check-in completed for Reservation #${reservation.reservationNumber}. Rooms: ${checkedRoomNumbers}. Checked in at ${checkInTimeStr}.`
+        : `🟡 Partial check-in for Reservation #${reservation.reservationNumber}. Rooms: ${checkedRoomNumbers}. Checked in at ${checkInTimeStr}.`
 
-        //  Log pour la réservation
+      //  Log pour la réservation
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'CHECK_IN',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        hotelId: reservation.hotelId,
+        description: logDescription,
+        meta: {
+          type: checkInType,
+          checkInTime: now.toISO(),
+          roomsCheckedIn: checkedInRooms.map((r) => ({
+            id: r.id,
+            roomId: r.roomId,
+            roomNumber: r.roomNumber,
+          })),
+          totalRoomsCheckedIn: checkedInRooms.length,
+          totalRoomsInReservation: allReservationRooms.length,
+          userId: auth.user!.id,
+        },
+        ctx,
+      })
+
+      //  Log pour le guest
+      if (reservation.guestId) {
         await LoggerService.log({
           actorId: auth.user!.id,
           action: 'CHECK_IN',
-          entityType: 'Reservation',
-          entityId: reservation.id,
+          entityType: 'Guest',
+          entityId: reservation.guestId,
           hotelId: reservation.hotelId,
-          description: logDescription,
+          description: `Guest checked in under Reservation #${reservation.reservationNumber} (${checkInType}). Rooms: ${checkedRoomNumbers}.`,
           meta: {
-            type: checkInType,
+            reservationId: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            checkInType,
             checkInTime: now.toISO(),
-            roomsCheckedIn: checkedInRooms.map((r) => ({
-              id: r.id,
-              roomId: r.roomId,
-              roomNumber: r.roomNumber,
-            })),
-            totalRoomsCheckedIn: checkedInRooms.length,
-            totalRoomsInReservation: allReservationRooms.length,
-            userId: auth.user!.id,
+            rooms: checkedRoomNumbers,
+            notes,
           },
           ctx,
         })
-
-        //  Log pour le guest
-        if (reservation.guestId) {
-          await LoggerService.log({
-            actorId: auth.user!.id,
-            action: 'CHECK_IN',
-            entityType: 'Guest',
-            entityId: reservation.guestId,
-            hotelId: reservation.hotelId,
-            description: `Guest checked in under Reservation #${reservation.reservationNumber} (${checkInType}). Rooms: ${checkedRoomNumbers}.`,
-            meta: {
-              reservationId: reservation.id,
-              reservationNumber: reservation.reservationNumber,
-              checkInType,
-              checkInTime: now.toISO(),
-              rooms: checkedRoomNumbers,
-              notes,
-            },
-            ctx,
-          })
-        }
+      }
 
 
       //
@@ -655,7 +656,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // If no rooms remain checked-in, revert reservation status and check-in date
       const remainingCheckedIn = await ReservationRoom.query({ client: trx })
         .where('reservationId', reservationId)
-        .where('status',  ReservationStatus.CHECKED_IN)
+        .where('status', ReservationStatus.CHECKED_IN)
 
       if (remainingCheckedIn.length === 0) {
         reservation.status = ReservationStatus.CONFIRMED
@@ -749,8 +750,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const todayISO = DateTime.now().toJSDate()
       logger.info(reservation.departDate)
-    /* const checkedOutTodayAtReservationLevel =
-        reservation.checkOutDate && reservation.checkOutDate.toJSDate() === todayISO*/
+      /* const checkedOutTodayAtReservationLevel =
+          reservation.checkOutDate && reservation.checkOutDate.toJSDate() === todayISO*/
 
       const roomsToUndo = await ReservationRoom.query({ client: trx })
         .whereIn('id', reservationRooms)
@@ -773,19 +774,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // If reservation-level checkout is set, enforce same-day undo
-     /* if (!checkedOutTodayAtReservationLevel) {
-        // fallback: allow if any selected room updated today (best effort)
-        const anySelectedUpdatedToday = roomsToUndo.some(
-          (rr) => rr.updatedAt && rr.updatedAt.toISODate() === todayISO
-        )
-        if (!anySelectedUpdatedToday) {
-          await trx.rollback()
-          return response.badRequest({
-            success: false,
-            message: 'Undo check-out only allowed for check-outs performed today',
-          })
-        }
-      }*/
+      /* if (!checkedOutTodayAtReservationLevel) {
+         // fallback: allow if any selected room updated today (best effort)
+         const anySelectedUpdatedToday = roomsToUndo.some(
+           (rr) => rr.updatedAt && rr.updatedAt.toISODate() === todayISO
+         )
+         if (!anySelectedUpdatedToday) {
+           await trx.rollback()
+           return response.badRequest({
+             success: false,
+             message: 'Undo check-out only allowed for check-outs performed today',
+           })
+         }
+       }*/
 
       const updatedRooms: any[] = []
       for (const rr of roomsToUndo) {
@@ -853,7 +854,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         },
       })
     } catch (error) {
-       logger.info(error)
+      logger.info(error)
       await trx.rollback()
       logger.error('Error during undo check-out:', {
         reservationId: params.reservationId,
@@ -1700,49 +1701,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
       }
-      // if (reservation.reservationRooms) {
-
-      //   for (const resService of reservation.reservationRooms) {
-      //     resService.status = ReservationProductStatus.CANCELLED
-      //     resService.lastModifiedBy = auth.user!.id
-      //     await resService.save()
-
-      //     // Rendre la chambre physique "available"
-      //     const room = await Room.find(resService.roomId)
-      //     if (room) {
-      //       room.status = 'available'
-      //       await room.save()
-      //       room.lastModifiedBy = auth.user!.id
-      //     }
-
-      //     // Log pour chaque chambre annulée
-      //     await LoggerService.log({
-      //       actorId: auth.user!.id,
-      //       action: 'CANCEL',
-      //       entityType: 'ReservationRoom',
-      //       entityId: resService.id,
-      //       hotelId: reservation.hotelId,
-      //       description: `Reservation #${resService.id} cancelled.`,
-      //       ctx: ctx,
-      //     })
-
-      //     //for guest
-      //     await LoggerService.log({
-      //       actorId: auth.user!.id,
-      //       action: 'CANCEL',
-      //       entityType: 'Guest',
-      //       entityId: reservation.guestId,
-      //       hotelId: reservation.hotelId,
-      //       description: `Reservation #${reservation.reservationNumber} was cancelled. Reason: ${reason || 'N/A'}.`,
-      //       meta: {
-      //         reason: reason,
-      //         cancellationFee: cancellationFee,
-      //       },
-      //       ctx: ctx,
-      //     })
-      //   }
-      // }
-
+   
       const allRoomsCancelled = reservation.reservationRooms?.every(
         (room) => room.status === ReservationProductStatus.CANCELLED
       )
@@ -1787,8 +1746,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           }
         }
       }
-       const cancelledList =
-      cancelledRooms.length > 0 ? `[${cancelledRooms.join(', ')}]` : '(none)'
+      const cancelledList =
+        cancelledRooms.length > 0 ? `[${cancelledRooms.join(', ')}]` : '(none)'
       // 6. Log and commit
       await LoggerService.log({
         actorId: auth.user!.id,
@@ -1904,15 +1863,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // 3. Filter by date range (check for overlapping reservations)
       if (checkInDate && checkOutDate) {
-          const startDate = DateTime.fromISO(checkInDate).toISODate()
-          const endDate = DateTime.fromISO(checkOutDate).toISODate()
+        const startDate = DateTime.fromISO(checkInDate).toISODate()
+        const endDate = DateTime.fromISO(checkOutDate).toISODate()
 
-          if (startDate && endDate) {
-            // A reservation overlaps if its start is before the search's end
-            // AND its end is after the search's start.
-            query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
-          }
+        if (startDate && endDate) {
+          // A reservation overlaps if its start is before the search's end
+          // AND its end is after the search's start.
+          query.where('arrived_date', '<=', endDate).andWhere('depart_date', '>=', startDate)
         }
+      }
 
 
       if (stayCheckInDate && stayCheckOutDate) {
@@ -1966,7 +1925,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
       if (source) {
-         query.where('businessSourceId',source)
+        query.where('businessSourceId', source)
       }
 
       // Filter par showBookings (toggles)
@@ -1982,7 +1941,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
           }
 
-           if (bookingTypes.includes('channel')) {
+          if (bookingTypes.includes('channel')) {
             builder.orWhere((b) => {
               b.whereNotNull('channex_booking_id')
             })
@@ -1998,8 +1957,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
 
-      if(reservationType){
-        query.where('reservationTypeId',reservationType)
+      if (reservationType) {
+        query.where('reservationTypeId', reservationType)
       }
 
       // Preload related data for the response
@@ -2009,8 +1968,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('guest')
         .preload('roomType')
         .preload('bookingSource')
-        .preload('reservationType',(sQuery:any) => {
-              sQuery.select(['id', 'name'])
+        .preload('reservationType', (sQuery: any) => {
+          sQuery.select(['id', 'name'])
         })
         .preload('discount')
         .preload('paymentMethod')
@@ -2019,9 +1978,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         //.preload('hotel')
         .preload('reservationRooms', (rspQuery) => {
-          rspQuery.preload('room').preload('rateType',(sQuery:any) => {
-              sQuery.select(['id', 'rate_type_name'])
-            })
+          rspQuery.preload('room').preload('rateType', (sQuery: any) => {
+            sQuery.select(['id', 'rate_type_name'])
+          })
         })
         .orderBy('created_at', 'desc')
         .limit(50)
@@ -2586,12 +2545,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
             paymentMethodId: data.payment_mod,
             billTo: data.bill_to,
             marketCodeId: data.market_code_id,
-            customType:data.customType,
+            customType: data.customType,
             paymentType: data.payment_type,
             taxExempt: data.tax_exempt,
             isHold: data.isHold,
-            otaReservationCode :data.ota_reservation_code,
-            otaName : data.ota_name,
+            otaReservationCode: data.ota_reservation_code,
+            otaName: data.ota_name,
             bookingDate: data.booking_date
               ? DateTime.fromISO(data.booking_date)
               : DateTime.now(),
@@ -2726,7 +2685,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
           )
         }
 
-        await trx.commit()
+        await trx.commit().then(() => {
+          try {
+            ReservationHook.notifyAvailabilityOnCreate(reservation)
+          } catch {
+          }
+        })
 
         // Create folios if reservation is confirmed and has rooms
         let folios: any[] = []
@@ -3338,21 +3302,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
           await reservationRoom.merge(roomUpdateData).useTransaction(trx).save()
         }
       }
+      await trx.commit()
       // 📌 Mise à jour uniquement du lastModifiedBy sur la réservation principale
       await reservation
         .merge({
-          lastModifiedBy: auth.user?.id || 1,
+          lastModifiedBy: auth.user?.id!,
           arrivedDate: newArrivalDateTime,
           departDate: newDepartureDateTime,
           nights: reservation.reservationRooms[0].nights,
         })
-        .useTransaction(trx)
         .save()
-
+      console.log('audit reservation')
       const auditData = {
         reservationId: reservation.id,
         action: 'amend_stay',
-        performedBy: auth.user?.id || 1,
+        performedBy: auth.user?.id,
         originalData: originalData,
         newData: {
           selectedRooms,
@@ -3366,7 +3330,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reason: reason || 'Stay amendment requested',
         timestamp: DateTime.now(),
       }
-      await trx.commit()
       //  Mise à jour des folios si la réservation a des folios existants
       if (reservation.folios && reservation.folios.length > 0) {
         await this.updateFoliosAfterAmendment(reservation, null, auth.user?.id || 1)
@@ -3376,13 +3339,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await GuestSummaryService.recomputeFromReservation(reservationId)
       // log
-        const amendedRooms =
-          selectedRooms && selectedRooms.length > 0
-            ? selectedRooms.join(', ')
-            : reservation.reservationRooms.map((rr) => rr.room?.roomNumber || rr.roomId).join(', ')
+      const amendedRooms =
+        selectedRooms && selectedRooms.length > 0
+          ? selectedRooms.join(', ')
+          : reservation.reservationRooms.map((rr) => rr.room?.roomNumber || rr.roomId).join(', ')
 
-        const logDescription = `Reservation #${reservation.reservationNumber} amended by ${auth.user?.fullName || 'User ' + auth.user?.id
-          }.
+      const logDescription = `Reservation #${reservation.reservationNumber} amended by ${auth.user?.fullName || 'User ' + auth.user?.id
+        }.
         ${selectedRooms && selectedRooms.length > 0 ? `Rooms affected: ${amendedRooms}.` : 'All rooms affected.'}
         ${newArrivalDate ? `New arrival: ${DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd')}.` : ''}
         ${newDepartureDate ? `New departure: ${DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd')}.` : ''}
@@ -3391,55 +3354,55 @@ export default class ReservationsController extends CrudController<typeof Reserv
         ${newSpecialNotes ? `Notes: ${newSpecialNotes}.` : ''}
         Reason: ${reason || 'Stay amendment requested.'}`
 
-        //  Log pour la réservation
+      //  Log pour la réservation
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'AMEND_STAY',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        hotelId: reservation.hotelId,
+        description: logDescription,
+        meta: {
+          originalData,
+          newData: {
+            selectedRooms,
+            newArrivalDate,
+            newDepartureDate,
+            newRoomTypeId,
+            newNumAdults,
+            newNumChildren,
+            newSpecialNotes,
+            reason,
+          },
+          timestamp: DateTime.now().toISO(),
+          isPartialAmendment: selectedRooms && selectedRooms.length > 0,
+        },
+        ctx,
+      })
+
+      // pour le Guest si présent
+      if (reservation.guestId) {
         await LoggerService.log({
           actorId: auth.user?.id!,
           action: 'AMEND_STAY',
-          entityType: 'Reservation',
-          entityId: reservation.id,
+          entityType: 'Guest',
+          entityId: reservation.guestId,
           hotelId: reservation.hotelId,
-          description: logDescription,
+          description: `Guest stay amended under Reservation #${reservation.reservationNumber}.`,
           meta: {
-            originalData,
-            newData: {
-              selectedRooms,
-              newArrivalDate,
-              newDepartureDate,
-              newRoomTypeId,
-              newNumAdults,
-              newNumChildren,
-              newSpecialNotes,
-              reason,
+            reservationId: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            affectedRooms: amendedRooms,
+            newDates: {
+              arrival: newArrivalDate || reservation.arrivedDate?.toISODate(),
+              departure: newDepartureDate || reservation.departDate?.toISODate(),
             },
-            timestamp: DateTime.now().toISO(),
-            isPartialAmendment: selectedRooms && selectedRooms.length > 0,
+            reason,
+            performedBy: auth.user?.id,
           },
           ctx,
         })
-
-        // pour le Guest si présent
-        if (reservation.guestId) {
-          await LoggerService.log({
-            actorId: auth.user?.id!,
-            action: 'AMEND_STAY',
-            entityType: 'Guest',
-            entityId: reservation.guestId,
-            hotelId: reservation.hotelId,
-            description: `Guest stay amended under Reservation #${reservation.reservationNumber}.`,
-            meta: {
-              reservationId: reservation.id,
-              reservationNumber: reservation.reservationNumber,
-              affectedRooms: amendedRooms,
-              newDates: {
-                arrival: newArrivalDate || reservation.arrivedDate?.toISODate(),
-                departure: newDepartureDate || reservation.departDate?.toISODate(),
-              },
-              reason,
-              performedBy: auth.user?.id,
-            },
-            ctx,
-          })
-        }
+      }
 
       return response.ok({
         message: 'Stay amended successfully',
@@ -4749,10 +4712,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       reservation.noShowFees = noShowFees
       reservation.markNoShowBy = auth.user?.id || null
       reservation.lastModifiedBy = auth.user?.id || null
-      await reservation.useTransaction(trx).save()
-
-      console.log('Reservation and rooms updated, start processing folios')
-
       // --- Folio fees et voids ---
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)
@@ -4845,40 +4804,43 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // --- Audit log ---
 
-        const affectedRooms = allRoomsSelected
-          ? reservation.reservationRooms.map(r => r.roomId).join(', ')
-          : reservation.reservationRooms
-              .filter(r => selectedRooms.includes(r.id))
-              .map(r => r.roomId)
-              .join(', ')
+      const affectedRooms = allRoomsSelected
+        ? reservation.reservationRooms.map(r => r.roomId).join(', ')
+        : reservation.reservationRooms
+          .filter(r => selectedRooms.includes(r.id))
+          .map(r => r.roomId)
+          .join(', ')
 
-        await LoggerService.logActivity(
-          {
-            userId: auth.user?.id,
-            action: 'MARK_NO_SHOW',
-            resourceType: 'reservation',
-            resourceId: reservationId,
-            description: `Reservation #${reservation.reservationNumber} marked as No-Show for room(s): ${affectedRooms || 'N/A'}. Reason: ${reason || 'Guest did not arrive'}.`,
-            details: {
-              originalStatus,
-              newStatus: reservation.status,
-              roomsAffected: affectedRooms,
-              allRoomsSelected,
-              reason: reason || 'Guest did not arrive',
-              notes,
-              noShowDate: now.toISO(),
-              noShowFees: noShowFees || null,
-              markedByUser: auth.user?.id,
-              reservationNumber: reservation.reservationNumber,
-            },
-            ipAddress: request.ip(),
-            userAgent: request.header('user-agent'),
+      await LoggerService.logActivity(
+        {
+          userId: auth.user?.id,
+          action: 'MARK_NO_SHOW',
+          resourceType: 'reservation',
+          resourceId: reservationId,
+          description: `Reservation #${reservation.reservationNumber} marked as No-Show for room(s): ${affectedRooms || 'N/A'}. Reason: ${reason || 'Guest did not arrive'}.`,
+          details: {
+            originalStatus,
+            newStatus: reservation.status,
+            roomsAffected: affectedRooms,
+            allRoomsSelected,
+            reason: reason || 'Guest did not arrive',
+            notes,
+            noShowDate: now.toISO(),
+            noShowFees: noShowFees || null,
+            markedByUser: auth.user?.id,
+            reservationNumber: reservation.reservationNumber,
           },
-          trx
-        )
+          ipAddress: request.ip(),
+          userAgent: request.header('user-agent'),
+        },
+        trx
+      )
 
 
       await trx.commit()
+
+      await reservation.save() // update the reservation at the end 
+
       console.log('Transaction committed', { durationMs: Date.now() - startTime })
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
@@ -4917,11 +4879,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const requestBody = request.body()
       const { reason, selectedReservations } = requestBody
 
-      // Debug logging
-      console.log('Void reservation params:', { reservationId })
-      console.log('Void reservation body:', requestBody)
-      console.log('Selected reservations:', selectedReservations)
-      console.log('Reason:', reason)
 
       // Validate required fields
       if (!reason || reason.trim() === '') {
@@ -4942,9 +4899,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('reservationRooms')
         .preload('folios')
         .first()
-
-      console.log('Found reservation:', reservation ? reservation.id : 'null')
-      console.log('Reservation rooms:', reservation?.reservationRooms?.length || 0)
 
       if (!reservation) {
         await trx.rollback()
@@ -4976,12 +4930,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Partial void - void only selected rooms
         // Convert to strings for consistency
         roomsToVoid = selectedReservations.map((id) => id.toString())
-
-        console.log('Rooms to void:', roomsToVoid)
-        console.log(
-          'Available reservation room IDs:',
-          reservation.reservationRooms.map((rr) => rr.roomId!.toString())
-        )
 
         // Validate that selected rooms belong to this reservation
         const reservationRoomIds = reservation.reservationRooms.map((rr) => rr.roomId!.toString())
@@ -5041,18 +4989,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
-      // Update reservation status (only if it's a full void)
+      let shouldVoidReservation = false
       if (!isPartialVoid) {
-        await reservation
-          .useTransaction(trx)
-          .merge({
-            status: ReservationStatus.VOIDED,
-            voidedDate: DateTime.now(),
-            voidReason: reason,
-            voidedBy: auth.user?.id,
-            lastModifiedBy: auth.user?.id,
-          })
-          .save()
+        shouldVoidReservation = true
       }
 
       // Update selected reservation rooms to voided status
@@ -5087,16 +5026,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // If all rooms are voided and reservation wasn't already voided, void the reservation
       if (allRoomsVoided && reservation.status !== ReservationStatus.VOIDED) {
-        await reservation
-          .useTransaction(trx)
-          .merge({
-            status: ReservationStatus.VOIDED,
-            voidedDate: DateTime.now(),
-            voidReason: reason,
-            voidedBy: auth.user?.id,
-            lastModifiedBy: auth.user?.id,
-          })
-          .save()
+        shouldVoidReservation = true
 
         // Also void all folios if not already done
         if (isPartialVoid && reservation.folios && reservation.folios.length > 0) {
@@ -5130,58 +5060,75 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Create audit log
 
-        const logMeta = {
-          reservationNumber: reservation.reservationNumber,
-          originalStatus,
-          newStatus: allRoomsVoided
-            ? ReservationStatus.VOIDED
-            : isPartialVoid
+      const logMeta = {
+        reservationNumber: reservation.reservationNumber,
+        originalStatus,
+        newStatus: allRoomsVoided
+          ? ReservationStatus.VOIDED
+          : isPartialVoid
             ? 'partially_voided'
             : ReservationStatus.VOIDED,
-          reason,
-          voidedDate: DateTime.now().toISO(),
-          roomsVoided: roomsToVoid,
-          totalRoomsInReservation: reservation.reservationRooms.length,
-          isPartialVoid,
-          allRoomsVoided,
-          foliosVoided,
-          userAgent: request.header('user-agent'),
-          ipAddress: request.ip(),
-        }
+        reason,
+        voidedDate: DateTime.now().toISO(),
+        roomsVoided: roomsToVoid,
+        totalRoomsInReservation: reservation.reservationRooms.length,
+        isPartialVoid,
+        allRoomsVoided,
+        foliosVoided,
+        userAgent: request.header('user-agent'),
+        ipAddress: request.ip(),
+      }
 
-        const logDescription = isPartialVoid
-          ? allRoomsVoided
-            ? `All rooms in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
-            : `${roomsToVoid.length} room${roomsToVoid.length > 1 ? 's' : ''} in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
-          : `Reservation #${reservation.reservationNumber} was fully voided by ${auth.user?.fullName || 'System'}.`
+      const logDescription = isPartialVoid
+        ? allRoomsVoided
+          ? `All rooms in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
+          : `${roomsToVoid.length} room${roomsToVoid.length > 1 ? 's' : ''} in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
+        : `Reservation #${reservation.reservationNumber} was fully voided by ${auth.user?.fullName || 'System'}.`
 
-        await LoggerService.log({
-          actorId: auth.user?.id!,
-          action: isPartialVoid ? 'VOID_ROOMS' : 'VOID_RESERVATION',
-          entityType: 'Reservation',
-          entityId: reservation.id,
-          hotelId: reservation.hotelId,
-          description: logDescription,
-          meta: logMeta,
-          ctx,
-        })
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: isPartialVoid ? 'VOID_ROOMS' : 'VOID_RESERVATION',
+        entityType: 'Reservation',
+        entityId: reservation.id,
+        hotelId: reservation.hotelId,
+        description: logDescription,
+        meta: logMeta,
+        ctx,
+      })
 
-        //  log a Guest-related event
-        await LoggerService.log({
-          actorId: auth.user?.id!,
-          action: isPartialVoid ? 'GUEST_ROOMS_VOIDED' : 'GUEST_RESERVATION_VOIDED',
-          entityType: 'Guest',
-          entityId: reservation.guestId,
-          hotelId: reservation.hotelId,
-          description: isPartialVoid
-            ? `Guest's reservation #${reservation.reservationNumber} had ${roomsToVoid.length} room${roomsToVoid.length > 1 ? 's' : ''} voided.`
-            : `Guest's reservation #${reservation.reservationNumber} was fully voided.`,
-          meta: logMeta,
-          ctx,
-        })
+      //  log a Guest-related event
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: isPartialVoid ? 'GUEST_ROOMS_VOIDED' : 'GUEST_RESERVATION_VOIDED',
+        entityType: 'Guest',
+        entityId: reservation.guestId,
+        hotelId: reservation.hotelId,
+        description: isPartialVoid
+          ? `Guest's reservation #${reservation.reservationNumber} had ${roomsToVoid.length} room${roomsToVoid.length > 1 ? 's' : ''} voided.`
+          : `Guest's reservation #${reservation.reservationNumber} was fully voided.`,
+        meta: logMeta,
+        ctx,
+      })
 
 
       await trx.commit()
+
+      if (shouldVoidReservation) {
+        try {
+          const freshReservation = await Reservation.find(numericReservationId)
+          if (freshReservation) {
+            await freshReservation
+              .merge({
+                status: ReservationStatus.VOIDED,
+                voidedDate: DateTime.now(),
+                voidReason: reason,
+                voidedBy: auth.user?.id,
+                lastModifiedBy: auth.user?.id,
+              })
+              .save()
+          }
+        } catch {}
+      }
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
 
@@ -5278,10 +5225,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         // Store the reservation room ID before unassigning
         const reservationRoomId = reservationRoom.id
-         const room = await Room.query({ client: trx }).where('id', reservationRoom.roomId!).first()
-          if (room) {
-            unassignedRooms.push(room.roomNumber)
-          }
+        const room = await Room.query({ client: trx }).where('id', reservationRoom.roomId!).first()
+        if (room) {
+          unassignedRooms.push(room.roomNumber)
+        }
 
         reservationRoom.roomId = null
         reservationRoom.lastModifiedBy = auth?.user?.id!
@@ -5305,8 +5252,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityId: reservationId,
         hotelId: reservation.hotelId,
         description: unassignedRooms.length
-        ? `Unassigned Rooms [${unassignedRooms.join(', ')}] from reservation #${reservation.reservationNumber}`
-        : `Room(s) unassigned from reservation #${reservation.reservationNumber}`,
+          ? `Unassigned Rooms [${unassignedRooms.join(', ')}] from reservation #${reservation.reservationNumber}`
+          : `Room(s) unassigned from reservation #${reservation.reservationNumber}`,
         ctx: ctx,
       })
 
@@ -5702,7 +5649,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           const room = await Room.query({ client: trx }).where('id', newRoomId).first()
 
           if (room) {
-              assignedRooms.push(room.roomNumber)
+            assignedRooms.push(room.roomNumber)
             await ReservationFolioService.updateRoomChargeDescriptions(
               reservationRoom.id,
               room.roomNumber,

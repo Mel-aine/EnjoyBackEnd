@@ -16,7 +16,6 @@ import { ReservationStatus } from '../enums.js'
 
 import RoomBlock from '#models/room_block'
 import WorkOrder from '#models/work_order'
-import db from '@adonisjs/lucid/services/db'
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
     try {
@@ -101,21 +100,6 @@ export default class DashboardController {
     }
   }
 
-  //   public async getRevenueStats({ params, request, response }: HttpContext) {
-  //     try {
-  //       const serviceId = parseInt(params.serviceId)
-  //       const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
-
-  //       if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
-  //         return response.badRequest({ success: false, message: 'Période invalide' })
-  //       }
-
-
-  //     return response.ok({ success: true, data: [] })
-  //   } catch (error) {
-  //     return response.internalServerError({ success: false, message: error.message })
-  //   }
-  // }
   public async getRevenueStats({ params, request, response }: HttpContext) {
     try {
       const serviceId = parseInt(params.serviceId)
@@ -1032,8 +1016,6 @@ export default class DashboardController {
 
     return { suites }
   }
-
-
 
 
   private async getHousekeepingData(serviceId: number, targetDate?: DateTime, trx?: any) {

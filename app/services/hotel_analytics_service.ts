@@ -164,9 +164,13 @@ export class HotelAnalyticsService {
         "bookingSourceId"
       ])
       .where('hotel_id', hotelId)
-      .where('depart_date', '>=', startDate.toISODate()!)
-      .where('arrived_date', '<=', endDate.toISODate()!)
-      .whereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
+      .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
+      .andWhere((query) => {
+        query.whereBetween('depart_date', [startDate.toISODate()!, endDate.toISODate()!])
+        query.orWhereBetween('arrived_date', [startDate.toISODate()!, endDate.toISODate()!])
+      })
+
+
       .preload('reservationRooms', (rspQuery) => {
         rspQuery
           .select([
@@ -408,10 +412,10 @@ export class HotelAnalyticsService {
       roomStatusStats.vacant = Math.max(
         0,
         totalRooms -
-          roomStatusStats.occupied -
-          roomStatusStats.reserved -
-          roomStatusStats.blocked -
-          roomStatusStats.dirty
+        roomStatusStats.occupied -
+        roomStatusStats.reserved -
+        roomStatusStats.blocked -
+        roomStatusStats.dirty
       )
 
       dailyMetrics.push({
@@ -578,7 +582,7 @@ export class HotelAnalyticsService {
       })
 
 
-   const dueOutReservations = allCheckedInReservations.filter((reservation) =>
+    const dueOutReservations = allCheckedInReservations.filter((reservation) =>
       reservation.reservationRooms.some((rr) => {
         if (!rr.checkOutDate) return false
         return rr.checkOutDate <= today
@@ -653,10 +657,10 @@ export class HotelAnalyticsService {
     globalRoomStatusStats.vacant = Math.max(
       0,
       totalRooms -
-        globalRoomStatusStats.occupied -
-        globalRoomStatusStats.reserved -
-        globalRoomStatusStats.blocked -
-        globalRoomStatusStats.dirty
+      globalRoomStatusStats.occupied -
+      globalRoomStatusStats.reserved -
+      globalRoomStatusStats.blocked -
+      globalRoomStatusStats.dirty
     )
 
 
@@ -742,16 +746,16 @@ export class HotelAnalyticsService {
         status: block.status,
         room: block.room
           ? {
-              id: block.room.id,
-              room_number: block.room.roomNumber,
-              floor_number: block.room.floorNumber,
-            }
+            id: block.room.id,
+            room_number: block.room.roomNumber,
+            floor_number: block.room.floorNumber,
+          }
           : null,
         room_type: block.roomType
           ? {
-              id: block.roomType.id,
-              name: block.roomType.roomTypeName,
-            }
+            id: block.roomType.id,
+            name: block.roomType.roomTypeName,
+          }
           : null,
         created_at: block.createdAt,
         updated_at: block.updatedAt,

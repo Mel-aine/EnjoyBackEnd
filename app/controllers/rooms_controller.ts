@@ -653,11 +653,16 @@ export default class RoomsController {
         // Reservation period overlaps with the requested period
         .whereBetween('check_in_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
         .orWhereBetween('check_out_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+        .orWhere((dateQuery) => {
+            dateQuery
+              .where('check_in_date', '<', checkInDate.toISODate())
+              .andWhere('check_out_date', '>', checkOutDate.toISODate())
+          })
         .whereIn('status', ['confirmed', 'checked_in', 'reserved']) // Add 'reserved' if needed
         .select(['room_id'])
       // Extract the IDs of reserved rooms
       const reservedRoomIds = reservedRoomsResult.map((r) => r.roomId)
-
+      console.log('Reserved room ids:', reservedRoomIds)
       // **4. Combine Exclusions and Filter Rooms**
       // Rooms that are blocked OR reserved are unavailable
       const unavailableRoomIds = [...blockedRoomIds, ...reservedRoomIds]
