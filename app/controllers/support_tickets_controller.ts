@@ -163,7 +163,7 @@ public async create({ request, response, auth }: HttpContext) {
 
       await ticket.save()
 
-      ticket.attachments = payload.attachments || null
+
 
       return response.created({
         message: 'Support ticket créé',
