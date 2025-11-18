@@ -2,7 +2,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import SupportTicket from '#models/support_ticket'
 import LoggerService from '#services/logger_service'
- 
 
 const createTicketValidator = vine.compile(
   vine.object({
@@ -20,6 +19,7 @@ const createTicketValidator = vine.compile(
     impact: vine.enum(['tous', 'plusieurs', 'un', 'rapport'] as const),
     severity: vine.enum(['critical', 'high', 'low'] as const),
     status: vine.enum(['open', 'in_progress', 'resolved', 'closed'] as const).optional(),
+    assignedTime: vine.number().min(0).optional(), // Temps assigné en minutes
     description: vine.object({
       full: vine.string().trim().minLength(3),
       steps: vine.array(vine.string().trim()).minLength(1),
@@ -41,7 +41,58 @@ const createTicketValidator = vine.compile(
   })
 )
 
+const updateTicketValidator = vine.compile(
+  vine.object({
+    title: vine.string().trim().minLength(3).optional(),
+    category: vine.enum(['bug', 'suggestion', 'question'] as const).optional(),
+    module: vine.enum([
+      'Réservations',
+      'Check-in/out',
+      'Facturation',
+      'Housekeeping',
+      'Moteur de réservation',
+      'Rapports',
+      'Autre',
+    ] as const).optional(),
+    impact: vine.enum(['tous', 'plusieurs', 'un', 'rapport'] as const).optional(),
+    severity: vine.enum(['critical', 'high', 'low'] as const).optional(),
+    status: vine.enum(['open', 'in_progress', 'resolved', 'closed'] as const).optional(),
+    assignedTime: vine.number().min(0).optional(), // Temps assigné en minutes
+    description: vine.object({
+      full: vine.string().trim().minLength(3),
+      steps: vine.array(vine.string().trim()).minLength(1),
+      expected: vine.string().trim().minLength(1),
+      actual: vine.string().trim().minLength(1),
+    }).optional(),
+    callbackPhone: vine.string().optional(),
+    attachments: vine.array(vine.string().trim()).optional(),
+  })
+)
+
 export default class SupportTicketsController {
+  
+  /**
+   * Génère un code de ticket unique
+   * Format: TICKET-YYYYMMDD-XXX-TITLEINITIALS
+   * Exemple: TICKET-20231215-001-RES
+   */
+  private generateTicketCode(title: string): string {
+    const now = new Date()
+    const datePart = now.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+    
+    // Prend les 3 premières lettres du titre (nettoyées)
+    const titleInitials = title
+      .toUpperCase()
+      .replace(/[^A-Z]/g, '')
+      .slice(0, 3)
+      .padEnd(3, 'X') // Si moins de 3 lettres, complète avec X
+    
+    // Génère un numéro séquentiel basé sur le timestamp
+    const sequential = String(now.getTime()).slice(-3)
+    
+    return `TICKET-${datePart}-${sequential}-${titleInitials}`
+  }
+
   public async create({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createTicketValidator)
@@ -58,6 +109,10 @@ export default class SupportTicketsController {
       ticket.status = payload.status || 'open'
       ticket.hotelId = payload.context.hotelId || null
       ticket.createdBy = auth?.user?.id || null
+      ticket.assignedTime = payload.assignedTime || 0 
+      
+      // Génération du code de ticket
+      ticket.ticketCode = this.generateTicketCode(payload.title)
 
       await ticket.save()
 
@@ -94,6 +149,7 @@ export default class SupportTicketsController {
       const search = request.input('search')
       const createdFrom = request.input('created_from')
       const createdTo = request.input('created_to')
+      const ticketCode = request.input('ticket_code')
 
       const query = SupportTicket.query()
 
@@ -103,9 +159,13 @@ export default class SupportTicketsController {
       if (severity) query.where('severity', severity)
       if (status) query.where('status', status)
       if (hotelId) query.where('hotel_id', Number(hotelId))
+      if (ticketCode) query.where('ticket_code', 'ILIKE', `%${ticketCode}%`)
       if (search) {
         query.where((builder) => {
-          builder.whereILike('title', `%${search}%`).orWhereRaw(`description->>'full' ILIKE ?`, [`%${search}%`])
+          builder
+            .whereILike('title', `%${search}%`)
+            .orWhereILike('ticket_code', `%${search}%`)
+            .orWhereRaw(`description->>'full' ILIKE ?`, [`%${search}%`])
         })
       }
       if (createdFrom && createdTo) {
@@ -142,6 +202,60 @@ export default class SupportTicketsController {
       return response.notFound({
         message: 'Ticket introuvable',
       })
+    }
+  }
+
+  public async update({ params, request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(updateTicketValidator)
+
+      const ticket = await SupportTicket.findOrFail(Number(params.id))
+
+      const previousState = {
+        title: ticket.title,
+        category: ticket.category,
+        module: ticket.module,
+        impact: ticket.impact,
+        severity: ticket.severity,
+        status: ticket.status,
+        assignedTime: ticket.assignedTime,
+      }
+
+      if (payload.title !== undefined) ticket.title = payload.title
+      if (payload.category !== undefined) ticket.category = payload.category
+      if (payload.module !== undefined) ticket.module = payload.module
+      if (payload.impact !== undefined) ticket.impact = payload.impact
+      if (payload.severity !== undefined) ticket.severity = payload.severity
+      if (payload.status !== undefined) ticket.status = payload.status
+      if (payload.assignedTime !== undefined) ticket.assignedTime = payload.assignedTime
+      if (payload.description !== undefined) ticket.description = payload.description
+      if (payload.callbackPhone !== undefined) ticket.callbackPhone = payload.callbackPhone
+      if (payload.attachments !== undefined) ticket.attachments = payload.attachments
+
+      await ticket.save()
+
+
+      try {
+        await LoggerService.logActivity({
+          userId: auth?.user?.id,
+          action: 'UPDATE',
+          resourceType: 'SupportTicket',
+          resourceId: ticket.id,
+          hotelId: ticket.hotelId ?? undefined,
+          description: 'Ticket updated',
+          details: { previousState, newState: payload },
+        })
+      } catch {}
+
+      return response.ok({
+        message: 'Ticket mis à jour',
+        data: ticket,
+      })
+    } catch (error) {
+      if ((error as any).code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({ message: 'Validation échouée', errors: (error as any).messages })
+      }
+      return response.badRequest({ message: 'Mise à jour échouée', error: (error as any).message })
     }
   }
 

@@ -89,7 +89,7 @@ export default class AuthController {
       const user = await User.query().where('email', email).preload('role').firstOrFail()
 
        if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
-        const login = await Hash.verify(password, user.password)
+        const login = await Hash.verify(user.password, password )
         if (!login) return this.responseError('Invalid credentials', 401)
       }
 
