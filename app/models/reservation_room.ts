@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, afterDelete, afterSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, beforeSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import RoomType from './room_type.js'
@@ -12,7 +12,8 @@ import PaymentMethod from './payment_method.js'
 import Hotel from './hotel.js'
 import RateType from './rate_type.js'
 import MealPlan from './meal_plan.js'
-import ChannexAvailabilityService from '#app/services/channex_availability_service'
+import ReservationRoomService from '../services/reservation_room_service.js'
+import { ChannexService } from '../services/channex_service.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -111,7 +112,7 @@ export default class ReservationRoom extends BaseModel {
   declare mealPlanRateInclude: boolean
 
   @column()
-  declare status: 'voided'|'moved_out'|'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked' | 'day_use'
+  declare status: 'voided' | 'moved_out' | 'reserved' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled' | 'blocked' | 'day_use'
 
   @column()
   declare stopMove: boolean
@@ -657,7 +658,7 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare cancellationReason: string
 
-  @column.dateTime({columnName: 'cancelled_at'})
+  @column.dateTime({ columnName: 'cancelled_at' })
   declare cancelledAt: DateTime
 
   @column()
@@ -709,8 +710,8 @@ export default class ReservationRoom extends BaseModel {
   @hasMany(() => Folio, { foreignKey: 'reservationRoomId' })
   declare folios: HasMany<typeof Folio>
 
-  @belongsTo(() => RoomRate,{ foreignKey : 'roomRateId'})
-  declare roomRates: BelongsTo <typeof RoomRate>
+  @belongsTo(() => RoomRate, { foreignKey: 'roomRateId' })
+  declare roomRates: BelongsTo<typeof RoomRate>
 
   @belongsTo(() => PaymentMethod)
   declare paymentMethod: BelongsTo<typeof PaymentMethod>
@@ -720,123 +721,6 @@ export default class ReservationRoom extends BaseModel {
 
   @belongsTo(() => MealPlan, { foreignKey: 'mealPlanId' })
   declare mealPlan: BelongsTo<typeof MealPlan>
-
-
-
-  /**
-   * Hook: Après la sauvegarde (création ou modification d'une room)
-   */
-  @afterSave()
-  static async syncAvailabilityAfterRoomAssignment(reservationRoom: ReservationRoom) {
-    console.log('🔄 RESERVATION ROOM AFTER SAVE:', reservationRoom.id)
-    
-    try {
-      await this.syncReservationAvailability(reservationRoom, 'save')
-    } catch (error) {
-      console.error('❌ Failed to sync availability from reservation room save:', error)
-    }
-  }
-
-  /**
-   * Hook: Après la suppression d'une ReservationRoom
-   */
-  @afterDelete()
-  static async syncAvailabilityAfterRoomRemoval(reservationRoom: ReservationRoom) {
-    console.log('🗑️ RESERVATION ROOM AFTER DELETE:', reservationRoom.id)
-    
-    try {
-      await this.syncReservationAvailability(reservationRoom, 'delete')
-    } catch (error) {
-      console.error('❌ Failed to sync availability from reservation room delete:', error)
-    }
-  }
-
-  /**
-   * Méthode centrale pour synchroniser la disponibilité
-   */
-  private static async syncReservationAvailability(
-    reservationRoom: ReservationRoom, 
-    action: 'save' | 'delete'
-  ) {
-    // Charger les relations nécessaires
-    await reservationRoom.load('reservation', (query) => {
-      query.preload('hotel')
-    })
-    
-    await reservationRoom.load('roomType')
-
-    const reservation = reservationRoom.reservation
-    const hotel = reservation?.hotel
-    const roomType = reservationRoom.roomType
-    
-    console.log('🔍 Loaded data:', {
-      reservationId: reservation?.id,
-      reservationStatus: reservation?.status,
-      hotelId: hotel?.id,
-      channexPropertyId: hotel?.channexPropertyId,
-      roomTypeId: roomType?.id,
-      channexRoomTypeId: roomType?.channexRoomTypeId,
-      action
-    })
-
-    // Validations
-    if (!reservation || !hotel?.channexPropertyId) {
-      console.log('⚠️ Missing reservation or hotel data')
-      return
-    }
-    
-    if (!roomType?.channexRoomTypeId) {
-      console.warn(`❌ Room type ${roomType?.id} not synced with Channex`)
-      return
-    }
-
-    const channexAvailabilityService = new ChannexAvailabilityService()
-    
-    console.log('🎯 Determining action for reservation status:', reservation.status)
-    
-    // Pour une suppression, on RESTAURE toujours la disponibilité
-    if (action === 'delete') {
-      console.log('🔄 Action: RESTORE availability (room deletion)')
-      await channexAvailabilityService.syncAvailabilityForReservation(
-        reservation, 
-        hotel.channexPropertyId
-      )
-      return
-    }
-
-    // Pour une sauvegarde, on détermine l'action selon le statut
-    if (this.shouldRestoreAvailability(reservation)) {
-      console.log('🔄 Action: RESTORE availability')
-      await channexAvailabilityService.syncAvailabilityForReservation(
-        reservation, 
-        hotel.channexPropertyId
-      )
-    } else if (this.shouldReduceAvailability(reservation)) {
-      console.log('🔻 Action: REDUCE availability')
-      await channexAvailabilityService.syncAvailabilityForReservation(
-        reservation, 
-        hotel.channexPropertyId
-      )
-    } else {
-      console.log('⏸️ Action: NO ACTION for status:', reservation.status)
-    }
-  }
-
-  /**
-   * Détermine si on doit RESTAURER la disponibilité
-   */
-  private static shouldRestoreAvailability(reservation: Reservation): boolean {
-    const restoreStatuses = ['cancelled', 'no_show', 'voided']
-    return restoreStatuses.includes(reservation.status)
-  }
-
-  /**
-   * Détermine si on doit RÉDUIRE la disponibilité
-   */
-  private static shouldReduceAvailability(reservation: Reservation): boolean {
-    const reduceStatuses = ['confirmed', 'checked_in', 'guaranteed']
-    return reduceStatuses.includes(reservation.status)
-  }
 
   // Computed properties
   get isCheckedIn() {
@@ -886,7 +770,7 @@ export default class ReservationRoom extends BaseModel {
 
   get hasPreferences() {
     return !!(this.bedPreference || this.smokingPreference !== 'no_preference' ||
-             this.floorPreference || this.viewPreference)
+      this.floorPreference || this.viewPreference)
   }
 
   get isVip() {
@@ -902,7 +786,7 @@ export default class ReservationRoom extends BaseModel {
   }
 
   get roomStatusColor() {
-    const colors = {
+    const colors: any = {
       'reserved': 'blue',
       'checked_in': 'green',
       'checked_out': 'gray',
@@ -911,7 +795,7 @@ export default class ReservationRoom extends BaseModel {
       'blocked': 'purple',
       "moved_out": 'yellow',
       "moved_in": 'cyan',
-      "voided":"black"
+      "voided": "black"
     }
     return colors[this.status] || 'gray'
   }
@@ -928,5 +812,66 @@ export default class ReservationRoom extends BaseModel {
     return `Room ${this.room?.roomNumber || 'TBD'} - ${this.checkInDate.toFormat('MMM dd')} to ${this.checkOutDate.toFormat('MMM dd')}`
   }
 
-
+  @beforeSave()
+  public static async notifyAvailabilityOnRoomTypeChange(model: ReservationRoom) {
+    const changed = model.$dirty && Object.prototype.hasOwnProperty.call(model.$dirty, 'roomTypeId')
+    if (!changed) return
+    setTimeout(async () => {
+      try {
+        model.$trx = undefined
+        const hotel = await Hotel.find(model.hotelId)
+        if (!hotel || !hotel.channexPropertyId) return
+        const prevRtId = (model as any).$original?.roomTypeId ?? model.roomTypeId
+        const currRtId = model.roomTypeId
+        const rtIds = Array.from(new Set([prevRtId, currRtId].filter((v) => v))) as number[]
+        if (rtIds.length === 0) return
+        const roomTypes = await RoomType.query().whereIn('id', rtIds)
+        const channexMap = new Map<number, string>()
+        for (const rt of roomTypes) {
+          if (rt.channexRoomTypeId) channexMap.set(rt.id, rt.channexRoomTypeId)
+        }
+        if (channexMap.size === 0) return
+        const startDay = model.checkInDate.startOf('day')
+        const endDay = model.checkOutDate.startOf('day')
+        const rrService = new ReservationRoomService()
+        const daily = await rrService.getDailyAvailableRoomCountsByRoomType(
+          model.hotelId,
+          Array.from(channexMap.keys()),
+          startDay.toJSDate(),
+          endDay.toJSDate()
+        )
+        const values: any[] = []
+        for (const rtId of channexMap.keys()) {
+          let segStart = startDay
+          let current = daily[startDay.toISODate()!]?.[rtId] ?? 0
+          let cursor = startDay.plus({ days: 1 })
+          while (cursor <= endDay) {
+            const key = cursor.toISODate()!
+            const val = daily[key]?.[rtId] ?? 0
+            if (val !== current) {
+              values.push({
+                room_type_id: channexMap.get(rtId)!,
+                property_id: hotel.channexPropertyId,
+                date_from: segStart.toISODate()!,
+                date_to: cursor.minus({ days: 1 }).toISODate()!,
+                availability: current,
+              })
+              segStart = cursor
+              current = val
+            }
+            cursor = cursor.plus({ days: 1 })
+          }
+          values.push({
+            room_type_id: channexMap.get(rtId)!,
+            property_id: hotel.channexPropertyId,
+            date_from: segStart.toISODate()!,
+            date_to: endDay.toISODate()!,
+            availability: current,
+          })
+        }
+        const channexService = new ChannexService()
+        await channexService.updateAvailability(hotel.channexPropertyId, { values })
+      } catch { }
+    }, 0)
+  }
 }
