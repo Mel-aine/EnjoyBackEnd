@@ -824,8 +824,8 @@ static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFi
         { key: 'paid', label: 'Paid' },
         { key: 'balance', label: 'Balance' },
         { key: 'source', label: 'Source' },
-        { key: 'cancelledBy', label: 'Cancelled By' },
-        { key: 'cancelledDate', label: 'Cancelled Date' }
+        { key: 'voidedBy', label: 'Voided By' },
+        { key: 'voidedDate', label: 'Voided Date' }
     ]
 
     const tableHeaders = columns.map(column => `<th>${column.label}</th>`).join('')
