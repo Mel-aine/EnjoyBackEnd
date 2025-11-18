@@ -3,6 +3,9 @@ import vine from '@vinejs/vine'
 import SupportTicket from '#models/support_ticket'
 import LoggerService from '#services/logger_service'
 
+import SupabaseService from '#services/supabase_service'
+
+
 const createTicketValidator = vine.compile(
   vine.object({
     title: vine.string().trim().minLength(3),
@@ -37,7 +40,7 @@ const createTicketValidator = vine.compile(
       sessionRecordingUrl: vine.string().optional(),
     }),
     callbackPhone: vine.string().optional(),
-    attachments: vine.array(vine.string().trim()).optional(),
+    // attachments: vine.array(vine.string().trim()).optional(),
   })
 )
 
@@ -70,6 +73,12 @@ const updateTicketValidator = vine.compile(
 )
 
 export default class SupportTicketsController {
+ private supabaseService: SupabaseService
+
+  constructor() {
+    this.supabaseService = new SupabaseService()
+  }
+
   
   /**
    * Génère un code de ticket unique
@@ -93,22 +102,60 @@ export default class SupportTicketsController {
     return `TICKET-${datePart}-${sequential}-${titleInitials}`
   }
 
-  public async create({ request, response, auth }: HttpContext) {
-    try {
-      const payload = await request.validateUsing(createTicketValidator)
+public async create({ request, response, auth }: HttpContext) {
+  try {
 
-      const ticket = new SupportTicket()
-      ticket.title = payload.title
-      ticket.category = payload.category
-      ticket.module = payload.module
-      ticket.impact = payload.impact
-      ticket.severity = payload.severity
-      ticket.description = payload.description
-      ticket.context = payload.context
-      ticket.callbackPhone = payload.callbackPhone || null
-      ticket.status = payload.status || 'open'
-      ticket.hotelId = payload.context.hotelId || null
-      ticket.createdBy = auth?.user?.id || null
+    const attachmentFile = request.file('attachment', {
+      size: '5mb',
+      extnames: ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+    })
+
+
+    // Parser les champs JSON du FormData
+    const rawBody = request.all()
+
+    if (typeof rawBody.description === 'string') {
+      rawBody.description = JSON.parse(rawBody.description)
+    }
+
+    if (typeof rawBody.context === 'string') {
+      rawBody.context = JSON.parse(rawBody.context)
+    }
+
+    request.updateBody(rawBody)
+
+    const payload = await request.validateUsing(createTicketValidator)
+
+    const ticket = new SupportTicket()
+    ticket.title = payload.title
+    ticket.category = payload.category
+    ticket.module = payload.module
+    ticket.impact = payload.impact
+    ticket.severity = payload.severity
+    ticket.description = payload.description
+    ticket.context = payload.context
+    ticket.callbackPhone = payload.callbackPhone || null
+    ticket.status = payload.status || 'open'
+    ticket.hotelId = payload.context.hotelId || null
+    ticket.createdBy = auth?.user?.id || null
+
+    let attachmentUrl: string | null = null
+    if (attachmentFile) {
+      try {
+        const result = await this.supabaseService.uploadFile(
+          attachmentFile,
+          'tickets',
+          'attachments'
+        )
+        attachmentUrl = result.url
+
+      } catch (uploadError: any) {
+        console.error('❌ Failed to upload attachment:', uploadError.message)
+        console.error('Upload error details:', uploadError)
+      }
+    }
+
+    ticket.attachments = attachmentUrl ? [attachmentUrl] : null
       ticket.assignedTime = payload.assignedTime || 0 
       
       // Génération du code de ticket

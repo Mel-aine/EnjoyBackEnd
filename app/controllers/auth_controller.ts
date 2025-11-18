@@ -43,11 +43,11 @@ export default class AuthController {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
       if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
-        const login = await Hash.verify(password, user.password)
+           const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
       // Crée un access token (pour les requêtes API) et un refresh token dédié
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '59m' })
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '60m' })
       const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
 
       await LoggerService.log({
@@ -82,56 +82,152 @@ export default class AuthController {
   }
 
   public async signin(ctx: HttpContext) {
-    const { request, response } = ctx
-    const { email, password } = request.only(['email', 'password'])
+  const { request, response } = ctx
+  const { email, password } = request.only(['email', 'password'])
 
-    try {
-      const user = await User.query().where('email', email).preload('role').firstOrFail()
 
-       if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
-        const login = await Hash.verify(user.password, password )
-        if (!login) return this.responseError('Invalid credentials', 401)
+  //Fonction avec réessai pour les erreurs de connexion
+  const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const user = await User.query()
+          .where('email', email)
+          .preload('role')
+          .firstOrFail()
+        return user
+      } catch (error) {
+        console.error(`Tentative ${attempt} échouée:`, error.message)
+
+        // Si c'est une erreur de connexion et qu'il reste des tentatives
+        if (error.message.includes('Connection terminated') && attempt < retries) {
+          console.log(`⏳ Attente de ${delay}ms avant réessai...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          delay *= 2 // Backoff exponentiel
+          continue
+        }
+        throw error
       }
-
-      // Génère un access token (API) et un refresh token séparé
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '59m' })
-      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
-
-      // Log
-      await LoggerService.log({
-        actorId: user.id,
-        action: 'LOGIN',
-        entityType: 'User',
-        entityId: user.id.toString(),
-        description: `Connexion de l'utilisateur ${email}`,
-        ctx: ctx,
-      })
-
-      // Cookie refresh token
-      const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-      response.cookie('refresh_token', refreshValue, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/api/refresh-token',
-        maxAge: 7 * 24 * 60 * 60,
-      })
-
-      return response.ok({
-        message: 'Login successful',
-        data: {
-          user,
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-      })
-    } catch (error) {
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.unauthorized({ message: 'Invalid credentials' })
-      }
-      return response.badRequest({ message: 'Login failed' })
     }
   }
+
+  try {
+    // Utilisation de la fonction avec réessai
+    const user = await findUserWithRetry()
+
+    // Vérification du mot de passe
+    if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
+      const login = await Hash.verify(user.password, password)
+
+      if (!login) {
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
+    }
+
+    // Génère les tokens
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '60m' })
+    const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
+
+    // Log
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Connexion de l'utilisateur ${email}`,
+      ctx: ctx,
+    })
+
+    // Cookie refresh token
+    const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+    response.cookie('refresh_token', refreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+    return response.ok({
+      message: 'Login successful',
+      data: {
+        user,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+    })
+
+  } catch (error) {
+    console.error(' Erreur complète dans signin:', error)
+
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      console.log(' Utilisateur non trouvé:', email)
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+
+    // message d'erreur pour les problèmes de connexion
+    if (error.message.includes('Connection terminated')) {
+      console.log(' Erreur de connexion base de données')
+      return response.serviceUnavailable({
+        message: 'Service temporarily unavailable. Please try again.'
+      })
+    }
+
+    console.log('Autre erreur - renvoie 400')
+    return response.badRequest({ message: 'Login failed' })
+  }
+}
+
+  // public async signin(ctx: HttpContext) {
+  //   const { request, response } = ctx
+  //   const { email, password } = request.only(['email', 'password'])
+
+  //   try {
+  //     const user = await User.query().where('email', email).preload('role').firstOrFail()
+
+  //     if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
+  //       const login = await Hash.verify(user.password, password)
+  //       if (!login) return this.responseError('Invalid credentials', 401)
+  //     }
+
+  //     // Génère un access token (API) et un refresh token séparé
+  //     const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '60m' })
+  //     const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
+
+  //     // Log
+  //     await LoggerService.log({
+  //       actorId: user.id,
+  //       action: 'LOGIN',
+  //       entityType: 'User',
+  //       entityId: user.id.toString(),
+  //       description: `Connexion de l'utilisateur ${email}`,
+  //       ctx: ctx,
+  //     })
+
+  //     // Cookie refresh token
+  //     const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+  //     response.cookie('refresh_token', refreshValue, {
+  //       httpOnly: true,
+  //       sameSite: 'lax',
+  //       secure: process.env.NODE_ENV === 'production',
+  //       path: '/api/refresh-token',
+  //       maxAge: 7 * 24 * 60 * 60,
+  //     })
+
+  //     return response.ok({
+  //       message: 'Login successful',
+  //       data: {
+  //         user,
+  //         access_token: accessToken,
+  //         refresh_token: refreshToken,
+  //       },
+  //     })
+  //   } catch (error) {
+  //     if (error.code === 'E_ROW_NOT_FOUND') {
+  //       return response.unauthorized({ message: 'Invalid credentials' })
+  //     }
+  //     return response.badRequest({ message: 'Login failed' })
+  //   }
+  // }
 
 
   public async initSpace(ctx: HttpContext) {
@@ -327,7 +423,7 @@ export default class AuthController {
     // Rotation du refresh token: révoque l’ancien et émet un nouveau
     await User.accessTokens.delete(user, current!.identifier)
 
-    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '10m' })
+    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '60m' })
     const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
 
     // Met à jour le cookie httpOnly avec le nouveau refresh token

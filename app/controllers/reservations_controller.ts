@@ -1706,14 +1706,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         (room) => room.status === ReservationProductStatus.CANCELLED
       )
 
-      if (allRoomsCancelled) {
-        reservation.status = ReservationStatus.CANCELLED
-        reservation.cancellationReason = reason
-        reservation.lastModifiedBy = auth.user!.id
-        reservation.cancellationDate = DateTime.now()
-
-        await reservation.save()
-      }
+      const shouldCancelReservation = allRoomsCancelled
 
       // 5. Close all related folios and mark transactions as cancelled
       let foliosClosed = 0
@@ -1782,6 +1775,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
 
       await trx.commit()
+
+      if (shouldCancelReservation) {
+        try {
+          const freshReservation = await Reservation.find(reservation.id)
+          if (freshReservation) {
+            await freshReservation
+              .merge({
+                status: ReservationStatus.CANCELLED,
+                cancellationReason: reason,
+                lastModifiedBy: auth.user!.id,
+                cancellationDate: DateTime.now(),
+              })
+              .save()
+          }
+        } catch {}
+      }
 
       await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({

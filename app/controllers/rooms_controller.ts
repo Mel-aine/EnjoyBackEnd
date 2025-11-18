@@ -123,7 +123,7 @@ export default class RoomsController {
       const payload = await request.validateUsing(createRoomValidator)
       const { taxRateIds, ...roomData } = payload
 
-       const uploadedImageUrls: string[] = []
+      const uploadedImageUrls: string[] = []
 
       if (roomImages && roomImages.length > 0) {
         const imagesToUpload = roomImages.slice(0, 2)
@@ -323,15 +323,15 @@ export default class RoomsController {
       }
 
       if (room.images && Array.isArray(room.images) && room.images.length > 0) {
-      for (const imageUrl of room.images) {
-        try {
-          const filePath = this.supabaseService.extractFilePathFromUrl(imageUrl, 'hotel')
-          await this.supabaseService.deleteFile(filePath, 'hotel')
-        } catch (deleteError) {
-          console.error(`Erreur lors de la suppression de l'image ${imageUrl}:`, deleteError.message)
+        for (const imageUrl of room.images) {
+          try {
+            const filePath = this.supabaseService.extractFilePathFromUrl(imageUrl, 'hotel')
+            await this.supabaseService.deleteFile(filePath, 'hotel')
+          } catch (deleteError) {
+            console.error(`Erreur lors de la suppression de l'image ${imageUrl}:`, deleteError.message)
+          }
         }
       }
-    }
 
       await room.delete()
 
@@ -622,7 +622,7 @@ export default class RoomsController {
       const roomsByType = await RoomType.query()
         .where('hotel_id', hotelId)
         .preload('roomRates', (queryRate) => {
-          queryRate.select(['id', 'room_type_id','rate_type_id'])
+          queryRate.select(['id', 'room_type_id', 'rate_type_id'])
           queryRate.preload('rateType', (queryRateType) => {
             queryRateType.select(['id', 'rate_type_name'])
           })
@@ -630,7 +630,7 @@ export default class RoomsController {
         .preload('rooms', (queryRoom) => {
           queryRoom.select(['id', 'room_number', 'status', 'housekeeping_status'])
         })
-        .select(['id', 'room_type_name','base_adult','base_child',"max_adult","max_child","sort_order"])
+        .select(['id', 'room_type_name', 'base_adult', 'base_child', "max_adult", "max_child", "sort_order"])
         .orderBy('sort_order', 'asc')
 
 
@@ -651,14 +651,26 @@ export default class RoomsController {
       // **3. Identify Reserved Rooms**
       const reservedRoomsResult = await ReservationRoom.query()
         // Reservation period overlaps with the requested period
-        .whereBetween('check_in_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
-        .orWhereBetween('check_out_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
-        .orWhere((dateQuery) => {
-            dateQuery
-              .where('check_in_date', '<', checkInDate.toISODate())
-              .andWhere('check_out_date', '>', checkOutDate.toISODate())
-          })
+
+
+        /*        .whereBetween('check_in_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+                .orWhereBetween('check_out_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+                .orWhere((dateQuery) => {
+                    dateQuery
+                      .where('check_in_date', '<', checkInDate.toISODate())
+                      .andWhere('check_out_date', '>', checkOutDate.toISODate())
+                  })*/
         .whereIn('status', ['confirmed', 'checked_in', 'reserved']) // Add 'reserved' if needed
+        .where(function (subQuery) {
+          subQuery
+            .whereBetween('check_in_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+            .orWhereBetween('check_out_date', [checkInDate.toISODate(), checkOutDate.toISODate()])
+            .orWhere(function (dateQuery) {
+              dateQuery
+                .where('check_in_date', '<=', checkInDate.toISODate())
+                .where('check_out_date', '>=', checkOutDate.toISODate())
+            })
+        })
         .select(['room_id'])
       // Extract the IDs of reserved rooms
       const reservedRoomIds = reservedRoomsResult.map((r) => r.roomId)
