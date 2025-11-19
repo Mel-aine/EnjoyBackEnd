@@ -12,8 +12,8 @@ export default class SupportTicket extends BaseModel {
   @column()
   declare title: string
 
-  @column()
-  declare assignedTime: number
+  @column.dateTime()
+  declare assignedAt: DateTime
 
   @column()
   declare ticketCode: string

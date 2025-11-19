@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import SupportTicket from '#models/support_ticket'
 import LoggerService from '#services/logger_service'
+import { DateTime } from 'luxon'
 
 import SupabaseService from '#services/supabase_service'
 
@@ -22,7 +23,7 @@ const createTicketValidator = vine.compile(
     impact: vine.enum(['tous', 'plusieurs', 'un', 'rapport'] as const),
     severity: vine.enum(['critical', 'high', 'low'] as const),
     status: vine.enum(['open', 'in_progress', 'resolved', 'closed'] as const).optional(),
-    assignedTime: vine.number().min(0).optional(), // Temps assigné en minutes
+    assignedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(), // Temps assigné en minutes
     description: vine.object({
       full: vine.string().trim().minLength(3),
       steps: vine.array(vine.string().trim()).minLength(1),
@@ -60,7 +61,7 @@ const updateTicketValidator = vine.compile(
     impact: vine.enum(['tous', 'plusieurs', 'un', 'rapport'] as const).optional(),
     severity: vine.enum(['critical', 'high', 'low'] as const).optional(),
     status: vine.enum(['open', 'in_progress', 'resolved', 'closed'] as const).optional(),
-    assignedTime: vine.number().min(0).optional(), // Temps assigné en minutes
+    assignedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(), // Temps assigné en minutes
     description: vine.object({
       full: vine.string().trim().minLength(3),
       steps: vine.array(vine.string().trim()).minLength(1),
@@ -136,8 +137,9 @@ public async create({ request, response, auth }: HttpContext) {
     ticket.context = payload.context
     ticket.callbackPhone = payload.callbackPhone || null
     ticket.status = payload.status || 'open'
-    ticket.hotelId = payload.context.hotelId || null
-    ticket.createdBy = auth?.user?.id || null
+    ticket.hotelId = payload.context?.hotelId ?? null
+    ticket.createdBy = auth?.user?.id ?? null
+    ticket.assignedAt = payload.assignedAt as DateTime<boolean>
 
     let attachmentUrl: string | null = null
     if (attachmentFile) {
@@ -150,13 +152,13 @@ public async create({ request, response, auth }: HttpContext) {
         attachmentUrl = result.url
 
       } catch (uploadError: any) {
-        console.error('❌ Failed to upload attachment:', uploadError.message)
+        console.error('Failed to upload attachment:', uploadError.message)
         console.error('Upload error details:', uploadError)
       }
     }
 
     ticket.attachments = attachmentUrl ? [attachmentUrl] : null
-      ticket.assignedTime = payload.assignedTime || 0 
+ 
       
       // Génération du code de ticket
       ticket.ticketCode = this.generateTicketCode(payload.title)
@@ -265,7 +267,7 @@ public async create({ request, response, auth }: HttpContext) {
         impact: ticket.impact,
         severity: ticket.severity,
         status: ticket.status,
-        assignedTime: ticket.assignedTime,
+        assignedAt: ticket.assignedAt ,
       }
 
       if (payload.title !== undefined) ticket.title = payload.title
@@ -274,7 +276,7 @@ public async create({ request, response, auth }: HttpContext) {
       if (payload.impact !== undefined) ticket.impact = payload.impact
       if (payload.severity !== undefined) ticket.severity = payload.severity
       if (payload.status !== undefined) ticket.status = payload.status
-      if (payload.assignedTime !== undefined) ticket.assignedTime = payload.assignedTime
+      if (payload.assignedAt !== undefined) ticket.assignedAt = payload.assignedAt
       if (payload.description !== undefined) ticket.description = payload.description
       if (payload.callbackPhone !== undefined) ticket.callbackPhone = payload.callbackPhone
       if (payload.attachments !== undefined) ticket.attachments = payload.attachments
