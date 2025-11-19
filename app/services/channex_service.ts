@@ -403,9 +403,7 @@ export class ChannexService {
    * Create a new rate plan
    * POST /properties/{property_id}/rate_plans
    */
-  async createRatePlan(propertyId: string, ratePlanData: {
-    [key: string]: any[]
-  }) {
+  async createRatePlan(propertyId: string, ratePlanData: any) {
     return this.post(`/rate_plans`, ratePlanData)
   }
 

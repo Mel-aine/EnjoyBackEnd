@@ -14,6 +14,10 @@ import LoggerService from '#services/logger_service'
 import GuestSummaryService from '#services/guest_summary_service'
 import logger from '@adonisjs/core/services/logger'
 import { ChannexService } from '../services/channex_service.js'
+import ReservationHook from '../hooks/reservation_hooks.js'
+import type { ReservationData } from '../types/reservationData.js'
+import { FolioStatus, ReservationProductStatus, ReservationStatus, TransactionStatus, WorkflowStatus } from '../enums.js'
+import Room from '../models/room.js'
 
 /**
  * Interface pour les données d'une chambre de réservation
@@ -131,7 +135,7 @@ interface ReservationCreationData {
   reservation_number?: string
   confirmation_number?: string
 
-  ota_guarantee?: string
+  ota_guarantee?: object
   ota_status?: string
   ota_name?: string
   ota_reservation_code?: string
@@ -411,9 +415,9 @@ export default class ReservationCreationService {
         guest = await ReservationService.createOrFindGuest(
           {
             hotel_id: data.hotel_id,
-            first_name: data.guest.firstName || 'Unknown',
-            last_name: data.guest.lastName || 'Guest',
-            email: data.guest.email || `guest_${Date.now()}@channex.placeholder`,
+            first_name: data.guest.firstName,
+            last_name: data.guest.lastName,
+            email: data.guest.email,
             phone_primary: data.guest.phone,
             address_line: data.guest.address,
             city: data.guest.city,
@@ -425,7 +429,7 @@ export default class ReservationCreationService {
             //guest_passport_number: data.guest.passportNumber,
             company_name: data.guest.companyName,
             created_by: data.created_by,
-          },
+          } as ReservationData,
           trx
         )
       } else {
@@ -488,16 +492,14 @@ export default class ReservationCreationService {
           channexBookingId: data.channex_booking_id,
           taxExempt: data.tax_exempt,
           isHold: data.isHold,
-          ota_guarantee: data.ota_guarantee,
-          ota_status: data.ota_status,
-          ota_name: data.ota_name,
-          ota_reservation_code: data.ota_reservation_code,
+          otaGuarantee: data.ota_guarantee,
+          otaStatus: data.ota_status,
+          otaName: data.ota_name,
+          otaReservationCode: data.ota_reservation_code,
           specialRequests: data.special_requests,
           holdReleaseDate:
             data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
-          releaseTem: data.isHold ? data.ReleaseTem : null,
           releaseRemindGuestbeforeDays: data.isHold ? data.ReleaseRemindGuestbeforeDays : null,
-          releaseRemindGuestbefore: data.isHold ? data.ReleaseRemindGuestbefore : null,
           reservedBy: data.created_by,
           createdBy: data.created_by,
         },
@@ -518,7 +520,7 @@ export default class ReservationCreationService {
           hotel_id: data.hotel_id,
           first_name: data.guest?.firstName || guest.firstName,
           last_name: data.guest?.lastName || guest.lastName,
-          email: data.guest?.email || guest.email,
+          email: (data.guest?.email || guest.email) ?? '',
           phone_primary: data.guest?.phone,
           created_by: data.created_by,
           // Si vous avez des invités additionnels, passez-les dans le format attendu
@@ -527,10 +529,10 @@ export default class ReservationCreationService {
             last_name: guest.lastName,
             email: guest.email || `additional_${Date.now()}@guest.placeholder`,
             phone_primary: guest.phone,
-            guest_type: guest.guestType || 'adult',
+            guest_type: (guest.guestType as "adult" | "child" | "infant" | undefined) ?? 'adult',
             is_primary: false,
           })) || [],
-        },
+        } as ReservationData,
         trx
       )
 
@@ -547,7 +549,7 @@ export default class ReservationCreationService {
               reservationId: reservation.id,
               roomTypeId: room.room_type_id,
               roomId: room.room_id || null,
-              rateTypeId:room.rate_type_id,
+              rateTypeId: room.rate_type_id,
               guestId: primaryGuest.id,
               checkInDate: DateTime.fromISO(data.arrived_date as string),
               checkOutDate: DateTime.fromISO(data.depart_date as string),
@@ -624,9 +626,13 @@ export default class ReservationCreationService {
           ctx,
         })
       }
-
-      await trx.commit()
-
+      /// After the comming notify the booking for the nes update data
+      await trx.commit().then(() => {
+        try {
+          ReservationHook.notifyAvailabilityOnCreate(reservation)
+        } catch {
+        }
+      })
       // === CRÉATION DES FOLIOS (après commit) ===
       let folios: any[] = []
       if (rooms.length > 0) {
@@ -678,13 +684,13 @@ export default class ReservationCreationService {
         primaryGuest: {
           id: primaryGuest.id,
           name: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
-          email: primaryGuest.email,
+          email: primaryGuest.email ?? '',
         },
         totalGuests: allGuests.length,
         guests: allGuests.map((g) => ({
           id: g.id,
           name: `${g.firstName} ${g.lastName}`,
-          email: g.email,
+          email: g.email ?? '',
         })),
         message: `${reservationTypeDescription} reservation created successfully with ${allGuests.length} guest(s)${rooms.length === 0 ? ' (no room assigned)' : ''}`,
       }
@@ -761,19 +767,17 @@ export default class ReservationCreationService {
     try {
 
       const bookingData = channexBooking.attributes || channexBooking
-
-      // ✅ RÉCUPÉRATION DIRECTE DU REVISION_ID DEPUIS LES DONNÉES CHANNEX
       const revisionId = channexBooking.id
       const bookingId = channexBooking.id
 
-      // ✅ CORRECTION: Utilisation sécurisée de mapChannexStatus
+      // CORRECTION: Utilisation sécurisée de mapChannexStatus
       const mappedStatus = this.mapChannexStatus(bookingData.status)
 
-      // ✅ CORRECTION: Validation robuste des données client
+      //  CORRECTION: Validation robuste des données client
       const customer = bookingData.customer || {}
       const customerName = customer.name || customer.first_name
       const customerSurname = customer.surname || customer.last_name
-      const customerEmail = customer.mail || customer.email || `guest_${channexBooking.id}@channex.placeholder`
+      const customerEmail = customer.mail || customer.email
       const customerPhone = customer.phone || null
 
 
@@ -818,8 +822,10 @@ export default class ReservationCreationService {
             const roomTypeMap: Map<string, number> | undefined = preloaded.roomTypeByChannexId
             if (roomTypeMap && channexRoomTypeId && roomTypeMap.has(channexRoomTypeId)) {
               localRoomTypeId = roomTypeMap.get(channexRoomTypeId) as number
-            } else {
+            } else if (channexRoomTypeId) {
               localRoomTypeId = await this.findRoomTypeByChannexId(channexRoomTypeId, hotelId)
+            } else {
+              throw new Error(`No room type found for Channex room type ID: ${channexRoomTypeId}`)
             }
 
             // Resolve room_rate_id and rate_type_id from preloaded room rate map if available
@@ -1004,5 +1010,86 @@ export default class ReservationCreationService {
       console.error('💥 [ERROR] Error in mapChannexStatus:', error, 'Input:', channexStatus)
       return 'confirmed' // Fallback sécurisé
     }
+  }
+
+  public static async cancelReservation(reservation: Reservation, userId: number,reason:string, ctx?: any) {
+    // If OTA status indicates total cancellation, mirror controller cancelReservation
+    const cancelledRooms: string[] = []
+    // Cancel all reservation rooms
+    for (const resRoom of reservation.reservationRooms) {
+      if (resRoom.status !== ReservationProductStatus.CANCELLED) {
+        resRoom.status = ReservationProductStatus.CANCELLED
+        resRoom.lastModifiedBy = userId!
+        await resRoom.save()
+
+        const room = await Room.find(resRoom.roomId)
+        if (room) {
+          room.status = 'available'
+          room.lastModifiedBy = userId!
+          await room.save()
+          cancelledRooms.push(room.roomNumber)
+        }
+
+        await LoggerService.log({
+          actorId: userId!,
+          action: 'CANCEL',
+          entityType: 'ReservationRoom',
+          entityId: resRoom.id,
+          hotelId: reservation.hotelId,
+          description: `Room ${room?.roomNumber ?? '-'} from reservation #${reservation.reservationNumber} was cancelled via Channex sync.`,
+          meta: { reason: reason },
+          ctx: ctx,
+        })
+      }
+    }
+
+    // Close folios and cancel transactions
+    let foliosClosed = 0
+    let transactionsCancelled = 0
+    for (const folio of reservation.folios) {
+      if (folio.status === FolioStatus.OPEN) {
+        folio.status = FolioStatus.CLOSED
+        folio.workflowStatus = WorkflowStatus.FINALIZED
+        folio.closedDate = DateTime.now()
+        folio.closedBy = userId!
+        folio.lastModifiedBy = userId!
+        await folio.save()
+        foliosClosed++
+
+        for (const transaction of (folio as any).transactions || []) {
+          if (transaction.status !== TransactionStatus.CANCELLED) {
+            transaction.status = TransactionStatus.CANCELLED
+            transaction.lastModifiedBy = userId!
+            await transaction.save()
+            transactionsCancelled++
+          }
+        }
+      }
+    }
+
+    const cancelledList = cancelledRooms.length > 0 ? `[${cancelledRooms.join(', ')}]` : '(none)'
+    await LoggerService.log({
+      actorId: userId!,
+      action: 'CANCEL',
+      entityType: 'Reservation',
+      entityId: reservation.id,
+      hotelId: reservation.hotelId,
+      description: `Reservation #${reservation.reservationNumber} cancelled via Channex sync. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}.`,
+      meta: { cancelledRooms, foliosClosed, transactionsCancelled },
+      ctx: ctx,
+    })
+
+    // Mark reservation cancelled
+    await reservation
+      .merge({
+        status: ReservationStatus.CANCELLED,
+        cancellationReason: reason,
+        cancellationDate: DateTime.now(),
+        lastModifiedBy: userId!,
+      })
+      .save()
+
+    // Recompute guest summary
+    await GuestSummaryService.recomputeFromReservation(reservation.id)
   }
 }

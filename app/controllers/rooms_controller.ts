@@ -7,7 +7,6 @@ import { createRoomValidator, updateRoomValidator } from '#validators/room'
 import LoggerService from '#services/logger_service'
 import RoomBlock from '#models/room_block'
 import HouseKeeper from '#models/house_keeper'
-import logger from '@adonisjs/core/services/logger'
 import SupabaseService from '#services/supabase_service'
 
 export default class RoomsController {

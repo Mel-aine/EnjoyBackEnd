@@ -412,8 +412,8 @@ export default class ChannexMigrationController {
         // Settings object
         settings: {
           allow_availability_autoupdate_on_confirmation: true,
-          allow_availability_autoupdate_on_modification: true,
-          allow_availability_autoupdate_on_cancellation: true,
+          allow_availability_autoupdate_on_modification: false,
+          allow_availability_autoupdate_on_cancellation: false,
           min_stay_type: "both", // e.g., "both"
           min_price: hotel.minPrice,
           max_price: hotel.maxPrice,
@@ -1146,7 +1146,6 @@ export default class ChannexMigrationController {
    */
   async getBookingRevisionsFeed({ response }: HttpContext) {
     try {
-      const channexApiUrl = 'https://staging.channex.io/api/v1/booking_revisions/feed'
       const channexApiKey = env.get('CHANNEX_API_KEY')
 
       if (!channexApiKey) {
@@ -1157,7 +1156,7 @@ export default class ChannexMigrationController {
       }
 
       // Fetch booking revisions from Channex
-      const channexResponse = await this.channexService.getBookingRevisionsFeed()
+      const channexResponse:any = await this.channexService.getBookingRevisionsFeed()
 
       const bookingRevisions = channexResponse.data.data
 
@@ -1217,7 +1216,7 @@ export default class ChannexMigrationController {
           reservationNumber: revisionData.unique_id,
           createdAt: DateTime.now(),
           userId: 1, // System user
-          reservationType: 'Online',
+          reservationTypeId: 1, // Default reservation type
           status: 'pending',
           createdBy: 1 // System user
         })
@@ -1290,7 +1289,8 @@ export default class ChannexMigrationController {
  * Liste toutes les réservations d'une propriété
  * GET /api/channex/bookings/:propertyId
  */
-  async listBookings({ params, request, response, auth }: HttpContext) {
+  async listBookings(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     const { propertyId } = params
     const userId = auth.user?.id
 
@@ -1322,7 +1322,7 @@ export default class ChannexMigrationController {
       }
 
       // Appeler le service Channex
-      const bookingsResult = await this.channexService.listBooking()
+      const bookingsResult:any = await this.channexService.listBooking()
 
       // Logger l'action
       await LoggerService.log({
@@ -1359,7 +1359,8 @@ export default class ChannexMigrationController {
    * Récupérer les détails d'une réservation spécifique
    * GET /api/channex/bookings/:bookingId/details
    */
-  async getBookingDetails({ params, response, auth }: HttpContext) {
+  async getBookingDetails(ctx: HttpContext) {
+    const { params, response, auth } = ctx
     const { bookingId } = params
     const userId = auth.user?.id
 
@@ -1369,7 +1370,7 @@ export default class ChannexMigrationController {
 
     try {
       // Appeler le service Channex pour obtenir les détails
-      const bookingDetails = await this.channexService.getBookings(bookingId)
+      const bookingDetails: any = await this.channexService.getBookings(bookingId)
 
       // Logger l'action
       await LoggerService.log({
@@ -1448,13 +1449,13 @@ export default class ChannexMigrationController {
       syncResults.totalFetched = allBookings.length
 
       // Filtrer pour notre property
-      const ourBookings = allBookings.filter((booking:any) => {
+      const ourBookings = allBookings.filter((booking: any) => {
         const propertyId = booking.attributes?.property_id
         return propertyId === channexPropertyId
       })
 
       if (ourBookings.length === 0) {
-        const allProperties = [...new Set(allBookings.map((b:any) => b.attributes?.property_id).filter(Boolean))]
+        const allProperties = [...new Set(allBookings.map((b: any) => b.attributes?.property_id).filter(Boolean))]
         return response.ok({
           success: false,
           message: 'Aucun booking trouvé pour cette property',
@@ -1478,6 +1479,9 @@ export default class ChannexMigrationController {
         .where('hotel_id', hotelId)
         .whereIn('reservation_number', uniqueIds)
         .whereIn('channex_booking_id', channexIds)
+        .preload('reservationRooms')
+        .preload('folios', (q) => q.preload('transactions'))
+
 
       const existingByUniqueId = new Map<string, Reservation>()
       const existingByChannexId = new Map<string, Reservation>()
@@ -1510,7 +1514,7 @@ export default class ChannexMigrationController {
       }
 
       // Attach preloaded maps to ctx so downstream creation can use them
-      ;(ctx as any).preloaded = {
+      ; (ctx as any).preloaded = {
         roomTypeByChannexId,
         roomRateByChannexRateId,
       }
@@ -1539,7 +1543,7 @@ export default class ChannexMigrationController {
               'modified': 'confirmed',
               'cancelled': 'cancelled'
             }
-            const reservationStatus = statusMapping[bookingData.status] || 'pending'
+            const reservationStatus = statusMapping[bookingData.status]
 
             existingReservation.merge({
               arrivedDate: bookingData.arrival_date,
@@ -1557,267 +1561,292 @@ export default class ChannexMigrationController {
               otaStatus: bookingData.status ?? existingReservation.otaStatus ?? null,
               otaGuarantee: bookingData.guarantee ?? existingReservation.otaGuarantee ?? null,
             })
+            if (reservationStatus === 'cancelled') {
+              // Flag for downstream cancellation processing
+              existingReservation.cancellationReason = bookingData?.cancellation_reason || bookingData?.notes || ''
+              const cancellationReason = bookingData?.cancellation_reason || bookingData?.notes || '';
+              await ReservationCreationService.cancelReservation(existingReservation, auth.user?.id!, cancellationReason, ctx)
+              existingReservation.cancellationDate = DateTime.now();
+              await existingReservation.save()
+            } else {
+              // === MISE À JOUR COMPLÈTE: devise, invité, chambres et folios ===
+              try {
+                // Préparer la devise de base de l'hôtel et le taux de change à appliquer
+                const CurrencyCacheService = (await import('../services/currency_cache_service.js')).default
+                const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(existingReservation.hotelId)
+                const baseCurrencyCode = (defaultCurrencyPayload?.currencyCode || '').toUpperCase()
+                const rawBookingCurrency = (bookingData.currency || bookingData.currency_code || '').toUpperCase()
+                const isCrossRate = !!rawBookingCurrency && rawBookingCurrency !== baseCurrencyCode
 
-            await existingReservation.save()
-
-            // === MISE À JOUR COMPLÈTE: devise, invité, chambres et folios ===
-            try {
-              // Préparer la devise de base de l'hôtel et le taux de change à appliquer
-              const CurrencyCacheService = (await import('../services/currency_cache_service.js')).default
-              const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(existingReservation.hotelId)
-              const baseCurrencyCode = (defaultCurrencyPayload?.currencyCode || '').toUpperCase()
-              const rawBookingCurrency = (bookingData.currency || bookingData.currency_code || '').toUpperCase()
-              const isCrossRate = !!rawBookingCurrency && rawBookingCurrency !== baseCurrencyCode
-
-              let exchangeRate = 1
-              if (isCrossRate) {
-                const Currency = (await import('../models/currency.js')).default
-                const sourceCurrency = await Currency.query()
-                  .where('hotelId', existingReservation.hotelId)
-                  .where('currencyCode', rawBookingCurrency)
-                  .select('exchangeRate', 'currencyCode')
-                  .first()
-                exchangeRate = sourceCurrency?.exchangeRate || 1
-              }
-              console.log('Exhange rate:', exchangeRate)
-              // Recharger la réservation avec les relations nécessaires
-              const ReservationModel = (await import('../models/reservation.js')).default
-              const reservation = await ReservationModel.query()
-              
-                .where('id', existingReservation.id)
-                .preload('reservationRooms')
-                .preload('folios')
-                .firstOrFail()
-
-              // Ne pas enregistrer la devise/taux au niveau réservation si les colonnes n'existent pas
-              // Nous appliquerons le taux au niveau des chambres et des folios uniquement
-
-              // Mettre à jour l'invité principal si des changements sont détectés
-              const customerData = bookingData?.customer || bookingData?.guest || bookingData?.guestDetails || null
-              const primaryGuestId = reservation.guestId
-              if (primaryGuestId && customerData) {
-                const Guest = (await import('../models/guest.js')).default
-                const guest = await Guest.find(primaryGuestId)
-                if (guest) {
-                  const firstName = customerData.name || customerData.first_name || guest.firstName
-                  const lastName = customerData.surname || customerData.last_name || guest.lastName
-                  const email = customerData.mail || customerData.email || guest.email
-                  const phone = customerData.phone || guest.phonePrimary
-                  const address = customerData.address || guest.addressLine
-                  const city = customerData.city || guest.city
-                  const country = customerData.country || guest.country
-                  const zipcode = customerData.zip || guest.zipcode
-
-                  await guest
-                    .merge({
-                      firstName,
-                      lastName,
-                      email,
-                      phonePrimary: phone,
-                      addressLine: address,
-                      city,
-                      country,
-                      postalCode:zipcode,
-                    })
-                    .save()
+                let exchangeRate = 1
+                if (isCrossRate) {
+                  const Currency = (await import('../models/currency.js')).default
+                  const sourceCurrency = await Currency.query()
+                    .where('hotelId', existingReservation.hotelId)
+                    .where('currencyCode', rawBookingCurrency)
+                    .select('exchangeRate', 'currencyCode')
+                    .first()
+                  exchangeRate = sourceCurrency?.exchangeRate || 1
                 }
-              }
+                console.log('Exhange rate:', exchangeRate)
+                // Recharger la réservation avec les relations nécessaires
+                const ReservationModel = (await import('../models/reservation.js')).default
+                const reservation = await ReservationModel.query()
+                  .where('id', existingReservation.id)
+                  .preload('reservationRooms')
+                  .preload('folios', (q) => q.preload('transactions'))
+                  .firstOrFail()
 
-              // Normaliser les chambres issues des données Channex et appliquer le taux de change
-              const roomsData = (bookingData.rooms || bookingData.unit_assignments || []) as any[]
-              const incomingRooms: Array<{
-                roomTypeId: number | null
-                roomRateId: number | null
-                adults: number
-                children: number
-                nights: number
-                roomRate: number
-                taxes: number
-                originalRoomRate: number | null
-                originalCurrencyCode: string | null
-                originalExchangeRate: number | null
-                checkInDate: string
-                checkOutDate: string
-              }> = []
+                // Ne pas enregistrer la devise/taux au niveau réservation si les colonnes n'existent pas
+                // Nous appliquerons le taux au niveau des chambres et des folios uniquement
 
-              for (const room of roomsData) {
-                const checkinStr = room.checkin_date || bookingData.arrival_date
-                const checkoutStr = room.checkout_date || bookingData.departure_date
-                const checkinDt = DateTime.fromISO(checkinStr)
-                const checkoutDt = DateTime.fromISO(checkoutStr)
-                const nights = checkinDt.isValid && checkoutDt.isValid
-                  ? Math.max(0, Math.ceil(checkoutDt.diff(checkinDt, 'days').days))
-                  : (reservation.numberOfNights || 0)
+                // Mettre à jour l'invité principal si des changements sont détectés
+                const customerData = bookingData?.customer || bookingData?.guest || bookingData?.guestDetails || null
+                const primaryGuestId = reservation.guestId
+                if (primaryGuestId && customerData) {
+                  const Guest = (await import('../models/guest.js')).default
+                  const guest = await Guest.find(primaryGuestId)
+                  if (guest) {
+                    const firstName = customerData.name || customerData.first_name || guest.firstName
+                    const lastName = customerData.surname || customerData.last_name || guest.lastName
+                    const email = customerData.mail || customerData.email || guest.email
+                    const phone = customerData.phone || guest.phonePrimary
+                    const address = customerData.address || guest.addressLine
+                    const city = customerData.city || guest.city
+                    const country = customerData.country || guest.country
+                    const zipcode = customerData.zip
 
-                const totalStayAmountSrc = parseFloat(room.amount ?? room.rate ?? '0')
-                let firstDayAmountSrc: number | undefined
-                if (Array.isArray(room.days) && room.days.length > 0) {
-                  firstDayAmountSrc = parseFloat(room.days[0]?.amount ?? room.days[0]?.rate ?? '0')
-                } else if (room.days && typeof room.days === 'object') {
-                  const dayKeys = Object.keys(room.days as Record<string, any>)
-                  if (dayKeys.length > 0) {
-                    const earliestKey = dayKeys.sort()[0]
-                    const rawVal = (room.days as Record<string, any>)[earliestKey]
-                    const parsedVal = parseFloat(typeof rawVal === 'string' ? rawVal : String(rawVal))
-                    if (!isNaN(parsedVal)) {
-                      firstDayAmountSrc = parsedVal
-                    }
+                    await guest
+                      .merge({
+                        firstName,
+                        lastName,
+                        email,
+                        phonePrimary: phone,
+                        addressLine: address,
+                        city,
+                        country,
+                        postalCode: zipcode,
+                      })
+                      .save()
                   }
                 }
-                const nightlyRateSrc = firstDayAmountSrc !== undefined
-                  ? firstDayAmountSrc
-                  : (nights && nights > 0 ? (totalStayAmountSrc / nights) : totalStayAmountSrc)
 
-                // Mapper channex_room_type_id et channex_rate_id vers IDs locaux
-                let mappedRoomTypeId: number | null = null
-                if (room.room_type_id) {
-                  const rt = await RoomType.query()
-                    .where('channex_room_type_id', room.room_type_id)
-                    .where('hotel_id', reservation.hotelId)
-                    .select('id')
-                    .first()
-                  mappedRoomTypeId = rt?.id ?? null
-                }
+                // Normaliser les chambres issues des données Channex et appliquer le taux de change
+                const roomsData = (bookingData.rooms || bookingData.unit_assignments || []) as any[]
+                const incomingRooms: Array<{
+                  roomTypeId: number | null
+                  roomRateId: number | null
+                  adults: number
+                  children: number
+                  nights: number
+                  roomRate: number
+                  taxes: number
+                  originalRoomRate: number | null
+                  originalCurrencyCode: string | null
+                  originalExchangeRate: number | null
+                  checkInDate: DateTime
+                  checkOutDate: DateTime
+                }> = []
 
-                let mappedRoomRateId: number | null = null
-                const channexRateId: string | undefined = room.rate_plan_id || room.rate_plan
-                if (channexRateId) {
-                  const rr = await RoomRate.query()
-                    .where('channex_rate_id', channexRateId)
-                    .where('hotel_id', reservation.hotelId)
-                    .select('id',"rate_type_id")
-                    .first()
-                  mappedRoomRateId = rr?.rateTypeId ?? null
-                }
+                for (const room of roomsData) {
+                  const checkinStr = room.checkin_date || bookingData.arrival_date
+                  const checkoutStr = room.checkout_date || bookingData.departure_date
+                  const checkinDt = DateTime.fromISO(checkinStr)
+                  const checkoutDt = DateTime.fromISO(checkoutStr)
+                  const nights = checkinDt.isValid && checkoutDt.isValid
+                    ? Math.max(0, Math.ceil(checkoutDt.diff(checkinDt, 'days').days))
+                    : (reservation.numberOfNights || 0)
 
-                incomingRooms.push({
-                  roomTypeId: mappedRoomTypeId,
-                  roomRateId: mappedRoomRateId,
-                  adults: room.occupancy?.adults || 0,
-                  children: room.occupancy?.children || 0,
-                  nights: nights || 0,
-                  roomRate: (isCrossRate ? exchangeRate : 1) * (parseFloat(`${nightlyRateSrc}`) || 0),
-                  taxes: room.taxes !== undefined ? (isCrossRate ? exchangeRate : 1) * (parseFloat(`${room.taxes}`) || 0) : 0,
-                  originalRoomRate: parseFloat(`${nightlyRateSrc}`) || null,
-                  originalCurrencyCode: rawBookingCurrency || baseCurrencyCode,
-                  originalExchangeRate: isCrossRate ? exchangeRate : 1,
-                  checkInDate: checkinStr,
-                  checkOutDate: checkoutStr,
-                })
-              }
+                  const totalStayAmountSrc = parseFloat(room.amount ?? room.rate ?? '0')
+                  let firstDayAmountSrc: number | undefined
+                  if (Array.isArray(room.days) && room.days.length > 0) {
+                    firstDayAmountSrc = parseFloat(room.days[0]?.amount ?? room.days[0]?.rate ?? '0')
+                  } else if (room.days && typeof room.days === 'object') {
+                    const dayKeys = Object.keys(room.days as Record<string, any>)
+                    if (dayKeys.length > 0) {
+                      const earliestKey = dayKeys.sort()[0]
+                      const rawVal = (room.days as Record<string, any>)[earliestKey]
+                      const parsedVal = parseFloat(typeof rawVal === 'string' ? rawVal : String(rawVal))
+                      if (!isNaN(parsedVal)) {
+                        firstDayAmountSrc = parsedVal
+                      }
+                    }
+                  }
+                  const nightlyRateSrc = firstDayAmountSrc !== undefined
+                    ? firstDayAmountSrc
+                    : (nights && nights > 0 ? (totalStayAmountSrc / nights) : totalStayAmountSrc)
 
-              // Appliquer le diff chambres: mettre à jour, ajouter, supprimer
-              const existingRooms = reservation.reservationRooms || []
-              const minLen = Math.min(existingRooms.length, incomingRooms.length)
+                  // Mapper channex_room_type_id et channex_rate_id vers IDs locaux
+                  let mappedRoomTypeId: number | null = null
+                  if (room.room_type_id) {
+                    const rt = await RoomType.query()
+                      .where('channex_room_type_id', room.room_type_id)
+                      .where('hotel_id', reservation.hotelId)
+                      .select('id')
+                      .first()
+                    mappedRoomTypeId = rt?.id ?? null
+                  }
 
-              // Mettre à jour les chambres existantes alignées sur les nouvelles données
-              for (let i = 0; i < minLen; i++) {
-                const rr = existingRooms[i]
-                const inc = incomingRooms[i]
-                const nights = inc.nights ?? rr.nights ?? 0
-                const newRoomRate = inc.roomRate
-                const totalRoomCharges = nights === 0 ? newRoomRate : newRoomRate * nights
-                const taxPerNight = inc.taxes || 0
-                const totalTaxesAmount = nights === 0 ? taxPerNight : taxPerNight * nights
+                  let mappedRoomRateId: number | null = null
+                  const channexRateId: string | undefined = room.rate_plan_id || room.rate_plan
+                  if (channexRateId) {
+                    const rr = await RoomRate.query()
+                      .where('channex_rate_id', channexRateId)
+                      .where('hotel_id', reservation.hotelId)
+                      .select('id', "rate_type_id")
+                      .first()
+                    mappedRoomRateId = rr?.rateTypeId ?? null
+                  }
 
-                rr.merge({
-                  roomTypeId: inc.roomTypeId ?? rr.roomTypeId,
-                  roomRateId: inc.roomRateId ?? rr.roomRateId,
-                  adults: inc.adults,
-                  children: inc.children,
-                  nights,
-                  roomRate: newRoomRate,
-                  totalRoomCharges,
-                  taxAmount: taxPerNight,
-                  totalTaxesAmount,
-                  totalAmount: totalRoomCharges,
-                  originalRoomRate: inc.originalRoomRate ?? rr.originalRoomRate ?? newRoomRate,
-                  originalExchangeRate: inc.originalExchangeRate ?? rr.originalExchangeRate ?? 1,
-                  originalCurrencyCode: inc.originalCurrencyCode ?? rr.originalCurrencyCode ?? baseCurrencyCode,
-                })
-                await rr.save()
-              }
-
-              // Ajouter les nouvelles chambres si le nombre a augmenté
-              if (incomingRooms.length > existingRooms.length) {
-                for (let i = existingRooms.length; i < incomingRooms.length; i++) {
-                  const inc = incomingRooms[i]
-                  const nights = inc.nights || reservation.numberOfNights || 0
-                  const totalRoomCharges = nights === 0 ? inc.roomRate : inc.roomRate * nights
-                  const totalTaxesAmount = nights === 0 ? inc.taxes : inc.taxes * nights
-
-                  await ReservationRoom.create({
-                    reservationId: reservation.id,
-                    roomTypeId: inc.roomTypeId ?? existingRooms[0]?.roomTypeId ?? 1,
-                    roomRateId: inc.roomRateId ?? null,
-                    roomId: null,
-                    guestId: reservation.guestId!,
-                    isOwner: false,
-                    checkInDate: DateTime.fromISO(inc.checkInDate || reservation.arrivedDate!.toISODate()),
-                    checkOutDate: DateTime.fromISO(inc.checkOutDate || reservation.departDate.toISODate()),
-                    checkInTime: reservation.checkInTime,
-                    checkOutTime: reservation.checkOutTime,
-                    totalAmount: totalRoomCharges,
-                    nights,
-                    adults: inc.adults,
-                    children: inc.children,
-                    roomRate: inc.roomRate,
-                    originalRoomRate: inc.originalRoomRate,
-                    originalCurrencyCode: inc.originalCurrencyCode,
-                    originalExchangeRate: inc.originalExchangeRate,
-                    paymentMethodId: reservation.paymentMethodId ?? null,
-                    hotelId: reservation.hotelId,
-                    totalRoomCharges,
-                    taxAmount: inc.taxes,
-                    totalTaxesAmount,
-                    netAmount: totalRoomCharges + totalTaxesAmount,
-                    status: nights === 0 ? 'day_use' : 'reserved',
-                    rateTypeId: null,
-                    mealPlanId: null,
+                  incomingRooms.push({
+                    roomTypeId: mappedRoomTypeId,
+                    roomRateId: mappedRoomRateId,
+                    adults: room.occupancy?.adults || 0,
+                    children: room.occupancy?.children || 0,
+                    nights: nights || 0,
+                    roomRate: (isCrossRate ? exchangeRate : 1) * (parseFloat(`${nightlyRateSrc}`) || 0),
+                    taxes: room.taxes !== undefined ? (isCrossRate ? exchangeRate : 1) * (parseFloat(`${room.taxes}`) || 0) : 0,
+                    originalRoomRate: parseFloat(`${nightlyRateSrc}`) || null,
+                    originalCurrencyCode: rawBookingCurrency || baseCurrencyCode,
+                    originalExchangeRate: isCrossRate ? exchangeRate : 1,
+                    checkInDate: checkinDt,
+                    checkOutDate: checkoutDt,
                   })
                 }
-              }
 
-              // Supprimer les chambres excédentaires si le nombre a diminué
-              if (incomingRooms.length < existingRooms.length) {
-                for (let i = incomingRooms.length; i < existingRooms.length; i++) {
+                // Appliquer le diff chambres: mettre à jour, ajouter, supprimer
+                const existingRooms = reservation.reservationRooms || []
+                const minLen = Math.min(existingRooms.length, incomingRooms.length)
+
+                // Mettre à jour les chambres existantes alignées sur les nouvelles données
+                for (let i = 0; i < minLen; i++) {
                   const rr = existingRooms[i]
-                  await ReservationRoom.query().where('id', rr.id).delete()
+                  const inc = incomingRooms[i]
+                  const nights = inc.nights ?? rr.nights ?? 0
+                  const newRoomRate = inc.roomRate
+                  const totalRoomCharges = nights === 0 ? newRoomRate : newRoomRate * nights
+                  const taxPerNight = inc.taxes || 0
+                  const totalTaxesAmount = nights === 0 ? taxPerNight : taxPerNight * nights
+
+                  rr.merge({
+                    roomTypeId: inc.roomTypeId ?? rr.roomTypeId,
+                    roomRateId: inc.roomRateId ?? rr.roomRateId,
+                    adults: inc.adults,
+                    children: inc.children,
+                    nights,
+                    roomRate: newRoomRate,
+                    totalRoomCharges,
+                    taxAmount: taxPerNight,
+                    totalTaxesAmount,
+                    totalAmount: totalRoomCharges,
+                    originalRoomRate: inc.originalRoomRate ?? rr.originalRoomRate ?? newRoomRate,
+                    originalExchangeRate: inc.originalExchangeRate ?? rr.originalExchangeRate ?? 1,
+                    originalCurrencyCode: inc.originalCurrencyCode ?? rr.originalCurrencyCode ?? baseCurrencyCode,
+                  })
+                  await rr.save()
                 }
+
+                // Ajouter les nouvelles chambres si le nombre a augmenté
+                if (incomingRooms.length > existingRooms.length) {
+                  for (let i = existingRooms.length; i < incomingRooms.length; i++) {
+                    const inc = incomingRooms[i]
+                    const nights = inc.nights || reservation.numberOfNights || 0
+                    const totalRoomCharges = nights === 0 ? inc.roomRate : inc.roomRate * nights
+                    const totalTaxesAmount = nights === 0 ? inc.taxes : inc.taxes * nights
+
+                    await ReservationRoom.create({
+                      reservationId: reservation.id,
+                      roomTypeId: inc.roomTypeId ?? existingRooms[0]?.roomTypeId ?? 1,
+                      roomRateId: inc.roomRateId ?? null,
+                      roomId: null,
+                      guestId: reservation.guestId!,
+                      isOwner: false,
+                      checkInDate: inc.checkInDate,
+                      checkOutDate: inc.checkOutDate,
+                      checkInTime: reservation.checkInTime,
+                      checkOutTime: reservation.checkOutTime,
+                      totalAmount: totalRoomCharges,
+                      nights,
+                      adults: inc.adults,
+                      children: inc.children,
+                      roomRate: inc.roomRate,
+                      originalRoomRate: inc.originalRoomRate,
+                      originalCurrencyCode: inc.originalCurrencyCode,
+                      originalExchangeRate: inc.originalExchangeRate,
+                      paymentMethodId: reservation.paymentMethodId ?? null,
+                      hotelId: reservation.hotelId,
+                      totalRoomCharges,
+                      taxAmount: inc.taxes,
+                      totalTaxesAmount,
+                      netAmount: totalRoomCharges + totalTaxesAmount,
+                      status: nights === 0 ? 'day_use' : 'reserved',
+                      rateTypeId: null,
+                      mealPlanId: null,
+                    })
+                  }
+                }
+
+                // Supprimer les chambres excédentaires si le nombre a diminué
+                if (incomingRooms.length < existingRooms.length) {
+                  for (let i = incomingRooms.length; i < existingRooms.length; i++) {
+                    const rr = existingRooms[i]
+                    await ReservationRoom.query().where('id', rr.id).delete()
+                  }
+                }
+
+                // Mettre à jour les compteurs de la réservation (adultes, enfants, guestCount)
+                const totalAdults = incomingRooms.reduce((sum, r) => sum + (r.adults || 0), 0)
+                const totalChildren = incomingRooms.reduce((sum, r) => sum + (r.children || 0), 0)
+                reservation.merge({ adults: totalAdults, children: totalChildren, guestCount: totalAdults + totalChildren })
+                await reservation.save()
+
+                // Réinitialiser les transactions des folios et recréer les room charges
+                if (reservation.folios && reservation.folios.length > 0) {
+                  const FolioService = (await import('../services/folio_service.js')).default
+                  const ReservationFolioService = (await import('../services/reservation_folio_service.js')).default
+
+                  for (const folio of reservation.folios) {
+                    await FolioTransaction.query().where('folioId', folio.id).delete()
+                  }
+
+                  await ReservationFolioService.postRoomCharges(reservation.id, userId)
+
+                  for (const folio of reservation.folios) {
+                    await FolioService.updateFolioTotals(folio.id)
+                  }
+                }
+              } catch (updateErr) {
+                try {
+                  await LoggerService.logActivity({
+                    userId: userId!,
+                    action: 'ERROR',
+                    resourceType: 'ChannexSync',
+                    resourceId: existingReservation.id,
+                    description: updateErr,
+                    details: {
+                      error: (updateErr as any)?.message || String(updateErr),
+                      stack: (updateErr as any)?.stack,
+                      bookingId,
+                      channexStatus: bookingData?.status,
+                    },
+                    hotelId: existingReservation.hotelId,
+                    ctx,
+                  })
+                } catch {}
               }
 
-              // Mettre à jour les compteurs de la réservation (adultes, enfants, guestCount)
-              const totalAdults = incomingRooms.reduce((sum, r) => sum + (r.adults || 0), 0)
-              const totalChildren = incomingRooms.reduce((sum, r) => sum + (r.children || 0), 0)
-              reservation.merge({ adults: totalAdults, children: totalChildren, guestCount: totalAdults + totalChildren })
-              await reservation.save()
-
-              // Réinitialiser les transactions des folios et recréer les room charges
-              if (reservation.folios && reservation.folios.length > 0) {
-                const FolioService = (await import('../services/folio_service.js')).default
-                const ReservationFolioService = (await import('../services/reservation_folio_service.js')).default
-
-                for (const folio of reservation.folios) {
-                  await FolioTransaction.query().where('folioId', folio.id).delete()
-                }
-
-                await ReservationFolioService.postRoomCharges(reservation.id, userId)
-
-                for (const folio of reservation.folios) {
-                  await FolioService.updateFolioTotals(folio.id)
-                }
-              }
-            } catch (updateErr) {
-              console.warn('⚠️ Erreur durant la mise à jour complète de la réservation:', updateErr)
+              await ReservationCreationService.sendAcknowledgeToChannex(
+                existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
+                existingReservation.id,
+                userId,
+                ctx
+              )
+              syncResults.totalUpdated++
+              await existingReservation.save()
             }
 
-            const acknowledged = await ReservationCreationService.sendAcknowledgeToChannex(
-              existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
-              existingReservation.id,
-              userId,
-              ctx
-            )
-            syncResults.totalUpdated++
+
+
           } else {
             // ============================================
             // CAS 2: CRÉATION D'UNE NOUVELLE RÉSERVATION

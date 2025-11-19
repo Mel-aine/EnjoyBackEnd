@@ -1,5 +1,6 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import PaymentMethod from '#models/payment_method'
+import { PaymentMethodType } from '../../app/enums.js'
 
 export default class extends BaseSeeder {
   async run() {
@@ -20,7 +21,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'Master card',
         methodCode: 'MASTERCARD',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'MC',
         type: 'CASH',
         cardProcessing: false
@@ -28,7 +29,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'Orange Money',
         methodCode: 'ORANGE_MONEY',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'OM',
         type: 'CASH',
         cardProcessing: false
@@ -36,7 +37,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'Especes',
         methodCode: 'CASH',
-        methodType: 'cash',
+        methodType:  PaymentMethodType.CASH,
         shortCode: 'CASH',
         type: 'CASH',
         cardProcessing: false,
@@ -45,7 +46,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'VISA card',
         methodCode: 'VISA',
-        methodType: 'cash',
+        methodType:  PaymentMethodType.CASH,
         shortCode: 'VISA',
         type: 'CASH',
         cardProcessing: false
@@ -53,7 +54,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'VIREMENT BANCAIRE',
         methodCode: 'BANK_TRANSFER',
-        methodType: 'cash',
+        methodType:  PaymentMethodType.CASH,
         shortCode: 'WIRE',
         type: 'CASH',
         cardProcessing: false
@@ -61,7 +62,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'MTN Mobile Money',
         methodCode: 'MTN_MOMO',
-        methodType: 'cash',
+        methodType:  PaymentMethodType.CASH,
         shortCode: 'MTN',
         type: 'CASH',
         cardProcessing: false
@@ -69,7 +70,7 @@ export default class extends BaseSeeder {
       {
         methodName: 'Chèque',
         methodCode: 'CHECK',
-        methodType: 'cash',
+        methodType:  PaymentMethodType.CASH,
         shortCode: 'CHK',
         type: 'CASH',
         cardProcessing: false
@@ -87,7 +88,6 @@ export default class extends BaseSeeder {
         isActive: true,
         isDefault: method.isDefault || false,
         shortCode: method.shortCode,
-        type: method.type,
         cardProcessing: method.cardProcessing,
         surchargeEnabled: false,
         receiptNoSetting: 'auto_general'

@@ -1814,8 +1814,6 @@ export default class FoliosController {
 
       const transaction = await FolioService.addRoomChargeMethod({
         ...payload,
-        // Convert JS Date from validator to Luxon DateTime
-        date: DateTime.fromJSDate(payload.date),
         postedBy: auth.user!.id
       })
 
@@ -1861,8 +1859,6 @@ async updateRoomCharge({ request, response, auth }: HttpContext) {
 
     const transaction = await FolioService.updateRoomChargeMethod(transactionId, {
       ...payload,
-      // Convert optional date string to Luxon DateTime if provided
-      date: payload.date ? DateTime.fromJSDate(new Date(payload.date)) : undefined,
       postedBy: auth.user!.id
     })
 

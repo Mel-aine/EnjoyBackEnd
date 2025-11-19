@@ -1660,13 +1660,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      // reservation.status = ReservationStatus.CANCELLED
-      // reservation.cancellationReason = reason
-      // // reservation.cancelledBy = auth.user!.id
-      // reservation.lastModifiedBy = auth.user!.id
-      // reservation.cancellationDate = DateTime.now()
-      //reservation.cancellationFeeAmount = cancellationFee;
-      // await reservation.save()
+
 
       const cancelledRooms: string[] = []
 

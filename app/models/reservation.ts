@@ -641,14 +641,7 @@ export default class Reservation extends BaseModel {
     return Math.round(diffInHours * 100) / 100
   }
 
-  // Background hook: notify Channex availability when a reservation is created
-  @afterCreate()
-  public static notifyAfterCreate(reservation: Reservation) {
-    try {
-      ////ReservationHook.notifyAvailabilityOnCreate(reservation)
-    } catch {
-    }
-  }
+
 
   @beforeSave()
   public static notifyAfterUpdate(reservation: Reservation) {
