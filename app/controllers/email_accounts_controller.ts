@@ -2,8 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import EmailAccountService from '#services/email_account_service'
 import MailjetService from '#services/mailjet_service'
 import EmailAccount from '#models/email_account'
-import { createEmailAccountValidator, updateEmailAccountValidator, emailAccountQueryValidator } from '#validators/email_account'
-import logger from '@adonisjs/core/services/logger'
+import { createEmailAccountValidator, updateEmailAccountValidator } from '#validators/email_account'
 
 export default class EmailAccountsController {
   private emailAccountService = new EmailAccountService()

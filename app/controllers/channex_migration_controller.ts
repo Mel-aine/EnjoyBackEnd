@@ -1753,7 +1753,7 @@ export default class ChannexMigrationController {
                     roomId: null,
                     guestId: reservation.guestId!,
                     isOwner: false,
-                    checkInDate: DateTime.fromISO(inc.checkInDate || reservation.arrivedDate.toISODate()),
+                    checkInDate: DateTime.fromISO(inc.checkInDate || reservation.arrivedDate!.toISODate()),
                     checkOutDate: DateTime.fromISO(inc.checkOutDate || reservation.departDate.toISODate()),
                     checkInTime: reservation.checkInTime,
                     checkOutTime: reservation.checkOutTime,

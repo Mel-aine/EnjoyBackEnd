@@ -71,8 +71,8 @@ export default class VipStatusController {
 
       const vipStatus = await VipStatus.create({
         ...payload,
-        createdBy: auth.user?.id || null,
-        lastModifiedBy: auth.user?.id || null
+        createdBy: auth.user?.id!,
+        lastModifiedBy: auth.user?.id!
       })
 
       await vipStatus.load('hotel')
@@ -159,7 +159,7 @@ export default class VipStatusController {
 
       vipStatus.merge({
         ...payload,
-        lastModifiedBy: auth.user?.id || null
+        lastModifiedBy: auth.user?.id!
       })
 
       await vipStatus.save()

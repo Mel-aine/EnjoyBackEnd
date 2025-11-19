@@ -55,7 +55,7 @@ export default class NightAuditService {
    * Calculate and store night audit data for a specific date
    */
   static async calculateNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
-    const { auditDate, hotelId,userId } = filters
+    const { auditDate, hotelId, userId } = filters
 
     // Calculate all metrics in parallel for better performance
     const [
@@ -305,8 +305,8 @@ export default class NightAuditService {
    * Store the calculated daily summary
    */
   private static async storeDailySummary(
-    summary: NightAuditSummary, 
-    userId?: number, 
+    summary: NightAuditSummary,
+    userId?: number,
     managerReportData?: any,
     nightAuditReportData?: any,
     dailyRevenueReportData?: any,
@@ -353,14 +353,14 @@ export default class NightAuditService {
       // Update existing record
       existing.merge(data)
       await existing.save()
-      
+
       // Log the update if userId is provided
       if (userId) {
         await LoggerService.logActivity({
           userId: userId,
           action: 'UPDATE',
           resourceType: 'DailySummaryFact',
-          resourceId: existing.id,
+          resourceId: existing.hotelId,
           hotelId: summary.hotelId,
           details: {
             auditDate: summary.auditDate.toISODate(),
@@ -370,19 +370,19 @@ export default class NightAuditService {
           }
         })
       }
-      
+
       return existing
     } else {
       // Create new record
       const newRecord = await DailySummaryFact.create(data)
-      
+
       // Log the creation if userId is provided
       if (userId) {
         await LoggerService.logActivity({
           userId: userId,
           action: 'CREATE',
           resourceType: 'DailySummaryFact',
-          resourceId: newRecord.id,
+          resourceId: newRecord.hotelId,
           hotelId: summary.hotelId,
           details: {
             auditDate: summary.auditDate.toISODate(),
@@ -392,7 +392,7 @@ export default class NightAuditService {
           }
         })
       }
-      
+
       return newRecord
     }
   }
@@ -437,12 +437,12 @@ export default class NightAuditService {
       .delete()
 
     // Log the deletion if userId is provided and record was found
-    if (userId && recordToDelete && deleted > 0) {
+    if (userId && recordToDelete && deleted.length > 0) {
       await LoggerService.logActivity({
         userId: userId,
         action: 'DELETE',
         resourceType: 'DailySummaryFact',
-        resourceId: recordToDelete.id,
+        resourceId: recordToDelete.hotelId,
         hotelId: hotelId,
         details: {
           auditDate: auditDate.toISODate(),
@@ -453,7 +453,7 @@ export default class NightAuditService {
       })
     }
 
-    return deleted > 0
+    return deleted.length > 0
   }
 
   /**
@@ -470,7 +470,7 @@ export default class NightAuditService {
       .preload('reservationRooms', (reservationRoomQuery) => {
         reservationRoomQuery
           .where('status', '=', 'checked_in')
-          .where('check_in_date' ,'<=', auditDateStr)
+          .where('check_in_date', '<=', auditDateStr)
           .andWhere('check_out_date', '>=', auditDateStr)
           .preload('reservation', (reservationQuery) => {
             reservationQuery
@@ -507,10 +507,10 @@ export default class NightAuditService {
 
       // Find active reservation for the audit date
       const activeReservationRoom = room.reservationRooms.find(resRoom => {
-        const checkInDate = DateTime.fromISO(resRoom.checkInDate).toISODate()
-        const checkOutDate = DateTime.fromISO(resRoom.checkOutDate).toISODate()
+        const checkInDate = resRoom.checkInDate.toISODate()!;// DateTime.fromISO().toISODate()
+        const checkOutDate = resRoom.checkOutDate.toISODate()!
         const reservation = resRoom.reservation
-        
+
         // Check if reservation is checked in and overlaps with audit date
         if (reservation.status === 'checked_in') {
           // stayOver: checked in and checkout day is after the audit date
@@ -534,7 +534,7 @@ export default class NightAuditService {
           roomStatus = 'arrived'
           return true
         }
-        
+
         return false
       })
 
@@ -545,8 +545,8 @@ export default class NightAuditService {
       }
 
       // Determine if action is required (checkout date matches audit date)
-      const isRequiredAction = activeReservationRoom ? 
-        DateTime.fromISO(activeReservationRoom.checkOutDate).toISODate() === auditDateStr : false
+      const isRequiredAction = activeReservationRoom ?
+        activeReservationRoom.checkOutDate.toISODate() === auditDateStr : false
 
       return {
         reservation_id: currentReservation?.id,
@@ -688,16 +688,16 @@ export default class NightAuditService {
       const pendingCharges = folioIds.length > 0 ? await FolioTransaction.query()
         .whereIn('folio_id', folioIds)
         .where('transaction_type', TransactionType.CHARGE)
-       .where('status', TransactionStatus.PENDING)
+        .where('status', TransactionStatus.PENDING)
         .whereRaw('DATE(transaction_date) = ?', [auditDate])
-        .preload('folio', (folioQuery) => {
-          folioQuery.preload('reservation', (reservationQuery) => {
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('reservation', (reservationQuery: any) => {
             reservationQuery.preload('guest')
-            reservationQuery.preload('reservationRooms', (roomQuery) => {
-              roomQuery.preload('room', (roomDetailQuery) => {
+            reservationQuery.preload('reservationRooms', (roomQuery: any) => {
+              roomQuery.preload('room', (roomDetailQuery: any) => {
                 roomDetailQuery.preload('roomType')
               })
-              roomQuery.preload('roomRates', (rateQuery) => {
+              roomQuery.preload('roomRates', (rateQuery: any) => {
                 rateQuery.preload('rateType')
               })
             })
@@ -731,7 +731,7 @@ export default class NightAuditService {
         // Process each pending folio transaction
         for (const transaction of folioTransactions) {
           // Find the corresponding reservation room for this transaction
-          const reservationRoom = reservation.reservationRooms.find(rr => 
+          const reservationRoom = reservation.reservationRooms.find(rr =>
             rr.room?.roomNumber === transaction.description?.match(/Room (\d+)/)?.[1] ||
             rr.id === transaction.reservationRoomId
           ) || reservation.reservationRooms[0]// fallback to first room
@@ -792,7 +792,7 @@ export default class NightAuditService {
         .preload('guest')
         .preload('folios')
         .preload('reservationRooms', (roomQuery) => {
-          roomQuery.whereIn('status',[ReservationStatus.CONFIRMED, ReservationStatus.PENDING,'reserved'])
+          roomQuery.whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING, 'reserved'])
           roomQuery.preload('room')
           roomQuery.preload('roomRates', (rateQuery) => {
             rateQuery.preload('rateType')
@@ -881,7 +881,7 @@ export default class NightAuditService {
 
         // Get the folio to update balance
         const folio = await Folio.findOrFail(charge.folioId)
-        
+
         // Calculate the difference for balance adjustment
         const amountDifference = charge.amount - existingTransaction.amount
 
@@ -910,10 +910,12 @@ export default class NightAuditService {
         // Prepare log entry for bulk logging
         if (userId) {
           logEntries.push({
-            userId: userId,
+            actorId: userId,
             action: 'UPDATE',
             resourceType: 'FolioTransaction',
+            entityType:'FolioTransaction',
             resourceId: existingTransaction.id,
+            entityId: charge.folioId,
             hotelId: hotelId,
             details: {
               folioId: charge.folio_id,

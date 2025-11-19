@@ -176,10 +176,8 @@ export default class LostFoundService {
         resourceId: lostFoundItem.id,
         hotelId: lostFoundItem.hotelId,
         details: {
-          itemDescription: lostFoundItem.itemDescription,
           status: lostFoundItem.status,
           complainantName: lostFoundItem.complainantName,
-          complainantPhone: lostFoundItem.complainantPhone
         }
       })
     }

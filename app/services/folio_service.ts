@@ -1213,7 +1213,7 @@ export default class FolioService {
    */
   static async addRoomChargeMethod(data: {
     amount: number
-    description: string
+    description?: string
     date: DateTime
     taxInclusive: boolean
     folioId: number

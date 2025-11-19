@@ -13,7 +13,6 @@ import Database from '@adonisjs/lucid/services/db'
 import NightAuditService from '../services/night_audit_service.js'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
-import RoomType from '#models/room_type'
 import numberToWords from 'number-to-words'
 export default class ReportsController {
   /**
@@ -1790,10 +1789,10 @@ export default class ReportsController {
       .whereRaw('DATE(transaction_date) = ?', [reportDate.toFormat('yyyy-MM-dd')])
       .where('transaction_type', 'charge')
       .whereNot('category', 'room')
-      .preload('folio', (folioQuery) => {
-        folioQuery.preload('reservation', (resQuery) => {
+      .preload('folio', (folioQuery:any) => {
+        folioQuery.preload('reservation', (resQuery:any) => {
           resQuery.preload('guest')
-          resQuery.preload('reservationRooms', (roomQuery) => {
+          resQuery.preload('reservationRooms', (roomQuery:any) => {
             roomQuery.preload('room')
           })
         })
@@ -4538,10 +4537,10 @@ export default class ReportsController {
       .where('category', 'room')
       .where('status', 'posted')
       .distinctOn('folio_transactions.folio_id')
-      .preload('folio', (folioQuery) => {
-        folioQuery.preload('reservation', (reservationQuery) => {
-          reservationQuery.preload('reservationRooms', (roomQuery) => {
-            roomQuery.preload('roomRates', (rateQuery) => {
+      .preload('folio', (folioQuery:any) => {
+        folioQuery.preload('reservation', (reservationQuery:any) => {
+          reservationQuery.preload('reservationRooms', (roomQuery:any) => {
+            roomQuery.preload('roomRates', (rateQuery:any) => {
               rateQuery.preload('rateType')
             })
           })
@@ -4608,10 +4607,10 @@ export default class ReportsController {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
 
     let query = FolioTransaction.query()
-      .whereHas('folio', (folioQuery) => {
-        folioQuery.whereHas('reservation', (reservationQuery) => {
+      .whereHas('folio', (folioQuery:any) => {
+        folioQuery.whereHas('reservation', (reservationQuery:any) => {
           reservationQuery.where('hotel_id', hotelId)
-            .whereHas('reservationRooms', (roomQuery) => {
+            .whereHas('reservationRooms', (roomQuery:any) => {
               if (roomTypeId) {
                 roomQuery.where('room_type_id', roomTypeId)
               }
@@ -4622,9 +4621,9 @@ export default class ReportsController {
       .where('category', 'room')
       .whereNotIn('status', ['cancel', 'void'])
       .distinctOn('folio_transactions.folio_id')
-      .preload('folio', (folioQuery) => {
-        folioQuery.preload('reservation', (reservationQuery) => {
-          reservationQuery.preload('reservationRooms', (roomQuery) => {
+      .preload('folio', (folioQuery:any) => {
+        folioQuery.preload('reservation', (reservationQuery:any) => {
+          reservationQuery.preload('reservationRooms', (roomQuery:any) => {
             roomQuery.preload('roomType')
           })
         })

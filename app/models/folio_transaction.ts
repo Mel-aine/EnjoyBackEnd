@@ -545,7 +545,7 @@ export default class FolioTransaction extends BaseModel {
   }
 
   get typeColor() {
-    const colors = {
+    const colors:any = {
       [TransactionType.CHARGE]: 'red',
       [TransactionType.PAYMENT]: 'green',
       [TransactionType.ADJUSTMENT]: 'blue',

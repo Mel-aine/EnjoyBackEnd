@@ -37,7 +37,7 @@ export default class PermissionService {
   // 3. Recherche du rôle avec la même logique que getRolesByService
   const role = await Role
     .query()
-    .where('role_name', assignment.role)
+    .where('role_name', assignment.role.id)
     .andWhere(query => {
       query
         .where('service_id', hotelId)
@@ -83,7 +83,7 @@ public static async getPermissions(userId: number, hotelId: number): Promise<str
 
   const role = await Role
     .query()
-    .where('role_name', assignment.role)
+    .where('role_name', assignment.role.name)
     .andWhere(query => {
       query
         .where('service_id', hotelId)

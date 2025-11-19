@@ -1,7 +1,7 @@
 import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
 import { DateTime } from 'luxon'
-import { ReservationStatus, RoomStatus } from '../enums.js'
+import { ReservationStatus } from '../enums.js'
 
 export default class ReservationRoomService {
   /**

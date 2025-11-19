@@ -48,7 +48,7 @@ export default class extends BaseSeeder {
     for (const hotel of hotels) {
       // Delete all existing booking sources for this hotel
       await BookingSource.query().where('hotelId', hotel.id).delete()
-      console.log(`Deleted existing booking sources for hotel: ${hotel.name}`)
+      console.log(`Deleted existing booking sources for hotel: ${hotel.hotelName}`)
       
       // Create new default booking sources for this hotel
       for (const bookingSource of defaultBookingSources) {
@@ -61,11 +61,9 @@ export default class extends BaseSeeder {
           commissionRate: bookingSource.commissionRate,
           isActive: true,
           priority: 1,
-          createdBy: null,
-          lastModifiedBy: null
         })
       }
-      console.log(`Created new booking sources for hotel: ${hotel.name}`)
+      console.log(`Created new booking sources for hotel: ${hotel.hotelName}`)
     }
   }
 }

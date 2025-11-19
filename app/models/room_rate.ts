@@ -213,9 +213,7 @@ export default class RoomRate extends BaseModel {
     return this.baseRate
   }
 
-  get isWeekend() {
-    return [6, 7].includes(this.rateDate.weekday)
-  }
+
 
   get isHoliday() {
     return this.dayType === 'holiday'

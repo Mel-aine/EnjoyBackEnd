@@ -1,4 +1,3 @@
-import ServiceProduct from '#models/room'
 import Reservation from '#models/reservation'
 import Service from '#models/hotel'
 import { DateTime } from 'luxon'

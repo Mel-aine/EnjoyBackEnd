@@ -11,7 +11,6 @@ import { DateTime } from 'luxon'
 import Service from '#models/hotel'
 import ActivityLog from '#models/activity_log'
 import logger from '@adonisjs/core/services/logger'
-import EmploymentContract from '#models/employment_contract'
 import Role from '#models/role'
 
 export default class UsersController extends CrudController<typeof User> {
@@ -80,7 +79,7 @@ export default class UsersController extends CrudController<typeof User> {
       user.nationality = data.nationality
       user.profession = data.profession || null
       user.companyId = data.company_id || null
-      user.lastModifiedBy = auth.user?.id || null
+      user.lastModifiedBy = auth.user?.id!
       user.hireDate = data.hire_date ? DateTime.fromISO(data.hire_date) : null
       user.dateOfBirth = data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null
       user.placeOfBirth = data.place_of_birth
@@ -113,7 +112,7 @@ export default class UsersController extends CrudController<typeof User> {
 
       if (assignment) {
         assignment.hotel_id = data.service_id
-        assignment.role = data.role
+        assignment.role_id = data.role
         assignment.department_id = data.department_id;
         assignment.hire_date = data.hire_date ? DateTime.fromISO(data.hire_date) : null
 
@@ -122,7 +121,7 @@ export default class UsersController extends CrudController<typeof User> {
         await ServiceUserAssignment.create({
           user_id: user.id,
           hotel_id: data.service_id,
-          role: data.role,
+          role_id:  data.role,
           department_id: data.department_id || null,
           hire_date: data.hire_date || null,
         })
