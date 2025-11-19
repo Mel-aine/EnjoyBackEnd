@@ -39,9 +39,9 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           address: data.address,
           nationality: data.nationality,
           status: 'active',
-          created_by: auth.user?.id || null,
+          created_by: auth.user?.id!,
           language:data.language,
-          last_modified_by: auth.user?.id || null,
+          last_modified_by: auth.user?.id!,
           password: data.password,
           date_of_birth: data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null,
           place_of_birth: data.place_of_birth,
@@ -208,7 +208,7 @@ public async updateUser(ctx: HttpContext) {
       roleId: data.role_id || user.roleId,
       address: data.address || data.address_line || user.address,
       nationality: data.nationality || user.nationality,
-      lastModifiedBy: auth.user?.id || null,
+      lastModifiedBy: auth.user?.id!,
       dateOfBirth: data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : user.dateOfBirth,
       placeOfBirth: data.place_of_birth || user.placeOfBirth,
       gender: data.gender || user.gender,
@@ -315,7 +315,7 @@ public async deleteUser(ctx: HttpContext) {
     //   await user.merge({
     //     status: 'inactive',
     //     isActive: false,
-    //     lastModifiedBy: ctx.auth.user?.id || null,
+    //     lastModifiedBy: ctx.auth.user?.id!,
     //   })
     //   await user.save()
 
@@ -431,7 +431,7 @@ public async restoreUser(ctx: HttpContext) {
     await user.merge({
       status: 'active',
       isActive: true,
-      lastModifiedBy: auth.user?.id || null,
+      lastModifiedBy: auth.user?.id!,
     })
     await user.save()
 

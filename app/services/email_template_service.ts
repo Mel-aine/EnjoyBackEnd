@@ -105,7 +105,7 @@ export default class EmailTemplateService {
     const emailTemplate = await EmailTemplate.create({
       name: data.name,
       templateCategoryId: data.templateCategoryId,
-      autoSend: data.autoSend || 'Manual',
+      autoSend: 'Manual',
       attachment: data.attachment,
       emailAccountId: data.emailAccountId,
       scheduleDate: data.scheduleDate,

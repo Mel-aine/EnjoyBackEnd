@@ -72,7 +72,7 @@ export default class CrudController<T extends typeof BaseModel> {
           action: 'CREATE',
           entityType: this.service.getModelName(),
           entityId: (item as any).id,
-          description: `${this.service.getModelName()} #${(item as any).id} created by ${user.first_name}.`,
+          description: `${this.service.getModelName()} #${(item as any).id} created by ${user.fullName}.`,
           changes: LoggerService.extractChanges({}, item.serialize()),
           ctx,
         })
@@ -115,7 +115,7 @@ export default class CrudController<T extends typeof BaseModel> {
           action: 'UPDATE',
           entityType: this.service.getModelName(),
           entityId: (item as any).id,
-          description: `${this.service.getModelName()} #${(item as any).id} updated by ${user.first_name}.`,
+          description: `${this.service.getModelName()} #${(item as any).id} updated by ${user.fullName}.`,
           changes: LoggerService.extractChanges(oldItem.serialize(), item.serialize()),
           ctx,
         })
@@ -133,13 +133,13 @@ export default class CrudController<T extends typeof BaseModel> {
   async destroy(ctx: HttpContext) {
     const { params, response, auth } = ctx
     try {
-      const oldItem = await this.service.getById(params.id)
+      const oldItem = await this.service.getById(params.id,['id'])
 
       if (!oldItem) {
         return response.notFound({ message: 'Record not found' })
       }
 
-      const item = await this.service.delete(params.id)
+     await this.service.delete(params.id)
 
       // Log the delete action
       const user = auth.user
@@ -149,7 +149,7 @@ export default class CrudController<T extends typeof BaseModel> {
           action: 'DELETE',
           entityType: this.service.getModelName(),
           entityId: (oldItem as any).id,
-          description: `${this.service.getModelName()} #${(oldItem as any).id} deleted by ${user.first_name}.`,
+          description: `${this.service.getModelName()} #${(oldItem as any).id} deleted by ${user.fullName}.`,
           changes: {},
           ctx,
         })

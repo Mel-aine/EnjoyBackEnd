@@ -1660,13 +1660,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      // reservation.status = ReservationStatus.CANCELLED
-      // reservation.cancellationReason = reason
-      // // reservation.cancelledBy = auth.user!.id
-      // reservation.lastModifiedBy = auth.user!.id
-      // reservation.cancellationDate = DateTime.now()
-      //reservation.cancellationFeeAmount = cancellationFee;
-      // await reservation.save()
+
 
       const cancelledRooms: string[] = []
 
@@ -3631,7 +3625,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             finalAmount: 0,
             reservedBy: auth.user?.id || reservation.reservedBy || null,
             createdBy: auth.user?.id || reservation.createdBy || null,
-            lastModifiedBy: auth.user?.id || null,
+            lastModifiedBy: auth.user?.id!,
           },
           { client: trx }
         )
@@ -3644,8 +3638,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             status: ReservationStatus.CHECKED_OUT,
             checkOutDate: moveDate,
             departDate: moveDate,
-            checkedOutBy: auth.user?.id || null,
-            lastModifiedBy: auth.user?.id || null,
+            checkedOutBy: auth.user?.id!,
+            lastModifiedBy: auth.user?.id!,
           })
           .useTransaction(trx)
           .save()
@@ -4719,8 +4713,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       reservation.noShowDate = now
       reservation.noShowReason = reason
       reservation.noShowFees = noShowFees
-      reservation.markNoShowBy = auth.user?.id || null
-      reservation.lastModifiedBy = auth.user?.id || null
+      reservation.markNoShowBy = auth.user?.id!
+      reservation.lastModifiedBy = auth.user?.id!
       // --- Folio fees et voids ---
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)

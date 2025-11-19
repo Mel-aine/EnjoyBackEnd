@@ -1,9 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
-import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
 import { createGuestCheckoutReportValidator } from '#validators/guest_checkout_report'
-import LoggerService from '#services/logger_service'
 import { ReservationStatus } from '../enums.js'
 import ReservationRoom from '../models/reservation_room.js'
 

@@ -43,7 +43,7 @@ export default class CancellationPoliciesController {
                 data: request.body(),
             })
             const policy = await CancellationPolicy.create({
-                service_id: payload.serviceId,
+                hotel_id: payload.serviceId,
                 policy_name: payload.policyName,
                 free_cancellation_periodValue: payload.freeCancellationPeriodValue,
                 free_cancellation_period_unit: payload.freeCancellationPeriodUnit,
@@ -103,7 +103,7 @@ export default class CancellationPoliciesController {
             const policy = await CancellationPolicy.findOrFail(params.id)
 
             policy.merge({
-                service_id: payload.serviceId,
+                hotel_id: payload.serviceId,
                 policy_name: payload.policyName,
                 free_cancellation_periodValue: payload.freeCancellationPeriodValue,
                 free_cancellation_period_unit: payload.freeCancellationPeriodUnit,

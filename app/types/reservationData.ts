@@ -27,6 +27,7 @@ export interface GuestData {
   nationality?: string
   dateOfBirth?: string
   placeOfBirth?: string
+  language?: string
 }
 
 export interface ReservationData {
@@ -55,6 +56,7 @@ export interface ReservationData {
   ota_name?:string
   ota_reservation_code?:string
   booking_date?:any
+  language?: string
 
   // Multiple guests support
   guests?: GuestData[]

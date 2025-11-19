@@ -168,6 +168,7 @@ export default class ReservationService {
         stateProvince: data.state,
         city: data.city,
         postalCode: data.zipcode,
+        language:data.language
       })
       await guest.useTransaction(trx).save()
     } else {

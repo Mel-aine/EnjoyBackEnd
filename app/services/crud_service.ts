@@ -54,7 +54,7 @@ export default class CrudService<T extends typeof BaseModel> {
       .first()
   }
 
-  async create(data: any, actorId?: number, hotelId?: number) {
+  async create(data: any, actorId?: number, hotelId?: number,ctx?:any) {
     console.log('respone', data)
     const item = await this.model.create(data)
     
@@ -68,13 +68,14 @@ export default class CrudService<T extends typeof BaseModel> {
         hotelId: hotelId || (item as any).hotelId || (item as any).hotel_id || 0,
         description: `${this.getModelName()} #${(item as any).id} created.`,
         changes: LoggerService.extractChanges({}, item.toJSON()),
+        ctx:ctx
       })
     }
     
     return item
   }
 
-  async update(id: number, data: any, actorId?: number, hotelId?: number) {
+  async update(id: number, data: any, actorId?: number, hotelId?: number, ctx?:any) {
     const item = await this.model.find(id)
     if (!item) return null
     
@@ -94,6 +95,7 @@ export default class CrudService<T extends typeof BaseModel> {
           hotelId: hotelId || (item as any).hotelId || (item as any).hotel_id || 0,
           description: `${this.getModelName()} #${(item as any).id} updated.`,
           changes: changes,
+          ctx:ctx 
         })
       }
     }
@@ -101,7 +103,7 @@ export default class CrudService<T extends typeof BaseModel> {
     return item
   }
 
-  async delete(id: number, actorId?: number, hotelId?: number) {
+  async delete(id: number, actorId?: number, hotelId?: number, ctx?:any) {
     const item = await this.model.find(id)
     if (!item) return null
     
@@ -115,6 +117,7 @@ export default class CrudService<T extends typeof BaseModel> {
         hotelId: hotelId || (item as any).hotelId || (item as any).hotel_id || 0,
         description: `${this.getModelName()} #${(item as any).id} deleted.`,
         changes: {},
+        ctx:ctx
       })
     }
     
@@ -122,7 +125,7 @@ export default class CrudService<T extends typeof BaseModel> {
     return item
   }
 
-  async createMany(data: any[], actorId?: number, hotelId?: number) {
+  async createMany(data: any[], actorId?: number, hotelId?: number, ctx?:any) {
     const items = await this.model.createMany(data)
     
     // Log the bulk create action if actorId is provided
@@ -135,6 +138,7 @@ export default class CrudService<T extends typeof BaseModel> {
         hotelId: hotelId || item.hotelId || item.hotel_id || 0,
         description: `${this.getModelName()} #${item.id} created (bulk operation).`,
         changes: LoggerService.extractChanges({}, item.toJSON()),
+        ctx:ctx
       }))
       
       await LoggerService.bulkLog(logEntries)

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, computed } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { FolioType, FolioStatus, SettlementStatus, WorkflowStatus, TransactionStatus, TransactionType } from '#app/enums'
 import Hotel from './hotel.js'

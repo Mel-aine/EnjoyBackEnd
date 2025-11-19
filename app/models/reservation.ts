@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate, afterUpdate, afterSave, beforeSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate,beforeSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -641,14 +641,7 @@ export default class Reservation extends BaseModel {
     return Math.round(diffInHours * 100) / 100
   }
 
-  // Background hook: notify Channex availability when a reservation is created
-  @afterCreate()
-  public static notifyAfterCreate(reservation: Reservation) {
-    try {
-      //ReservationHook.notifyAvailabilityOnCreate(reservation)
-    } catch {
-    }
-  }
+
 
   @beforeSave()
   public static notifyAfterUpdate(reservation: Reservation) {
