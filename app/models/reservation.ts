@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate, afterUpdate, afterSave, beforeSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate,beforeSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -645,7 +645,7 @@ export default class Reservation extends BaseModel {
   @afterCreate()
   public static notifyAfterCreate(reservation: Reservation) {
     try {
-      //ReservationHook.notifyAvailabilityOnCreate(reservation)
+      ////ReservationHook.notifyAvailabilityOnCreate(reservation)
     } catch {
     }
   }
