@@ -1186,6 +1186,7 @@ router
             router.put('/:id', emailAccountsController.update.bind(emailAccountsController)) // Update email account information
             router.delete('/:id', emailAccountsController.destroy.bind(emailAccountsController)) // Delete email account
             router.patch('/:id/toggle-active', emailAccountsController.toggleActive.bind(emailAccountsController)) // Toggle active status
+            router.post('/validate', emailAccountsController.validate.bind(emailAccountsController)) // Validate sender status and sync isActive
           })
           .prefix('email-accounts')
 

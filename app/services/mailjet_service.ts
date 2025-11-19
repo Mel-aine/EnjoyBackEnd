@@ -2,8 +2,12 @@ import env from '#start/env'
 import axios, { AxiosRequestHeaders } from 'axios'
 
 export default class MailjetService {
-  private static baseUrlV3 = 'https://api.mailjet.com/v3'
-  private static baseUrlV31 = 'https://api.mailjet.com/v3.1'
+  private static getBaseUrlV3() {
+    return env.get('MAILJET_API_BASE_URL_V3')
+  }
+  private static getBaseUrlV31() {
+    return env.get('MAILJET_API_BASE_URL_V31')
+  }
 
   private static getAuthHeader(): AxiosRequestHeaders {
     const apiKey = env.get('MAILJET_API_KEY')
@@ -29,7 +33,7 @@ export default class MailjetService {
     // Check if sender exists
     let sender: any = null
     try {
-      const res = await axios.get(`${this.baseUrlV3}/REST/sender`, { headers, params: { Email: email } })
+      const res = await axios.get(`${this.getBaseUrlV3()}/REST/sender`, { headers, params: { Email: email } })
       sender = res.data?.Data?.[0] || null
     } catch {}
 
@@ -37,8 +41,13 @@ export default class MailjetService {
     if (!sender) {
       try {
         const createRes = await axios.post(
-          `${this.baseUrlV3}/REST/sender`,
-          { Email: email, Name: name || undefined },
+          `${this.getBaseUrlV3()}/REST/sender`,
+          {
+            Email: email,
+            Name: name || undefined,
+            EmailType: 'transactional',
+            IsDefaultSender: false,
+          },
           { headers }
         )
         sender = createRes.data?.Data?.[0] || null
@@ -47,14 +56,52 @@ export default class MailjetService {
       }
     }
 
+    // Ensure existing sender has desired settings
+    try {
+      const id = sender?.ID
+      if (id && (sender.EmailType !== 'transactional' || sender.IsDefaultSender !== false)) {
+        await axios.put(
+          `${this.getBaseUrlV3()}/REST/sender/${id}`,
+          { EmailType: 'transactional', IsDefaultSender: false },
+          { headers }
+        )
+      }
+    } catch {}
+
     // Trigger validation email (resends if already sent)
     try {
-      await axios.post(`${this.baseUrlV3}/REST/sender/validate`, { Email: email }, { headers })
+      await axios.post(`${this.getBaseUrlV3()}/REST/sender/validate`, { Email: email }, { headers })
     } catch {
       // Some accounts may require domain validation; in such case, manual DNS setup is needed.
     }
 
     return sender
+  }
+
+  /**
+   * Fetch sender by email from Mailjet.
+   */
+  static async getSenderByEmail(email: string): Promise<any | null> {
+    if (!email) return null
+    const headers: AxiosRequestHeaders = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeader(),
+    }
+    try {
+      const res = await axios.get(`${this.getBaseUrlV3()}/REST/sender`, { headers, params: { Email: email } })
+      return res.data?.Data?.[0] || null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Check if a sender is active in Mailjet.
+   */
+  static async isSenderActive(email: string): Promise<boolean> {
+    const sender = await this.getSenderByEmail(email)
+    const status = sender?.Status || sender?.status
+    return status === 'Active'
   }
 
   /**
@@ -69,17 +116,17 @@ export default class MailjetService {
 
     // Try to create the contact
     try {
-      await axios.post(`${this.baseUrlV3}/REST/contact`, { Email: email, Name: name || undefined }, { headers })
+      await axios.post(`${this.getBaseUrlV3()}/REST/contact`, { Email: email, Name: name || undefined }, { headers })
     } catch (err: any) {
       // If already exists, update name
       try {
-        const findRes = await axios.get(`${this.baseUrlV3}/REST/contact`, {
+        const findRes = await axios.get(`${this.getBaseUrlV3()}/REST/contact`, {
           headers,
           params: { Email: email },
         })
         const id = findRes.data?.Data?.[0]?.ID
         if (id) {
-          await axios.put(`${this.baseUrlV3}/REST/contact/${id}`, { Name: name || undefined }, { headers })
+          await axios.put(`${this.getBaseUrlV3()}/REST/contact/${id}`, { Name: name || undefined }, { headers })
         }
       } catch {}
     }
@@ -87,7 +134,28 @@ export default class MailjetService {
     // Optionally add to contacts list
     const listId = env.get('MAILJET_CONTACT_LIST_ID')
     if (listId) {
-      await axios.post(`${this.baseUrlV3}/REST/contactslist/${listId}/managecontact`, { Email: email, Action: 'addnoforce' }, { headers })
+      await axios.post(`${this.getBaseUrlV3()}/REST/contactslist/${listId}/managecontact`, { Email: email, Action: 'addnoforce' }, { headers })
+    }
+  }
+
+  /**
+   * Delete a sender in Mailjet by email.
+   */
+  static async deleteSender(email: string) {
+    if (!email) return
+    const headers: AxiosRequestHeaders = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeader(),
+    }
+
+    try {
+      const res = await axios.get(`${this.getBaseUrlV3()}/REST/sender`, { headers, params: { Email: email } })
+      const sender = res.data?.Data?.[0]
+      if (sender?.ID) {
+        await axios.delete(`${this.getBaseUrlV3()}/REST/sender/${sender.ID}`, { headers })
+      }
+    } catch (error) {
+      // Swallow errors to avoid blocking local deletion; optionally log elsewhere.
     }
   }
 
@@ -124,7 +192,7 @@ export default class MailjetService {
       ],
     }
 
-    await axios.post(`${this.baseUrlV31}/send`, body, { headers })
+    await axios.post(`${this.getBaseUrlV31()}/send`, body, { headers })
   }
 
   /**
@@ -149,6 +217,6 @@ export default class MailjetService {
         },
       ],
     }
-    await axios.post(`${this.baseUrlV31}/send`, body, { headers })
+    await axios.post(`${this.getBaseUrlV31()}/send`, body, { headers })
   }
 }

@@ -14,6 +14,8 @@ export default class EmailAccountService {
     return await EmailAccount.query()
       .where('hotel_id', hotelId)
       .orderBy('created_at', 'desc')
+      .preload('createdByUser')
+      .preload('lastModifiedByUser')
       .paginate(page, limit)
   }
 
@@ -21,7 +23,11 @@ export default class EmailAccountService {
    * Get a specific email account by ID
    */
   async getById(id: number): Promise<EmailAccount> {
-    const emailAccount = await EmailAccount.find(id)
+    const emailAccount = await EmailAccount.query()
+      .where('id', id)
+      .preload('createdByUser')
+      .preload('lastModifiedByUser')
+      .first()
     if (!emailAccount) {
       throw new Exception('Email account not found', { status: 404 })
     }
@@ -40,7 +46,7 @@ export default class EmailAccountService {
     isActive?: boolean
     createdBy?: number
   }): Promise<EmailAccount> {
-    return await EmailAccount.create({
+    const created = await EmailAccount.create({
       hotelId: data.hotelId,
       title: data.title,
       emailAddress: data.emailAddress,
@@ -50,6 +56,9 @@ export default class EmailAccountService {
       createdBy: data.createdBy,
       lastModifiedBy: data.createdBy
     })
+    await created.load('createdByUser')
+    await created.load('lastModifiedByUser')
+    return created
   }
 
   /**
@@ -74,6 +83,8 @@ export default class EmailAccountService {
     })
     
     await emailAccount.save()
+    await emailAccount.load('createdByUser')
+    await emailAccount.load('lastModifiedByUser')
     return emailAccount
   }
 
@@ -92,6 +103,8 @@ export default class EmailAccountService {
     return await EmailAccount.query()
       .where('hotel_id', hotelId)
       .where('is_active', true)
+      .preload('createdByUser')
+      .preload('lastModifiedByUser')
       .orderBy('title', 'asc')
   }
 
@@ -101,8 +114,10 @@ export default class EmailAccountService {
   async toggleActive(id: number, lastModifiedBy?: number): Promise<EmailAccount> {
     const emailAccount = await this.getById(id)
     emailAccount.isActive = !emailAccount.isActive
-    emailAccount.lastModifiedBy = lastModifiedBy
+    emailAccount.lastModifiedBy = lastModifiedBy!
     await emailAccount.save()
+    await emailAccount.load('createdByUser')
+    await emailAccount.load('lastModifiedByUser')
     return emailAccount
   }
 }

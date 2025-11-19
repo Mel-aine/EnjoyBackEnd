@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, belongsTo, column, beforeSave, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
+import { BaseModel, belongsTo, column, beforeSave, afterCreate, afterUpdate, afterDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
+import User from './user.js'
 import MailjetService from '#services/mailjet_service'
 import LoggerService from '#services/logger_service'
 
@@ -48,6 +49,12 @@ export default class EmailAccount extends BaseModel {
   @belongsTo(() => Hotel)
   declare hotel: BelongsTo<typeof Hotel>
 
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
+  declare createdByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'lastModifiedBy' })
+  declare lastModifiedByUser: BelongsTo<typeof User>
+
   @beforeSave()
   public static async enforceSingleDefault(model: EmailAccount) {
     const changed = model.$dirty && Object.prototype.hasOwnProperty.call(model.$dirty, 'isDefault')
@@ -64,7 +71,8 @@ export default class EmailAccount extends BaseModel {
   public static async syncMailjetAfterCreate(model: EmailAccount) {
     try {
       await MailjetService.ensureSender(model.emailAddress, model.displayName)
-      await MailjetService.createOrUpdateContact(model.emailAddress, model.displayName)
+      if (!model.isDefault)
+        await MailjetService.createOrUpdateContact(model.emailAddress, model.displayName)
       if (model.status === 'pending') {
         await MailjetService.sendVerification(model.emailAddress, {
           displayName: model.displayName,
@@ -111,6 +119,21 @@ export default class EmailAccount extends BaseModel {
     try {
       await MailjetService.ensureSender(model.emailAddress, model.displayName)
       await MailjetService.createOrUpdateContact(model.emailAddress, model.displayName)
+      // If turned inactive, remove sender from Mailjet
+      const isActiveChanged = model.$dirty && Object.prototype.hasOwnProperty.call(model.$dirty, 'isActive')
+      if (isActiveChanged && model.isActive === false) {
+        await MailjetService.deleteSender(model.emailAddress)
+        if (model.lastModifiedBy) {
+          await LoggerService.logActivity({
+            userId: model.lastModifiedBy,
+            action: 'MAILJET_SENDER_DELETED',
+            resourceType: 'EmailAccount',
+            resourceId: model.id,
+            hotelId: model.hotelId,
+            details: { email: model.emailAddress, reason: 'inactive' }
+          })
+        }
+      }
       // Only resend verification when still pending
       if (model.status === 'pending') {
         await MailjetService.sendVerification(model.emailAddress, {
@@ -150,6 +173,26 @@ export default class EmailAccount extends BaseModel {
       }
     } catch (error) {
       console.error('Mailjet sync after update failed:', error)
+    }
+  }
+
+  @afterDelete()
+  public static async cleanupMailjetAfterDelete(model: EmailAccount) {
+    try {
+      await MailjetService.deleteSender(model.emailAddress)
+      const actorId = model.lastModifiedBy
+      if (actorId) {
+        await LoggerService.logActivity({
+          userId: actorId,
+          action: 'MAILJET_SENDER_DELETED',
+          resourceType: 'EmailAccount',
+          resourceId: model.id,
+          hotelId: model.hotelId,
+          details: { email: model.emailAddress, reason: 'deleted' }
+        })
+      }
+    } catch (error) {
+      console.error('Mailjet cleanup after delete failed:', error)
     }
   }
 }
