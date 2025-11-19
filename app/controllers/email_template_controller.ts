@@ -16,6 +16,8 @@ export default class EmailTemplateController {
    */
   async list({ params, request, response, auth }: HttpContext) {
     try {
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
       const hotelId = params.hotelId
       if (!hotelId) {
         return response.badRequest({
@@ -25,7 +27,8 @@ export default class EmailTemplateController {
       }
       const includeDeleted = request.input('includeDeleted', false)
 
-      const emailTemplates = await this.emailTemplateService.list(Number(hotelId), includeDeleted)
+      const emailTemplates = await this.emailTemplateService.list(Number(hotelId), includeDeleted,Number(page),
+        Number(limit))
 
       return response.ok({
         success: true,
@@ -71,34 +74,47 @@ export default class EmailTemplateController {
    * Create a new email template
    */
   async create({ request, response, auth }: HttpContext) {
-    try {
-      const payload = await request.validateUsing(createEmailTemplateValidator)
-      
-      // Parse schedule date if provided
-      let scheduleDate: DateTime | undefined
-      if (payload.scheduleDate) {
-        scheduleDate = DateTime.fromJSDate(payload.scheduleDate)
-      }
+  try {
+    // Validation du payload
+    const payload = await request.validateUsing(createEmailTemplateValidator)
 
-      const emailTemplate = await this.emailTemplateService.create({
-        ...payload,
-        scheduleDate,
-        createdBy: auth.user?.id || null,
-      })
+    // Parse schedule date if provided
+    const cc = Array.isArray(payload.cc) ? payload.cc : []
+    const bcc = Array.isArray(payload.bcc) ? payload.bcc : []
 
-      return response.created({
-        success: true,
-        message: 'Email template created successfully',
-        data: emailTemplate,
-      })
-    } catch (error) {
-      return response.status(error.status || 500).json({
-        success: false,
-        message: error.message || 'Failed to create email template',
-        error: error.code || 'INTERNAL_SERVER_ERROR',
-      })
+    let scheduleDate: DateTime | undefined
+    if (payload.scheduleDate) {
+      scheduleDate = DateTime.fromJSDate(payload.scheduleDate)
+    } else {
+      console.log('No scheduleDate provided');
     }
+
+    // Création du template email
+    const emailTemplate = await this.emailTemplateService.create({
+      ...payload,
+      scheduleDate,
+      cc,
+      bcc,
+      createdBy: auth.user?.id,
+    })
+
+
+    return response.created({
+      success: true,
+      message: 'Email template created successfully',
+      data: emailTemplate,
+    })
+  } catch (error) {
+    console.error('Error creating email template:', error)
+
+    return response.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Failed to create email template',
+      error: error.code || 'INTERNAL_SERVER_ERROR',
+    })
   }
+}
+
 
   /**
    * Update an existing email template

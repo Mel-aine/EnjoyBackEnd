@@ -45,11 +45,46 @@ export default class EmailTemplate extends BaseModel {
   @column()
   declare isDeleable: boolean | null
 
-  @column()
+  @column({
+    prepare: (value: string[] | null) => {
+      if (!value) return null
+      return Array.isArray(value) ? value : []
+    },
+    consume: (value: any) => {
+      if (!value) return []
+      if (Array.isArray(value)) return value
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return []
+        }
+      }
+      return []
+    }
+  })
   declare cc: string[] | null
 
-  @column()
+  @column({
+    prepare: (value: string[] | null) => {
+      if (!value) return null
+      return Array.isArray(value) ? value : []
+    },
+    consume: (value: any) => {
+      if (!value) return []
+      if (Array.isArray(value)) return value
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return []
+        }
+      }
+      return []
+    }
+  })
   declare bcc: string[] | null
+
 
   @column()
   declare createdBy: number | null
