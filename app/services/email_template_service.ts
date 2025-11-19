@@ -63,6 +63,8 @@ export default class EmailTemplateService {
     scheduleDate?: DateTime
     subject: string
     messageBody: string
+    cc?: string[] | null
+    bcc?: string[] | null
     hotelId: number
     createdBy?: number
   }) {
@@ -75,6 +77,8 @@ export default class EmailTemplateService {
       scheduleDate: data.scheduleDate,
       subject: data.subject,
       messageBody: data.messageBody,
+      cc: data.cc ?? null,
+      bcc: data.bcc ?? null,
       hotelId: data.hotelId,
       createdBy: data.createdBy,
       lastModifiedBy: data.createdBy,
@@ -104,6 +108,8 @@ export default class EmailTemplateService {
       scheduleDate?: DateTime
       subject?: string
       messageBody?: string
+      cc?: string[] | null
+      bcc?: string[] | null
       hotelId?: number
       lastModifiedBy?: number
     },

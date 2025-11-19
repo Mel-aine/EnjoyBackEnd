@@ -16,12 +16,15 @@ import ReservationType from '#models/reservation_type'
 import BookingSource from '#models/booking_source'
 import IdentityType from '#models/identity_type'
 import PaymentMethod from '#models/payment_method'
+import TemplateCategory from '#models/template_category'
+import EmailTemplate from '#models/email_template'
+import EmailAccount from '#models/email_account'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import Discount from '../models/discount.js'
-import TaxRate from '#models/tax_rate'
+import { DEFAULT_TEMPLATE_CATEGORIES, DEFAULT_EMAIL_TEMPLATES } from '../data/default_email_templates.js'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -209,6 +212,28 @@ export default class HotelsController {
           error: paymentMethodError.message
         })
         throw paymentMethodError // This will trigger rollback
+      }
+
+      // Create default template categories for the new hotel
+      try {
+        await this.createDefaultTemplateCategories(hotel.id, createdByUserId, trx)
+      } catch (templateCategoryError) {
+        logger.error('Failed to create default template categories for hotel', {
+          hotelId: hotel.id,
+          error: templateCategoryError.message
+        })
+        throw templateCategoryError // This will trigger rollback
+      }
+
+      // Create default email templates for the new hotel
+      try {
+        await this.createDefaultEmailTemplates(hotel.id, createdByUserId, trx)
+      } catch (templateError) {
+        logger.error('Failed to create default email templates for hotel', {
+          hotelId: hotel.id,
+          error: templateError.message
+        })
+        throw templateError // This will trigger rollback
       }
 
       // Commit the transaction if everything succeeds
@@ -940,6 +965,12 @@ export default class HotelsController {
 
         const permissionService = new PermissionService()
         await permissionService.assignAllPermissionsToAdminForService(newHotel.id, user.id)
+
+        // Seed default template categories for this hotel as well
+        await this.createDefaultTemplateCategories(newHotel.id, user.id)
+
+        // Seed default email templates for this hotel as well
+        await this.createDefaultEmailTemplates(newHotel.id, user.id)
       }
 
       await LoggerService.log({
@@ -1307,6 +1338,84 @@ export default class HotelsController {
     }
 
 
+  }
+
+  /**
+   * Create default template categories for a newly created hotel
+   */
+  private async createDefaultTemplateCategories(hotelId: number, userId?: number, trx?: any) {
+    const categories = DEFAULT_TEMPLATE_CATEGORIES
+
+    for (const category of categories) {
+      const exists = await TemplateCategory
+        .query(trx ? { client: trx } : undefined)
+        .where('hotel_id', hotelId)
+        .where('category', category)
+        .where('is_deleted', false)
+        .first()
+
+      if (!exists) {
+        await TemplateCategory.create({
+          hotelId,
+          category,
+          createdByUserId: userId ?? null,
+          updatedByUserId: userId ?? null,
+          isDeleted: false,
+          isDeleable: false,
+        }, trx ? { client: trx } : undefined)
+      }
+    }
+  }
+
+  /**
+   * Create default email templates bound to categories for a newly created hotel
+   */
+  private async createDefaultEmailTemplates(hotelId: number, userId?: number, trx?: any) {
+    const clientOpt = trx ? { client: trx } : undefined
+
+    // Try to attach to hotel's default email account if present
+    const defaultAccount = await EmailAccount
+      .query(clientOpt)
+      .where('hotel_id', hotelId)
+      .where('is_default', true)
+      .first()
+
+    const defaultTemplates = DEFAULT_EMAIL_TEMPLATES
+
+    for (const tpl of defaultTemplates) {
+      const category = await TemplateCategory
+        .query(clientOpt)
+        .where('hotel_id', hotelId)
+        .where('category', tpl.category)
+        .where('is_deleted', false)
+        .first()
+
+      if (!category) continue
+
+      const exists = await EmailTemplate
+        .query(clientOpt)
+        .where('hotel_id', hotelId)
+        .where('template_name', tpl.name)
+        .first()
+
+      if (exists) continue
+
+      await EmailTemplate.create({
+        name: tpl.name,
+        templateCategoryId: category.id,
+        autoSend: tpl.autoSend ,
+        attachment: null,
+        emailAccountId: defaultAccount?.id ?? null,
+        scheduleDate: null,
+        subject: tpl.subject,
+        messageBody: tpl.bodyHtml,
+        hotelId,
+        isDeleted: false,
+        isDeleable: false,
+        createdBy: userId ?? null,
+        lastModifiedBy: userId ?? null,
+      }, clientOpt)
+    }
   }
 
   /**

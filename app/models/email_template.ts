@@ -43,6 +43,15 @@ export default class EmailTemplate extends BaseModel {
   declare isDeleted: boolean | null
 
   @column()
+  declare isDeleable: boolean | null
+
+  @column()
+  declare cc: string[] | null
+
+  @column()
+  declare bcc: string[] | null
+
+  @column()
   declare createdBy: number | null
 
   @column()

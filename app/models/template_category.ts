@@ -30,6 +30,9 @@ export default class TemplateCategory extends BaseModel {
   @column()
   declare isDeleted: boolean
 
+  @column()
+  declare isDeleable: boolean
+
   @column.dateTime()
   declare deletedAt: DateTime | null
 
