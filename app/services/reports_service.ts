@@ -83,6 +83,7 @@ export class ReservationReportsService {
       .preload('guest')
       .preload('hotel')
       .preload('roomType')
+      .preload('folios')
       .preload('reservationType')
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room'),
@@ -209,6 +210,7 @@ export class ReservationReportsService {
     const includeRateType = selectedColumns.includes('rateType')
   
     const data = reservations.map((reservation) => {
+      const folio = reservation.folios?.[0]
       // Données de base TOUJOURS incluses
       const baseData: any = {
         reservationNumber: reservation.reservationNumber || 'N/A',
@@ -284,11 +286,11 @@ export class ReservationReportsService {
       }
       
       if (includeDeposit) {
-        baseData.depositPaid = reservation.depositPaid || 0
+        baseData.depositPaid = folio?.totalPayments ? Number(folio.totalPayments).toFixed(2) : '0.00'
       }
       
       if (includeBalanceDue) {
-        baseData.balanceDue = reservation.balanceDue || 0
+        baseData.balanceDue = folio?.balance ? Number(folio.balance).toFixed(2) : '0.00'
       }
       
       if (includeMarketCode) {
@@ -402,7 +404,7 @@ export class ReservationReportsService {
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
       })
-      //.preload('creator')
+      .preload('creator')
       .whereBetween('depart_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .orderBy('depart_date', 'asc')
 
@@ -427,16 +429,22 @@ export class ReservationReportsService {
       query.where('created_by', filters.user)
     }
 
-    // Filtre par fourchette de prix
+
+    // Filtre fourchette de prix
     if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
+      const rateField = filters.showAmount === 'rent_per_night' 
+        ? 'room_rate' 
+        : 'total_estimated_revenue'
+  
       if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
-        query.whereBetween('total_estimated_revenue', [filters.rateFrom, filters.rateTo])
+        query.whereBetween(rateField, [filters.rateFrom, filters.rateTo])
       } else if (filters.rateFrom !== undefined) {
-        query.where('total_estimated_revenue', '>=', filters.rateFrom)
+        query.where(rateField, '>=', filters.rateFrom)
       } else if (filters.rateTo !== undefined) {
-        query.where('total_estimated_revenue', '<=', filters.rateTo)
+        query.where(rateField, '<=', filters.rateTo)
       }
     }
+  
 
     // Filtre par type de réservation
     if (filters.reservationType) {
@@ -462,7 +470,7 @@ export class ReservationReportsService {
 
     // Filtre par marché
     if (filters.market) {
-      query.where('marketing_source', filters.market)
+      query.where('market_code_id', filters.market)
     }
 
     const reservations = await query
@@ -592,7 +600,7 @@ export class ReservationReportsService {
       .preload('bookingSource')
       .preload('ratePlan')
       .preload('folios')
-      //.preload('creator')
+      .preload('creator')
       .whereBetween('cancellation_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       //.where('reservation_status', 'Cancelled')
       .orderBy('cancellation_date', 'desc')
@@ -604,7 +612,7 @@ export class ReservationReportsService {
 
     // Filtre par type de chambre
     if (filters.roomType) {
-      query.where('primary_room_type_id', filters.roomType)
+      query.where('room_type_id', filters.roomType)
     }
 
     // Filtre par type de tarif
@@ -680,6 +688,7 @@ export class ReservationReportsService {
     return {
       title: 'Cancelled Reservations Report',
       html: HtmlReportGenerator.generateCancelledReservationsHtml(data, summary, filters, DateTime.now()),
+      datas: {data, summary},
       generatedAt: DateTime.now(),
       filters
     }

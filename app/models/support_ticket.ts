@@ -13,6 +13,11 @@ export default class SupportTicket extends BaseModel {
   declare title: string
 
   @column()
+  declare assignedTime: number
+
+  @column()
+  declare ticketCode: string
+  @column()
   declare category: 'bug' | 'suggestion' | 'question'
 
   @column()
