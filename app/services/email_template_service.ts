@@ -6,35 +6,55 @@ export default class EmailTemplateService {
   /**
    * Get all email templates for a specific hotel
    */
-  async list(hotelId: number, includeDeleted: boolean = false,page:number=1 ,limit:number=10) {
+
+  async list(hotelId: number, includeDeleted: boolean = false, page: number = 1, limit: number = 10) {
+  try {
     const query = EmailTemplate.query()
       .where('hotel_id', hotelId)
-      .preload('hotel')
-      .preload('templateCategory')
-      .preload('emailAccount')
-      .preload('creator')
-      .preload('modifier')
-      .preload('creator')
-      .preload('modifier')
-      .orderBy('created_at', 'desc')
 
     if (!includeDeleted) {
       query.where('is_deleted', false)
     }
 
-    const templates = await query.paginate(page, limit)
+    // Ajouter l'ordre et les relations, puis paginer
+    const paginatedTemplates = await query
+      .orderBy('created_at', 'desc')
+      .preload('hotel')
+      .preload('templateCategory')
+      .preload('emailAccount')
+      .preload('creator')
+      .preload('modifier')
+      .paginate(page, limit)
 
-      // Sérialiser les données pour s'assurer que cc et bcc sont des tableaux
-      return templates.map(template => {
-        const serialized = template.serialize()
-        return {
-          ...serialized,
-          cc: Array.isArray(serialized.cc) ? serialized.cc : [],
-          bcc: Array.isArray(serialized.bcc) ? serialized.bcc : []
-        }
-      })
+    const templates = paginatedTemplates.all()
+
+    // Transformer les données
+    const data = templates.map(template => {
+      const serialized = template.serialize()
+      return {
+        ...serialized,
+        cc: Array.isArray(serialized.cc) ? serialized.cc : [],
+        bcc: Array.isArray(serialized.bcc) ? serialized.bcc : []
+      }
+    })
+
+    return {
+      data: data,
+      meta: {
+        total: paginatedTemplates.total,
+        perPage: paginatedTemplates.perPage,
+        currentPage: paginatedTemplates.currentPage,
+        lastPage: paginatedTemplates.lastPage,
+        firstPage: 1,
+        hasMorePages: paginatedTemplates.hasMorePages,
+        isEmpty: paginatedTemplates.isEmpty,
+      }
+    }
+  } catch (error) {
+    console.error('Error in EmailTemplateService.list:', error)
+    throw error
   }
-
+}
 
 
   /**
@@ -95,7 +115,6 @@ export default class EmailTemplateService {
       bcc: Array.isArray(data.bcc) ? data.bcc : [],
       hotelId: data.hotelId,
       createdBy: data.createdBy,
-      lastModifiedBy: data.createdBy,
       isDeleted: false,
     })
 
@@ -103,7 +122,6 @@ export default class EmailTemplateService {
     await emailTemplate.load('templateCategory')
     await emailTemplate.load('emailAccount')
     await emailTemplate.load('creator')
-    await emailTemplate.load('modifier')
 
     return emailTemplate
   }
@@ -139,7 +157,7 @@ export default class EmailTemplateService {
       const template = await query.firstOrFail()
 
       // Préparer les données avec les tableaux
-      const updateData = { ...data }
+      const updateData:any = { ...data }
       if (updateData.cc !== undefined) {
         updateData.cc = Array.isArray(updateData.cc) ? updateData.cc : []
       }
@@ -162,47 +180,7 @@ export default class EmailTemplateService {
     }
   }
 
-  // async update(
-  //   id: number,
-  //   data: {
-  //     name?: string
-  //     templateCategoryId?: number
-  //     autoSend?: string
-  //     attachment?: string
-  //     emailAccountId?: number
-  //     scheduleDate?: DateTime
-  //     subject?: string
-  //     messageBody?: string
-  //     cc?: string[] | null
-  //     bcc?: string[] | null
-  //     hotelId?: number
-  //     lastModifiedBy?: number
-  //   },
-  //   hotelId?: number
-  // ) {
-  //   const emailTemplate = await this.getById(id, hotelId)
 
-  //   if (emailTemplate.isDeleted) {
-  //     throw new Exception('Cannot update deleted email template', {
-  //       status: 400,
-  //       code: 'EMAIL_TEMPLATE_DELETED',
-  //     })
-  //   }
-
-  //   emailTemplate.merge({
-  //     ...data,
-  //     lastModifiedBy: data.lastModifiedBy,
-  //   })
-
-  //   await emailTemplate.save()
-  //   await emailTemplate.load('hotel')
-  //   await emailTemplate.load('templateCategory')
-  //   await emailTemplate.load('emailAccount')
-  //   await emailTemplate.load('creator')
-  //   await emailTemplate.load('modifier')
-
-  //   return emailTemplate
-  // }
 
   /**
    * Soft delete an email template

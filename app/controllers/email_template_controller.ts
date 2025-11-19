@@ -14,28 +14,38 @@ export default class EmailTemplateController {
   /**
    * Get all email templates for a hotel
    */
-  async list({ params, request, response, auth }: HttpContext) {
+  async list({ params, request, response }: HttpContext) {
     try {
       const page = request.input('page', 1)
       const limit = request.input('limit', 10)
       const hotelId = params.hotelId
+
       if (!hotelId) {
         return response.badRequest({
           success: false,
           message: 'hotelId is required in route params',
         })
       }
-      const includeDeleted = request.input('includeDeleted', false)
 
-      const emailTemplates = await this.emailTemplateService.list(Number(hotelId), includeDeleted,Number(page),
-        Number(limit))
+      const includeDeleted = params.includeDeleted
+
+
+      const result = await this.emailTemplateService.list(
+        Number(hotelId),
+        includeDeleted,
+        Number(page),
+        Number(limit)
+      )
+
 
       return response.ok({
         success: true,
         message: 'Email templates retrieved successfully',
-        data: emailTemplates,
+        data: result.data,
+        meta: result.meta,
       })
     } catch (error) {
+      console.error('Error in controller list:', error)
       return response.status(error.status || 500).json({
         success: false,
         message: error.message || 'Failed to retrieve email templates',
@@ -138,7 +148,7 @@ export default class EmailTemplateController {
         {
           ...payload,
           scheduleDate,
-          lastModifiedBy: auth.user?.id || null,
+          lastModifiedBy: auth.user?.id ,
         },
         hotelId
       )
