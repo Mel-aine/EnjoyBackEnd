@@ -966,8 +966,8 @@ export default class FolioService {
         if (roomChargeTransactions.length > 0) {
           const newFolio = await this.createFolio({
             hotelId: data.hotelId,
-            guestId: originalFolio.guestId,
-            reservationId: originalFolio.reservationId,
+            guestId: originalFolio.guestId!,
+            reservationId: originalFolio.reservationId!,
             folioType: originalFolio.folioType,
             folioName: `${originalFolio.folioName || 'Split'} - Room Charges`,
             notes: data.notes || 'Split from original folio - Room charges',
@@ -998,8 +998,8 @@ export default class FolioService {
         if (paymentTransactions.length > 0) {
           const newFolio = await this.createFolio({
             hotelId: data.hotelId,
-            guestId: originalFolio.guestId,
-            reservationId: originalFolio.reservationId,
+            guestId: originalFolio.guestId!,
+            reservationId: originalFolio.reservationId!,
             folioType: originalFolio.folioType,
             folioName: `${originalFolio.folioName || 'Split'} - Payments`,
             notes: data.notes || 'Split from original folio - Payments',
@@ -1030,8 +1030,8 @@ export default class FolioService {
         if (extractChargeTransactions.length > 0) {
           const newFolio = await this.createFolio({
             hotelId: data.hotelId,
-            guestId: originalFolio.guestId,
-            reservationId: originalFolio.reservationId,
+            guestId: originalFolio.guestId!,
+            reservationId: originalFolio.reservationId!,
             folioType: originalFolio.folioType,
             folioName: `${originalFolio.folioName || 'Split'} - Extract Charges`,
             notes: data.notes || 'Split from original folio - Extract charges',
@@ -1337,10 +1337,10 @@ export default class FolioService {
         discountRate: data.discountId && discountAmount > 0 ? (discountAmount / (baseAmount + discountAmount)) : 0,
         netAmount: data.complementary ? 0 : netAmount,
         grossAmount: data.complementary ? 0 : grossAmount,
-        transactionDate: DateTime.fromJSDate(data.date),
+        transactionDate: DateTime.fromJSDate(data.date.toJSDate()),
         transactionTime: '00:00:00',
         postingDate: DateTime.now(),
-        serviceDate: DateTime.fromJSDate(data.date),
+        serviceDate: DateTime.fromJSDate(data.date.toJSDate()),
         complementary: data.complementary,
         compReason: data.complementary ? 'Complimentary room charge' : '',
         discountId: data.discountId,
@@ -1691,7 +1691,7 @@ export default class FolioService {
         transaction.description = data.comment
       }
       if (data.date) {
-        const luxonDate = DateTime.fromISO(data.date)
+        const luxonDate = DateTime.fromISO(data.date.toISOString())
         if (!luxonDate.isValid) {
           throw new Error('Date invalide reçue pour transaction')
         }

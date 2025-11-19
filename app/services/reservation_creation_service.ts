@@ -260,10 +260,8 @@ export default class ReservationCreationService {
    */
   private static async findRoomTypeByChannexId(channexRoomTypeId: string, hotelId: number): Promise<number> {
     try {
-      console.log(`🔍 Recherche room_type_id pour channex_room_type_id: "${channexRoomTypeId}", hotel: ${hotelId}`)
 
       if (!channexRoomTypeId) {
-        console.warn('❌ channex_room_type_id est vide, recherche du room type par défaut')
         return await this.getDefaultRoomType(hotelId)
       }
 
@@ -273,11 +271,8 @@ export default class ReservationCreationService {
         .first()
 
       if (roomType) {
-        console.log(`✅ Room type trouvé: ${roomType.id} ("${roomType.name}") pour channex_room_type_id: "${channexRoomTypeId}"`)
         return roomType.id
       } else {
-        console.warn(`❌ Aucun room type trouvé pour channex_room_type_id: "${channexRoomTypeId}", utilisation du défaut`)
-
         // Log pour debug
         const availableMappings = await RoomType.query()
           .where('hotel_id', hotelId)
@@ -306,7 +301,6 @@ export default class ReservationCreationService {
       throw new Error(`Aucun room type trouvé pour l'hôtel ${hotelId}`)
     }
 
-    console.log(`🔧 Utilisation du room type par défaut: ${defaultRoomType.id} ("${defaultRoomType.name}")`)
     return defaultRoomType.id
   }
 
@@ -425,10 +419,10 @@ export default class ReservationCreationService {
             city: data.guest.city,
             country: data.guest.country,
             zipcode: data.guest.postalCode,
-            guest_language: data.guest.language,
-            guest_id_type: data.guest.idType,
-            guest_id_number: data.guest.idNumber,
-            guest_passport_number: data.guest.passportNumber,
+            language: data.guest.language,
+            idType: data.guest.idType,
+            //guest_id_number: data.guest.idNumber,
+            //guest_passport_number: data.guest.passportNumber,
             company_name: data.guest.companyName,
             created_by: data.created_by,
           },

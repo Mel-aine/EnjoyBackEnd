@@ -40,7 +40,7 @@ export default class AuditTrailController {
       if (parsedEntityIds && Array.isArray(parsedEntityIds)) {
         parsedEntityIds = parsedEntityIds.map(id => Number(id))
         // Check if any ID is not a valid positive number
-        if (parsedEntityIds.some(id => isNaN(id) || id <= 0)) {
+        if (parsedEntityIds.some((id:any) => isNaN(id) || id <= 0)) {
           return response.badRequest({ message: 'All entity IDs must be positive numbers' })
         }
       }
@@ -159,7 +159,7 @@ export default class AuditTrailController {
       // Convert to CSV format
       const csvHeader = 'ID,Date,Time,User,Action,Entity Type,Entity ID,Description,IP Address,User Agent\n'
       const csvRows = auditTrail.map(log => {
-        const date = new Date(log.createdAt)
+        const date = new Date(log.createdAt.toMillis())
         const dateStr = date.toLocaleDateString()
         const timeStr = date.toLocaleTimeString()
         
@@ -167,11 +167,11 @@ export default class AuditTrailController {
           log.id,
           dateStr,
           timeStr,
-          log.username || (log.user ? log.user.name : 'System'),
+          log.username || (log.user ? log.user.fullName : ''),
           log.action,
           log.entityType,
           log.entityId,
-          log.description.replace(/,/g, ';'),  // Replace commas to avoid CSV issues
+          log.description!.replace(/,/g, ';'),  // Replace commas to avoid CSV issues
           log.ipAddress || 'N/A',
           (log.userAgent || 'N/A').replace(/,/g, ';')  // Replace commas to avoid CSV issues
         ].join(',')

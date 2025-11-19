@@ -71,7 +71,7 @@ export default class EmailTemplateService {
     const emailTemplate = await EmailTemplate.create({
       name: data.name,
       templateCategoryId: data.templateCategoryId,
-      autoSend: data.autoSend || 'Manual',
+      autoSend: 'Manual',
       attachment: data.attachment,
       emailAccountId: data.emailAccountId,
       scheduleDate: data.scheduleDate,
@@ -102,7 +102,6 @@ export default class EmailTemplateService {
     data: {
       name?: string
       templateCategoryId?: number
-      autoSend?: string
       attachment?: string
       emailAccountId?: number
       scheduleDate?: DateTime
@@ -130,12 +129,6 @@ export default class EmailTemplateService {
     })
 
     await emailTemplate.save()
-    await emailTemplate.load('hotel')
-    await emailTemplate.load('templateCategory')
-    await emailTemplate.load('emailAccount')
-    await emailTemplate.load('creator')
-    await emailTemplate.load('modifier')
-
     return emailTemplate
   }
 

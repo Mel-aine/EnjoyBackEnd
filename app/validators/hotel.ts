@@ -15,6 +15,7 @@ export const createHotelValidator = vine.compile(
     postalCode: vine.string().trim().maxLength(20).optional(),
     phone: vine.string().trim().maxLength(20).optional(),
     email: vine.string().trim().email().maxLength(255).optional(),
+    fax: vine.string().trim().email().maxLength(255).optional(),
     website: vine.string().trim().url().maxLength(255).optional(),
     starRating: vine.number().min(1).max(5).optional(),
     checkInTime: vine.string().trim().maxLength(10).optional(),
@@ -189,9 +190,9 @@ export const createHotelValidator = vine.compile(
     registrationSettings: vine.object({}).optional(),
     housekeepingStatusColors: vine.object({}).optional(),
     adminFirstName: vine.string().maxLength(255).optional(),
-    adminLastName:vine.string().maxLength(255),
-    adminEmail:vine.string().maxLength(255),
-    adminPhoneNumber:vine.string().maxLength(255),
+    adminLastName: vine.string().maxLength(255),
+    adminEmail: vine.string().maxLength(255),
+    adminPhoneNumber: vine.string().maxLength(255),
   })
 )
 
