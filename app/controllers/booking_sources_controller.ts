@@ -1,5 +1,4 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import BookingSource from '#models/booking_source'
 import BookingSourceService from '#services/booking_source_service'
 import { createBookingSourceValidator, updateBookingSourceValidator } from '#validators/booking_source'
 

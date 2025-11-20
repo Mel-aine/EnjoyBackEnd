@@ -150,11 +150,11 @@ export default class Employee extends BaseModel {
 
   // Computed properties
   get displayName() {
-    return `${this.user?.first_name} ${this.user?.last_name} (${this.employee_number})`
+    return `${this.user?.firstName} ${this.user?.lastName} (${this.employee_number})`
   }
 
   get fullName() {
-    return `${this.user?.first_name} ${this.user?.last_name}`
+    return `${this.user?.firstName} ${this.user?.lastName}`
   }
 
   get isActive() {

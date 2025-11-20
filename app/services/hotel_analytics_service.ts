@@ -189,7 +189,7 @@ export class HotelAnalyticsService {
           .preload('room', (spQuery: any) => {
             spQuery
               .select(['id', 'room_number', 'room_type_id'])
-              .preload('roomType', (rtQuery) => {
+              .preload('roomType', (rtQuery:any) => {
                 rtQuery.select(['id', 'room_type_name'])
               })
           })

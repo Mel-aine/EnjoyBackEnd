@@ -132,7 +132,8 @@ export default class FoliosController {
   /**
    * Create a new folio
    */
-  async store({ request, response, auth }: HttpContext) {
+  async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx;
     const payload = await request.validateUsing(createFolioServiceValidator)
 
     try {
@@ -149,7 +150,7 @@ export default class FoliosController {
         hotelId: folio.hotelId,
         description: `Folio "${folio.folioName}" created successfully`,
         changes: LoggerService.extractChanges({}, folio.toJSON()),
-        ctx: { request, response, auth }
+        ctx:ctx
       })
 
       return response.created({
@@ -190,7 +191,8 @@ export default class FoliosController {
   /**
    * Update a folio
    */
-  async update({ params, request, response, auth }: HttpContext) {
+  async update(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx;
     try {
       const folio = await Folio.findOrFail(params.id)
       const oldData = folio.toJSON()
@@ -215,7 +217,7 @@ export default class FoliosController {
           hotelId: folio.hotelId,
           description: `Folio "${folio.folioName}" updated successfully`,
           changes: changes,
-          ctx: { request, response, auth }
+          ctx: ctx
         })
       }
 
@@ -234,7 +236,8 @@ export default class FoliosController {
   /**
    * Delete a folio
    */
-  async destroy({ params, response, auth }: HttpContext) {
+  async destroy(ctx: HttpContext) {
+   const  { params,  response, auth } = ctx;
     try {
       const folio = await Folio.findOrFail(params.id)
 
@@ -256,7 +259,7 @@ export default class FoliosController {
         hotelId: folio.hotelId,
         description: `Folio "${folio.folioName}" deleted successfully`,
         changes: {},
-        ctx: { request: null, response, auth }
+        ctx: ctx
       })
 
       return response.ok({

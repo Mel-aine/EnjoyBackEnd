@@ -61,7 +61,11 @@ class GuestSummaryService {
       guest.lastReservationId = null
       guest.firstArrivalDate = null
       guest.lastArrivalDate = null
-      await guest.useTransaction(trx).save()
+      if (trx)
+        await guest.useTransaction(trx).save()
+      else {
+        await guest.save()
+      }
       return
     }
 
@@ -84,7 +88,11 @@ class GuestSummaryService {
       guest.lastReservationId = null
       guest.firstArrivalDate = null
       guest.lastArrivalDate = null
-      await guest.useTransaction(trx).save()
+       if (trx)
+        await guest.useTransaction(trx).save()
+      else {
+        await guest.save()
+      }
       return
     }
 
@@ -100,7 +108,11 @@ class GuestSummaryService {
     guest.firstArrivalDate = first.arrival
     guest.lastArrivalDate = last.arrival
 
-    await guest.useTransaction(trx).save()
+      if (trx)
+        await guest.useTransaction(trx).save()
+      else {
+        await guest.save()
+      }
   }
 }
 

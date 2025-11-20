@@ -13,7 +13,7 @@ interface LogData {
   entityId: number | string
   description?: string
   changes?: ChangeLog
-  ctx: HttpContext
+  ctx?: HttpContext
   meta?:Record<string,any>
   hotelId?:number
 
@@ -48,7 +48,7 @@ export default class LoggerService {
 
       await ActivityLog.create({
         userId: data.actorId,
-        username: actor?.firstName || 'System',
+        username: actor?.fullName || '',
         action: data.action,
         entityType: data.entityType,
         entityId,
@@ -57,8 +57,8 @@ export default class LoggerService {
         meta: data.meta ?? null,
         hotelId: data.hotelId ?? null,
         createdBy: data.actorId,
-        ipAddress: data.ctx.request.ip(),
-        userAgent: data.ctx.request.header('user-agent'),
+        ipAddress: data.ctx?.request.ip(),
+        userAgent: data.ctx?.request.header('user-agent'),
       })
     } catch (error) {
       console.error('🔴 Failed to create activity log:', error)
@@ -81,7 +81,7 @@ export default class LoggerService {
         const actor = actorMap.get(data.actorId)
         return {
           userId: data.actorId,
-          username: actor?.firstName || 'System',
+          username: actor?.fullName || '',
           action: data.action,
           entityType: data.entityType,
           entityId: Number(data.entityId),
@@ -90,8 +90,8 @@ export default class LoggerService {
           meta: data.meta ?? null,
           hotelId: data.hotelId ?? null,
           createdBy: data.actorId,
-          ipAddress: data.ctx.request.ip(),
-          userAgent: data.ctx.request.header('user-agent'),
+          ipAddress: data.ctx?.request.ip(),
+          userAgent: data.ctx?.request.header('user-agent'),
         }
       })
 

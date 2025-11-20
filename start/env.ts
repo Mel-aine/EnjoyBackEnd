@@ -54,6 +54,19 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Variables for configuring Mailjet integration
+  |----------------------------------------------------------
+  */
+  MAILJET_API_KEY: Env.schema.string.optional(),
+  MAILJET_API_SECRET: Env.schema.string.optional(),
+  MAILJET_VERIFICATION_TEMPLATE_ID: Env.schema.number.optional(),
+  MAILJET_CONTACT_LIST_ID: Env.schema.number.optional(),
+  MAILJET_SENDER_EMAIL: Env.schema.string.optional(),
+  MAILJET_API_BASE_URL_V3: Env.schema.string.optional(),
+  MAILJET_API_BASE_URL_V31: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring the cloudinary package
   |----------------------------------------------------------
   */

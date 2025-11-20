@@ -4,11 +4,9 @@ import Guest from '#models/guest'
 import FolioService, { CreateFolioData } from '#services/folio_service'
 import { FolioType, TransactionCategory, TransactionStatus, TransactionType } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
-import logger from '@adonisjs/core/services/logger'
 import FolioTransaction from '#models/folio_transaction'
 import { DateTime } from 'luxon'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
-import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 
 export interface ReservationFolioData {
   reservationId: number
@@ -425,13 +423,13 @@ export default class ReservationFolioService {
 
         // Apply each tax rate
         for (const taxRate of room.taxRates) {
-          const taxAmount = totalRoomAmount * (taxRate.rate / 100)
+          const taxAmount = totalRoomAmount * (taxRate.amount / 100)
 
           await FolioService.postTransaction({
             folioId: primaryFolio.id,
             transactionType: TransactionType.CHARGE,
             category: TransactionCategory.TAX,
-            description: `${taxRate.name} - Room ${room.roomNumber}`,
+            description: `${taxRate.taxName} - Room ${room.roomNumber}`,
             amount: taxAmount,
             quantity: 1,
             unitPrice: taxAmount,
@@ -439,7 +437,7 @@ export default class ReservationFolioService {
             revenueCenterId: 1,
             glAccountCode: '2200', // Tax payable account
             reference: `TAX-${reservation.confirmationNumber}`,
-            notes: `Auto-posted ${taxRate.name} for reservation ${reservation.confirmationNumber}`,
+            notes: `Auto-posted ${taxRate.taxName} for reservation ${reservation.confirmationNumber}`,
             postedBy,
           })
         }

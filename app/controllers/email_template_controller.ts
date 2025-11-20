@@ -83,7 +83,7 @@ export default class EmailTemplateController {
       const emailTemplate = await this.emailTemplateService.create({
         ...payload,
         scheduleDate,
-        createdBy: auth.user?.id || null,
+        createdBy: auth.user?.id!,
       })
 
       return response.created({
@@ -122,7 +122,7 @@ export default class EmailTemplateController {
         {
           ...payload,
           scheduleDate,
-          lastModifiedBy: auth.user?.id || null,
+          lastModifiedBy: auth.user?.id!,
         },
         hotelId
       )
@@ -153,7 +153,7 @@ export default class EmailTemplateController {
 
       const emailTemplate = await this.emailTemplateService.delete(
         id,
-        auth.user?.id || null,
+        auth.user?.id!,
         hotelId
       )
 
@@ -183,7 +183,7 @@ export default class EmailTemplateController {
 
       const emailTemplate = await this.emailTemplateService.restore(
         id,
-        auth.user?.id || null,
+        auth.user?.id!,
         hotelId
       )
 

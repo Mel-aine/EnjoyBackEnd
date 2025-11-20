@@ -63,18 +63,22 @@ export default class EmailTemplateService {
     scheduleDate?: DateTime
     subject: string
     messageBody: string
+    cc?: string[] | null
+    bcc?: string[] | null
     hotelId: number
     createdBy?: number
   }) {
     const emailTemplate = await EmailTemplate.create({
       name: data.name,
       templateCategoryId: data.templateCategoryId,
-      autoSend: data.autoSend || 'Manual',
+      autoSend: 'Manual',
       attachment: data.attachment,
       emailAccountId: data.emailAccountId,
       scheduleDate: data.scheduleDate,
       subject: data.subject,
       messageBody: data.messageBody,
+      cc: data.cc ?? null,
+      bcc: data.bcc ?? null,
       hotelId: data.hotelId,
       createdBy: data.createdBy,
       lastModifiedBy: data.createdBy,
@@ -98,12 +102,13 @@ export default class EmailTemplateService {
     data: {
       name?: string
       templateCategoryId?: number
-      autoSend?: string
       attachment?: string
       emailAccountId?: number
       scheduleDate?: DateTime
       subject?: string
       messageBody?: string
+      cc?: string[] | null
+      bcc?: string[] | null
       hotelId?: number
       lastModifiedBy?: number
     },
@@ -124,12 +129,6 @@ export default class EmailTemplateService {
     })
 
     await emailTemplate.save()
-    await emailTemplate.load('hotel')
-    await emailTemplate.load('templateCategory')
-    await emailTemplate.load('emailAccount')
-    await emailTemplate.load('creator')
-    await emailTemplate.load('modifier')
-
     return emailTemplate
   }
 

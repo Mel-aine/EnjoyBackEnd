@@ -228,14 +228,14 @@ export default class PosController {
         transactionCode: transactionCode,
         transactionNumber: transactionNumber,
         table: table,
-        transaction_time: DateTime.now().toFormat('HH:mm:ss'),
+        transactionTime: DateTime.now().toFormat('HH:mm:ss'),
         category: TransactionCategory.POSTING, // Fixed category as specified
         particular: 'Room Posting',
         // type: 'Room Posting',
         transactionType: TransactionType.ROOM_POSTING, // Fixed type as specified
         transactionDate: transactionDate ? DateTime.fromISO(transactionDate) : DateTime.now(),
         //  createdBy: userName,
-        posting_date: DateTime.now().toFormat('yyyy-MM-dd'),
+        postingDate: DateTime.now(),
         itemSummary: itemSummaryData,
         status: TransactionStatus.COMPLETED
       })
@@ -246,13 +246,12 @@ export default class PosController {
         data: {
           id: transaction.id,
           folioId: transaction.folioId,
-          reservationRoomId: transaction.reservationRoomId,
-          roomId: transaction.roomId,
+          reservationRoomId: transaction.folio?.reservationRoomId,
           hotelId: transaction.hotelId,
           amount: transaction.amount,
           description: transaction.description,
           category: transaction.category,
-          type: transaction.type,
+          type: transaction.transactionType,
           transactionDate: transaction.transactionDate,
           createdBy: transaction.createdBy,
           status: transaction.status,

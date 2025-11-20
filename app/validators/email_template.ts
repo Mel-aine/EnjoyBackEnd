@@ -19,6 +19,8 @@ export const createEmailTemplateValidator = vine.compile(
     scheduleDate: vine.date().optional(),
     subject: vine.string().trim().minLength(1).maxLength(255),
     messageBody: vine.string().trim().minLength(1),
+    cc: vine.array(vine.string().email()).optional(),
+    bcc: vine.array(vine.string().email()).optional(),
     hotelId: vine.number().positive(),
   })
 )
@@ -42,6 +44,8 @@ export const updateEmailTemplateValidator = vine.compile(
     scheduleDate: vine.date().optional(),
     subject: vine.string().trim().minLength(1).maxLength(255).optional(),
     messageBody: vine.string().trim().minLength(1).optional(),
+    cc: vine.array(vine.string().email()).optional(),
+    bcc: vine.array(vine.string().email()).optional(),
     hotelId: vine.number().positive().optional(),
   })
 )

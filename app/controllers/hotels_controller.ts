@@ -16,12 +16,16 @@ import ReservationType from '#models/reservation_type'
 import BookingSource from '#models/booking_source'
 import IdentityType from '#models/identity_type'
 import PaymentMethod from '#models/payment_method'
+import TemplateCategory from '#models/template_category'
+import EmailTemplate from '#models/email_template'
+import EmailAccount from '#models/email_account'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import Discount from '../models/discount.js'
-import TaxRate from '#models/tax_rate'
+import { DEFAULT_TEMPLATE_CATEGORIES, DEFAULT_EMAIL_TEMPLATES } from '../data/default_email_templates.js'
+import { PaymentMethodType } from '../enums.js'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -90,10 +94,7 @@ export default class HotelsController {
     const trx = await Database.beginGlobalTransaction()
 
     try {
-      logger.info(request.body())
-
       const payload = await request.validateUsing(createHotelValidator)
-
       logger.info(payload)
       const hotel = await Hotel.create({
         hotelName: payload.name,
@@ -209,6 +210,28 @@ export default class HotelsController {
           error: paymentMethodError.message
         })
         throw paymentMethodError // This will trigger rollback
+      }
+
+      // Create default template categories for the new hotel
+      try {
+        await this.createDefaultTemplateCategories(hotel.id, createdByUserId, trx)
+      } catch (templateCategoryError) {
+        logger.error('Failed to create default template categories for hotel', {
+          hotelId: hotel.id,
+          error: templateCategoryError.message
+        })
+        throw templateCategoryError // This will trigger rollback
+      }
+
+      // Create default email templates for the new hotel
+      try {
+        await this.createDefaultEmailTemplates(hotel.id, createdByUserId, trx)
+      } catch (templateError) {
+        logger.error('Failed to create default email templates for hotel', {
+          hotelId: hotel.id,
+          error: templateError.message
+        })
+        throw templateError // This will trigger rollback
       }
 
       // Commit the transaction if everything succeeds
@@ -940,6 +963,12 @@ export default class HotelsController {
 
         const permissionService = new PermissionService()
         await permissionService.assignAllPermissionsToAdminForService(newHotel.id, user.id)
+
+        // Seed default template categories for this hotel as well
+        await this.createDefaultTemplateCategories(newHotel.id, user.id)
+
+        // Seed default email templates for this hotel as well
+        await this.createDefaultEmailTemplates(newHotel.id, user.id)
       }
 
       await LoggerService.log({
@@ -1227,7 +1256,7 @@ export default class HotelsController {
       {
         methodName: 'Master card',
         methodCode: 'MASTERCARD',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'MC',
         type: 'CASH',
         cardProcessing: false
@@ -1235,7 +1264,7 @@ export default class HotelsController {
       {
         methodName: 'Orange Money',
         methodCode: 'ORANGE_MONEY',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'OM',
         type: 'CASH',
         cardProcessing: false
@@ -1243,7 +1272,7 @@ export default class HotelsController {
       {
         methodName: 'Especes',
         methodCode: 'CASH',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'CASH',
         type: 'CASH',
         cardProcessing: false,
@@ -1252,7 +1281,7 @@ export default class HotelsController {
       {
         methodName: 'VISA card',
         methodCode: 'VISA',
-        methodType: 'cash',
+        methodType:PaymentMethodType.CASH,
         shortCode: 'VISA',
         type: 'CASH',
         cardProcessing: false
@@ -1260,7 +1289,7 @@ export default class HotelsController {
       {
         methodName: 'VIREMENT BANCAIRE',
         methodCode: 'BANK_TRANSFER',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'WIRE',
         type: 'CASH',
         cardProcessing: false
@@ -1268,7 +1297,7 @@ export default class HotelsController {
       {
         methodName: 'MTN Mobile Money',
         methodCode: 'MTN_MOMO',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'MTN',
         type: 'CASH',
         cardProcessing: false
@@ -1276,7 +1305,7 @@ export default class HotelsController {
       {
         methodName: 'Chèque',
         methodCode: 'CHECK',
-        methodType: 'cash',
+        methodType: PaymentMethodType.CASH,
         shortCode: 'CHK',
         type: 'CASH',
         cardProcessing: false
@@ -1297,7 +1326,6 @@ export default class HotelsController {
         type: method.type,
         cardProcessing: method.cardProcessing,
         surchargeEnabled: false,
-        receiptNoSetting: 'auto_general'
       }
       if (trx) {
         await PaymentMethod.create(defaultPaymentMethod, { client: trx })
@@ -1307,6 +1335,112 @@ export default class HotelsController {
     }
 
 
+  }
+
+  /**
+   * Create default template categories for a newly created hotel
+   */
+  private async createDefaultTemplateCategories(hotelId: number, userId?: number, trx?: any) {
+    const categories = DEFAULT_TEMPLATE_CATEGORIES
+    const clientOpt = trx ? { client: trx } : undefined
+
+    // Fetch all existing categories in one query
+    const existing = await TemplateCategory
+      .query(clientOpt)
+      .where('hotel_id', hotelId)
+      .where('is_deleted', false)
+      .whereIn('category', categories)
+      .select('category')
+
+    const existingSet = new Set(existing.map((row) => row.category))
+
+    // Build payload for categories that don't exist yet
+    const payload = categories
+      .filter((category) => !existingSet.has(category))
+      .map((category) => ({
+        hotelId,
+        category,
+        createdByUserId: userId ?? null,
+        updatedByUserId: userId ?? null,
+        isDeleted: false,
+        isDeleable: false,
+      }))
+
+    if (payload.length) {
+      await TemplateCategory.createMany(payload, clientOpt)
+    }
+  }
+
+  /**
+   * Create default email templates bound to categories for a newly created hotel
+   */
+  private async createDefaultEmailTemplates(hotelId: number, userId?: number, trx?: any) {
+    const clientOpt = trx ? { client: trx } : undefined
+
+    // Resolve email account: default if present, else first available
+    let emailAccount = await EmailAccount
+      .query(clientOpt)
+      .where('hotel_id', hotelId)
+      .where('is_default', true)
+      .first()
+
+    if (!emailAccount) {
+      emailAccount = await EmailAccount.query(clientOpt)
+        .where('hotel_id', hotelId)
+        .first()
+      if (!emailAccount) {
+        // No email account for this hotel; skip template seeding
+        return
+      }
+    }
+
+    const defaultTemplates = DEFAULT_EMAIL_TEMPLATES
+
+    // Fetch all relevant categories in one query and map by name
+    const categoryNames = defaultTemplates.map((t) => t.category)
+    const categoryRows = await TemplateCategory
+      .query(clientOpt)
+      .where('hotel_id', hotelId)
+      .where('is_deleted', false)
+      .whereIn('category', categoryNames)
+      .select('id', 'category')
+
+    const categoryMap = new Map(categoryRows.map((r) => [r.category, r.id]))
+
+    // Fetch existing template names to avoid duplicates
+    const templateNames = defaultTemplates.map((t) => t.name)
+    const existingTemplates = await EmailTemplate
+      .query(clientOpt)
+      .where('hotel_id', hotelId)
+      .whereIn('name', templateNames)
+      .select('name')
+
+    const existingSet = new Set(existingTemplates.map((t) => t.name))
+
+    // Build payload for missing templates and insert in bulk
+    const payload = defaultTemplates
+      .filter((tpl) => categoryMap.has(tpl.category) && !existingSet.has(tpl.name))
+      .map((tpl) => ({
+        name: tpl.name,
+        templateCategoryId: categoryMap.get(tpl.category)!,
+        autoSend: tpl.autoSend ?? 'Manual',
+        attachment: null,
+        emailAccountId: emailAccount!.id,
+        scheduleDate: null,
+        subject: tpl.subject,
+        messageBody: tpl.bodyHtml,
+        hotelId,
+        isDeleted: false,
+        isDeleable: false,
+        createdBy: userId ?? null,
+        lastModifiedBy: userId ?? null,
+        cc: null,
+        bcc: null,
+      }))
+
+    if (payload.length) {
+      await EmailTemplate.createMany(payload, clientOpt)
+    }
   }
 
   /**

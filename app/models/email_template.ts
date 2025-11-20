@@ -12,7 +12,7 @@ export default class EmailTemplate extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column({ columnName: 'template_name' })
+  @column({ columnName: 'name' })
   declare name: string
 
   @column()
@@ -33,7 +33,7 @@ export default class EmailTemplate extends BaseModel {
   @column()
   declare subject: string
 
-  @column({ columnName: 'body_html' })
+  @column({ columnName: 'message_body' })
   declare messageBody: string
 
   @column()
@@ -41,6 +41,15 @@ export default class EmailTemplate extends BaseModel {
 
   @column()
   declare isDeleted: boolean | null
+
+  @column()
+  declare isDeleable: boolean | null
+
+  @column()
+  declare cc: string[] | null
+
+  @column()
+  declare bcc: string[] | null
 
   @column()
   declare createdBy: number | null
