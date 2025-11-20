@@ -14,25 +14,38 @@ export default class EmailTemplateController {
   /**
    * Get all email templates for a hotel
    */
-  async list({ params, request, response, auth }: HttpContext) {
+  async list({ params, request, response }: HttpContext) {
     try {
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 10)
       const hotelId = params.hotelId
+
       if (!hotelId) {
         return response.badRequest({
           success: false,
           message: 'hotelId is required in route params',
         })
       }
-      const includeDeleted = request.input('includeDeleted', false)
 
-      const emailTemplates = await this.emailTemplateService.list(Number(hotelId), includeDeleted)
+      const includeDeleted = params.includeDeleted
+
+
+      const result = await this.emailTemplateService.list(
+        Number(hotelId),
+        includeDeleted,
+        Number(page),
+        Number(limit)
+      )
+
 
       return response.ok({
         success: true,
         message: 'Email templates retrieved successfully',
-        data: emailTemplates,
+        data: result.data,
+        meta: result.meta,
       })
     } catch (error) {
+      console.error('Error in controller list:', error)
       return response.status(error.status || 500).json({
         success: false,
         message: error.message || 'Failed to retrieve email templates',
@@ -71,34 +84,47 @@ export default class EmailTemplateController {
    * Create a new email template
    */
   async create({ request, response, auth }: HttpContext) {
-    try {
-      const payload = await request.validateUsing(createEmailTemplateValidator)
-      
-      // Parse schedule date if provided
-      let scheduleDate: DateTime | undefined
-      if (payload.scheduleDate) {
-        scheduleDate = DateTime.fromJSDate(payload.scheduleDate)
-      }
+  try {
+    // Validation du payload
+    const payload = await request.validateUsing(createEmailTemplateValidator)
 
-      const emailTemplate = await this.emailTemplateService.create({
-        ...payload,
-        scheduleDate,
-        createdBy: auth.user?.id!,
-      })
+    // Parse schedule date if provided
+    const cc = Array.isArray(payload.cc) ? payload.cc : []
+    const bcc = Array.isArray(payload.bcc) ? payload.bcc : []
 
-      return response.created({
-        success: true,
-        message: 'Email template created successfully',
-        data: emailTemplate,
-      })
-    } catch (error) {
-      return response.status(error.status || 500).json({
-        success: false,
-        message: error.message || 'Failed to create email template',
-        error: error.code || 'INTERNAL_SERVER_ERROR',
-      })
+    let scheduleDate: DateTime | undefined
+    if (payload.scheduleDate) {
+      scheduleDate = DateTime.fromJSDate(payload.scheduleDate)
+    } else {
+      console.log('No scheduleDate provided');
     }
+
+    // Création du template email
+    const emailTemplate = await this.emailTemplateService.create({
+      ...payload,
+      scheduleDate,
+      cc,
+      bcc,
+      createdBy: auth.user?.id,
+    })
+
+
+    return response.created({
+      success: true,
+      message: 'Email template created successfully',
+      data: emailTemplate,
+    })
+  } catch (error) {
+    console.error('Error creating email template:', error)
+
+    return response.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Failed to create email template',
+      error: error.code || 'INTERNAL_SERVER_ERROR',
+    })
   }
+}
+
 
   /**
    * Update an existing email template
@@ -122,7 +148,7 @@ export default class EmailTemplateController {
         {
           ...payload,
           scheduleDate,
-          lastModifiedBy: auth.user?.id!,
+          lastModifiedBy: auth.user?.id ,
         },
         hotelId
       )
