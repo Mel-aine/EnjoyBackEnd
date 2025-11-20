@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import SupportTicket from '#models/support_ticket'
 import LoggerService from '#services/logger_service'
@@ -237,6 +238,250 @@ public async create({ request, response, auth }: HttpContext) {
         message: 'Échec de récupération des tickets',
         error: (error as any).message,
       })
+    }
+  }
+
+  /**
+   * Statistiques du tableau de bord
+   */
+  public async dashboardStats({ request, response }: HttpContext) {
+    try {
+      const hotelId = request.input('hotelId')
+
+      const now = DateTime.now()
+      const startToday = now.startOf('day').toJSDate()
+      const endToday = now.endOf('day').toJSDate()
+      const startYesterday = now.minus({ days: 1 }).startOf('day').toJSDate()
+      const endYesterday = now.minus({ days: 1 }).endOf('day').toJSDate()
+
+      const baseOpenQuery = SupportTicket.query().whereIn('status', ['open', 'in_progress'])
+      if (hotelId) baseOpenQuery.where('hotel_id', Number(hotelId))
+      const openCountResult = await baseOpenQuery.count('* as total')
+      const openCount = Number((openCountResult[0] as any).$extras.total || 0)
+
+      const openCreatedToday = await SupportTicket.query()
+        .whereIn('status', ['open', 'in_progress'])
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .whereBetween('created_at', [startToday, endToday])
+        .count('* as total')
+      const openCreatedYesterday = await SupportTicket.query()
+        .whereIn('status', ['open', 'in_progress'])
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .whereBetween('created_at', [startYesterday, endYesterday])
+        .count('* as total')
+      const openToday = Number((openCreatedToday[0] as any).$extras.total || 0)
+      const openYesterday = Number((openCreatedYesterday[0] as any).$extras.total || 0)
+      const openTrendPct = ((openToday - openYesterday) / Math.max(openYesterday, 1)) * 100
+
+      const resolvedTodayTickets = await SupportTicket.query()
+        .whereIn('status', ['resolved', 'closed'])
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .whereBetween('updated_at', [startToday, endToday])
+      const resolvedYesterdayTickets = await SupportTicket.query()
+        .whereIn('status', ['resolved', 'closed'])
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .whereBetween('updated_at', [startYesterday, endYesterday])
+
+      const avgMinutes = (tickets: SupportTicket[]) => {
+        if (!tickets.length) return 0
+        const totalMs = tickets.reduce((sum, t) => {
+          const created = (t as any).createdAt?.toJSDate?.() ?? new Date((t as any).created_at)
+          const updated = (t as any).updatedAt?.toJSDate?.() ?? new Date((t as any).updated_at)
+          return sum + Math.max(updated.getTime() - created.getTime(), 0)
+        }, 0)
+        return Math.round(totalMs / tickets.length / 60000)
+      }
+
+      const avgResolutionTimeMinutes = avgMinutes(resolvedTodayTickets)
+      const avgResolutionYesterdayMinutes = avgMinutes(resolvedYesterdayTickets)
+      const avgResolutionTrendPct = ((avgResolutionTimeMinutes - avgResolutionYesterdayMinutes) / Math.max(avgResolutionYesterdayMinutes, 1)) * 100
+
+      const slaHoursBySeverity: Record<'critical' | 'high' | 'low', number> = {
+        critical: 12,
+        high: 24,
+        low: 72,
+      }
+
+      const openTicketsAll = await SupportTicket.query()
+        .whereIn('status', ['open', 'in_progress'])
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+      const slaOverdueCount = openTicketsAll.filter((t) => {
+        const created = (t as any).createdAt?.toJSDate?.() ?? new Date((t as any).created_at)
+        const ageHours = (Date.now() - created.getTime()) / 3600000
+        const sev = (t as any).severity as 'critical' | 'high' | 'low'
+        const threshold = slaHoursBySeverity[sev] ?? 48
+        return ageHours > threshold
+      }).length
+
+      const openTodayTickets = openTicketsAll.filter((t) => {
+        const created = (t as any).createdAt?.toJSDate?.() ?? new Date((t as any).created_at)
+        return created >= startToday && created <= endToday
+      })
+      const openYesterdayTickets = openTicketsAll.filter((t) => {
+        const created = (t as any).createdAt?.toJSDate?.() ?? new Date((t as any).created_at)
+        return created >= startYesterday && created <= endYesterday
+      })
+      const slaOverdueToday = openTodayTickets.filter((t) => {
+        const created = (t as any).createdAt?.toJSDate?.() ?? new Date((t as any).created_at)
+        const ageHours = (Date.now() - created.getTime()) / 3600000
+        const sev = (t as any).severity as 'critical' | 'high' | 'low'
+        const threshold = slaHoursBySeverity[sev] ?? 48
+        return ageHours > threshold
+      }).length
+      const slaOverdueYesterday = openYesterdayTickets.filter((t) => {
+        const created = (t as any).createdAt?.toJSDate?.() ?? new Date((t as any).created_at)
+        const ageHours = (now.minus({ days: 1 }).endOf('day').toJSDate().getTime() - created.getTime()) / 3600000
+        const sev = (t as any).severity as 'critical' | 'high' | 'low'
+        const threshold = slaHoursBySeverity[sev] ?? 48
+        return ageHours > threshold
+      }).length
+      const slaOverdueTrendPct = ((slaOverdueToday - slaOverdueYesterday) / Math.max(slaOverdueYesterday, 1)) * 100
+
+      return response.ok({
+        openCount,
+        openTrendPct,
+        avgResolutionTimeMinutes,
+        avgResolutionTrendPct,
+        slaOverdueCount,
+        slaOverdueTrendPct,
+      })
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to compute stats', error: (error as any).message })
+    }
+  }
+
+  /** Mes tickets ouverts */
+  public async myOpen({ request, response, auth }: HttpContext) {
+    try {
+      const page = Number(request.input('page', 1))
+      const perPage = Number(request.input('perPage', 10))
+      const hotelId = request.input('hotelId')
+      const query = SupportTicket.query()
+        .whereIn('status', ['open', 'in_progress'])
+        .where('created_by', auth.user?.id || 0)
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .orderBy('created_at', 'desc')
+      const tickets = await query.paginate(page, perPage)
+      return response.ok(tickets)
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to load my open tickets', error: (error as any).message })
+    }
+  }
+
+  /** En attente de ma réponse (approximation: tickets ouverts créés par moi) */
+  public async pendingResponse({ request, response, auth }: HttpContext) {
+    try {
+      const page = Number(request.input('page', 1))
+      const perPage = Number(request.input('perPage', 10))
+      const hotelId = request.input('hotelId')
+      const tickets = await SupportTicket.query()
+        .where('status', 'open')
+        .where('created_by', auth.user?.id || 0)
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .orderBy('created_at', 'desc')
+        .paginate(page, perPage)
+      return response.ok(tickets)
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to load pending response tickets', error: (error as any).message })
+    }
+  }
+
+  /** Tickets urgents (severity: critical) */
+  public async urgent({ request, response }: HttpContext) {
+    try {
+      const page = Number(request.input('page', 1))
+      const perPage = Number(request.input('perPage', 10))
+      const hotelId = request.input('hotelId')
+      const tickets = await SupportTicket.query()
+        .where('severity', 'critical')
+        .whereIn('status', ['open', 'in_progress'])
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .orderBy('created_at', 'desc')
+        .paginate(page, perPage)
+      return response.ok(tickets)
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to load urgent tickets', error: (error as any).message })
+    }
+  }
+
+  /** Répartition par statut */
+  public async distribution({ request, response }: HttpContext) {
+    try {
+      const hotelId = request.input('hotelId')
+      const statuses: Array<'open' | 'in_progress' | 'resolved' | 'closed'> = ['open', 'in_progress', 'resolved', 'closed']
+      const counts: Record<string, number> = {}
+      let total = 0
+      for (const s of statuses) {
+        const res = await SupportTicket.query()
+          .where('status', s)
+          .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+          .count('* as total')
+        const v = Number((res[0] as any).$extras.total || 0)
+        counts[s] = v
+        total += v
+      }
+      const breakdown = statuses.map((s) => ({ status: s, count: counts[s] || 0, pct: total ? Math.round(((counts[s] || 0) / total) * 100) : 0 }))
+      return response.ok({ total, breakdown })
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to compute distribution', error: (error as any).message })
+    }
+  }
+
+  /** Volume hebdomadaire */
+  public async weeklyVolume({ request, response }: HttpContext) {
+    try {
+      const hotelId = request.input('hotelId')
+      const from = request.input('from')
+      const to = request.input('to')
+      const end = to ? DateTime.fromISO(to).endOf('day') : DateTime.now().endOf('day')
+      const start = from ? DateTime.fromISO(from).startOf('day') : end.minus({ days: 6 }).startOf('day')
+
+      const tickets = await SupportTicket.query()
+        .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
+        .whereBetween('created_at', [start.toJSDate(), end.toJSDate()])
+        .orderBy('created_at', 'asc')
+
+      const days: Record<string, number> = {}
+      for (let i = 0; i < 7; i++) {
+        const day = start.plus({ days: i }).toISODate()!
+        days[day] = 0
+      }
+      tickets.forEach((t) => {
+        const d = ((t as any).createdAt?.toISODate?.() ?? DateTime.fromJSDate(new Date((t as any).created_at)).toISODate()) as string
+        if (d in days) days[d]++
+      })
+      const result = Object.entries(days).map(([day, count]) => ({ day, count }))
+      return response.ok(result)
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to compute weekly volume', error: (error as any).message })
+    }
+  }
+
+  /** Recherche globale */
+  public async search({ request, response }: HttpContext) {
+    try {
+      const page = Number(request.input('page', 1))
+      const perPage = Number(request.input('perPage', 10))
+      const q = request.input('q')
+      const status = request.input('status')
+      const severity = request.input('severity')
+      const hotelId = request.input('hotelId')
+
+      const query = SupportTicket.query()
+      if (status) query.where('status', status)
+      if (severity) query.where('severity', severity)
+      if (hotelId) query.where('hotel_id', Number(hotelId))
+      if (q) {
+        query.where((builder) => {
+          builder
+            .whereILike('title', `%${q}%`)
+            .orWhereILike('ticket_code', `%${q}%`)
+        })
+      }
+      const result = await query.orderBy('created_at', 'desc').paginate(page, perPage)
+      return response.ok(result)
+    } catch (error) {
+      return response.badRequest({ message: 'Failed to search tickets', error: (error as any).message })
     }
   }
 

@@ -1554,9 +1554,9 @@ router
         // Basic CRUD operations for room blocks
         router.get('/', roomBlocksController.index.bind(roomBlocksController)) // Get all room blocks with filtering
         router.get('/:hotelId', roomBlocksController.getByHotelId.bind(roomBlocksController)) // Get all room blocks with filtering
-        router.post('/', roomBlocksController.store.bind(roomBlocksController)) // Create a new room block
-        router.put('/:id', roomBlocksController.update.bind(roomBlocksController)) // Update room block information
-        router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
+    router.post('/', roomBlocksController.store.bind(roomBlocksController)) // Create a new room block
+    router.put('/:id', roomBlocksController.update.bind(roomBlocksController)) // Update room block information
+    router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
       })
       .prefix('room-blocks')
 
@@ -1565,6 +1565,14 @@ router
     router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
     router.put('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'update'])
     router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
+    // Dashboard routes for support tickets
+    router.get('/support/tickets/dashboard/stats', [() => import('#controllers/support_tickets_controller'), 'dashboardStats'])
+    router.get('/support/tickets/me/open', [() => import('#controllers/support_tickets_controller'), 'myOpen'])
+    router.get('/support/tickets/me/pending-response', [() => import('#controllers/support_tickets_controller'), 'pendingResponse'])
+    router.get('/support/tickets/urgent', [() => import('#controllers/support_tickets_controller'), 'urgent'])
+    router.get('/support/tickets/distribution', [() => import('#controllers/support_tickets_controller'), 'distribution'])
+    router.get('/support/tickets/weekly-volume', [() => import('#controllers/support_tickets_controller'), 'weeklyVolume'])
+    router.get('/support/tickets/search', [() => import('#controllers/support_tickets_controller'), 'search'])
 
     router
       .group(() => {
