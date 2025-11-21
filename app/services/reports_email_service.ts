@@ -4,6 +4,7 @@ import DailySummaryFact from '#models/daily_summary_fact'
 import { DateTime } from 'luxon'
 import PdfGenerationService from '#services/pdf_generation_service'
 import ReportsService from '#services/reports_service'
+import  TodayReportService  from '#services/today_report_service'
 import ReportsController from '../controllers/reports_controller.js'
 import NightAuditService from './night_audit_service.js'
 
@@ -362,4 +363,243 @@ export default class ReportsEmailService {
 
     return attachments
   }
+public async sendDailyEmail(hotelId: number, asOfDate?: string): Promise<void> {
+  const hotel = await Hotel.findOrFail(hotelId)
+  
+  // Récupérer les données du rapport du jour
+  const todayData = await TodayReportService.buildDataForTodayHtml(hotelId, asOfDate)
+  
+  const dateStr = asOfDate ? DateTime.fromISO(asOfDate).toFormat('dd-MM-yyyy') : DateTime.now().toFormat('dd-MM-yyyy')
+  const subject = `[${hotel.hotelName}] Daily Report - ${dateStr}`
+  
+
+  const pdfContent = await this.generateTodayReportPdf(todayData)
+  
+  const { to, cc, bcc, separateTo } = this.resolveRecipients(hotel)
+  
+  // Fallback: if no recipients configured, try hotel.email
+  const finalTo: AnyRecipient[] = to.length > 0 ? to : (hotel.email ? [hotel.email] : [])
+
+  if (finalTo.length === 0) {
+    // No recipients available; do nothing gracefully
+    return
+  }
+
+  const attachments = [{
+    filename: `Daily_Report_${dateStr}.pdf`,
+    content: pdfContent,
+    contentType: 'application/pdf'
+  }]
+
+  // HTML minimal pour l'email
+  const html = this.buildDailyEmailHtml(hotel, todayData)
+
+  if (separateTo && finalTo.length > 0) {
+    for (const recipient of finalTo) {
+      await MailService.sendWithAttachments({
+        to: recipient,
+        subject,
+        html,
+        attachments,
+      })
+    }
+  } else {
+    await MailService.sendWithAttachments({
+      to: finalTo,
+      subject,
+      html,
+      cc,
+      bcc,
+      attachments,
+    })
+  }
+}
+
+/**
+/**
+ * Génère le PDF du rapport du jour selon le modèle fourni
+ */
+private async generateTodayReportPdf(data: any): Promise<Buffer> {
+  const htmlContent = this.buildTodayReportHtml(data);
+  return await PdfGenerationService.generatePdfFromHtml(htmlContent);
+}
+
+/**
+ * Construit le HTML selon le modèle fourni
+ */
+private buildTodayReportHtml(data: any): string {
+  // Couleurs pour chaque section (selon le modèle)
+  const sectionColors: Record<string, string> = {
+    'today_confirm_check_in': '#48ca10',
+    'staying_over': '#b0c957', 
+    'today_check_out': '#e22a2a',
+    'hold_expiring_today': '#e8a40c',
+    'today_hold_check_in': '#e85d0c',
+    'enquiry_check_in_today': '#00aceb',
+    'yesterday_no_show': '#2e2800',
+    'tomorrow_confirm_check_in': '#48ca10',
+    'tomorrow_check_out': '#e22a2a',
+    'hold_expiring_tomorrow': '#e8a40c',
+    'tomorrow_hold_check_in': '#e85d0c',
+    'enquiry_check_in_tomorrow': '#00aceb'
+  }
+
+  const buildSection = (section: any) => {
+    const color = sectionColors[section.key] || '#48ca10'
+    
+    return `
+      <table width="100%" cellpadding="2" cellspacing="0"
+          style="font-family: Verdana, Arial, Helvetica, sans-serif;background-color: #FFFFFF;border-collapse: separate;font-size: 8pt;margin-top: 10px;border:3px;">
+          <tbody>
+              <tr
+                  style="background-color:${color};font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;color: white;">
+                  <td align="left" width="100%" colspan="8" style="padding:0.5em;">${section.title} : ${section.bookingCount} Booking | ${section.roomsCount} Rooms</td>
+              </tr>
+              <tr>
+                  <td colspan="8" style="padding:7.5pt 0.75pt 0.75pt">
+                      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                          <tbody>
+                              <tr
+                                  style="background-color: #eec294; font-family: Verdana, Arial, Helvetica, sans-serif;font-size:8pt;font-weight: normal;">
+                                  <th align="left" width="8%" style="padding: 3.75pt;">Reservation</th>
+                                  <th align="left" width="8%" style="padding: 3.75pt;">Guest Name</th>
+                                  <th align="left" width="8%" style="padding: 3.75pt;">Rooms</th>
+                                  <th align="left" width="12%" style="padding: 3.75pt;">Pax</th>
+                                  <th align="left" width="9%" style="padding: 3.75pt;">Meal</th>
+                                  <th align="left" width="12%" style="padding: 3.75pt;">Check In</th>
+                                  <th align="left" width="12%" style="padding: 3.75pt;">Check Out</th>
+                                  <th align="left" width="3%" style="padding: 3.75pt;">Outstanding Amt. (${data?.hotel?.currency ?? 'XAF'})</th>
+                              </tr>
+                              ${(section.groups as Array<{ businessSource: string, rows: any[] }>).map(group => `
+                                <tr style="font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;">
+                                    <td align="left" width="100%" colspan="8"
+                                        style="border-width: 1pt 1pt 3pt;border-style: solid;border-color: rgb(204,204,204) rgb(204,204,204) rgb(221,221,221);padding: 3.75pt;">
+                                        <b>Business Source :</b> ${group.businessSource}</td>
+                                </tr>
+                                ${group.rows.map(row => `
+                                  <tr style="font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;">
+                                      <td align="left" width="8%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.reservationRef}</td>
+                                      <td align="left" width="12%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.guestName}</td>
+                                      <td align="left" width="17%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.roomDescription}</td>
+                                      <td align="left" width="3%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.pax}</td>
+                                      <td align="left" width="20%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.meal}</td>
+                                      <td align="left" width="10%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.checkIn}</td>
+                                      <td align="left" width="10%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.checkOut}</td>
+                                      <td align="right" width="10%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.outstandingAmount}</td>
+                                  </tr>
+                                `).join('')}
+                              `).join('')}
+                          </tbody>
+                      </table>
+                  </td>
+              </tr>
+          </tbody>
+      </table>
+    `
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: Verdana, Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 10px; }
+            table { border-collapse: separate; }
+            hr { margin: 20px 0; border: 1px solid #ccc; }
+        </style>
+    </head>
+    <body>
+        <div>
+            <table width="100%"
+                style="font-size:8pt;border-style:double;border-width: 8px;border-color: black;font-family: Verdana, Arial, Helvetica, sans-serif;color:#000;">
+                <tbody>
+                    <tr>
+                        <td style="font-size:8pt;font-family: Verdana, Arial, Helvetica, sans-serif;padding: 7px;vertical-align: top;">
+                        </td>
+                        <td style="font-size:8pt;font-family: Verdana, Arial, Helvetica, sans-serif;padding: 7px;text-align: right;">
+                            <p style="font-family: Verdana, Arial, Helvetica, sans-serif;">
+                                <span style="font-size: 24px;line-height:26px;color:#000;">${data.hotel.name}</span><br>
+                                ${data.hotel.addressLine1 ? `<span style="font-size: 13px;line-height: 18px;color:#000;">${data.hotel.addressLine1}</span><br>` : ''}
+                                ${data.hotel.city || data.hotel.state ? `<span style="font-size: 13px;line-height: 18px;color:#000;">${[data.hotel.city, data.hotel.state].filter(Boolean).join(',')}${data.hotel.postalCode ? ',' + data.hotel.postalCode : ''}</span><br>` : ''}
+                                ${data.hotel.country ? `<span style="font-size: 13px;line-height: 18px;color:#000;">${data.hotel.country}</span><br>` : ''}
+                                ${data.hotel.email ? `<span style="font-size: 13px;line-height: 18px;color:#000;">
+                                    <a style="color: #000000;" href="mailto:${data.hotel.email}">${data.hotel.email}</a>
+                                </span><br>` : ''}
+                                ${data.hotel.phone ? `<span style="font-size: 13px;line-height: 18px;color:#000;">Phone : ${data.hotel.phone}</span>` : ''}
+                            </p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:13px;padding:0.4em 0 0.4em;color: #000000;">
+                ${data.greetingLine},</p>
+            <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:13px;padding-bottom:0.4em;color: #000000;">
+                ${data.introLine}</p>
+
+            <!-- Today Sections -->
+            ${data.todaySections.map(section => buildSection(section)).join('')}
+
+            <hr>
+            <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:22px;padding-bottom:0.4em;color: #66667a;">
+                <b>Arrival/Departure Tomorrow</b>
+            </p>
+
+            <!-- Tomorrow Sections -->
+            ${data.tomorrowSections.map(section => buildSection(section)).join('')}
+            
+            <hr>
+        </div>
+    </body>
+    </html>
+  `
+}
+
+/**
+ * HTML minimal pour le corps de l'email
+ */
+private buildDailyEmailHtml(hotel: Hotel, data: any): string {
+  const totalTodayBookings = data.todaySections.reduce((sum, section) => sum + section.bookingCount, 0)
+  const totalTomorrowBookings = data.tomorrowSections.reduce((sum, section) => sum + section.bookingCount, 0)
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #222;">
+      <h2>${hotel.hotelName} - Daily Report</h2>
+      <p>${data.greetingLine}</p>
+      <p>${data.introLine}</p>
+      
+      <div style="margin: 20px 0;">
+        <h3>Quick Summary</h3>
+        <ul>
+          <li>Today's Bookings: ${totalTodayBookings}</li>
+          <li>Tomorrow's Bookings: ${totalTomorrowBookings}</li>
+          <li>Total Sections: ${data.todaySections.length + data.tomorrowSections.length}</li>
+        </ul>
+      </div>
+
+      <p>Please see the attached PDF for detailed information about today's and tomorrow's reservations.</p>
+      
+      <div style="margin-top: 16px; font-size: 12px; color: #666;">
+        This email was generated automatically.
+      </div>
+    </div>
+  `
+}
 }
