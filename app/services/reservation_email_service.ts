@@ -108,7 +108,7 @@ export default class ReservationEmailService {
             attachments.push({ filename, content: pdfBuffer, contentType: 'application/pdf' })
           } catch (err: any) {
             await LoggerService.log({
-              actorId: processedBy || reservation.checkedOutBy || reservation.createdBy,
+              actorId: (processedBy || reservation.checkedOutBy || reservation.createdBy)!,
               action: 'EMAIL_ATTACHMENT_ERROR',
               entityType: 'Reservation',
               entityId: reservation.id,
