@@ -348,9 +348,16 @@ export default class ReservationService {
    * Create or find a guest from guest data
    */
   public static async createOrFindGuestFromData(guestData: GuestData, createdBy: number, trx?: any): Promise<Guest> {
-    let guest = await Guest.query({ client: trx })
-      .where('email', guestData.email.toLowerCase().trim())
+    let guest: Guest | null = null
+   if (guestData.email) {
+    guest = await Guest.query({ client: trx })
+      .where('email', guestData.email.toLowerCase())
       .first()
+  }
+
+    // let guest = await Guest.query({ client: trx })
+    //   .where('email', guestData.email.toLowerCase().trim())
+    //   .first()
 
     if (guest) {
       guest.merge({
@@ -373,7 +380,7 @@ export default class ReservationService {
       guest = await Guest.create({
         firstName: guestData.first_name,
         lastName: guestData.last_name,
-        email: guestData.email.toLowerCase().trim(),
+        email: guestData.email || null,
         guestCode: generateGuestCode(),
         phonePrimary: guestData.phone_primary,
         title: guestData.title,
@@ -541,4 +548,6 @@ export default class ReservationService {
 
     return { primaryGuest, allGuests }
   }
+
+
 }
