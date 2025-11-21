@@ -622,35 +622,4 @@ export default class ReportsEmailService {
     </html>
   `
   }
-
-  /**
-   * HTML minimal pour le corps de l'email
-   */
-  private buildDailyEmailHtml(hotel: Hotel, data: any): string {
-    const totalTodayBookings = data.todaySections.reduce((sum, section) => sum + section.bookingCount, 0)
-    const totalTomorrowBookings = data.tomorrowSections.reduce((sum, section) => sum + section.bookingCount, 0)
-
-    return `
-    <div style="font-family: Arial, sans-serif; color: #222;">
-      <h2>${hotel.hotelName} - Daily Report</h2>
-      <p>${data.greetingLine}</p>
-      <p>${data.introLine}</p>
-      
-      <div style="margin: 20px 0;">
-        <h3>Quick Summary</h3>
-        <ul>
-          <li>Today's Bookings: ${totalTodayBookings}</li>
-          <li>Tomorrow's Bookings: ${totalTomorrowBookings}</li>
-          <li>Total Sections: ${data.todaySections.length + data.tomorrowSections.length}</li>
-        </ul>
-      </div>
-
-      <p>Please see the attached PDF for detailed information about today's and tomorrow's reservations.</p>
-      
-      <div style="margin-top: 16px; font-size: 12px; color: #666;">
-        This email was generated automatically.
-      </div>
-    </div>
-  `
-  }
 }
