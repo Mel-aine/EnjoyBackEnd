@@ -11,6 +11,7 @@ type Attachment = {
 
 type SendOptions = {
   to: Recipient
+  from?: Recipient
   subject: string
   text?: string
   html?: string
@@ -18,6 +19,7 @@ type SendOptions = {
 
 type SendWithAttachmentsOptions = {
   to: Recipient | Recipient[]
+  from?: Recipient
   subject: string
   text?: string
   html?: string
@@ -28,8 +30,15 @@ type SendWithAttachmentsOptions = {
 
 export default class MailService {
   static async send(options: SendOptions) {
-    const { to, subject, text, html } = options
+    const { to, from, subject, text, html } = options
     await mail.send((message) => {
+      if (from) {
+        if (typeof from === 'string') {
+          message.from(from)
+        } else {
+          message.from(from.address, from.name)
+        }
+      }
       if (typeof to === 'string') {
         message.to(to)
       } else {
@@ -42,13 +51,21 @@ export default class MailService {
   }
 
   static async sendWithAttachments(options: SendWithAttachmentsOptions) {
-    const { to, subject, text, html, cc = [], bcc = [], attachments = [] } = options
+    const { to, from, subject, text, html, cc = [], bcc = [], attachments = [] } = options
     await mail.send((message) => {
       const addRecipient = (recip: Recipient, fn: (address: string, name?: string) => void) => {
         if (typeof recip === 'string') {
           fn(recip)
         } else {
           fn(recip.address, recip.name)
+        }
+      }
+
+      if (from) {
+        if (typeof from === 'string') {
+          message.from(from)
+        } else {
+          message.from(from.address, from.name)
         }
       }
 

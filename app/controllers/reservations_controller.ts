@@ -41,6 +41,7 @@ import { applyRoomChargeDiscountValidator } from '#validators/reservation_apply_
 import TaxRate from '#models/tax_rate'
 import GuestSummaryService from '#services/guest_summary_service'
 import ReservationHook from '../hooks/reservation_hooks.js'
+import ReservationEmailService from '#services/reservation_email_service'
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -529,6 +530,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       await trx.commit()
+
+      // Send thank-you email after successful checkout (non-blocking for transaction)
+      try {
+        const folios = reservation.folios || []
+        const closedFolioIds = folios
+          .filter((f) => f.status === FolioStatus.CLOSED)
+          .map((f) => f.id)
+        const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
+        await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
+      } catch (emailErr: any) {
+        logger.warn('Failed to send checkout thank-you email', {
+          reservationId: reservation.id,
+          error: emailErr?.message,
+        })
+      }
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
       return response.ok({
