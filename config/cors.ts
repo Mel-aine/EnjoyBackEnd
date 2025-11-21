@@ -8,7 +8,7 @@ import { defineConfig } from '@adonisjs/cors'
  */
 const corsConfig = defineConfig({
   enabled: true,
-  origin: ['https://enjoy-admin-one.vercel.app', 'http://localhost:5173','https://e-tikect.vercel.app/', 'http://localhost:5174','https://enjoy-chi.vercel.app',"https://enjoybackend-4udk.onrender.com"],
+  origin: ['https://enjoy-admin-one.vercel.app', 'http://localhost:5173','http://localhost:4173','https://e-tikect.vercel.app', 'http://localhost:5174','https://enjoy-chi.vercel.app',"https://enjoybackend-4udk.onrender.com"],
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   headers: true,
   exposeHeaders: [],

@@ -6,6 +6,7 @@ import FolioService from '#services/folio_service'
 import LoggerService from '#services/logger_service'
 import { TransactionType, TransactionCategory } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
+import ReservationEmailService from '#services/reservation_email_service'
 
 export interface CheckoutData {
   folioId: number
@@ -209,6 +210,14 @@ export default class CheckoutService {
             actualCheckOutDate: DateTime.now().toJSDate(),
             lastModifiedBy: processedBy
           })
+
+        // Trigger thank-you email on checkout if enabled
+        const closedFolioIds = results.map(r => r.folio.id).filter(Boolean)
+        await ReservationEmailService.sendCheckoutThanks(
+          reservationId,
+          closedFolioIds,
+          processedBy
+        )
       }
       
       return results

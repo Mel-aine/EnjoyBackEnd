@@ -734,7 +734,7 @@ export default class ReportsController {
   /**
    * Generate HTML content for room status report
    */
-  private generateRoomStatusReportHtml(
+  public generateRoomStatusReportHtml(
     hotelName: string,
     reportDate: DateTime,
     roomsByStatus: any,
@@ -960,7 +960,7 @@ export default class ReportsController {
   /**
    * Get daily reservation counts for a month
    */
-  private async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
+  public async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
     const { default: Reservation } = await import('#models/reservation')
 
     const daysInMonth = endDate.day
@@ -985,7 +985,7 @@ export default class ReportsController {
     return dailyCounts
   }
 
-  private generateMonthlyOccupancyHtml(reservationData: any[], startDate: DateTime, printedBy: string = 'System'): string {
+  public generateMonthlyOccupancyHtml(reservationData: any[], startDate: DateTime, printedBy: string = 'System'): string {
     const monthName = startDate.toFormat('MMMM yyyy')
 
     // Calculate chart data
@@ -2113,7 +2113,7 @@ export default class ReportsController {
   /**
    * Generate HTML content for Night Audit Report
    */
-  private generateNightAuditReportHtml(
+  public generateNightAuditReportHtml(
     hotelName: string,
     reportDate: DateTime,
     currency: string,
@@ -2837,7 +2837,7 @@ export default class ReportsController {
   /**
    * Generate HTML content for Management Report using Edge template
    */
-  private async generateManagementReportHtml(
+  public async generateManagementReportHtml(
     hotelName: string,
     reportDate: DateTime,
     currency: string,
@@ -5646,7 +5646,7 @@ export default class ReportsController {
   /**
    * Get monthly revenue data - daily breakdown for the entire month
    */
-  private async getMonthlyRevenueData(hotelId: number, monthStart: DateTime, monthEnd: DateTime) {
+  public async getMonthlyRevenueData(hotelId: number, monthStart: DateTime, monthEnd: DateTime) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
 
     // Get all transactions for the month
@@ -5694,7 +5694,7 @@ export default class ReportsController {
   /**
    * Generate HTML for Monthly Revenue report with chart
    */
-  private generateMonthlyRevenueHtml(
+  public generateMonthlyRevenueHtml(
     hotelName: string,
     reportDate: DateTime,
     revenueData: any,
