@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import SupportTicket from '#models/support_ticket'
 import LoggerService from '#services/logger_service'
-import { DateTime } from 'luxon'
+
 
 import SupabaseService from '#services/supabase_service'
 
@@ -254,7 +254,7 @@ public async create({ request, response, auth }: HttpContext) {
       const startYesterday = now.minus({ days: 1 }).startOf('day').toJSDate()
       const endYesterday = now.minus({ days: 1 }).endOf('day').toJSDate()
 
-      const baseOpenQuery = SupportTicket.query().whereIn('status', ['open', 'in_progress'])
+      const baseOpenQuery = SupportTicket.query().whereIn('status', ['in_progress'])
       if (hotelId) baseOpenQuery.where('hotel_id', Number(hotelId))
       const openCountResult = await baseOpenQuery.count('* as total')
       const openCount = Number((openCountResult[0] as any).$extras.total || 0)
@@ -357,7 +357,7 @@ public async create({ request, response, auth }: HttpContext) {
       const perPage = Number(request.input('perPage', 10))
       const hotelId = request.input('hotelId')
       const query = SupportTicket.query()
-        .whereIn('status', ['open', 'in_progress'])
+        .whereIn('status', ['open'])
         .where('created_by', auth.user?.id || 0)
         .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
         .orderBy('created_at', 'desc')
@@ -375,7 +375,7 @@ public async create({ request, response, auth }: HttpContext) {
       const perPage = Number(request.input('perPage', 10))
       const hotelId = request.input('hotelId')
       const tickets = await SupportTicket.query()
-        .where('status', 'open')
+        .whereIn('status',['in_progress'])
         .where('created_by', auth.user?.id || 0)
         .if(hotelId, (q) => q.where('hotel_id', Number(hotelId)))
         .orderBy('created_at', 'desc')
