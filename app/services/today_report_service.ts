@@ -4,6 +4,7 @@ import Hotel from '#models/hotel'
 import Guest from '#models/guest'
 import RoomType from '#models/room_type'
 import BookingSource from '#models/booking_source'
+import Room from '#models/room'
 import BusinessSource from '#models/business_source'
 import { ReservationStatus } from '../enums.js'
 
@@ -101,7 +102,7 @@ function getBusinessSourceName(res: Reservation): string {
 function buildRow(res: Reservation): RowItem {
   const guest = (res as any).guest as Guest | undefined
   const roomType = (res as any).roomType as RoomType | undefined
-  const pax = (res.numAdultsTotal || 0) + (res.numChildrenTotal || 0)
+  const pax = (res.adults || 0) + (res.children || 0)
   const currency = res.currencyCode || ((res as any).hotel?.currencyCode ?? '')
 
   // Reference string similar to example: reservationNumber/confirmationCode
@@ -122,13 +123,13 @@ function buildRow(res: Reservation): RowItem {
     meal: formatMeal(res.board_basis_type),
     // Prefer actual times when present, otherwise use scheduled+estimated time
     checkIn:
-      fmtDate(res.actualArrivalDatetime, true) ||
-      (res.scheduledArrivalDate
-        ? `${fmtDate(res.scheduledArrivalDate)}${res.estimatedCheckinTime ? ' ' + res.estimatedCheckinTime : ''}`
+      fmtDate(res.arrivedDate, true) ||
+      (res.arrivedDate
+        ? `${fmtDate(res.arrivedDate)}${res.checkInTime ? ' ' + res.checkInTime : ''}`
         : ''),
     checkOut:
-      fmtDate(res.actualDepartureDatetime) ||
-      fmtDate(res.scheduledDepartureDate) ||
+      fmtDate(res.departDate) ||
+      fmtDate(res.departDate) ||
       '',
     outstandingAmount: outstanding,
     currency,
