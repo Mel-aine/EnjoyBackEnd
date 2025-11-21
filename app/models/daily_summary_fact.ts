@@ -1,6 +1,8 @@
 import { DateTime } from 'luxon'
-import { afterCreate, BaseModel, column } from '@adonisjs/lucid/orm'
+import { afterCreate, BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
+import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import ReportsEmailService from '#services/reports_email_service'
+import User from '#models/user'
 
 export default class DailySummaryFact extends BaseModel {
   public static table = 'daily_summary_facts'
@@ -10,6 +12,13 @@ export default class DailySummaryFact extends BaseModel {
 
   @column()
   declare hotelId: number
+
+  // Actor tracking fields
+  @column({ columnName: 'created_by_id' })
+  declare createdById: number | null
+
+  @column({ columnName: 'modified_by_id' })
+  declare modifiedById: number | null
 
   // Revenue Fields
   @column()
@@ -157,6 +166,13 @@ export default class DailySummaryFact extends BaseModel {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
+
+  // Relations for preloading actor users
+  @belongsTo(() => User, { foreignKey: 'createdById' })
+  declare createdBy: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'modifiedById' })
+  declare modifiedBy: BelongsTo<typeof User>
 
   @afterCreate()
   public static async sendEmail(dailySummaryFact: DailySummaryFact) {

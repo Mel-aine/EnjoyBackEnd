@@ -62,10 +62,22 @@ export default class MailService {
       if (html) message.html(html)
 
       attachments.forEach((att) => {
+        // Ensure a sensible filename and content type for providers that rely on headers
+        const filename = att.filename || 'attachment.pdf'
+        const contentType = att.contentType || (filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : undefined)
+
         if (att.content) {
-          message.attachData(att.content, att.filename, att.contentType ? { contentType: att.contentType } : undefined)
+          message.attachData(att.content, {
+            filename,
+            contentType,
+            contentDisposition: 'attachment',
+          })
         } else if (att.path) {
-          message.attach(att.path, { filename: att.filename })
+          message.attach(att.path, {
+            filename,
+            contentType,
+            contentDisposition: 'attachment',
+          })
         }
       })
     })

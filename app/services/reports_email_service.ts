@@ -4,17 +4,41 @@ import DailySummaryFact from '#models/daily_summary_fact'
 import { DateTime } from 'luxon'
 import PdfGenerationService from '#services/pdf_generation_service'
 import ReportsService from '#services/reports_service'
+import ReportsController from '../controllers/reports_controller.js'
+import NightAuditService from './night_audit_service.js'
 
 type AnyRecipient = string | { address: string; name?: string }
 
 export default class ReportsEmailService {
+  /**
+   * Coerce unknown date values (string | Date | DateTime) into Luxon DateTime
+   */
+  private coerceDateTime(value: unknown): DateTime {
+    const v: any = value as any
+    // Already a Luxon DateTime
+    if (v && typeof v.isValid === 'boolean' && typeof v.toISO === 'function') {
+      return v as DateTime
+    }
+    if (typeof v === 'string') {
+      const byIso = DateTime.fromISO(v)
+      if (byIso.isValid) return byIso
+      const bySql = DateTime.fromSQL(v)
+      if (bySql.isValid) return bySql
+    }
+    if (v instanceof Date) {
+      return DateTime.fromJSDate(v)
+    }
+    // Fallback to now to avoid crashes
+    return DateTime.now()
+  }
   /**
    * Send a Daily Summary email using data from DailySummaryFact
    */
   public async sendDailySummaryEmail(dailySummary: DailySummaryFact): Promise<void> {
     const hotel = await Hotel.findOrFail(dailySummary.hotelId)
 
-    const subject = `[${hotel.hotelName}] Daily Summary - ${dailySummary.auditDate.toFormat('yyyy-LL-dd')}`
+    const audit = this.coerceDateTime(dailySummary.auditDate)
+    const subject = `[${hotel.hotelName}] Daily Summary - ${audit.toFormat('yyyy-LL-dd')}`
     const html = this.buildDailySummaryHtml(hotel, dailySummary)
 
     const { to, cc, bcc, separateTo } = this.resolveRecipients(hotel)
@@ -72,7 +96,7 @@ export default class ReportsEmailService {
     const to = normalize(daily.recipients || settings.dailySummaryRecipients || settings.recipients)
     const cc = normalize(daily.cc || settings.dailySummaryCc || settings.cc)
     const bcc = normalize(daily.bcc || settings.dailySummaryBcc || settings.bcc)
-    
+
     // Reports-level recipients and sending policy
     const reports = settings.reports || {}
     const reportsSendTo = normalize(reports.sendTo)
@@ -87,7 +111,7 @@ export default class ReportsEmailService {
    * Minimal, readable HTML summary. You can replace with an Edge template later.
    */
   private buildDailySummaryHtml(hotel: Hotel, fact: DailySummaryFact): string {
-    const auditDateStr = fact.auditDate.toFormat('yyyy-LL-dd')
+    const auditDateStr = this.coerceDateTime(fact.auditDate).toFormat('yyyy-LL-dd')
 
     const currency = hotel.currencyCode || ''
 
@@ -166,25 +190,39 @@ export default class ReportsEmailService {
    * For now, attachments are minimal PDFs generated from simple HTML summaries.
    */
   private async buildReportAttachments(hotel: Hotel, fact: DailySummaryFact) {
+    const rp = new ReportsController();
     const settings: any = hotel.printEmailSettings || {}
     const reports: any = settings.reports || {}
-    const dateStr = fact.auditDate.toFormat('yyyy-LL-dd')
+    const audit = this.coerceDateTime(fact.auditDate)
+    const dateStr = audit.toFormat('yyyy-LL-dd')
     const attachments: { filename: string; content: Buffer; contentType?: string }[] = []
+    const CurrencyCacheService = (await import('../services/currency_cache_service.js')).default
+    const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(fact.hotelId)
+    const currency = defaultCurrencyPayload?.currencyCode
 
     const addPdf = async (title: string, htmlBody: string) => {
       const pdf = await PdfGenerationService.generatePdfFromHtml(`
-        <div style="font-family: Arial, sans-serif; font-size: 12px; color:#222;">
-          <h3 style="margin:0 0 8px 0;">${title} — ${dateStr}</h3>
-          ${htmlBody}
-        </div>
+      ${htmlBody}
       `)
-      attachments.push({ filename: `${title.replace(/\s+/g, '_')}_${dateStr}.pdf`, content: pdf, contentType: 'application/pdf' })
+      attachments.push({ filename: `${title}_${dateStr}.pdf`, content: pdf, contentType: 'application/pdf' })
     }
 
     // Night Audit
     if (reports.nightAudit === true) {
-      const naData = fact.nightAuditReportData || {}
-      await addPdf('Night Audit', `<pre style="white-space:pre-wrap">${this.safeJson(naData)}</pre>`)
+
+      const sectionsData = await rp.generateNightAuditSections(hotel.id, audit, currency)
+      //const sectionsData = auditDetails?.nightAuditReportData;
+      // Generate HTML content
+      const htmlContent = rp.generateNightAuditReportHtml(
+        hotel.hotelName,
+        audit,
+        currency,
+        sectionsData,
+        fact.createdBy?.fullName
+      )
+
+
+      await addPdf('Night Audit', `${htmlContent}`)
     }
 
     // City Ledger Summary (simplified)
@@ -195,8 +233,8 @@ export default class ReportsEmailService {
     }
 
     // Expense Voucher (Back Office Expenses summary for the day)
-    if (reports.expenseVoucher === true) {
-      const filters = { hotelId: fact.hotelId, startDate: fact.auditDate.toISODate(), endDate: fact.auditDate.toISODate() }
+    /*if (reports.expenseVoucher === true) {
+      const filters = { hotelId: fact.hotelId, startDate: audit.toISODate(), endDate: audit.toISODate() }
       try {
         const data = await ReportsService.getExpenseReport(filters)
         const rows = (data.data || []).slice(0, 100).map((r: any) => `<tr><td>${r.date || ''}</td><td>${r.department || ''}</td><td>${r.description || ''}</td><td>${r.amount || 0}</td></tr>`).join('')
@@ -205,18 +243,37 @@ export default class ReportsEmailService {
       } catch {
         await addPdf('Expense Voucher', '<div>No data available</div>')
       }
-    }
+    }*/
 
     // Manager Report (use stored managerReportData if present)
     if (reports.managerReport === true) {
-      const mgr = fact.managerReportData || {}
-      await addPdf('Manager Report', `<pre style="white-space:pre-wrap">${this.safeJson(mgr)}</pre>`)
+      // Generate all sections data
+      let sectionsData: any = {}
+      const auditDetails = await NightAuditService.getNightAuditDetails(
+        audit,
+        Number(hotel.id)
+      )
+      if (auditDetails && auditDetails?.managerReportData) {
+        sectionsData = auditDetails?.managerReportData
+      } else {
+        sectionsData = await rp.generateManagementReportSections(hotel.id, audit, currency)
+      }
+
+      // Generate HTML content using Edge template
+      const htmlContent = await rp.generateManagementReportHtml(
+        hotel.hotelName,
+        audit,
+        currency,
+        sectionsData,
+        fact.createdBy?.fullName
+      )
+      await addPdf('Manager Report', `${htmlContent}`)
     }
 
     // Front Desk Activities (checked-in/out summaries for the day)
     if (reports.frontDeskActivities === true) {
       try {
-        const filters = { hotelId: fact.hotelId, startDate: fact.auditDate.toISODate(), endDate: fact.auditDate.toISODate() }
+        const filters = { hotelId: fact.hotelId, startDate: audit.toISODate()!, endDate: audit.toISODate()! }
         const checkedIn = await ReportsService.getGuestCheckedIn(filters)
         const checkedOut = await ReportsService.getGuestCheckedOut(filters)
         const ciCount = (checkedIn?.filters ? (checkedIn as any).totalRecords : 0) || (checkedIn as any)?.data?.length || 0
@@ -230,7 +287,7 @@ export default class ReportsEmailService {
     // No Show Report
     if (reports.noShowReport === true) {
       try {
-        const filters = { hotelId: fact.hotelId, startDate: fact.auditDate.toISODate(), endDate: fact.auditDate.toISODate() }
+        const filters = { hotelId: fact.hotelId, startDate: audit.toISODate()!, endDate: audit.toISODate()! }
         const report = await ReportsService.getNoShowReservations(filters)
         const rows = (report.data || []).slice(0, 100).map((r: any) => `<tr><td>${r.reservationNumber || ''}</td><td>${r.guestName || ''}</td><td>${r.arrivalDate || ''}</td><td>${r.roomType || ''}</td></tr>`).join('')
         const htmlBody = `<table border="1" cellpadding="4" cellspacing="0"><thead><tr><th>Res #</th><th>Guest</th><th>Arrival</th><th>Room Type</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No no-shows</td></tr>'}</tbody></table>`
@@ -243,54 +300,61 @@ export default class ReportsEmailService {
     // Monthly Occupancy Report
     if (reports.monthlyOccupancyReport === true) {
       try {
-        const start = (fact.auditDate as DateTime).startOf('month').toISODate()
-        const end = (fact.auditDate as DateTime).endOf('month').toISODate()
-        const report = await ReportsService.getOccupancyReport({ hotelId: fact.hotelId, startDate: start, endDate: end })
-        const htmlBody = `<div>Total Records: ${report.totalRecords || 0}</div>`
+        // Get daily reservation counts for the month
+        const start = audit.startOf('month')!
+        const end = audit.endOf('month')
+        const dailyReservationCounts = await rp.getDailyReservationCounts(
+          hotel.id,
+          start,
+          end
+        )
+        // Generate HTML content
+        const htmlContent = rp.generateMonthlyOccupancyHtml(dailyReservationCounts, start, fact.createdBy?.fullName)
+        const htmlBody = `${htmlContent}`
         await addPdf('Monthly Occupancy Report', htmlBody)
       } catch {
-        await addPdf('Monthly Occupancy Report', '<div>No data available</div>')
       }
     }
 
     // Monthly Statistics Report (ADR/RevPAR)
     if (reports.monthlyStatisticsReport === true) {
       try {
-        const start = (fact.auditDate as DateTime).startOf('month').toISODate()
-        const end = (fact.auditDate as DateTime).endOf('month').toISODate()
-        const adr = await ReportsService.getADRReport({ hotelId: fact.hotelId, startDate: start, endDate: end })
-        const revpar = await ReportsService.getRevPARReport({ hotelId: fact.hotelId, startDate: start, endDate: end })
-        const htmlBody = `<div>ADR Records: ${adr.totalRecords || 0} • RevPAR Records: ${revpar.totalRecords || 0}</div>`
-        await addPdf('Monthly Statistics Report', htmlBody)
+        const start = audit.startOf('month')
+        const end = audit.endOf('month')
+        // Get monthly revenue data
+        const revenueData = await rp.getMonthlyRevenueData(hotel.id!, start, end)
+        // Generate HTML content
+        const htmlContent = rp.generateMonthlyRevenueHtml(hotel.hotelName, audit, revenueData, fact.createdBy?.fullName, currency)
+
+        await addPdf('Monthly Statistics Report', htmlContent)
       } catch {
-        await addPdf('Monthly Statistics Report', '<div>No data available</div>')
       }
     }
-
-    // Yearly Statistics Report (ADR/RevPAR year-to-date)
-    if (reports.yearlyStatisticsReport === true) {
-      try {
-        const start = (fact.auditDate as DateTime).startOf('year').toISODate()
-        const end = (fact.auditDate as DateTime).endOf('year').toISODate()
-        const adr = await ReportsService.getADRReport({ hotelId: fact.hotelId, startDate: start, endDate: end })
-        const revpar = await ReportsService.getRevPARReport({ hotelId: fact.hotelId, startDate: start, endDate: end })
-        const htmlBody = `<div>ADR Records: ${adr.totalRecords || 0} • RevPAR Records: ${revpar.totalRecords || 0}</div>`
-        await addPdf('Yearly Statistics Report', htmlBody)
-      } catch {
-        await addPdf('Yearly Statistics Report', '<div>No data available</div>')
-      }
-    }
-
     // Rooms On Books Report (use reservation forecast as proxy)
     if (reports.roomsOnBooksReport === true) {
       try {
-        const start = (fact.auditDate as DateTime).toISODate()
-        const end = (fact.auditDate as DateTime).plus({ days: 14 }).toISODate()
-        const report = await ReportsService.getReservationForecast({ hotelId: fact.hotelId, startDate: start, endDate: end })
-        const htmlBody = `<div>Total Records: ${report.totalRecords || 0}</div>`
-        await addPdf('Rooms On Books Report', htmlBody)
+        const start = audit
+         // Generate all sections data
+              let auditDetails = await NightAuditService.getNightAuditDetails(
+                start,
+                Number(hotel.id)
+              )
+              let roomsByStatus: any = {};
+              if (auditDetails && auditDetails?.roomStatusReportData) {
+                roomsByStatus = auditDetails?.roomStatusReportData
+              } else {
+                roomsByStatus = rp.generateNightAuditSections(hotel.id, audit, currency)
+              }
+              // Generate HTML content
+              const htmlContent = rp.generateRoomStatusReportHtml(
+                hotel.hotelName,
+                audit,
+                roomsByStatus,
+                fact.createdBy?.fullName
+              )
+
+        await addPdf('Rooms On Books Report', htmlContent)
       } catch {
-        await addPdf('Rooms On Books Report', '<div>No data available</div>')
       }
     }
 
@@ -298,16 +362,4 @@ export default class ReportsEmailService {
 
     return attachments
   }
-
-  private safeJson(obj: any): string {
-    try {
-      return JSON.stringify(obj, null, 2)
-    } catch {
-      return String(obj)
-    }
-  }
-
-  /// TODO Create a new function  to send Daily email 
-  //docs\today.html
-  // app\services\today_report_service.ts
 }
