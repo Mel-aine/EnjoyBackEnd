@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { afterCreate, BaseModel, column } from '@adonisjs/lucid/orm'
+import ReportsEmailService from '#services/reports_email_service'
 
 export default class DailySummaryFact extends BaseModel {
   public static table = 'daily_summary_facts'
@@ -156,4 +157,10 @@ export default class DailySummaryFact extends BaseModel {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
+
+  @afterCreate()
+  public static async sendEmail(dailySummaryFact: DailySummaryFact) {
+    const emailService = new ReportsEmailService()
+    await emailService.sendDailySummaryEmail(dailySummaryFact)
+  }
 }
