@@ -149,7 +149,7 @@ async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<R
   const q = queryBase(hotelId)
   return await q
     .where('arrivedDate', day.toISODate()!)
-    .where('reservation_status', 'Confirmed')
+    .where('status', 'Confirmed')
 }
 
 async function getStayingOver(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -178,7 +178,7 @@ async function getEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reserv
   const q = queryBase(hotelId)
   // Treat Pending/Waitlist as enquiry
   return await q
-    .whereIn('reservation_status', ['Pending', 'Waitlist'])
+    .whereIn('status', ['Pending', 'Waitlist'])
     .where('arrivedDate', day.toISODate()!)
 }
 
@@ -186,7 +186,7 @@ async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reser
   const q = queryBase(hotelId)
   const y = day.minus({ days: 1 })
   return await q
-    .where('reservation_status', 'No-Show')
+    .where('status', 'No-Show')
     .orWhere((qb) => {
       qb.where('no_show_date', '>=', y.startOf('day').toSQL()).where('no_show_date', '<=', y.endOf('day').toSQL())
     })
@@ -195,7 +195,7 @@ async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reser
 async function getTomorrowConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('arrivedDate', t.toISODate()!).where('reservation_status', ReservationStatus.CONFIRMED)
+  return await q.where('arrivedDate', t.toISODate()!).where('status', ReservationStatus.CONFIRMED)
 }
 
 async function getTomorrowCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -224,7 +224,7 @@ async function getTomorrowHoldCheckIn(hotelId: number, day: DateTime): Promise<R
 async function getTomorrowEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.whereIn('reservation_status', ['Pending', 'Waitlist']).where('arrivedDate', t.toISODate()!)
+  return await q.whereIn('status', ['Pending', 'Waitlist']).where('arrivedDate', t.toISODate()!)
 }
 
 function toSection(title: string, key: SectionBlock['key'], reservations: Reservation[]): SectionBlock {
