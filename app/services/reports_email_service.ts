@@ -4,9 +4,11 @@ import DailySummaryFact from '#models/daily_summary_fact'
 import { DateTime } from 'luxon'
 import PdfGenerationService from '#services/pdf_generation_service'
 import ReportsService from '#services/reports_service'
-import  TodayReportService  from '#services/today_report_service'
+import TodayReportService from '#services/today_report_service'
 import ReportsController from '../controllers/reports_controller.js'
 import NightAuditService from './night_audit_service.js'
+import EmailAccount from '#models/email_account'
+import logger from '@adonisjs/core/services/logger'
 
 type AnyRecipient = string | { address: string; name?: string }
 
@@ -201,10 +203,10 @@ export default class ReportsEmailService {
     const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(fact.hotelId)
     const currency = defaultCurrencyPayload?.currencyCode
 
-    const addPdf = async (title: string, htmlBody: string) => {
+    const addPdf = async (title: string, htmlBody: string, options?: any) => {
       const pdf = await PdfGenerationService.generatePdfFromHtml(`
       ${htmlBody}
-      `)
+      `, options)
       attachments.push({ filename: `${title}_${dateStr}.pdf`, content: pdf, contentType: 'application/pdf' })
     }
 
@@ -259,6 +261,52 @@ export default class ReportsEmailService {
       } else {
         sectionsData = await rp.generateManagementReportSections(hotel.id, audit, currency)
       }
+      // Format dates for display
+      const formattedDate = audit.toFormat('dd/MM/yyyy')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+      const ptdDate = audit.startOf('month').toFormat('dd/MM/yyyy')
+      const ytdDate = audit.startOf('year').toFormat('dd/MM/yyyy')
+      // Create header template
+      const headerTemplate = `
+            <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+              <!-- Hotel name and report title -->
+              <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+                <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+                <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
+              </div>
+              
+              <!-- Report Info -->
+              <div style="font-size:10px; margin-bottom:3px;">
+                <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
+                <span style="margin-right:10px;"><strong>PTD:</strong> ${ptdDate}</span>
+                <span style="margin-right:10px;"><strong>YTD:</strong> ${ytdDate}</span>
+                <span><strong>Currency:</strong> ${currency}</span>
+              </div>
+              
+              <div style="border-top:1px solid #333; margin:0 ;"></div>
+              
+              <!-- Column Headers -->
+              <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0;">
+                <thead>
+                  <tr style="background-color:#f5f5f5;">
+                    <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
+                    <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
+                    <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
+                    <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
+                  </tr>
+                </thead>
+              </table>
+              
+              <div style="border-top:1px solid #333; margin-top:2px;"></div>
+            </div>
+            `
+      // Create footer template
+      const footerTemplate = `
+            <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+              <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+              <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${fact.createdBy?.fullName}</span></div>
+              <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+            </div>`
 
       // Generate HTML content using Edge template
       const htmlContent = await rp.generateManagementReportHtml(
@@ -268,7 +316,19 @@ export default class ReportsEmailService {
         sectionsData,
         fact.createdBy?.fullName
       )
-      await addPdf('Manager Report', `${htmlContent}`)
+      await addPdf('Manager Report', `${htmlContent}`, {
+        format: 'A4',
+        margin: {
+          top: '100px',
+          right: '10px',
+          bottom: '70px',
+          left: '10px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
     }
 
     // Front Desk Activities (checked-in/out summaries for the day)
@@ -335,24 +395,24 @@ export default class ReportsEmailService {
     if (reports.roomsOnBooksReport === true) {
       try {
         const start = audit
-         // Generate all sections data
-              let auditDetails = await NightAuditService.getNightAuditDetails(
-                start,
-                Number(hotel.id)
-              )
-              let roomsByStatus: any = {};
-              if (auditDetails && auditDetails?.roomStatusReportData) {
-                roomsByStatus = auditDetails?.roomStatusReportData
-              } else {
-                roomsByStatus = rp.generateNightAuditSections(hotel.id, audit, currency)
-              }
-              // Generate HTML content
-              const htmlContent = rp.generateRoomStatusReportHtml(
-                hotel.hotelName,
-                audit,
-                roomsByStatus,
-                fact.createdBy?.fullName
-              )
+        // Generate all sections data
+        let auditDetails = await NightAuditService.getNightAuditDetails(
+          start,
+          Number(hotel.id)
+        )
+        let roomsByStatus: any = {};
+        if (auditDetails && auditDetails?.roomStatusReportData) {
+          roomsByStatus = auditDetails?.roomStatusReportData
+        } else {
+          roomsByStatus = rp.generateNightAuditSections(hotel.id, audit, currency)
+        }
+        // Generate HTML content
+        const htmlContent = rp.generateRoomStatusReportHtml(
+          hotel.hotelName,
+          audit,
+          roomsByStatus,
+          fact.createdBy?.fullName
+        )
 
         await addPdf('Rooms On Books Report', htmlContent)
       } catch {
@@ -363,91 +423,82 @@ export default class ReportsEmailService {
 
     return attachments
   }
-public async sendDailyEmail(hotelId: number, asOfDate?: string): Promise<void> {
-  const hotel = await Hotel.findOrFail(hotelId)
-  
-  // Récupérer les données du rapport du jour
-  const todayData = await TodayReportService.buildDataForTodayHtml(hotelId, asOfDate)
-  
-  const dateStr = asOfDate ? DateTime.fromISO(asOfDate).toFormat('dd-MM-yyyy') : DateTime.now().toFormat('dd-MM-yyyy')
-  const subject = `[${hotel.hotelName}] Daily Report - ${dateStr}`
-  
+  public async sendDailyEmail(hotelId: number, asOfDate?: string): Promise<void> {
+    const hotel = await Hotel.findOrFail(hotelId)
+    // Récupérer les données du rapport du jour
+    const todayData = await TodayReportService.buildDataForTodayHtml(hotelId, asOfDate)
 
-  const pdfContent = await this.generateTodayReportPdf(todayData)
-  
-  const { to, cc, bcc, separateTo } = this.resolveRecipients(hotel)
-  
-  // Fallback: if no recipients configured, try hotel.email
-  const finalTo: AnyRecipient[] = to.length > 0 ? to : (hotel.email ? [hotel.email] : [])
+    const dateStr = asOfDate ? DateTime.fromISO(asOfDate).toFormat('dd-MM-yyyy') : DateTime.now().toFormat('dd-MM-yyyy')
+    const subject = `[${hotel.hotelName}] Daily Report - ${dateStr}`
 
-  if (finalTo.length === 0) {
-    // No recipients available; do nothing gracefully
-    return
-  }
 
-  const attachments = [{
-    filename: `Daily_Report_${dateStr}.pdf`,
-    content: pdfContent,
-    contentType: 'application/pdf'
-  }]
+    const pdfContent = await this.generateTodayReportPdf(todayData)
 
-  // HTML minimal pour l'email
-  const html = this.buildDailyEmailHtml(hotel, todayData)
+    // Recipient: use hotel's default EmailAccount address only
+    const defaultAccount = await EmailAccount.query()
+      .where('hotel_id', hotel.id)
+      //.where('is_default', true)
+      .first()
+    console.log(defaultAccount);
+    const finalTo: AnyRecipient[] = defaultAccount
+      ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }]
+      : []
 
-  if (separateTo && finalTo.length > 0) {
-    for (const recipient of finalTo) {
-      await MailService.sendWithAttachments({
-        to: recipient,
-        subject,
-        html,
-        attachments,
-      })
+    if (finalTo.length === 0) {
+      // No default email account; do nothing gracefully
+      return
     }
-  } else {
+
+    const attachments = [{
+      filename: `Daily_Report_${dateStr}.pdf`,
+      content: pdfContent,
+      contentType: 'application/pdf'
+    }]
+
+    // HTML minimal pour l'email
+    const html = this.buildTodayReportHtml(todayData)
+    // Send a single email to the default account, no CC/BCC, no explicit from
     await MailService.sendWithAttachments({
-      to: finalTo,
+      to: finalTo[0],
       subject,
       html,
-      cc,
-      bcc,
       attachments,
     })
   }
-}
 
-/**
-/**
- * Génère le PDF du rapport du jour selon le modèle fourni
- */
-private async generateTodayReportPdf(data: any): Promise<Buffer> {
-  const htmlContent = this.buildTodayReportHtml(data);
-  return await PdfGenerationService.generatePdfFromHtml(htmlContent);
-}
-
-/**
- * Construit le HTML selon le modèle fourni
- */
-private buildTodayReportHtml(data: any): string {
-  // Couleurs pour chaque section (selon le modèle)
-  const sectionColors: Record<string, string> = {
-    'today_confirm_check_in': '#48ca10',
-    'staying_over': '#b0c957', 
-    'today_check_out': '#e22a2a',
-    'hold_expiring_today': '#e8a40c',
-    'today_hold_check_in': '#e85d0c',
-    'enquiry_check_in_today': '#00aceb',
-    'yesterday_no_show': '#2e2800',
-    'tomorrow_confirm_check_in': '#48ca10',
-    'tomorrow_check_out': '#e22a2a',
-    'hold_expiring_tomorrow': '#e8a40c',
-    'tomorrow_hold_check_in': '#e85d0c',
-    'enquiry_check_in_tomorrow': '#00aceb'
+  /**
+  /**
+   * Génère le PDF du rapport du jour selon le modèle fourni
+   */
+  private async generateTodayReportPdf(data: any): Promise<Buffer> {
+    const htmlContent = this.buildTodayReportHtml(data);
+    return await PdfGenerationService.generatePdfFromHtml(htmlContent);
   }
 
-  const buildSection = (section: any) => {
-    const color = sectionColors[section.key] || '#48ca10'
-    
-    return `
+  /**
+   * Construit le HTML selon le modèle fourni
+   */
+  private buildTodayReportHtml(data: any): string {
+    // Couleurs pour chaque section (selon le modèle)
+    const sectionColors: Record<string, string> = {
+      'today_confirm_check_in': '#48ca10',
+      'staying_over': '#b0c957',
+      'today_check_out': '#e22a2a',
+      'hold_expiring_today': '#e8a40c',
+      'today_hold_check_in': '#e85d0c',
+      'enquiry_check_in_today': '#00aceb',
+      'yesterday_no_show': '#2e2800',
+      'tomorrow_confirm_check_in': '#48ca10',
+      'tomorrow_check_out': '#e22a2a',
+      'hold_expiring_tomorrow': '#e8a40c',
+      'tomorrow_hold_check_in': '#e85d0c',
+      'enquiry_check_in_tomorrow': '#00aceb'
+    }
+
+    const buildSection = (section: any) => {
+      const color = sectionColors[section.key] || '#48ca10'
+
+      return `
       <table width="100%" cellpadding="2" cellspacing="0"
           style="font-family: Verdana, Arial, Helvetica, sans-serif;background-color: #FFFFFF;border-collapse: separate;font-size: 8pt;margin-top: 10px;border:3px;">
           <tbody>
@@ -512,9 +563,9 @@ private buildTodayReportHtml(data: any): string {
           </tbody>
       </table>
     `
-  }
+    }
 
-  return `
+    return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -570,16 +621,16 @@ private buildTodayReportHtml(data: any): string {
     </body>
     </html>
   `
-}
+  }
 
-/**
- * HTML minimal pour le corps de l'email
- */
-private buildDailyEmailHtml(hotel: Hotel, data: any): string {
-  const totalTodayBookings = data.todaySections.reduce((sum, section) => sum + section.bookingCount, 0)
-  const totalTomorrowBookings = data.tomorrowSections.reduce((sum, section) => sum + section.bookingCount, 0)
+  /**
+   * HTML minimal pour le corps de l'email
+   */
+  private buildDailyEmailHtml(hotel: Hotel, data: any): string {
+    const totalTodayBookings = data.todaySections.reduce((sum, section) => sum + section.bookingCount, 0)
+    const totalTomorrowBookings = data.tomorrowSections.reduce((sum, section) => sum + section.bookingCount, 0)
 
-  return `
+    return `
     <div style="font-family: Arial, sans-serif; color: #222;">
       <h2>${hotel.hotelName} - Daily Report</h2>
       <p>${data.greetingLine}</p>
@@ -601,5 +652,5 @@ private buildDailyEmailHtml(hotel: Hotel, data: any): string {
       </div>
     </div>
   `
-}
+  }
 }

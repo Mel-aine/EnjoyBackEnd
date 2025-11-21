@@ -5,6 +5,7 @@ import Guest from '#models/guest'
 import RoomType from '#models/room_type'
 import BookingSource from '#models/booking_source'
 import BusinessSource from '#models/business_source'
+import { ReservationStatus } from '../enums.js'
 
 type RowItem = {
   reservationRef: string
@@ -134,7 +135,7 @@ function buildRow(res: Reservation): RowItem {
   }
 }
 
-async function queryBase(hotelId: number) {
+function queryBase(hotelId: number) {
   return Reservation.query()
     .where('hotel_id', hotelId)
     .preload('guest')
@@ -145,46 +146,46 @@ async function queryBase(hotelId: number) {
 }
 
 async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
-  return q
-    .where('scheduled_arrival_date', day.toISODate()!)
+  const q = queryBase(hotelId)
+  return await q
+    .where('arrivedDate', day.toISODate()!)
     .where('reservation_status', 'Confirmed')
 }
 
 async function getStayingOver(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   // Stayover: checked-in and departure after the audit date
-  return q
+  return await q
     .where('status', 'checked_in')
     .where('depart_date', '>', day.toSQL())
 }
 
 async function getHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
-  return q
+  const q = queryBase(hotelId)
+  return await q
     .where('is_hold', true)
     .where('hold_release_date', day.toSQL())
 }
 
 async function getHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
-  return q
+  const q = queryBase(hotelId)
+  return await q
     .where('is_hold', true)
-    .where('scheduled_arrival_date', day.toISODate()!)
+    .where('arrivedDate', day.toISODate()!)
 }
 
 async function getEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   // Treat Pending/Waitlist as enquiry
-  return q
+  return await q
     .whereIn('reservation_status', ['Pending', 'Waitlist'])
-    .where('scheduled_arrival_date', day.toISODate()!)
+    .where('arrivedDate', day.toISODate()!)
 }
 
 async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   const y = day.minus({ days: 1 })
-  return q
+  return await q
     .where('reservation_status', 'No-Show')
     .orWhere((qb) => {
       qb.where('no_show_date', '>=', y.startOf('day').toSQL()).where('no_show_date', '<=', y.endOf('day').toSQL())
@@ -192,38 +193,38 @@ async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reser
 }
 
 async function getTomorrowConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return q.where('scheduled_arrival_date', t.toISODate()!).where('reservation_status', 'Confirmed')
+  return await q.where('arrivedDate', t.toISODate()!).where('reservation_status', ReservationStatus.CONFIRMED)
 }
 
 async function getTomorrowCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return q.where('scheduled_departure_date', t.toISODate()!)
+  return await q.where('departDate', t.toISODate()!)
 }
 
 async function getTodayCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
-  return q.where('scheduled_departure_date', day.toISODate()!)
+  const q = queryBase(hotelId)
+  return await q.where('departDate', day.toISODate()!)
 }
 
 async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return q.where('is_hold', true).where('hold_release_date', t.toSQL())
+  return await q.where('is_hold', true).where('hold_release_date', t.toSQL())
 }
 
 async function getTomorrowHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return q.where('is_hold', true).where('scheduled_arrival_date', t.toISODate()!)
+  return await q.where('is_hold', true).where('arrivedDate', t.toISODate()!)
 }
 
 async function getTomorrowEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = await queryBase(hotelId)
+  const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return q.whereIn('reservation_status', ['Pending', 'Waitlist']).where('scheduled_arrival_date', t.toISODate()!)
+  return await q.whereIn('reservation_status', ['Pending', 'Waitlist']).where('arrivedDate', t.toISODate()!)
 }
 
 function toSection(title: string, key: SectionBlock['key'], reservations: Reservation[]): SectionBlock {
