@@ -39,17 +39,11 @@ export default class RoomBlocksController {
       const overlappingReservations = await db
         .from('reservation_rooms')
         .where('room_id', payload.room_id)
-        .where((query) => {
-          query.whereBetween('check_in_date', [fromDate.toJSDate(), toDate.toJSDate()])
-          query.orWhereBetween('check_out_date', [fromDate.toJSDate(), toDate.toJSDate()])
-          query.orWhere((subQuery) => {
-            subQuery
-              .where('check_in_date', '<=', fromDate.toJSDate())
-              .andWhere('check_out_date', '>=', toDate.toJSDate())
-          })
-        })
-        .count('* as total')
+        .where('check_in_date', '<', fromDate.toJSDate())
+        .where('check_out_date', '>', toDate.toJSDate())
 
+        .count('* as total')
+      console.log('Overlapping reservations:', overlappingReservations)
       if (Number(overlappingReservations[0].total) > 0) {
         return response.conflict({
           success: false,
@@ -62,15 +56,8 @@ export default class RoomBlocksController {
       // Vérifier les blocks existants
       const overlappingBlocks = await RoomBlock.query()
         .where('room_id', payload.room_id)
-        .where((query) => {
-          query.whereBetween('block_from_date', [fromDate.toJSDate(), toDate.toJSDate()])
-          query.orWhereBetween('block_to_date', [fromDate.toJSDate(), toDate.toJSDate()])
-          query.orWhere((subQuery) => {
-            subQuery
-              .where('block_from_date', '<=', fromDate.toJSDate())
-              .andWhere('block_to_date', '>=', toDate.toJSDate())
-          })
-        })
+        .where('block_to_date', '<', fromDate.toJSDate())
+        .where('block_from_date', '>', toDate.toJSDate())
         .count('* as total')
 
       if (Number(overlappingBlocks[0].$extras.total) > 0) {
@@ -177,7 +164,7 @@ export default class RoomBlocksController {
   /**
    * Get Room Block by hotel ID
    */
-  public async getByHotelId({ params,request, response }: HttpContext) {
+  public async getByHotelId({ params, request, response }: HttpContext) {
     try {
       const hotelId = params.hotelId
       const page = request.input('page', 1)
