@@ -698,47 +698,109 @@ export class ReservationReportsService {
    * No Show Reservations Report
    */
   static async getNoShowReservations(filters: ReportFilters): Promise<ReportData> {
+
     const query = Reservation.query()
       .preload('guest')
       .preload('hotel')
       .preload('roomType')
-      .where('reservation_status', 'No-Show')
-      .orderBy('scheduled_arrival_date', 'desc')
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('room'),
+        roomQuery.preload('roomType')
+        roomQuery.preload('roomRates', (roomRateQuery) => {
+          roomRateQuery.preload('rateType')
+        })
+      })
+      .preload('bookingSource')
+      .preload('businessSource')
+      .preload('reservationType')
+      .preload('ratePlan')
+      .preload('creator')
+      //.where('reservation_status', 'No-Show')
+      .orderBy('arrived_date', 'desc')
 
     if (filters.hotelId) {
       query.where('hotel_id', filters.hotelId)
     }
 
     if (filters.startDate && filters.endDate) {
-      query.whereBetween('scheduled_arrival_date', [filters.startDate, filters.endDate])
+      query.whereBetween('no_show_date', [filters.startDate, filters.endDate])
     }
-
+    if (filters.roomTypeId) {
+      query.where('room_type_id', filters.roomTypeId)
+    }
+  
+    if (filters.ratePlanId) {
+      query.where('rate_plan_id', filters.ratePlanId)
+    }
+  
+    if (filters.reservationType) {
+      query.where('reservation_type', filters.reservationType)
+    }
+  
+    if (filters.businessSource) {
+      query.where('business_source', filters.businessSource)
+    }
+  
+    if (filters.market) {
+      query.where('market_code', filters.market)
+    }
+  
+    if (filters.userId) {
+      query.where('created_by', filters.userId)
+    }
+  
+    if (filters.company) {
+      query.where('company_code', filters.company)
+    }
+  
     const reservations = await query
-    const totalRecords = reservations.length
+  const totalRecords = reservations.length
 
-    const data = reservations.map(reservation => ({
-      reservationNumber: reservation.reservationNumber,
-      guestName: `${reservation.guest?.firstName} ${reservation.guest?.lastName}`,
-      guestPhone: reservation.guest?.phonePrimary,
-      arrivalDate: reservation.scheduledArrivalDate?.toFormat('dd/MM/yyyy'),
-      roomType: reservation.roomType?.roomTypeName,
-      noShowReason: reservation.noShowReason,
-      lostRevenue: reservation.totalEstimatedRevenue,
-      isGuaranteed: reservation.isGuaranteed
-    }))
+  const data = reservations.map(reservation => {
+    const nights = reservation.departDate && reservation.arrivedDate
+      ? reservation.departDate.diff(reservation.arrivedDate, 'days').days
+      : 0
 
     return {
-      title: 'Réservations Non-Présentées',
-      generatedAt: DateTime.now(),
-      filters,
-      data,
-      totalRecords,
-      summary: {
-        totalNoShows: totalRecords,
-        guaranteedNoShows: data.filter(item => item.isGuaranteed).length,
-        totalLostRevenue: data.reduce((sum, item) => sum + (item.lostRevenue || 0), 0)
-      }
+      reservationNumber: reservation.reservationNumber,
+      guestName: `${reservation.guest?.firstName || ''} ${reservation.guest?.lastName || ''}`.trim(),
+      guestPhone: reservation.guest?.phonePrimary,
+      roomType: reservation.reservationRooms?.[0].roomType.roomTypeName,
+      roomNumber: reservation.reservationRooms?.[0].room.roomNumber || 'N/A',
+      arrivalDate: reservation.arrivedDate?.toFormat('yyyy-MM-dd'),
+      departureDate: reservation.departDate?.toFormat('yyyy-MM-dd'),
+      totalPax: `${reservation.adults || 0}/${reservation.children || 0}`,
+      businessSource: reservation.businessSource?.name || '',
+      reservationType: reservation.reservationType?.name || '',
+      createdBy: reservation.creator 
+        ? `${reservation.creator.firstName} ${reservation.creator.lastName}` 
+        : 'N/A',
+      status: reservation.status,
+      noShowReason: reservation.noShowReason,
+      lostRevenue: reservation.totalEstimatedRevenue,
+      isGuaranteed: reservation.isGuaranteed,
+      nights: nights,
+      numberOfAdults: reservation.adults || 0,
+      numberOfChildren: reservation.children || 0
     }
+  })
+  const summary = {
+    totalNoShows: totalRecords,
+    guaranteedNoShows: data.filter(item => item.isGuaranteed).length,
+    totalRevenueLost: data.reduce((sum, item) => sum + (item.lostRevenue || 0), 0),
+    totalNights: data.reduce((sum, item) => sum + item.nights, 0),
+    totalAdults: data.reduce((sum, item) => sum + item.numberOfAdults, 0),
+    totalChildren: data.reduce((sum, item) => sum + item.numberOfChildren, 0)
+  }
+
+  return {
+    title: 'Réservations Non-Présentées',
+    html: HtmlReportGenerator.generateNoShowReservationsHtml(data, summary, filters, DateTime.now()),
+    filters,
+    datas: {
+      data,summary
+    }
+  }
   }
 
   /**

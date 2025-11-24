@@ -1538,4 +1538,264 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
 </html>
     `
 }
+
+static generateNoShowReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+    const columns = [
+        { key: 'reservationNumber', label: 'Res. No' },
+        { key: 'guestName', label: 'Guest' },
+        { key: 'guestPhone', label: 'Phone' },
+        { key: 'roomType', label: 'Room Type' },
+        { key: 'roomNumber', label: 'Room' },
+        { key: 'arrivalDate', label: 'Arrival' },
+        { key: 'departureDate', label: 'Departure' },
+        { key: 'nights', label: 'Nights' },
+        { key: 'totalPax', label: 'Pax' },
+        { key: 'lostRevenue', label: 'Lost Revenue' },
+        { key: 'businessSource', label: 'Business Source' },
+        { key: 'reservationType', label: 'Res.Type' },
+        { key: 'isGuaranteed', label: 'Guaranteed' },
+        { key: 'createdBy', label: 'User' }
+    ]
+
+    const tableHeaders = columns.map(column => `<th>${column.label}</th>`).join('')
+
+    let tableRows = ''
+    data.forEach((item, index) => {
+        const cells = columns.map(column => {
+            let value = item[column.key] || '-'
+            
+            // Formater les valeurs spécifiques
+            if (column.key === 'lostRevenue') {
+                value = Number(value || 0).toFixed(2)
+            } else if (column.key === 'isGuaranteed') {
+                value = value ? 'Yes' : 'No'
+            } else if (column.key === 'nights') {
+                value = Math.round(value || 0)
+            }
+            
+            const cellClass = column.key === 'createdBy' ? ' class="user-cell"' : ''
+            const alignClass = column.key === 'lostRevenue' ? ' class="rate-cell"' : ''
+            return `<td${cellClass}${alignClass}>${value}</td>`
+        })
+        tableRows += `<tr>${cells.join('')}</tr>`
+        
+        // Ajouter une ligne pour les remarques si présentes
+        if (item.noShowReason) {
+            tableRows += `<tr class="remark-row">
+                <td colspan="${columns.length}" class="remark-cell">Reason: ${item.noShowReason}</td>
+            </tr>`
+        }
+    })
+
+    const formatDate = (dateString: string) => {
+        if (!dateString) return 'N/A'
+        try {
+            return DateTime.fromISO(dateString).toFormat('dd/MM/yyyy')
+        } catch {
+            return dateString
+        }
+    }
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${data[0]?.hotelName || 'Hotel'} - No-Show Reservations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            border: 2px solid #666;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #999;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .noshow-btn {
+            border: 2px solid #c00;
+            background: white;
+            color: #c00;
+            padding: 8px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 0px;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 13px;
+            padding-left: 0;
+        }
+
+        .filters label {
+            font-weight: bold;
+        }
+
+        .filters input {
+            border: none;
+            padding: 4px 8px;
+            font-size: 13px;
+        }
+
+        .filters select {
+            border: none;
+            padding: 4px 8px;
+            font-size: 13px;
+            background-color: transparent;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table th {
+            background-color: transparent;
+            border: none;
+            border-top: 1px solid #999;
+            border-bottom: 1px solid #999;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        table td {
+            border: none;
+            border-bottom: 1px solid #999;
+            padding: 8px;
+            font-size: 13px;
+        }
+
+        .user-cell {
+            color: #000;
+            text-decoration: none;
+            cursor: default;
+        }
+
+        .rate-cell {
+            text-align: right;
+        }
+
+        .remark-row {
+            background-color: #f9f9f9;
+        }
+
+        .remark-cell {
+            color: #666;
+            font-style: italic;
+            padding-left: 24px !important;
+        }
+
+        .footer-row {
+            background-color: #fff;
+            font-weight: bold;
+        }
+
+        .no-data {
+            padding: 40px 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+
+            .container {
+                border: none;
+                max-width: 100%;
+            }
+
+            .noshow-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
+            <button class="noshow-btn">No-Show Reservations</button>
+        </div>
+
+        <div class="filters">
+            <label>Hotel</label>
+            <input type="text" value="${data[0]?.hotelName || 'All Hotels'}" readonly>
+            <label>No-Show From</label>
+            <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
+            <label>To</label>
+            <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
+            <label>Order By</label>
+            <select disabled>
+                <option>Arrival Date</option>
+            </select>
+        </div>
+
+        ${data.length > 0 ? `
+        <table>
+            <thead>
+                <tr>${tableHeaders}</tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+                <tr class="footer-row">
+                    <td colspan="4"><strong>Total No-Shows: ${summary.totalNoShows || 0}</strong></td>
+                    <td colspan="3"><strong>Guaranteed: ${summary.guaranteedNoShows || 0}</strong></td>
+                    <td colspan="2"><strong>Total Nights: ${summary.totalNights || 0}</strong></td>
+                    <td><strong>${summary.totalRevenueLost ? Number(summary.totalRevenueLost).toFixed(2) : '0.00'}</strong></td>
+                    <td colspan="${columns.length - 10}"><strong>Total Pax: ${summary.totalAdults || 0}/${summary.totalChildren || 0}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        ` : `
+        <div class="no-data">
+            No data matches the selected filters
+        </div>
+        `}
+    </div>
+</body>
+</html>
+    `
+}
 }
