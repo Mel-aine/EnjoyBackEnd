@@ -1711,7 +1711,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
       }
-   
+
       const allRoomsCancelled = reservation.reservationRooms?.every(
         (room) => room.status === ReservationProductStatus.CANCELLED
       )
@@ -1799,7 +1799,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               })
               .save()
           }
-        } catch {}
+        } catch { }
       }
 
       await GuestSummaryService.recomputeFromReservation(reservationId)
@@ -2496,14 +2496,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             } else {
               // Cas multi-jours → check overlap par dates
               existingReservationsQuery = existingReservationsQuery.where((query) => {
-                query
-                  .whereBetween('checkInDate', [arrivedDate.toISODate(), departDate.toISODate()])
-                  .orWhereBetween('checkOutDate', [arrivedDate.toISODate(), departDate.toISODate()])
-                  .orWhere((overlapQuery) => {
-                    overlapQuery
-                      .where('checkInDate', '<=', arrivedDate.toISODate())
-                      .where('checkOutDate', '>=', departDate.toISODate())
-                  })
+                query.where('checkInDate', '<', departDate.toISODate())
+                  .where('checkOutDate', '>', arrivedDate.toISODate())
+
               })
             }
 
@@ -5146,7 +5141,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               })
               .save()
           }
-        } catch {}
+        } catch { }
       }
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)

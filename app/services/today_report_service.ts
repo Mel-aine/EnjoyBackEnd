@@ -7,6 +7,7 @@ import BookingSource from '#models/booking_source'
 import Room from '#models/room'
 import BusinessSource from '#models/business_source'
 import { ReservationStatus } from '../enums.js'
+import ReservationRoom from '#models/reservation_room'
 
 type RowItem = {
   reservationRef: string
@@ -27,18 +28,18 @@ type GroupBlock = {
 
 type SectionBlock = {
   key:
-    | 'today_confirm_check_in'
-    | 'today_check_out'
-    | 'staying_over'
-    | 'hold_expiring_today'
-    | 'today_hold_check_in'
-    | 'enquiry_check_in_today'
-    | 'yesterday_no_show'
-    | 'tomorrow_confirm_check_in'
-    | 'tomorrow_check_out'
-    | 'hold_expiring_tomorrow'
-    | 'tomorrow_hold_check_in'
-    | 'enquiry_check_in_tomorrow'
+  | 'today_confirm_check_in'
+  | 'today_check_out'
+  | 'staying_over'
+  | 'hold_expiring_today'
+  | 'today_hold_check_in'
+  | 'enquiry_check_in_today'
+  | 'yesterday_no_show'
+  | 'tomorrow_confirm_check_in'
+  | 'tomorrow_check_out'
+  | 'hold_expiring_tomorrow'
+  | 'tomorrow_hold_check_in'
+  | 'enquiry_check_in_tomorrow'
   title: string
   bookingCount: number
   roomsCount: number
@@ -99,40 +100,56 @@ function getBusinessSourceName(res: Reservation): string {
   )
 }
 
-function buildRow(res: Reservation): RowItem {
-  const guest = (res as any).guest as Guest | undefined
-  const roomType = (res as any).roomType as RoomType | undefined
-  const pax = (res.adults || 0) + (res.children || 0)
+function buildRowsForReservation(res: Reservation): RowItem[] {
+  const reservationRooms = (res as any).reservationRooms as ReservationRoom[] | undefined
   const currency = res.currencyCode || ((res as any).hotel?.currencyCode ?? '')
+  const reservationRef = res.reservationNumber || String(res.id)
+  const defaultRoomType = (res as any).roomType as RoomType | undefined
 
-  // Reference string similar to example: reservationNumber/confirmationCode
-  const refLeft = res.reservationNumber || res.otaReservationCode || res.confirmationNumber
-  const refRight = res.confirmationCode || res.otaReservationCode || res.reservationNumber
-  const reservationRef = [refLeft, refRight].filter(Boolean).join('/') || String(res.id)
+  if (reservationRooms && reservationRooms.length > 0) {
+    return reservationRooms.map((rr) => {
+      const guest = (rr as any).guest as Guest | undefined
+      const room = (rr as any).room
+      const roomType = (rr as any).roomType as RoomType | undefined
+      const rateType = (rr as any).rateType as { rateTypeName?: string; shortCode?: string } | undefined
+      const folios = (rr as any).folios as any[] | undefined
+      const mealPlan = (rr as any).mealPlan as { shortCode?: string; extraCharges?: any[] } | undefined
 
-  // Outstanding amount: prefer remainingAmount, fallback to balanceDue or 0
-  const outstanding = Number(
-    (res.remainingAmount ?? res.balanceDue ?? 0) as number
-  )
+      const pax = (rr.adults ?? 0) + (rr.children ?? 0)
+      const roomDescriptionParts = [
+        room?.roomNumber ? `Room ${room.roomNumber}` : undefined,
+        roomType?.roomTypeName,
+        rateType?.rateTypeName || rateType?.shortCode,
+      ].filter(Boolean)
+      const roomDescription = roomDescriptionParts.join(' - ')
 
-  return {
-    reservationRef,
-    guestName: guest?.displayName || `${guest?.title ? guest?.title + ' ' : ''}${guest?.firstName ?? ''} ${guest?.lastName ?? ''}`.trim(),
-    roomDescription: roomType?.roomTypeName || 'Room',
-    pax,
-    meal: formatMeal(res.board_basis_type),
-    // Prefer actual times when present, otherwise use scheduled+estimated time
-    checkIn:
-      fmtDate(res.arrivedDate, true) ||
-      (res.arrivedDate
-        ? `${fmtDate(res.arrivedDate)}${res.checkInTime ? ' ' + res.checkInTime : ''}`
-        : ''),
-    checkOut:
-      fmtDate(res.departDate) ||
-      fmtDate(res.departDate) ||
-      '',
-    outstandingAmount: outstanding,
-    currency,
+      let meal = ''
+      if ((rr as any).mealPlanRateInclude && mealPlan) {
+        const extras = (mealPlan.extraCharges || []) as any[]
+        const extraList = extras.map((ec: any) => ec.shortCode || ec.name).filter(Boolean)
+        const prefix = mealPlan.shortCode ? `${mealPlan.shortCode}: ` : ''
+        meal = prefix + extraList.join(', ')
+      }
+
+      let outstandingAmount = 0
+      if (folios && folios.length) {
+        const openFolio = folios.find((f: any) => f.status === 'open') || folios[0]
+        outstandingAmount = Number(openFolio?.balance ?? 0)
+      }
+
+      return {
+        reservationRef,
+        guestName:
+          guest?.displayName || `${guest?.title ? guest?.title + ' ' : ''}${guest?.firstName ?? ''} ${guest?.lastName ?? ''}`.trim(),
+        roomDescription: roomDescription || (defaultRoomType?.roomTypeName || 'Room'),
+        pax,
+        meal,
+        checkIn: fmtDate(rr.checkInDate),
+        checkOut: fmtDate(rr.checkOutDate),
+        outstandingAmount,
+        currency,
+      }
+    })
   }
 }
 
@@ -144,20 +161,35 @@ function queryBase(hotelId: number) {
     .preload('bookingSource')
     .preload('businessSource')
     .preload('hotel')
+    .preload('reservationRooms', (rr) =>
+      rr
+        .preload('room')
+        .preload('roomType')
+        .preload('rateType')
+        .preload('guest')
+        .preload('mealPlan', (m) => m.preload('extraCharges'))
+        .preload('folios', (f) => f.where('status', 'open'))
+    )
+}
+
+// Map enum values to DB status strings used by Reservation.status
+function toDbStatus(status: ReservationStatus): string {
+  // Convert hyphens to underscores to match DB values (e.g., checked-in -> checked_in)
+  return (status as string).replace(/-/g, '_')
 }
 
 async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   return await q
-    .where('arrivedDate', day.toISODate()!)
-    .where('reservation_status', 'Confirmed')
+    .where('arrived_date', day.toISODate()!)
+    .where('status', toDbStatus(ReservationStatus.CONFIRMED))
 }
 
 async function getStayingOver(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   // Stayover: checked-in and departure after the audit date
   return await q
-    .where('status', 'checked_in')
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
     .where('depart_date', '>', day.toSQL())
 }
 
@@ -172,22 +204,22 @@ async function getHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservati
   const q = queryBase(hotelId)
   return await q
     .where('is_hold', true)
-    .where('arrivedDate', day.toISODate()!)
+    .where('arrived_date', day.toISODate()!)
 }
 
 async function getEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   // Treat Pending/Waitlist as enquiry
   return await q
-    .whereIn('reservation_status', ['Pending', 'Waitlist'])
-    .where('arrivedDate', day.toISODate()!)
+    .whereIn('status', [toDbStatus(ReservationStatus.PENDING), 'waitlist'])
+    .where('arrived_date', day.toISODate()!)
 }
 
 async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const y = day.minus({ days: 1 })
   return await q
-    .where('reservation_status', 'No-Show')
+    .where('status', toDbStatus(ReservationStatus.NOSHOW))
     .orWhere((qb) => {
       qb.where('no_show_date', '>=', y.startOf('day').toSQL()).where('no_show_date', '<=', y.endOf('day').toSQL())
     })
@@ -196,18 +228,20 @@ async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reser
 async function getTomorrowConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('arrivedDate', t.toISODate()!).where('reservation_status', ReservationStatus.CONFIRMED)
+  return await q
+    .where('arrived_date', t.toISODate()!)
+    .where('status', toDbStatus(ReservationStatus.CONFIRMED))
 }
 
 async function getTomorrowCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('departDate', t.toISODate()!)
+  return await q.where('depart_date', t.toISODate()!)
 }
 
 async function getTodayCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
-  return await q.where('departDate', day.toISODate()!)
+  return await q.where('depart_date', day.toISODate()!)
 }
 
 async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -219,13 +253,15 @@ async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<
 async function getTomorrowHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('is_hold', true).where('arrivedDate', t.toISODate()!)
+  return await q.where('is_hold', true).where('arrived_date', t.toISODate()!)
 }
 
 async function getTomorrowEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.whereIn('reservation_status', ['Pending', 'Waitlist']).where('arrivedDate', t.toISODate()!)
+  return await q
+    .whereIn('status', [toDbStatus(ReservationStatus.PENDING), 'waitlist'])
+    .where('arrived_date', t.toISODate()!)
 }
 
 function toSection(title: string, key: SectionBlock['key'], reservations: Reservation[]): SectionBlock {
@@ -235,11 +271,12 @@ function toSection(title: string, key: SectionBlock['key'], reservations: Reserv
 
   for (const res of reservations) {
     const sourceName = getBusinessSourceName(res)
-    const row = buildRow(res)
+    const rows = buildRowsForReservation(res)
     const arr = groupsMap.get(sourceName) || []
-    arr.push(row)
+    for (const row of rows) arr.push(row)
     groupsMap.set(sourceName, arr)
-    roomsCount += res.roomsRequested || 1
+    const reservationRooms = (res as any).reservationRooms as ReservationRoom[] | undefined
+    roomsCount += (reservationRooms?.length ?? res.roomsRequested ?? 1)
   }
 
   const groups: GroupBlock[] = Array.from(groupsMap.entries()).map(([businessSource, rows]) => ({ businessSource, rows }))

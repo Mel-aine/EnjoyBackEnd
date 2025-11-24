@@ -1,4 +1,4 @@
-import BaseSchema from '@adonisjs/lucid/schema'
+import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class AddActorFieldsToDailySummaryFacts extends BaseSchema {
   protected tableName = 'daily_summary_facts'
