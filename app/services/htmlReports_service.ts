@@ -285,7 +285,7 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel Nihal'}</h1>
+            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
             <button class="arrival-btn">Arrival List</button>
         </div>
 
@@ -520,7 +520,7 @@ static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilte
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel Nihal'}</h1>
+            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
             <button class="departure-btn">Departure List</button>
         </div>
 
@@ -759,13 +759,13 @@ static generateCancelledReservationsHtml(data: any[], summary: any, filters: Rep
 <body>
     <div class="container">
         <div class="header">
-            <h1>${filters.hotelId || 'Hotel Nihal'}</h1>
+            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
             <button class="cancelled-btn">Cancelled Reservations</button>
         </div>
 
         <div class="filters">
             <label>Hotel</label>
-            <input type="text" value="${filters.hotelId || 'Hotel Nihal'}" readonly>
+            <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
             <label>Cancellation From</label>
             <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
             <label>To</label>
@@ -1003,13 +1003,13 @@ static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFi
 <body>
     <div class="container">
         <div class="header">
-            <h1>${filters.hotelId || 'Hotel Nihal'}</h1>
+            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
             <button class="void-btn">Void Reservations</button>
         </div>
 
         <div class="filters">
             <label>Hotel</label>
-            <input type="text" value="${filters.hotelId || 'Hotel Nihal'}" readonly>
+            <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
             <label>Void From</label>
             <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
             <label>To</label>
@@ -1249,7 +1249,7 @@ static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFil
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel Nihal'}</h1>
+            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
             <button class="checkout-btn">Guest Checked Out</button>
         </div>
 
@@ -1487,13 +1487,13 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel Nihal'}</h1>
+            <h1>${data[0]?.hotelName || 'Hotel`'}</h1>
             <button class="checkin-btn">Guest Checked In</button>
         </div>
 
         <div class="filters">
             <label>Hotel</label>
-            <input type="text" value="${data[0]?.hotelName || 'Hotel Nihal'}" readonly>
+            <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
             <label>Checked-in From</label>
             <input type="text" value="${filters.arrivalFrom ? formatDate(filters.arrivalFrom) : 'N/A'}" readonly>
             <label>To</label>

@@ -254,6 +254,9 @@ export default class OtaController {
                   taxes: pricing.taxAmount,
                   fees: pricing.feesAmount,
                   discounts: pricing.discountAmount,
+                  extraAdultRate:roomRate.extraAdultRate,
+                  extraChildRate : roomRate.extraChildRate
+
                 }
               : null,
             currency: pricing?.currency ?? 'XAF',
@@ -281,6 +284,8 @@ export default class OtaController {
             adults: rt.maxAdult,
             children: rt.maxChild,
             total: totalCapacity,
+            baseAdult:rt.baseAdult,
+            baseChild:rt.baseChild,
             base: rt.baseAdult + rt.baseChild,
           },
           amenities: rt.roomAmenities || [],

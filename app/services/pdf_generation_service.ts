@@ -576,11 +576,7 @@ export default class PdfGenerationService {
             <div class="page-info">
                 Page 1 of 1
             </div>
-    
-            <!-- URL -->
-            <div class="url">
-                https://live.jpms247.com/frontoffice/stayview
-            </div>
+
         </div>
     </body>
     </html>`
@@ -1421,11 +1417,6 @@ static async generateSuitaHotelPdf(
         <!-- Page Info -->
         <div class="page-info">
             Page 1 of 1
-        </div>
-
-        <!-- URL -->
-        <div class="url">
-            https://live.jpms247.com/frontoffice/stayview
         </div>
     </div>
 </body>

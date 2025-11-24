@@ -346,7 +346,9 @@ export default class NightAuditService {
       managerReportData: managerReportData,
       nightAuditReportData: nightAuditReportData,
       dailyRevenueReportData: dailyRevenueReportData,
-      roomStatusReportData: roomStatusReportData
+      roomStatusReportData: roomStatusReportData,
+      createdById: userId,
+      modifiedById: userId
     }
 
     if (existing) {
@@ -913,7 +915,7 @@ export default class NightAuditService {
             actorId: userId,
             action: 'UPDATE',
             resourceType: 'FolioTransaction',
-            entityType:'FolioTransaction',
+            entityType: 'FolioTransaction',
             resourceId: existingTransaction.id,
             entityId: charge.folioId,
             hotelId: hotelId,

@@ -884,7 +884,7 @@ export class FrontOfficeReportsService {
       })
       .preload('bookingSource')
       .preload('ratePlan')
-      //.preload('creator')
+      .preload('creator')
       //.where('reservation_status', 'Checked_in')
       .orderBy('check_in_date', 'desc')
 
@@ -895,18 +895,18 @@ export class FrontOfficeReportsService {
 
     // Filtres de date d'arrivée
     if (filters.arrivalFrom) {
-      const arrivalFromDate = DateTime.fromFormat(filters.arrivalFrom, 'dd/MM/yyyy')
+      const arrivalFromDate = DateTime.fromFormat(filters.arrivalFrom, 'yyyy-MM-dd')
       query.where('check_in_date', '>=', arrivalFromDate.toFormat('yyyy-MM-dd'))
     }
 
     if (filters.arrivalTo) {
-      const arrivalToDate = DateTime.fromFormat(filters.arrivalTo, 'dd/MM/yyyy')
+      const arrivalToDate = DateTime.fromFormat(filters.arrivalTo, 'yyyy-MM-dd')
       query.where('check_in_date', '<=', arrivalToDate.plus({ days: 1 }).toFormat('yyyy-MM-dd'))
     }
 
     // Filtre par type de chambre
     if (filters.roomType) {
-      query.where('primary_room_type_id', filters.roomType)
+      query.where('room_type_id', filters.roomType)
     }
 
     // Filtre par type de tarif
