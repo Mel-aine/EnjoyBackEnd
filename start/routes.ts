@@ -74,6 +74,20 @@ router.get('/', async ({ request, response }) => {
   response.type('html')
   return response.send(html)
 })
+
+// Password reset page (HTML form)
+router.get('/reset-password', async ({ request, response }) => {
+  const baseUrl = `${request.protocol()}://${request.host()}`
+  const token = request.qs().token || ''
+  const filePath = join(process.cwd(), 'resources', 'views', 'reset_password.html')
+  let html = readFileSync(filePath, 'utf-8')
+  html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
+  html = html.replace(/\{\{TOKEN\}\}/g, token)
+  const loginUrl = `${baseUrl}/swagger`
+  html = html.replace(/\{\{LOGIN_URL\}\}/g, loginUrl)
+  response.type('html')
+  return response.send(html)
+})
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
