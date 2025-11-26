@@ -4,6 +4,7 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import User from '#models/user'
 import { DateTime } from 'luxon'
+import UserEmailService from '#services/user_email_service'
 const UserAssigmentService = new CrudService(ServiceUserAssignment)
 
 export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment> {
@@ -69,7 +70,9 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           permis_reports: data.permis_reports ? JSON.stringify(data.permis_reports) : null,
         })
         isNewUser = true;
-        await user.save();
+        // Prepare and send email verification via service
+        const baseUrl = `${ctx.request.protocol()}://${ctx.request.host()}`
+        await UserEmailService.prepareAndSendVerification(user, baseUrl)
       }
 
       // 3. Vérifier si une assignation existe déjà

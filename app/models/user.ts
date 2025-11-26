@@ -39,6 +39,15 @@ export default class  User extends AuthFinder(BaseModel) {
   @column()
   declare email: string
 
+  @column({ columnName: 'email_verified' })
+  declare emailVerified: boolean
+
+  @column({ columnName: 'email_verification_token' })
+  declare emailVerificationToken: string | null
+
+  @column.dateTime({ columnName: 'email_verification_expires' })
+  declare emailVerificationExpires: DateTime | null
+
   @column({ columnName: 'employee_id' })
   declare employeeId: number | null
 

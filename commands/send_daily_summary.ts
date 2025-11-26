@@ -1,4 +1,13 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
+/**
+ * Quick usage for Hotel 3
+ *
+ * - Send latest summary:  node ace reports:send-daily-summary -h 3
+ * - Send for a date:      node ace reports:send-daily-summary -h 3 -d YYYY-MM-DD
+ *
+ * The `-h` flag is the hotel id (alias for `--hotel-id`).
+ * The `-d` flag is the audit date (alias for `--date`).
+ */
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 
 import DailySummaryFact from '#models/daily_summary_fact'

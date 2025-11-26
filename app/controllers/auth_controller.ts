@@ -25,6 +25,51 @@ export default class AuthController {
     }
   }
 
+  public async confirmEmail(ctx: HttpContext) {
+    const { request, response } = ctx
+    const token = request.input('token') || request.qs().token
+    const email = request.input('email') || request.qs().email
+
+    if (!token || !email) {
+      return response.badRequest({ message: 'Missing token or email' })
+    }
+
+    try {
+      const user = await User.findBy('email', email)
+      if (!user) {
+        return response.badRequest({ message: 'Invalid token or email' })
+      }
+      if (user.emailVerified) {
+        return response.ok({ message: 'Email already verified' })
+      }
+
+      if (!user.emailVerificationToken || user.emailVerificationToken !== token) {
+        return response.badRequest({ message: 'Invalid token' })
+      }
+
+      if (user.emailVerificationExpires && DateTime.now() > user.emailVerificationExpires) {
+        return response.badRequest({ message: 'Verification token expired' })
+      }
+
+      user.emailVerified = true
+      user.emailVerificationToken = null
+      user.emailVerificationExpires = null
+      await user.save()
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'EMAIL_VERIFIED',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Email verified for ${user.email}`,
+        ctx: ctx,
+      })
+
+      return response.ok({ message: 'Email verified successfully' })
+    } catch (error) {
+      return response.status(500).json({ message: 'Failed to verify email', error: (error as any).message })
+    }
+  }
   // Fonction auxiliaire pour envoyer des réponses de succès
   private response(message: string, data?: any) {
     return {

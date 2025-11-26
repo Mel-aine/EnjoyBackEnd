@@ -398,6 +398,8 @@ router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction(
 router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
+router.get('api/confirm-email', [AuthController, 'confirmEmail'])
+router.post('api/confirm-email', [AuthController, 'confirmEmail'])
 router.post('api/initSpace', [AuthController, 'initSpace'])
 router.post('api/authLogout', [AuthController, 'logout'])
 router.get('api/auth', [AuthController, 'user'])
