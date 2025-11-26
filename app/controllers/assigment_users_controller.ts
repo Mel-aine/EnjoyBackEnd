@@ -203,6 +203,7 @@ public async updateUser(ctx: HttpContext) {
     }
 
     // Mettre à jour les données utilisateur
+    const originalEmail = user.email
     await user.merge({
       firstName: data.first_name || user.firstName,
       lastName: data.last_name || user.lastName,
@@ -250,6 +251,12 @@ public async updateUser(ctx: HttpContext) {
     })
 
     await user.save()
+
+    // If email changed, reset verification and send confirmation email
+    if (data.email && originalEmail && data.email.toLowerCase() !== originalEmail.toLowerCase()) {
+      const baseUrl = `${ctx.request.protocol()}://${ctx.request.host()}`
+      await UserEmailService.prepareAndSendVerification(user, baseUrl)
+    }
 
     // Mettre à jour l'assignation si nécessaire
     if (data.department_id || data.role_id) {
