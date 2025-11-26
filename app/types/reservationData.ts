@@ -53,10 +53,11 @@ export interface ReservationData {
   nationality?: string
   dateOfBirth?: string
   placeOfBirth?: string
-  ota_name?:string
-  ota_reservation_code?:string
-  booking_date?:any
+  ota_name?: string
+  ota_reservation_code?: string
+  booking_date?: any
   language?: string
+  guest_id?: number,
 
   // Multiple guests support
   guests?: GuestData[]
@@ -84,7 +85,7 @@ export interface ReservationData {
   passportNumber?: any,
   profilePhoto?: any,
   rate_type_id: any,
-  customType?:string,
+  customType?: string,
 
   // Dates and guests
   arrived_date: string
@@ -97,18 +98,18 @@ export interface ReservationData {
   rooms: Array<{
     room_type_id: number
     rate_type_id?: number
-    meal_plan_id?:number
+    meal_plan_id?: number
     room_id: number | null
     room_rate: number
     adult_count: number
     child_count: number
     room_rate_id: number,
-    tax_includes:boolean,
-    meal_plan_rate_include : boolean,
+    tax_includes: boolean,
+    meal_plan_rate_include: boolean,
     taxes: number,
-    arriving_to:string,
-    going_to:string,
-    means_of_transport:string
+    arriving_to: string,
+    going_to: string,
+    means_of_transport: string
   }>
 
   // Financial

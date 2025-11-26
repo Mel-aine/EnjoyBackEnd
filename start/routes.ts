@@ -1539,7 +1539,9 @@ router
     router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
     router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
     router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
-
+    // Create reservation with past-date handling (auto check-in/checkout) without notifying channel for past intervals
+    router.post('/reservations/inserttrasaction', reservationsController.insertTransaction.bind(reservationsController))
+    // Import reservations from CSV (maps each row to ReservationData)
     //Payment Method routes
     router
       .group(() => {
