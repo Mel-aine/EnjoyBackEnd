@@ -2700,9 +2700,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
 
         await trx.commit().then(() => {
-          try {
-            ReservationHook.notifyAvailabilityOnCreate(reservation)
-          } catch {
+          // Send availability notification only if arrival is in the future
+          // or the current date falls within the stay interval. Do not notify
+          // when both arrival and departure are in the past.
+          const now = DateTime.now()
+          const nowDay = now.startOf('day')
+          const arrivalDay = arrivedDate.startOf('day')
+          const departDay = departDate.startOf('day')
+          const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
+          if (shouldNotify) {
+            try {
+              ReservationHook.notifyAvailabilityOnCreate(reservation)
+            } catch {
+            }
           }
         })
 
@@ -2850,7 +2860,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ? 0
           : Math.ceil(departDate.diff(arrivedDate, 'days').days)
 
-        const validationErrors = ReservationService.validateReservationData(data)
+        const validationErrors = ReservationService.validateReservationData(data, true)
         if (validationErrors.length > 0) {
           await trx.rollback()
           return response.badRequest({ success: false, message: validationErrors.join(', ') })
@@ -3007,10 +3017,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         await trx.commit()
 
-        // Channel notification only when current date within stay interval
+        // Channel notification only if arrival is in the future
+        // or the current date is within the stay interval. If both arrival
+        // and departure are in the past, skip notification.
         const now = DateTime.now()
-        const inInterval = now.startOf('day') >= arrivedDate.startOf('day') && now.startOf('day') < departDate.startOf('day')
-        if (inInterval) {
+        const nowDay = now.startOf('day')
+        const arrivalDay = arrivedDate.startOf('day')
+        const departDay = departDate.startOf('day')
+        const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
+        if (shouldNotify) {
           try { ReservationHook.notifyAvailabilityOnCreate(reservation) } catch {}
         }
 

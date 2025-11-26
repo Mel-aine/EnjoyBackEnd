@@ -63,7 +63,7 @@ export default class ReservationService {
 
   //   return errors
   // }
-  public static validateReservationData(data: ReservationData): string[] {
+  public static validateReservationData(data: ReservationData,isTransaction:boolean = false): string[] {
     const errors: string[] = []
 
     // Champs obligatoires
@@ -86,11 +86,11 @@ export default class ReservationService {
     const departureDate = new Date(data.depart_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-
-    if (arrivalDate < today) {
-      errors.push("La date d'arrivée ne peut pas être dans le passé")
+    if(!isTransaction){
+      if (arrivalDate < today) {
+        errors.push("La date d'arrivée ne peut pas être dans le passé")
+      }
     }
-
     // Validation des dates modifiée pour supporter les réservations le même jour
     if (arrivalDate.toISOString().split('T')[0] === departureDate.toISOString().split('T')[0]) {
       // Même jour - vérifier les heures
