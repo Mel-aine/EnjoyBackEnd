@@ -3907,6 +3907,38 @@ export default class ReservationsController extends CrudController<typeof Reserv
         roomNumber: currentReservationRoom.room.roomNumber,
         roomType: currentReservationRoom.room.roomType?.roomTypeName,
       }
+      // If not checked in yet, only change the room assignment without folio/actions
+      const isCheckedIn = ['checked-in', 'checked_in'].includes(
+        (reservation.status || '').toLowerCase()
+      )
+      if (!isCheckedIn) {
+        await currentReservationRoom
+          .merge({
+            roomId: newRoomId,
+            roomTypeId: newRoom.roomTypeId,
+            lastModifiedBy: auth.user?.id!,
+            notes: `room change: ${originalRoomInfo.roomNumber} → ${newRoom.roomNumber}. Reason: ${reason || 'Room change'}`,
+          })
+          .useTransaction(trx)
+          .save()
+
+        await trx.commit()
+
+        return response.ok({
+          message: 'Room updated successfully (pre-check-in)',
+          reservationId,
+          moveDetails: {
+            fromRoom: originalRoomInfo,
+            toRoom: {
+              roomId: newRoomId,
+              roomNumber: newRoom.roomNumber,
+              roomType: newRoom.roomType?.roomTypeName,
+            },
+            effectiveDate: moveDate.toISODate(),
+            reason: reason || 'Room change',
+          },
+        })
+      }
       const currentCheckOutDate = currentReservationRoom.checkOutDate;
       // Update current reservation room status to indicate move
       await currentReservationRoom
