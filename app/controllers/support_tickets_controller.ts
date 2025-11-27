@@ -24,7 +24,13 @@ const createTicketValidator = vine.compile(
     impact: vine.enum(['tous', 'plusieurs', 'un', 'rapport'] as const),
     severity: vine.enum(['critical', 'high', 'low'] as const),
     status: vine.enum(['open', 'in_progress', 'resolved', 'closed'] as const).optional(),
-    assignedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(), // Temps assigné en minutes
+    assignedAt: vine
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return undefined
+      return DateTime.fromISO(value)
+    }),
     description: vine.object({
       full: vine.string().trim().minLength(3),
       steps: vine.array(vine.string().trim()).minLength(1),
@@ -62,7 +68,13 @@ const updateTicketValidator = vine.compile(
     impact: vine.enum(['tous', 'plusieurs', 'un', 'rapport'] as const).optional(),
     severity: vine.enum(['critical', 'high', 'low'] as const).optional(),
     status: vine.enum(['open', 'in_progress', 'resolved', 'closed'] as const).optional(),
-    assignedAt: vine.date().transform((value) => value ? DateTime.fromJSDate(value) : value).optional(), // Temps assigné en minutes
+    assignedAt: vine
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return undefined
+      return DateTime.fromISO(value)
+    }),
     description: vine.object({
       full: vine.string().trim().minLength(3),
       steps: vine.array(vine.string().trim()).minLength(1),
@@ -101,10 +113,10 @@ export default class SupportTicketsController {
     // Génère un numéro séquentiel basé sur le timestamp
     const sequential = String(now.getTime()).slice(-3)
     
-    return `TICKET-${datePart}-${sequential}-${titleInitials}`
+    return `TICKET-${sequential}-${titleInitials}`
   }
 
-public async create({ request, response, auth }: HttpContext) {
+  public async create({ request, response, auth }: HttpContext) {
   try {
 
     const attachmentFile = request.file('attachment', {
@@ -128,6 +140,8 @@ public async create({ request, response, auth }: HttpContext) {
 
     const payload = await request.validateUsing(createTicketValidator)
 
+    
+
     const ticket = new SupportTicket()
     ticket.title = payload.title
     ticket.category = payload.category
@@ -141,6 +155,32 @@ public async create({ request, response, auth }: HttpContext) {
     ticket.hotelId = payload.context?.hotelId ?? null
     ticket.createdBy = auth?.user?.id ?? null
     ticket.assignedAt = payload.assignedAt as DateTime<boolean>
+
+
+    // Gérer assignedAt avec calcul automatique basé sur la sévérité
+    const now = DateTime.now()
+    
+    if (payload.assignedAt && payload.assignedAt.isValid) {
+      // Si une date est fournie manuellement, l'utiliser
+      ticket.assignedAt = payload.assignedAt
+    } else {
+      // Calcul automatique basé sur la sévérité
+      switch (payload.severity) {
+        case 'critical':
+          // Critical: +3 heures
+          ticket.assignedAt = now.plus({ hours: 3 })
+          break
+        case 'high':
+          // High: +6 heures
+          ticket.assignedAt = now.plus({ hours: 6 })
+          break
+        case 'low':
+        default:
+          // Low: +24 heures (le lendemain)
+          ticket.assignedAt = now.plus({ hours: 24 })
+          break
+      }
+    }
 
     let attachmentUrl: string | null = null
     if (attachmentFile) {
@@ -159,10 +199,12 @@ public async create({ request, response, auth }: HttpContext) {
     }
 
     ticket.attachments = attachmentUrl ? [attachmentUrl] : null
- 
+
       
       // Génération du code de ticket
       ticket.ticketCode = this.generateTicketCode(payload.title)
+
+
 
       await ticket.save()
 

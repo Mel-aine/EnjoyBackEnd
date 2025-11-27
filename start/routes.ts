@@ -1560,20 +1560,22 @@ router
       })
       .prefix('room-blocks')
 
-    router.post('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'create'])
-    router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
-    router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
-    router.put('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'update'])
-    router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
-    // Dashboard routes for support tickets
-    router.get('/support/tickets/dashboard/stats', [() => import('#controllers/support_tickets_controller'), 'dashboardStats'])
-    router.get('/support/tickets/me/open', [() => import('#controllers/support_tickets_controller'), 'myOpen'])
-    router.get('/support/tickets/me/pending-response', [() => import('#controllers/support_tickets_controller'), 'pendingResponse'])
-    router.get('/support/tickets/urgent', [() => import('#controllers/support_tickets_controller'), 'urgent'])
-    router.get('/support/tickets/distribution', [() => import('#controllers/support_tickets_controller'), 'distribution'])
-    router.get('/support/tickets/weekly-volume', [() => import('#controllers/support_tickets_controller'), 'weeklyVolume'])
-    router.get('/support/tickets/search', [() => import('#controllers/support_tickets_controller'), 'search'])
-
+      router.post('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'create'])
+      router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
+      
+      // Routes spécifiques AVANT :id
+      router.get('/support/tickets/dashboard/stats', [() => import('#controllers/support_tickets_controller'), 'dashboardStats'])
+      router.get('/support/tickets/me/open', [() => import('#controllers/support_tickets_controller'), 'myOpen'])
+      router.get('/support/tickets/me/pending-response', [() => import('#controllers/support_tickets_controller'), 'pendingResponse'])
+      router.get('/support/tickets/urgent', [() => import('#controllers/support_tickets_controller'), 'urgent'])
+      router.get('/support/tickets/distribution', [() => import('#controllers/support_tickets_controller'), 'distribution'])
+      router.get('/support/tickets/weekly-volume', [() => import('#controllers/support_tickets_controller'), 'weeklyVolume'])
+      router.get('/support/tickets/search', [() => import('#controllers/support_tickets_controller'), 'search'])
+      
+      // Routes avec :id EN DERNIER
+      router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
+      router.put('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'update'])
+      router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
     router
       .group(() => {
         router.get('/', ipConfigurationsController.index.bind(ipConfigurationsController))
