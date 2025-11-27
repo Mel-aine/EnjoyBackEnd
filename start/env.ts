@@ -51,6 +51,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   MAIL_FROM_ADDRESS: Env.schema.string.optional(),
   MAIL_FROM_NAME: Env.schema.string.optional(),
   FRONTEND_URL: Env.schema.string.optional(),
+  // Comma-separated list of allowed CORS origins
+  CORS_ORIGINS: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------
