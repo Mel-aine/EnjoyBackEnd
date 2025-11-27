@@ -63,7 +63,7 @@ export default class ReservationService {
 
   //   return errors
   // }
-  public static validateReservationData(data: ReservationData): string[] {
+  public static validateReservationData(data: ReservationData,isTransaction:boolean = false): string[] {
     const errors: string[] = []
 
     // Champs obligatoires
@@ -86,11 +86,11 @@ export default class ReservationService {
     const departureDate = new Date(data.depart_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-
-    if (arrivalDate < today) {
-      errors.push("La date d'arrivée ne peut pas être dans le passé")
+    if(!isTransaction){
+      if (arrivalDate < today) {
+        errors.push("La date d'arrivée ne peut pas être dans le passé")
+      }
     }
-
     // Validation des dates modifiée pour supporter les réservations le même jour
     if (arrivalDate.toISOString().split('T')[0] === departureDate.toISOString().split('T')[0]) {
       // Même jour - vérifier les heures
@@ -139,17 +139,98 @@ export default class ReservationService {
 
   /**
    * Crée ou met à jour un invité
-   */
+  */
 
 
   public static async createOrFindGuest(data: ReservationData, trx?: any): Promise<Guest> {
     // Convert email to lowercase for consistent matching
     const normalizedEmail = data.email?.toLowerCase().trim() || ''
-    let guest = null
-    if (data.email) {
+    let guest: Guest | null = null
+
+    // 1) If explicit guest_id is provided, load and update that guest directly
+    if (data.guest_id) {
+      guest = await Guest.query({ client: trx }).where('id', data.guest_id).first()
+      if (guest) {
+        guest.merge({
+          hotelId: data.hotel_id,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          phonePrimary: data.phone_primary,
+          title: data.title,
+          companyName: data.company_name,
+          companyId: data.company_id,
+          profession: data.profession,
+          addressLine: data.address_line,
+          country: data.country,
+          stateProvince: data.state,
+          city: data.city,
+          postalCode: data.zipcode,
+          language: data.language,
+          email: normalizedEmail || guest.email,
+        })
+        await guest.useTransaction(trx).save()
+        return guest
+      }
+      // If the provided guest_id does not exist, fall back to email/LIKE matching below
+    }
+
+    // 2) Try email matching
+    if (!guest && normalizedEmail) {
       guest = await Guest.query({ client: trx })
         .where('email', normalizedEmail)
         .first()
+    }
+
+    // Helper to normalize display names (remove dots, collapse spaces, lowercase)
+    const normalizeName = (value: string) =>
+      value
+        ?.toLowerCase()
+        .replace(/\./g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    // Build the input display name using Title + First + Last
+    const inputDisplayName = normalizeName([
+      data.title || '',
+      data.first_name || '',
+      (data.last_name || '-'),
+    ].filter(Boolean).join(' '))
+
+    // If email lookup did not find the guest, try LIKE matching on first/last within hotel
+    if (!guest && data.hotel_id) {
+      const first = (data.first_name || '').trim()
+      const last = (data.last_name || '-').trim()
+
+      // Primary candidate search: hotel + first_name LIKE + last_name LIKE
+      const candidates = await Guest.query({ client: trx })
+        .where('hotel_id', data.hotel_id)
+        .whereILike('first_name', `%${first}%`)
+        .whereILike('last_name', `%${last}%`)
+
+      // Prefer exact normalized display name match (Title First Last)
+      guest = candidates.find((g) => {
+        const candidateDisplay = normalizeName([
+          g.title || '',
+          g.firstName || '',
+          g.lastName || '-',
+        ].filter(Boolean).join(' '))
+        return candidateDisplay === inputDisplayName
+      }) || candidates[0] || null
+
+      // If still no guest found, broaden the search to all hotel guests and match by normalized display name
+      if (!guest) {
+        const hotelGuests = await Guest.query({ client: trx })
+          .where('hotel_id', data.hotel_id)
+
+        guest = hotelGuests.find((g) => {
+          const candidateDisplay = normalizeName([
+            g.title || '',
+            g.firstName || '',
+            g.lastName || '-',
+          ].filter(Boolean).join(' '))
+          return candidateDisplay === inputDisplayName
+        }) || null
+      }
     }
 
 
@@ -168,7 +249,8 @@ export default class ReservationService {
         stateProvince: data.state,
         city: data.city,
         postalCode: data.zipcode,
-        language:data.language
+        language: data.language,
+        email: normalizedEmail || guest.email,
       })
       await guest.useTransaction(trx).save()
     } else {

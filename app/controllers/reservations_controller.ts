@@ -2700,9 +2700,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
 
         await trx.commit().then(() => {
-          try {
-            ReservationHook.notifyAvailabilityOnCreate(reservation)
-          } catch {
+          // Send availability notification only if arrival is in the future
+          // or the current date falls within the stay interval. Do not notify
+          // when both arrival and departure are in the past.
+          const now = DateTime.now()
+          const nowDay = now.startOf('day')
+          const arrivalDay = arrivedDate.startOf('day')
+          const departDay = departDate.startOf('day')
+          const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
+          if (shouldNotify) {
+            try {
+              ReservationHook.notifyAvailabilityOnCreate(reservation)
+            } catch {
+            }
           }
         })
 
@@ -2792,6 +2802,332 @@ export default class ReservationsController extends CrudController<typeof Reserv
         success: false,
         error: error instanceof Error ? error.message : 'Erreur inconnue lors de la sauvegarde',
       })
+    }
+  }
+
+  /**
+   * Create reservation with past-date handling.
+   * - If check-in date is already passed, auto check-in after creation.
+   * - If check-out date is already passed, auto check-out after creation.
+   * - Channel notifications are sent only if current date falls within the stay interval.
+   *   Past-date actions do not trigger channel updates.
+   */
+  public async insertTransaction(ctx: HttpContext) {
+    const { request, auth, response } = ctx
+
+    try {
+      const data = request.body() as ReservationData
+
+      if (!data) {
+        return response.badRequest({ success: false, message: 'No data received' })
+      }
+
+      if (!data.hotel_id || !data.arrived_date || !data.depart_date) {
+        return response.badRequest({
+          success: false,
+          message: 'Missing required fields: hotel_id, arrived_date, depart_date',
+        })
+      }
+
+      const arrivedDate = DateTime.fromISO(data.arrived_date)
+      const departDate = DateTime.fromISO(data.depart_date)
+
+      if (!arrivedDate.isValid || !departDate.isValid) {
+        return response.badRequest({ success: false, message: 'Invalid date format' })
+      }
+
+      if (arrivedDate.toISODate() === departDate.toISODate()) {
+        if (!data.check_in_time || !data.check_out_time) {
+          return response.badRequest({
+            success: false,
+            message: 'For same-day reservations, both arrival and departure times are required',
+          })
+        }
+
+        const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
+        const departureDateTime = DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`)
+        if (!arrivalDateTime.isValid || !departureDateTime.isValid || departureDateTime <= arrivalDateTime) {
+          return response.badRequest({ success: false, message: 'Invalid arrival/departure times' })
+        }
+      } else if (departDate <= arrivedDate) {
+        return response.badRequest({ success: false, message: 'Departure date must be after arrival date' })
+      }
+
+      const trx = await db.transaction()
+      try {
+        // Nights calc
+        const numberOfNights = arrivedDate.toISODate() === departDate.toISODate()
+          ? 0
+          : Math.ceil(departDate.diff(arrivedDate, 'days').days)
+
+        const validationErrors = ReservationService.validateReservationData(data, true)
+        if (validationErrors.length > 0) {
+          await trx.rollback()
+          return response.badRequest({ success: false, message: validationErrors.join(', ') })
+        }
+
+        const guest = await ReservationService.createOrFindGuest(data, trx)
+        const confirmationNumber = generateConfirmationNumber()
+        const reservationNumber = generateReservationNumber()
+
+        const rooms = data.rooms || []
+        const totalAdults = rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
+        const totalChildren = rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
+
+        // Availability check only when rooms provided (same as saveReservation)
+        if (rooms.length > 0) {
+          const roomIds = rooms.map((r) => r.room_id).filter((id): id is any => Boolean(id))
+          if (roomIds.length > 0) {
+            let existingReservationsQuery = ReservationRoom.query({ client: trx })
+              .whereIn('roomId', roomIds)
+              .where('status', 'reserved')
+
+            if (arrivedDate.toISODate() === departDate.toISODate()) {
+              const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
+              const departureDateTime = DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`)
+              existingReservationsQuery = existingReservationsQuery
+                .where('checkInDate', arrivedDate.toISODate())
+                .where('checkOutDate', departDate.toISODate())
+                .where((query) => {
+                  query
+                    .whereBetween('checkInTime', [arrivalDateTime.toFormat('HH:mm'), departureDateTime.toFormat('HH:mm')])
+                    .orWhereBetween('checkOutTime', [arrivalDateTime.toFormat('HH:mm'), departureDateTime.toFormat('HH:mm')])
+                    .orWhere((overlapQuery) => {
+                      overlapQuery
+                        .where('checkInTime', '<=', arrivalDateTime.toFormat('HH:mm'))
+                        .where('checkOutTime', '>=', departureDateTime.toFormat('HH:mm'))
+                    })
+                })
+            } else {
+              existingReservationsQuery = existingReservationsQuery.where((query) => {
+                query.where('checkInDate', '<', departDate.toISODate()).where('checkOutDate', '>', arrivedDate.toISODate())
+              })
+            }
+
+            const existingReservations = await existingReservationsQuery
+            if (existingReservations.length > 0) {
+              await trx.rollback()
+              return response.badRequest({
+                success: false,
+                message: 'One or more rooms are not available for the selected dates/times',
+                conflicts: existingReservations.map((r) => ({
+                  roomId: r.roomId,
+                  checkInDate: r.checkInDate,
+                  checkOutDate: r.checkOutDate,
+                  checkInTime: r.checkInTime,
+                  checkOutTime: r.checkOutTime,
+                })),
+              })
+            }
+          }
+        }
+
+        // Create reservation
+        const reservation = await Reservation.create({
+          hotelId: data.hotel_id,
+          userId: auth.user?.id || data.created_by,
+          arrivedDate: arrivedDate,
+          departDate: departDate,
+          checkInDate: data.arrived_time ? DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`) : arrivedDate,
+          checkOutDate: data.depart_time ? DateTime.fromISO(`${data.depart_date}T${data.check_out_time}`) : departDate,
+          status: data.status || 'confirmed',
+          guestCount: totalAdults + totalChildren,
+          adults: totalAdults,
+          children: totalChildren,
+          checkInTime: data.check_in_time || data.arrived_time,
+          checkOutTime: data.check_out_time || data.depart_time,
+          totalAmount: parseFloat(`${data.total_amount ?? 0}`),
+          taxAmount: parseFloat(`${data.tax_amount ?? 0}`),
+          arrivingTo: data.arriving_to,
+          goingTo: data.going_to,
+          meansOfTransportation: data.means_of_transportation,
+          finalAmount: parseFloat(`${data.final_amount ?? 0}`),
+          confirmationNumber,
+          reservationNumber,
+          numberOfNights,
+          paidAmount: parseFloat(`${data.paid_amount ?? 0}`),
+          remainingAmount: parseFloat(`${data.remaining_amount ?? 0}`),
+          reservationTypeId: data.reservation_type_id,
+          bookingSourceId: data.booking_source,
+          businessSourceId: data.business_source,
+          complimentaryRoom: data.complimentary_room,
+          paymentStatus: 'pending',
+          paymentMethodId: data.payment_mod,
+          billTo: data.bill_to,
+          marketCodeId: data.market_code_id,
+          customType: data.customType,
+          paymentType: data.payment_type,
+          taxExempt: data.tax_exempt,
+          isHold: data.isHold,
+          otaReservationCode: data.ota_reservation_code,
+          otaName: data.ota_name,
+          bookingDate: data.booking_date ? DateTime.fromISO(data.booking_date) : DateTime.now(),
+          holdReleaseDate: data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
+          releaseTem: data.isHold ? data.ReleaseTem : null,
+          releaseRemindGuestbeforeDays: data.isHold ? data.ReleaseRemindGuestbeforeDays : null,
+          releaseRemindGuestbefore: data.isHold ? data.ReleaseRemindGuestbefore : null,
+          reservedBy: auth.user?.id,
+          createdBy: auth.user?.id,
+        }, { client: trx })
+
+        if (!reservation.id) throw new Error('Reservation creation failed (missing ID)')
+
+        // Guests
+        const { primaryGuest, allGuests } = await ReservationService.processReservationGuests(reservation.id, data, trx)
+        await reservation.merge({ guestId: primaryGuest.id }).useTransaction(trx).save()
+
+        // Rooms
+        if (rooms.length > 0) {
+          for (let index = 0; index < rooms.length; index++) {
+            const room = rooms[index]
+            await ReservationRoom.create({
+              reservationId: reservation.id,
+              roomTypeId: room.room_type_id,
+              roomId: room.room_id || null,
+              guestId: primaryGuest.id,
+              checkInDate: DateTime.fromISO(data.arrived_date),
+              checkOutDate: DateTime.fromISO(data.depart_date),
+              checkInTime: data.check_in_time,
+              checkOutTime: data.check_out_time,
+              totalAmount: room.room_rate * numberOfNights,
+              nights: numberOfNights,
+              adults: room.adult_count,
+              children: room.child_count,
+              roomRate: room.room_rate,
+              roomRateId: room.room_rate_id,
+              paymentMethodId: data.payment_mod,
+              hotelId: data.hotel_id,
+              taxIncludes: true,
+              meansOfTransportation: room.means_of_transport,
+              goingTo: room.going_to,
+              arrivingTo: room.arriving_to,
+              totalRoomCharges: numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights,
+              taxAmount: room.taxes,
+              totalTaxesAmount: numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights,
+              netAmount: (numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights) + (numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights),
+              status: numberOfNights === 0 ? 'day_use' : 'reserved',
+              rateTypeId: room.rate_type_id,
+              mealPlanId: room.meal_plan_id,
+              isOwner: index === 0,
+              reservedByUser: auth.user?.id,
+              createdBy: data.created_by,
+            }, { client: trx })
+          }
+        }
+
+        await trx.commit()
+
+        // Channel notification only if arrival is in the future
+        // or the current date is within the stay interval. If both arrival
+        // and departure are in the past, skip notification.
+        const now = DateTime.now()
+        const nowDay = now.startOf('day')
+        const arrivalDay = arrivedDate.startOf('day')
+        const departDay = departDate.startOf('day')
+        const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
+        if (shouldNotify) {
+          try { ReservationHook.notifyAvailabilityOnCreate(reservation) } catch {}
+        }
+
+        // Folios only if rooms exist
+        let folios: any[] = []
+        if (rooms.length > 0) {
+          folios = await ReservationFolioService.createFoliosOnConfirmation(reservation.id, auth.user?.id!)
+        }
+
+        // Auto check-in / check-out for past dates (no channel notifications for these steps)
+        const roomRecords = await ReservationRoom.query().where('reservationId', reservation.id).preload('room')
+
+        // Auto check-in if check-in time is passed
+        const shouldAutoCheckIn = reservation.checkInDate && reservation.checkInDate < now
+        if (shouldAutoCheckIn && roomRecords.length > 0) {
+          for (const rr of roomRecords) {
+            if (!rr.roomId) continue
+            rr.status = 'checked_in'
+            rr.checkInDate = now
+            rr.actualCheckIn = now
+            rr.checkedInBy = auth.user?.id!
+            await rr.save()
+            if (rr.room) {
+              rr.room.status = 'occupied'
+              await rr.room.save()
+            }
+          }
+          reservation.status = ReservationStatus.CHECKED_IN
+          reservation.checkInDate = now
+          reservation.checkedInBy = auth.user?.id!
+          await reservation.save()
+          await LoggerService.log({
+            actorId: auth.user?.id!,
+            action: 'CHECK_IN',
+            entityType: 'Reservation',
+            entityId: reservation.id,
+            hotelId: reservation.hotelId,
+            description: `Auto check-in after creation due to past check-in date for reservation #${reservation.reservationNumber}.`,
+            ctx,
+          })
+        }
+
+        // Auto check-out if check-out time is passed
+        const shouldAutoCheckOut = reservation.checkOutDate && reservation.checkOutDate <= now
+        if (shouldAutoCheckOut && roomRecords.length > 0) {
+          for (const rr of roomRecords) {
+            rr.status = 'checked_out'
+            rr.checkOutDate = now
+            rr.checkedOutBy = auth.user?.id!
+            rr.lastModifiedBy = auth.user?.id!
+            await rr.save()
+            if (rr.room) {
+              rr.room.status = 'available'
+              rr.room.housekeepingStatus = 'dirty'
+              await rr.room.save()
+            }
+          }
+          reservation.status = ReservationStatus.CHECKED_OUT
+          reservation.checkOutDate = now
+          reservation.checkedOutBy = auth.user?.id!
+          await reservation.save()
+          await LoggerService.log({
+            actorId: auth.user?.id!,
+            action: 'CHECK_OUT',
+            entityType: 'Reservation',
+            entityId: reservation.id,
+            hotelId: reservation.hotelId,
+            description: `Auto check-out after creation due to past check-out date for reservation #${reservation.reservationNumber}.`,
+            ctx,
+          })
+        }
+
+        await GuestSummaryService.recomputeFromReservation(reservation.id)
+
+        const responseData: any = {
+          success: true,
+          reservationId: reservation.id,
+          confirmationNumber,
+          status: reservation.status,
+          isDayUse: numberOfNights === 0,
+          hasRooms: rooms.length > 0,
+          primaryGuest: {
+            id: guest.id,
+            name: `${guest.firstName} ${guest.lastName}`,
+            email: guest.email,
+          },
+          totalGuests: rooms.length > 0 ? rooms.reduce((sum: number, r: any) => sum + (r.adult_count || 0) + (r.child_count || 0), 0) : 1,
+          message: 'Reservation created successfully (insert transaction) with past-date handling',
+        }
+
+        if (folios.length > 0) {
+          responseData.folios = folios.map((folio) => ({ id: folio.id, folioNumber: folio.folioNumber, guestId: folio.guestId, folioType: folio.folioType }))
+        }
+
+        return response.created(responseData)
+      } catch (error) {
+        await trx.rollback()
+        console.error('Transaction error (insertTransaction):', error)
+        throw error
+      }
+    } catch (error) {
+      return response.internalServerError({ success: false, error: error instanceof Error ? error.message : 'Unknown error during insertTransaction' })
     }
   }
 

@@ -877,7 +877,7 @@ router
         router.get('/:id/availability', roomsController.availability.bind(roomsController)) // Get room availability for date range
         router.get('/available-by-room-type/:roomTypeId', roomsController.getAvailableRoomsByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
         router.get('/roomByType/:roomTypeId', roomsController.getRoomByRoomTypeId.bind(roomsController)) // Get available rooms by room type ID
-        router.get('/frontoffice/bookingrooom',roomsController.getFrontOfficeBookingData.bind(roomsController))
+        router.get('/frontoffice/bookingrooom', roomsController.getFrontOfficeBookingData.bind(roomsController))
       })
       .prefix('configuration/hotels/:hotelId/rooms')
 
@@ -1053,7 +1053,9 @@ router
       .group(() => {
         router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
         router.get('/:reservationId/details', [ReservationsController, 'getReservationDetails'])
-
+        // Create reservation with past-date handling (auto check-in/checkout) without notifying channel for past intervals
+        router.post('/inserttrasaction', [ReservationsController, 'insertTransaction'])
+        // Import reservations from CSV (maps each row to ReservationData)
         // Reservation Action Routes
         router.post('/:reservationId/checkin', [ReservationsController, 'checkIn'])
         router.post('/:reservationId/payment', [ReservationsController, 'addPayment'])
@@ -1539,7 +1541,6 @@ router
     router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))
     router.put('/reservations/:id/update-details', reservationsController.updateReservationDetails.bind(reservationsController))
     router.post('/reservations/:id/apply-discount', reservationsController.applyRoomChargeDiscount.bind(reservationsController))
-
     //Payment Method routes
     router
       .group(() => {
@@ -1554,9 +1555,9 @@ router
         // Basic CRUD operations for room blocks
         router.get('/', roomBlocksController.index.bind(roomBlocksController)) // Get all room blocks with filtering
         router.get('/:hotelId', roomBlocksController.getByHotelId.bind(roomBlocksController)) // Get all room blocks with filtering
-    router.post('/', roomBlocksController.store.bind(roomBlocksController)) // Create a new room block
-    router.put('/:id', roomBlocksController.update.bind(roomBlocksController)) // Update room block information
-    router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
+        router.post('/', roomBlocksController.store.bind(roomBlocksController)) // Create a new room block
+        router.put('/:id', roomBlocksController.update.bind(roomBlocksController)) // Update room block information
+        router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
       })
       .prefix('room-blocks')
 
