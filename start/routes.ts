@@ -410,6 +410,8 @@ router
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction())
 router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
+// Route pour renvoyer l'email de vérification
+router.post('/api/auth/resend-verification', [AuthController, 'resendVerificationEmail']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
 router.get('api/confirm-email', [AuthController, 'confirmEmail'])
@@ -1579,7 +1581,7 @@ router
 
       router.post('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'create'])
       router.get('/support/tickets', [() => import('#controllers/support_tickets_controller'), 'index'])
-      
+
       // Routes spécifiques AVANT :id
       router.get('/support/tickets/dashboard/stats', [() => import('#controllers/support_tickets_controller'), 'dashboardStats'])
       router.get('/support/tickets/me/open', [() => import('#controllers/support_tickets_controller'), 'myOpen'])
@@ -1588,7 +1590,7 @@ router
       router.get('/support/tickets/distribution', [() => import('#controllers/support_tickets_controller'), 'distribution'])
       router.get('/support/tickets/weekly-volume', [() => import('#controllers/support_tickets_controller'), 'weeklyVolume'])
       router.get('/support/tickets/search', [() => import('#controllers/support_tickets_controller'), 'search'])
-      
+
       // Routes avec :id EN DERNIER
       router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
       router.put('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'update'])
