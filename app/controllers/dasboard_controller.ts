@@ -742,10 +742,35 @@ export default class DashboardController {
       HOUSEKEEPING_UPDATE: 'housekeeping',
       guest_message: 'communication',
       GUEST_MESSAGE: 'communication',
-      room_assignment: 'system',
-      ROOM_ASSIGNMENT: 'system',
+      room_assignment: 'assignment',
+      ROOM_ASSIGNMENT: 'assignment',
       rate_change: 'modification',
       RATE_CHANGE: 'modification',
+      folio_adjustment: 'modification',
+      FOLIO_ADJUSTMENT: 'modification',
+      CREATE_FOLIOS: 'creation',
+      create_folios: 'creation',
+      CREATE : 'creation',
+      create: 'creation',
+      UPDATE: 'modification',
+      update: 'modification',
+      DELETE: 'deletion',
+      delete: 'deletion',
+      FOLIOS_CREATED: 'creation',
+      folios_created: 'creation',
+      TRANSACTION_UPDATED: 'modification',
+      transaction_updated: 'modification',
+      TRANSACTION_DELETED: 'deletion',
+      transaction_deleted: 'deletion',
+      RESEND_VERIFICATION_EMAIL: 'communication',
+      EMAIL_VERIFIED: 'communication',
+      FORGOT_PASSWORD_CREATE: 'communication',
+      PASSWORD_RESET: 'communication',
+      SETUP : 'system',
+
+
+
+
       default: 'system',
     }
     return typeMap[action] || typeMap['default']
