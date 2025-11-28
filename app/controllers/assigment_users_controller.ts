@@ -71,7 +71,9 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
         })
         isNewUser = true;
         // Prepare and send email verification via service
-        const baseUrl = `${ctx.request.protocol()}://${ctx.request.host()}`
+        const forwardedProto = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
+        const proto = forwardedProto || (ctx.request.secure() ? 'https' : ctx.request.protocol())
+        const baseUrl = `${proto}://${ctx.request.host()}`
         await UserEmailService.prepareAndSendVerification(user, baseUrl)
       }
 
@@ -254,7 +256,9 @@ public async updateUser(ctx: HttpContext) {
 
     // If email changed, reset verification and send confirmation email
     if (data.email && originalEmail && data.email.toLowerCase() !== originalEmail.toLowerCase()) {
-      const baseUrl = `${ctx.request.protocol()}://${ctx.request.host()}`
+      const forwardedProto2 = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
+      const proto2 = forwardedProto2 || (ctx.request.secure() ? 'https' : ctx.request.protocol())
+      const baseUrl = `${proto2}://${ctx.request.host()}`
       await UserEmailService.prepareAndSendVerification(user, baseUrl)
     }
 

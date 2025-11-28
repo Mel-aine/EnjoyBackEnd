@@ -67,7 +67,9 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 // Root route that presents Enjoys API documentation and test examples
 router.get('/', async ({ request, response }) => {
-  const baseUrl = `${request.protocol()}://${request.host()}`
+  const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+  const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+  const baseUrl = `${proto}://${request.host()}`
   const filePath = join(process.cwd(), 'resources', 'views', 'api_home.html')
   let html = readFileSync(filePath, 'utf-8')
   html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
@@ -77,7 +79,9 @@ router.get('/', async ({ request, response }) => {
 
 // Password reset page (HTML form)
 router.get('/reset-password', async ({ request, response }) => {
-  const baseUrl = `${request.protocol()}://${request.host()}`
+  const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+  const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+  const baseUrl = `${proto}://${request.host()}`
   const token = request.qs().token || ''
   const filePath = join(process.cwd(), 'resources', 'views', 'reset_password.html')
   let html = readFileSync(filePath, 'utf-8')

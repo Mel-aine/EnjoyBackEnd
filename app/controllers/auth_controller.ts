@@ -257,7 +257,9 @@ export default class AuthController {
           message: 'Email is already verified'
         })
       }
-      const baseUrl = `${request.protocol()}://${request.host()}`
+      const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+      const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+      const baseUrl = `${proto}://${request.host()}`
 
       await UserEmailService.prepareAndSendVerification(user, baseUrl)
 
@@ -587,7 +589,9 @@ export default class AuthController {
 
       if (user) {
         await PasswordResetToken.create({ userId: user.id, token, expiresAt, usedAt: null })
-        const baseUrl = `${request.protocol()}://${request.host()}`
+        const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+        const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+        const baseUrl = `${proto}://${request.host()}`
         const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`
 
         await MailService.send({
