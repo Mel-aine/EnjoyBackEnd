@@ -2459,7 +2459,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         )
 
         // Validate room availability only if rooms are assigned
-        if (rooms.length > 0) {
+        /*if (rooms.length > 0) {
           const roomIds = rooms.map((r) => r.room_id).filter((id): id is any => Boolean(id))
 
           if (roomIds.length > 0) {
@@ -2519,7 +2519,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               })
             }
           }
-        }
+        }*/
 
         // Create reservation
         const reservation = await Reservation.create(
@@ -2699,59 +2699,75 @@ export default class ReservationsController extends CrudController<typeof Reserv
           )
         }
 
-        await trx.commit().then(() => {
-          // Send availability notification only if arrival is in the future
-          // or the current date falls within the stay interval. Do not notify
-          // when both arrival and departure are in the past.
-          const now = DateTime.now()
-          const nowDay = now.startOf('day')
-          const arrivalDay = arrivedDate.startOf('day')
-          const departDay = departDate.startOf('day')
-          const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
-          if (shouldNotify) {
-            try {
+        await trx.commit()
+        // Schedule availability notification in background after commit
+        setImmediate(() => {
+          try {
+            const now = DateTime.now()
+            const nowDay = now.startOf('day')
+            const arrivalDay = arrivedDate.startOf('day')
+            const departDay = departDate.startOf('day')
+            const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
+            if (shouldNotify) {
               ReservationHook.notifyAvailabilityOnCreate(reservation)
-            } catch {
             }
-          }
+          } catch {}
         })
 
-        // Create folios if reservation is confirmed and has rooms
-        let folios: any[] = []
+        // Create folios in background after response; do not block request
         if (rooms.length > 0) {
-          folios = await ReservationFolioService.createFoliosOnConfirmation(
-            reservation.id,
-            auth.user?.id!
-          )
+          const actorId = auth.user?.id!
+          const reservationIdForJob = reservation.id
+          const reservationNumber = reservation.reservationNumber
+          const hotelId = reservation.hotelId
+          const guestIdForJob = reservation.guestId || primaryGuest.id
 
-          await LoggerService.log({
-            actorId: auth.user?.id!,
-            action: 'CREATE_FOLIOS',
-            entityType: 'Reservation',
-            entityId: reservation.id,
-            hotelId: reservation.hotelId,
-            description: `${folios.length} folio${folios.length > 1 ? 's' : ''} generated with room charges for reservation #${reservation.reservationNumber}.`,
-            meta: {
-              folioIds: folios.map((f) => f.id),
-              folioCount: folios.length,
-              reservationNumber: reservation.reservationNumber,
-            },
-            ctx,
-          })
+          setImmediate(async () => {
+            try {
+              const folios = await ReservationFolioService.createFoliosOnConfirmation(
+                reservationIdForJob,
+                actorId
+              )
 
-          await LoggerService.log({
-            actorId: auth.user?.id!,
-            action: 'CREATE_FOLIOS',
-            entityType: 'Guest',
-            entityId: guest.id,
-            hotelId: reservation.hotelId,
-            description: `${folios.length} folio${folios.length > 1 ? 's were' : ' was'} created for reservation #${reservation.reservationNumber}.`,
-            meta: {
-              reservationId: reservation.id,
-              folioIds: folios.map((f) => f.id),
-              totalFolios: folios.length,
-            },
-            ctx,
+              await LoggerService.log({
+                actorId,
+                action: 'CREATE_FOLIOS',
+                entityType: 'Reservation',
+                entityId: reservationIdForJob,
+                hotelId,
+                description: `${folios.length} folio${folios.length > 1 ? 's' : ''} generated with room charges for reservation #${reservationNumber}.`,
+                meta: {
+                  folioIds: folios.map((f) => f.id),
+                  folioCount: folios.length,
+                  reservationNumber,
+                },
+                ctx,
+              })
+
+              if (guestIdForJob) {
+                await LoggerService.log({
+                  actorId,
+                  action: 'CREATE_FOLIOS',
+                  entityType: 'Guest',
+                  entityId: guestIdForJob,
+                  hotelId,
+                  description: `${folios.length} folio${folios.length > 1 ? 's were' : ' was'} created for reservation #${reservationNumber}.`,
+                  meta: {
+                    reservationId: reservationIdForJob,
+                    folioIds: folios.map((f) => f.id),
+                    totalFolios: folios.length,
+                  },
+                  ctx,
+                })
+              }
+              await GuestSummaryService.recomputeFromReservation(reservation.id)
+            } catch (e) {
+              try {
+                logger.error(
+                  'Background folio creation failed: ' + (e as Error).message
+                )
+              } catch {}
+            }
           })
         }
 
@@ -2776,19 +2792,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })),
           message: `${reservationTypeDescription} reservation created successfully with ${allGuests.length} guest(s)${rooms.length === 0 ? ' (no room assigned)' : ''}`,
         }
-
-        // Add folio information if folios were created
-        if (folios.length > 0) {
-          responseData.folios = folios.map((folio) => ({
-            id: folio.id,
-            folioNumber: folio.folioNumber,
-            guestId: folio.guestId,
-            folioType: folio.folioType,
-          }))
-          responseData.message += ` and ${folios.length} folio(s) with room charges`
-        }
-
-        await GuestSummaryService.recomputeFromReservation(reservation.id)
 
         return response.created(responseData)
       } catch (error) {
@@ -3017,28 +3020,41 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         await trx.commit()
 
-        // Channel notification only if arrival is in the future
-        // or the current date is within the stay interval. If both arrival
-        // and departure are in the past, skip notification.
-        const now = DateTime.now()
-        const nowDay = now.startOf('day')
-        const arrivalDay = arrivedDate.startOf('day')
-        const departDay = departDate.startOf('day')
-        const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
-        if (shouldNotify) {
-          try { ReservationHook.notifyAvailabilityOnCreate(reservation) } catch {}
-        }
+        // Schedule channel notification in background after commit
+        setImmediate(() => {
+          try {
+            const now = DateTime.now()
+            const nowDay = now.startOf('day')
+            const arrivalDay = arrivedDate.startOf('day')
+            const departDay = departDate.startOf('day')
+            const shouldNotify = arrivalDay > nowDay || (nowDay >= arrivalDay && nowDay < departDay)
+            if (shouldNotify) {
+              ReservationHook.notifyAvailabilityOnCreate(reservation)
+            }
+          } catch {}
+        })
 
-        // Folios only if rooms exist
-        let folios: any[] = []
+        // Folios only if rooms exist — run in background (do not await)
         if (rooms.length > 0) {
-          folios = await ReservationFolioService.createFoliosOnConfirmation(reservation.id, auth.user?.id!)
+          const actorId = auth.user?.id!
+          const reservationIdForJob = reservation.id
+          setImmediate(async () => {
+            try {
+              await ReservationFolioService.createFoliosOnConfirmation(
+                reservationIdForJob,
+                actorId
+              )
+            } catch (e) {
+              try { logger.error('Background folio creation failed: ' + (e as Error).message) } catch {}
+            }
+          })
         }
 
         // Auto check-in / check-out for past dates (no channel notifications for these steps)
         const roomRecords = await ReservationRoom.query().where('reservationId', reservation.id).preload('room')
 
         // Auto check-in if check-in time is passed
+        const now = DateTime.now()
         const shouldAutoCheckIn = reservation.checkInDate && reservation.checkInDate < now
         if (shouldAutoCheckIn && roomRecords.length > 0) {
           for (const rr of roomRecords) {
@@ -3114,10 +3130,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           },
           totalGuests: rooms.length > 0 ? rooms.reduce((sum: number, r: any) => sum + (r.adult_count || 0) + (r.child_count || 0), 0) : 1,
           message: 'Reservation created successfully (insert transaction) with past-date handling',
-        }
-
-        if (folios.length > 0) {
-          responseData.folios = folios.map((folio) => ({ id: folio.id, folioNumber: folio.folioNumber, guestId: folio.guestId, folioType: folio.folioType }))
         }
 
         return response.created(responseData)
