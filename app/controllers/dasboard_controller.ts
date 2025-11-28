@@ -767,6 +767,19 @@ export default class DashboardController {
       FORGOT_PASSWORD_CREATE: 'communication',
       PASSWORD_RESET: 'communication',
       SETUP : 'system',
+      VOID_RESERVATION : 'cancellation',
+      UNDO_CHECK_IN : 'modification',
+      UNDO_CHECK_OUT : 'modification',
+      GUEST_RESERVATION_VOIDED : 'cancellation',
+      folio_transaction_voided : 'modification',
+      FOLIO_TRANSACTION_VOIDED : 'modification',
+      CONFIRM_RESERVATION : 'booking',
+      MARK_NO_SHOW : 'cancellation',
+      CANCEL_RESERVATION : 'cancellation',
+      ASSIGNED : 'assignment',
+      CANCEL : 'cancellation',
+      AMEND_STAY : 'modification',
+      ROOM_MOVE : 'modification',
 
 
 
