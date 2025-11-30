@@ -63,6 +63,7 @@ import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
 import OtaController from '#controllers/ota_controller'
 import ChannexRestrictionsController from '#controllers/channex_restrictions_controller'
+import NotificationsController from '#controllers/notifications_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 // Root route that presents Enjoys API documentation and test examples
@@ -435,6 +436,110 @@ router.get('/ping', async ({ response }) => {
 // router.get('/services', servicesController.list.bind(servicesController)).prefix('/api')
 // router.get('/services/search', servicesController.searchByName.bind(servicesController)).prefix('/api')
 // router.post( '/servicesWithUser', servicesController.createWithUserAndService.bind(servicesController)).prefix('/api')
+
+// Notifications API (secured)
+router.post('api/notifications/send', [NotificationsController, 'send'])
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+  .use(middleware.ipRestriction())
+router.get('api/notifications/me', [NotificationsController, 'listForMe'])
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+  .use(middleware.ipRestriction())
+router.post('api/notifications/:id/read', [NotificationsController, 'markRead'])
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+  .use(middleware.ipRestriction())
+
+// Notifications realtime stream (SSE)
+router.get('api/notifications/stream', async ({ request, response, auth }) => {
+  // Try existing auth context, then Bearer header, then ?token= fallback
+  let user = auth.user
+  if (!user) {
+    try {
+      user = await auth.authenticate()
+    } catch {
+      const qs = (request as any).qs ? (request as any).qs() : request.qs()
+      const token = qs?.token || request.input('token')
+      if (token) {
+        const { Secret } = await import('@adonisjs/core/helpers')
+        const User = (await import('#models/user')).default
+        const verified = await User.accessTokens.verify(new Secret(token))
+        if (!verified) {
+          return response.unauthorized({ message: 'Invalid token' })
+        }
+        // Ensure token is not a refresh-only token
+        const abilities: string[] = Array.isArray((verified as any)?.abilities)
+          ? ((verified as any).abilities as string[])
+          : []
+        const isRefreshOnly = abilities.length === 1 && abilities.includes('refresh')
+        if (isRefreshOnly) {
+          return response.forbidden({ message: 'Invalid token type for SSE' })
+        }
+        const tokenUserId = Number(verified.tokenableId)
+        user = await User.findOrFail(isNaN(tokenUserId) ? (verified.tokenableId as any) : tokenUserId)
+      }
+    }
+  }
+
+  if (!user) return response.unauthorized({ message: 'Authentication required' })
+  const userId = user.id
+
+  // Configure SSE headers
+  const nodeRes = (response as any).response
+  // Explicit CORS headers for SSE
+  try {
+    const origin = request.header('origin')
+    if (origin) {
+      // Allow known origins; mirror config/cors.ts defaults and env overrides
+      const defaultOrigins = [
+        'https://enjoy-admin-one.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:4173',
+        'https://e-tikect.vercel.app',
+        'http://localhost:5174',
+        'https://enjoy-chi.vercel.app',
+        'https://enjoybackend-4udk.onrender.com',
+        'https://live.enjoy-stay.com'
+      ]
+      const envModule = await import('#start/env')
+      const envOrigins = envModule.default.get('CORS_ORIGINS') as string | undefined
+      const allowList = envOrigins
+        ? envOrigins.split(',').map((o) => o.trim()).filter((o) => o.length > 0)
+        : defaultOrigins
+      if (allowList.includes(origin)) {
+        nodeRes.setHeader('Access-Control-Allow-Origin', origin)
+        nodeRes.setHeader('Access-Control-Allow-Credentials', 'true')
+        nodeRes.setHeader('Vary', 'Origin')
+      }
+    }
+  } catch {}
+  nodeRes.setHeader('Content-Type', 'text/event-stream')
+  nodeRes.setHeader('Cache-Control', 'no-cache')
+  nodeRes.setHeader('Connection', 'keep-alive')
+  nodeRes.flushHeaders?.()
+
+  const notifier = (await import('#services/realtime_notifier')).default
+  const client = notifier.subscribe(userId, nodeRes)
+
+  // Clean up on connection close
+  const nodeReq = (request as any).request
+  nodeReq.on('close', () => {
+    notifier.unsubscribe(userId, client)
+  })
+
+  // Keep the HTTP connection open
+  return response // no-op — we keep stream alive
+}).use(middleware.ipRestriction())
 
 
 router
