@@ -148,6 +148,35 @@ export default class WorkOrdersController {
       })
       console.log('📝 LoggerService.log appelé avec succès')
 
+      // Notify assigned user (or creator) that a work order was created
+      try {
+        const NotificationService = (await import('#services/notification_service')).default
+        const recipientId = workOrder.assignedToUserId || user.id
+        const variables = await NotificationService.buildVariables('WORK_ORDER_CREATED', {
+          hotelId: workOrder.hotelId,
+          roomId: workOrder.roomId || undefined,
+          userId: recipientId,
+          extra: {
+            WorkOrderId: workOrder.id,
+            OrderNumber: workOrder.orderNumber,
+            Status: workOrder.status,
+            Priority: workOrder.priority,
+          },
+        })
+        await NotificationService.sendWithTemplate({
+          templateCode: 'WORK_ORDER_CREATED',
+          recipientType: 'STAFF',
+          recipientId,
+          variables,
+          relatedEntityType: 'WorkOrder',
+          relatedEntityId: workOrder.id,
+          actorId: auth.user?.id,
+          hotelId: workOrder.hotelId,
+        })
+      } catch (err) {
+        console.warn('Notification WORK_ORDER_CREATED failed:', (err as any)?.message)
+      }
+
       return response.created({
         success: true,
         message: 'Work order created successfully',
@@ -479,7 +508,9 @@ export default class WorkOrdersController {
        const workOrderInfo = {
         id: workOrder.id,
         orderNumber: workOrder.orderNumber,
-        hotelId: workOrder.hotelId
+        hotelId: workOrder.hotelId,
+        roomId: workOrder.roomId || undefined,
+        assignedToUserId: workOrder.assignedToUserId || undefined,
       }
 
 
@@ -495,6 +526,34 @@ export default class WorkOrdersController {
         ctx
       })
 
+      // Notify assigned user (or actor) that the work order was deleted
+      try {
+        const NotificationService = (await import('#services/notification_service')).default
+        const recipientId = workOrderInfo.assignedToUserId || auth.user?.id || 0
+        if (recipientId) {
+          const variables = await NotificationService.buildVariables('WORK_ORDER_DELETED', {
+            hotelId: workOrderInfo.hotelId,
+            roomId: workOrderInfo.roomId,
+            userId: recipientId,
+            extra: {
+              WorkOrderId: workOrderInfo.id,
+              OrderNumber: workOrderInfo.orderNumber,
+            },
+          })
+          await NotificationService.sendWithTemplate({
+            templateCode: 'WORK_ORDER_DELETED',
+            recipientType: 'STAFF',
+            recipientId,
+            variables,
+            relatedEntityType: 'WorkOrder',
+            relatedEntityId: workOrderInfo.id,
+            actorId: auth.user?.id,
+            hotelId: workOrderInfo.hotelId,
+          })
+        }
+      } catch (err) {
+        console.warn('Notification WORK_ORDER_DELETED failed:', (err as any)?.message)
+      }
 
       return response.ok({
         success: true,
