@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, scope } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, scope, afterUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from './hotel.js'
 import RoomType from './room_type.js'
@@ -270,5 +270,101 @@ declare housekeepingRemarks: any[]
 
   get displayName() {
     return `Room ${this.roomNumber}`
+  }
+
+  @afterUpdate()
+  public static async notifyOnStatusChange(model: Room) {
+    try {
+      const dirty = (model as any).$dirty || {}
+      const statusChanged = Object.prototype.hasOwnProperty.call(dirty, 'status')
+      const hkChanged = Object.prototype.hasOwnProperty.call(dirty, 'housekeepingStatus')
+      if (!statusChanged && !hkChanged) return
+
+      // Defer notifications so they run after the update lifecycle
+      setImmediate(async () => {
+        try {
+          const NotificationService = (await import('#services/notification_service')).default
+          const Department = (await import('#models/department')).default
+          const ServiceUserAssignment = (await import('#models/service_user_assignment')).default
+
+          const hotelId = model.hotelId
+          const roomId = model.id
+          const actorId = (model as any).lastModifiedBy || null
+
+          // Resolve Front Office and Housekeeping departments
+          const deptNames = ['Front Office', 'Housekeeping']
+          const depts = await Department.query()
+            .where('hotel_id', hotelId)
+            .whereIn('name', deptNames)
+          const deptIds = depts.map((d: any) => d.id)
+
+          let recipients: Array<{ recipientType: 'STAFF'; recipientId: number }> = []
+          if (deptIds.length > 0) {
+            const assignments = await ServiceUserAssignment.query()
+              .where('hotel_id', hotelId)
+              .whereIn('department_id', deptIds)
+              .select('user_id')
+            const uniq = new Set<number>()
+            for (const a of assignments as any[]) {
+              const uid = a.user_id
+              if (uid && !uniq.has(uid)) {
+                uniq.add(uid)
+                recipients.push({ recipientType: 'STAFF', recipientId: uid })
+              }
+            }
+          }
+
+          if (recipients.length === 0) return
+
+          // Build variables
+          const prevStatus = (model as any)?.$original?.status ?? ''
+          const newStatus = model.status ?? ''
+          const prevHK = (model as any)?.$original?.housekeepingStatus ?? ''
+          const newHK = model.housekeepingStatus ?? ''
+
+          // Send main room status change notification
+          if (statusChanged) {
+            const vars = await NotificationService.buildVariables('ROOM_STATUS_UPDATED', {
+              hotelId,
+              roomId,
+              extra: { OldStatus: prevStatus, NewStatus: newStatus },
+            })
+            await NotificationService.sendToManyWithTemplate({
+              templateCode: 'ROOM_STATUS_UPDATED',
+              recipients,
+              variables: vars,
+              relatedEntityType: 'Room',
+              relatedEntityId: roomId,
+              actorId: actorId || undefined,
+              hotelId,
+              channelOverride: 'IN_APP',
+            })
+          }
+
+          // Send housekeeping status change notification if applicable
+          if (hkChanged) {
+            const varsHK = await NotificationService.buildVariables('HOUSEKEEPING_STATUS_UPDATED', {
+              hotelId,
+              roomId,
+              extra: { OldStatus: prevHK, NewStatus: newHK },
+            })
+            await NotificationService.sendToManyWithTemplate({
+              templateCode: 'HOUSEKEEPING_STATUS_UPDATED',
+              recipients,
+              variables: varsHK,
+              relatedEntityType: 'Room',
+              relatedEntityId: roomId,
+              actorId: actorId || undefined,
+              hotelId,
+              channelOverride: 'IN_APP',
+            })
+          }
+        } catch (innerErr) {
+          console.warn('Room status notification failed:', (innerErr as any)?.message)
+        }
+      })
+    } catch (err) {
+      console.warn('notifyOnStatusChange hook error:', (err as any)?.message)
+    }
   }
 }

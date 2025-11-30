@@ -21,6 +21,22 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
           'You have been assigned to work order #[WorkOrderId] for room [RoomNumber]. Current status: [Status].',
       },
       {
+        code: 'WORK_ORDER_CREATED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Work Order Created #[WorkOrderId]',
+        contentTemplate:
+          'Order #[WorkOrderId] for room [RoomNumber] created. Status: [Status]. Priority: [Priority].',
+      },
+      {
+        code: 'WORK_ORDER_DELETED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Work Order Deleted #[WorkOrderId]',
+        contentTemplate:
+          'Work order #[WorkOrderId] has been deleted. Number: [OrderNumber].',
+      },
+      {
         code: 'WORK_ORDER_STATUS_UPDATED',
         channel: 'IN_APP',
         locale: 'en',
@@ -53,6 +69,30 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
         subjectTemplate: 'Booking Update: [ReservationNumber]',
         contentTemplate:
           'Booking [ReservationNumber] changed. New status: [Status]. See details.',
+      },
+      {
+        code: 'RESERVATION_CREATED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Created [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] created. Arrival: [ArrivalDate], Departure: [DepartureDate], Status: [Status].',
+      },
+      {
+        code: 'RESERVATION_MODIFIED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Modified [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] modified. Arrival: [ArrivalDate], Departure: [DepartureDate], Status: [Status].',
+      },
+      {
+        code: 'RESERVATION_CANCELLED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Cancelled [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] cancelled. Arrival: [ArrivalDate], Departure: [DepartureDate].',
       },
 
       // Payments / Accounting
@@ -93,12 +133,28 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
           'Rm [RoomNumber] is CLEAN and available for assignment.',
       },
       {
+        code: 'ROOM_STATUS_UPDATED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Status Updated: [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] status changed from [OldStatus] to [NewStatus].',
+      },
+      {
         code: 'DND_ALERT',
         channel: 'IN_APP',
         locale: 'en',
         subjectTemplate: 'DND Alert: Room [RoomNumber]',
         contentTemplate:
           'Rm [RoomNumber] still on "Do Not Disturb" for 24h. Check required.',
+      },
+      {
+        code: 'HOUSEKEEPING_STATUS_UPDATED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Housekeeping Status Updated: [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] housekeeping status changed from [OldStatus] to [NewStatus].',
       },
 
       // Maintenance
