@@ -630,4 +630,223 @@ export default class SupportTicketsController {
       return response.badRequest({ message: 'Mise à jour échouée', error: (error as any).message })
     }
   }
+
+  public async addComment({ params, request, response, auth }: HttpContext) {
+    try {
+      const validator = vine.compile(
+        vine.object({
+          content: vine.string().trim().minLength(1).maxLength(5000),
+          isInternal: vine.boolean().optional(),
+        })
+      )
+  
+      const payload = await request.validateUsing(validator)
+  
+      const ticket = await SupportTicket.findOrFail(Number(params.id))
+  
+      // Initialiser les commentaires si null
+      const currentComments = ticket.comments || []
+      
+      // Créer un nouvel ID unique pour le commentaire
+      const commentId = Date.now().toString(36) + Math.random().toString(36).substr(2)
+      
+      const newComment = {
+        id: commentId,
+        userId: auth.user?.id || null,
+        userName: auth.user?.fullName || auth.user?.email || 'Utilisateur',
+        content: payload.content,
+        isInternal: payload.isInternal || false,
+        createdAt: DateTime.now().toISO(),
+        updatedAt: DateTime.now().toISO(),
+      }
+
+      // Ajouter le nouveau commentaire
+      currentComments.push({ ...newComment, userId: auth.user?.id ?? 0 })
+      ticket.comments = currentComments
+
+      // Mettre à jour la date de modification
+      ticket.updatedAt = DateTime.now()
+      
+      await ticket.save()
+  
+      // Log l'activité
+      try {
+        await LoggerService.logActivity({
+          userId: auth.user?.id,
+          action: 'COMMENT',
+          resourceType: 'SupportTicket',
+          resourceId: ticket.id,
+          hotelId: ticket.hotelId ?? undefined,
+          description: newComment.isInternal ? 'Note interne ajoutée' : 'Commentaire ajouté',
+          details: {
+            commentId: newComment.id,
+            isInternal: newComment.isInternal,
+            contentLength: newComment.content.length,
+          },
+        })
+      } catch {}
+  
+      return response.created({
+        message: newComment.isInternal ? 'Note interne ajoutée' : 'Commentaire ajouté',
+        data: {
+          ticket: ticket,
+          comment: newComment,
+        },
+      })
+    } catch (error) {
+      if ((error as any).code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({
+          message: 'Validation échouée',
+          errors: (error as any).messages,
+        })
+      }
+      return response.badRequest({
+        message: "Échec de l'ajout du commentaire",
+        error: (error as any).message,
+      })
+    }
+  }
+  
+  public async updateComment({ params, request, response, auth }: HttpContext) {
+    try {
+      const validator = vine.compile(
+        vine.object({
+          content: vine.string().trim().minLength(1).maxLength(5000),
+        })
+      )
+  
+      const payload = await request.validateUsing(validator)
+      const ticket = await SupportTicket.findOrFail(Number(params.id))
+  
+      // Vérifier si le commentaire existe
+      const currentComments = ticket.comments || []
+      const commentIndex = currentComments.findIndex(c => c.id === params.commentId)
+  
+      if (commentIndex === -1) {
+        return response.notFound({
+          message: 'Commentaire non trouvé',
+        })
+      }
+  
+      const comment = currentComments[commentIndex]
+  
+      // Vérifier les permissions (seul l'auteur peut modifier)
+      if (comment.userId !== auth.user?.id) {
+        return response.forbidden({
+          message: 'Vous ne pouvez modifier que vos propres commentaires',
+        })
+      }
+  
+      const previousContent = comment.content
+      
+      // Mettre à jour le commentaire
+      currentComments[commentIndex] = {
+        ...comment,
+        content: payload.content,
+        updatedAt: DateTime.now().toISO(),
+      }
+  
+      ticket.comments = currentComments
+      ticket.updatedAt = DateTime.now()
+      await ticket.save()
+  
+      // Log l'activité
+      try {
+        await LoggerService.logActivity({
+          userId: auth.user?.id,
+          action: 'UPDATE',
+          resourceType: 'SupportTicket',
+          resourceId: ticket.id,
+          hotelId: ticket.hotelId ?? undefined,
+          description: 'Commentaire modifié',
+          details: {
+            commentId: comment.id,
+            previousContentLength: previousContent.length,
+            newContentLength: payload.content.length,
+          },
+        })
+      } catch {}
+  
+      return response.ok({
+        message: 'Commentaire modifié',
+        data: {
+          ticket: ticket,
+          comment: currentComments[commentIndex],
+        },
+      })
+    } catch (error) {
+      if ((error as any).code === 'E_VALIDATION_ERROR') {
+        return response.badRequest({
+          message: 'Validation échouée',
+          errors: (error as any).messages,
+        })
+      }
+      return response.badRequest({
+        message: 'Échec de la modification du commentaire',
+        error: (error as any).message,
+      })
+    }
+  }
+  
+  public async deleteComment({ params, response, auth }: HttpContext) {
+    try {
+      const ticket = await SupportTicket.findOrFail(Number(params.id))
+  
+      // Vérifier si le commentaire existe
+      const currentComments = ticket.comments || []
+      const commentIndex = currentComments.findIndex(c => c.id === params.commentId)
+  
+      if (commentIndex === -1) {
+        return response.notFound({
+          message: 'Commentaire non trouvé',
+        })
+      }
+  
+      const comment = currentComments[commentIndex]
+  
+      // Vérifier les permissions (seul l'auteur ou admin peut supprimer)
+      if (comment.userId !== auth.user?.id) {
+        return response.forbidden({
+          message: 'Vous ne pouvez supprimer que vos propres commentaires',
+        })
+      }
+  
+      // Log avant suppression
+      try {
+        await LoggerService.logActivity({
+          userId: auth.user?.id,
+          action: 'DELETE',
+          resourceType: 'SupportTicket',
+          resourceId: ticket.id,
+          hotelId: ticket.hotelId ?? undefined,
+          description: 'Commentaire supprimé',
+          details: {
+            commentId: comment.id,
+            contentLength: comment.content.length,
+            isInternal: comment.isInternal,
+            createdAt: comment.createdAt,
+          },
+        })
+      } catch {}
+  
+      // Supprimer le commentaire
+      currentComments.splice(commentIndex, 1)
+      ticket.comments = currentComments
+      ticket.updatedAt = DateTime.now()
+      await ticket.save()
+  
+      return response.ok({
+        message: 'Commentaire supprimé',
+        data: {
+          ticket: ticket,
+          deletedCommentId: params.commentId,
+        },
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Échec de la suppression du commentaire',
+        error: (error as any).message,
+      })
+    }
+  }
 }

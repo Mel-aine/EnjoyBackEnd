@@ -1704,6 +1704,10 @@ router
       router.get('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'show'])
       router.put('/support/tickets/:id', [() => import('#controllers/support_tickets_controller'), 'update'])
       router.patch('/support/tickets/:id/status', [() => import('#controllers/support_tickets_controller'), 'updateStatus'])
+      router.post('/support/tickets/:id/comments', [() => import('#controllers/support_tickets_controller'), 'addComment'])
+      router.put('/support/tickets/:id/comments/:commentId', [() => import('#controllers/support_tickets_controller'), 'updateComment'])
+      router.delete('/support/tickets/:id/comments/:commentId', [() => import('#controllers/support_tickets_controller'), 'deleteComment'])
+
     router
       .group(() => {
         router.get('/', ipConfigurationsController.index.bind(ipConfigurationsController))

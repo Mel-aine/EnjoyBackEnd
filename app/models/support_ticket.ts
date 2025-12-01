@@ -76,7 +76,31 @@ export default class SupportTicket extends BaseModel {
     entityId?: string
     sessionRecordingUrl?: string
   }
-
+  @column({
+    serialize: (value: Array<any> | null) => value,
+    prepare: (value: Array<any> | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | Array<any> | null) => {
+      if (value === null) return null
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value)
+          return Array.isArray(parsed) ? parsed : []
+        } catch {
+          return []
+        }
+      }
+      return Array.isArray(value) ? value : []
+    },
+  })
+  declare comments: Array<{
+    id?: string
+    userId: number
+    userName: string
+    content: string
+    isInternal: boolean
+    createdAt: string
+    updatedAt: string
+  }>
   @column()
   declare callbackPhone: string | null
 
