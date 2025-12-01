@@ -26,6 +26,15 @@ export default class ChannexMigrationController {
     this.channexService = new ChannexService()
   }
 
+  // Prototype-implemented helper declared for TypeScript type safety
+  declare notifyFrontOfficeAndDefaultEmail: (
+    templateCode: 'RESERVATION_CREATED' | 'RESERVATION_MODIFIED' | 'RESERVATION_CANCELLED',
+    hotelId: number,
+    reservationId: number,
+    actorId?: number,
+    ctx?: any
+  ) => Promise<void>
+
   /**
    * Migrate complete hotel data to Channex system
    * POST /api/channex/migrate/:hotelId
@@ -1568,6 +1577,12 @@ export default class ChannexMigrationController {
               await ReservationCreationService.cancelReservation(existingReservation, auth.user?.id!, cancellationReason, ctx)
               existingReservation.cancellationDate = DateTime.now();
               await existingReservation.save()
+              // Notify Front Office users and default hotel email for cancellation
+              try {
+                await this.notifyFrontOfficeAndDefaultEmail('RESERVATION_CANCELLED', existingReservation.hotelId, existingReservation.id, userId, ctx)
+              } catch (notifyErr) {
+                console.warn('Reservation cancellation notification failed:', (notifyErr as any)?.message)
+              }
             } else {
               // === MISE À JOUR COMPLÈTE: devise, invité, chambres et folios ===
               try {
@@ -1843,6 +1858,14 @@ export default class ChannexMigrationController {
               )
               syncResults.totalUpdated++
               await existingReservation.save()
+              // Notify Front Office users and default hotel email for modification/update
+              try {
+                const chxStatus = bookingData?.status || 'modified'
+                const templateCode = chxStatus === 'new' ? 'RESERVATION_MODIFIED' : 'RESERVATION_MODIFIED'
+                await this.notifyFrontOfficeAndDefaultEmail(templateCode, existingReservation.hotelId, existingReservation.id, userId, ctx)
+              } catch (notifyErr) {
+                console.warn('Reservation update notification failed:', (notifyErr as any)?.message)
+              }
             }
 
 
@@ -1863,6 +1886,14 @@ export default class ChannexMigrationController {
               syncResults.totalCreated++
               if (creationResult.folios && creationResult.folios.length > 0) {
                 console.log(`   - Folios: ${creationResult.folios.length} créé(s)`)
+              }
+              // Notify Front Office users and default hotel email for creation
+              try {
+                if ((creationResult as any).reservationId) {
+                  await this.notifyFrontOfficeAndDefaultEmail('RESERVATION_CREATED', parseInt(hotelId), (creationResult as any).reservationId, userId, ctx)
+                }
+              } catch (notifyErr) {
+                console.warn('Reservation creation notification failed:', (notifyErr as any)?.message)
               }
             } else {
               syncResults.totalErrors++
@@ -1950,5 +1981,171 @@ export default class ChannexMigrationController {
         data: syncResults
       })
     }
+  }
+}
+
+// Helper: notify Front Office users and email default hotel account
+// Added within module scope; if class export is expected to include methods only,
+// we bind this function via prototype after definition.
+// For simplicity in this controller file, we attach as a method on the controller's prototype.
+(ChannexMigrationController as any).prototype.notifyFrontOfficeAndDefaultEmail = async function (
+  templateCode: 'RESERVATION_CREATED' | 'RESERVATION_MODIFIED' | 'RESERVATION_CANCELLED',
+  hotelId: number,
+  reservationId: number,
+  actorId?: number,
+  ctx?: any
+) {
+  try {
+    const Department = (await import('#models/department')).default
+    const ServiceUserAssignment = (await import('#models/service_user_assignment')).default
+    const NotificationService = (await import('#services/notification_service')).default
+    const EmailAccount = (await import('#models/email_account')).default
+    const EmailTemplate = (await import('#models/email_template')).default
+    const MailService = (await import('#services/mail_service')).default
+
+    // Resolve Front Office department for the hotel
+    const frontOfficeDept = await Department.query()
+      .where('hotel_id', hotelId)
+      .andWhere('name', 'Front Office')
+      .first()
+
+    const recipients: Array<{ recipientType: 'STAFF'; recipientId: number }> = []
+    if (frontOfficeDept) {
+      const assignments = await ServiceUserAssignment.query()
+        .where('hotel_id', hotelId)
+        .andWhere('department_id', frontOfficeDept.id)
+        .select('user_id')
+
+      for (const a of assignments as any[]) {
+        const uid = a.user_id
+        if (uid) recipients.push({ recipientType: 'STAFF', recipientId: uid })
+      }
+    }
+
+    const variables = await NotificationService.buildVariables(templateCode, {
+      hotelId,
+      reservationId,
+      extra: {
+        EventCode: templateCode,
+      },
+    })
+
+    // In-app notifications to Front Office users
+    if (recipients.length > 0) {
+      try {
+        await NotificationService.sendToManyWithTemplate({
+          templateCode,
+          recipients,
+          variables,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservationId,
+          actorId,
+          hotelId,
+          channelOverride: 'IN_APP',
+        })
+      } catch (e) {
+        console.warn(`Front Office notification failed for ${templateCode}:`, (e as any)?.message)
+      }
+    }
+
+    // Always send summary email to default hotel email account
+    const defaultEmailAccount = await EmailAccount.query()
+      .where('hotel_id', hotelId)
+      .andWhere('is_default', true)
+      .first()
+
+    if (defaultEmailAccount?.emailAddress) {
+      // Helper to render tokens like {{Var}} or [Var]
+      const render = (tpl: string, vars: Record<string, string | number>) => {
+        let out = tpl || ''
+        Object.entries(vars).forEach(([key, val]) => {
+          const value = String(val)
+          const patterns = [new RegExp(`\\{\\{${key}\\}\\}`, 'gi'), new RegExp(`\\[${key}\\]`, 'gi')]
+          patterns.forEach((p) => {
+            out = out.replace(p, value)
+          })
+        })
+        return out
+      }
+
+      // Try to find a hotel-scoped email template matching the reservation event
+      const autoSendMap: Record<string, string> = {
+        RESERVATION_CREATED: 'Reservation Created',
+        RESERVATION_MODIFIED: 'Reservation Modified',
+        RESERVATION_CANCELLED: 'Reservation Cancelled',
+      }
+
+      const matchedTemplate = await EmailTemplate.query()
+        .where('hotel_id', hotelId)
+        .andWhere('auto_send', autoSendMap[templateCode])
+        .where((q) => q.where('is_deleted', false).orWhereNull('is_deleted'))
+        .orderBy('updated_at', 'desc')
+        .first()
+
+      try {
+        if (matchedTemplate) {
+          // Resolve sender (from) account: prefer template's email account, else hotel's default
+          let fromAccount: { address: string; name?: string } | undefined
+          if (matchedTemplate.emailAccountId) {
+            const acc = await EmailAccount.find(matchedTemplate.emailAccountId)
+            if (acc?.emailAddress) fromAccount = { address: acc.emailAddress, name: acc.displayName }
+          }
+          if (!fromAccount && defaultEmailAccount?.emailAddress) {
+            fromAccount = { address: defaultEmailAccount.emailAddress, name: defaultEmailAccount.displayName }
+          }
+
+          const subject = render(matchedTemplate.subject, variables)
+          const body = render(matchedTemplate.messageBody, variables)
+          const html = `<p>${body.replace(/\n/g, '<br/>')}</p>`
+
+          await MailService.sendWithAttachments({
+            to: defaultEmailAccount.emailAddress,
+            from: fromAccount,
+            subject,
+            text: body,
+            html,
+            cc: matchedTemplate.cc || [],
+            bcc: matchedTemplate.bcc || [],
+          })
+        } else {
+          // Fallback: simple summary email if no template configured for the hotel
+          const eventLabel = templateCode === 'RESERVATION_CREATED'
+            ? 'Created'
+            : templateCode === 'RESERVATION_CANCELLED'
+            ? 'Cancelled'
+            : 'Modified'
+
+          const resNum = String((variables as any)['ReservationNumber'] || '')
+          const arrival = String((variables as any)['ArrivalDate'] || '')
+          const departure = String((variables as any)['DepartureDate'] || '')
+          const status = String((variables as any)['Status'] || '')
+          const hotelName = String((variables as any)['HotelName'] || '')
+
+          const subject = `Reservation ${eventLabel}${resNum ? ` #${resNum}` : ''}`
+          const lines = [
+            `Hotel: ${hotelName}`,
+            resNum ? `Reservation: #${resNum}` : undefined,
+            arrival ? `Arrival: ${arrival}` : undefined,
+            departure ? `Departure: ${departure}` : undefined,
+            status ? `Status: ${status}` : undefined,
+            `Event: ${eventLabel}`,
+          ].filter(Boolean) as string[]
+
+          const text = lines.join('\n')
+          const html = `<p>${lines.map((l) => l.replace(/</g, '&lt;').replace(/>/g, '&gt;')).join('<br/>')}</p>`
+
+          await MailService.send({
+            to: defaultEmailAccount.emailAddress,
+            subject,
+            text,
+            html,
+          })
+        }
+      } catch (e) {
+        console.warn('Default hotel email send failed:', (e as any)?.message)
+      }
+    }
+  } catch (outerErr) {
+    console.warn('notifyFrontOfficeAndDefaultEmail encountered an error:', (outerErr as any)?.message)
   }
 }

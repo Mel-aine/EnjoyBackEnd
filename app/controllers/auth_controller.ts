@@ -13,6 +13,7 @@ import Currency from '../models/currency.js'
 import PasswordResetToken from '#models/password_reset_token'
 import { DateTime } from 'luxon'
 import MailService from '#services/mail_service'
+import UserEmailService from '#services/user_email_service'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -25,6 +26,51 @@ export default class AuthController {
     }
   }
 
+  public async confirmEmail(ctx: HttpContext) {
+    const { request, response } = ctx
+    const token = request.input('token') || request.qs().token
+    const email = request.input('email') || request.qs().email
+
+    if (!token || !email) {
+      return response.badRequest({ message: 'Missing token or email' })
+    }
+
+    try {
+      const user = await User.findBy('email', email)
+      if (!user) {
+        return response.badRequest({ message: 'Invalid token or email' })
+      }
+      if (user.emailVerified) {
+        return response.ok({ message: 'Email already verified' })
+      }
+
+      if (!user.emailVerificationToken || user.emailVerificationToken !== token) {
+        return response.badRequest({ message: 'Invalid token' })
+      }
+
+      if (user.emailVerificationExpires && DateTime.now() > user.emailVerificationExpires) {
+        return response.badRequest({ message: 'Verification token expired' })
+      }
+
+      user.emailVerified = true
+      user.emailVerificationToken = null
+      user.emailVerificationExpires = null
+      await user.save()
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'EMAIL_VERIFIED',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Email verified for ${user.email}`,
+        ctx: ctx,
+      })
+
+      return response.ok({ message: 'Email verified successfully' })
+    } catch (error) {
+      return response.status(500).json({ message: 'Failed to verify email', error: (error as any).message })
+    }
+  }
   // Fonction auxiliaire pour envoyer des réponses de succès
   private response(message: string, data?: any) {
     return {
@@ -111,12 +157,25 @@ export default class AuthController {
   }
 
   try {
+    console.log('🔐 Tentative de connexion pour:', email)
+    console.log('🔐 Password fourni:', password)
     // Utilisation de la fonction avec réessai
     const user = await findUserWithRetry()
+
+     if (!user.emailVerified) {
+      return response.status(403).json({
+        message: 'Email not verified',
+        error: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+        requiresVerification: true
+      })
+    }
 
     // Vérification du mot de passe
     if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
       const login = await Hash.verify(user.password, password)
+      console.log('🔐 Hash en base:', user.password)
+
 
       if (!login) {
         return response.unauthorized({ message: 'Invalid credentials' })
@@ -177,57 +236,56 @@ export default class AuthController {
   }
 }
 
-  // public async signin(ctx: HttpContext) {
-  //   const { request, response } = ctx
-  //   const { email, password } = request.only(['email', 'password'])
+ /**
+   * Renvoyer l'email de vérification
+   */
+  public async resendVerificationEmail(ctx: HttpContext) {
+    const { request, response } = ctx
+    const { email } = request.only(['email'])
 
-  //   try {
-  //     const user = await User.query().where('email', email).preload('role').firstOrFail()
+    try {
+      const user = await User.findBy('email', email)
 
-  //     if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
-  //       const login = await Hash.verify(user.password, password)
-  //       if (!login) return this.responseError('Invalid credentials', 401)
-  //     }
+      if (!user) {
+        return response.ok({
+          message: 'If the email exists, a verification email has been sent'
+        })
+      }
 
-  //     // Génère un access token (API) et un refresh token séparé
-  //     const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '60m' })
-  //     const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
+      if (user.emailVerified) {
+        return response.badRequest({
+          message: 'Email is already verified'
+        })
+      }
+      const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+      const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+      const baseUrl = `${proto}://${request.host()}`
 
-  //     // Log
-  //     await LoggerService.log({
-  //       actorId: user.id,
-  //       action: 'LOGIN',
-  //       entityType: 'User',
-  //       entityId: user.id.toString(),
-  //       description: `Connexion de l'utilisateur ${email}`,
-  //       ctx: ctx,
-  //     })
+      await UserEmailService.prepareAndSendVerification(user, baseUrl)
 
-  //     // Cookie refresh token
-  //     const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-  //     response.cookie('refresh_token', refreshValue, {
-  //       httpOnly: true,
-  //       sameSite: 'lax',
-  //       secure: process.env.NODE_ENV === 'production',
-  //       path: '/api/refresh-token',
-  //       maxAge: 7 * 24 * 60 * 60,
-  //     })
+      // Logger l'action
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'RESEND_VERIFICATION_EMAIL',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Verification email resent to ${user.email}`,
+        ctx: ctx,
+      })
 
-  //     return response.ok({
-  //       message: 'Login successful',
-  //       data: {
-  //         user,
-  //         access_token: accessToken,
-  //         refresh_token: refreshToken,
-  //       },
-  //     })
-  //   } catch (error) {
-  //     if (error.code === 'E_ROW_NOT_FOUND') {
-  //       return response.unauthorized({ message: 'Invalid credentials' })
-  //     }
-  //     return response.badRequest({ message: 'Login failed' })
-  //   }
-  // }
+      return response.ok({
+        message: 'Verification email sent successfully'
+      })
+
+    } catch (error) {
+      console.error('Erreur resendVerificationEmail:', error)
+      return response.status(500).json({
+        message: 'Failed to send verification email',
+        error: (error as any).message
+      })
+    }
+  }
+
 
 
   public async initSpace(ctx: HttpContext) {
@@ -531,7 +589,9 @@ export default class AuthController {
 
       if (user) {
         await PasswordResetToken.create({ userId: user.id, token, expiresAt, usedAt: null })
-        const baseUrl = `${request.protocol()}://${request.host()}`
+        const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+        const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+        const baseUrl = `${proto}://${request.host()}`
         const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`
 
         await MailService.send({
@@ -576,24 +636,29 @@ This link expires in 1 hour.`,
         password: vine.string().trim().minLength(6),
       })
     )
+
     try {
       const { token, password } = await request.validateUsing(validator)
+
       const rec = await PasswordResetToken.query().where('token', token).first()
       if (!rec) {
         return response.badRequest({ message: 'Invalid token' })
       }
+
       if (rec.usedAt) {
         return response.badRequest({ message: 'Token already used' })
       }
       if (DateTime.now() > rec.expiresAt) {
         return response.badRequest({ message: 'Token expired' })
       }
+
       const user = await User.find(rec.userId)
       if (!user) {
         return response.badRequest({ message: 'Invalid token' })
       }
-      user.password = await Hash.make(password)
+      user.password = password
       await user.save()
+
       rec.usedAt = DateTime.now()
       await rec.save()
 

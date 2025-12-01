@@ -4,6 +4,7 @@ import CrudService from '#services/crud_service'
 import CrudController from './crud_controller.js'
 import User from '#models/user'
 import { DateTime } from 'luxon'
+import UserEmailService from '#services/user_email_service'
 const UserAssigmentService = new CrudService(ServiceUserAssignment)
 
 export default class AssigmentUsersController extends CrudController<typeof ServiceUserAssignment> {
@@ -69,7 +70,11 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           permis_reports: data.permis_reports ? JSON.stringify(data.permis_reports) : null,
         })
         isNewUser = true;
-        await user.save();
+        // Prepare and send email verification via service
+        const forwardedProto = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
+        const proto = forwardedProto || (ctx.request.secure() ? 'https' : ctx.request.protocol())
+        const baseUrl = `${proto}://${ctx.request.host()}`
+        await UserEmailService.prepareAndSendVerification(user, baseUrl)
       }
 
       // 3. Vérifier si une assignation existe déjà
@@ -200,6 +205,7 @@ public async updateUser(ctx: HttpContext) {
     }
 
     // Mettre à jour les données utilisateur
+    const originalEmail = user.email
     await user.merge({
       firstName: data.first_name || user.firstName,
       lastName: data.last_name || user.lastName,
@@ -247,6 +253,14 @@ public async updateUser(ctx: HttpContext) {
     })
 
     await user.save()
+
+    // If email changed, reset verification and send confirmation email
+    if (data.email && originalEmail && data.email.toLowerCase() !== originalEmail.toLowerCase()) {
+      const forwardedProto2 = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
+      const proto2 = forwardedProto2 || (ctx.request.secure() ? 'https' : ctx.request.protocol())
+      const baseUrl = `${proto2}://${ctx.request.host()}`
+      await UserEmailService.prepareAndSendVerification(user, baseUrl)
+    }
 
     // Mettre à jour l'assignation si nécessaire
     if (data.department_id || data.role_id) {
