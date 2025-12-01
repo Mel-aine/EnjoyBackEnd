@@ -136,6 +136,13 @@ function parsePax(val: string | undefined | null): number | null {
   return nums.map((n) => parseInt(n, 10)).filter(Number.isFinite).reduce((a, b) => a + b, 0)
 }
 
+function fitLen(val: string | undefined | null, max = 255): string | null {
+  if (val == null) return null
+  const s = String(val)
+  if (s.length <= max) return s
+  return s.slice(0, max)
+}
+
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 
 export default class ImportHotelHistory extends BaseCommand {
@@ -291,45 +298,45 @@ export default class ImportHotelHistory extends BaseCommand {
       try {
         const payload: any = {
           hotelId,
-          hotelName: idx.hotelName >= 0 ? row[idx.hotelName] : null,
-          reservationNumber: idx.reservationNumber >= 0 ? row[idx.reservationNumber] : null,
+          hotelName: idx.hotelName >= 0 ? fitLen(row[idx.hotelName]) : null,
+          reservationNumber: idx.reservationNumber >= 0 ? fitLen(row[idx.reservationNumber]) : null,
           bookingDate: idx.bookingDate >= 0 ? parseDate(row[idx.bookingDate]) : null,
-          bookingTime: idx.bookingTime >= 0 ? row[idx.bookingTime] : null,
-          guestName: idx.guestName >= 0 ? row[idx.guestName] : null,
-          userName: idx.userName >= 0 ? row[idx.userName] : null,
+          bookingTime: idx.bookingTime >= 0 ? fitLen(row[idx.bookingTime]) : null,
+          guestName: idx.guestName >= 0 ? fitLen(row[idx.guestName]) : null,
+          userName: idx.userName >= 0 ? fitLen(row[idx.userName]) : null,
           arrivalDate: idx.arrivalDate >= 0 ? parseDate(row[idx.arrivalDate]) : null,
           departureDate: idx.departureDate >= 0 ? parseDate(row[idx.departureDate]) : null,
-          room: idx.room >= 0 ? row[idx.room] : null,
-          rateType: idx.rateType >= 0 ? row[idx.rateType] : null,
+          room: idx.room >= 0 ? fitLen(row[idx.room]) : null,
+          rateType: idx.rateType >= 0 ? fitLen(row[idx.rateType]) : null,
           pax: idx.pax >= 0 ? parsePax(row[idx.pax]) : null,
           total: idx.total >= 0 ? parseNumber(row[idx.total]) : null,
           adr: idx.adr >= 0 ? parseNumber(row[idx.adr]) : null,
           deposit: idx.deposit >= 0 ? parseNumber(row[idx.deposit]) : null,
-          source: idx.source >= 0 ? row[idx.source] : null,
+          source: idx.source >= 0 ? fitLen(row[idx.source]) : null,
           totalTax: idx.totalTax >= 0 ? parseNumber(row[idx.totalTax]) : null,
           totalCharges: idx.totalCharges >= 0 ? parseNumber(row[idx.totalCharges]) : null,
           commission: idx.commission >= 0 ? parseNumber(row[idx.commission]) : null,
-          voucher: idx.voucher >= 0 ? row[idx.voucher] : null,
-          status: idx.status >= 0 ? row[idx.status] : null,
+          voucher: idx.voucher >= 0 ? fitLen(row[idx.voucher]) : null,
+          status: idx.status >= 0 ? fitLen(row[idx.status]) : null,
           dueAmount: idx.dueAmount >= 0 ? parseNumber(row[idx.dueAmount]) : null,
-          email: idx.email >= 0 ? row[idx.email] : null,
-          mobileNo: idx.mobileNo >= 0 ? row[idx.mobileNo] : null,
-          city: idx.city >= 0 ? row[idx.city] : null,
-          country: idx.country >= 0 ? row[idx.country] : null,
-          zipCode: idx.zipCode >= 0 ? row[idx.zipCode] : null,
-          state: idx.state >= 0 ? row[idx.state] : null,
-          folioNo: idx.folioNo >= 0 ? row[idx.folioNo] : null,
-          preference: idx.preference >= 0 ? row[idx.preference] : null,
-          travelAgent: idx.travelAgent >= 0 ? row[idx.travelAgent] : null,
-          salesperson: idx.salesperson >= 0 ? row[idx.salesperson] : null,
-          remark: idx.remark >= 0 ? row[idx.remark] : null,
-          reservationType: idx.reservationType >= 0 ? row[idx.reservationType] : null,
-          marketCode: idx.marketCode >= 0 ? row[idx.marketCode] : null,
-          paymentType: idx.paymentType >= 0 ? row[idx.paymentType] : null,
+          email: idx.email >= 0 ? fitLen(row[idx.email]) : null,
+          mobileNo: idx.mobileNo >= 0 ? fitLen(row[idx.mobileNo]) : null,
+          city: idx.city >= 0 ? fitLen(row[idx.city]) : null,
+          country: idx.country >= 0 ? fitLen(row[idx.country]) : null,
+          zipCode: idx.zipCode >= 0 ? fitLen(row[idx.zipCode]) : null,
+          state: idx.state >= 0 ? fitLen(row[idx.state]) : null,
+          folioNo: idx.folioNo >= 0 ? fitLen(row[idx.folioNo]) : null,
+          preference: idx.preference >= 0 ? fitLen(row[idx.preference]) : null,
+          travelAgent: idx.travelAgent >= 0 ? fitLen(row[idx.travelAgent]) : null,
+          salesperson: idx.salesperson >= 0 ? fitLen(row[idx.salesperson]) : null,
+          remark: idx.remark >= 0 ? fitLen(row[idx.remark]) : null,
+          reservationType: idx.reservationType >= 0 ? fitLen(row[idx.reservationType]) : null,
+          marketCode: idx.marketCode >= 0 ? fitLen(row[idx.marketCode]) : null,
+          paymentType: idx.paymentType >= 0 ? fitLen(row[idx.paymentType]) : null,
           numberOfNights: idx.numberOfNights >= 0 ? parseIntSafe(row[idx.numberOfNights]) : null,
           cancellationDate: idx.cancellationDate >= 0 ? parseDate(row[idx.cancellationDate]) : null,
           lastModifiedDate: idx.lastModifiedDate >= 0 ? parseDate(row[idx.lastModifiedDate]) : null,
-          lastModifiedBy: idx.lastModifiedBy >= 0 ? row[idx.lastModifiedBy] : null,
+          lastModifiedBy: idx.lastModifiedBy >= 0 ? fitLen(row[idx.lastModifiedBy]) : null,
           numberOfRoomsBooked: idx.numberOfRoomsBooked >= 0 ? parseIntSafe(row[idx.numberOfRoomsBooked]) : null,
         }
 
