@@ -633,6 +633,112 @@ export default class ReservationCreationService {
         } catch {
         }
       })
+
+      try {
+        const NotificationService = (await import('#services/notification_service')).default
+
+        // Déterminer si c'est une réservation OTA
+        const isOtaReservation =  !!data.channex_booking_id
+
+        // Notification principale selon le type
+        let notificationTemplateCode = isOtaReservation
+          ? 'NEW_OTA_BOOKING'
+          : 'RESERVATION_CREATED'
+
+        const variables = await NotificationService.buildVariables(notificationTemplateCode, {
+          hotelId: reservation.hotelId,
+          guestId: primaryGuest.id,
+          reservationId: reservation.id,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || '',
+            ConfirmationNumber: confirmationNumber,
+            GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+            CheckInDate: arrivedDate.toISODate(),
+            CheckOutDate: departDate.toISODate(),
+            NumberOfNights: numberOfNights,
+            TotalAmount: reservation.totalAmount || 0,
+            RoomCount: rooms.length,
+            GuestCount: guestCount,
+            OtaName: data.ota_name || 'Channel Manager',
+            OtaCode: data.ota_reservation_code || data.channex_booking_id || '',
+            OtaStatus: data.ota_status || '',
+            Status: reservation.status,
+            SpecialRequests: data.special_requests || '',
+          },
+        })
+
+        await NotificationService.sendWithTemplate({
+          templateCode: notificationTemplateCode,
+          recipientType: 'STAFF',
+          recipientId: data.created_by,
+          variables,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservation.id,
+          actorId: data.created_by,
+          hotelId: reservation.hotelId,
+        })
+
+        // Notification au client (confirmation)
+        if (primaryGuest.email) {
+          const guestVariables = await NotificationService.buildVariables('RESERVATION_CONFIRMATION_GUEST', {
+            hotelId: reservation.hotelId,
+            guestId: primaryGuest.id,
+            reservationId: reservation.id,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || '',
+              ConfirmationNumber: confirmationNumber,
+              GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+              CheckInDate: arrivedDate.toISODate(),
+              CheckOutDate: departDate.toISODate(),
+              NumberOfNights: numberOfNights,
+              TotalAmount: reservation.totalAmount || 0,
+              SpecialRequests: data.special_requests || '',
+            },
+          })
+
+          await NotificationService.sendWithTemplate({
+            templateCode: 'RESERVATION_CONFIRMATION_GUEST',
+            recipientType: 'GUEST',
+            recipientId: primaryGuest.id,
+            variables: guestVariables,
+            relatedEntityType: 'Reservation',
+            relatedEntityId: reservation.id,
+            actorId: data.created_by,
+            hotelId: reservation.hotelId,
+          })
+        }
+
+
+        // Alerte si statut "pending"
+        if (reservation.status === 'pending') {
+          const pendingVariables = await NotificationService.buildVariables('RESERVATION_PENDING', {
+            hotelId: reservation.hotelId,
+            reservationId: reservation.id,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || '',
+              GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+              OtaName: data.ota_name || 'OTA',
+              CheckInDate: arrivedDate.toISODate(),
+            },
+          })
+
+          await NotificationService.sendWithTemplate({
+            templateCode: 'RESERVATION_PENDING',
+            recipientType: 'STAFF',
+            recipientId: data.created_by,
+            variables: pendingVariables,
+            relatedEntityType: 'Reservation',
+            relatedEntityId: reservation.id,
+            actorId: data.created_by,
+            hotelId: reservation.hotelId,
+          })
+        }
+
+
+
+      } catch (notifError) {
+        console.warn('Erreur notifications OTA:', (notifError as any)?.message)
+      }
       // === CRÉATION DES FOLIOS (après commit) ===
       let folios: any[] = []
       if (rooms.length > 0) {
@@ -1088,6 +1194,98 @@ export default class ReservationCreationService {
         lastModifiedBy: userId!,
       })
       .save()
+
+       try {
+    const NotificationService = (await import('#services/notification_service')).default
+
+    // Précharger le guest si nécessaire
+    if (!reservation.guest) {
+      await reservation.load('guest')
+    }
+
+    const guestName = reservation.guest
+      ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
+      : 'Guest'
+
+    const isOtaCancellation = !!reservation.otaName || !!reservation.otaReservationCode
+
+    //  Notification STAFF - Annulation OTA
+    try {
+      const staffTemplateCode = isOtaCancellation
+        ? 'OTA_CANCELLATION'
+        : 'RESERVATION_CANCELLED'
+
+      const staffVariables = await NotificationService.buildVariables(staffTemplateCode, {
+        hotelId: reservation.hotelId,
+        reservationId: reservation.id,
+        guestId: reservation.guestId,
+        extra: {
+          ReservationNumber: reservation.reservationNumber || 'N/A',
+          GuestName: guestName,
+          CancellationDate: DateTime.now().toISODate(),
+          CancelledRooms: cancelledList,
+          CancellationReason: reason || 'Cancelled by OTA',
+          OtaName: reservation.otaName || 'Channel Manager',
+          OtaCode: reservation.otaReservationCode || '',
+          TotalRoomsCancelled: cancelledRooms.length,
+          FoliosClosed: foliosClosed,
+          TransactionsCancelled: transactionsCancelled,
+        },
+      })
+
+      await NotificationService.sendWithTemplate({
+        templateCode: staffTemplateCode,
+        recipientType: 'STAFF',
+        recipientId: userId,
+        variables: staffVariables,
+        relatedEntityType: 'Reservation',
+        relatedEntityId: reservation.id,
+        actorId: userId,
+        hotelId: reservation.hotelId,
+      })
+    } catch (staffError) {
+      console.error(' Erreur notification STAFF OTA:', (staffError as any)?.message)
+    }
+    // Notification GUEST - Confirmation d'annulation
+    if (reservation.guest && reservation.guest.email) {
+      try {
+        const guestTemplateCode = isOtaCancellation
+          ? 'RESERVATION_CANCELLED_GUEST_OTA'
+          : 'RESERVATION_CANCELLED_GUEST'
+
+        const guestVariables = await NotificationService.buildVariables(guestTemplateCode, {
+          hotelId: reservation.hotelId,
+          reservationId: reservation.id,
+          guestId: reservation.guestId!,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || 'N/A',
+            GuestName: guestName,
+            CancellationDate: DateTime.now().toISODate(),
+            CancelledRooms: cancelledList,
+            CancellationReason: reason || 'Cancelled by OTA',
+            OtaName: reservation.otaName || 'Channel Manager',
+            OtaCode: reservation.otaReservationCode || '',
+          },
+        })
+
+        await NotificationService.sendWithTemplate({
+          templateCode: guestTemplateCode,
+          recipientType: 'GUEST',
+          recipientId: reservation.guestId!,
+          variables: guestVariables,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservation.id,
+          actorId: userId,
+          hotelId: reservation.hotelId,
+        })
+      } catch (guestError) {
+        console.error(' Erreur notification GUEST OTA:', (guestError as any)?.message)
+      }
+    }
+  } catch (notifError) {
+    console.error(' Erreur générale dans les notifications d\'annulation:', (notifError as any)?.message)
+  }
+
 
     // Recompute guest summary
     await GuestSummaryService.recomputeFromReservation(reservation.id)
