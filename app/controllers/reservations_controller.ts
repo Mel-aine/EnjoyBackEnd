@@ -7323,17 +7323,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             auth.user!.id
           )
         }
-        // Notification de changement de pax
-        const newAdults = reservation.adults
-        const newChildren = reservation.children
-        if (oldAdults !== newAdults || oldChildren !== newChildren) {
-          await CheckinCheckoutNotificationService.notifyPaxChange(
-            reservation.id,
-            oldAdults + oldChildren,
-            newAdults + newChildren,
-            auth.user!.id
-          )
-        }
+
 
       } catch (notifError) {
         console.error(' Erreur lors des notifications:', notifError)
