@@ -4474,6 +4474,50 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 updated_at: DateTime.now(),
               })
           }
+          // Recompute totals for both folios after move
+          const recomputeTotals = async (folioId: number) => {
+            const transactions = await FolioTransaction.query()
+              .where('folioId', folioId)
+              .where('status', '!=', TransactionStatus.VOIDED)
+
+            let totalCharges = 0
+            let totalPayments = 0
+            let totalAdjustments = 0
+            let totalTaxes = 0
+            let totalServiceCharges = 0
+            let totalDiscounts = 0
+
+            for (const transaction of transactions) {
+              if (transaction.transactionType === TransactionType.CHARGE) {
+                totalCharges += parseFloat(`${transaction.amount}`) || 0
+              } else if (transaction.transactionType === TransactionType.PAYMENT) {
+                totalPayments += Math.abs(parseFloat(`${transaction.amount}`) || 0
+                )
+              } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
+                totalAdjustments += parseFloat(`${transaction.amount}`) || 0
+              }
+              totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
+              totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
+              totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
+            }
+
+            const balance = totalCharges + totalAdjustments - totalPayments
+
+            await Folio.query()
+              .where('id', folioId)
+              .update({
+                totalCharges,
+                totalPayments,
+                totalAdjustments,
+                totalTaxes,
+                totalServiceCharges,
+                totalDiscounts,
+                balance,
+              })
+          }
+
+          await recomputeTotals(sourceFolio.id)
+          await recomputeTotals(destinationFolio.id)
 
           const refreshedSource = await Folio.query()
             .where('id', sourceFolio.id)
@@ -4487,33 +4531,31 @@ export default class ReservationsController extends CrudController<typeof Reserv
               closedBy: auth.user?.id || 1,
             }).save()
           }
-        } else if (amountToTransfer > 0) {
-          const transferDescription = `Room move on ${moveDate.toISODate()} (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber})${reason ? ' - ' + reason : ''}`
-          const transferReference = `ROOM_MOVE:${reservation.id}:${currentReservationRoom.id}->${newReservationRoom.id}`
+        } else {
+          // Payments exist on source folio: move all non-voided transactions to destination folio,
+          // appending transfer note for audit trail, then recompute totals.
+          const transferNote = `Transferred due to room move (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber}) on ${moveDate.toISODate()}${reason ? ' - ' + reason : ''}`
 
-          // Post TRF-OUT on source folio in the SAME transaction
-          await FolioService.postTransaction({
-            folioId: sourceFolio.id,
-            transactionType: TransactionType.TRANSFER,
-            category: TransactionCategory.TRANSFER_OUT,
-            description: `Transfer to ${destinationFolio.folioNumber}: ${transferDescription}`,
-            amount: -Math.abs(amountToTransfer),
-            reference: transferReference,
-            postedBy: auth.user?.id || 1,
-          })
+          const transactionsToMove = await FolioTransaction.query()
+            .where('folioId', sourceFolio.id)
+            .where('status', '!=', TransactionStatus.VOIDED)
 
-          // Post TRF-IN on destination folio in the SAME transaction
-          await FolioService.postTransaction({
-            folioId: destinationFolio.id,
-            transactionType: TransactionType.TRANSFER,
-            category: TransactionCategory.TRANSFER_IN,
-            description: `Transfer from ${sourceFolio.folioNumber}: ${transferDescription}`,
-            amount: Math.abs(amountToTransfer),
-            reference: transferReference,
-            postedBy: auth.user?.id || 1,
-          })
+          for (const t of transactionsToMove) {
+            const newDescription = t.description && t.description.length > 0
+              ? `${t.description} | ${transferNote}`
+              : transferNote
 
-          // Recompute totals for both folios within the same transaction
+            await db.from('folio_transactions')
+              .where('id', t.id)
+              .update({
+                description: newDescription,
+                folio_id: destinationFolio.id,
+                last_modified_by: auth.user?.id || 1,
+                updated_at: DateTime.now(),
+              })
+          }
+
+          // Recompute totals for both folios after move
           const recomputeTotals = async (folioId: number) => {
             const transactions = await FolioTransaction.query()
               .where('folioId', folioId)
@@ -4557,7 +4599,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           await recomputeTotals(sourceFolio.id)
           await recomputeTotals(destinationFolio.id)
 
-          // Close source folio if balance is zero after transfer
+          // Close source folio if balance is zero after move
           const refreshedSource = await Folio.query()
             .where('id', sourceFolio.id)
             .firstOrFail()
