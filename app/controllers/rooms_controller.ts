@@ -522,7 +522,7 @@ export default class RoomsController {
         .where('room_type_id', roomTypeId)
         // .whereNot('status', 'completed')
         .where(function (query) {
-          query.where('block_from_date', '<=', endDate).where('block_to_date', '>=', startDate)
+          query.where('block_from_date', '<', endDate).where('block_to_date', '>', startDate)
         })
         .select('room_id')
 
@@ -540,25 +540,27 @@ export default class RoomsController {
 
       // Filter rooms based on reservations if date range provided
       if (startDate && endDate) {
-        const availableRoomIds: number[] = []
+        // Batch query overlapping reservations for all rooms of this type
+        const roomIds = availableRooms.map((r) => r.id)
+        let occupiedRoomIds = new Set<number>()
 
-        for (const room of availableRooms) {
-          const reservations = await ReservationRoom.query()
-            .where('room_id', room.id)
-            .where('check_in_date', '<=', endDate)
-            .where('check_out_date', '>=', startDate)
-            .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
+        if (roomIds.length > 0) {
+          const overlappingReservations = await ReservationRoom.query()
+            .whereIn('room_id', roomIds)
+            .where('check_in_date', '<', endDate)
+            .where('check_out_date', '>', startDate)
+            .whereIn('status', ['reserved', 'checked_in', 'day_use'])
+            .select('room_id')
 
-          if (reservations.length === 0) {
-            availableRoomIds.push(room.id)
-          }
+          occupiedRoomIds = new Set<number>(
+            (overlappingReservations.map((rr) => rr.roomId) ?? []).filter(
+              (id): id is number => typeof id === 'number'
+            )
+          )
         }
 
-        availableRooms = availableRooms.filter((room) => availableRoomIds.includes(room.id))
-        console.log(
-          'Rooms after filtering reservations:',
-          availableRooms.map((r) => r.id)
-        )
+        availableRooms = availableRooms.filter((room) => !occupiedRoomIds.has(room.id))
+        console.log('Rooms after filtering reservations:', availableRooms.map((r) => r.id))
       }
 
       return response.ok({
@@ -644,7 +646,7 @@ export default class RoomsController {
         .where('block_from_date', '<=', checkOutISO)
         .where('block_to_date', '>=', checkInISO)
         .select('room_id')
-    //  console.log('room bloc', blockedRoomsResult)
+      //  console.log('room bloc', blockedRoomsResult)
       const blockedRoomIds = blockedRoomsResult.map((b) => b.roomId)
 
       // **3. Identify Reserved Rooms (Standard Overlap Logic)**
@@ -655,7 +657,7 @@ export default class RoomsController {
         .where('check_out_date', '>', checkInISO)
         .whereNotNull('roomId')
         .select(['room_id'])
-     // console.log('room res', reservedRoomsResult)
+      // console.log('room res', reservedRoomsResult)
       const reservedRoomIds = reservedRoomsResult.map((r) => r.roomId)
 
       // **4. Combine Exclusions**

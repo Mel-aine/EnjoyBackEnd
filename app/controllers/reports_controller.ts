@@ -39,14 +39,14 @@ export default class ReportsController {
   async generate({ request, response }: HttpContext) {
     try {
       const { reportType, filters = {} } = request.only(['reportType', 'filters'])
-  
+
       if (!reportType) {
         return response.badRequest({
           success: false,
           message: 'Le type de rapport est requis'
         })
       }
-  
+
       // ============================================
       // CONSTRUCTION COMPLÈTE DES FILTRES
       // ============================================
@@ -55,18 +55,18 @@ export default class ReportsController {
         hotelId: filters.hotelId ? parseInt(filters.hotelId) : undefined,
         startDate: filters.startDate,
         endDate: filters.endDate,
-        
+
         // Filtres de réservation
         roomTypeId: filters.roomTypeId ? parseInt(filters.roomTypeId) : undefined,
         guestId: filters.guestId ? parseInt(filters.guestId) : undefined,
         userId: filters.userId ? parseInt(filters.userId) : undefined,
         status: filters.status,
-        
+
         // Filtres de service
         departmentId: filters.departmentId ? parseInt(filters.departmentId) : undefined,
         bookingSourceId: filters.bookingSourceId ? parseInt(filters.bookingSourceId) : undefined,
         ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined,
-        
+
         // ============================================
         // TOUS LES FILTRES DISPONIBLES
         // ============================================
@@ -75,21 +75,21 @@ export default class ReportsController {
         travelAgent: filters.travelAgent,
         businessSource: filters.businessSource,
         market: filters.market,
-        
+
         // Fourchette de prix
         rateFrom: filters.rateFrom ? parseFloat(filters.rateFrom) : undefined,
         rateTo: filters.rateTo ? parseFloat(filters.rateTo) : undefined,
-        
+
         // Type et options d'affichage
         reservationType: filters.reservationType,
         showAmount: filters.showAmount, // 'rent_per_night' ou 'total_amount'
         taxInclusive: filters.taxInclusive === true || filters.taxInclusive === 'true',
-        
+
         // Colonnes sélectionnées
-        selectedColumns: Array.isArray(filters.selectedColumns) 
-          ? filters.selectedColumns 
+        selectedColumns: Array.isArray(filters.selectedColumns)
+          ? filters.selectedColumns
           : (filters.selectedColumns ? [filters.selectedColumns] : undefined),
-        
+
         // Filtres additionnels pour les rapports Front Office
         arrivalFrom: filters.arrivalFrom,
         arrivalTo: filters.arrivalTo,
@@ -98,9 +98,9 @@ export default class ReportsController {
         user: filters.user,
         checkin: filters.checkin
       }
-  
+
       let reportData
-  
+
       switch (reportType) {
         // Reservation Reports
         case 'arrivalList':
@@ -124,7 +124,7 @@ export default class ReportsController {
         case 'voidReservations':
           reportData = await ReportsService.getVoidReservations(reportFilters)
           break
-        
+
         // Front Office Reports
         case 'guestCheckedIn':
           reportData = await ReportsService.getGuestCheckedIn(reportFilters)
@@ -141,7 +141,7 @@ export default class ReportsController {
         case 'taskList':
           reportData = await ReportsService.getTaskList(reportFilters)
           break
-  
+
         // Back Office Reports
         case 'revenueReport':
           reportData = await ReportsService.getRevenueReport(reportFilters)
@@ -152,12 +152,12 @@ export default class ReportsController {
         case 'cashierReport':
           reportData = await ReportsService.getCashierReport(reportFilters)
           break
-  
+
         // Audit Reports
         case 'userActivityLog':
           reportData = await ReportsService.getUserActivityLog(reportFilters)
           break
-  
+
         // Statistical Reports
         case 'occupancyReport':
           reportData = await ReportsService.getOccupancyReport(reportFilters)
@@ -174,14 +174,14 @@ export default class ReportsController {
         case 'sourceOfBusinessReport':
           reportData = await ReportsService.getSourceOfBusinessReport(reportFilters)
           break
-  
+
         default:
           return response.badRequest({
             success: false,
             message: `Type de rapport non reconnu: ${reportType}`
           })
       }
-  
+
       return response.ok({
         success: true,
         data: reportData
@@ -226,18 +226,18 @@ export default class ReportsController {
         hotelId: filters.hotelId ? parseInt(filters.hotelId) : undefined,
         startDate: filters.startDate,
         endDate: filters.endDate,
-        
+
         // Filtres de réservation
         roomTypeId: filters.roomTypeId ? parseInt(filters.roomTypeId) : undefined,
         guestId: filters.guestId ? parseInt(filters.guestId) : undefined,
         userId: filters.userId ? parseInt(filters.userId) : undefined,
         status: filters.status,
-        
+
         // Filtres de service
         departmentId: filters.departmentId ? parseInt(filters.departmentId) : undefined,
         bookingSourceId: filters.bookingSourceId ? parseInt(filters.bookingSourceId) : undefined,
         ratePlanId: filters.ratePlanId ? parseInt(filters.ratePlanId) : undefined,
-        
+
         // ============================================
         // TOUS LES FILTRES DISPONIBLES
         // ============================================
@@ -246,21 +246,21 @@ export default class ReportsController {
         travelAgent: filters.travelAgent,
         businessSource: filters.businessSource,
         market: filters.market,
-        
+
         // Fourchette de prix
         rateFrom: filters.rateFrom ? parseFloat(filters.rateFrom) : undefined,
         rateTo: filters.rateTo ? parseFloat(filters.rateTo) : undefined,
-        
+
         // Type et options d'affichage
         reservationType: filters.reservationType,
         showAmount: filters.showAmount,
         taxInclusive: filters.taxInclusive === true || filters.taxInclusive === 'true',
-        
+
         // Colonnes sélectionnées
-        selectedColumns: Array.isArray(filters.selectedColumns) 
-          ? filters.selectedColumns 
+        selectedColumns: Array.isArray(filters.selectedColumns)
+          ? filters.selectedColumns
           : (filters.selectedColumns ? [filters.selectedColumns] : undefined),
-        
+
         // Filtres additionnels pour les rapports Front Office
         arrivalFrom: filters.arrivalFrom,
         arrivalTo: filters.arrivalTo,
@@ -1380,7 +1380,7 @@ export default class ReportsController {
 
     // Section 6: Pax Analysis
     const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
-    
+
 
     return {
       roomCharges,
@@ -1789,10 +1789,10 @@ export default class ReportsController {
       .whereRaw('DATE(transaction_date) = ?', [reportDate.toFormat('yyyy-MM-dd')])
       .where('transaction_type', 'charge')
       .whereNot('category', 'room')
-      .preload('folio', (folioQuery:any) => {
-        folioQuery.preload('reservation', (resQuery:any) => {
+      .preload('folio', (folioQuery: any) => {
+        folioQuery.preload('reservation', (resQuery: any) => {
           resQuery.preload('guest')
-          resQuery.preload('reservationRooms', (roomQuery:any) => {
+          resQuery.preload('reservationRooms', (roomQuery: any) => {
             roomQuery.preload('room')
           })
         })
@@ -2122,7 +2122,7 @@ export default class ReportsController {
   ): string {
     const formattedDate = reportDate.toFormat('dd-MM-yyyy')
     const currentDateTime = DateTime.now().toFormat('dd-MM-yyyy HH:mm:ss')
-  
+
     return `
   <!DOCTYPE html>
   <html lang="en">
@@ -2661,8 +2661,8 @@ export default class ReportsController {
 
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user 
-        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
         : 'System'
 
       // Generate all sections data
@@ -2692,24 +2692,24 @@ export default class ReportsController {
       // Format dates for display
       const formattedDate = reportDate.toFormat('dd/MM/yyyy')
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-    const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
-    const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
+      const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+      const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
       // Create header template
-    // Create header template
-    const headerTemplate = `
+      // Create header template
+      const headerTemplate = `
     <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
       <!-- Hotel name and report title -->
-      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
         <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
         <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
       </div>
       
       <!-- Report Info -->
-      <div style="font-size:10px; margin-bottom:3px;">
-        <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
-        <span style="margin-right:10px;"><strong>PTD:</strong> ${ ptdDate }</span>
-        <span style="margin-right:10px;"><strong>YTD:</strong> ${ ytdDate }</span>
-        <span><strong>Currency:</strong> ${currency}</span>
+      <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
+        <span style="margin-right:10px;">As On Date: ${formattedDate}</span>
+        <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
+        <span style="margin-right:10px;">YTD: ${ ytdDate }</span>
+        <span>Currency: ${currency}</span>
       </div>
       
       <div style="border-top:1px solid #333; margin:0 ;"></div>
@@ -2729,19 +2729,19 @@ export default class ReportsController {
       <div style="border-top:1px solid #333; margin-top:2px;"></div>
     </div>
     `
-    // Create footer template
-    const footerTemplate = `
+      // Create footer template
+      const footerTemplate = `
     <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
       <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
       <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
       <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
     </div>`
-  
+
       // Generate PDF with header and footer
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
-        format: 'A4', 
+        format: 'A4',
         margin: {
-          top: '100px',
+          top: '120px',
           right: '10px',
           bottom: '70px',
           left: '10px'
@@ -2815,7 +2815,8 @@ export default class ReportsController {
     const posPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate);
     // Section 14: Revenue Summary
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
-
+    // section 15 Total revenu
+    const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary);
     return {
       roomCharges,
       extraCharges,
@@ -2830,7 +2831,8 @@ export default class ReportsController {
       statistics,
       posSummary,
       posPayment,
-      revenueSummary
+      revenueSummary,
+      totalRevenue
     }
   }
 
@@ -2847,27 +2849,28 @@ export default class ReportsController {
     const { default: edge } = await import('edge.js')
     const path = await import('path')
     logger.info(sectionsData)
-  
+
     // Configure Edge with views directory
     edge.mount(path.join(process.cwd(), 'resources/views'))
-  
+
     // Format dates
     const asOnDate = reportDate.toFormat('dd/MM/yyyy')
     const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
     const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-  
-    // Helper function for currency formatting
+
+    // Helper: French number formatting with no decimals, no currency name
     const formatCurrency = (amount: number | null | undefined): string => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return '0.00'
+      const num = Number(amount)
+      if (!isFinite(num)) {
+        return '0'
       }
-      return amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+      return num.toLocaleString('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
       })
     }
-  
+
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
@@ -2881,24 +2884,24 @@ export default class ReportsController {
         ytd: 0
       },
       posToPs: {
-        today: 0,
-        ptd: 0,
-        ytd: 0
+        today: sectionsData.postings?.posToPmsPosting?.today || 0,
+        ptd: sectionsData.postings?.posToPmsPosting?.ptd || 0,
+        ytd: sectionsData.postings?.posToPmsPosting?.ytd || 0
       },
       transferToGuestLedger: {
-        today: 0,
-        ptd: 0,
-        ytd: 0
+        today: sectionsData.postings?.transferChargesToGuestLedger?.today || 0,
+        ptd: sectionsData.postings?.transferChargesToGuestLedger?.ptd || 0,
+        ytd: sectionsData.postings?.transferChargesToGuestLedger?.ytd || 0
       }
     }
-  
+
     // Calculate revenue with tax
     totals.revenueWithTax.today = totals.revenueWithoutTax.today + (sectionsData.tax?.today || 0)
     totals.revenueWithTax.ptd = totals.revenueWithoutTax.ptd + (sectionsData.tax?.ptd || 0)
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
-    
+
     logger.info(sectionsData)
-  
+
     // Prepare template data with header and footer info
     const templateData = {
       hotelName,
@@ -2929,7 +2932,7 @@ export default class ReportsController {
         pageInfo: 'Page {currentPage} of {totalPages}'
       }
     }
-  
+
     // Render template
     return await edge.render('reports/management_report', templateData)
   }
@@ -4370,7 +4373,13 @@ export default class ReportsController {
       ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0)
     }
   }
-
+  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any,) {
+    return {
+      today: (posRevenue.today || 0) + (pmsRevenue.today || 0),
+      ptd: (posRevenue.ptd || 0) + (pmsRevenue.ptd || 0),
+      ytd: (posRevenue.ytd || 0) + (pmsRevenue.ytd || 0)
+    }
+  }
   /**
    * Get Revenue By Rate Type report data
    */
@@ -4537,10 +4546,10 @@ export default class ReportsController {
       .where('category', 'room')
       .where('status', 'posted')
       .distinctOn('folio_transactions.folio_id')
-      .preload('folio', (folioQuery:any) => {
-        folioQuery.preload('reservation', (reservationQuery:any) => {
-          reservationQuery.preload('reservationRooms', (roomQuery:any) => {
-            roomQuery.preload('roomRates', (rateQuery:any) => {
+      .preload('folio', (folioQuery: any) => {
+        folioQuery.preload('reservation', (reservationQuery: any) => {
+          reservationQuery.preload('reservationRooms', (roomQuery: any) => {
+            roomQuery.preload('roomRates', (rateQuery: any) => {
               rateQuery.preload('rateType')
             })
           })
@@ -4607,10 +4616,10 @@ export default class ReportsController {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
 
     let query = FolioTransaction.query()
-      .whereHas('folio', (folioQuery:any) => {
-        folioQuery.whereHas('reservation', (reservationQuery:any) => {
+      .whereHas('folio', (folioQuery: any) => {
+        folioQuery.whereHas('reservation', (reservationQuery: any) => {
           reservationQuery.where('hotel_id', hotelId)
-            .whereHas('reservationRooms', (roomQuery:any) => {
+            .whereHas('reservationRooms', (roomQuery: any) => {
               if (roomTypeId) {
                 roomQuery.where('room_type_id', roomTypeId)
               }
@@ -4621,9 +4630,9 @@ export default class ReportsController {
       .where('category', 'room')
       .whereNotIn('status', ['cancel', 'void'])
       .distinctOn('folio_transactions.folio_id')
-      .preload('folio', (folioQuery:any) => {
-        folioQuery.preload('reservation', (reservationQuery:any) => {
-          reservationQuery.preload('reservationRooms', (roomQuery:any) => {
+      .preload('folio', (folioQuery: any) => {
+        folioQuery.preload('reservation', (reservationQuery: any) => {
+          reservationQuery.preload('reservationRooms', (roomQuery: any) => {
             roomQuery.preload('roomType')
           })
         })
@@ -5304,27 +5313,27 @@ export default class ReportsController {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate') || DateTime.now().toFormat('yyyy-MM-dd')
       const reportDate = DateTime.fromISO(asOnDate)
-  
+
       // Imports (use dynamic to avoid circular deps)
       const { default: Hotel } = await import('#models/hotel')
       const { default: ReservationRoom } = await import('#models/reservation_room')
-  
+
       const hotel = await Hotel.find(hotelId)
       if (!hotel) {
         return response.badRequest({ success: false, message: 'Invalid hotelId' })
       }
-  
+
       const nextDate = reportDate.plus({ days: 1 })
       const dateISO = reportDate.toISODate()
       const nextISO = nextDate.toISODate()
-  
+
       // Helper to build rows from ReservationRoom with preloaded relations
       const buildRows = (items: ReservationRoom[]) => {
         return items.map((rr) => {
           const res = rr.reservation
           const guest = res?.guest || rr.guest
           const businessSourceName = res?.businessSource?.name || res?.sourceOfBusiness || 'N/A'
-          const roomNumber = rr.roomType?.rooms[0]?.roomNumber 
+          const roomNumber = rr.roomType?.rooms[0]?.roomNumber
           const roomTypeName = rr.roomType?.roomTypeName || '—'
           const folioNumber = (res?.folios && res.folios[0]?.folioNumber) || '—'
           const rateTypeName = rr.rateType?.rateTypeName || '—'
@@ -5333,7 +5342,7 @@ export default class ReportsController {
           const nights = rr.nights ?? res?.numberOfNights ?? 0
           const roomRate = rr.roomRate ?? res?.roomRate ?? 0
           const total = rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
-  
+
           return {
             businessSource: businessSourceName,
             reservationNumber: res?.reservationNumber || res?.confirmationNumber || String(res?.id || rr.reservationId),
@@ -5350,7 +5359,7 @@ export default class ReportsController {
           }
         })
       }
-  
+
       // Query helper
       const basePreload = (q: ReturnType<typeof ReservationRoom.query>) => {
         return q
@@ -5362,12 +5371,12 @@ export default class ReportsController {
           })
           .preload('guest')
           .preload('room')
-          .preload('roomType', (roomQuery=> {
+          .preload('roomType', (roomQuery => {
             roomQuery.preload('rooms')
           }))
           .preload('rateType')
       }
-  
+
       // Define sections with their queries
       const sectionDefinitions = [
         {
@@ -5417,7 +5426,7 @@ export default class ReportsController {
             ReservationRoom.query()
               .where('hotelId', hotelId)
               .where('status', 'cancelled')
-              //.whereRaw('DATE(updatedAt) = ?', [dateISO])
+            //.whereRaw('DATE(updatedAt) = ?', [dateISO])
           )
         },
         {
@@ -5453,11 +5462,11 @@ export default class ReportsController {
       ]
       // Execute queries and organize data by business source
       const sections = []
-  
+
       for (const sectionDef of sectionDefinitions) {
         const items = await sectionDef.query()
         const rows = buildRows(items)
-        
+
         // Group by business source
         const groupsMap = new Map()
         rows.forEach((row) => {
@@ -5467,23 +5476,23 @@ export default class ReportsController {
           }
           groupsMap.get(key).push(row)
         })
-  
+
         // Convert Map to array for template
         const groups = Array.from(groupsMap.entries()).map(([sourceName, rows]) => ({
           sourceName,
           rows
         }))
-  
+
         sections.push({
           title: sectionDef.title,
           groups
         })
       }
-  
+
       // Prepare data for template
       const user = auth?.user
       const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
-  
+
       const reportData = {
         hotel,
         reportDate: reportDate.toFormat('yyyy-MM-dd'),
@@ -5492,20 +5501,20 @@ export default class ReportsController {
         currentDateTime: new Date().toLocaleString('fr-FR') // Ajoutez cette ligne
       }
       console.log('reportData', reportData)
-  
+
       // Generate PDF using Edge template
       const { default: edge } = await import('edge.js')
       const path = await import('path')
-  
+
       // Configure Edge with views directory
       edge.mount(path.join(process.cwd(), 'resources/views'))
-  
+
       // Render the template
       const html = await edge.render('reports/daily_operations', reportData)
-  
+
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
-            
+
       const headerTemplate = `
       <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
         <!-- Hotel name and report title -->
@@ -5537,7 +5546,7 @@ export default class ReportsController {
         footerTemplate,
         printBackground: true
       })
-  
+
       const filename = `daily-operations-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
       return response
         .header('Content-Type', 'application/pdf')
@@ -7233,7 +7242,7 @@ export default class ReportsController {
         voidedBy: transaction.voidedByUser
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
-        voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '' ,
+        voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
         reason: transaction.voidReason || ''
       }))
 
@@ -7366,15 +7375,15 @@ export default class ReportsController {
       const FolioTransaction = (await import('#models/folio_transaction')).default
       const { DateTime } = await import('luxon')
 
-    // Convertir les dates from et to pour couvrir toute la journée
-    const startDateTime = DateTime.fromISO(from).startOf('day')
-    const endDateTime = DateTime.fromISO(to).endOf('day')
+      // Convertir les dates from et to pour couvrir toute la journée
+      const startDateTime = DateTime.fromISO(from).startOf('day')
+      const endDateTime = DateTime.fromISO(to).endOf('day')
 
-    // Utiliser toJSDate() au lieu de toSQL() pour éviter le problème de null
-    const startDate = startDateTime.toJSDate()
-    const endDate = endDateTime.toJSDate()
-    
-    console.log('ddate converti', { startDate, endDate})
+      // Utiliser toJSDate() au lieu de toSQL() pour éviter le problème de null
+      const startDate = startDateTime.toJSDate()
+      const endDate = endDateTime.toJSDate()
+
+      console.log('ddate converti', { startDate, endDate })
 
       // Build query for all void transactions
       let query = FolioTransaction.query()
@@ -7384,7 +7393,7 @@ export default class ReportsController {
         .preload('voidedByUser')
         .where('status', TransactionStatus.VOIDED)
         //.where('category', TransactionCategory.PAYMENT)
-        .whereBetween('voidedDate',[startDate, endDate])
+        .whereBetween('voidedDate', [startDate, endDate])
 
       // Apply hotel filter
       if (hotelId) {
@@ -8583,7 +8592,7 @@ export default class ReportsController {
 
     } catch (error) {
       logger.error('Error generating receipt PDF:', error)
-      
+
       console.log('Error generating receipt PDF:', error)
       return response.internalServerError({
         success: false,
@@ -8850,14 +8859,14 @@ export default class ReportsController {
   async printIncidentalInvoice({ request, response }: HttpContext) {
     try {
       const { transactionIds } = request.only(['transactionIds'])
-  
+
       if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
         return response.badRequest({
           success: false,
           message: 'Transaction IDs array is required'
         })
       }
-  
+
       // Get all transactions with their related data
       const transactions = await FolioTransaction.query()
         .whereIn('id', transactionIds)
@@ -8873,35 +8882,35 @@ export default class ReportsController {
         .preload('paymentMethod')
         .orderBy('transactionDate', 'asc')
         .orderBy('createdAt', 'asc')
-  
+
       if (!transactions || transactions.length === 0) {
         return response.notFound({
           success: false,
           message: 'Transactions not found'
         })
       }
-  
+
       // Get unique folios (au cas où les transactions viennent de différents folios)
       const uniqueFolios = [...new Set(transactions.map(t => t.folio))]
       const primaryFolio = transactions[0].folio
       const hotel = primaryFolio.hotel
       const guest = primaryFolio.guest
-  
+
       // Separate charges, taxes and payments
       const charges = transactions.filter(t => t.transactionType === 'charge')
       const taxes = transactions.filter(t => t.transactionType === 'tax')
       const payments = transactions.filter(t => t.transactionType === 'payment')
-  
+
       // Calculate totals CORRIGÉS
       const totalCharges = charges.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
       const totalTaxes = taxes.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
       const totalPayments = payments.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
       const totalDiscounts = charges.reduce((sum, t) => sum + parseFloat(t.discountAmount || 0), 0)
-      
+
       // Calculs finaux CORRIGÉS
       const totalPayable = totalCharges + totalTaxes
       const balance = totalPayable - totalPayments
-  
+
       // Prepare receipt data for the template
       const receiptData = {
         transactions, // Toutes les transactions
@@ -8927,25 +8936,25 @@ export default class ReportsController {
           paymentCount: payments.length
         }
       }
-  
+
       console.log('data.send@@@@', receiptData)
-      
+
       const { default: edge } = await import('edge.js')
       const path = await import('path')
-      
+
       // Configure Edge with views directory
       edge.mount(path.join(process.cwd(), 'resources/views'))
-  
+
       // Ajouter la fonction helper formatNumber
       edge.global('formatNumber', (number) => {
         if (!number && number !== 0) return '0';
         const num = parseFloat(number);
         return new Intl.NumberFormat('fr-FR').format(num);
       })
-  
+
       // Render the POS receipt template
       const html = await edge.render('reports/incidental_invoice', receiptData)
-  
+
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: {
@@ -8955,13 +8964,13 @@ export default class ReportsController {
           left: '10px'
         }
       })
-  
+
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `inline; filename="incidental-invoice-${DateTime.now().toFormat('yyyy-MM-dd')}.pdf"`)
-  
+
       return response.send(pdfBuffer)
-  
+
     } catch (error) {
       logger.error('Error generating incidental invoice PDF:')
       logger.info(error)
