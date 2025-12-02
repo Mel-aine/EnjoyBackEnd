@@ -3085,13 +3085,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const totalAdults = rooms.reduce((sum: number, room: any) => sum + (parseInt(room.adult_count) || 0), 0)
         const totalChildren = rooms.reduce((sum: number, room: any) => sum + (parseInt(room.child_count) || 0), 0)
 
-        // Availability check only when rooms provided (same as saveReservation)
+        // Availability check only when rooms provided (same logic as saveReservation)
         if (rooms.length > 0) {
-          const roomIds = rooms.map((r) => r.room_id).filter((id): id is any => Boolean(id))
+          const roomIds = rooms
+            .map((r) => r.room_id)
+            .filter((id): id is number => typeof id === 'number')
           if (roomIds.length > 0) {
             let existingReservationsQuery = ReservationRoom.query({ client: trx })
               .whereIn('roomId', roomIds)
               .where('status', 'reserved')
+              .select('room_id', 'check_in_date', 'check_out_date', 'check_in_time', 'check_out_time')
 
             if (arrivedDate.toISODate() === departDate.toISODate()) {
               const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
@@ -3189,41 +3192,42 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         // Rooms
         if (rooms.length > 0) {
-          for (let index = 0; index < rooms.length; index++) {
-            const room = rooms[index]
-            await ReservationRoom.create({
-              reservationId: reservation.id,
-              roomTypeId: room.room_type_id,
-              roomId: room.room_id || null,
-              guestId: primaryGuest.id,
-              checkInDate: DateTime.fromISO(data.arrived_date),
-              checkOutDate: DateTime.fromISO(data.depart_date),
-              checkInTime: data.check_in_time,
-              checkOutTime: data.check_out_time,
-              totalAmount: room.room_rate * numberOfNights,
-              nights: numberOfNights,
-              adults: room.adult_count,
-              children: room.child_count,
-              roomRate: room.room_rate,
-              roomRateId: room.room_rate_id,
-              paymentMethodId: data.payment_mod,
-              hotelId: data.hotel_id,
-              taxIncludes: true,
-              meansOfTransportation: room.means_of_transport,
-              goingTo: room.going_to,
-              arrivingTo: room.arriving_to,
-              totalRoomCharges: numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights,
-              taxAmount: room.taxes,
-              totalTaxesAmount: numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights,
-              netAmount: (numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights) + (numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights),
-              status: numberOfNights === 0 ? 'day_use' : 'reserved',
-              rateTypeId: room.rate_type_id,
-              mealPlanId: room.meal_plan_id,
-              isOwner: index === 0,
-              reservedByUser: auth.user?.id,
-              createdBy: data.created_by,
-            }, { client: trx })
-          }
+          const roomRecordsPayload = rooms.map((room, index) => ({
+            reservationId: reservation.id,
+            roomTypeId: room.room_type_id,
+            roomId: room.room_id || null,
+            guestId: primaryGuest.id,
+            checkInDate: DateTime.fromISO(data.arrived_date),
+            checkOutDate: DateTime.fromISO(data.depart_date),
+            checkInTime: data.check_in_time,
+            checkOutTime: data.check_out_time,
+            totalAmount: room.room_rate * numberOfNights,
+            nights: numberOfNights,
+            adults: room.adult_count,
+            children: room.child_count,
+            roomRate: room.room_rate,
+            roomRateId: room.room_rate_id,
+            paymentMethodId: data.payment_mod,
+            hotelId: data.hotel_id,
+            taxIncludes: true,
+            meansOfTransportation: room.means_of_transport,
+            goingTo: room.going_to,
+            arrivingTo: room.arriving_to,
+            totalRoomCharges: numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights,
+            taxAmount: room.taxes,
+            totalTaxesAmount: numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights,
+            netAmount:
+              (numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights) +
+              (numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights),
+            status: numberOfNights === 0 ? 'day_use' : 'reserved',
+            rateTypeId: room.rate_type_id,
+            mealPlanId: room.meal_plan_id,
+            isOwner: index === 0,
+            reservedByUser: auth.user?.id,
+            createdBy: data.created_by,
+          }))
+
+          await ReservationRoom.createMany(roomRecordsPayload, { client: trx })
         }
 
         await trx.commit()
@@ -3261,15 +3265,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
         // Auto check-in / check-out for past dates (no channel notifications for these steps)
         const roomRecords = await ReservationRoom.query().where('reservationId', reservation.id).preload('room')
 
-        // Auto check-in if check-in time is passed
+        // Auto check-in if scheduled check-in time is passed.
+        // Use reservation.checkInDate or arrivedDate as the effective check-in time
         const now = DateTime.now()
-        const shouldAutoCheckIn = reservation.checkInDate && reservation.checkInDate < now
+        const scheduledCheckIn = reservation.checkInDate ?? reservation.arrivedDate
+        const shouldAutoCheckIn = scheduledCheckIn && scheduledCheckIn < now
         if (shouldAutoCheckIn && roomRecords.length > 0) {
           for (const rr of roomRecords) {
             if (!rr.roomId) continue
             rr.status = 'checked_in'
-            rr.checkInDate = now
-            rr.actualCheckIn = now
+            rr.checkInDate = scheduledCheckIn!
+            rr.actualCheckIn = scheduledCheckIn!
             rr.checkedInBy = auth.user?.id!
             await rr.save()
             if (rr.room) {
@@ -3278,7 +3284,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             }
           }
           reservation.status = ReservationStatus.CHECKED_IN
-          reservation.checkInDate = now
+          reservation.checkInDate = scheduledCheckIn!
           reservation.checkedInBy = auth.user?.id!
           await reservation.save()
           await LoggerService.log({
@@ -3287,7 +3293,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Reservation',
             entityId: reservation.id,
             hotelId: reservation.hotelId,
-            description: `Auto check-in after creation due to past check-in date for reservation #${reservation.reservationNumber}.`,
+            description: `Auto check-in after creation using scheduled check-in time for reservation #${reservation.reservationNumber}.`,
             ctx,
           })
         }
@@ -4448,15 +4454,26 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         if (!hasPayments) {
           const transferNote = `Transferred due to room move (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber}) on ${moveDate.toISODate()}${reason ? ' - ' + reason : ''}`
-          await FolioTransaction.query()
+
+          // Fetch transactions to safely append description and move folio without Raw objects
+          const transactionsToMove = await FolioTransaction.query()
             .where('folioId', sourceFolio.id)
             .where('status', '!=', TransactionStatus.VOIDED)
-            .update({
-              folioId: destinationFolio.id,
-              lastModifiedBy: auth.user?.id || 1,
-              updatedAt: DateTime.now(),
-              description: db.rawQuery("CONCAT(COALESCE(description, ''), ' | ', ?)", [transferNote]),
-            })
+
+          for (const t of transactionsToMove) {
+            const newDescription = t.description && t.description.length > 0
+              ? `${t.description} | ${transferNote}`
+              : transferNote
+
+            await db.from('folio_transactions')
+              .where('id', t.id)
+              .update({
+                description: newDescription,
+                folio_id: destinationFolio.id,
+                last_modified_by: auth.user?.id || 1,
+                updated_at: DateTime.now(),
+              })
+          }
 
           const refreshedSource = await Folio.query()
             .where('id', sourceFolio.id)
