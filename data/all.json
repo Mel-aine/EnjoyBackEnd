@@ -731,7 +731,22 @@
       },
       "today": 887424,
       "ptd": 21476881,
-      "ytd": 45758609
+      "ytd": 45758609,
+      "posRevenue": {
+        "today": 379455,
+        "ptd": 15938784,
+        "ytd": 21811739
+      },
+      "totalRevenue": {
+        "today": 1266879,
+        "ptd": 37415665,
+        "ytd": 67570348
+      }
+    },
+    "totalRevenue": {
+      "today": 1266879,
+      "ptd": 37415665,
+      "ytd": 67570348
     },
     "postings": {
       "posToPmsPosting": {
@@ -1433,7 +1448,22 @@
       },
       "today": 1820615,
       "ptd": 40195407,
-      "ytd": 72477885
+      "ytd": 72477885,
+      "posRevenue": {
+        "today": 72956,
+        "ptd": 16277763,
+        "ytd": 23528384
+      },
+      "totalRevenue": {
+        "today": 1893571,
+        "ptd": 56473170,
+        "ytd": 96006269
+      }
+    },
+    "totalRevenue": {
+      "today": 1893571,
+      "ptd": 56473170,
+      "ytd": 96006269
     },
     "postings": {
       "posToPmsPosting": {
@@ -2142,7 +2172,22 @@
       },
       "today": 791186,
       "ptd": 27270583,
-      "ytd": 52652854
+      "ytd": 52652854,
+      "posRevenue": {
+        "today": 59413,
+        "ptd": 6169888,
+        "ytd": 16647872
+      },
+      "totalRevenue": {
+        "today": 850599,
+        "ptd": 33440471,
+        "ytd": 69300726
+      }
+    },
+    "totalRevenue": {
+      "today": 850599,
+      "ptd": 33440471,
+      "ytd": 69300726
     },
     "postings": {
       "posToPmsPosting": {
@@ -2935,7 +2980,22 @@
       },
       "today": 660324,
       "ptd": 23735172,
-      "ytd": 105083616
+      "ytd": 105083616,
+      "posRevenue": {
+        "today": 82600,
+        "ptd": 13400837,
+        "ytd": 50073793
+      },
+      "totalRevenue": {
+        "today": 742924,
+        "ptd": 37136009,
+        "ytd": 155157409
+      }
+    },
+    "totalRevenue": {
+      "today": 742924,
+      "ptd": 37136009,
+      "ytd": 155157409
     },
     "postings": {
       "posToPmsPosting": {
@@ -3693,7 +3753,22 @@
       },
       "today": 593577,
       "ptd": 30560467,
-      "ytd": 122045001
+      "ytd": 122045001,
+      "posRevenue": {
+        "today": 331111,
+        "ptd": 11508049,
+        "ytd": 47472233
+      },
+      "totalRevenue": {
+        "today": 924688,
+        "ptd": 42068516,
+        "ytd": 169517234
+      }
+    },
+    "totalRevenue": {
+      "today": 924688,
+      "ptd": 42068516,
+      "ytd": 169517234
     },
     "postings": {
       "posToPmsPosting": {
@@ -4408,7 +4483,22 @@
       },
       "today": 1471202,
       "ptd": 26603011,
-      "ytd": 133768197
+      "ytd": 133768197,
+      "posRevenue": {
+        "today": 88050,
+        "ptd": 11580025,
+        "ytd": 41812145
+      },
+      "totalRevenue": {
+        "today": 1559252,
+        "ptd": 38183036,
+        "ytd": 175580342
+      }
+    },
+    "totalRevenue": {
+      "today": 1559252,
+      "ptd": 38183036,
+      "ytd": 175580342
     },
     "postings": {
       "posToPmsPosting": {
@@ -5234,7 +5324,22 @@
       },
       "today": 1199891,
       "ptd": 29691503,
-      "ytd": 169925878
+      "ytd": 169925878,
+      "posRevenue": {
+        "today": 713207,
+        "ptd": 15997905,
+        "ytd": 84254087
+      },
+      "totalRevenue": {
+        "today": 1913098,
+        "ptd": 45689408,
+        "ytd": 254179965
+      }
+    },
+    "totalRevenue": {
+      "today": 1913098,
+      "ptd": 45689408,
+      "ytd": 254179965
     },
     "postings": {
       "posToPmsPosting": {
@@ -5997,7 +6102,22 @@
       },
       "today": 782021,
       "ptd": 42859706,
-      "ytd": 205135915
+      "ytd": 205135915,
+      "posRevenue": {
+        "today": 100630,
+        "ptd": 11664569,
+        "ytd": 74873911
+      },
+      "totalRevenue": {
+        "today": 882651,
+        "ptd": 54524275,
+        "ytd": 280009826
+      }
+    },
+    "totalRevenue": {
+      "today": 882651,
+      "ptd": 54524275,
+      "ytd": 280009826
     },
     "postings": {
       "posToPmsPosting": {
@@ -6729,7 +6849,22 @@
       },
       "today": 1623172,
       "ptd": 43776066,
-      "ytd": 207697742
+      "ytd": 207697742,
+      "posRevenue": {
+        "today": 25157,
+        "ptd": 5772601,
+        "ytd": 61506332
+      },
+      "totalRevenue": {
+        "today": 1648329,
+        "ptd": 49548667,
+        "ytd": 269204074
+      }
+    },
+    "totalRevenue": {
+      "today": 1648329,
+      "ptd": 49548667,
+      "ytd": 269204074
     },
     "postings": {
       "posToPmsPosting": {
@@ -7566,7 +7701,22 @@
       },
       "today": 565791,
       "ptd": 21814678,
-      "ytd": 254041102
+      "ytd": 254041102,
+      "posRevenue": {
+        "today": 354297,
+        "ptd": 10964359,
+        "ytd": 134302474
+      },
+      "totalRevenue": {
+        "today": 920088,
+        "ptd": 32779037,
+        "ytd": 388343576
+      }
+    },
+    "totalRevenue": {
+      "today": 920088,
+      "ptd": 32779037,
+      "ytd": 388343576
     },
     "postings": {
       "posToPmsPosting": {
@@ -8350,7 +8500,22 @@
       },
       "today": 1237593,
       "ptd": 23310651,
-      "ytd": 305001729
+      "ytd": 305001729,
+      "posRevenue": {
+        "today": 51572,
+        "ptd": 5243383,
+        "ytd": 103526938
+      },
+      "totalRevenue": {
+        "today": 1289165,
+        "ptd": 28554034,
+        "ytd": 408528667
+      }
+    },
+    "totalRevenue": {
+      "today": 1289165,
+      "ptd": 28554034,
+      "ytd": 408528667
     },
     "postings": {
       "posToPmsPosting": {
@@ -9088,7 +9253,22 @@
       },
       "today": 1389375,
       "ptd": 49375408,
-      "ytd": 328989035
+      "ytd": 328989035,
+      "posRevenue": {
+        "today": 96436,
+        "ptd": 16478236,
+        "ytd": 102348510
+      },
+      "totalRevenue": {
+        "today": 1485811,
+        "ptd": 65853644,
+        "ytd": 431337545
+      }
+    },
+    "totalRevenue": {
+      "today": 1485811,
+      "ptd": 65853644,
+      "ytd": 431337545
     },
     "postings": {
       "posToPmsPosting": {
@@ -9937,7 +10117,22 @@
       },
       "today": 1868600,
       "ptd": 33498092,
-      "ytd": 314488208
+      "ytd": 314488208,
+      "posRevenue": {
+        "today": 0,
+        "ptd": 12917401,
+        "ytd": 159212748
+      },
+      "totalRevenue": {
+        "today": 1868600,
+        "ptd": 46415493,
+        "ytd": 473700956
+      }
+    },
+    "totalRevenue": {
+      "today": 1868600,
+      "ptd": 46415493,
+      "ytd": 473700956
     },
     "postings": {
       "posToPmsPosting": {
@@ -10781,7 +10976,22 @@
       },
       "today": 1293384,
       "ptd": 54966707,
-      "ytd": 402995601
+      "ytd": 402995601,
+      "posRevenue": {
+        "today": 33123,
+        "ptd": 10772326,
+        "ytd": 121141918
+      },
+      "totalRevenue": {
+        "today": 1326507,
+        "ptd": 65739033,
+        "ytd": 524137519
+      }
+    },
+    "totalRevenue": {
+      "today": 1326507,
+      "ptd": 65739033,
+      "ytd": 524137519
     },
     "postings": {
       "posToPmsPosting": {
@@ -11524,7 +11734,22 @@
       },
       "today": 543263,
       "ptd": 24599407,
-      "ytd": 389520529
+      "ytd": 389520529,
+      "posRevenue": {
+        "today": 65409,
+        "ptd": 8279246,
+        "ytd": 115070521
+      },
+      "totalRevenue": {
+        "today": 608672,
+        "ptd": 32878653,
+        "ytd": 504591050
+      }
+    },
+    "totalRevenue": {
+      "today": 608672,
+      "ptd": 32878653,
+      "ytd": 504591050
     },
     "postings": {
       "posToPmsPosting": {
@@ -12227,7 +12452,22 @@
       },
       "today": 548198,
       "ptd": 24281728,
-      "ytd": 24281728
+      "ytd": 24281728,
+      "posRevenue": {
+        "today": 238155,
+        "ptd": 5872954,
+        "ytd": 5872954
+      },
+      "totalRevenue": {
+        "today": 786353,
+        "ptd": 30154682,
+        "ytd": 30154682
+      }
+    },
+    "totalRevenue": {
+      "today": 786353,
+      "ptd": 30154682,
+      "ytd": 30154682
     },
     "postings": {
       "posToPmsPosting": {
@@ -12897,7 +13137,22 @@
       },
       "today": 699286,
       "ptd": 25382271,
-      "ytd": 25382271
+      "ytd": 25382271,
+      "posRevenue": {
+        "today": 243607,
+        "ptd": 10477986,
+        "ytd": 10477986
+      },
+      "totalRevenue": {
+        "today": 942893,
+        "ptd": 35860257,
+        "ytd": 35860257
+      }
+    },
+    "totalRevenue": {
+      "today": 942893,
+      "ptd": 35860257,
+      "ytd": 35860257
     },
     "postings": {
       "posToPmsPosting": {
@@ -13547,7 +13802,22 @@
       },
       "today": 971480,
       "ptd": 32282478,
-      "ytd": 32282478
+      "ytd": 32282478,
+      "posRevenue": {
+        "today": 108596,
+        "ptd": 7250621,
+        "ytd": 7250621
+      },
+      "totalRevenue": {
+        "today": 1080076,
+        "ptd": 39533099,
+        "ytd": 39533099
+      }
+    },
+    "totalRevenue": {
+      "today": 1080076,
+      "ptd": 39533099,
+      "ytd": 39533099
     },
     "postings": {
       "posToPmsPosting": {
@@ -14324,7 +14594,22 @@
       },
       "today": 1647144,
       "ptd": 35589835,
-      "ytd": 81348444
+      "ytd": 81348444,
+      "posRevenue": {
+        "today": 290148,
+        "ptd": 14861217,
+        "ytd": 36672956
+      },
+      "totalRevenue": {
+        "today": 1937292,
+        "ptd": 50451052,
+        "ytd": 118021400
+      }
+    },
+    "totalRevenue": {
+      "today": 1937292,
+      "ptd": 50451052,
+      "ytd": 118021400
     },
     "postings": {
       "posToPmsPosting": {
@@ -15072,7 +15357,22 @@
       },
       "today": 633857,
       "ptd": 38831680,
-      "ytd": 91484534
+      "ytd": 91484534,
+      "posRevenue": {
+        "today": 57442,
+        "ptd": 19316311,
+        "ytd": 35964183
+      },
+      "totalRevenue": {
+        "today": 691299,
+        "ptd": 58147991,
+        "ytd": 127448717
+      }
+    },
+    "totalRevenue": {
+      "today": 691299,
+      "ptd": 58147991,
+      "ytd": 127448717
     },
     "postings": {
       "posToPmsPosting": {
@@ -15787,7 +16087,22 @@
       },
       "today": 121142,
       "ptd": 34687300,
-      "ytd": 107165186
+      "ytd": 107165186,
+      "posRevenue": {
+        "today": 85116,
+        "ptd": 6703736,
+        "ytd": 30232120
+      },
+      "totalRevenue": {
+        "today": 206258,
+        "ptd": 41391036,
+        "ytd": 137397306
+      }
+    },
+    "totalRevenue": {
+      "today": 206258,
+      "ptd": 41391036,
+      "ytd": 137397306
     },
     "postings": {
       "posToPmsPosting": {
@@ -16601,7 +16916,22 @@
       },
       "today": 1151107,
       "ptd": 35150759,
-      "ytd": 140234375
+      "ytd": 140234375,
+      "posRevenue": {
+        "today": 1498449,
+        "ptd": 18182389,
+        "ytd": 68256185
+      },
+      "totalRevenue": {
+        "today": 2649556,
+        "ptd": 53333148,
+        "ytd": 208490560
+      }
+    },
+    "totalRevenue": {
+      "today": 2649556,
+      "ptd": 53333148,
+      "ytd": 208490560
     },
     "postings": {
       "posToPmsPosting": {
@@ -17364,7 +17694,22 @@
       },
       "today": 1890211,
       "ptd": 40231208,
-      "ytd": 162276209
+      "ytd": 162276209,
+      "posRevenue": {
+        "today": 440671,
+        "ptd": 15737106,
+        "ytd": 63209339
+      },
+      "totalRevenue": {
+        "today": 2330882,
+        "ptd": 55968314,
+        "ytd": 225485548
+      }
+    },
+    "totalRevenue": {
+      "today": 2330882,
+      "ptd": 55968314,
+      "ytd": 225485548
     },
     "postings": {
       "posToPmsPosting": {
@@ -18090,7 +18435,22 @@
       },
       "today": 920101,
       "ptd": 30153479,
-      "ytd": 163921676
+      "ytd": 163921676,
+      "posRevenue": {
+        "today": 140460,
+        "ptd": 13921582,
+        "ytd": 55733726
+      },
+      "totalRevenue": {
+        "today": 1060561,
+        "ptd": 44075061,
+        "ytd": 219655402
+      }
+    },
+    "totalRevenue": {
+      "today": 1060561,
+      "ptd": 44075061,
+      "ytd": 219655402
     },
     "postings": {
       "posToPmsPosting": {
@@ -18916,7 +19276,22 @@
       },
       "today": 958645,
       "ptd": 31042875,
-      "ytd": 200968753
+      "ytd": 200968753,
+      "posRevenue": {
+        "today": 85535,
+        "ptd": 16736687,
+        "ytd": 100990772
+      },
+      "totalRevenue": {
+        "today": 1044180,
+        "ptd": 47779562,
+        "ytd": 301959525
+      }
+    },
+    "totalRevenue": {
+      "today": 1044180,
+      "ptd": 47779562,
+      "ytd": 301959525
     },
     "postings": {
       "posToPmsPosting": {
@@ -19685,7 +20060,22 @@
       },
       "today": 2199294,
       "ptd": 38200849,
-      "ytd": 243336764
+      "ytd": 243336764,
+      "posRevenue": {
+        "today": 1130818,
+        "ptd": 9990774,
+        "ytd": 84864686
+      },
+      "totalRevenue": {
+        "today": 3330112,
+        "ptd": 48191623,
+        "ytd": 328201450
+      }
+    },
+    "totalRevenue": {
+      "today": 3330112,
+      "ptd": 48191623,
+      "ytd": 328201450
     },
     "postings": {
       "posToPmsPosting": {
@@ -20417,7 +20807,22 @@
       },
       "today": 1673010,
       "ptd": 35029144,
-      "ytd": 242726886
+      "ytd": 242726886,
+      "posRevenue": {
+        "today": 136268,
+        "ptd": 10792033,
+        "ytd": 72298363
+      },
+      "totalRevenue": {
+        "today": 1809278,
+        "ptd": 45821177,
+        "ytd": 315025249
+      }
+    },
+    "totalRevenue": {
+      "today": 1809278,
+      "ptd": 45821177,
+      "ytd": 315025249
     },
     "postings": {
       "posToPmsPosting": {
@@ -21243,7 +21648,22 @@
       },
       "today": 445063,
       "ptd": 31257671,
-      "ytd": 232226424
+      "ytd": 232226424,
+      "posRevenue": {
+        "today": 535849,
+        "ptd": 22347338,
+        "ytd": 123338114
+      },
+      "totalRevenue": {
+        "today": 980912,
+        "ptd": 53605009,
+        "ytd": 355564538
+      }
+    },
+    "totalRevenue": {
+      "today": 980912,
+      "ptd": 53605009,
+      "ytd": 355564538
     },
     "postings": {
       "posToPmsPosting": {
@@ -22017,7 +22437,22 @@
       },
       "today": 904204,
       "ptd": 38354314,
-      "ytd": 281691078
+      "ytd": 281691078,
+      "posRevenue": {
+        "today": 324948,
+        "ptd": 13418867,
+        "ytd": 98283554
+      },
+      "totalRevenue": {
+        "today": 1229152,
+        "ptd": 51773181,
+        "ytd": 379974632
+      }
+    },
+    "totalRevenue": {
+      "today": 1229152,
+      "ptd": 51773181,
+      "ytd": 379974632
     },
     "postings": {
       "posToPmsPosting": {
@@ -22749,7 +23184,22 @@
       },
       "today": 1108455,
       "ptd": 36886741,
-      "ytd": 279613627
+      "ytd": 279613627,
+      "posRevenue": {
+        "today": 156813,
+        "ptd": 13571908,
+        "ytd": 85870274
+      },
+      "totalRevenue": {
+        "today": 1265268,
+        "ptd": 50458649,
+        "ytd": 365483901
+      }
+    },
+    "totalRevenue": {
+      "today": 1265268,
+      "ptd": 50458649,
+      "ytd": 365483901
     },
     "postings": {
       "posToPmsPosting": {
@@ -23598,7 +24048,22 @@
       },
       "today": 1733632,
       "ptd": 26949013,
-      "ytd": 280990115
+      "ytd": 280990115,
+      "posRevenue": {
+        "today": 78827,
+        "ptd": 11992872,
+        "ytd": 146295344
+      },
+      "totalRevenue": {
+        "today": 1812459,
+        "ptd": 38941885,
+        "ytd": 427285459
+      }
+    },
+    "totalRevenue": {
+      "today": 1812459,
+      "ptd": 38941885,
+      "ytd": 427285459
     },
     "postings": {
       "posToPmsPosting": {
@@ -24442,7 +24907,22 @@
       },
       "today": 1214538,
       "ptd": 43027165,
-      "ytd": 348028894
+      "ytd": 348028894,
+      "posRevenue": {
+        "today": 37736,
+        "ptd": 6842656,
+        "ytd": 110369591
+      },
+      "totalRevenue": {
+        "today": 1252274,
+        "ptd": 49869821,
+        "ytd": 458398485
+      }
+    },
+    "totalRevenue": {
+      "today": 1252274,
+      "ptd": 49869821,
+      "ytd": 458398485
     },
     "postings": {
       "posToPmsPosting": {
@@ -25185,7 +25665,22 @@
       },
       "today": 670658,
       "ptd": 35932087,
-      "ytd": 364921122
+      "ytd": 364921122,
+      "posRevenue": {
+        "today": 23900,
+        "ptd": 4442766,
+        "ytd": 106791278
+      },
+      "totalRevenue": {
+        "today": 694558,
+        "ptd": 40374853,
+        "ytd": 471712400
+      }
+    },
+    "totalRevenue": {
+      "today": 694558,
+      "ptd": 40374853,
+      "ytd": 471712400
     },
     "postings": {
       "posToPmsPosting": {
@@ -26040,7 +26535,22 @@
       },
       "today": 418531,
       "ptd": 33094158,
-      "ytd": 347582366
+      "ytd": 347582366,
+      "posRevenue": {
+        "today": 435640,
+        "ptd": 21854087,
+        "ytd": 181066835
+      },
+      "totalRevenue": {
+        "today": 854171,
+        "ptd": 54948245,
+        "ytd": 528649201
+      }
+    },
+    "totalRevenue": {
+      "today": 854171,
+      "ptd": 54948245,
+      "ytd": 528649201
     },
     "postings": {
       "posToPmsPosting": {
@@ -26890,7 +27400,22 @@
       },
       "today": 1182394,
       "ptd": 54284534,
-      "ytd": 457280135
+      "ytd": 457280135,
+      "posRevenue": {
+        "today": 1658281,
+        "ptd": 11238463,
+        "ytd": 132380379
+      },
+      "totalRevenue": {
+        "today": 2840675,
+        "ptd": 65522997,
+        "ytd": 589660514
+      }
+    },
+    "totalRevenue": {
+      "today": 2840675,
+      "ptd": 65522997,
+      "ytd": 589660514
     },
     "postings": {
       "posToPmsPosting": {
@@ -27633,7 +28158,22 @@
       },
       "today": 993032,
       "ptd": 16038265,
-      "ytd": 405558793
+      "ytd": 405558793,
+      "posRevenue": {
+        "today": 0,
+        "ptd": 0,
+        "ytd": 115070521
+      },
+      "totalRevenue": {
+        "today": 993032,
+        "ptd": 16038265,
+        "ytd": 520629314
+      }
+    },
+    "totalRevenue": {
+      "today": 993032,
+      "ptd": 16038265,
+      "ytd": 520629314
     },
     "postings": {
       "posToPmsPosting": {
