@@ -301,6 +301,15 @@ static async notifyPaxChange(
     const guest = reservation.guest
     const hotel = reservation.hotel
 
+     let changedByName: string = String(changedByStaffId)
+      try {
+        const user = await User.find(changedByStaffId)
+        if (user) changedByName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || String(changedByStaffId)
+      } catch (_err) {
+
+       changedByName = String(changedByStaffId)
+      }
+
     // Variables pour le staff
     const staffVariables = await NotificationService.buildVariables('PAX_CHANGED_STAFF', {
       hotelId: reservation.hotelId,
@@ -311,7 +320,7 @@ static async notifyPaxChange(
         GuestName: guest ? `${guest.firstName} ${guest.lastName}` : 'N/A',
         OldPax: oldPax,
         NewPaxCount: newPax,
-        ChangedBy: changedByStaffId,
+        ChangedBy: changedByName,
         ChangeDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm'),
       },
     })
