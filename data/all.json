@@ -559,107 +559,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 147000,
-              "ytd": 312000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 341000,
-              "ptd": 13161500,
-              "ytd": 14225500
-            }
-          ],
-          "total": {
-            "today": 341000,
-            "ptd": 13308500,
-            "ytd": 15276000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 42000,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 11500,
-              "ytd": 17500
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 9000,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 62500,
-            "ytd": 155500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -712,30 +611,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 42000,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 11500,
+              "ytd": 17500
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 9000,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 62500,
+            "ytd": 155500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 147000,
+              "ytd": 312000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 341000,
+              "ptd": 13161500,
+              "ytd": 14225500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 341000,
+            "ptd": 13308500,
+            "ytd": 15276000
           }
         },
         {
@@ -777,24 +705,6 @@
             "ptd": 3344000,
             "ytd": 6241500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -822,6 +732,18 @@
       "today": 887424,
       "ptd": 21476881,
       "ytd": 45758609
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 359000,
+        "ptd": 14248000,
+        "ytd": 15914500
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1484031,
+        "ptd": 41595559,
+        "ytd": 74075667
+      }
     }
   },
   "28-02-2025": {
@@ -1373,70 +1295,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 50000,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 50000,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 16880500,
-              "ytd": 21918500
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 16980500,
-            "ytd": 22018500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -1477,30 +1335,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 50000,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 50000,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 16880500,
+              "ytd": 21918500
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 16980500,
+            "ytd": 22018500
           }
         },
         {
@@ -1548,24 +1407,6 @@
             "ptd": 986000,
             "ytd": 2521500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -1593,6 +1434,18 @@
       "today": 1820615,
       "ptd": 40195407,
       "ytd": 72477885
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 29500,
+        "ptd": 16290000,
+        "ytd": 20920000
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2357987,
+        "ptd": 67251870,
+        "ytd": 112964574
+      }
     }
   },
   "29-02-2024": {
@@ -2151,64 +2004,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 160000,
-              "ytd": 215000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 3440000,
-              "ytd": 10549000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 3600000,
-            "ytd": 10764000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -2255,30 +2050,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 160000,
+              "ytd": 215000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 3440000,
+              "ytd": 10549000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 3600000,
+            "ytd": 10764000
           }
         },
         {
@@ -2326,24 +2116,6 @@
             "ptd": 1958588,
             "ytd": 4968588
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -2371,6 +2143,18 @@
       "today": 791186,
       "ptd": 27270583,
       "ytd": 52652854
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 58850,
+        "ptd": 4695700,
+        "ytd": 13316700
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1064345,
+        "ptd": 39423140,
+        "ytd": 80062463
+      }
     }
   },
   "30-04-2023": {
@@ -2979,107 +2763,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 35000,
-              "ytd": 588000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 9996500,
-              "ytd": 35203000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 10031500,
-            "ytd": 36529500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 17500
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 155500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -3132,30 +2815,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 17500
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 155500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 35000,
+              "ytd": 588000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 9996500,
+              "ytd": 35203000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 10031500,
+            "ytd": 36529500
           }
         },
         {
@@ -3197,24 +2909,6 @@
             "ptd": 3569000,
             "ytd": 12486500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -3242,6 +2936,18 @@
       "today": 660324,
       "ptd": 23735172,
       "ytd": 105083616
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 54000,
+        "ptd": 11641500,
+        "ytd": 41302500
+      },
+      "transferChargesToGuestLedger": {
+        "today": 889136,
+        "ptd": 41962024,
+        "ytd": 175710083
+      }
     }
   },
   "30-04-2024": {
@@ -3837,64 +3543,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 266000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 9375000,
-              "ytd": 39151000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 9375000,
-            "ytd": 39417000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -3947,30 +3595,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 266000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 9375000,
+              "ytd": 39151000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 9375000,
+            "ytd": 39417000
           }
         },
         {
@@ -4024,24 +3667,6 @@
             "ptd": 2459350,
             "ytd": 9040638
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -4069,6 +3694,18 @@
       "today": 593577,
       "ptd": 30560467,
       "ytd": 122045001
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 59350,
+        "ptd": 10458350,
+        "ytd": 43175400
+      },
+      "transferChargesToGuestLedger": {
+        "today": 805348,
+        "ptd": 49154819,
+        "ytd": 197920165
+      }
     }
   },
   "30-04-2025": {
@@ -4633,70 +4270,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 300000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 11425000,
-              "ytd": 38568706
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 11425000,
-            "ytd": 38918706
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -4737,30 +4310,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 300000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 11425000,
+              "ytd": 38568706
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 11425000,
+            "ytd": 38918706
           }
         },
         {
@@ -4808,24 +4382,6 @@
             "ptd": 1312850,
             "ytd": 4843850
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -4853,6 +4409,18 @@
       "today": 1471202,
       "ptd": 26603011,
       "ytd": 133768197
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 0,
+        "ptd": 11545366,
+        "ytd": 38302072
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1897503,
+        "ptd": 45279984,
+        "ytd": 208164665
+      }
     }
   },
   "30-06-2023": {
@@ -5476,107 +5044,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 618000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 620000,
-              "ptd": 13869000,
-              "ytd": 63511500
-            }
-          ],
-          "total": {
-            "today": 620000,
-            "ptd": 13869000,
-            "ytd": 64868000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 2500,
-              "ytd": 20000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 2500,
-            "ytd": 158000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -5635,30 +5102,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 2500,
+              "ytd": 20000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 2500,
+            "ytd": 158000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 618000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 620000,
+              "ptd": 13869000,
+              "ytd": 63511500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 620000,
+            "ptd": 13869000,
+            "ytd": 64868000
           }
         },
         {
@@ -5712,24 +5208,6 @@
             "ptd": 2649500,
             "ytd": 19811000
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -5757,6 +5235,18 @@
       "today": 1199891,
       "ptd": 29691503,
       "ytd": 169925878
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 750500,
+        "ptd": 15799500,
+        "ytd": 76087500
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2271992,
+        "ptd": 53386434,
+        "ytd": 292910348
+      }
     }
   },
   "30-06-2024": {
@@ -6357,64 +5847,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 306000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 11200500,
-              "ytd": 65991000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 11200500,
-            "ytd": 66297000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -6467,30 +5899,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 306000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 11200500,
+              "ytd": 65991000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 11200500,
+            "ytd": 66297000
           }
         },
         {
@@ -6544,24 +5971,6 @@
             "ptd": 1120000,
             "ytd": 11758138
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -6589,6 +5998,18 @@
       "today": 782021,
       "ptd": 42859706,
       "ytd": 205135915
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 16500,
+        "ptd": 11796500,
+        "ytd": 71235900
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1020607,
+        "ptd": 66660494,
+        "ytd": 332167316
+      }
     }
   },
   "30-06-2025": {
@@ -7158,70 +6579,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 96000,
-              "ytd": 396000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 4371000,
-              "ytd": 56898326
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 4467000,
-            "ytd": 57344326
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -7268,30 +6625,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 96000,
+              "ytd": 396000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 4371000,
+              "ytd": 56898326
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 4467000,
+            "ytd": 57344326
           }
         },
         {
@@ -7345,24 +6703,6 @@
             "ptd": 1026500,
             "ytd": 7012350
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -7390,6 +6730,18 @@
       "today": 1623172,
       "ptd": 43776066,
       "ytd": 207697742
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 0,
+        "ptd": 4767000,
+        "ytd": 57536192
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2083500,
+        "ptd": 60319996,
+        "ytd": 321437894
+      }
     }
   },
   "30-09-2023": {
@@ -8018,107 +7370,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 663000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 180000,
-              "ptd": 8996000,
-              "ytd": 108681200
-            }
-          ],
-          "total": {
-            "today": 180000,
-            "ptd": 8996000,
-            "ytd": 110082700
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 6000,
-              "ytd": 26000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 6000,
-            "ytd": 164000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -8183,30 +7434,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 6000,
+              "ytd": 26000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 6000,
+            "ytd": 164000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 663000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 180000,
+              "ptd": 8996000,
+              "ytd": 108681200
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 180000,
+            "ptd": 8996000,
+            "ytd": 110082700
           }
         },
         {
@@ -8260,24 +7540,6 @@
             "ptd": 1894500,
             "ytd": 26757000
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -8305,6 +7567,18 @@
       "today": 565791,
       "ptd": 21814678,
       "ytd": 254041102
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 215500,
+        "ptd": 10798000,
+        "ytd": 128122700
+      },
+      "transferChargesToGuestLedger": {
+        "today": 928364,
+        "ptd": 38427752,
+        "ytd": 451572305
+      }
     }
   },
   "30-09-2024": {
@@ -8926,64 +8200,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 456000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 3854000,
-              "ytd": 93316500
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 3854000,
-            "ytd": 93772500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -9036,30 +8252,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 456000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 3854000,
+              "ytd": 93316500
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 3854000,
+            "ytd": 93772500
           }
         },
         {
@@ -9113,24 +8324,6 @@
             "ptd": 928500,
             "ytd": 14084638
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -9158,6 +8351,18 @@
       "today": 1237593,
       "ptd": 23310651,
       "ytd": 305001729
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 28500,
+        "ptd": 4211067,
+        "ytd": 100527967
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1604499,
+        "ptd": 33791731,
+        "ytd": 488513801
+      }
     }
   },
   "30-09-2025": {
@@ -9733,70 +8938,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 902000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 16422300,
-              "ytd": 95642126
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 16422300,
-            "ytd": 96594126
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -9843,30 +8984,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 902000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 16422300,
+              "ytd": 95642126
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 16422300,
+            "ytd": 96594126
           }
         },
         {
@@ -9920,24 +9062,6 @@
             "ptd": 1122500,
             "ytd": 10474350
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -9965,6 +9089,18 @@
       "today": 1389375,
       "ptd": 49375408,
       "ytd": 328989035
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 78000,
+        "ptd": 18586800,
+        "ytd": 100992492
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1834999,
+        "ptd": 81502342,
+        "ytd": 519283045
+      }
     }
   },
   "30-11-2023": {
@@ -10605,107 +9741,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 825000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 10905000,
-              "ytd": 127529700
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 10905000,
-            "ytd": 129093200
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 26000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 164000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -10770,30 +9805,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 26000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 164000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 825000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 10905000,
+              "ytd": 127529700
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 10905000,
+            "ytd": 129093200
           }
         },
         {
@@ -10847,24 +9911,6 @@
             "ptd": 1974500,
             "ytd": 31142000
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -10892,6 +9938,18 @@
       "today": 1868600,
       "ptd": 33498092,
       "ytd": 314488208
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 0,
+        "ptd": 13127000,
+        "ytd": 153089907
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2314157,
+        "ptd": 55768179,
+        "ytd": 553726066
+      }
     }
   },
   "30-11-2024": {
@@ -11551,95 +10609,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 456000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 9018500,
-              "ytd": 108500000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 9018500,
-            "ytd": 108956000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 41500,
-              "ytd": 225500
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 1500,
-              "ytd": 38000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 43000,
-            "ytd": 263500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -11692,30 +10661,47 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 41500,
+              "ytd": 225500
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 1500,
+              "ytd": 38000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 43000,
+            "ytd": 263500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 456000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 9018500,
+              "ytd": 108500000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 9018500,
+            "ytd": 108956000
           }
         },
         {
@@ -11769,24 +10755,6 @@
             "ptd": 751500,
             "ytd": 15326638
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -11814,6 +10782,18 @@
       "today": 1293384,
       "ptd": 54966707,
       "ytd": 402995601
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 1500,
+        "ptd": 7719000,
+        "ytd": 114408467
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1648800,
+        "ptd": 77312696,
+        "ytd": 625849517
+      }
     }
   },
   "30-11-2025": {
@@ -12394,70 +11374,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 902000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 8944000,
-              "ytd": 107880126
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 8944000,
-            "ytd": 108832126
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -12504,30 +11420,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 902000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 8944000,
+              "ytd": 107880126
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 8944000,
+            "ytd": 108832126
           }
         },
         {
@@ -12581,24 +11498,6 @@
             "ptd": 331000,
             "ytd": 11768350
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -12626,6 +11525,18 @@
       "today": 543263,
       "ptd": 24599407,
       "ytd": 389520529
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 0,
+        "ptd": 9081500,
+        "ytd": 114248992
+      },
+      "transferChargesToGuestLedger": {
+        "today": 686000,
+        "ptd": 40391041,
+        "ytd": 609531456
+      }
     }
   },
   "31-01-2023": {
@@ -13150,101 +12061,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 738500,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 165000,
-              "ytd": 165000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 266000,
-              "ptd": 1064000,
-              "ytd": 1064000
-            }
-          ],
-          "total": {
-            "today": 266000,
-            "ptd": 1967500,
-            "ytd": 1967500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 87000,
-              "ytd": 87000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 6000,
-              "ytd": 6000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 93000,
-            "ytd": 93000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -13297,30 +12113,53 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 87000,
+              "ytd": 87000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 6000,
+              "ytd": 6000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 93000,
+            "ytd": 93000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 738500,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 165000,
+              "ytd": 165000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 266000,
+              "ptd": 1064000,
+              "ytd": 1064000
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 266000,
+            "ptd": 1967500,
+            "ytd": 1967500
           }
         },
         {
@@ -13362,24 +12201,6 @@
             "ptd": 2897500,
             "ytd": 2897500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -13407,6 +12228,18 @@
       "today": 548198,
       "ptd": 24281728,
       "ytd": 24281728
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 266000,
+        "ptd": 1666500,
+        "ytd": 1666500
+      },
+      "transferChargesToGuestLedger": {
+        "today": 972194,
+        "ptd": 32480108,
+        "ytd": 32480108
+      }
     }
   },
   "31-01-2024": {
@@ -13926,64 +12759,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 55000,
-              "ytd": 55000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 255000,
-              "ptd": 7109000,
-              "ytd": 7109000
-            }
-          ],
-          "total": {
-            "today": 255000,
-            "ptd": 7164000,
-            "ytd": 7164000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -14030,30 +12805,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 55000,
+              "ytd": 55000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 255000,
+              "ptd": 7109000,
+              "ytd": 7109000
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 255000,
+            "ptd": 7164000,
+            "ytd": 7164000
           }
         },
         {
@@ -14101,24 +12871,6 @@
             "ptd": 3010000,
             "ytd": 3010000
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -14146,6 +12898,18 @@
       "today": 699286,
       "ptd": 25382271,
       "ytd": 25382271
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 262500,
+        "ptd": 8621000,
+        "ytd": 8621000
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1144096,
+        "ptd": 40639323,
+        "ytd": 40639323
+      }
     }
   },
   "31-01-2025": {
@@ -14669,58 +13433,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 5038000,
-              "ytd": 5038000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 5038000,
-            "ytd": 5038000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -14755,30 +13467,19 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 5038000,
+              "ytd": 5038000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 5038000,
+            "ytd": 5038000
           }
         },
         {
@@ -14820,24 +13521,6 @@
             "ptd": 1535500,
             "ytd": 1535500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -14865,6 +13548,18 @@
       "today": 971480,
       "ptd": 32282478,
       "ytd": 32282478
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 54000,
+        "ptd": 4630000,
+        "ytd": 4630000
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1274499,
+        "ptd": 45712704,
+        "ytd": 45712704
+      }
     }
   },
   "31-03-2023": {
@@ -15457,107 +14152,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 241000,
-              "ytd": 553000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 100000,
-              "ptd": 10981000,
-              "ytd": 25206500
-            }
-          ],
-          "total": {
-            "today": 100000,
-            "ptd": 11222000,
-            "ytd": 26498000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 17500
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 155500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -15610,30 +14204,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 17500
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 155500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 241000,
+              "ytd": 553000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 100000,
+              "ptd": 10981000,
+              "ytd": 25206500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 100000,
+            "ptd": 11222000,
+            "ytd": 26498000
           }
         },
         {
@@ -15675,24 +14298,6 @@
             "ptd": 2676000,
             "ytd": 8917500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -15720,6 +14325,18 @@
       "today": 1647144,
       "ptd": 35589835,
       "ytd": 81348444
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 177500,
+        "ptd": 13746500,
+        "ytd": 29661000
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2289585,
+        "ptd": 59672392,
+        "ytd": 133748059
+      }
     }
   },
   "31-03-2024": {
@@ -16305,64 +14922,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 51000,
-              "ytd": 266000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 19227000,
-              "ytd": 29776000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 19278000,
-            "ytd": 30042000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -16415,30 +14974,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 51000,
+              "ytd": 266000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 19227000,
+              "ytd": 29776000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 19278000,
+            "ytd": 30042000
           }
         },
         {
@@ -16492,24 +15046,6 @@
             "ptd": 1612700,
             "ytd": 6581288
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -16537,6 +15073,18 @@
       "today": 633857,
       "ptd": 38831680,
       "ytd": 91484534
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 1500,
+        "ptd": 19400350,
+        "ytd": 32717050
+      },
+      "transferChargesToGuestLedger": {
+        "today": 800298,
+        "ptd": 68702883,
+        "ytd": 148765346
+      }
     }
   },
   "31-03-2025": {
@@ -17101,70 +15649,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 250000,
-              "ytd": 300000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 5225206,
-              "ytd": 27143706
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 5475206,
-            "ytd": 27493706
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -17205,30 +15689,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 250000,
+              "ytd": 300000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 5225206,
+              "ytd": 27143706
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 5475206,
+            "ytd": 27493706
           }
         },
         {
@@ -17276,24 +15761,6 @@
             "ptd": 1009500,
             "ytd": 3531000
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -17321,6 +15788,18 @@
       "today": 121142,
       "ptd": 34687300,
       "ytd": 107165186
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 0,
+        "ptd": 5836706,
+        "ytd": 26756706
+      },
+      "transferChargesToGuestLedger": {
+        "today": 154001,
+        "ptd": 49920107,
+        "ytd": 162884681
+      }
     }
   },
   "31-05-2023": {
@@ -17944,107 +16423,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 30000,
-              "ytd": 618000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 1634400,
-              "ptd": 14439500,
-              "ytd": 49642500
-            }
-          ],
-          "total": {
-            "today": 1634400,
-            "ptd": 14469500,
-            "ytd": 50999000
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 17500
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 155500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -18097,30 +16475,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 17500
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 155500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 30000,
+              "ytd": 618000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 1634400,
+              "ptd": 14439500,
+              "ytd": 49642500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 1634400,
+            "ptd": 14469500,
+            "ytd": 50999000
           }
         },
         {
@@ -18168,24 +16575,6 @@
             "ptd": 4675000,
             "ytd": 17161500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -18213,6 +16602,18 @@
       "today": 1151107,
       "ptd": 35150759,
       "ytd": 140234375
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 1694900,
+        "ptd": 18985500,
+        "ytd": 60288000
+      },
+      "transferChargesToGuestLedger": {
+        "today": 3129603,
+        "ptd": 63813831,
+        "ytd": 239523914
+      }
     }
   },
   "31-05-2024": {
@@ -18813,64 +17214,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 40000,
-              "ytd": 306000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 315000,
-              "ptd": 15639500,
-              "ytd": 54790500
-            }
-          ],
-          "total": {
-            "today": 315000,
-            "ptd": 15679500,
-            "ytd": 55096500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -18923,30 +17266,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 40000,
+              "ytd": 306000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 315000,
+              "ptd": 15639500,
+              "ytd": 54790500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 315000,
+            "ptd": 15679500,
+            "ytd": 55096500
           }
         },
         {
@@ -19000,24 +17338,6 @@
             "ptd": 1597500,
             "ytd": 10638138
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -19045,6 +17365,18 @@
       "today": 1890211,
       "ptd": 40231208,
       "ytd": 162276209
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 323500,
+        "ptd": 16264000,
+        "ytd": 59439400
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2730214,
+        "ptd": 67586657,
+        "ytd": 265506822
+      }
     }
   },
   "31-05-2025": {
@@ -19614,70 +17946,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 300000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 13958620,
-              "ytd": 52527326
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 13958620,
-            "ytd": 52877326
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -19724,30 +17992,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 300000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 13958620,
+              "ytd": 52527326
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 13958620,
+            "ytd": 52877326
           }
         },
         {
@@ -19795,24 +18064,6 @@
             "ptd": 1142000,
             "ytd": 5985850
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -19840,6 +18091,18 @@
       "today": 920101,
       "ptd": 30153479,
       "ytd": 163921676
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 34500,
+        "ptd": 14467120,
+        "ytd": 52769192
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1198500,
+        "ptd": 52953233,
+        "ytd": 261117898
+      }
     }
   },
   "31-07-2023": {
@@ -20463,107 +18726,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 618000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 14377500,
-              "ytd": 77889000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 14377500,
-            "ytd": 79245500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 20000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 158000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -20622,30 +18784,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 20000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 158000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 618000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 14377500,
+              "ytd": 77889000
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 14377500,
+            "ytd": 79245500
           }
         },
         {
@@ -20699,24 +18890,6 @@
             "ptd": 2739000,
             "ytd": 22550000
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -20744,6 +18917,18 @@
       "today": 958645,
       "ptd": 31042875,
       "ytd": 200968753
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 85000,
+        "ptd": 16614000,
+        "ytd": 92701500
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1347434,
+        "ptd": 56224511,
+        "ytd": 349134859
+      }
     }
   },
   "31-07-2024": {
@@ -21350,64 +19535,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 306000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 1320000,
-              "ptd": 9737500,
-              "ytd": 75728500
-            }
-          ],
-          "total": {
-            "today": 1320000,
-            "ptd": 9737500,
-            "ytd": 76034500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -21460,30 +19587,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 306000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 1320000,
+              "ptd": 9737500,
+              "ytd": 75728500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 1320000,
+            "ptd": 9737500,
+            "ytd": 76034500
           }
         },
         {
@@ -21537,24 +19659,6 @@
             "ptd": 662500,
             "ytd": 12420638
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -21582,6 +19686,18 @@
       "today": 2199294,
       "ptd": 38200849,
       "ytd": 243336764
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 1342500,
+        "ptd": 10819500,
+        "ytd": 82055400
+      },
+      "transferChargesToGuestLedger": {
+        "today": 4151171,
+        "ptd": 59693832,
+        "ytd": 391861148
+      }
     }
   },
   "31-07-2025": {
@@ -22151,70 +20267,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 256000,
-              "ytd": 652000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 9032500,
-              "ytd": 65930826
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 9288500,
-            "ytd": 66632826
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -22261,30 +20313,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 256000,
+              "ytd": 652000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 9032500,
+              "ytd": 65930826
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 9288500,
+            "ytd": 66632826
           }
         },
         {
@@ -22338,24 +20391,6 @@
             "ptd": 1333000,
             "ytd": 8345350
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -22383,6 +20418,18 @@
       "today": 1673010,
       "ptd": 35029144,
       "ytd": 242726886
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 65500,
+        "ptd": 10296000,
+        "ytd": 67832192
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2172500,
+        "ptd": 54782505,
+        "ytd": 376220399
+      }
     }
   },
   "31-08-2023": {
@@ -23006,107 +21053,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 45000,
-              "ytd": 663000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 533000,
-              "ptd": 21796200,
-              "ytd": 99685200
-            }
-          ],
-          "total": {
-            "today": 533000,
-            "ptd": 21841200,
-            "ytd": 101086700
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 20000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 158000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -23165,30 +21111,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 20000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 158000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 45000,
+              "ytd": 663000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 533000,
+              "ptd": 21796200,
+              "ytd": 99685200
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 533000,
+            "ptd": 21841200,
+            "ytd": 101086700
           }
         },
         {
@@ -23242,24 +21217,6 @@
             "ptd": 2312500,
             "ytd": 24862500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -23287,6 +21244,18 @@
       "today": 445063,
       "ptd": 31257671,
       "ytd": 232226424
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 622000,
+        "ptd": 24623200,
+        "ytd": 117324700
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1176586,
+        "ptd": 64009694,
+        "ytd": 413144553
+      }
     }
   },
   "31-08-2024": {
@@ -23898,64 +21867,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 150000,
-              "ytd": 456000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 280000,
-              "ptd": 13734000,
-              "ytd": 89462500
-            }
-          ],
-          "total": {
-            "today": 280000,
-            "ptd": 13884000,
-            "ytd": 89918500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -24008,30 +21919,25 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 150000,
+              "ytd": 456000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 280000,
+              "ptd": 13734000,
+              "ytd": 89462500
+            }
+          ],
           "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "today": 280000,
+            "ptd": 13884000,
+            "ytd": 89918500
           }
         },
         {
@@ -24085,24 +21991,6 @@
             "ptd": 735500,
             "ytd": 13156138
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -24130,6 +22018,18 @@
       "today": 904204,
       "ptd": 38354314,
       "ytd": 281691078
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 280000,
+        "ptd": 14261500,
+        "ytd": 96316900
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1415499,
+        "ptd": 62860922,
+        "ytd": 454722070
+      }
     }
   },
   "31-08-2025": {
@@ -24699,70 +22599,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 250000,
-              "ytd": 902000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 13289000,
-              "ytd": 79219826
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 13539000,
-            "ytd": 80171826
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -24809,30 +22645,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 250000,
+              "ytd": 902000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 13289000,
+              "ytd": 79219826
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 13539000,
+            "ytd": 80171826
           }
         },
         {
@@ -24886,24 +22723,6 @@
             "ptd": 1006500,
             "ytd": 9351850
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -24931,6 +22750,18 @@
       "today": 1108455,
       "ptd": 36886741,
       "ytd": 279613627
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 76500,
+        "ptd": 14573500,
+        "ytd": 82405692
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1498500,
+        "ptd": 61560304,
+        "ytd": 437780703
+      }
     }
   },
   "31-10-2023": {
@@ -25571,107 +23402,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 162000,
-              "ytd": 825000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 7943500,
-              "ytd": 116624700
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 8105500,
-            "ytd": 118188200
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 26000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 164000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -25736,30 +23466,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 26000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 164000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 162000,
+              "ytd": 825000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 7943500,
+              "ytd": 116624700
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 8105500,
+            "ytd": 118188200
           }
         },
         {
@@ -25813,24 +23572,6 @@
             "ptd": 2410500,
             "ytd": 29167500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -25858,6 +23599,18 @@
       "today": 1733632,
       "ptd": 26949013,
       "ytd": 280990115
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 59000,
+        "ptd": 11840207,
+        "ytd": 139962907
+      },
+      "transferChargesToGuestLedger": {
+        "today": 2298064,
+        "ptd": 46385582,
+        "ytd": 497957887
+      }
     }
   },
   "31-10-2024": {
@@ -26517,95 +24270,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 456000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 6165000,
-              "ytd": 99481500
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 6165000,
-            "ytd": 99937500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 184000,
-              "ytd": 184000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 36500,
-              "ytd": 36500
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 220500,
-            "ytd": 220500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -26658,30 +24322,47 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 184000,
+              "ytd": 184000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 36500,
+              "ytd": 36500
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 220500,
+            "ytd": 220500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 456000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 6165000,
+              "ytd": 99481500
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 6165000,
+            "ytd": 99937500
           }
         },
         {
@@ -26735,24 +24416,6 @@
             "ptd": 490500,
             "ytd": 14575138
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -26780,6 +24443,18 @@
       "today": 1214538,
       "ptd": 43027165,
       "ytd": 348028894
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 0,
+        "ptd": 6161500,
+        "ytd": 106689467
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1548505,
+        "ptd": 60023020,
+        "ytd": 548536821
+      }
     }
   },
   "31-10-2025": {
@@ -27360,70 +25035,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 902000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 3294000,
-              "ytd": 98936126
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 3294000,
-            "ytd": 99888126
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -27470,30 +25081,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 902000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 3294000,
+              "ytd": 98936126
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 3294000,
+            "ytd": 99888126
           }
         },
         {
@@ -27547,24 +25159,6 @@
             "ptd": 963000,
             "ytd": 11437350
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -27592,6 +25186,18 @@
       "today": 670658,
       "ptd": 35932087,
       "ytd": 364921122
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 9500,
+        "ptd": 4175000,
+        "ytd": 105167492
+      },
+      "transferChargesToGuestLedger": {
+        "today": 866500,
+        "ptd": 49857370,
+        "ytd": 569140415
+      }
     }
   },
   "31-12-2023": {
@@ -28238,107 +25844,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - CITY LEDGER",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 738500
-            },
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 84000,
-              "ytd": 909000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 17267500,
-              "ytd": 144797200
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 17351500,
-            "ytd": 146444700
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 129000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 26000
-            },
-            {
-              "name": "Payment - Visa Master",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 9000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 164000
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -28403,30 +25908,59 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 129000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 26000
+            },
+            {
+              "name": "Payment - Visa Master",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 9000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 164000
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - CITY LEDGER",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 738500
+            },
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 84000,
+              "ytd": 909000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 17267500,
+              "ytd": 144797200
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 17351500,
+            "ytd": 146444700
           }
         },
         {
@@ -28480,24 +26014,6 @@
             "ptd": 4791500,
             "ytd": 35933500
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -28525,6 +26041,18 @@
       "today": 418531,
       "ptd": 33094158,
       "ytd": 347582366
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 46000,
+        "ptd": 19683500,
+        "ytd": 172773407
+      },
+      "transferChargesToGuestLedger": {
+        "today": 578485,
+        "ptd": 62188902,
+        "ytd": 615914968
+      }
     }
   },
   "31-12-2024": {
@@ -29184,95 +26712,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 456000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 8624500,
-              "ytd": 117124500
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 8624500,
-            "ytd": 117580500
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 225500
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 38000
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 263500
-          }
-        },
-        {
-          "outlet": "Bar Barcus",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -29325,30 +26764,47 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "Bar Barcus",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 225500
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 38000
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
+            "ytd": 263500
           }
         },
         {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 456000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 8624500,
+              "ytd": 117124500
+            }
+          ],
           "total": {
             "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ptd": 8624500,
+            "ytd": 117580500
           }
         },
         {
@@ -29408,24 +26864,6 @@
             "ptd": 2774500,
             "ytd": 18101138
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -29453,6 +26891,18 @@
       "today": 1182394,
       "ptd": 54284534,
       "ytd": 457280135
+    },
+    "postings": {
+      "posToPmsPosting": {
+        "today": 332000,
+        "ptd": 9795567,
+        "ytd": 124204034
+      },
+      "transferChargesToGuestLedger": {
+        "today": 1842174,
+        "ptd": 78765230,
+        "ytd": 704614747
+      }
     }
   },
   "31-12-2025": {
@@ -30033,70 +27483,6 @@
     "posPayment": {
       "outlets": [
         {
-          "outlet": "BANQUET",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 902000
-            },
-            {
-              "name": "Payment - Orange Money",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 50000
-            },
-            {
-              "name": "Payment - Room Posting",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 107880126
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 108832126
-          }
-        },
-        {
-          "outlet": "BANQUET",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Extra Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "PMS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "POS Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
           "outlet": "Restaurant Chez Madeleine",
           "payments": [
             {
@@ -30143,30 +27529,31 @@
           }
         },
         {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [],
+          "outlet": "BANQUET",
+          "payments": [
+            {
+              "name": "Payment - Espèce",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 902000
+            },
+            {
+              "name": "Payment - Orange Money",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 50000
+            },
+            {
+              "name": "Payment - Room Posting",
+              "today": 0,
+              "ptd": 0,
+              "ytd": 107880126
+            }
+          ],
           "total": {
             "today": 0,
             "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Revenue Summary (without tax)",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Room Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
+            "ytd": 108832126
           }
         },
         {
@@ -30220,24 +27607,6 @@
             "ptd": 0,
             "ytd": 11768350
           }
-        },
-        {
-          "outlet": "TERRACINA",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "Total Revenue",
-          "payments": [],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
         }
       ],
       "total": {
@@ -30265,366 +27634,18 @@
       "today": 993032,
       "ptd": 16038265,
       "ytd": 405558793
-    }
-  },
-  "~$28-02-2023": {
-    "roomCharges": {
-      "roomCharges": {
+    },
+    "postings": {
+      "posToPmsPosting": {
         "today": 0,
         "ptd": 0,
-        "ytd": 0
+        "ytd": 114248992
       },
-      "cancellationRevenue": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "noShowRevenue": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "total": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "lateCheckoutCharges": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
+      "transferChargesToGuestLedger": {
+        "today": 1198500,
+        "ptd": 19917435,
+        "ytd": 629448891
       }
-    },
-    "extraCharges": {
-      "extraCharges": {},
-      "totals": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "discounts": {
-      "discounts": [],
-      "totals": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "today": 0,
-      "ptd": 0,
-      "ytd": 0
-    },
-    "adjustments": {
-      "adjustments": [],
-      "totals": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "today": 0,
-      "ptd": 0,
-      "ytd": 0
-    },
-    "tax": {
-      "taxes": [],
-      "totals": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "today": 0,
-      "ptd": 0,
-      "ytd": 0
-    },
-    "payments": {
-      "methods": {},
-      "total": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "cityLedger": {
-      "openingBalance": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "paymentReceived": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "chargesRaised": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "outstandingCommission": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "closingBalance": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "advanceDepositLedger": {
-      "openingBalance": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "advanceDepositCollected": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "balanceTransferToGuestLedger": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "closingBalance": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "guestLedger": {
-      "openingBalance": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "carryForwardedAdvanceDeposit": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "chargePostedToGuestLedger": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "settlementByGuest": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "outstandingPaymentOnCharges": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "transferFromAdvanceDeposit": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "closingBalance": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "roomSummary": {
-      "totalRoom": {
-        "today": 5,
-        "ptd": 5,
-        "ytd": 5
-      },
-      "blockRoom": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "noOfGuestAdult": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "noOfGuestChild": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "totalAvailableRoomNights": {
-        "today": 5,
-        "ptd": 35,
-        "ytd": 1400
-      },
-      "soldRoom": {
-        "today": "1",
-        "ptd": "1",
-        "ytd": "1"
-      },
-      "dayUseRoom": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "complimentaryRoom": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "noShows": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "averageGuestPerRoom": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "noOfReservationsConfirm": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "noOfReservationsUnconfirm": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "noOfWalkins": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      },
-      "cancellations": {
-        "today": "0",
-        "ptd": "0",
-        "ytd": "0"
-      }
-    },
-    "statistics": {
-      "occupancyRate": {
-        "today": 20,
-        "ptd": 2.86,
-        "ytd": 0.07
-      },
-      "averageDailyRate": {
-        "today": 80000,
-        "ptd": 80000,
-        "ytd": 80000
-      },
-      "revenuePerAvailableRoom": {
-        "today": 16000,
-        "ptd": 2285.71,
-        "ytd": 57.14
-      }
-    },
-    "posSummary": {
-      "outlets": [
-        {
-          "outlet": "Restaurant Chez Madeleine",
-          "categories": [
-            {
-              "name": "Category - Boissons",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 0
-            }
-          ],
-          "totalWithTax": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          },
-          "totalWithoutTax": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        },
-        {
-          "outlet": "TERRACINA",
-          "categories": [
-            {
-              "name": "Category - autres",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 0
-            },
-            {
-              "name": "Category - Boissons",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 0
-            }
-          ],
-          "totalWithTax": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          },
-          "totalWithoutTax": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        }
-      ],
-      "totalWithTax": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "totalWithoutTax": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "posPayment": {
-      "outlets": [
-        {
-          "outlet": "Restaurant Chez Madeleine",
-          "payments": [
-            {
-              "name": "Payment - Espèce",
-              "today": 0,
-              "ptd": 0,
-              "ytd": 0
-            }
-          ],
-          "total": {
-            "today": 0,
-            "ptd": 0,
-            "ytd": 0
-          }
-        }
-      ],
-      "total": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      }
-    },
-    "revenueSummary": {
-      "roomRevenue": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "extraRevenue": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "pmsRevenue": {
-        "today": 0,
-        "ptd": 0,
-        "ytd": 0
-      },
-      "today": 0,
-      "ptd": 0,
-      "ytd": 0
     }
   }
 }

@@ -3,6 +3,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
 import fs from 'fs'
 import { DateTime } from 'luxon'
 import DailySummaryFact from '#models/daily_summary_fact'
+import Database from '@adonisjs/lucid/services/db'
 
 type InputItem = {
   date?: string
@@ -64,15 +65,41 @@ export default class ImportDailySummaryFacts extends BaseCommand {
       return
     }
 
-    const items: InputItem[] = Array.isArray(rawJson)
-      ? (rawJson as InputItem[])
-      : [rawJson as InputItem]
+    // Normalize supported shapes:
+    // - Array of entries
+    // - Single object
+    // - Object map keyed by date strings (e.g. { "28-02-2023": { ... } })
+    let items: InputItem[] = []
+    if (Array.isArray(rawJson)) {
+      items = rawJson as InputItem[]
+    } else if (rawJson && typeof rawJson === 'object') {
+      const obj = rawJson as Record<string, any>
+      // If object keys look like date strings, synthesize items from entries
+      const keys = Object.keys(obj)
+      const looksLikeDateMap = keys.length > 0 && keys.every(k => /\d{2}[\/-]\d{2}[\/-]\d{4}/.test(k) || /\d{4}[\-]\d{2}[\-]\d{2}/.test(k))
+      if (looksLikeDateMap) {
+        items = keys.map((k) => ({
+          date: k,
+          manager_report_data: obj[k],
+          daily: obj[k]?.daily ?? obj[k]?.daily_revenue_report_data ?? obj[k]?.dailyRevenue ?? null,
+        }))
+      } else {
+        items = [rawJson as InputItem]
+      }
+    } else {
+      items = [rawJson as InputItem]
+    }
 
     let created = 0
     let updated = 0
     for (const item of items) {
       const dateStr = (item.audit_date || item.date || this.date || '').trim()
-      const dt = DateTime.fromISO(dateStr)
+      // Try multiple formats commonly used (ISO, dd-MM-yyyy, dd/MM/yyyy, MM/dd/yyyy)
+      let dt = DateTime.fromISO(dateStr)
+      if (!dt.isValid) dt = DateTime.fromFormat(dateStr, 'dd-MM-yyyy')
+      if (!dt.isValid) dt = DateTime.fromFormat(dateStr, 'dd/MM/yyyy')
+      if (!dt.isValid) dt = DateTime.fromFormat(dateStr, 'MM/dd/yyyy')
+      if (!dt.isValid) dt = DateTime.fromFormat(dateStr, 'yyyy-MM-dd')
       if (!dt.isValid) {
         this.logger.warning(`Skipping entry with invalid date: ${JSON.stringify(item).slice(0, 200)}...`)
         continue
@@ -97,11 +124,14 @@ export default class ImportDailySummaryFacts extends BaseCommand {
         updated++
         this.logger.info(`Updated daily_summary_fact for hotel ${HOTEL_ID} on ${dt.toISODate()}`)
       } else {
-        await DailySummaryFact.create({
-          auditDate: dt,
-          hotelId: HOTEL_ID,
-          managerReportData: manager ?? null,
-          dailyRevenueReportData: daily ?? null,
+        // Use raw insert to avoid model afterCreate hooks (which send emails)
+        await Database.table('daily_summary_facts').insert({
+          audit_date: dt.toISODate()!,
+          hotel_id: HOTEL_ID,
+          manager_report_data: manager ?? null,
+          daily_revenue_report_data: daily ?? null,
+          created_at: DateTime.now().toJSDate(),
+          updated_at: DateTime.now().toJSDate(),
         })
         created++
         this.logger.info(`Created daily_summary_fact for hotel ${HOTEL_ID} on ${dt.toISODate()}`)
@@ -111,4 +141,3 @@ export default class ImportDailySummaryFacts extends BaseCommand {
     this.logger.success(`Import complete. Created: ${created}, Updated: ${updated}`)
   }
 }
-

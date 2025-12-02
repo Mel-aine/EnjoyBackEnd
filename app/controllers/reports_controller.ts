@@ -2881,14 +2881,14 @@ export default class ReportsController {
         ytd: 0
       },
       posToPs: {
-        today: 0,
-        ptd: 0,
-        ytd: 0
+        today: sectionsData.postings?.posToPmsPosting?.today || 0,
+        ptd: sectionsData.postings?.posToPmsPosting?.ptd || 0,
+        ytd: sectionsData.postings?.posToPmsPosting?.ytd || 0
       },
       transferToGuestLedger: {
-        today: 0,
-        ptd: 0,
-        ytd: 0
+        today: sectionsData.postings?.transferChargesToGuestLedger?.today || 0,
+        ptd: sectionsData.postings?.transferChargesToGuestLedger?.ptd || 0,
+        ytd: sectionsData.postings?.transferChargesToGuestLedger?.ytd || 0
       }
     }
   

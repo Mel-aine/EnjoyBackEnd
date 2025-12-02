@@ -4165,6 +4165,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Check if new room is available for the reservation dates
+      // Move time: date when the room change should take effect. If no explicit
+      // effective date is provided, default to now.
       const moveDate = effectiveDate ? DateTime.fromISO(effectiveDate) : DateTime.now()
       const checkOutDate = reservation.departDate
 
@@ -4220,13 +4222,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const isCheckedIn = ['checked-in', 'checked_in'].includes(
         (reservation.status || '').toLowerCase()
       )
-      if (!isCheckedIn) {
+      // Treat as pre-check-in if either:
+      // - The guest is not yet checked in, OR
+      // - Today is the planned check-in day
+      const todayIso = DateTime.now().toISODate()
+      const plannedCheckInIso = reservation.arrivedDate?.toISODate()
+      const isCheckingDayToday = plannedCheckInIso === todayIso
+      if (!isCheckedIn || isCheckingDayToday) {
+        // Enrich notes for check-in context: include check-in info, move time, and actor
+        const plannedArrivalIso = reservation.scheduledArrivalDate?.toISO?.() || reservation.arrivedDate?.toISO?.() || reservation.arrivedDate?.toISODate?.() || 'N/A'
+        const checkInInfo = currentReservationRoom.actualCheckInTime?.toISO?.() || currentReservationRoom.checkInTime || plannedArrivalIso
+        const moveTimeIso = moveDate.toISO()
+        const movedBy = auth.user?.fullName || `User ${auth.user?.id}`
+
         await currentReservationRoom
           .merge({
             roomId: newRoomId,
             roomTypeId: newRoom.roomTypeId,
             lastModifiedBy: auth.user?.id!,
-            notes: `room change: ${originalRoomInfo.roomNumber} → ${newRoom.roomNumber}. Reason: ${reason || 'Room change'}`,
+            notes: `room change: ${originalRoomInfo.roomNumber} → ${newRoom.roomNumber}. Reason: ${reason || 'Room change'} | Check-in: ${checkInInfo} | Move time: ${moveTimeIso} | Moved by: ${movedBy}`,
           })
           .useTransaction(trx)
           .save()
@@ -4253,9 +4267,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await currentReservationRoom
         .merge({
           status: ReservationStatus.CHECKED_OUT,
+          // Move time: use effective move date as the check-out of the old room
           checkOutDate: moveDate,
           lastModifiedBy: auth.user?.id!,
-          notes: `Moved to room ${newRoom.roomNumber}. Reason: ${reason || 'Room move requested'}`,
+          notes: `Moved to room ${newRoom.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
         })
         .useTransaction(trx)
         .save()
@@ -4292,7 +4307,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             departDate: currentCheckOutDate,
             checkInDate: moveDate,
             checkOutDate: currentCheckOutDate,
+            // Checking time: preserve the original actual check-in time for continuity
             checkInTime: currentReservationRoom.checkInTime,
+            // Move time: preserve original check-out time; effective move date sets new boundaries
             checkOutTime: currentReservationRoom.checkOutTime,
             arrivingTo: reservation.arrivingTo,
             goingTo: reservation.goingTo,
@@ -4359,7 +4376,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           taxAmount: currentReservationRoom.taxAmount,
           rateTypeId: currentReservationRoom.rateTypeId,
           reservedByUser: auth.user?.id,
-          notes: `Moved from room ${currentReservationRoom.room.roomNumber}. Reason: ${reason || 'Room move requested'}`,
+          notes: `Moved from room ${currentReservationRoom.room.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
         },
         { client: trx }
       )
