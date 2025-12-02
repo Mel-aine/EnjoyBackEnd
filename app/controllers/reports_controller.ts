@@ -2699,17 +2699,17 @@ export default class ReportsController {
       const headerTemplate = `
     <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
       <!-- Hotel name and report title -->
-      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
         <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
         <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
       </div>
       
       <!-- Report Info -->
-      <div style="font-size:10px; margin-bottom:3px;">
-        <span style="margin-right:10px;"><strong>As On Date:</strong> ${formattedDate}</span>
-        <span style="margin-right:10px;"><strong>PTD:</strong> ${ptdDate}</span>
-        <span style="margin-right:10px;"><strong>YTD:</strong> ${ytdDate}</span>
-        <span><strong>Currency:</strong> ${currency}</span>
+      <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
+        <span style="margin-right:10px;">As On Date: ${formattedDate}</span>
+        <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
+        <span style="margin-right:10px;">YTD: ${ ytdDate }</span>
+        <span>Currency: ${currency}</span>
       </div>
       
       <div style="border-top:1px solid #333; margin:0 ;"></div>
@@ -2741,7 +2741,7 @@ export default class ReportsController {
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         margin: {
-          top: '100px',
+          top: '120px',
           right: '10px',
           bottom: '70px',
           left: '10px'
