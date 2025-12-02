@@ -45,7 +45,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
           'Status changed from [OldStatus] to [NewStatus] for work order #[WorkOrderId] (room [RoomNumber]).',
       },
 
-      // Reception / Front Desk
+      // // Reception / Front Desk
       {
         code: 'VIP_ARRIVAL',
         channel: 'IN_APP',
@@ -157,7 +157,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
           'Room [RoomNumber] housekeeping status changed from [OldStatus] to [NewStatus].',
       },
 
-      // Maintenance
+      // // Maintenance
       {
         code: 'MAINT_REQUEST',
         channel: 'IN_APP',
@@ -211,7 +211,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
           '[Number] rooms blocked from [StartDate] to [EndDate] for group [GroupName].',
       },
 
-      // Revenue / Rate Parity
+      // // Revenue / Rate Parity
       {
         code: 'RATE_PARITY_ALERT',
         channel: 'IN_APP',
@@ -298,6 +298,126 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
         contentTemplate:
           'Chambre [RoomNumber] toujours occupée à [Time]. Vérifier avec le client.',
       },
+
+      /* Add more templates as needed*/
+      // Reservation notifications
+      {
+        code: 'RESERVATION_DIRECT_WEB_CREATED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Direct Web Reservation Created [ReservationNumber]',
+        contentTemplate:
+          'Direct web reservation [ReservationNumber] created. Arrival: [ArrivalDate], Departure: [DepartureDate], Status: [Status].',
+      },
+      {
+        code:'RESERVATION_CONFIRMATION_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Confirmation [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], your reservation [ReservationNumber] is confirmed. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      {
+        code: 'RESERVATION_PENDING',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Pending [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] is pending. Arrival: [ArrivalDate], Departure: [DepartureDate], Status: [Status].',
+      },
+      // Stay amendment notification
+      {
+        code: 'STAY_AMENDED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Stay Amended [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] stay amended. New Arrival: [ArrivalDate], New Departure: [DepartureDate], Status: [Status].',
+      },
+      {
+        code:'STAY_AMENDED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Guest Stay Amended [ReservationNumber]',
+        contentTemplate:
+          'Guest reservation [ReservationNumber] stay amended. New Arrival: [ArrivalDate], New Departure: [DepartureDate], Status: [Status].',
+      },
+        //Room change notification
+      {
+        code: 'ROOM_MOVE_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Changed [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] room changed to [NewRoomNumber]. Previous Room: [OldRoomNumber].',
+      },
+      {
+        code:'ROOM_MOVE_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Guest Room Changed [ReservationNumber]',
+        contentTemplate:
+          'Guest reservation [ReservationNumber] room changed to [NewRoomNumber]. Previous Room: [OldRoomNumber].',
+      },
+      //cancellation notifications
+      {
+        code: 'RESERVATION_PARTIAL_CANCELLED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Partially Cancelled [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] partially cancelled. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      {
+        code: 'RESERVATION_CANCELLED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Cancelled [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] cancelled. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      {
+        code: 'RESERVATION_PARTIAL_CANCELLED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Partially Cancelled [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], your reservation [ReservationNumber] has been partially cancelled. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      {
+        code: 'RESERVATION_CANCELLED_GUEST_OTA',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Cancelled [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], your reservation [ReservationNumber] made via [OTAName] has been cancelled. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      // voided notifications
+      {
+        code: 'RESERVATION_VOIDED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Voided [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] has been voided. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      {
+        code: 'RESERVATION_VOIDED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Voided [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], your reservation [ReservationNumber] has been voided. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      },
+      {
+        code: 'RESERVATION_PARTIAL_VOIDED',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Reservation Partially Voided [ReservationNumber]',
+        contentTemplate:
+          'Reservation [ReservationNumber] has been partially voided. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+      }
+
     ]
 
     for (const tpl of templates) {

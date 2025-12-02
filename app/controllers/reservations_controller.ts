@@ -42,6 +42,7 @@ import TaxRate from '#models/tax_rate'
 import GuestSummaryService from '#services/guest_summary_service'
 import ReservationHook from '../hooks/reservation_hooks.js'
 import ReservationEmailService from '#services/reservation_email_service'
+import CheckInCheckOutNotificationService from '#services/checkIn_checkOut_nootification_service'
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -1200,7 +1201,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Room Move: Available during stay (checked-in status)
     if (
       userPermissions.includes('access_to_move_room') &&
-      ['checked-in', 'checked_in', 'confirmed', 'guaranteed', 'pending'].includes(status)
+      ['checked-in', 'checked_in','confirmed', 'guaranteed', 'pending'].includes(status)
     ) {
       actions.push({
         action: 'room_move',
@@ -1802,6 +1803,104 @@ export default class ReservationsController extends CrudController<typeof Reserv
         } catch { }
       }
 
+
+      setImmediate(async () => {
+      try {
+        const NotificationService = (await import('#services/notification_service')).default
+
+        // Déterminer le type d'annulation
+        const isFullCancellation = shouldCancelReservation
+        const cancellationType = isFullCancellation ? 'FULL' : 'PARTIAL'
+
+        // Variables communes
+        const guestName = reservation.guest
+          ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
+          : 'Guest'
+
+
+        try {
+
+          const staffTemplateCode = isFullCancellation
+            ? 'RESERVATION_CANCELLED'
+            : 'RESERVATION_PARTIAL_CANCELLED'
+
+          const staffVariables = await NotificationService.buildVariables(staffTemplateCode, {
+            hotelId: reservation.hotelId,
+            reservationId: reservation.id,
+            guestId: reservation.guestId,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || 'N/A',
+              GuestName: guestName,
+              CancellationDate: DateTime.now().toISODate(),
+              CancelledRooms: cancelledList,
+              CancellationReason: reason || 'No reason provided',
+              CancellationFee: cancellationFee || '0',
+              StaffMember: auth.user?.fullName || `User ${auth.user?.id}`,
+              CancellationType: cancellationType,
+              TotalRoomsCancelled: cancelledRooms.length,
+            },
+          })
+
+          await NotificationService.sendWithTemplate({
+            templateCode: staffTemplateCode,
+            recipientType: 'STAFF',
+            recipientId: auth.user!.id,
+            variables: staffVariables,
+            relatedEntityType: 'Reservation',
+            relatedEntityId: reservation.id,
+            actorId: auth.user!.id,
+            hotelId: reservation.hotelId,
+          })
+
+        } catch (staffError) {
+          console.error('❌ Erreur notification STAFF:', (staffError as any)?.message)
+        }
+
+        if (reservation.guest && reservation.guest.email) {
+          try {
+            const guestTemplateCode = isFullCancellation
+              ? 'RESERVATION_CANCELLED_GUEST'
+              : 'RESERVATION_PARTIAL_CANCELLED_GUEST'
+
+            const guestVariables = await NotificationService.buildVariables(guestTemplateCode, {
+              hotelId: reservation.hotelId,
+              reservationId: reservation.id,
+              guestId: reservation.guestId,
+              extra: {
+                ReservationNumber: reservation.reservationNumber || 'N/A',
+                GuestName: guestName,
+                CancellationDate: DateTime.now().toISODate(),
+                CancelledRooms: cancelledList,
+                CancellationReason: reason || 'No reason provided',
+                CancellationFee: cancellationFee || '0',
+                ContactEmail: reservation.guest.email,
+                ContactPhone: reservation.guest.phonePrimary || 'N/A',
+                RefundAmount: cancellationFee ? `-${cancellationFee}` : '0',
+                RefundMethod: 'Original payment method'
+              },
+            })
+
+            await NotificationService.sendWithTemplate({
+              templateCode: guestTemplateCode,
+              recipientType: 'GUEST',
+              recipientId: reservation.guestId,
+              variables: guestVariables,
+              relatedEntityType: 'Reservation',
+              relatedEntityId: reservation.id,
+              actorId: auth.user!.id,
+              hotelId: reservation.hotelId,
+            })
+
+          } catch (guestError) {
+            console.error('Erreur notification GUEST:', (guestError as any)?.message)
+          }
+        } else {
+          console.log(' Pas d\'email disponible pour le guest, notification non envoyée')
+        }
+      } catch (notifError) {
+        console.error(' Erreur générale dans les notifications:', notifError)
+      }
+    })
       await GuestSummaryService.recomputeFromReservation(reservationId)
       return response.ok({
         message: `Reservation cancelled. Fee: ${cancellationFee}`,
@@ -2700,6 +2799,115 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
 
         await trx.commit()
+
+         setImmediate(async () => {
+          try {
+
+            const NotificationService = (await import('#services/notification_service')).default
+
+            // Déterminer le type de réservation pour les notifications
+            let notificationTemplateCode = 'RESERVATION_CREATED'
+            const isDirectWebsite = !!data.ota_name || !!data.ota_reservation_code
+            const isManualByStaff = auth.user?.id && !isDirectWebsite
+
+            //  Notification selon le type de réservation
+            if (isDirectWebsite) {
+              notificationTemplateCode = 'RESERVATION_DIRECT_WEB_CREATED'
+            } else if (isManualByStaff) {
+              notificationTemplateCode = 'RESERVATION_CREATED'
+            }
+
+            const variables = await NotificationService.buildVariables(notificationTemplateCode, {
+              hotelId: reservation.hotelId,
+              guestId: primaryGuest.id,
+              reservationId: reservation.id,
+              extra: {
+                ReservationNumber: reservation.reservationNumber || '',
+                ConfirmationNumber: confirmationNumber,
+                GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+                CheckInDate: arrivedDate.toISODate(),
+                CheckOutDate: departDate.toISODate(),
+                NumberOfNights: numberOfNights,
+                TotalAmount: reservation.totalAmount || 0,
+                RoomCount: rooms.length,
+                GuestCount: guestCount,
+                OtaName: data.ota_name || '',
+                OtaCode: data.ota_reservation_code || '',
+                BookingSource: data.booking_source || '',
+                Status: reservation.status,
+              },
+            })
+
+            await NotificationService.sendWithTemplate({
+              templateCode: notificationTemplateCode,
+              recipientType: 'STAFF',
+              recipientId: auth.user?.id || data.created_by,
+              variables,
+              relatedEntityType: 'Reservation',
+              relatedEntityId: reservation.id,
+              actorId: auth.user?.id,
+              hotelId: reservation.hotelId,
+            })
+
+            //  Notification au client (si email disponible)
+            if (primaryGuest.email) {
+              const guestVariables = await NotificationService.buildVariables('RESERVATION_CONFIRMATION_GUEST', {
+                hotelId: reservation.hotelId,
+                guestId: primaryGuest.id,
+                reservationId: reservation.id,
+                extra: {
+                  ReservationNumber: reservation.reservationNumber || '',
+                  ConfirmationNumber: confirmationNumber,
+                  GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+                  CheckInDate: arrivedDate.toISODate(),
+                  CheckOutDate: departDate.toISODate(),
+                  NumberOfNights: numberOfNights,
+                  TotalAmount: reservation.totalAmount || 0,
+                },
+              })
+
+              await NotificationService.sendWithTemplate({
+                templateCode: 'RESERVATION_CONFIRMATION_GUEST',
+                recipientType: 'GUEST',
+                recipientId: primaryGuest.id,
+                variables: guestVariables,
+                relatedEntityType: 'Reservation',
+                relatedEntityId: reservation.id,
+                actorId: auth.user?.id,
+                hotelId: reservation.hotelId,
+              })
+            }
+
+            //  Notification si statut "en attente"
+            if (reservation.status === 'pending') {
+              const pendingVariables = await NotificationService.buildVariables('RESERVATION_PENDING', {
+                hotelId: reservation.hotelId,
+                reservationId: reservation.id,
+                extra: {
+                  ReservationNumber: reservation.reservationNumber || '',
+                  GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+                },
+              })
+
+              await NotificationService.sendWithTemplate({
+                templateCode: 'RESERVATION_PENDING',
+                recipientType: 'STAFF',
+                recipientId: auth.user?.id || data.created_by,
+                variables: pendingVariables,
+                relatedEntityType: 'Reservation',
+                relatedEntityId: reservation.id,
+                actorId: auth.user?.id,
+                hotelId: reservation.hotelId,
+              })
+            }
+
+
+            console.log('Notification envoyée')
+          } catch (notifError) {
+            console.warn('Erreur notifications réservation:', (notifError as any)?.message)
+          }
+        })
+
         // Schedule availability notification in background after commit
         setImmediate(() => {
           try {
@@ -3218,8 +3426,37 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
       }
-
+      //notification
+      setImmediate(async () => {
+      try {
+        const NotificationService = (await import('#services/notification_service')).default
+        const recipientId =  auth.user!.id
+        const variables = await NotificationService.buildVariables('BOOKING_UPDATE', {
+          hotelId: reservation.hotelId,
+          reservationId: reservation.id,
+          guestId: reservation.guestId,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || '',
+            Status: reservation.status,
+            UpdatedBy: auth.user?.fullName || '',
+          },
+        })
+        await NotificationService.sendWithTemplate({
+          templateCode: 'BOOKING_UPDATE',
+          recipientType: 'STAFF',
+          recipientId,
+          variables,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservation.id,
+          actorId: auth.user?.id,
+          hotelId: reservation.hotelId,
+        })
+      } catch (err) {
+        console.warn('Notification WORK_ORDER_CREATED failed:', (err as any)?.message)
+      }
+      })
       await GuestSummaryService.recomputeFromReservation(reservationId)
+
       return response.ok({
         status: 200,
         message: 'Reservation confirmed successfully',
@@ -3765,6 +4002,66 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ctx,
         })
       }
+
+       try {
+      const NotificationService = (await import('#services/notification_service')).default
+
+      // Notifier le guest si la réservation a un guest associé
+      if (reservation.guestId) {
+        const variables = await NotificationService.buildVariables('STAY_AMENDED', {
+          hotelId: reservation.hotelId,
+          reservationId: reservation.id,
+          guestId: reservation.guestId,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || '',
+            OldArrivalDate: originalData.arrivalDate?.toFormat('yyyy-MM-dd') || '' ,
+            NewArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '' ,
+            OldDepartureDate: originalData.departureDate?.toFormat('yyyy-MM-dd') || '',
+            NewDepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
+            Reason: reason || 'Stay amendment requested',
+            AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
+          },
+        })
+
+        await NotificationService.sendWithTemplate({
+          templateCode: 'STAY_AMENDED',
+          recipientType: 'GUEST',
+          recipientId: reservation.guestId,
+          variables,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservation.id,
+          actorId: auth.user?.id,
+          hotelId: reservation.hotelId,
+        })
+      }
+
+      // Notifier le staff
+      const variables = await NotificationService.buildVariables('STAY_AMENDED_STAFF', {
+        hotelId: reservation.hotelId,
+        reservationId: reservation.id,
+        extra: {
+          ReservationNumber: reservation.reservationNumber || '',
+          GuestName: reservation.guestId ? 'Guest' : 'N/A',
+          AffectedRooms: amendedRooms,
+          Changes: logDescription,
+          AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
+        },
+      })
+
+      await NotificationService.sendWithTemplate({
+        templateCode: 'STAY_AMENDED_STAFF',
+        recipientType: 'STAFF',
+        recipientId: auth.user?.id!,
+        variables,
+        relatedEntityType: 'Reservation',
+        relatedEntityId: reservation.id,
+        actorId: auth.user?.id,
+        hotelId: reservation.hotelId,
+      })
+    } catch (err) {
+      console.warn('Notification STAY_AMENDED failed:', (err as any)?.message)
+    }
+
 
       return response.ok({
         message: 'Stay amended successfully',
@@ -4382,6 +4679,65 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ctx,
         })
       }
+
+      setImmediate(async () => {
+        try {
+          const NotificationService = (await import('#services/notification_service')).default
+
+          // Variables communes
+          const vars = await NotificationService.buildVariables('ROOM_MOVE', {
+            hotelId: reservation.hotelId,
+            reservationId: reservation.id,
+            guestId: reservation.guestId,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || '',
+              FromRoom: originalRoomInfo.roomNumber,
+              ToRoom: newRoom.roomNumber,
+              EffectiveDate: moveDate.toISODate() || '',
+              Reason: reason || '',
+            },
+          })
+
+          // Notify staff who performed the action
+          await NotificationService.sendWithTemplate({
+            templateCode: 'ROOM_MOVE_STAFF',
+            recipientType: 'STAFF',
+            recipientId: auth.user?.id || 1,
+            variables: vars,
+            relatedEntityType: 'Reservation',
+            relatedEntityId: reservation.id,
+            actorId: auth.user?.id,
+            hotelId: reservation.hotelId,
+          })
+           // Notify guest if available (email/SMS template)
+          if (reservation.guestId) {
+            const guestVars = await NotificationService.buildVariables('ROOM_MOVE_GUEST', {
+              hotelId: reservation.hotelId,
+              reservationId: reservation.id,
+              guestId: reservation.guestId,
+              extra: {
+                ReservationNumber: reservation.reservationNumber || '',
+                FromRoom: originalRoomInfo.roomNumber,
+                ToRoom: newRoom.roomNumber,
+                EffectiveDate: moveDate.toISODate() || '',
+              },
+            })
+
+            await NotificationService.sendWithTemplate({
+              templateCode: 'ROOM_MOVE_GUEST',
+              recipientType: 'GUEST',
+              recipientId: reservation.guestId,
+              variables: guestVars,
+              relatedEntityType: 'Reservation',
+              relatedEntityId: reservation.id,
+              actorId: auth.user?.id,
+              hotelId: reservation.hotelId,
+            })
+          }
+        } catch (notifErr) {
+          console.warn('Notification ROOM_MOVE failed:', (notifErr as any)?.message)
+        }
+      })
 
 
 
@@ -5233,7 +5589,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await trx.commit()
 
-      await reservation.save() // update the reservation at the end 
+      await reservation.save() // update the reservation at the end
 
       console.log('Transaction committed', { durationMs: Date.now() - startTime })
 
@@ -5523,6 +5879,94 @@ export default class ReservationsController extends CrudController<typeof Reserv
           }
         } catch { }
       }
+
+    try {
+      const NotificationService = (await import('#services/notification_service')).default
+
+      const guestName = reservation.guest
+        ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
+        : 'Guest'
+
+      const voidType = allRoomsVoided ? 'FULL' : 'PARTIAL'
+      const roomsList = roomNumbers.length > 0 ? `[${roomNumbers.join(', ')}]` : '(none)'
+
+      // Notification STAFF
+      try {
+        const staffTemplateCode = allRoomsVoided
+          ? 'RESERVATION_VOIDED'
+          : 'RESERVATION_PARTIAL_VOIDED'
+
+        const staffVariables = await NotificationService.buildVariables(staffTemplateCode, {
+          hotelId: reservation.hotelId,
+          reservationId: reservation.id,
+          guestId: reservation.guestId,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || 'N/A',
+            GuestName: guestName,
+            VoidDate: DateTime.now().toISODate(),
+            VoidedRooms: roomsList,
+            VoidReason: reason,
+            StaffMember: auth.user?.fullName || `User ${auth.user?.id}`,
+            VoidType: voidType,
+            TotalRoomsVoided: roomNumbers.length,
+            OriginalStatus: originalStatus,
+            FoliosVoided: foliosVoided,
+          },
+        })
+
+        await NotificationService.sendWithTemplate({
+          templateCode: staffTemplateCode,
+          recipientType: 'STAFF',
+          recipientId: auth.user!.id,
+          variables: staffVariables,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservation.id,
+          actorId: auth.user!.id,
+          hotelId: reservation.hotelId,
+        })
+      } catch (staffError) {
+        console.error(' Erreur notification STAFF void:', (staffError as any)?.message)
+      }
+
+      // Notification GUEST (si email disponible)
+      if (reservation.guest && reservation.guest.email) {
+        try {
+          const guestTemplateCode = allRoomsVoided
+            ? 'RESERVATION_VOIDED_GUEST'
+            : 'RESERVATION_PARTIAL_VOIDED_GUEST'
+
+          const guestVariables = await NotificationService.buildVariables(guestTemplateCode, {
+            hotelId: reservation.hotelId,
+            reservationId: reservation.id,
+            guestId: reservation.guestId,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || 'N/A',
+              GuestName: guestName,
+              VoidDate: DateTime.now().toISODate(),
+              VoidedRooms: roomsList,
+              ContactEmail: reservation.guest.email,
+              ContactPhone: reservation.guest.phonePrimary || 'N/A',
+            },
+          })
+
+          await NotificationService.sendWithTemplate({
+            templateCode: guestTemplateCode,
+            recipientType: 'GUEST',
+            recipientId: reservation.guestId,
+            variables: guestVariables,
+            relatedEntityType: 'Reservation',
+            relatedEntityId: reservation.id,
+            actorId: auth.user!.id,
+            hotelId: reservation.hotelId,
+          })
+        } catch (guestError) {
+          console.error(' Erreur notification GUEST void:', (guestError as any)?.message)
+        }
+      }
+    } catch (notifError) {
+      console.error(' Erreur générale notifications void:', notifError)
+    }
+
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
 
@@ -6630,6 +7074,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ message: 'Reservation not found' })
       }
 
+      const oldRoomRates = new Map<number, number>()
+      for (const rr of reservation.reservationRooms) {
+        oldRoomRates.set(rr.id, rr.roomRate)
+      }
+      const oldAdults = reservation.adults
+      const oldChildren = reservation.children
+
       // -------------------------------
       // Build room -> taxRates map
       // -------------------------------
@@ -6774,6 +7225,47 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       await trx.commit()
+      // Notifications
+    try {
+      const CheckinCheckoutNotificationService = (await import('#services/checkIn_checkOut_nootification_service')).default
+
+      // Notification de changement de tarif
+      const changedRooms: Array<{ roomNumber: string; oldRate: number; newRate: number; nights?: number }> = []
+      for (const rr of reservation.reservationRooms) {
+        const oldRate = oldRoomRates.get(rr.id)
+        if (oldRate !== undefined && oldRate !== rr.roomRate) {
+          changedRooms.push({
+            roomNumber: rr.room?.roomNumber || `Room ${rr.id}`,
+            oldRate,
+            newRate: rr.roomRate,
+            nights: rr.nights || 1,
+          })
+        }
+      }
+
+      if (changedRooms.length > 0) {
+        await CheckinCheckoutNotificationService.notifyRateChange(
+          reservation.id,
+          changedRooms,
+          auth.user!.id
+        )
+      }
+
+      // Notification de changement de pax
+      const newAdults = reservation.adults
+      const newChildren = reservation.children
+      if (oldAdults !== newAdults || oldChildren !== newChildren) {
+        await CheckinCheckoutNotificationService.notifyPaxChange(
+          reservation.id,
+          oldAdults + oldChildren,
+          newAdults + newChildren,
+          auth.user!.id
+        )
+      }
+
+    } catch (notifError) {
+      console.error(' Erreur lors des notifications:', notifError)
+    }
 
       return response.ok({
         message: 'Reservation details updated successfully',
@@ -6785,7 +7277,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       })
     } catch (error) {
-      console.error('💥 ERROR updating reservation details:', error)
+      console.error(' ERROR updating reservation details:', error)
       await trx.rollback()
       return response.badRequest({ message: 'Failed to update reservation details', error: error.message })
     }
