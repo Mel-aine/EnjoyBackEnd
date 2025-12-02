@@ -42,7 +42,7 @@ import TaxRate from '#models/tax_rate'
 import GuestSummaryService from '#services/guest_summary_service'
 import ReservationHook from '../hooks/reservation_hooks.js'
 import ReservationEmailService from '#services/reservation_email_service'
-import CheckInCheckOutNotificationService from '#services/checkIn_checkOut_nootification_service'
+
 
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
@@ -296,6 +296,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await trx.commit()
       console.log('Transaction committed successfully')
 
+
+      // NOTIFICATIONS
+      try {
+        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+
+        await CheckinCheckoutNotificationService.notifyCheckInCompleted(
+          reservation.id,
+          auth.user!.id
+        )
+
+      } catch (notifError) {
+        console.error(' Error sending check-in notifications:', notifError)
+
+      }
+
+
+
       await GuestSummaryService.recomputeFromReservation(reservation.id)
 
       return response.ok({
@@ -545,6 +562,26 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reservationId: reservation.id,
           error: emailErr?.message,
         })
+      }
+
+      try {
+        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+
+        await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
+          reservation.id,
+          auth.user!.id,
+          {
+            checkedOutRooms: reservationRoomRecords.map(rr => ({
+              roomNumber: rr.room?.roomNumber || 'N/A',
+              roomId: rr.roomId
+            })),
+            checkOutTime: checkOutDateTime,
+            allRoomsCheckedOut
+          }
+        )
+        console.log(' Check-out notifications sent successfully')
+      } catch (notifError) {
+        console.error(' Error sending check-out notifications:', notifError)
       }
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
@@ -2825,8 +2862,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 ReservationNumber: reservation.reservationNumber || '',
                 ConfirmationNumber: confirmationNumber,
                 GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
-                CheckInDate: arrivedDate.toISODate(),
-                CheckOutDate: departDate.toISODate(),
+                ArrivalDate: arrivedDate.toFormat('yyyy-MM-dd'),
+                DepartureDate: departDate.toFormat('yyyy-MM-dd'),
                 NumberOfNights: numberOfNights,
                 TotalAmount: reservation.totalAmount || 0,
                 RoomCount: rooms.length,
@@ -2859,8 +2896,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   ReservationNumber: reservation.reservationNumber || '',
                   ConfirmationNumber: confirmationNumber,
                   GuestName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
-                  CheckInDate: arrivedDate.toISODate(),
-                  CheckOutDate: departDate.toISODate(),
+                  ArrivalDate: arrivedDate.toFormat('yyyy-MM-dd'),
+                  DepartureDate: departDate.toFormat('yyyy-MM-dd'),
                   NumberOfNights: numberOfNights,
                   TotalAmount: reservation.totalAmount || 0,
                 },
@@ -4015,9 +4052,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           extra: {
             ReservationNumber: reservation.reservationNumber || '',
             OldArrivalDate: originalData.arrivalDate?.toFormat('yyyy-MM-dd') || '' ,
-            NewArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '' ,
+            ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '' ,
             OldDepartureDate: originalData.departureDate?.toFormat('yyyy-MM-dd') || '',
-            NewDepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
+            DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
             Reason: reason || 'Stay amendment requested',
             AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
           },
@@ -4041,6 +4078,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservationId: reservation.id,
         extra: {
           ReservationNumber: reservation.reservationNumber || '',
+          ArrivalDate : newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '' ,
+          DepartureDate : newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '' ,
           GuestName: reservation.guestId ? 'Guest' : 'N/A',
           AffectedRooms: amendedRooms,
           Changes: logDescription,
@@ -4691,8 +4730,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             guestId: reservation.guestId,
             extra: {
               ReservationNumber: reservation.reservationNumber || '',
-              FromRoom: originalRoomInfo.roomNumber,
-              ToRoom: newRoom.roomNumber,
+              OldRoomNumber: originalRoomInfo.roomNumber,
+              NewRoomNumber: newRoom.roomNumber,
               EffectiveDate: moveDate.toISODate() || '',
               Reason: reason || '',
             },
@@ -4717,8 +4756,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
               guestId: reservation.guestId,
               extra: {
                 ReservationNumber: reservation.reservationNumber || '',
-                FromRoom: originalRoomInfo.roomNumber,
-                ToRoom: newRoom.roomNumber,
+                OldRoomNumber: originalRoomInfo.roomNumber,
+                NewRoomNumber: newRoom.roomNumber,
                 EffectiveDate: moveDate.toISODate() || '',
               },
             })
@@ -7081,6 +7120,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const oldAdults = reservation.adults
       const oldChildren = reservation.children
 
+
+
+
       // -------------------------------
       // Build room -> taxRates map
       // -------------------------------
@@ -7117,6 +7159,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
         rr.lastModifiedBy = auth?.user?.id || rr.lastModifiedBy
 
         await rr.useTransaction(trx).save()
+      }
+
+      if (payload.adults !== undefined) {
+       reservation.adults = payload.adults
+      }
+      if (payload.children !== undefined) {
+        reservation.children = payload.children
       }
 
       // -------------------------------
@@ -7224,12 +7273,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         await FolioService.updateFolioTotals(folioId, trx)
       }
 
-      await trx.commit()
-      // Notifications
-    try {
-      const CheckinCheckoutNotificationService = (await import('#services/checkIn_checkOut_nootification_service')).default
-
-      // Notification de changement de tarif
       const changedRooms: Array<{ roomNumber: string; oldRate: number; newRate: number; nights?: number }> = []
       for (const rr of reservation.reservationRooms) {
         const oldRate = oldRoomRates.get(rr.id)
@@ -7242,30 +7285,36 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
       }
+      await trx.commit()
+      // Notifications
+   try {
+        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
 
-      if (changedRooms.length > 0) {
-        await CheckinCheckoutNotificationService.notifyRateChange(
-          reservation.id,
-          changedRooms,
-          auth.user!.id
-        )
+        // Notification de changement de tarif
+        if (changedRooms.length > 0) {
+          await CheckinCheckoutNotificationService.notifyRateChange(
+            reservation.id,
+            changedRooms,
+            auth.user!.id
+          )
+        }
+
+        // Notification de changement de pax
+        const newAdults = reservation.adults
+        const newChildren = reservation.children
+        if (oldAdults !== newAdults || oldChildren !== newChildren) {
+          await CheckinCheckoutNotificationService.notifyPaxChange(
+            reservation.id,
+            oldAdults + oldChildren,
+            newAdults + newChildren,
+            auth.user!.id
+          )
+        }
+
+      } catch (notifError) {
+        console.error(' Erreur lors des notifications:', notifError)
       }
 
-      // Notification de changement de pax
-      const newAdults = reservation.adults
-      const newChildren = reservation.children
-      if (oldAdults !== newAdults || oldChildren !== newChildren) {
-        await CheckinCheckoutNotificationService.notifyPaxChange(
-          reservation.id,
-          oldAdults + oldChildren,
-          newAdults + newChildren,
-          auth.user!.id
-        )
-      }
-
-    } catch (notifError) {
-      console.error(' Erreur lors des notifications:', notifError)
-    }
 
       return response.ok({
         message: 'Reservation details updated successfully',

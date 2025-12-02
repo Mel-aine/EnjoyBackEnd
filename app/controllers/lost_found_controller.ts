@@ -1,6 +1,8 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { createLostFoundValidator, updateLostFoundValidator } from '#validators/lost_found'
 import LostFoundService from '#services/lost_found_service'
+import CheckInCheckOutNotificationService from '#services/notification_action_service'
+import { DateTime } from 'luxon'
 
 export default class LostFoundController {
   private lostFoundService = new LostFoundService()
@@ -59,6 +61,22 @@ export default class LostFoundController {
     try {
       const payload = await request.validateUsing(createLostFoundValidator)
       const lostFoundItem = await this.lostFoundService.create(payload)
+
+      // Send Lost & Found notification
+      try {
+          if (payload.foundOn && payload.foundLocation) {
+        await CheckInCheckOutNotificationService.notifyLostAndFound(
+          payload.itemName,
+          payload.whoFound || 'Unknown',
+          payload.foundLocation || 'Unknown Location',
+          DateTime.fromJSDate(payload.foundOn) ,
+
+
+        )}
+      } catch (notifError) {
+        console.error('Failed to send lost and found notification:', notifError)
+      }
+
 
       return response.created({
         success: true,

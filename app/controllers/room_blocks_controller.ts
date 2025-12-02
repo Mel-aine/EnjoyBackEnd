@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import RoomBlock from '#models/room_block'
 import { DateTime } from 'luxon'
 import { createRoomBlockValidator, updateRoomBlockValidator } from '#validators/room_blocks'
+import CheckInCheckOutNotificationService from '#services/notification_action_service'
 
 export default class RoomBlocksController {
   /**
@@ -56,8 +57,8 @@ export default class RoomBlocksController {
       // Vérifier les blocks existants
       const overlappingBlocks = await RoomBlock.query()
         .where('room_id', payload.room_id)
-        .where('block_to_date', '<', fromDate.toJSDate())
-        .where('block_from_date', '>', toDate.toJSDate())
+        .where('block_from_date', '<', toDate.toJSDate())
+        .where('block_to_date', '>', fromDate.toJSDate())
         .count('* as total')
 
       if (Number(overlappingBlocks[0].$extras.total) > 0) {
@@ -84,6 +85,19 @@ export default class RoomBlocksController {
       await roomBlock.load('roomType')
 
       console.log('Room block created successfully:', roomBlock.toJSON())
+
+      //Notification
+
+      try {
+        await CheckInCheckOutNotificationService.notifyRoomBlocked(
+          roomBlock.roomId,
+          auth.user!.id,
+          payload.reason || 'Maintenance requise',
+
+        )
+      } catch (notificationError) {
+        console.error('Error sending room block created notification:', notificationError)
+      }
 
       return response.created({
         success: true,
@@ -251,6 +265,8 @@ export default class RoomBlocksController {
 
       // Récupérer le bloc existant
       const roomBlock = await RoomBlock.findOrFail(id)
+      const oldReason = roomBlock.reason || ''
+
 
       // Validation des dates si fournies
       if (payload.block_from_date && payload.block_to_date) {
@@ -351,6 +367,30 @@ export default class RoomBlocksController {
       await roomBlock.load('roomType')
 
       console.log('Room block updated successfully:', roomBlock.toJSON())
+
+      //Notification
+
+        try {
+
+          if (payload.status === 'completed') {
+            await CheckInCheckOutNotificationService.notifyRoomUnblocked(
+              roomBlock.roomId,
+              roomBlock.blockedByUserId
+            )
+          } else {
+
+            await CheckInCheckOutNotificationService.notifyRoomBlockModified(
+              roomBlock.roomId,
+              roomBlock.blockedByUserId,
+              roomBlock.reason!,
+              payload.reason || roomBlock.reason || '',
+
+            )
+          }
+        } catch (notificationError) {
+          console.error('Error sending room block notification:', notificationError)
+        }
+
 
       return response.ok({
         success: true,

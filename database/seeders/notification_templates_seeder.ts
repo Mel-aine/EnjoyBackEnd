@@ -299,7 +299,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
           'Chambre [RoomNumber] toujours occupée à [Time]. Vérifier avec le client.',
       },
 
-      /* Add more templates as needed*/
+      //Add more templates as needed
       // Reservation notifications
       {
         code: 'RESERVATION_DIRECT_WEB_CREATED',
@@ -399,7 +399,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
         locale: 'en',
         subjectTemplate: 'Reservation Voided [ReservationNumber]',
         contentTemplate:
-          'Reservation [ReservationNumber] has been voided. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+          'Reservation [ReservationNumber] has been voided.',
       },
       {
         code: 'RESERVATION_VOIDED_GUEST',
@@ -407,7 +407,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
         locale: 'en',
         subjectTemplate: 'Reservation Voided [ReservationNumber]',
         contentTemplate:
-          'Dear [GuestName], your reservation [ReservationNumber] has been voided. Arrival: [ArrivalDate], Departure: [DepartureDate].',
+          'Dear [GuestName], your reservation [ReservationNumber] has been voided.',
       },
       {
         code: 'RESERVATION_PARTIAL_VOIDED',
@@ -415,8 +415,210 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
         locale: 'en',
         subjectTemplate: 'Reservation Partially Voided [ReservationNumber]',
         contentTemplate:
-          'Reservation [ReservationNumber] has been partially voided. Arrival: [ArrivalDate], Departure: [DepartureDate].',
-      }
+          'Reservation [ReservationNumber] has been partially voided.',
+      },
+      {
+        code: 'PAX_CHANGED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Guest Count Changed [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], the number of guests for your reservation [ReservationNumber] has been changed to [NewPaxCount].',
+      },
+      {
+        code: 'PAX_CHANGED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Guest Count Changed [ReservationNumber]',
+        contentTemplate:
+          'The number of guests for reservation [ReservationNumber] has been changed to [NewPaxCount].',
+
+      },
+      {
+        code: 'RATE_CHANGED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Rate Changed [ReservationNumber]',
+        contentTemplate:
+          'The rate for reservation [ReservationNumber] has been changed to [NewRate]. Previous Rate: [OldRate].',
+      },
+      {
+        code: 'RATE_CHANGED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Rate Changed [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], the rate for your reservation [ReservationNumber] has been changed to [NewRate]. Previous Rate: [OldRate].',
+      },
+      {
+        code: 'CHECKIN_COMPLETED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Guest Check-In Completed [ReservationNumber]',
+        contentTemplate:
+          'Guest [GuestName] has completed check-in for reservation [ReservationNumber]. Room: [RoomNumber].',
+
+      },
+      {
+        code: 'CHECKIN_COMPLETED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Check-In Completed [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], you have successfully completed check-in for your reservation [ReservationNumber]. Your room number is [RoomNumber].',
+      },
+      {
+        code: 'CHECKOUT_COMPLETED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Guest Check-Out Completed [ReservationNumber]',
+        contentTemplate:
+          'Guest [GuestName] has completed check-out for reservation [ReservationNumber]. Room: [RoomNumbers].',
+      },
+      {
+        code: 'CHECKOUT_COMPLETED_GUEST',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Check-Out Completed [ReservationNumber]',
+        contentTemplate:
+          'Dear [GuestName], you have successfully completed check-out for your reservation [ReservationNumber]. We hope you had a pleasant stay!',
+      },
+      {
+        code: 'ROOM_BLOCKED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Blocked [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] has been blocked. Reason: [Reason]. Blocked By: [ChangedBy].',
+      },
+      {
+        code: 'CLEANING_INCOMPLETE_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Cleaning Incomplete [RoomNumber]',
+        contentTemplate:
+          'Cleaning for room [RoomNumber] is incomplete. Assigned Housekeeper: [HouseKeeperName].',
+      },
+      {
+        code: 'CLEANING_COMPLETED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Cleaning Completed [RoomNumber]',
+        contentTemplate:
+          'Cleaning for room [RoomNumber] has been completed by Housekeeper: [HouseKeeperName].',
+      },
+      {
+        code: 'ROOM_INSPECTED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Inspected [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] has been inspected by Supervisor: [SupervisorName]. Status: [InspectionStatus].',
+      },
+      {
+        code: 'ROOM_DIRTY_HOUSEKEEPING',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Marked Dirty [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] has been marked as Dirty. Notified Housekeeping Team.',
+      },
+      {
+        code: 'HOUSEKEEPING_STATUS_CHANGED_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Housekeeping Status Changed [RoomNumber]',
+        contentTemplate:
+          'Housekeeping status for room [RoomNumber] changed from [OldStatus] to [NewStatus] by [ChangedBy].',
+      },
+      {
+        code: 'ROOM_READY_STAFF',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Ready [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] is now ready and available for assignment. Updated by [HousekeeperName].',
+      },
+      {
+        code: 'ROOM_BLOCKED_HOUSEKEEPING',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Blocked for Housekeeping [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] has been blocked for housekeeping. Reason: [Reason]. Blocked By: [ChangedBy].',
+      },
+      {
+        code: 'ROOM_INSPECTION_FAILED_HOUSEKEEPING',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Inspection Failed [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] inspection failed. Issues: [IssuesList]. Notified Housekeeping Team.',
+      },
+      {
+        code: 'ROOM_DIRTY_HOUSEKEEPING',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Room Marked Dirty [RoomNumber]',
+        contentTemplate:
+          'Room [RoomNumber] has been marked as Dirty. Notified Housekeeping Team.',
+      },
+      {
+        code: 'HOUSEKEEPING_STATUS_CHANGED_HOUSEKEEPING',
+        channel: 'IN_APP',
+        locale: 'en',
+        subjectTemplate: 'Housekeeping Status Changed [RoomNumber]',
+        contentTemplate:
+          'Housekeeping status for room [RoomNumber] changed from [OldStatus] to [NewStatus] by [ChangedBy].',
+      },
+     {
+      code: 'HOUSEKEEPING_ISSUE_DETECTED_STAFF',
+      channel: 'IN_APP',
+      locale: 'en',
+      subjectTemplate: 'Housekeeping Issue Detected [RoomNumber]',
+      contentTemplate:
+        'A housekeeping issue has been detected in room [RoomNumber]. Issue Details: [Description]. Please address promptly.',
+     },
+     {
+      code: 'ROOM_BLOCK_MODIFIED_STAFF',
+      channel: 'IN_APP',
+      locale: 'en',
+      subjectTemplate: 'Room Block Modified [RoomNumber]',
+      contentTemplate:
+        'The block status for room [RoomNumber] has been modified. Modified By: [ModifiedBy].',
+     },
+     {
+      code: 'ROOM_UNBLOCKED_STAFF',
+      channel: 'IN_APP',
+      locale: 'en',
+      subjectTemplate: 'Room Unblocked [RoomNumber]',
+      contentTemplate:
+        'Room [RoomNumber] has been unblocked and is now available for assignment. Unblocked By: [UnblockedBy].',
+     },
+     {
+      code: 'ROOM_BLOCK_MODIFIED_HOUSEKEEPING',
+      channel: 'IN_APP',
+      locale: 'en',
+      subjectTemplate: 'Room Block Modified [RoomNumber]',
+      contentTemplate:
+        'The block status for room [RoomNumber] has been modified. Modified By: [ModifiedBy].',
+     },
+     {
+      code: 'ROOM_UNBLOCKED_HOUSEKEEPING',
+      channel: 'IN_APP',
+      locale: 'en',
+      subjectTemplate: 'Room Unblocked [RoomNumber]',
+      contentTemplate:
+        'Room [RoomNumber] has been unblocked and is now available for assignment. Unblocked By: [UnblockedBy].',
+     },
+     {
+      code: 'LOST_AND_FOUND_ITEM_REPORTED',
+      channel: 'IN_APP',
+      locale: 'en',
+      subjectTemplate: 'Lost and Found Item Reported [ItemId]',
+      contentTemplate:
+        'A new lost and found item has been reported. Item ID: [ItemId], Description: [Description], Reported By: [ReportedBy].',
+     }
 
     ]
 

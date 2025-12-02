@@ -8,6 +8,7 @@ import LoggerService from '#services/logger_service'
 import RoomBlock from '#models/room_block'
 import HouseKeeper from '#models/house_keeper'
 import SupabaseService from '#services/supabase_service'
+import CheckInCheckOutNotificationService from '#services/notification_action_service'
 
 export default class RoomsController {
   private supabaseService: SupabaseService
@@ -1204,7 +1205,7 @@ export default class RoomsController {
    * Bulk Update - WITH BUSINESS LOGIC RESTRICTIONS
    */
 
-  async bulkUpdate({ request, response }: HttpContext) {
+  async bulkUpdate({ request, response,auth }: HttpContext) {
     try {
       const {
         room_ids,
@@ -1232,7 +1233,7 @@ export default class RoomsController {
       if (!operation) {
         return response.badRequest({ message: 'Operation is required' })
       }
-
+      const rooms = await Room.query().whereIn('id', room_ids)
       const roomsToUpdate = await Room.query().whereIn('id', room_ids)
 
       if (roomsToUpdate.length !== room_ids.length) {
@@ -1280,12 +1281,64 @@ export default class RoomsController {
 
       const updatedCount = await Room.query().whereIn('id', room_ids).update(updateData)
 
-      console.log(`Bulk update: ${operation} applied to ${updatedCount} rooms by user ${user_id}`, {
-        room_ids,
-        operation,
-        updateData,
-        timestamp: new Date().toISOString(),
-      })
+      const HousekeepingNotifService = CheckInCheckOutNotificationService
+
+      for (const room of rooms) {
+        const oldStatus:any = room.housekeepingStatus
+        const newStatus = updateData.housekeeping_status ?? oldStatus
+
+        try {
+          switch (newStatus) {
+            case 'clean':
+              await HousekeepingNotifService.notifyRoomReady(
+                room.id,
+                housekeeper_id || 0,
+                auth.user!.id
+              )
+              break
+
+            case 'dirty':
+              await HousekeepingNotifService.notifyRoomDirty(
+                room.id,
+                auth.user!.id,
+                'normal'
+              )
+              break
+
+            case 'inspected':
+              await HousekeepingNotifService.notifyRoomInspected(
+                room.id,
+                auth.user!.id,
+                true,
+
+              )
+              break
+
+            case 'out_of_order':
+              await HousekeepingNotifService.notifyRoomBlocked(
+                room.id,
+                auth.user!.id,
+                'Maintenance requise',
+
+              )
+              break
+          }
+
+          // Notification de changement de statut
+          if (oldStatus !== newStatus) {
+            await HousekeepingNotifService.notifyStatusChange(
+              room.id,
+              oldStatus,
+              newStatus,
+              auth.user!.id,
+
+            )
+          }
+
+        } catch (notifError) {
+          console.error(`Notification error for room ${room.id}:`, notifError)
+        }
+      }
 
       return response.ok({
         message: `Successfully updated ${updatedCount} rooms`,
@@ -1337,7 +1390,7 @@ export default class RoomsController {
    * Update housekeeping status - WITH RESTRICTIONS
    */
 
-  public async updateHousekeepingStatus({ params, request, response }: HttpContext) {
+  public async updateHousekeepingStatus({ params, request, response,auth }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
 
@@ -1385,6 +1438,21 @@ export default class RoomsController {
       //  Sauvegarder le tableau mis à jour
       room.housekeepingRemarks = currentRemarks
       await room.save()
+
+      //notifications
+
+      try {
+        await CheckInCheckOutNotificationService.notifyIssueDetected(
+          room.id,
+          auth.user!.id,
+          data?.remark || 'Nouvelle remarque détectée',
+
+        )
+      } catch (notifError) {
+        console.error(`Notification error for room ${room.id}:`, notifError)
+      }
+
+
 
       return response.ok({
         message: 'Housekeeping status updated successfully',
