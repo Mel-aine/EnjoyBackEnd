@@ -2857,14 +2857,15 @@ export default class ReportsController {
     const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
   
-    // Helper function for currency formatting
+    // Helper: French number formatting with no decimals, no currency name
     const formatCurrency = (amount: number | null | undefined): string => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return '0.00'
+      const num = Number(amount)
+      if (!isFinite(num)) {
+        return '0'
       }
-      return amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+      return num.toLocaleString('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
       })
     }
   
