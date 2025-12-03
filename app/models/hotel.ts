@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, hasMany, belongsTo, beforeCreate, manyToMany } from '@adonisjs/lucid/orm'
+import crypto from 'crypto'
 import type { HasMany, BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import RoomType from './room_type.js'
 import Room from './room.js'
@@ -106,6 +107,9 @@ export default class Hotel extends BaseModel {
 
   @column({ columnName: 'logo_url' })
   declare logoUrl: string | null
+
+  @column({ columnName: 'pos_api_key' })
+  declare posApiKey: string | null
 
   @column({
     columnName: 'contact_info',
@@ -511,6 +515,23 @@ export default class Hotel extends BaseModel {
       }
 
       hotel.hotelCode = hotelCode
+    }
+  }
+
+  @beforeCreate()
+  static async generatePosApiKey(hotel: Hotel) {
+    if (!hotel.posApiKey) {
+      let isUnique = false
+      let candidate = ''
+
+      // Loop until a unique key is found (extremely unlikely to collide, but safer)
+      while (!isUnique) {
+        candidate = crypto.randomBytes(32).toString('hex')
+        const exists = await Hotel.query().where('pos_api_key', candidate).first()
+        isUnique = !exists
+      }
+
+      hotel.posApiKey = candidate
     }
   }
 

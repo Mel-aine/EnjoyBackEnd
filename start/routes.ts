@@ -558,29 +558,6 @@ router
         usersController.getClientsByService.bind(usersController)
       )
     })
-
-    /* router.group(() => {
-       router.get(
-         '/employment_contracts',
-         employmentContractController.getMultiple.bind(employmentContractController)
-       )
-       router.get(
-         '/employment_contracts/:id',
-         employmentContractController.getOne.bind(employmentContractController)
-       )
-       router.post(
-         '/employment_contracts',
-         employmentContractController.save.bind(employmentContractController)
-       )
-       router.put(
-         '/employment_contracts/:id',
-         employmentContractController.update.bind(employmentContractController)
-       )
-       router.put(
-         '/employment_contracts/:id/terminate',
-         employmentContractController.terminate.bind(employmentContractController)
-       )
-     })*/
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
       router.get('/payroll/:id', payrollController.getOne.bind(payrollController))
@@ -676,27 +653,6 @@ router
       router.put('/movement/:id', mouvementsController.update.bind(mouvementsController))
       router.delete('/movement/:id', mouvementsController.destroy.bind(mouvementsController))
     })
-
-    // TODO: Implement services controller routes
-    // router.group(() => {
-    //   router.post('/services', servicesController.store.bind(servicesController))
-    //   router.get('/servicesByCategory/:categoryId', servicesController.showByCategorie.bind(servicesController))
-    //   router.get('/services/:id', servicesController.show.bind(servicesController))
-    //   router.patch('/services/:id', servicesController.update.bind(servicesController))
-    //   router.delete('/services/:id', servicesController.destroy.bind(servicesController))
-    //   router.get('/services/customer/:serviceId', servicesController.customers.bind(servicesController))
-    //   router.get('/servicesWithServiceProduct', servicesController.getServicesWithProductsAndOptions.bind(servicesController))
-    //   router.get('/services/:serviceId/departments/:departmentId/details', departmentsController.getDepartmentDetails.bind(departmentsController))
-    // })
-
-    // TODO: Implement TypeProductsController
-    // Type product routes will be added once the controller is implemented
-
-    // TODO: Implement ServiceProductsController
-    // Service product routes will be added once the controller is implemented
-
-    // TODO: Implement reservations routes
-    // Reservations routes will be added once properly configured
 
     router.group(() => {
       router.get('/activity-logs', activityLogsController.index.bind(activityLogsController))

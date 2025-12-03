@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
+import Hotel from '#models/hotel'
 
 /**
  * API Key authentication middleware for POS routes
@@ -13,32 +14,34 @@ export default class ApiKeyMiddleware {
     const { request, response } = ctx
     
     // Get API key from headers
-    const apiKey = request.header('x-api-key') || request.header('api-key')
+    const apiKey = request.header('x-pos-api-key')
     
     if (!apiKey) {
       return response.status(401).json({
         success: false,
-        message: 'API key is required',
-        error: 'Missing API key in request headers'
+        message: 'POS API key is required',
+        error: 'Missing x-pos-api-key in request headers'
       })
     }
     
-    // Validate API key (you can customize this validation logic)
-    const validApiKeys = [
-      process.env.POS_API_KEY,
-      process.env.MASTER_API_KEY,
-      // Add more valid API keys as needed
-    ].filter(Boolean)
-    
-    if (!validApiKeys.includes(apiKey)) {
+    // Find the hotel by POS API key only (no route param needed)
+    const hotel = await Hotel.query()
+      .select(['id', 'pos_api_key'])
+      .where('pos_api_key', apiKey!)
+      .first()
+
+    if (!hotel) {
       return response.status(401).json({
         success: false,
-        message: 'Invalid API key',
-        error: 'The provided API key is not valid'
+        message: 'Invalid POS API key',
+        error: 'No hotel found for provided x-pos-api-key'
       })
     }
-    
-    // API key is valid, proceed to next middleware/controller
+
+    // Attach the hotel to context for downstream handlers
+    ;(ctx as any).hotel = hotel
+
+    // Proceed
     await next()
   }
 }
