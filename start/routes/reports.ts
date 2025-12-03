@@ -20,6 +20,7 @@ const DailyReceiptReportsController = () => import('#controllers/daily_receipt_r
 const WorkOrderReportsController = () => import('#controllers/work_order_reports_controller')
 const RoomStatusReportsController = () => import('#controllers/room_status_controller')
 const ReservationReportsController = () => import('#controllers/reservation_reports_controller')
+const HotelHistoriesController = () => import('#controllers/hotel_histories_controller')
 
 
 // Group all report routes under /api/reports prefix
@@ -283,6 +284,12 @@ router.group(() => {
     router.post('/completed', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersCompleted')
     router.post('/summary', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersSummary')
   }).prefix('/work-orders')
+
+  // Hotel Histories Reports
+  router.group(() => {
+    // Get hotel histories with pagination and filters
+    router.get('/', [HotelHistoriesController, 'index'])
+  }).prefix('/hotel-histories')
 
 }).prefix('/api/reports').use(middleware.auth())
 // Temporarily disabled auth for testing
