@@ -1,40 +1,17 @@
+<!-- resources/views/reports/revenue_byRateType.edge -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Revenue by Room Type</title>
+  <title>Revenue by Rate Type - {{ hotelName }}</title>
   <style>
+    /* Copier le style CSS du template HTML fourni */
     body {
       font-family: Arial, sans-serif;
       font-size: 10px;
       margin: 0;
-      padding: 20px;
-      color: #000;
+      padding: 0px 20px 0px 20px;
       background: #fff;
-    }
-    
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 5px;
-      border-bottom: 2px solid #000;
-    }
-    
-    .header-left {
-      font-size: 11px;
-      font-weight: bold;
-    }
-    
-    .header-right {
-      font-size: 11px;
-      font-weight: normal;
-    }
-    
-    .date-range {
-      margin-bottom: 15px;
-      font-size: 9px;
     }
     
     table {
@@ -49,7 +26,6 @@
       padding: 6px 4px;
       text-align: center;
       font-weight: bold;
-      border-top: 1px solid #000;
       border-bottom: 1px solid #000;
       font-size: 8px;
     }
@@ -84,14 +60,6 @@
       padding: 8px 4px;
     }
     
-    .footer {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 30px;
-      padding-top: 10px;
-      border-top: 1px solid #000;
-      font-size: 9px;
-    }
     
     .number {
       text-align: right;
@@ -103,173 +71,53 @@
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    <div class="header-left">TAMI SARL (SUITA HOTEL)</div>
-    <div class="header-right">Revenue by Room Type</div>
-  </div>
-  
-  <!-- Date Range -->
-  <div class="date-range">
-    As on Date 01-12-2025&nbsp;&nbsp;&nbsp;PTD 01-12-2025&nbsp;&nbsp;To 01-12-2025&nbsp;&nbsp;&nbsp;YTD 01-01-2025&nbsp;&nbsp;To 01-12-2025
-  </div>
-  
+
   <!-- Main Table -->
   <table>
     <thead>
       <tr>
-        <th rowspan="2" style="width: 12%;">Room Type</th>
+        <th rowspan="2" style="width: 12%;">Rate Type</th>
         <th style="width: 5%;">Room<br>Nights</th>
         <th style="width: 3%;">%</th>
-        <th style="width: 7%;">Room<br>Revenue<br>(XAF)</th>
+        <th style="width: 7%;">Room<br>Revenue<br>({{ currency }})</th>
         <th style="width: 3%;">%</th>
         <th style="width: 5%;">ADR</th>
         <th style="width: 5%;">PTD Room<br>Nights</th>
         <th style="width: 3%;">%</th>
-        <th style="width: 7%;">PTD Room<br>Revenue<br>(XAF)</th>
+        <th style="width: 7%;">PTD Room<br>Revenue<br>({{ currency }})</th>
         <th style="width: 3%;">%</th>
         <th style="width: 5%;">PTD ADR</th>
         <th style="width: 5%;">YTD<br>Room<br>Nights</th>
         <th style="width: 3%;">%</th>
-        <th style="width: 7%;">YTD<br>Room<br>Revenue<br>(XAF)</th>
+        <th style="width: 7%;">YTD<br>Room<br>Revenue<br>({{ currency }})</th>
         <th style="width: 3%;">%</th>
         <th style="width: 5%;">YTD ADR</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>Default Unmapped Room</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-      </tr>
-      <tr>
-        <td>Deluxe</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-      </tr>
-      <tr>
-        <td>Lifestyle Suite</td>
-        <td class="number">5</td>
-        <td class="percentage">26</td>
-        <td class="number">258825</td>
-        <td class="percentage">37</td>
-        <td class="number">51765</td>
-        <td class="number">5</td>
-        <td class="percentage">26</td>
-        <td class="number">258825</td>
-        <td class="percentage">37</td>
-        <td class="number">51765</td>
-        <td class="number">2193</td>
-        <td class="percentage">33</td>
-        <td class="number">121000597</td>
-        <td class="percentage">35</td>
-        <td class="number">55175</td>
-      </tr>
-      <tr>
-        <td>Home Suite Sharing</td>
-        <td class="number">14</td>
-        <td class="percentage">73</td>
-        <td class="number">439598</td>
-        <td class="percentage">62</td>
-        <td class="number">31399</td>
-        <td class="number">14</td>
-        <td class="percentage">73</td>
-        <td class="number">439598</td>
-        <td class="percentage">62</td>
-        <td class="number">31399</td>
-        <td class="number">4323</td>
-        <td class="percentage">66</td>
-        <td class="number">201955695</td>
-        <td class="percentage">59</td>
-        <td class="number">46716</td>
-      </tr>
-      <tr>
-        <td>Salles de Conférence</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">18400941</td>
-        <td class="percentage">5</td>
-        <td class="number">0</td>
-      </tr>
-      <tr>
-        <td>Espace Piscine</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="percentage">0</td>
-        <td class="number">0</td>
-        <td class="number">24.5</td>
-        <td class="percentage">0</td>
-        <td class="number">167757</td>
-        <td class="percentage">0</td>
-        <td class="number">6847</td>
-      </tr>
-      <tr class="total-row">
-        <td><strong>Total</strong></td>
-        <td class="number"><strong>19</strong></td>
-        <td class="percentage"><strong>100</strong></td>
-        <td class="number"><strong>698 423</strong></td>
-        <td class="percentage"><strong>100</strong></td>
-        <td class="number"><strong>36759</strong></td>
-        <td class="number"><strong>19</strong></td>
-        <td class="percentage"><strong>100</strong></td>
-        <td class="number"><strong>698 423</strong></td>
-        <td class="percentage"><strong>100</strong></td>
-        <td class="number"><strong>36759</strong></td>
-        <td class="number"><strong>6540.5</strong></td>
-        <td class="percentage"><strong>100</strong></td>
-        <td class="number"><strong>341 524 990</strong></td>
-        <td class="percentage"><strong>100</strong></td>
-        <td class="number"><strong>52216</strong></td>
-      </tr>
+      @each(rateType in revenueData.rateTypes)
+        <tr>
+          <td>{{ rateType.rateTypeName }}</td>
+          <td class="number">{{ rateType.today.roomNights }}</td>
+          <td class="percentage">{{ rateType.today.percentageRoomNights }}</td>
+          <td class="number">{{ formatCurrency(rateType.today.roomRevenue) }}</td>
+          <td class="percentage">{{ rateType.today.percentageRevenue }}</td>
+          <td class="number">{{ formatCurrency(rateType.today.adr) }}</td>
+          <td class="number">{{ rateType.ptd.roomNights }}</td>
+          <td class="percentage">{{ rateType.ptd.percentageRoomNights }}</td>
+          <td class="number">{{ formatCurrency(rateType.ptd.roomRevenue) }}</td>
+          <td class="percentage">{{ rateType.ptd.percentageRevenue }}</td>
+          <td class="number">{{ formatCurrency(rateType.ptd.adr) }}</td>
+          <td class="number">{{ rateType.ytd.roomNights }}</td>
+          <td class="percentage">{{ rateType.ytd.percentageRoomNights }}</td>
+          <td class="number">{{ formatCurrency(rateType.ytd.roomRevenue) }}</td>
+          <td class="percentage">{{ rateType.ytd.percentageRevenue }}</td>
+          <td class="number">{{ formatCurrency(rateType.ytd.adr) }}</td>
+        </tr>
+      @endeach
+      
     </tbody>
   </table>
   
-  <!-- Footer -->
-  <div class="footer">
-    <div>Printed By : configuration on 01-12-2025 12:45:31</div>
-    <div>Page 1 of 1</div>
-  </div>
 </body>
 </html>
