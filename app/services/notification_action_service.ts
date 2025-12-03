@@ -379,7 +379,7 @@ static async notifyPaxChange(
 
     for (const role of staffRoles) {
       const staffMembers = await HotelStaff.query().where('role_id', role.id)
-        console.log(' Staff :', staffMembers)
+
 
       for (const staff of staffMembers) {
         staffRecipients.push({ recipientType: 'STAFF', recipientId: staff.user_id })
