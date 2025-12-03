@@ -1318,6 +1318,7 @@ export default class FolioService {
         hotelId: folio.hotelId,
         folioId: data.folioId,
         reservationId: folio.reservationId!,
+        reservationRoomId: folio.reservationRoomId ?? null,
         transactionNumber,
         transactionCode: transactionNumber.toString(),
         transactionType: TransactionType.CHARGE,

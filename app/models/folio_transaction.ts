@@ -8,6 +8,7 @@ import PaymentMethod from './payment_method.js'
 import User from './user.js'
 import Discount from './discount.js'
 import Guest from './guest.js'
+import ReservationRoom from './reservation_room.js'
 import TaxRate from './tax_rate.js'
 import ExtraCharge from './extra_charge.js'
 import TransactionHook from '../hooks/transaction_hooks.js'
@@ -192,6 +193,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column()
   declare reservationId: number | null
+
+  @column({ columnName: 'reservation_room_id' })
+  declare reservationRoomId: number | null
 
   @column()
   declare groupId: number
@@ -446,6 +450,9 @@ export default class FolioTransaction extends BaseModel {
 
   @belongsTo(() => Folio)
   declare folio: BelongsTo<typeof Folio>
+
+  @belongsTo(() => ReservationRoom, { foreignKey: 'reservationRoomId' })
+  declare reservationRoom: BelongsTo<typeof ReservationRoom>
 
   @belongsTo(() => PaymentMethod)
   declare paymentMethod: BelongsTo<typeof PaymentMethod>

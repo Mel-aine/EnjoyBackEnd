@@ -443,6 +443,9 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'void_notes' })
   declare voidNotes: string | null
 
+  @column({ columnName: 'split_reservation_id' })
+  declare splitReservationId: number | null
+
   @column({ columnName: 'tax_exempt' })
   declare taxExempt: boolean
 

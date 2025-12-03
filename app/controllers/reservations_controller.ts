@@ -4049,22 +4049,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
       try {
         const NotificationService = (await import('#services/notification_service')).default
 
-      // Notifier le guest si la réservation a un guest associé
-      if (reservation.guestId) {
-        const variables = await NotificationService.buildVariables('STAY_AMENDED', {
-          hotelId: reservation.hotelId,
-          reservationId: reservation.id,
-          guestId: reservation.guestId,
-          extra: {
-            ReservationNumber: reservation.reservationNumber || '',
-            OldArrivalDate: originalData.arrivalDate?.toFormat('yyyy-MM-dd') || '' ,
-            ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '' ,
-            OldDepartureDate: originalData.departureDate?.toFormat('yyyy-MM-dd') || '',
-            DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
-            Reason: reason || 'Stay amendment requested',
-            AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
-          },
-        })
+        // Notifier le guest si la réservation a un guest associé
+        if (reservation.guestId) {
+          const variables = await NotificationService.buildVariables('STAY_AMENDED', {
+            hotelId: reservation.hotelId,
+            reservationId: reservation.id,
+            guestId: reservation.guestId,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || '',
+              OldArrivalDate: originalData.arrivalDate?.toFormat('yyyy-MM-dd') || '',
+              ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '',
+              OldDepartureDate: originalData.departureDate?.toFormat('yyyy-MM-dd') || '',
+              DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
+              Reason: reason || 'Stay amendment requested',
+              AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
+            },
+          })
 
           await NotificationService.sendWithTemplate({
             templateCode: 'STAY_AMENDED',
@@ -4078,20 +4078,20 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
 
-      // Notifier le staff
-      const variables = await NotificationService.buildVariables('STAY_AMENDED_STAFF', {
-        hotelId: reservation.hotelId,
-        reservationId: reservation.id,
-        extra: {
-          ReservationNumber: reservation.reservationNumber || '',
-          ArrivalDate : newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '' ,
-          DepartureDate : newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '' ,
-          GuestName: reservation.guestId ? 'Guest' : 'N/A',
-          AffectedRooms: amendedRooms,
-          Changes: logDescription,
-          AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
-        },
-      })
+        // Notifier le staff
+        const variables = await NotificationService.buildVariables('STAY_AMENDED_STAFF', {
+          hotelId: reservation.hotelId,
+          reservationId: reservation.id,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || '',
+            ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '',
+            DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
+            GuestName: reservation.guestId ? 'Guest' : 'N/A',
+            AffectedRooms: amendedRooms,
+            Changes: logDescription,
+            AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
+          },
+        })
 
         await NotificationService.sendWithTemplate({
           templateCode: 'STAY_AMENDED_STAFF',
@@ -4296,7 +4296,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           lastModifiedBy: auth.user?.id!,
           notes: `Moved to room ${newRoom.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
         })
-        .useTransaction(trx)
         .save()
 
       // Calculate number of nights between moveDate and the existing check-out
@@ -4327,8 +4326,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             reservationNumber: newReservationNumber,
             confirmationNumber: newConfirmationNumber,
             channexBookingId: reservation.channexBookingId,
-            arrivedDate: moveDate,
-            departDate: currentCheckOutDate,
+            arrivedDate: reservation.arrivedDate,
+            departDate: reservation.departDate,
             checkInDate: moveDate,
             checkOutDate: currentCheckOutDate,
             // Checking time: preserve the original actual check-in time for continuity
@@ -4338,7 +4337,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             arrivingTo: reservation.arrivingTo,
             goingTo: reservation.goingTo,
             meansOfTransportation: reservation.meansOfTransportation,
-            numberOfNights: numberOfNights,
+            numberOfNights: reservation.numberOfNights,
             adults: reservation.adults ?? currentReservationRoom.adults,
             children: reservation.children ?? currentReservationRoom.children,
             infants: reservation.infants ?? 0,
@@ -4355,22 +4354,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
             reservedBy: auth.user?.id || reservation.reservedBy || null,
             createdBy: auth.user?.id || reservation.createdBy || null,
             lastModifiedBy: auth.user?.id!,
-          },
-          { client: trx }
+            splitReservationId: reservation.id,
+          }
         )
 
         targetReservationId = newReservationRecord.id
 
-        // Mark the old reservation as checked out
+        // Mark the old reservation as checked out and link split to new reservation
         await reservation
           .merge({
             status: ReservationStatus.CHECKED_OUT,
             checkOutDate: moveDate,
-            departDate: moveDate,
+            // departDate: moveDate,
             checkedOutBy: auth.user?.id!,
             lastModifiedBy: auth.user?.id!,
+            splitReservationId: newReservationRecord.id,
           })
-          .useTransaction(trx)
           .save()
       }
 
@@ -4401,257 +4400,50 @@ export default class ReservationsController extends CrudController<typeof Reserv
           rateTypeId: currentReservationRoom.rateTypeId,
           reservedByUser: auth.user?.id,
           notes: `Moved from room ${currentReservationRoom.room.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
-        },
-        { client: trx }
-      )
+        })
 
-      // Transfer folio balance from old room folio (R-OLD) to new room folio (R-NEW)
-      // 1) Identify source (old) folio tied to the current reservation room
-      let sourceFolio = await Folio.query({ client: trx })
+      // Reassign ALL open folios on the reservation to the new reservation/room
+      const openFolios = await Folio.query()
         .where('reservationId', reservation.id)
-        .where('reservationRoomId', currentReservationRoom.id)
-        .where('status', FolioStatus.OPEN)
-        .orderBy('id', 'desc')
-        .first()
+      if (openFolios.length > 0) {
+        const transferNote = `Room move (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber}) on ${moveDate.toISODate()}${reason ? ' - ' + reason : ''}`
 
-      // Fallback to any open folio on the reservation if room-specific folio not found
-      if (!sourceFolio) {
-        sourceFolio = await Folio.query({ client: trx })
-          .where('reservationId', reservation.id)
-          .where('status', FolioStatus.OPEN)
-          .orderBy('id', 'desc')
-          .first()
-      }
-
-      // 2) Ensure destination (new) folio exists for the new reservation room
-      let destinationFolio = await Folio.query({ client: trx })
-        .where('reservationId', targetReservationId)
-        .where('reservationRoomId', newReservationRoom.id)
-        .where('status', FolioStatus.OPEN)
-        .orderBy('id', 'desc')
-        .first()
-
-      if (!destinationFolio) {
-        // Create folio using the SAME transaction to avoid FK visibility issues
-        destinationFolio = await Folio.create({
-          hotelId: reservation.hotelId,
-          guestId: currentReservationRoom.guestId!,
-          reservationId: targetReservationId,
-          reservationRoomId: newReservationRoom.id,
-          folioNumber: `F${reservation.hotelId}-${Date.now()}`,
-          folioName: `Folio for room ${newRoom.roomNumber}`,
-          folioType: FolioType.GUEST,
-          status: FolioStatus.OPEN,
-          settlementStatus: SettlementStatus.PENDING,
-          workflowStatus: WorkflowStatus.ACTIVE,
-          openedDate: DateTime.now(),
-          openedBy: auth.user?.id,
-          totalCharges: 0,
-          totalPayments: 0,
-          totalAdjustments: 0,
-          totalTaxes: 0,
-          totalServiceCharges: 0,
-          totalDiscounts: 0,
-          balance: 0,
-          creditLimit: 0,
-          notes: `Auto-created after room move to ${newRoom.roomNumber}`,
-          createdBy: auth.user?.id,
-          lastModifiedBy: auth.user?.id,
-        }, { client: trx })
-      }
-
-      // 3) Compute outstanding balance on source folio and transfer to destination folio
-      if (sourceFolio) {
-        // Recompute totals to ensure balance is current before transfer
-        // (guards against stale totals)
-        try {
-          const anyFolioService: any = FolioService as any
-          if (anyFolioService.updateFolioTotals) {
-            await anyFolioService.updateFolioTotals(sourceFolio.id, trx)
-          }
-        } catch { }
-
-        // Refresh source folio after totals update and preload transactions
-        sourceFolio = await Folio.query({ client: trx })
-          .where('id', sourceFolio.id)
-          .preload('transactions', (query) => query
-            .where('status', '!=', TransactionStatus.VOIDED)
-            .orderBy('id', 'asc'))
-          .firstOrFail()
-        await trx.commit()
-
-        // Calculate balance using calculateBalanceSummary to ensure transfers are handled
-        const balanceSummary = ReservationsController.calculateBalanceSummary([sourceFolio])
-        const amountToTransfer = Math.abs(balanceSummary.outstandingBalance || 0)
-
-        // If payments exist on the source folio, move ALL transactions to the destination folio
-        const hasPayments = await FolioTransaction.query()
-          .where('folioId', sourceFolio.id)
-          .where('status', '!=', TransactionStatus.VOIDED)
-          .where('transactionType', TransactionType.PAYMENT)
-          .first()
-
-        if (!hasPayments) {
-          const transferNote = `Transferred due to room move (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber}) on ${moveDate.toISODate()}${reason ? ' - ' + reason : ''}`
-
-          // Fetch transactions to safely append description and move folio without Raw objects
-          const transactionsToMove = await FolioTransaction.query()
-            .where('folioId', sourceFolio.id)
-            .where('status', '!=', TransactionStatus.VOIDED)
-
-          for (const t of transactionsToMove) {
-            const newDescription = t.description && t.description.length > 0
-              ? `${t.description} | ${transferNote}`
-              : transferNote
-
-            await db.from('folio_transactions')
-              .where('id', t.id)
-              .update({
-                description: newDescription,
-                folio_id: destinationFolio.id,
-                last_modified_by: auth.user?.id || 1,
-                updated_at: DateTime.now(),
-              })
-          }
-          // Recompute totals for both folios after move
-          const recomputeTotals = async (folioId: number) => {
-            const transactions = await FolioTransaction.query()
-              .where('folioId', folioId)
-              .where('status', '!=', TransactionStatus.VOIDED)
-
-            let totalCharges = 0
-            let totalPayments = 0
-            let totalAdjustments = 0
-            let totalTaxes = 0
-            let totalServiceCharges = 0
-            let totalDiscounts = 0
-
-            for (const transaction of transactions) {
-              if (transaction.transactionType === TransactionType.CHARGE) {
-                totalCharges += parseFloat(`${transaction.amount}`) || 0
-              } else if (transaction.transactionType === TransactionType.PAYMENT) {
-                totalPayments += Math.abs(parseFloat(`${transaction.amount}`) || 0
-                )
-              } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
-                totalAdjustments += parseFloat(`${transaction.amount}`) || 0
-              }
-              totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
-              totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
-              totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
-            }
-
-            const balance = totalCharges + totalAdjustments - totalPayments
-
-            await Folio.query()
-              .where('id', folioId)
-              .update({
-                totalCharges,
-                totalPayments,
-                totalAdjustments,
-                totalTaxes,
-                totalServiceCharges,
-                totalDiscounts,
-                balance,
-              })
-          }
-
-          await recomputeTotals(sourceFolio.id)
-          await recomputeTotals(destinationFolio.id)
-
-          const refreshedSource = await Folio.query()
-            .where('id', sourceFolio.id)
-            .firstOrFail()
-          if ((refreshedSource.balance || 0) <= 0) {
-            await refreshedSource.merge({
-              status: FolioStatus.CLOSED,
-              workflowStatus: WorkflowStatus.FINALIZED,
-              closedDate: DateTime.now(),
-              finalizedDate: DateTime.now(),
-              closedBy: auth.user?.id || 1,
-            }).save()
-          }
-        } else {
-          // Payments exist on source folio: move all non-voided transactions to destination folio,
-          // appending transfer note for audit trail, then recompute totals.
-          const transferNote = `Transferred due to room move (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber}) on ${moveDate.toISODate()}${reason ? ' - ' + reason : ''}`
-
-          const transactionsToMove = await FolioTransaction.query()
-            .where('folioId', sourceFolio.id)
-            .where('status', '!=', TransactionStatus.VOIDED)
-
-          for (const t of transactionsToMove) {
-            const newDescription = t.description && t.description.length > 0
-              ? `${t.description} | ${transferNote}`
-              : transferNote
-
-            await db.from('folio_transactions')
-              .where('id', t.id)
-              .update({
-                description: newDescription,
-                folio_id: destinationFolio.id,
-                last_modified_by: auth.user?.id || 1,
-                updated_at: DateTime.now(),
-              })
-          }
-
-          // Recompute totals for both folios after move
-          const recomputeTotals = async (folioId: number) => {
-            const transactions = await FolioTransaction.query()
-              .where('folioId', folioId)
-              .where('status', '!=', TransactionStatus.VOIDED)
-
-            let totalCharges = 0
-            let totalPayments = 0
-            let totalAdjustments = 0
-            let totalTaxes = 0
-            let totalServiceCharges = 0
-            let totalDiscounts = 0
-
-            for (const transaction of transactions) {
-              if (transaction.transactionType === TransactionType.CHARGE) {
-                totalCharges += parseFloat(`${transaction.amount}`) || 0
-              } else if (transaction.transactionType === TransactionType.PAYMENT) {
-                totalPayments += Math.abs(parseFloat(`${transaction.amount}`) || 0)
-              } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
-                totalAdjustments += parseFloat(`${transaction.amount}`) || 0
-              }
-              totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
-              totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
-              totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
-            }
-
-            const balance = totalCharges + totalAdjustments - totalPayments
-
-            await Folio.query()
-              .where('id', folioId)
-              .update({
-                totalCharges,
-                totalPayments,
-                totalAdjustments,
-                totalTaxes,
-                totalServiceCharges,
-                totalDiscounts,
-                balance,
-              })
-          }
-
-          await recomputeTotals(sourceFolio.id)
-          await recomputeTotals(destinationFolio.id)
-
-          // Close source folio if balance is zero after move
-          const refreshedSource = await Folio.query()
-            .where('id', sourceFolio.id)
-            .firstOrFail()
-          if ((refreshedSource.balance || 0) <= 0) {
-            await refreshedSource.merge({
-              status: FolioStatus.CLOSED,
-              workflowStatus: WorkflowStatus.FINALIZED,
-              closedDate: DateTime.now(),
-              finalizedDate: DateTime.now(),
-              closedBy: auth.user?.id || 1,
-            }).save()
-          }
+        for (const f of openFolios) {
+          await db.from('folios')
+            .where('id', f.id)
+            .update({
+              reservation_id: targetReservationId,
+              reservation_room_id: newReservationRoom.id,
+              last_modified_by: auth.user?.id!,
+              updated_at: DateTime.now(),
+              notes: f.notes && f.notes.length > 0
+                ? `${f.notes} | ${transferNote}`
+                : transferNote,
+            })
         }
+      }
+
+      // Update reservation_id and reservation_room_id on future-dated transactions
+      // Criteria: transactions with posting_date >= today and belonging to these folios
+      const folioIdsToUpdate = openFolios.map((f) => f.id)
+      if (folioIdsToUpdate.length > 0) {
+        const todayIso = DateTime.now().toISODate()
+        await FolioTransaction.query()
+          .whereIn('folio_id', folioIdsToUpdate)
+          .update({
+            reservation_id: targetReservationId,
+            last_modified_by: auth.user?.id!,
+            updated_at: DateTime.now(),
+          })
+        await FolioTransaction.query()
+          .whereIn('folio_id', folioIdsToUpdate)
+          .where('posting_date', '>=', todayIso)
+          .update({
+            reservation_id: targetReservationId,
+            reservation_room_id: newReservationRoom.id,
+            last_modified_by: auth.user?.id!,
+            updated_at: DateTime.now(),
+          })
       }
 
 
@@ -4672,12 +4464,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         timestamp: DateTime.now(),
       }
 
-      console.log('Room Move Audit:', auditData)
-
-      // If there are any charges related to room move, create folio transactions
-      // This would depend on hotel policy - some hotels charge for room moves
-      // For now, we'll just log that charges may apply
-      console.log('Room move completed - check if any charges apply per hotel policy')
 
       await trx.commit()
 
@@ -4707,18 +4493,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       } catch { }
 
-      // Update folio transaction descriptions to reflect the new room number
-      try {
-        await ReservationFolioService.updateRoomChargeDescriptions(
-          currentReservationRoom.id,
-          newRoom.roomNumber,
-          auth.user?.id || 1
-        )
-      } catch (e) {
-        logger.warn('Failed to update room charge descriptions after room move: ' + (e as Error).message)
-      }
-
-
       //  Create audit log for room move
       const logDescription = `Room move performed by ${auth.user?.fullName || 'User ' + auth.user?.id}.
       Reservation #${reservation.reservationNumber}.
@@ -4740,7 +4514,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           newRoom: auditData.newRoom,
           reason: auditData.reason,
           effectiveDate: auditData.effectiveDate,
-          performedBy: auth.user?.id || 1,
+          performedBy: auth.user?.id!,
           timestamp: DateTime.now().toISO(),
         },
         ctx,
@@ -6251,20 +6025,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('transactionType', TransactionType.CHARGE)
         .where('status', '!=', TransactionStatus.VOIDED)
         .orderBy('transactionDate', 'asc')
-
+        .preload('reservationRoom', (query) => {
+          query.preload('room')
+        })
+      console.log('reservation', roomChargeTransactions)
       // Build room charges breakdown - one row per folio transaction
-      const roomChargesTable = []
+      const roomChargesTable: any = []
 
       for (const reservationRoom of reservation.reservationRooms) {
-        const stayDuration = reservationRoom.nights || 1
-        const totalAdults = reservationRoom.adults || 0
-        const totalChildren = reservationRoom.children || 0
+        const stayDuration = reservationRoom.nights
+        const totalAdults = reservationRoom.adults
+        const totalChildren = reservationRoom.children
 
         // Get room charge transactions for this specific room
         const roomTransactions = roomChargeTransactions.filter(
           (transaction) =>
-            transaction.roomNumber === reservationRoom.room?.roomNumber ||
-            transaction.description?.includes(reservationRoom.room?.roomNumber || '')
+            transaction.reservationRoomId === reservationRoom.id
         )
 
         // Create a row for each folio transaction
@@ -6281,14 +6057,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
               transactionNumber: transaction.transactionNumber,
               transactionDate: transaction.transactionDate?.toISODate(),
               stay: {
-                checkInDate: reservationRoom.checkInDate?.toISODate(),
-                checkOutDate: reservationRoom.checkOutDate?.toISODate(),
+                checkInDate: transaction.reservationRoom.checkInDate?.toISODate(),
+                checkOutDate: transaction.reservationRoom.checkOutDate?.toISODate(),
                 nights: stayDuration,
               },
               room: {
-                roomNumber: reservationRoom.room?.roomNumber || transaction.roomNumber,
-                roomType: reservationRoom.roomType?.roomTypeName,
-                roomId: reservationRoom.room?.id,
+                roomNumber: transaction.reservationRoom.room?.roomNumber || transaction.roomNumber,
+                roomType: transaction.reservationRoom.roomType?.roomTypeName,
+                roomId: transaction.reservationRoom.room?.id,
               },
               rateType: {
                 ratePlanName: reservationRoom.roomRates?.rateType?.rateTypeName,
@@ -6304,63 +6080,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
               description: transaction.description,
             })
           })
-        } else {
-          // Fallback: create one row from reservation room data if no transactions found
-          const baseRoomRate = reservationRoom.roomRate || 0
-          const roomCharges = reservationRoom.roomCharges || baseRoomRate * stayDuration
-          const discountAmount = reservationRoom.discountAmount || 0
-          const taxAmount = reservationRoom.taxAmount || 0
-          const serviceChargeAmount = reservationRoom.serviceChargeAmount || 0
-          const adjustments =
-            (reservationRoom.earlyCheckInFee || 0) +
-            (reservationRoom.lateCheckOutFee || 0) +
-            (reservationRoom.otherCharges || 0)
-          const netAmount =
-            roomCharges - discountAmount + taxAmount + serviceChargeAmount + adjustments
-
-          roomChargesTable.push({
-            transactionId: null,
-            transactionNumber: 'N/A',
-            transactionDate: null,
-            stay: {
-              checkInDate: reservationRoom.checkInDate?.toISODate(),
-              checkOutDate: reservationRoom.checkOutDate?.toISODate(),
-              nights: stayDuration,
-            },
-            room: {
-              roomNumber: reservationRoom.room?.roomNumber,
-              roomType: reservationRoom.roomType?.roomTypeName,
-              roomId: reservationRoom.room?.id,
-            },
-            rateType: {
-              ratePlanName: reservation.ratePlan?.planName,
-              ratePlanCode: reservation.ratePlan?.planCode,
-              rateAmount: reservationRoom.rateAmount || baseRoomRate,
-            },
-            pax: `${totalAdults}/${totalChildren}`,
-            charge: Number(roomCharges || 0),
-            discount: Number(discountAmount || 0),
-            tax: Number(taxAmount + serviceChargeAmount || 0),
-            adjustment: Number(adjustments || 0),
-            netAmount: Number(netAmount || 0),
-            description: 'Room Charge (from reservation data)',
-          })
         }
       }
 
       // Calculate summary totals
-      const totalCharges = roomChargesTable.reduce((sum, row) => sum + Number(row.charge || 0), 0)
+      const totalCharges = roomChargesTable?.reduce((sum: any, row: any) => sum + Number(row.charge || 0), 0)
       const totalDiscounts = roomChargesTable.reduce(
-        (sum, row) => sum + Number(row.discount || 0),
+        (sum: any, row: any) => sum + Number(row.discount || 0),
         0
       )
-      const totalTax = roomChargesTable.reduce((sum, row) => sum + Number(row.tax || 0), 0)
+      const totalTax = roomChargesTable.reduce((sum: any, row: any) => sum + Number(row.tax || 0), 0)
       const totalAdjustments = roomChargesTable.reduce(
-        (sum, row) => sum + Number(row.adjustment || 0),
+        (sum: any, row: any) => sum + Number(row.adjustment || 0),
         0
       )
       const totalNetAmount = roomChargesTable.reduce(
-        (sum, row) => sum + Number(row.netAmount || 0),
+        (sum: any, row: any) => sum + Number(row.netAmount || 0),
         0
       )
 
@@ -7217,7 +6952,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       if (payload.adults !== undefined) {
-       reservation.adults = payload.adults
+        reservation.adults = payload.adults
       }
       if (payload.children !== undefined) {
         reservation.children = payload.children
@@ -7342,7 +7077,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       await trx.commit()
       // Notifications
-   try {
+      try {
         const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
 
         // Notification de changement de tarif
