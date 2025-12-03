@@ -360,16 +360,20 @@ static async notifyPaxChange(
     const HotelStaffRole = (await import('#models/role')).default
     const HotelStaff = (await import('#models/service_user_assignment')).default
 
-    const staffRoles = await HotelStaffRole.query().where('hotel_id', hotelId)
+    const staffRoles = await HotelStaffRole.query().where('hotel_id', hotelId).orWhere((q) => {
+      q.whereRaw('LOWER(role_name) = ?', ['admin'])
+    })
 
 
     const staffRecipients: Array<{ recipientType: RecipientType; recipientId: number }> = []
 
+
     for (const role of staffRoles) {
       const staffMembers = await HotelStaff.query().where('role_id', role.id)
+        console.log(' Staff :', staffMembers)
 
       for (const staff of staffMembers) {
-        staffRecipients.push({ recipientType: 'STAFF', recipientId: staff.id })
+        staffRecipients.push({ recipientType: 'STAFF', recipientId: staff.user_id })
       }
     }
 
