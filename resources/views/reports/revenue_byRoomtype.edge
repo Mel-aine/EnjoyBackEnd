@@ -1,4 +1,4 @@
-<!-- resources/views/reports/revenue_byRateType.edge -->
+<!-- resources/views/reports/revenue_byRoomType.edge -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -96,26 +96,46 @@
       </tr>
     </thead>
     <tbody>
-       @each(roomType in revenueData.roomTypes)
+      @each(roomType in revenueData.revenueByRoomType)
         <tr>
           <td>{{ roomType.roomTypeName }}</td>
-          <td class="number">{{ roomType.today.roomNights }}</td>
-          <td class="percentage">{{ roomType.today.percentageRoomNights }}%</td>
-          <td class="number">{{ formatCurrency(roomType.today.roomRevenue) }}</td>
-          <td class="percentage">{{ roomType.today.percentageRevenue }}%</td>
-          <td class="number">{{ formatCurrency(roomType.today.adr) }}</td>
-           <td class="number">{{ roomType.ptd.roomNights }}</td>
-          <td class="percentage">{{ roomType.ptd.percentageRoomNights }}%</td>
-          <td class="number">{{ formatCurrency(roomType.ptd.roomRevenue) }}</td>
-          <td class="percentage">{{ roomType.ptd.percentageRevenue }}%</td>
-          <td class="number">{{ formatCurrency(roomType.ptd.adr) }}</td>
-          <td class="number">{{ roomType.ytd.roomNights }}</td>
-          <td class="percentage">{{ roomType.ytd.percentageRoomNights }}%</td>
-          <td class="number">{{ formatCurrency(roomType.ytd.roomRevenue) }}</td>
-          <td class="percentage">{{ roomType.ytd.percentageRevenue }}%</td>
-          <td class="number">{{ formatCurrency(roomType.ytd.adr) }}</td>
+          <td class="number">{{ roomType.asOnRoomNights }}</td>
+          <td class="percentage">{{ roomType.asOnPercentage > 0 ? roomType.asOnPercentage.toFixed(0) : 0 }}</td>
+          <td class="number">{{ formatCurrency(roomType.asOnRevenue) }}</td>
+          <td class="percentage">{{ roomType.asOnPercentage > 0 ? roomType.asOnPercentage.toFixed(0) : 0 }}</td>
+          <td class="number">{{ formatCurrency(roomType.asOnAdr) }}</td>
+          <td class="number">{{ roomType.ptdRoomNights }}</td>
+          <td class="percentage">{{ roomType.ptdPercentage > 0 ? roomType.ptdPercentage.toFixed(0) : 0 }}</td>
+          <td class="number">{{ formatCurrency(roomType.ptdRevenue) }}</td>
+          <td class="percentage">{{ roomType.ptdPercentage > 0 ? roomType.ptdPercentage.toFixed(0) : 0 }}</td>
+          <td class="number">{{ formatCurrency(roomType.ptdAdr) }}</td>
+          <td class="number">{{ roomType.ytdRoomNights }}</td>
+          <td class="percentage">{{ roomType.ytdPercentage > 0 ? roomType.ytdPercentage.toFixed(0) : 0 }}</td>
+          <td class="number">{{ formatCurrency(roomType.ytdRevenue) }}</td>
+          <td class="percentage">{{ roomType.ytdPercentage > 0 ? roomType.ytdPercentage.toFixed(0) : 0 }}</td>
+          <td class="number">{{ formatCurrency(roomType.ytdAdr) }}</td>
         </tr>
       @endeach
+      
+      <!-- Total Row -->
+      <tr class="total-row">
+        <td>Total</td>
+        <td class="number">{{ revenueData.totals.asOn.roomNights }}</td>
+        <td class="percentage">100</td>
+        <td class="number">{{ formatCurrency(revenueData.totals.asOn.revenue) }}</td>
+        <td class="percentage">100</td>
+        <td class="number">{{ formatCurrency(revenueData.totals.asOn.adr) }}</td>
+        <td class="number">{{ revenueData.totals.ptd.roomNights }}</td>
+        <td class="percentage">100</td>
+        <td class="number">{{ formatCurrency(revenueData.totals.ptd.revenue) }}</td>
+        <td class="percentage">100</td>
+        <td class="number">{{ formatCurrency(revenueData.totals.ptd.adr) }}</td>
+        <td class="number">{{ revenueData.totals.ytd.roomNights }}</td>
+        <td class="percentage">100</td>
+        <td class="number">{{ formatCurrency(revenueData.totals.ytd.revenue) }}</td>
+        <td class="percentage">100</td>
+        <td class="number">{{ formatCurrency(revenueData.totals.ytd.adr) }}</td>
+      </tr>
       
     </tbody>
   </table>

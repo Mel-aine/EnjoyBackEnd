@@ -4614,85 +4614,238 @@ export default class ReportsController {
    */
   private async getRevenueByRateTypeData(hotelId: number, reportDate: DateTime, rateTypeId?: string) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
-
-    let query = FolioTransaction.query()
-      .whereHas('folio', (folioQuery) => {
-        folioQuery.whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .whereHas('reservationRooms', (roomQuery) => {
-              roomQuery.whereHas('roomRates', (rateQuery) => {
-                if (rateTypeId) {
-                  rateQuery.whereHas('rateType', (rateTypeQuery) => {
-                    rateTypeQuery.where('id', rateTypeId)
-                  })
-                }
-              })
-            })
+    const { default: RateType } = await import('#models/rate_type')
+  
+    //  Récupérer TOUS les rate types de l'hôtel
+    let allRateTypes = await RateType.query()
+      .where('hotel_id', hotelId)
+      .orderBy('rate_type_name', 'asc')
+  
+    if (rateTypeId) {
+      allRateTypes = allRateTypes.filter(rt => rt.id === parseInt(rateTypeId))
+    }
+  
+    //  Définir les périodes
+    const asOnDate = reportDate.toFormat('yyyy-MM-dd')
+    const ptdStart = reportDate.startOf('month').toFormat('yyyy-MM-dd')
+    const ytdStart = reportDate.startOf('year').toFormat('yyyy-MM-dd')
+  
+    //  Fonction pour récupérer les transactions sur une période
+    const getTransactionsForPeriod = async (startDate: string, endDate: string) => {
+      return await FolioTransaction.query()
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservation', (reservationQuery) => {
+            reservationQuery.where('hotel_id', hotelId)
+          })
         })
-      })
-      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
-      .where('category', 'room')
-      .where('status', 'posted')
-      .distinctOn('folio_transactions.folio_id')
-      .preload('folio', (folioQuery: any) => {
-        folioQuery.preload('reservation', (reservationQuery: any) => {
-          reservationQuery.preload('reservationRooms', (roomQuery: any) => {
-            roomQuery.preload('roomRates', (rateQuery: any) => {
-              rateQuery.preload('rateType')
+        .whereBetween('transaction_date', [startDate, endDate])
+        .where('category', 'room')
+        .where('status', 'posted')
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('reservation', (reservationQuery: any) => {
+            reservationQuery.preload('reservationRooms', (roomQuery: any) => {
+              roomQuery.preload('roomRates', (rateQuery: any) => {
+                rateQuery.preload('rateType')
+              })
             })
           })
         })
-      })
-
-    const transactions = await query
-
-    // Group transactions by rate type
-    const revenueByRateType: any = {}
-    let totalRevenue = 0
-
-    for (const transaction of transactions) {
-      const reservation = transaction.folio.reservation
-      for (const reservationRoom of reservation.reservationRooms) {
-        const rateType = reservationRoom.roomRates.rateType
-        const rateTypeName = rateType?.rateTypeName
-
-        if (!revenueByRateType[rateTypeName]) {
-          revenueByRateType[rateTypeName] = {
-            rateTypeName,
-            rateTypeId: rateType?.id,
-            totalRevenue: 0,
-            transactionCount: 0,
-            averageRate: 0
-          }
-        }
-
-        const amount = Number(transaction.amount || 0)
-        revenueByRateType[rateTypeName].totalRevenue += amount
-        revenueByRateType[rateTypeName].transactionCount += 1
-        totalRevenue += amount
-
-      }
     }
-
-    // Calculate average rates
-    Object.values(revenueByRateType).forEach((rateTypeData: any) => {
-      rateTypeData.averageRate = rateTypeData.transactionCount > 0
-        ? rateTypeData.totalRevenue / rateTypeData.transactionCount
+  
+    //  Récupérer les transactions pour chaque période
+    const asOnTransactions = await getTransactionsForPeriod(asOnDate, asOnDate)
+    const ptdTransactions = await getTransactionsForPeriod(ptdStart, asOnDate)
+    const ytdTransactions = await getTransactionsForPeriod(ytdStart, asOnDate)
+  
+    //  Fonction pour calculer les métriques par rate type
+    const calculateMetrics = (transactions: any[]) => {
+      const metrics: any = {}
+      
+      for (const transaction of transactions) {
+        try {
+          const reservation = transaction.folio?.reservation
+          if (!reservation?.reservationRooms) continue
+  
+          for (const reservationRoom of reservation.reservationRooms) {
+            // roomRates peut être un tableau ou un objet
+            const roomRatesArray = Array.isArray(reservationRoom.roomRates) 
+              ? reservationRoom.roomRates 
+              : [reservationRoom.roomRates].filter(Boolean)
+  
+            for (const roomRate of roomRatesArray) {
+              const rateType = roomRate?.rateType
+              if (!rateType) continue
+  
+              const rateTypeId = rateType.id
+              const rateTypeName = rateType.rateTypeName || 'Unknown'
+  
+              if (!metrics[rateTypeId]) {
+                metrics[rateTypeId] = {
+                  rateTypeId,
+                  rateTypeName,
+                  roomNights: 0,
+                  revenue: 0,
+                  transactionCount: 0
+                }
+              }
+  
+              const amount = Number(transaction.amount || 0)
+              metrics[rateTypeId].revenue += amount
+              metrics[rateTypeId].roomNights += 1
+              metrics[rateTypeId].transactionCount += 1
+            }
+          }
+        } catch (error) {
+          console.error('Error processing transaction:', error)
+        }
+      }
+      
+      return metrics
+    }
+  
+    // Calculer les métriques pour chaque période
+    const asOnMetrics = calculateMetrics(asOnTransactions)
+    const ptdMetrics = calculateMetrics(ptdTransactions)
+    const ytdMetrics = calculateMetrics(ytdTransactions)
+  
+    //  Construire le rapport final avec TOUS les rate types
+    const revenueByRateType: any[] = []
+    let totals = {
+      asOn: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
+      ptd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
+      toDate: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
+      ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 }
+    }
+  
+    for (const rateType of allRateTypes) {
+      const rateTypeId = rateType.id
+      
+      // Données "As On Date"
+      const asOnData = asOnMetrics[rateTypeId] || { roomNights: 0, revenue: 0 }
+      
+      // Données "PTD" (Period To Date - du début du mois à la date du rapport)
+      const ptdData = ptdMetrics[rateTypeId] || { roomNights: 0, revenue: 0 }
+      
+      // Données "To Date" (même que PTD dans votre cas)
+      const toDateData = ptdData
+      
+      // Données "YTD" (Year To Date)
+      const ytdData = ytdMetrics[rateTypeId] || { roomNights: 0, revenue: 0 }
+  
+      // Calculer les ADR (Average Daily Rate)
+      const asOnAdr = asOnData.roomNights > 0 ? asOnData.revenue / asOnData.roomNights : 0
+      const ptdAdr = ptdData.roomNights > 0 ? ptdData.revenue / ptdData.roomNights : 0
+      const toDateAdr = toDateData.roomNights > 0 ? toDateData.revenue / toDateData.roomNights : 0
+      const ytdAdr = ytdData.roomNights > 0 ? ytdData.revenue / ytdData.roomNights : 0
+  
+      revenueByRateType.push({
+        rateTypeId: rateType.id,
+        rateTypeName: rateType.rateTypeName,
+        
+        // As On Date
+        asOnRoomNights: asOnData.roomNights,
+        asOnRevenue: asOnData.revenue,
+        asOnPercentage: 0, // Sera calculé après
+        asOnAdr: asOnAdr,
+        
+        // PTD (Period To Date)
+        ptdRoomNights: ptdData.roomNights,
+        ptdRevenue: ptdData.revenue,
+        ptdPercentage: 0,
+        ptdAdr: ptdAdr,
+        
+        // To Date (identique à PTD dans votre cas)
+        toDateRoomNights: toDateData.roomNights,
+        toDateRevenue: toDateData.revenue,
+        toDatePercentage: 0,
+        toDateAdr: toDateAdr,
+        
+        // YTD (Year To Date)
+        ytdRoomNights: ytdData.roomNights,
+        ytdRevenue: ytdData.revenue,
+        ytdPercentage: 0,
+        ytdAdr: ytdAdr
+      })
+  
+      // Accumuler les totaux
+      totals.asOn.roomNights += asOnData.roomNights
+      totals.asOn.revenue += asOnData.revenue
+      
+      totals.ptd.roomNights += ptdData.roomNights
+      totals.ptd.revenue += ptdData.revenue
+      
+      totals.toDate.roomNights += toDateData.roomNights
+      totals.toDate.revenue += toDateData.revenue
+      
+      totals.ytd.roomNights += ytdData.roomNights
+      totals.ytd.revenue += ytdData.revenue
+    }
+  
+    // 8. Calculer les pourcentages
+    for (const rateTypeData of revenueByRateType) {
+      rateTypeData.asOnPercentage = totals.asOn.revenue > 0 
+        ? (rateTypeData.asOnRevenue / totals.asOn.revenue) * 100 
         : 0
-    })
-
+      
+      rateTypeData.ptdPercentage = totals.ptd.revenue > 0 
+        ? (rateTypeData.ptdRevenue / totals.ptd.revenue) * 100 
+        : 0
+      
+      rateTypeData.toDatePercentage = totals.toDate.revenue > 0 
+        ? (rateTypeData.toDateRevenue / totals.toDate.revenue) * 100 
+        : 0
+      
+      rateTypeData.ytdPercentage = totals.ytd.revenue > 0 
+        ? (rateTypeData.ytdRevenue / totals.ytd.revenue) * 100 
+        : 0
+    }
+  
+    // Calculer les ADR totaux
+    totals.asOn.adr = totals.asOn.roomNights > 0 ? totals.asOn.revenue / totals.asOn.roomNights : 0
+    totals.ptd.adr = totals.ptd.roomNights > 0 ? totals.ptd.revenue / totals.ptd.roomNights : 0
+    totals.toDate.adr = totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
+    totals.ytd.adr = totals.ytd.roomNights > 0 ? totals.ytd.revenue / totals.ytd.roomNights : 0
+  
     return {
-      reportDate: reportDate.toFormat('yyyy-MM-dd'),
+      reportDate: asOnDate,
+      ptdStartDate: ptdStart,
+      ytdStartDate: ytdStart,
       hotelId,
       rateTypeId: rateTypeId || 'All Rate Types',
-      revenueByRateType: Object.values(revenueByRateType),
-      totalRevenue,
+      revenueByRateType,
+      totals: {
+        asOn: {
+          roomNights: totals.asOn.roomNights,
+          revenue: totals.asOn.revenue,
+          percentage: 100,
+          adr: totals.asOn.adr
+        },
+        ptd: {
+          roomNights: totals.ptd.roomNights,
+          revenue: totals.ptd.revenue,
+          percentage: 100,
+          adr: totals.ptd.adr
+        },
+        toDate: {
+          roomNights: totals.toDate.roomNights,
+          revenue: totals.toDate.revenue,
+          percentage: 100,
+          adr: totals.toDate.adr
+        },
+        ytd: {
+          roomNights: totals.ytd.roomNights,
+          revenue: totals.ytd.revenue,
+          percentage: 100,
+          adr: totals.ytd.adr
+        }
+      },
       summary: {
-        totalRateTypes: Object.keys(revenueByRateType).length,
-        totalTransactions: transactions.length,
-        averageRevenuePerRateType: Object.keys(revenueByRateType).length > 0
-          ? totalRevenue / Object.keys(revenueByRateType).length
-          : 0
+        totalRateTypes: allRateTypes.length,
+        totalTransactions: {
+          asOn: asOnTransactions.length,
+          ptd: ptdTransactions.length,
+          ytd: ytdTransactions.length
+        }
       }
     }
   }
@@ -4702,80 +4855,243 @@ export default class ReportsController {
    */
   private async getRevenueByRoomTypeData(hotelId: number, reportDate: DateTime, roomTypeId?: string) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
-
-    let query = FolioTransaction.query()
-      .whereHas('folio', (folioQuery: any) => {
-        folioQuery.whereHas('reservation', (reservationQuery: any) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .whereHas('reservationRooms', (roomQuery: any) => {
-              if (roomTypeId) {
+    const { default: RoomType } = await import('#models/room_type')
+  
+    // Récupérer TOUS les room types de l'hôtel (filtrés si roomTypeId est fourni)
+    let roomTypesQuery = RoomType.query().where('hotel_id', hotelId)
+    
+    if (roomTypeId) {
+      roomTypesQuery = roomTypesQuery.where('id', roomTypeId)
+    }
+    
+    const allRoomTypes = await roomTypesQuery.orderBy('room_type_name', 'asc')
+  
+    //  Définir les périodes
+    const asOnDate = reportDate.toFormat('yyyy-MM-dd')
+    const ptdStart = reportDate.startOf('month').toFormat('yyyy-MM-dd')
+    const ytdStart = reportDate.startOf('year').toFormat('yyyy-MM-dd')
+  
+    //  Fonction pour récupérer les transactions sur une période
+    const getTransactionsForPeriod = async (startDate: string, endDate: string) => {
+      let query = FolioTransaction.query()
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservation', (reservationQuery: any) => {
+            reservationQuery.where('hotel_id', hotelId)
+            
+            // Filtre sur le roomTypeId si fourni
+            if (roomTypeId) {
+              reservationQuery.whereHas('reservationRooms', (roomQuery: any) => {
                 roomQuery.where('room_type_id', roomTypeId)
-              }
-            })
-        })
-      })
-      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
-      .where('category', 'room')
-      .whereNotIn('status', ['cancel', 'void'])
-      .distinctOn('folio_transactions.folio_id')
-      .preload('folio', (folioQuery: any) => {
-        folioQuery.preload('reservation', (reservationQuery: any) => {
-          reservationQuery.preload('reservationRooms', (roomQuery: any) => {
-            roomQuery.preload('roomType')
+              })
+            }
           })
         })
-      })
-
-    const transactions = await query
-
-    // Group transactions by room type
-    const revenueByRoomType: any = {}
-    let totalRevenue = 0
-
-    for (const transaction of transactions) {
-      const reservation = transaction.folio.reservation
-      for (const reservationRoom of reservation.reservationRooms) {
-        const roomType = reservationRoom.roomType
-        const roomTypeName = roomType?.roomTypeName
-
-        if (!revenueByRoomType[roomTypeName]) {
-          revenueByRoomType[roomTypeName] = {
-            roomTypeName,
-            roomTypeId: roomType?.id,
-            totalRevenue: 0,
-            transactionCount: 0,
-            averageRate: 0,
-            roomCount: 0
-          }
-        }
-
-        const amount = Number(transaction.amount || 0)
-        revenueByRoomType[roomTypeName].totalRevenue += amount
-        revenueByRoomType[roomTypeName].transactionCount += 1
-        revenueByRoomType[roomTypeName].roomCount += 1
-        totalRevenue += amount
-      }
+        .whereBetween('transaction_date', [startDate, endDate])
+        .where('category', 'room')
+        .whereNotIn('status', ['cancel', 'void'])
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('reservation', (reservationQuery: any) => {
+            reservationQuery.preload('reservationRooms', (roomQuery: any) => {
+              roomQuery.preload('roomType')
+            })
+          })
+        })
+      
+      return await query
     }
-
-    // Calculate average rates
-    Object.values(revenueByRoomType).forEach((roomTypeData: any) => {
-      roomTypeData.averageRate = roomTypeData.transactionCount > 0
-        ? roomTypeData.totalRevenue / roomTypeData.transactionCount
+  
+    //  Récupérer les transactions pour chaque période
+    const asOnTransactions = await getTransactionsForPeriod(asOnDate, asOnDate)
+    const ptdTransactions = await getTransactionsForPeriod(ptdStart, asOnDate)
+    const ytdTransactions = await getTransactionsForPeriod(ytdStart, asOnDate)
+  
+    //  Fonction pour calculer les métriques par room type
+    const calculateMetrics = (transactions: any[]) => {
+      const metrics: any = {}
+      
+      for (const transaction of transactions) {
+        try {
+          const reservation = transaction.folio?.reservation
+          if (!reservation?.reservationRooms) continue
+  
+          for (const reservationRoom of reservation.reservationRooms) {
+            const roomType = reservationRoom.roomType
+            if (!roomType) continue
+  
+            // Filtre supplémentaire dans le calcul si roomTypeId est fourni
+            if (roomTypeId && roomType.id !== parseInt(roomTypeId)) {
+              continue
+            }
+  
+            const roomTypeIdKey = roomType.id
+            const roomTypeName = roomType.roomTypeName || 'Unknown'
+  
+            if (!metrics[roomTypeIdKey]) {
+              metrics[roomTypeIdKey] = {
+                roomTypeId: roomTypeIdKey,
+                roomTypeName,
+                roomNights: 0,
+                revenue: 0,
+                transactionCount: 0
+              }
+            }
+  
+            const amount = Number(transaction.amount || 0)
+            metrics[roomTypeIdKey].revenue += amount
+            metrics[roomTypeIdKey].roomNights += 1
+            metrics[roomTypeIdKey].transactionCount += 1
+          }
+        } catch (error) {
+          console.error('Error processing transaction:', error)
+        }
+      }
+      
+      return metrics
+    }
+  
+    //  Calculer les métriques pour chaque période
+    const asOnMetrics = calculateMetrics(asOnTransactions)
+    const ptdMetrics = calculateMetrics(ptdTransactions)
+    const ytdMetrics = calculateMetrics(ytdTransactions)
+  
+    // Construire le rapport final avec TOUS les room types
+    const revenueByRoomType: any[] = []
+    let totals = {
+      asOn: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
+      ptd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
+      toDate: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
+      ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 }
+    }
+  
+    for (const roomType of allRoomTypes) {
+      const roomTypeId = roomType.id
+      
+      // Données "As On Date"
+      const asOnData = asOnMetrics[roomTypeId] || { roomNights: 0, revenue: 0 }
+      
+      // Données "PTD" (Period To Date)
+      const ptdData = ptdMetrics[roomTypeId] || { roomNights: 0, revenue: 0 }
+      
+      // Données "To Date" (même que PTD)
+      const toDateData = ptdData
+      
+      // Données "YTD" (Year To Date)
+      const ytdData = ytdMetrics[roomTypeId] || { roomNights: 0, revenue: 0 }
+  
+      // Calculer les ADR (Average Daily Rate)
+      const asOnAdr = asOnData.roomNights > 0 ? asOnData.revenue / asOnData.roomNights : 0
+      const ptdAdr = ptdData.roomNights > 0 ? ptdData.revenue / ptdData.roomNights : 0
+      const toDateAdr = toDateData.roomNights > 0 ? toDateData.revenue / toDateData.roomNights : 0
+      const ytdAdr = ytdData.roomNights > 0 ? ytdData.revenue / ytdData.roomNights : 0
+  
+      revenueByRoomType.push({
+        roomTypeId: roomType.id,
+        roomTypeName: roomType.roomTypeName,
+        
+        // As On Date
+        asOnRoomNights: asOnData.roomNights,
+        asOnRevenue: asOnData.revenue,
+        asOnPercentage: 0, // Sera calculé après
+        asOnAdr: asOnAdr,
+        
+        // PTD (Period To Date)
+        ptdRoomNights: ptdData.roomNights,
+        ptdRevenue: ptdData.revenue,
+        ptdPercentage: 0,
+        ptdAdr: ptdAdr,
+        
+        // To Date (identique à PTD)
+        toDateRoomNights: toDateData.roomNights,
+        toDateRevenue: toDateData.revenue,
+        toDatePercentage: 0,
+        toDateAdr: toDateAdr,
+        
+        // YTD (Year To Date)
+        ytdRoomNights: ytdData.roomNights,
+        ytdRevenue: ytdData.revenue,
+        ytdPercentage: 0,
+        ytdAdr: ytdAdr
+      })
+  
+      // Accumuler les totaux
+      totals.asOn.roomNights += asOnData.roomNights
+      totals.asOn.revenue += asOnData.revenue
+      
+      totals.ptd.roomNights += ptdData.roomNights
+      totals.ptd.revenue += ptdData.revenue
+      
+      totals.toDate.roomNights += toDateData.roomNights
+      totals.toDate.revenue += toDateData.revenue
+      
+      totals.ytd.roomNights += ytdData.roomNights
+      totals.ytd.revenue += ytdData.revenue
+    }
+  
+    // 8. Calculer les pourcentages
+    for (const roomTypeData of revenueByRoomType) {
+      roomTypeData.asOnPercentage = totals.asOn.roomNights > 0 
+        ? (roomTypeData.asOnRoomNights / totals.asOn.roomNights) * 100 
         : 0
-    })
-
+      
+      roomTypeData.ptdPercentage = totals.ptd.roomNights > 0 
+        ? (roomTypeData.ptdRoomNights / totals.ptd.roomNights) * 100 
+        : 0
+      
+      roomTypeData.toDatePercentage = totals.toDate.roomNights > 0 
+        ? (roomTypeData.toDateRoomNights / totals.toDate.roomNights) * 100 
+        : 0
+      
+      roomTypeData.ytdPercentage = totals.ytd.roomNights > 0 
+        ? (roomTypeData.ytdRoomNights / totals.ytd.roomNights) * 100 
+        : 0
+    }
+  
+    // Calculer les ADR totaux
+    totals.asOn.adr = totals.asOn.roomNights > 0 ? totals.asOn.revenue / totals.asOn.roomNights : 0
+    totals.ptd.adr = totals.ptd.roomNights > 0 ? totals.ptd.revenue / totals.ptd.roomNights : 0
+    totals.toDate.adr = totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
+    totals.ytd.adr = totals.ytd.roomNights > 0 ? totals.ytd.revenue / totals.ytd.roomNights : 0
+  
     return {
-      reportDate: reportDate.toFormat('yyyy-MM-dd'),
+      reportDate: asOnDate,
+      ptdStartDate: ptdStart,
+      ytdStartDate: ytdStart,
       hotelId,
       roomTypeId: roomTypeId || 'All Room Types',
-      revenueByRoomType: Object.values(revenueByRoomType),
-      totalRevenue,
+      revenueByRoomType,
+      totals: {
+        asOn: {
+          roomNights: totals.asOn.roomNights,
+          revenue: totals.asOn.revenue,
+          percentage: 100,
+          adr: totals.asOn.adr
+        },
+        ptd: {
+          roomNights: totals.ptd.roomNights,
+          revenue: totals.ptd.revenue,
+          percentage: 100,
+          adr: totals.ptd.adr
+        },
+        toDate: {
+          roomNights: totals.toDate.roomNights,
+          revenue: totals.toDate.revenue,
+          percentage: 100,
+          adr: totals.toDate.adr
+        },
+        ytd: {
+          roomNights: totals.ytd.roomNights,
+          revenue: totals.ytd.revenue,
+          percentage: 100,
+          adr: totals.ytd.adr
+        }
+      },
       summary: {
-        totalRoomTypes: Object.keys(revenueByRoomType).length,
-        totalTransactions: transactions.length,
-        averageRevenuePerRoomType: Object.keys(revenueByRoomType).length > 0
-          ? totalRevenue / Object.keys(revenueByRoomType).length
-          : 0
+        totalRoomTypes: allRoomTypes.length,
+        totalTransactions: {
+          asOn: asOnTransactions.length,
+          ptd: ptdTransactions.length,
+          ytd: ytdTransactions.length
+        }
       }
     }
   }
