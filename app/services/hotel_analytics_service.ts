@@ -185,6 +185,8 @@ export class HotelAnalyticsService {
             'children',
             'special_requests',
             'room_rate',
+            "isSplitedOrigin",
+            "isplited_destinatination",
           ])
           .preload('room', (spQuery: any) => {
             spQuery
@@ -510,7 +512,7 @@ export class HotelAnalyticsService {
         reservation.reservationRooms.forEach((reservationRoom, index) => {
           if (reservationRoom.room && reservationRoom.room.roomType) {
             const roomType = reservationRoom.room.roomType.roomTypeName
-            const isMaster = index === 0 && reservation.reservationRooms.length > 1 // First reservation room is the master
+            const isMaster = (index === 0 && reservation.reservationRooms.length > 1 ) && reservation.isGroup// First reservation room is the master
 
             if (groupedDetails[roomType]) {
               groupedDetails[roomType].reservations.push({
@@ -551,6 +553,8 @@ export class HotelAnalyticsService {
                 balance_summary: balanceSummary,
                 is_balance: isBalance,
                 isWomen: this.isWomanTitle(reservation.guest.title),
+                isSplitedOrigin:reservationRoom.isSplitedOrigin,
+                isSplitedDestination:reservationRoom.isplitedDestinatination,
               })
             }
           }

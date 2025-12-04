@@ -154,6 +154,13 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare housekeepingNotes: string
 
+  // Split flags for room move tracking
+  @column({ columnName: 'is_splited_origin' })
+  declare isSplitedOrigin: boolean
+
+  @column({ columnName: 'isplited_destinatination' })
+  declare isplitedDestinatination: boolean
+
   @column({ columnName: 'arriving_to' })
   declare arrivingTo: string | null
 

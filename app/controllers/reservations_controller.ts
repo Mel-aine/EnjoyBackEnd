@@ -4293,6 +4293,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           status: ReservationStatus.CHECKED_OUT,
           // Move time: use effective move date as the check-out of the old room
           checkOutDate: moveDate,
+          isSplitedOrigin: true,
           lastModifiedBy: auth.user?.id!,
           notes: `Moved to room ${newRoom.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
         })
@@ -4309,69 +4310,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
               .diff(moveDate.startOf('day'), 'days').days
           )
 
-      // If the reservation has only one reservationRoom, create a NEW Reservation and check out the old one
-      let targetReservationId = reservation.id
-      let newReservationRecord: Reservation | null = null
-      if ((reservation.reservationRooms?.length || 0) === 1) {
-        // Create new reservation in the same transaction
-        const newReservationNumber = generateReservationNumber()
-        const newConfirmationNumber = generateConfirmationNumber()
-
-        newReservationRecord = await Reservation.create(
-          {
-            hotelId: reservation.hotelId,
-            userId: auth.user?.id || reservation.userId,
-            guestId: reservation.guestId,
-            status: ReservationStatus.CHECKED_IN,
-            reservationNumber: newReservationNumber,
-            confirmationNumber: newConfirmationNumber,
-            channexBookingId: reservation.channexBookingId,
-            arrivedDate: reservation.arrivedDate,
-            departDate: reservation.departDate,
-            checkInDate: moveDate,
-            checkOutDate: currentCheckOutDate,
-            // Checking time: preserve the original actual check-in time for continuity
-            checkInTime: currentReservationRoom.checkInTime,
-            // Move time: preserve original check-out time; effective move date sets new boundaries
-            checkOutTime: currentReservationRoom.checkOutTime,
-            arrivingTo: reservation.arrivingTo,
-            goingTo: reservation.goingTo,
-            meansOfTransportation: reservation.meansOfTransportation,
-            numberOfNights: reservation.numberOfNights,
-            adults: reservation.adults ?? currentReservationRoom.adults,
-            children: reservation.children ?? currentReservationRoom.children,
-            infants: reservation.infants ?? 0,
-            roomsRequested: 1,
-            roomTypeId: newRoom.roomTypeId,
-            paymentMethodId: currentReservationRoom.paymentMethodId,
-            marketCodeId: reservation.marketCodeId ?? null,
-            billTo: reservation.billTo ?? null,
-            paymentType: reservation.paymentType ?? null,
-            totalAmount: 0,
-            discountAmount: 0,
-            taxAmount: 0,
-            finalAmount: 0,
-            reservedBy: auth.user?.id || reservation.reservedBy || null,
-            createdBy: auth.user?.id || reservation.createdBy || null,
-            lastModifiedBy: auth.user?.id!,
-            splitReservationId: reservation.id,
-          }
-        )
-
-        targetReservationId = newReservationRecord.id
-
-        // Mark the old reservation as checked out and link split to new reservation
-        await reservation
-          .merge({
-            status: ReservationStatus.CHECKED_OUT,
-            checkOutDate: moveDate,
-            // departDate: moveDate,
-            checkedOutBy: auth.user?.id!,
-            lastModifiedBy: auth.user?.id!,
-            splitReservationId: newReservationRecord.id,
-          })
-          .save()
-      }
+      // Do NOT split reservation: keep same reservation and add a new ReservationRoom
+      const targetReservationId = reservation.id
 
       // Create new reservation room record for the new room, attached to the target reservation (new or same)
       const newReservationRoom = await ReservationRoom.create(
@@ -4399,6 +4339,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           taxAmount: currentReservationRoom.taxAmount,
           rateTypeId: currentReservationRoom.rateTypeId,
           reservedByUser: auth.user?.id,
+          isplitedDestinatination: true,
           notes: `Moved from room ${currentReservationRoom.room.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
         })
 
@@ -4428,13 +4369,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const folioIdsToUpdate = openFolios.map((f) => f.id)
       if (folioIdsToUpdate.length > 0) {
         const todayIso = DateTime.now().toISODate()
-        await FolioTransaction.query()
-          .whereIn('folio_id', folioIdsToUpdate)
-          .update({
-            reservation_id: targetReservationId,
-            last_modified_by: auth.user?.id!,
-            updated_at: DateTime.now(),
-          })
         await FolioTransaction.query()
           .whereIn('folio_id', folioIdsToUpdate)
           .where('posting_date', '>=', todayIso)
@@ -4477,21 +4411,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         .first()
 
-      // Also load the new reservation if one was created as part of the move
-      let newReservationLoaded: Reservation | null = null
-      try {
-        // @ts-ignore newReservationRecord defined earlier when single-room case
-        if (typeof newReservationRecord?.id === 'number') {
-          newReservationLoaded = await Reservation.query()
-            .where('id', newReservationRecord.id)
-            .preload('reservationRooms', (query) => {
-              query.preload('room', (roomQuery) => {
-                roomQuery.preload('roomType')
-              })
-            })
-            .first()
-        }
-      } catch { }
+      // No split reservation created; nothing else to load
 
       //  Create audit log for room move
       const logDescription = `Room move performed by ${auth.user?.fullName || 'User ' + auth.user?.id}.
@@ -4612,7 +4532,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok({
         message: 'Room move completed successfully',
         reservationId: reservationId,
-        newReservationId: newReservationRecord?.id || null,
         moveDetails: {
           fromRoom: originalRoomInfo,
           toRoom: {
@@ -4624,7 +4543,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reason: reason || 'Room move requested',
         },
         reservation: updatedReservation,
-        newReservation: newReservationLoaded,
       })
     } catch (error) {
       await trx.rollback()
