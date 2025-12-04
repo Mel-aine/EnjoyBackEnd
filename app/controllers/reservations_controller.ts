@@ -4403,6 +4403,67 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await trx.commit()
 
+        try {
+          const NotificationService = (await import('#services/notification_service')).default
+          console.log('send notification ROOM_MOVE')
+
+          // Variables communes
+          const vars = await NotificationService.buildVariables('ROOM_MOVE', {
+            hotelId: reservation.hotelId,
+            reservationId: reservation.id,
+            guestId: reservation.guestId,
+            extra: {
+              ReservationNumber: reservation.reservationNumber || '',
+              OldRoomNumber: originalRoomInfo.roomNumber,
+              NewRoomNumber: newRoom.roomNumber,
+              EffectiveDate: moveDate.toISODate() || '',
+              Reason: reason || '',
+            },
+          })
+
+          // Notify staff who performed the action
+          await NotificationService.sendWithTemplate({
+            templateCode: 'ROOM_MOVE_STAFF',
+            recipientType: 'STAFF',
+            recipientId: auth.user?.id || 1,
+            variables: vars,
+            relatedEntityType: 'Reservation',
+            relatedEntityId: reservation.id,
+            actorId: auth.user?.id,
+            hotelId: reservation.hotelId,
+          })
+          // Notify guest if available (email/SMS template)
+          if (reservation.guestId) {
+            const guestVars = await NotificationService.buildVariables('ROOM_MOVE_GUEST', {
+              hotelId: reservation.hotelId,
+              reservationId: reservation.id,
+              guestId: reservation.guestId,
+              extra: {
+                ReservationNumber: reservation.reservationNumber || '',
+                OldRoomNumber: originalRoomInfo.roomNumber,
+                NewRoomNumber: newRoom.roomNumber,
+                EffectiveDate: moveDate.toISODate() || '',
+              },
+            })
+
+            await NotificationService.sendWithTemplate({
+              templateCode: 'ROOM_MOVE_GUEST',
+              recipientType: 'GUEST',
+              recipientId: reservation.guestId,
+              variables: guestVars,
+              relatedEntityType: 'Reservation',
+              relatedEntityId: reservation.id,
+              actorId: auth.user?.id,
+              hotelId: reservation.hotelId,
+            })
+          }
+          console.log('notification ROOM_MOVE sent')
+        } catch (notifErr) {
+          console.warn('Notification ROOM_MOVE failed:', (notifErr as any)?.message)
+          console.error('Notification ROOM_MOVE failed:', notifErr)
+        }
+
+
       // Reload reservation with updated room assignments
       const updatedReservation = await Reservation.query()
         .where('id', reservationId)
@@ -4469,67 +4530,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ctx,
         })
       }
-
-      setImmediate(async () => {
-        try {
-          const NotificationService = (await import('#services/notification_service')).default
-
-          // Variables communes
-          const vars = await NotificationService.buildVariables('ROOM_MOVE', {
-            hotelId: reservation.hotelId,
-            reservationId: reservation.id,
-            guestId: reservation.guestId,
-            extra: {
-              ReservationNumber: reservation.reservationNumber || '',
-              OldRoomNumber: originalRoomInfo.roomNumber,
-              NewRoomNumber: newRoom.roomNumber,
-              EffectiveDate: moveDate.toISODate() || '',
-              Reason: reason || '',
-            },
-          })
-
-          // Notify staff who performed the action
-          await NotificationService.sendWithTemplate({
-            templateCode: 'ROOM_MOVE_STAFF',
-            recipientType: 'STAFF',
-            recipientId: auth.user?.id || 1,
-            variables: vars,
-            relatedEntityType: 'Reservation',
-            relatedEntityId: reservation.id,
-            actorId: auth.user?.id,
-            hotelId: reservation.hotelId,
-          })
-          // Notify guest if available (email/SMS template)
-          if (reservation.guestId) {
-            const guestVars = await NotificationService.buildVariables('ROOM_MOVE_GUEST', {
-              hotelId: reservation.hotelId,
-              reservationId: reservation.id,
-              guestId: reservation.guestId,
-              extra: {
-                ReservationNumber: reservation.reservationNumber || '',
-                OldRoomNumber: originalRoomInfo.roomNumber,
-                NewRoomNumber: newRoom.roomNumber,
-                EffectiveDate: moveDate.toISODate() || '',
-              },
-            })
-
-            await NotificationService.sendWithTemplate({
-              templateCode: 'ROOM_MOVE_GUEST',
-              recipientType: 'GUEST',
-              recipientId: reservation.guestId,
-              variables: guestVars,
-              relatedEntityType: 'Reservation',
-              relatedEntityId: reservation.id,
-              actorId: auth.user?.id,
-              hotelId: reservation.hotelId,
-            })
-          }
-        } catch (notifErr) {
-          console.warn('Notification ROOM_MOVE failed:', (notifErr as any)?.message)
-        }
-      })
-
-
 
       return response.ok({
         message: 'Room move completed successfully',

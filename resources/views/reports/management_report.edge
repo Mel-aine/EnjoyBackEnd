@@ -158,6 +158,22 @@
               {{ formatCurrency(content.roomCharges?.noShowRevenue.ytd) }}
             </td>
           </tr>
+          @if(content.roomCharges?.lateCheckoutCharges && (content.roomCharges?.lateCheckoutCharges?.today || content.roomCharges?.lateCheckoutCharges?.ptd || content.roomCharges?.lateCheckoutCharges?.ytd))
+          <tr>
+            <td>
+              Late Checkout Charges
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.roomCharges?.lateCheckoutCharges.today) }}
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.roomCharges?.lateCheckoutCharges.ptd) }}
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.roomCharges?.lateCheckoutCharges.ytd) }}
+            </td>
+          </tr>
+          @endif
           <tr class="section-total">
             <td>
               <strong>Total Room Charges</strong>
@@ -237,16 +253,16 @@
             </tr>
           @endeach
           <tr class="section-total">
-            <td>
+            <td style="width: 40%">
               <strong>Total Discount</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.discounts.totals?.today || content.discounts.today) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.discounts.totals?.ptd || content.discounts.ptd) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.discounts.totals?.ytd || content.discounts.ytd) }}</strong>
             </td>
           </tr>
@@ -276,16 +292,16 @@
             </tr>
           @endeach
           <tr class="section-total">
-            <td>
+            <td style="width: 40%;">
               <strong>Total Adjustments</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.adjustments.totals?.today || content.adjustments.today) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.adjustments.totals?.ptd || content.adjustments.ptd) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.adjustments.totals?.ytd || content.adjustments.ytd) }}</strong>
             </td>
           </tr>
@@ -709,13 +725,13 @@
               Blocked Rooms
             </td>
             <td class="currency">
-              {{ content.roomSummary?.blockedRoom?.today || 0 }}
+              {{ content.roomSummary?.blockRoom?.today || 0 }}
             </td>
             <td class="currency">
-              {{ content.roomSummary?.blockedRoom?.ptd || 0 }}
+              {{ content.roomSummary?.blockRoom?.ptd || 0 }}
             </td>
             <td class="currency">
-              {{ content.roomSummary?.blockedRoom?.ytd || 0 }}
+              {{ content.roomSummary?.blockRoom?.ytd || 0 }}
             </td>
           </tr>
           <tr>
@@ -886,13 +902,13 @@
               Occupancy Rate (%)
             </td>
             <td class="currency" style="width: 20%;">
-              {{ (content.statistics?.occupancyRate?.today || 0).toFixed(2) }}%
+              {{ (content.statistics?.occupancyRate?.today || 0).toFixed(0) }}%
             </td>
             <td class="currency" style="width: 20%;">
-              {{ (content.statistics?.occupancyRate?.ptd || 0).toFixed(2) }}%
+              {{ (content.statistics?.occupancyRate?.ptd || 0).toFixed(0) }}%
             </td>
             <td class="currency" style="width: 20%;">
-              {{ (content.statistics?.occupancyRate?.ytd || 0).toFixed(2) }}%
+              {{ (content.statistics?.occupancyRate?.ytd || 0).toFixed(0) }}%
             </td>
           </tr>
           <tr>
