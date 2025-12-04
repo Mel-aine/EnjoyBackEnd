@@ -2874,9 +2874,9 @@ export default class ReportsController {
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
-        today: (sectionsData.roomCharges?.total?.today || 0) + (sectionsData.extraCharges.totals?.today || 0) - (sectionsData.discounts.totals?.today || 0) + (sectionsData.adjustments?.today || 0),
-        ptd: (sectionsData.roomCharges?.total?.ptd || 0) + (sectionsData.extraCharges.totals?.ptd || 0) - (sectionsData.discounts.totals?.ptd || 0) + (sectionsData.adjustments?.ptd || 0),
-        ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges.totals?.ytd || 0) - (sectionsData.discounts.totals?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
+        today: (sectionsData.roomCharges?.total?.today || 0) + (sectionsData.extraCharges.totals?.today || 0) - Math.abs(sectionsData.discounts.totals?.today || 0) + (sectionsData.adjustments?.today || 0),
+        ptd: (sectionsData.roomCharges?.total?.ptd || 0) + (sectionsData.extraCharges.totals?.ptd || 0) - Math.abs((sectionsData.discounts.totals?.ptd || 0)) + (sectionsData.adjustments?.ptd || 0),
+        ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges.totals?.ytd || 0) - Math.abs((sectionsData.discounts.totals?.ytd || 0)) + (sectionsData.adjustments?.ytd || 0)
       },
       revenueWithTax: {
         today: 0,
