@@ -4387,11 +4387,11 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const rateTypeId = request.input('rateTypeId') // Optional - if emptd, get all rate types
-
+      const rateTypeId = request.input('rateTypeId') // Optional - if empty, get all rate types
+  
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
-
+  
       return response.ok({
         success: true,
         data: revenueData,
@@ -4412,33 +4412,77 @@ export default class ReportsController {
   async generateRevenueByRateTypePdf({ request, response, auth }: HttpContext) {
     try {
       const { hotelId, asOnDate, rateTypeId, currency = 'XAF' } = request.only(['hotelId', 'asOnDate', 'rateTypeId', 'currency'])
-
+  
       const reportDate = DateTime.fromISO(asOnDate)
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+      const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+      const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
       const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
-
+  
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
       const hotel = await Hotel.find(hotelId)
       const hotelName = hotel?.hotelName!
-
+  
       // Get user info
       const user = auth?.user
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
-
-      // Generate HTML content
-      const htmlContent = this.generateRevenueByRateTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
-
+  
+      // Generate HTML content using Edge template
+      const htmlContent = await this.generateRevenueByRateTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
+  
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
-
+      const headerTemplate = `
+      <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+        <!-- Hotel name and report title -->
+        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
+          <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotelName}</div>
+          <div style="font-size:13px; color:#8B0000; font-weight:bold;">Revenue By Rate Type</div>
+        </div>
+        
+        <!-- Report Info -->
+        <div style="margin-bottom:5px;
+      font-size: 9px; padding-bottom:5px; padding-top:5px;">
+          <span style="margin-right:10px;">As On Date: ${asOnDate}</span>
+          <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
+          <span style="margin-right:10px;">YTD: ${ytdDate }</span>
+          <span>Currency: ${currency}</span>
+        </div>
+        
+        <div style="border-top:1px solid #333; margin:0 ;"></div>
+        
+      </div>
+      `
+        // Create footer template
+        const footerTemplate = `
+      <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+        <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+        <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+      </div>`
+  
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent,{
+        format: 'A4',
+        margin: {
+          top: '95px',
+          right: '10px',
+          bottom: '30px',
+          left: '10px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
+  
       const filename = `revenue-by-rate-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
-
+  
       return response
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
+  
     } catch (error) {
       logger.error('Error generating revenue by rate type PDF:')
       logger.error(error)
@@ -4448,7 +4492,6 @@ export default class ReportsController {
       })
     }
   }
-
   /**
    * Get Revenue By Room Type report data
    */
@@ -4456,11 +4499,11 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const roomTypeId = request.input('roomTypeId') // Optional - if emptd, get all room types
-
+      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
+  
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
-
+  
       return response.ok({
         success: true,
         data: revenueData,
@@ -4482,35 +4525,80 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const roomTypeId = request.input('roomTypeId') // Optional - if emptd, get all room types
+      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
       const currency = request.input('currency', 'XAF') // Default currency is XAF
-
+  
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
-
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+      const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+      const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
       const hotel = await Hotel.find(hotelId)
       const hotelName = hotel?.hotelName!
-
+  
       // Get user info
       const user = auth?.user
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
-
-      // Generate HTML content
-      const htmlContent = this.generateRevenueByRoomTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
-
+        
+  
+      // Generate HTML content using Edge template
+      const htmlContent = await this.generateRevenueByRoomTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
+  
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
 
+      const headerTemplate = `
+      <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+        <!-- Hotel name and report title -->
+        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
+          <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotelName}</div>
+          <div style="font-size:13px; color:#8B0000; font-weight:bold;">Revenue By Room Type</div>
+        </div>
+        
+        <!-- Report Info -->
+        <div style="margin-bottom:5px;
+      font-size: 9px; padding-bottom:5px; padding-top:5px;">
+          <span style="margin-right:10px;">As On Date: ${asOnDate}</span>
+          <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
+          <span style="margin-right:10px;">YTD: ${ytdDate }</span>
+          <span>Currency: ${currency}</span>
+        </div>
+        
+        <div style="border-top:1px solid #333; margin:0 ;"></div>
+        
+      </div>
+      `
+        // Create footer template
+        const footerTemplate = `
+      <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+        <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+        <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+      </div>`
+  
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent,{
+        format: 'A4',
+        margin: {
+          top: '95px',
+          right: '10px',
+          bottom: '30px',
+          left: '10px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
+  
       const filename = `revenue-by-room-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
-
+  
       return response
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
+  
     } catch (error) {
       logger.error('Error generating revenue by room type PDF:', error)
       logger.error(error)
@@ -4695,269 +4783,124 @@ export default class ReportsController {
   /**
    * Generate HTML for Revenue By Rate Type report
    */
-  private generateRevenueByRateTypeHtml(
+  private async generateRevenueByRateTypeHtml(
     hotelName: string,
     reportDate: DateTime,
     revenueData: any,
     printedBy: string = 'System',
     currency: string = 'XAF'
-  ): string {
-    const formatCurrency = (amount: number) => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return `0.00`
+  ): Promise<string> {
+    const { default: edge } = await import('edge.js')
+    const path = await import('path')
+  
+    // Configure Edge with views directory
+    edge.mount(path.join(process.cwd(), 'resources/views'))
+  
+    // Format dates
+    const asOnDate = reportDate.toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+  
+    // Helper: French number formatting with no decimals, no currency name
+    const formatCurrency = (amount: number | null | undefined): string => {
+      const num = Number(amount)
+      if (!isFinite(num)) {
+        return '0'
       }
-      return `${Number(amount)}`
+      return num.toLocaleString('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })
+    }
+  
+    // Prepare template data
+    const templateData = {
+      hotelName,
+      asOnDate,
+      currency,
+      printedOn,
+      printedBy,
+      revenueData,
+      formatCurrency,
+      // Header specific data
+      header: {
+        hotelName,
+        reportTitle: 'Revenue By Rate Type Report',
+        reportDate: asOnDate,
+        currency
+      },
+      // Footer specific data
+      footer: {
+        printedBy,
+        printedOn,
+        pageInfo: 'Page 1 of 1'
+      }
     }
 
-    return `
-     <!DOCTYPE html>
-     <html>
-     <head>
-         <title>Revenue By Rate Type Report</title>
-         <style>
-             body { font-family: Arial, sans-serif; margin: 20px; }
-             .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid black;
-        }
-        .hotel-name {
-            font-size: 18px;
-            font-weight: bold;
-        }
-             .hotel-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-             .report-date { font-size: 14px; color: #666; }
-             .summary { margin: 0px 0px; padding: 10px px; background-color: #f5f5f5; border-radius: 5px; }
-             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-             th { background-color: #f2f2f2; font-weight: bold; }
-             .number { text-align: right; }
-             .center { text-align: center; }
-             .totals-row { background-color: #f9f9f9; font-weight: bold; }
-.footer {
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            right: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 10px;
-        }
-                         .report-title {
-            font-size: 18px;
-            font-weight: bold;
-            color:orange
-        }
-        .date-section {
-            margin: 15px 0;
-            font-size: 14px;
-        }
-        .horizontal-line {
-            border-top: 1px solid #333;
-            margin: 5px 0;
-        }
-         </style>
-     </head>
-     <body>
-     <div class="header">
-        <div class="hotel-name">${hotelName}</div>
-        <div class="report-title">Revenue By Rate Type Report</div>
-    </div>
-
-    <div class="date-section">
-       <strong> As on Date:</strong> ${reportDate.toFormat('MMMM dd, yyyy')}
-       <strong> Currency:</strong>${currency}
-    </div>
-    <div class="horizontal-line"></div>
-     <h3>Summary</h3>
-         <div class="horizontal-line"></div>
-         <div class="summary">
-             <p><strong>Total Rate Types:</strong> ${revenueData.summary.totalRateTypes}</p>
-             <p><strong>Total Transactions:</strong> ${revenueData.summary.totalTransactions}</p>
-             <p><strong>Total Revenue:</strong> ${formatCurrency(revenueData.totalRevenue)}</p>
-             <p><strong>Average Revenue per Rate Type:</strong> ${formatCurrency(revenueData.summary.averageRevenuePerRateType)}</p>
-         </div>
-    <div class="horizontal-line"></div>
-         <table>
-             <thead>
-                 <tr>
-                     <th>Rate Type</th>
-                     <th class="center">Transaction Count</th>
-                     <th class="number">Total Revenue</th>
-                     <th class="number">Average Rate</th>
-                     <th class="number">% of Total Revenue</th>
-                 </tr>
-             </thead>
-             <tbody>
-                 ${revenueData.revenueByRateType.map((rateType: any) => `
-                 <tr>
-                     <td>${rateType.rateTypeName}</td>
-                     <td class="center">${rateType.transactionCount}</td>
-                     <td class="number">${formatCurrency(rateType.totalRevenue)}</td>
-                     <td class="number">${formatCurrency(rateType.averageRate)}</td>
-                     <td class="number">${revenueData.totalRevenue > 0 ? ((rateType.totalRevenue / revenueData.totalRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                 </tr>
-                 `).join('')}
-                 <tr class="totals-row">
-                     <td><strong>Total:</strong></td>
-                     <td class="center"><strong>${revenueData.summary.totalTransactions}</strong></td>
-                     <td class="number"><strong>${formatCurrency(revenueData.totalRevenue)}</strong></td>
-                     <td class="number"><strong>${formatCurrency(revenueData.summary.averageRevenuePerRateType)}</strong></td>
-                     <td class="number"><strong>100.0%</strong></td>
-                 </tr>
-             </tbody>
-         </table>
-
-         <div class="footer">
-             <p>Generated on: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</p>
-             <p>Printed by: ${printedBy}</p>
-             <p>Page 1 of 1 </p>
-         </div>
-     </body>
-     </html>
-     `
+    console.log('revenue@@@@',templateData)
+    console.log('revenue@@@@@',JSON.stringify(templateData.revenueData.revenueByRateType, null, 2))
+  
+    // Render template
+    return await edge.render('reports/revenue_byRateType', templateData)
   }
 
   /**
    * Generate HTML for Revenue By Room Type report
    */
-  private generateRevenueByRoomTypeHtml(
+  private async generateRevenueByRoomTypeHtml(
     hotelName: string,
     reportDate: DateTime,
     revenueData: any,
     printedBy: string = 'System',
     currency: string = 'XAF'
-  ): string {
-    const formatCurrency = (amount: number) => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return `0.00`
+  ): Promise<string> {
+    const { default: edge } = await import('edge.js')
+    const path = await import('path')
+  
+    // Configure Edge with views directory
+    edge.mount(path.join(process.cwd(), 'resources/views'))
+  
+    // Format dates
+    const asOnDate = reportDate.toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+  
+    // Helper: French number formatting with no decimals, no currency name
+    const formatCurrency = (amount: number | null | undefined): string => {
+      const num = Number(amount)
+      if (!isFinite(num)) {
+        return '0'
       }
-      return `${Number(amount)}`
+      return num.toLocaleString('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })
     }
-
-    return `
-     <!DOCTYPE html>
-     <html>
-     <head>
-         <title>Revenue By Room Type Report</title>
-          <style>
-             body { font-family: Arial, sans-serif; margin: 20px; }
-             .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid black;
-        }
-        .hotel-name {
-            font-size: 18px;
-            font-weight: bold;
-        }
-             .hotel-name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-             .report-date { font-size: 14px; color: #666; }
-             .summary { margin: 0px 0px; padding: 10px px; background-color: #f5f5f5; border-radius: 5px; }
-             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-             th { background-color: #f2f2f2; font-weight: bold; }
-             .number { text-align: right; }
-             .center { text-align: center; }
-             .totals-row { background-color: #f9f9f9; font-weight: bold; }
-.footer {
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            right: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 10px;
-        }
-                         .report-title {
-            font-size: 18px;
-            font-weight: bold;
-            color:orange
-        }
-        .date-section {
-            margin: 15px 0;
-            font-size: 14px;
-        }
-        .horizontal-line {
-            border-top: 1px solid #333;
-            margin: 5px 0;
-        }
-         </style>
-     </head>
-     <body>
-     <div class="header">
-        <div class="hotel-name">${hotelName}</div>
-        <div class="report-title">Revenue By Rate Type Report</div>
-    </div>
-
-    <div class="date-section">
-       <strong> As on Date:</strong> ${reportDate.toFormat('MMMM dd, yyyy')}
-       <strong> Currency:</strong>${currency}
-    </div>
-    <div class="horizontal-line"></div>
-                 <h3>Summary</h3>
-    <div class="horizontal-line"></div>
-
-         <div class="summary">
-             <p><strong>Total Room Types:</strong> ${revenueData.summary.totalRoomTypes}</p>
-             <p><strong>Total Transactions:</strong> ${revenueData.summary.totalTransactions}</p>
-             <p><strong>Total Revenue:</strong> ${formatCurrency(revenueData.totalRevenue)}</p>
-             <p><strong>Average Revenue per Room Type:</strong> ${formatCurrency(revenueData.summary.averageRevenuePerRoomType)}</p>
-         </div>
-
-         <table>
-             <thead>
-                 <tr>
-                     <th>Room Type</th>
-                     <th class="center">Transaction Count</th>
-                     <th class="center">Room Count</th>
-                     <th class="number">Total Revenue</th>
-                     <th class="number">Average Rate</th>
-                     <th class="number">% of Total Revenue</th>
-                 </tr>
-             </thead>
-             <tbody>
-                 ${revenueData.revenueByRoomType.map((roomType: any) => `
-                 <tr>
-                     <td>${roomType.roomTypeName}</td>
-                     <td class="center">${roomType.transactionCount}</td>
-                     <td class="center">${roomType.roomCount}</td>
-                     <td class="number">${formatCurrency(roomType.totalRevenue)}</td>
-                     <td class="number">${formatCurrency(roomType.averageRate)}</td>
-                     <td class="number">${revenueData.totalRevenue > 0 ? ((roomType.totalRevenue / revenueData.totalRevenue) * 100).toFixed(1) : '0.0'}%</td>
-                 </tr>
-                 `).join('')}
-                 <tr class="totals-row">
-                     <td><strong>Total:</strong></td>
-                     <td class="center"><strong>${revenueData.summary.totalTransactions}</strong></td>
-                     <td class="center"><strong>-</strong></td>
-                     <td class="number"><strong>${formatCurrency(revenueData.totalRevenue)}</strong></td>
-                     <td class="number"><strong>${formatCurrency(revenueData.summary.averageRevenuePerRoomType)}</strong></td>
-                     <td class="number"><strong>100.0%</strong></td>
-                 </tr>
-             </tbody>
-         </table>
-
-         <div class="footer">
-             <p>Print on: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</p>
-             <p>Printed by: ${printedBy}</p>
-             <p>Page 1 of 1 </p>
-         </div>
-     </body>
-     </html>
-     `
+  
+    // Prepare template data
+    const templateData = {
+      hotelName,
+      asOnDate,
+      currency,
+      printedOn,
+      printedBy,
+      revenueData,
+      formatCurrency,
+      // Header specific data
+      header: {
+        hotelName,
+        reportTitle: 'Revenue By Room Type Report',
+        reportDate: asOnDate,
+        currency
+      },
+      // Footer specific data
+      footer: {
+        printedBy,
+        printedOn,
+        pageInfo: 'Page 1 of 1'
+      }
+    }
+  
+    // Render template
+    return await edge.render('reports/revenue_byRoomtype', templateData)
   }
 
   /**
