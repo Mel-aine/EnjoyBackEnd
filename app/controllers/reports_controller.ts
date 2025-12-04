@@ -2874,9 +2874,9 @@ export default class ReportsController {
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
-        today: (sectionsData.roomCharges?.total?.today || 0) + (sectionsData.extraCharges?.today || 0) - (sectionsData.discounts?.today || 0) + (sectionsData.adjustments?.today || 0),
-        ptd: (sectionsData.roomCharges?.total?.ptd || 0) + (sectionsData.extraCharges?.ptd || 0) - (sectionsData.discounts?.ptd || 0) + (sectionsData.adjustments?.ptd || 0),
-        ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges?.ytd || 0) - (sectionsData.discounts?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
+        today: (sectionsData.roomCharges?.total?.today || 0) + (sectionsData.extraCharges.totals?.today || 0) - (sectionsData.discounts.totals?.today || 0) + (sectionsData.adjustments?.today || 0),
+        ptd: (sectionsData.roomCharges?.total?.ptd || 0) + (sectionsData.extraCharges.totals?.ptd || 0) - (sectionsData.discounts.totals?.ptd || 0) + (sectionsData.adjustments?.ptd || 0),
+        ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges.totals?.ytd || 0) - (sectionsData.discounts.totals?.ytd || 0) + (sectionsData.adjustments?.ytd || 0)
       },
       revenueWithTax: {
         today: 0,
@@ -2986,6 +2986,11 @@ export default class ReportsController {
       const todayNoShow = await this.getNoShowRevenue(hotelId, reportDate, reportDate)
       const ptdNoShow = await this.getNoShowRevenue(hotelId, ptdStartDate, reportDate)
       const ytdNoShow = await this.getNoShowRevenue(hotelId, ytdStartDate, reportDate)
+
+      // Late Checkout Charges (fees posted on folios)
+      const todayLateCheckout = await this.getLateCheckoutRevenue(hotelId, reportDate, reportDate)
+      const ptdLateCheckout = await this.getLateCheckoutRevenue(hotelId, ptdStartDate, reportDate)
+      const ytdLateCheckout = await this.getLateCheckoutRevenue(hotelId, ytdStartDate, reportDate)
       return {
         roomCharges: {
           today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
@@ -3002,6 +3007,11 @@ export default class ReportsController {
           ptd: ptdNoShow,
           ytd: ytdNoShow
         },
+        lateCheckoutCharges: {
+          today: todayLateCheckout,
+          ptd: ptdLateCheckout,
+          ytd: ytdLateCheckout,
+        },
         total: {
           today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(todayCancellation) + Number(todayNoShow),
           ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(ptdCancellation) + Number(ptdNoShow),
@@ -3014,6 +3024,7 @@ export default class ReportsController {
         roomCharges: { today: 0, ptd: 0, ytd: 0 },
         cancellationRevenue: { today: 0, ptd: 0, ytd: 0 },
         noShowRevenue: { today: 0, ptd: 0, ytd: 0 },
+        lateCheckoutCharges: { today: 0, ptd: 0, ytd: 0 },
         total: { today: 0, ptd: 0, ytd: 0 }
       }
     }
@@ -3054,6 +3065,25 @@ export default class ReportsController {
       })
       .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .where('category', TransactionCategory.NO_SHOW_FEE)
+      .whereNotIn('status', ['cancelled', 'void'])
+
+    return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
+  }
+
+  /**
+   * Get Late Checkout Revenue (fees charged for late checkout)
+   */
+  private async getLateCheckoutRevenue(hotelId: number, startDate: DateTime, endDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const result = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.where('hotel_id', hotelId)
+        })
+      })
+      .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .where('category', TransactionCategory.LATE_CHECKOUT_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
     return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
