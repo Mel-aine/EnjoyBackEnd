@@ -176,6 +176,7 @@ export const createReservationValidator = vine.compile(
 
     // Flags
     is_confirmed: vine.boolean().optional(),
+    is_group: vine.boolean().optional(),
     is_guaranteed: vine.boolean().optional(),
     is_walk_in: vine.boolean().optional(),
     is_repeat_guest: vine.boolean().optional(),
@@ -245,7 +246,7 @@ export const updateReservationValidator = vine.compile(
     number_of_infants: vine.number().min(0).max(20).optional(),
     total_guests: vine.number().min(1).max(60).optional(),
     payment_method: vine.number().positive().optional(),
-
+    is_group: vine.boolean().optional(),
     // Room Details
     room_type_id: vine.number().positive().optional(),
     number_of_rooms: vine.number().min(1).max(50).optional(),
