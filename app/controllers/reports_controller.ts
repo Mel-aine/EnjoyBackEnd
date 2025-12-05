@@ -2707,8 +2707,8 @@ export default class ReportsController {
       <!-- Report Info -->
       <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
         <span style="margin-right:10px;">As On Date: ${formattedDate}</span>
-        <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
-        <span style="margin-right:10px;">YTD: ${ ytdDate }</span>
+        <span style="margin-right:10px;">PTD: ${ptdDate}</span>
+        <span style="margin-right:10px;">YTD: ${ytdDate}</span>
         <span>Currency: ${currency}</span>
       </div>
       
@@ -3112,7 +3112,7 @@ export default class ReportsController {
       .whereNotNull('reservation_room_id')
       .preload('reservationRoom', (rr) => {
         rr.preload('rateType', (rt) => {
-          rt.select(['id', 'rate_type_name', Database.raw('sort_order as sortOrder')])
+          rt.select(['id', 'rate_type_name'])
         })
       })
 
@@ -3120,7 +3120,7 @@ export default class ReportsController {
     const byRate = new Map<string, { revenue: number, roomIds: Set<number>, order: number }>()
     for (const tx of transactions) {
       const rateName = tx.reservationRoom?.rateType?.rateTypeName || 'Unknown'
-      const order = Number(tx.reservationRoom?.rateType?.$extras?.sortOrder ?? 0)
+      const order = 0 // RateType has no sort_order; default to 0
       const group = byRate.get(rateName) || { revenue: 0, roomIds: new Set<number>(), order }
       group.revenue += Number(tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
@@ -4541,10 +4541,10 @@ export default class ReportsController {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
       const rateTypeId = request.input('rateTypeId') // Optional - if empty, get all rate types
-  
+
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
-  
+
       return response.ok({
         success: true,
         data: revenueData,
@@ -4565,25 +4565,276 @@ export default class ReportsController {
   async generateRevenueByRateTypePdf({ request, response, auth }: HttpContext) {
     try {
       const { hotelId, asOnDate, rateTypeId, currency = 'XAF' } = request.only(['hotelId', 'asOnDate', 'rateTypeId', 'currency'])
-  
+
       const reportDate = DateTime.fromISO(asOnDate)
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
       const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
       const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
-      const revenueData = await this.getRevenueByRateTypeData(hotelId, reportDate, rateTypeId)
-  
+
+      // Prefer stored summary day data; compute PTD/YTD from DailySummaryFact ranges
+      const { default: DailySummaryFact } = await import('#models/daily_summary_fact')
+      const { default: RateType } = await import('#models/rate_type')
+      const summary = await DailySummaryFact.query()
+        .where('hotel_id', parseInt(String(hotelId)))
+        .where('audit_date', reportDate.toJSDate())
+        .first()
+
+
+      // Day-level items source (only the day is stored), fallback to compute the day only
+      let dayItems: any[] | null = null
+      const storedDay = summary?.revenueByRateType as any
+      if (Array.isArray(storedDay)) {
+        dayItems = storedDay
+      }
+      if (!dayItems) {
+        // Compute only the audit day breakdown
+        dayItems = await this.getRevenueByRateTypeForDay(parseInt(String(hotelId)), reportDate)
+      }
+
+      // Optional filter by rateTypeId using RateType name
+      let rateTypeNameFilter: string | null = null
+      if (rateTypeId) {
+        const rt = await RateType.find(rateTypeId)
+        rateTypeNameFilter = rt?.rateTypeName || null
+        if (rateTypeNameFilter) {
+          dayItems = dayItems.filter((d: any) => (d.rateType || d.rateTypeName) === rateTypeNameFilter)
+        }
+      }
+
+      // Ensure all rate types are present (even with zero values)
+      const allRateTypes = await RateType.query()
+        .where('hotel_id', parseInt(String(hotelId)))
+        .where('is_deleted', false)
+        .select(['rate_type_name'])
+
+      const allRateTypeNames = new Set<string>()
+      for (const rt of allRateTypes) {
+        const name = rt.rateTypeName
+        if (rateTypeNameFilter && name !== rateTypeNameFilter) continue
+        allRateTypeNames.add(name)
+      }
+      // Seed missing day items with zeros for completeness
+      const dayMap = new Map<string, any>()
+      for (const it of dayItems) {
+        const key = it.rateType || it.rateTypeName
+        dayMap.set(key, it)
+      }
+      for (const name of allRateTypeNames) {
+        if (!dayMap.has(name)) {
+          dayItems.push({ rateType: name, roomNights: 0, roomRevenue: 0, order: 0 })
+        }
+      }
+
+      // Build PTD and YTD from DailySummaryFact ranges
+      const ptdStartDt = reportDate.startOf('month')
+      const ytdStartDt = reportDate.startOf('year')
+
+      const ptdFacts = await DailySummaryFact.query()
+        .where('hotel_id', parseInt(String(hotelId)))
+        .whereBetween('audit_date', [ptdStartDt.toJSDate(), reportDate.toJSDate()])
+
+      const ytdFacts = await DailySummaryFact.query()
+        .where('hotel_id', parseInt(String(hotelId)))
+        .whereBetween('audit_date', [ytdStartDt.toJSDate(), reportDate.toJSDate()])
+
+      const aggregateFacts = (facts: any[]) => {
+        const map = new Map<string, { roomNights: number, revenue: number, order?: number }>()
+        for (const f of facts) {
+          const arr: any = f.revenueByRateType
+          if (!Array.isArray(arr)) continue
+          for (const item of arr) {
+            const key: string = item.rateType || item.rateTypeName || 'Unknown'
+            if (rateTypeNameFilter && key !== rateTypeNameFilter) continue
+            const nights = Number(item.roomNights ?? item.asOnRoomNights ?? 0)
+            const rev = Number(item.roomRevenue ?? item.asOnRevenue ?? 0)
+            const order = Number(item.order ?? 0)
+            const g = map.get(key) || { roomNights: 0, revenue: 0, order }
+            g.roomNights += nights
+            g.revenue += rev
+            g.order = Math.min(g.order ?? order ?? 0, order ?? 0)
+            map.set(key, g)
+          }
+        }
+        return map
+      }
+
+      const ptdMap = aggregateFacts(ptdFacts)
+      const ytdMap = aggregateFacts(ytdFacts)
+
+      // Inject current day's items into PTD/YTD when the summary day
+      // does not have revenueByRateType stored
+      if (!Array.isArray(storedDay) || storedDay.length === 0) {
+        for (const it of dayItems) {
+          const key = it.rateType || it.rateTypeName || 'Unknown'
+          if (rateTypeNameFilter && key !== rateTypeNameFilter) continue
+          const nights = Number(it.roomNights ?? it.asOnRoomNights ?? 0)
+          const rev = Number(it.roomRevenue ?? it.asOnRevenue ?? 0)
+          const order = Number(it.order ?? 0)
+
+          const p = ptdMap.get(key) || { roomNights: 0, revenue: 0, order }
+          p.roomNights += nights
+          p.revenue += rev
+          p.order = Math.min(p.order ?? order ?? 0, order ?? 0)
+          ptdMap.set(key, p)
+
+          const y = ytdMap.get(key) || { roomNights: 0, revenue: 0, order }
+          y.roomNights += nights
+          y.revenue += rev
+          y.order = Math.min(y.order ?? order ?? 0, order ?? 0)
+          ytdMap.set(key, y)
+        }
+      }
+
+      // Seed PTD/YTD maps with zero entries for any missing rate types
+      for (const name of allRateTypeNames) {
+        if (!ptdMap.has(name)) ptdMap.set(name, { roomNights: 0, revenue: 0, order: 0 })
+        if (!ytdMap.has(name)) ytdMap.set(name, { roomNights: 0, revenue: 0, order: 0 })
+      }
+
+      // Totals per period
+      const totalsAsOn = dayItems.reduce(
+        (acc: any, it: any) => {
+          acc.roomNights += Number(it.roomNights ?? it.asOnRoomNights ?? 0)
+          acc.revenue += Number(it.roomRevenue ?? it.asOnRevenue ?? 0)
+          return acc
+        },
+        { roomNights: 0, revenue: 0 }
+      )
+
+      const totalsPtd = Array.from(ptdMap.values()).reduce(
+        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        { roomNights: 0, revenue: 0 }
+      )
+      const totalsYtd = Array.from(ytdMap.values()).reduce(
+        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        { roomNights: 0, revenue: 0 }
+      )
+
+      // Union of keys across periods
+      const keys = new Set<string>()
+      for (const it of dayItems) keys.add(it.rateType || it.rateTypeName || 'Unknown')
+      for (const name of allRateTypeNames) keys.add(name)
+      for (const k of ptdMap.keys()) keys.add(k)
+      for (const k of ytdMap.keys()) keys.add(k)
+
+      const rows: any[] = []
+      for (const key of keys) {
+        const dayIt = dayItems.find((d: any) => (d.rateType || d.rateTypeName || 'Unknown') === key)
+        const ptdIt = ptdMap.get(key)
+        const ytdIt = ytdMap.get(key)
+
+        const asOnRoomNights = Number(dayIt?.roomNights ?? dayIt?.asOnRoomNights ?? 0)
+        const asOnRevenue = Number(dayIt?.roomRevenue ?? dayIt?.asOnRevenue ?? 0)
+        const asOnAdr = asOnRoomNights > 0 ? asOnRevenue / asOnRoomNights : 0
+        const asOnPercentage = totalsAsOn.revenue > 0 ? (asOnRevenue / totalsAsOn.revenue) * 100 : 0
+        const asOnRoomPercentage = totalsAsOn.roomNights > 0 ? (asOnRoomNights / totalsAsOn.roomNights) * 100 : 0
+
+        const ptdRoomNights = Number(ptdIt?.roomNights ?? 0)
+        const ptdRevenue = Number(ptdIt?.revenue ?? 0)
+        const ptdAdr = ptdRoomNights > 0 ? ptdRevenue / ptdRoomNights : 0
+        const ptdPercentage = totalsPtd.revenue > 0 ? (ptdRevenue / totalsPtd.revenue) * 100 : 0
+        const ptdRoomNightsPercentage = totalsPtd.roomNights > 0 ? (ptdRoomNights / totalsPtd.roomNights) * 100 : 0
+
+        const ytdRoomNights = Number(ytdIt?.roomNights ?? 0)
+        const ytdRevenue = Number(ytdIt?.revenue ?? 0)
+        const ytdAdr = ytdRoomNights > 0 ? ytdRevenue / ytdRoomNights : 0
+        const ytdPercentage = totalsYtd.revenue > 0 ? (ytdRevenue / totalsYtd.revenue) * 100 : 0
+        const ytdRoomNightsPercentage = totalsYtd.roomNights > 0 ? (ytdRoomNights / totalsYtd.roomNights) * 100 : 0
+
+        const order = Math.min(
+          Number(dayIt?.order ?? 0) || 0,
+          Number(ptdIt?.order ?? 0) || 0,
+          Number(ytdIt?.order ?? 0) || 0
+        )
+
+        rows.push({
+          rateTypeName: key,
+          // As On
+          asOnRoomNights,
+          asOnRevenue,
+          asOnAdr,
+          asOnPercentage,
+          asOnRoomPercentage,
+          // PTD
+          ptdRoomNights,
+          ptdRevenue,
+          ptdAdr,
+          ptdPercentage,
+          ptdRoomNightsPercentage,
+          // To Date (same as PTD)
+          toDateRoomNights: ptdRoomNights,
+          toDateRevenue: ptdRevenue,
+          toDateAdr: ptdAdr,
+          toDatePercentage: ptdPercentage,
+          // YTD
+          ytdRoomNights,
+          ytdRevenue,
+          ytdAdr,
+          ytdPercentage,
+          ytdRoomNightsPercentage,
+          order
+        })
+      }
+
+      // Sort rows by order asc then asOnRevenue desc
+      const revenueData = {
+        reportDate: reportDate.toFormat('yyyy-MM-dd'),
+        ptdStartDate: ptdStartDt.toFormat('yyyy-MM-dd'),
+        ytdStartDate: ytdStartDt.toFormat('yyyy-MM-dd'),
+        hotelId,
+        rateTypeId: rateTypeId || 'All Rate Types',
+        revenueByRateType: rows.sort((a, b) => {
+          if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
+          return b.asOnRevenue - a.asOnRevenue
+        }),
+        totals: {
+          asOn: {
+            roomNights: totalsAsOn.roomNights,
+            revenue: totalsAsOn.revenue,
+            percentage: 100,
+            adr: totalsAsOn.roomNights > 0 ? totalsAsOn.revenue / totalsAsOn.roomNights : 0
+          },
+          ptd: {
+            roomNights: totalsPtd.roomNights,
+            revenue: totalsPtd.revenue,
+            percentage: 100,
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+          },
+          toDate: {
+            roomNights: totalsPtd.roomNights,
+            revenue: totalsPtd.revenue,
+            percentage: 100,
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+          },
+          ytd: {
+            roomNights: totalsYtd.roomNights,
+            revenue: totalsYtd.revenue,
+            percentage: 100,
+            adr: totalsYtd.roomNights > 0 ? totalsYtd.revenue / totalsYtd.roomNights : 0
+          }
+        },
+        summary: {
+          totalRateTypes: rows.length,
+          totalTransactions: {
+            asOn: 0, // Not needed for PDF; derived from facts
+            ptd: 0,
+            ytd: 0
+          }
+        }
+      }
+
       // Get hotel name
       const { default: Hotel } = await import('#models/hotel')
       const hotel = await Hotel.find(hotelId)
       const hotelName = hotel?.hotelName!
-  
+
       // Get user info
       const user = auth?.user
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
-  
+
       // Generate HTML content using Edge template
       const htmlContent = await this.generateRevenueByRateTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
-  
+
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
       const headerTemplate = `
@@ -4598,8 +4849,8 @@ export default class ReportsController {
         <div style="margin-bottom:5px;
       font-size: 9px; padding-bottom:5px; padding-top:5px;">
           <span style="margin-right:10px;">As On Date: ${asOnDate}</span>
-          <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
-          <span style="margin-right:10px;">YTD: ${ytdDate }</span>
+          <span style="margin-right:10px;">PTD: ${ptdDate}</span>
+          <span style="margin-right:10px;">YTD: ${ytdDate}</span>
           <span>Currency: ${currency}</span>
         </div>
         
@@ -4607,15 +4858,15 @@ export default class ReportsController {
         
       </div>
       `
-        // Create footer template
-        const footerTemplate = `
+      // Create footer template
+      const footerTemplate = `
       <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
         <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
         <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
         <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
       </div>`
-  
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent,{
+
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         margin: {
           top: '95px',
@@ -4628,14 +4879,14 @@ export default class ReportsController {
         footerTemplate,
         printBackground: true
       })
-  
+
       const filename = `revenue-by-rate-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
-  
+
       return response
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-  
+
     } catch (error) {
       logger.error('Error generating revenue by rate type PDF:')
       logger.error(error)
@@ -4653,10 +4904,10 @@ export default class ReportsController {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
       const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
-  
+
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
-  
+
       return response.ok({
         success: true,
         data: revenueData,
@@ -4680,7 +4931,7 @@ export default class ReportsController {
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
       const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
       const currency = request.input('currency', 'XAF') // Default currency is XAF
-  
+
       const reportDate = DateTime.fromISO(asOnDate)
       const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
@@ -4690,15 +4941,15 @@ export default class ReportsController {
       const { default: Hotel } = await import('#models/hotel')
       const hotel = await Hotel.find(hotelId)
       const hotelName = hotel?.hotelName!
-  
+
       // Get user info
       const user = auth?.user
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
-        
-  
+
+
       // Generate HTML content using Edge template
       const htmlContent = await this.generateRevenueByRoomTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
-  
+
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
@@ -4714,8 +4965,8 @@ export default class ReportsController {
         <div style="margin-bottom:5px;
       font-size: 9px; padding-bottom:5px; padding-top:5px;">
           <span style="margin-right:10px;">As On Date: ${asOnDate}</span>
-          <span style="margin-right:10px;">PTD: ${ ptdDate }</span>
-          <span style="margin-right:10px;">YTD: ${ytdDate }</span>
+          <span style="margin-right:10px;">PTD: ${ptdDate}</span>
+          <span style="margin-right:10px;">YTD: ${ytdDate}</span>
           <span>Currency: ${currency}</span>
         </div>
         
@@ -4723,15 +4974,15 @@ export default class ReportsController {
         
       </div>
       `
-        // Create footer template
-        const footerTemplate = `
+      // Create footer template
+      const footerTemplate = `
       <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
         <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
         <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
         <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
       </div>`
-  
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent,{
+
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         margin: {
           top: '95px',
@@ -4744,14 +4995,14 @@ export default class ReportsController {
         footerTemplate,
         printBackground: true
       })
-  
+
       const filename = `revenue-by-room-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
-  
+
       return response
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-  
+
     } catch (error) {
       logger.error('Error generating revenue by room type PDF:', error)
       logger.error(error)
@@ -4768,21 +5019,21 @@ export default class ReportsController {
   private async getRevenueByRateTypeData(hotelId: number, reportDate: DateTime, rateTypeId?: string) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: RateType } = await import('#models/rate_type')
-  
+
     //  Récupérer TOUS les rate types de l'hôtel
     let allRateTypes = await RateType.query()
       .where('hotel_id', hotelId)
       .orderBy('rate_type_name', 'asc')
-  
+
     if (rateTypeId) {
       allRateTypes = allRateTypes.filter(rt => rt.id === parseInt(rateTypeId))
     }
-  
+
     //  Définir les périodes
     const asOnDate = reportDate.toFormat('yyyy-MM-dd')
     const ptdStart = reportDate.startOf('month').toFormat('yyyy-MM-dd')
     const ytdStart = reportDate.startOf('year').toFormat('yyyy-MM-dd')
-  
+
     //  Fonction pour récupérer les transactions sur une période
     const getTransactionsForPeriod = async (startDate: string, endDate: string) => {
       return await FolioTransaction.query()
@@ -4804,34 +5055,34 @@ export default class ReportsController {
           })
         })
     }
-  
+
     //  Récupérer les transactions pour chaque période
     const asOnTransactions = await getTransactionsForPeriod(asOnDate, asOnDate)
     const ptdTransactions = await getTransactionsForPeriod(ptdStart, asOnDate)
     const ytdTransactions = await getTransactionsForPeriod(ytdStart, asOnDate)
-  
+
     //  Fonction pour calculer les métriques par rate type
     const calculateMetrics = (transactions: any[]) => {
       const metrics: any = {}
-      
+
       for (const transaction of transactions) {
         try {
           const reservation = transaction.folio?.reservation
           if (!reservation?.reservationRooms) continue
-  
+
           for (const reservationRoom of reservation.reservationRooms) {
             // roomRates peut être un tableau ou un objet
-            const roomRatesArray = Array.isArray(reservationRoom.roomRates) 
-              ? reservationRoom.roomRates 
+            const roomRatesArray = Array.isArray(reservationRoom.roomRates)
+              ? reservationRoom.roomRates
               : [reservationRoom.roomRates].filter(Boolean)
-  
+
             for (const roomRate of roomRatesArray) {
               const rateType = roomRate?.rateType
               if (!rateType) continue
-  
+
               const rateTypeId = rateType.id
               const rateTypeName = rateType.rateTypeName || 'Unknown'
-  
+
               if (!metrics[rateTypeId]) {
                 metrics[rateTypeId] = {
                   rateTypeId,
@@ -4841,7 +5092,7 @@ export default class ReportsController {
                   transactionCount: 0
                 }
               }
-  
+
               const amount = Number(transaction.amount || 0)
               metrics[rateTypeId].revenue += amount
               metrics[rateTypeId].roomNights += 1
@@ -4852,15 +5103,15 @@ export default class ReportsController {
           console.error('Error processing transaction:', error)
         }
       }
-      
+
       return metrics
     }
-  
+
     // Calculer les métriques pour chaque période
     const asOnMetrics = calculateMetrics(asOnTransactions)
     const ptdMetrics = calculateMetrics(ptdTransactions)
     const ytdMetrics = calculateMetrics(ytdTransactions)
-  
+
     //  Construire le rapport final avec TOUS les rate types
     const revenueByRateType: any[] = []
     let totals = {
@@ -4869,96 +5120,96 @@ export default class ReportsController {
       toDate: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
       ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 }
     }
-  
+
     for (const rateType of allRateTypes) {
       const rateTypeId = rateType.id
-      
+
       // Données "As On Date"
       const asOnData = asOnMetrics[rateTypeId] || { roomNights: 0, revenue: 0 }
-      
+
       // Données "PTD" (Period To Date - du début du mois à la date du rapport)
       const ptdData = ptdMetrics[rateTypeId] || { roomNights: 0, revenue: 0 }
-      
+
       // Données "To Date" (même que PTD dans votre cas)
       const toDateData = ptdData
-      
+
       // Données "YTD" (Year To Date)
       const ytdData = ytdMetrics[rateTypeId] || { roomNights: 0, revenue: 0 }
-  
+
       // Calculer les ADR (Average Daily Rate)
       const asOnAdr = asOnData.roomNights > 0 ? asOnData.revenue / asOnData.roomNights : 0
       const ptdAdr = ptdData.roomNights > 0 ? ptdData.revenue / ptdData.roomNights : 0
       const toDateAdr = toDateData.roomNights > 0 ? toDateData.revenue / toDateData.roomNights : 0
       const ytdAdr = ytdData.roomNights > 0 ? ytdData.revenue / ytdData.roomNights : 0
-  
+
       revenueByRateType.push({
         rateTypeId: rateType.id,
         rateTypeName: rateType.rateTypeName,
-        
+
         // As On Date
         asOnRoomNights: asOnData.roomNights,
         asOnRevenue: asOnData.revenue,
         asOnPercentage: 0, // Sera calculé après
         asOnAdr: asOnAdr,
-        
+
         // PTD (Period To Date)
         ptdRoomNights: ptdData.roomNights,
         ptdRevenue: ptdData.revenue,
         ptdPercentage: 0,
         ptdAdr: ptdAdr,
-        
+
         // To Date (identique à PTD dans votre cas)
         toDateRoomNights: toDateData.roomNights,
         toDateRevenue: toDateData.revenue,
         toDatePercentage: 0,
         toDateAdr: toDateAdr,
-        
+
         // YTD (Year To Date)
         ytdRoomNights: ytdData.roomNights,
         ytdRevenue: ytdData.revenue,
         ytdPercentage: 0,
         ytdAdr: ytdAdr
       })
-  
+
       // Accumuler les totaux
       totals.asOn.roomNights += asOnData.roomNights
       totals.asOn.revenue += asOnData.revenue
-      
+
       totals.ptd.roomNights += ptdData.roomNights
       totals.ptd.revenue += ptdData.revenue
-      
+
       totals.toDate.roomNights += toDateData.roomNights
       totals.toDate.revenue += toDateData.revenue
-      
+
       totals.ytd.roomNights += ytdData.roomNights
       totals.ytd.revenue += ytdData.revenue
     }
-  
+
     // 8. Calculer les pourcentages
     for (const rateTypeData of revenueByRateType) {
-      rateTypeData.asOnPercentage = totals.asOn.revenue > 0 
-        ? (rateTypeData.asOnRevenue / totals.asOn.revenue) * 100 
+      rateTypeData.asOnPercentage = totals.asOn.revenue > 0
+        ? (rateTypeData.asOnRevenue / totals.asOn.revenue) * 100
         : 0
-      
-      rateTypeData.ptdPercentage = totals.ptd.revenue > 0 
-        ? (rateTypeData.ptdRevenue / totals.ptd.revenue) * 100 
+
+      rateTypeData.ptdPercentage = totals.ptd.revenue > 0
+        ? (rateTypeData.ptdRevenue / totals.ptd.revenue) * 100
         : 0
-      
-      rateTypeData.toDatePercentage = totals.toDate.revenue > 0 
-        ? (rateTypeData.toDateRevenue / totals.toDate.revenue) * 100 
+
+      rateTypeData.toDatePercentage = totals.toDate.revenue > 0
+        ? (rateTypeData.toDateRevenue / totals.toDate.revenue) * 100
         : 0
-      
-      rateTypeData.ytdPercentage = totals.ytd.revenue > 0 
-        ? (rateTypeData.ytdRevenue / totals.ytd.revenue) * 100 
+
+      rateTypeData.ytdPercentage = totals.ytd.revenue > 0
+        ? (rateTypeData.ytdRevenue / totals.ytd.revenue) * 100
         : 0
     }
-  
+
     // Calculer les ADR totaux
     totals.asOn.adr = totals.asOn.roomNights > 0 ? totals.asOn.revenue / totals.asOn.roomNights : 0
     totals.ptd.adr = totals.ptd.roomNights > 0 ? totals.ptd.revenue / totals.ptd.roomNights : 0
     totals.toDate.adr = totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
     totals.ytd.adr = totals.ytd.roomNights > 0 ? totals.ytd.revenue / totals.ytd.roomNights : 0
-  
+
     return {
       reportDate: asOnDate,
       ptdStartDate: ptdStart,
@@ -5009,28 +5260,28 @@ export default class ReportsController {
   private async getRevenueByRoomTypeData(hotelId: number, reportDate: DateTime, roomTypeId?: string) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: RoomType } = await import('#models/room_type')
-  
+
     // Récupérer TOUS les room types de l'hôtel (filtrés si roomTypeId est fourni)
     let roomTypesQuery = RoomType.query().where('hotel_id', hotelId)
-    
+
     if (roomTypeId) {
       roomTypesQuery = roomTypesQuery.where('id', roomTypeId)
     }
-    
+
     const allRoomTypes = await roomTypesQuery.orderBy('room_type_name', 'asc')
-  
+
     //  Définir les périodes
     const asOnDate = reportDate.toFormat('yyyy-MM-dd')
     const ptdStart = reportDate.startOf('month').toFormat('yyyy-MM-dd')
     const ytdStart = reportDate.startOf('year').toFormat('yyyy-MM-dd')
-  
+
     //  Fonction pour récupérer les transactions sur une période
     const getTransactionsForPeriod = async (startDate: string, endDate: string) => {
       let query = FolioTransaction.query()
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
-            
+
             // Filtre sur le roomTypeId si fourni
             if (roomTypeId) {
               reservationQuery.whereHas('reservationRooms', (roomQuery: any) => {
@@ -5049,36 +5300,36 @@ export default class ReportsController {
             })
           })
         })
-      
+
       return await query
     }
-  
+
     //  Récupérer les transactions pour chaque période
     const asOnTransactions = await getTransactionsForPeriod(asOnDate, asOnDate)
     const ptdTransactions = await getTransactionsForPeriod(ptdStart, asOnDate)
     const ytdTransactions = await getTransactionsForPeriod(ytdStart, asOnDate)
-  
+
     //  Fonction pour calculer les métriques par room type
     const calculateMetrics = (transactions: any[]) => {
       const metrics: any = {}
-      
+
       for (const transaction of transactions) {
         try {
           const reservation = transaction.folio?.reservation
           if (!reservation?.reservationRooms) continue
-  
+
           for (const reservationRoom of reservation.reservationRooms) {
             const roomType = reservationRoom.roomType
             if (!roomType) continue
-  
+
             // Filtre supplémentaire dans le calcul si roomTypeId est fourni
             if (roomTypeId && roomType.id !== parseInt(roomTypeId)) {
               continue
             }
-  
+
             const roomTypeIdKey = roomType.id
             const roomTypeName = roomType.roomTypeName || 'Unknown'
-  
+
             if (!metrics[roomTypeIdKey]) {
               metrics[roomTypeIdKey] = {
                 roomTypeId: roomTypeIdKey,
@@ -5088,7 +5339,7 @@ export default class ReportsController {
                 transactionCount: 0
               }
             }
-  
+
             const amount = Number(transaction.amount || 0)
             metrics[roomTypeIdKey].revenue += amount
             metrics[roomTypeIdKey].roomNights += 1
@@ -5098,15 +5349,15 @@ export default class ReportsController {
           console.error('Error processing transaction:', error)
         }
       }
-      
+
       return metrics
     }
-  
+
     //  Calculer les métriques pour chaque période
     const asOnMetrics = calculateMetrics(asOnTransactions)
     const ptdMetrics = calculateMetrics(ptdTransactions)
     const ytdMetrics = calculateMetrics(ytdTransactions)
-  
+
     // Construire le rapport final avec TOUS les room types
     const revenueByRoomType: any[] = []
     let totals = {
@@ -5115,96 +5366,114 @@ export default class ReportsController {
       toDate: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
       ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 }
     }
-  
+
     for (const roomType of allRoomTypes) {
       const roomTypeId = roomType.id
-      
+
       // Données "As On Date"
       const asOnData = asOnMetrics[roomTypeId] || { roomNights: 0, revenue: 0 }
-      
+
       // Données "PTD" (Period To Date)
       const ptdData = ptdMetrics[roomTypeId] || { roomNights: 0, revenue: 0 }
-      
+
       // Données "To Date" (même que PTD)
       const toDateData = ptdData
-      
+
       // Données "YTD" (Year To Date)
       const ytdData = ytdMetrics[roomTypeId] || { roomNights: 0, revenue: 0 }
-  
+
       // Calculer les ADR (Average Daily Rate)
       const asOnAdr = asOnData.roomNights > 0 ? asOnData.revenue / asOnData.roomNights : 0
       const ptdAdr = ptdData.roomNights > 0 ? ptdData.revenue / ptdData.roomNights : 0
       const toDateAdr = toDateData.roomNights > 0 ? toDateData.revenue / toDateData.roomNights : 0
       const ytdAdr = ytdData.roomNights > 0 ? ytdData.revenue / ytdData.roomNights : 0
-  
+
       revenueByRoomType.push({
         roomTypeId: roomType.id,
         roomTypeName: roomType.roomTypeName,
-        
+
         // As On Date
         asOnRoomNights: asOnData.roomNights,
         asOnRevenue: asOnData.revenue,
         asOnPercentage: 0, // Sera calculé après
         asOnAdr: asOnAdr,
-        
+
         // PTD (Period To Date)
         ptdRoomNights: ptdData.roomNights,
         ptdRevenue: ptdData.revenue,
         ptdPercentage: 0,
         ptdAdr: ptdAdr,
-        
+
         // To Date (identique à PTD)
         toDateRoomNights: toDateData.roomNights,
         toDateRevenue: toDateData.revenue,
         toDatePercentage: 0,
         toDateAdr: toDateAdr,
-        
+
         // YTD (Year To Date)
         ytdRoomNights: ytdData.roomNights,
         ytdRevenue: ytdData.revenue,
         ytdPercentage: 0,
         ytdAdr: ytdAdr
       })
-  
+
       // Accumuler les totaux
       totals.asOn.roomNights += asOnData.roomNights
       totals.asOn.revenue += asOnData.revenue
-      
+
       totals.ptd.roomNights += ptdData.roomNights
       totals.ptd.revenue += ptdData.revenue
-      
+
       totals.toDate.roomNights += toDateData.roomNights
       totals.toDate.revenue += toDateData.revenue
-      
+
       totals.ytd.roomNights += ytdData.roomNights
       totals.ytd.revenue += ytdData.revenue
     }
-  
+
     // 8. Calculer les pourcentages
     for (const roomTypeData of revenueByRoomType) {
-      roomTypeData.asOnPercentage = totals.asOn.roomNights > 0 
-        ? (roomTypeData.asOnRoomNights / totals.asOn.roomNights) * 100 
+      // Pourcentages de Nuits (Room Nights)
+      roomTypeData.asOnRoomPercentage = totals.asOn.roomNights > 0
+        ? (roomTypeData.asOnRoomNights / totals.asOn.roomNights) * 100
         : 0
-      
-      roomTypeData.ptdPercentage = totals.ptd.roomNights > 0 
-        ? (roomTypeData.ptdRoomNights / totals.ptd.roomNights) * 100 
+
+      roomTypeData.ptdRoomNightsPercentage = totals.ptd.roomNights > 0
+        ? (roomTypeData.ptdRoomNights / totals.ptd.roomNights) * 100
         : 0
-      
-      roomTypeData.toDatePercentage = totals.toDate.roomNights > 0 
-        ? (roomTypeData.toDateRoomNights / totals.toDate.roomNights) * 100 
+
+      roomTypeData.toDateRoomNightsPercentage = totals.toDate.roomNights > 0
+        ? (roomTypeData.toDateRoomNights / totals.toDate.roomNights) * 100
         : 0
-      
-      roomTypeData.ytdPercentage = totals.ytd.roomNights > 0 
-        ? (roomTypeData.ytdRoomNights / totals.ytd.roomNights) * 100 
+
+      roomTypeData.ytdRoomNightsPercentage = totals.ytd.roomNights > 0
+        ? (roomTypeData.ytdRoomNights / totals.ytd.roomNights) * 100
+        : 0
+
+      // Pourcentages de Revenu
+      roomTypeData.asOnPercentage = totals.asOn.revenue > 0
+        ? (roomTypeData.asOnRevenue / totals.asOn.revenue) * 100
+        : 0
+
+      roomTypeData.ptdPercentage = totals.ptd.revenue > 0
+        ? (roomTypeData.ptdRevenue / totals.ptd.revenue) * 100
+        : 0
+
+      roomTypeData.toDatePercentage = totals.toDate.revenue > 0
+        ? (roomTypeData.toDateRevenue / totals.toDate.revenue) * 100
+        : 0
+
+      roomTypeData.ytdPercentage = totals.ytd.revenue > 0
+        ? (roomTypeData.ytdRevenue / totals.ytd.revenue) * 100
         : 0
     }
-  
+
     // Calculer les ADR totaux
     totals.asOn.adr = totals.asOn.roomNights > 0 ? totals.asOn.revenue / totals.asOn.roomNights : 0
     totals.ptd.adr = totals.ptd.roomNights > 0 ? totals.ptd.revenue / totals.ptd.roomNights : 0
     totals.toDate.adr = totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
     totals.ytd.adr = totals.ytd.roomNights > 0 ? totals.ytd.revenue / totals.ytd.roomNights : 0
-  
+
     return {
       reportDate: asOnDate,
       ptdStartDate: ptdStart,
@@ -5261,14 +5530,14 @@ export default class ReportsController {
   ): Promise<string> {
     const { default: edge } = await import('edge.js')
     const path = await import('path')
-  
+
     // Configure Edge with views directory
     edge.mount(path.join(process.cwd(), 'resources/views'))
-  
+
     // Format dates
     const asOnDate = reportDate.toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-  
+
     // Helper: French number formatting with no decimals, no currency name
     const formatCurrency = (amount: number | null | undefined): string => {
       const num = Number(amount)
@@ -5280,7 +5549,7 @@ export default class ReportsController {
         maximumFractionDigits: 0,
       })
     }
-  
+
     // Prepare template data
     const templateData = {
       hotelName,
@@ -5305,9 +5574,9 @@ export default class ReportsController {
       }
     }
 
-    console.log('revenue@@@@',templateData)
-    console.log('revenue@@@@@',JSON.stringify(templateData.revenueData.revenueByRateType, null, 2))
-  
+    console.log('revenue@@@@', templateData)
+    console.log('revenue@@@@@', JSON.stringify(templateData.revenueData.revenueByRateType, null, 2))
+
     // Render template
     return await edge.render('reports/revenue_byRateType', templateData)
   }
@@ -5324,14 +5593,14 @@ export default class ReportsController {
   ): Promise<string> {
     const { default: edge } = await import('edge.js')
     const path = await import('path')
-  
+
     // Configure Edge with views directory
     edge.mount(path.join(process.cwd(), 'resources/views'))
-  
+
     // Format dates
     const asOnDate = reportDate.toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-  
+
     // Helper: French number formatting with no decimals, no currency name
     const formatCurrency = (amount: number | null | undefined): string => {
       const num = Number(amount)
@@ -5343,7 +5612,7 @@ export default class ReportsController {
         maximumFractionDigits: 0,
       })
     }
-  
+
     // Prepare template data
     const templateData = {
       hotelName,
@@ -5367,7 +5636,7 @@ export default class ReportsController {
         pageInfo: 'Page 1 of 1'
       }
     }
-  
+
     // Render template
     return await edge.render('reports/revenue_byRoomtype', templateData)
   }

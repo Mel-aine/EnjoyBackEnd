@@ -99,17 +99,17 @@
         <tr>
           <td>{{ rateType.rateTypeName }}</td>
           <td class="number">{{ rateType.asOnRoomNights }}</td>
-          <td class="percentage">{{ rateType.asOnPercentage > 0 ? rateType.asOnPercentage.toFixed(0) : 0 }}</td>
+          <td class="percentage">{{ rateType.asOnRoomPercentage > 0 ? rateType.asOnRoomPercentage.toFixed(0) : 0 }}</td>
           <td class="number">{{ formatCurrency(rateType.asOnRevenue) }}</td>
           <td class="percentage">{{ rateType.asOnPercentage > 0 ? rateType.asOnPercentage.toFixed(0) : 0 }}</td>
           <td class="number">{{ formatCurrency(rateType.asOnAdr) }}</td>
           <td class="number">{{ rateType.ptdRoomNights }}</td>
-          <td class="percentage">{{ rateType.ptdPercentage > 0 ? rateType.ptdPercentage.toFixed(0) : 0 }}</td>
+          <td class="percentage">{{ rateType.ptdRoomNightsPercentage > 0 ? rateType.ptdRoomNightsPercentage.toFixed(0) : 0 }}</td>
           <td class="number">{{ formatCurrency(rateType.ptdRevenue) }}</td>
           <td class="percentage">{{ rateType.ptdPercentage > 0 ? rateType.ptdPercentage.toFixed(0) : 0 }}</td>
           <td class="number">{{ formatCurrency(rateType.ptdAdr) }}</td>
           <td class="number">{{ rateType.ytdRoomNights }}</td>
-          <td class="percentage">{{ rateType.ytdPercentage > 0 ? rateType.ytdPercentage.toFixed(0) : 0 }}</td>
+          <td class="percentage">{{ rateType.ytdRoomNightsPercentage > 0 ? rateType.ytdRoomNightsPercentage.toFixed(0) : 0 }}</td>
           <td class="number">{{ formatCurrency(rateType.ytdRevenue) }}</td>
           <td class="percentage">{{ rateType.ytdPercentage > 0 ? rateType.ytdPercentage.toFixed(0) : 0 }}</td>
           <td class="number">{{ formatCurrency(rateType.ytdAdr) }}</td>
