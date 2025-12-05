@@ -4929,23 +4929,271 @@ export default class ReportsController {
     try {
       const hotelId = parseInt(request.input('hotelId', '1'))
       const asOnDate = request.input('asOnDate', DateTime.now().toFormat('yyyy-MM-dd'))
-      const roomTypeId = request.input('roomTypeId') // Optional - if empty, get all room types
-      const currency = request.input('currency', 'XAF') // Default currency is XAF
+      const roomTypeId = request.input('roomTypeId')
+      const currency = request.input('currency', 'XAF')
 
       const reportDate = DateTime.fromISO(asOnDate)
-      const revenueData = await this.getRevenueByRoomTypeData(hotelId, reportDate, roomTypeId)
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
       const ptdDate = reportDate.startOf('month').toFormat('dd/MM/yyyy')
       const ytdDate = reportDate.startOf('year').toFormat('dd/MM/yyyy')
-      // Get hotel name
+
+      // Facts-based data (mirror rate-type logic)
+      const { default: DailySummaryFact } = await import('#models/daily_summary_fact')
+      const { default: RoomType } = await import('#models/room_type')
+      const summary = await DailySummaryFact.query()
+        .where('hotel_id', hotelId)
+        .where('audit_date', reportDate.toJSDate())
+        .first()
+
+      // Day items: prefer stored summary; fallback to compute the audit day only
+      let dayItems: any[] | null = null
+      const storedDay = summary?.revenueByRoomType as any
+      if (Array.isArray(storedDay)) {
+        dayItems = storedDay
+      }
+      if (!dayItems) {
+        // Fallback: compute audit-day breakdown using helper
+        const dayBreakdown = await this.getRevenueByRoomTypeForDay(hotelId, reportDate)
+        dayItems = dayBreakdown.map((m: any) => ({
+          roomTypeName: m.roomType,
+          roomNights: m.roomNights,
+          roomRevenue: m.roomRevenue,
+          order: m.order ?? 0
+        }))
+      }
+
+      // Optional filter by roomTypeId using RoomType name
+      let roomTypeNameFilter: string | null = null
+      if (roomTypeId) {
+        const rt = await RoomType.find(roomTypeId)
+        roomTypeNameFilter = rt?.roomTypeName || null
+        if (roomTypeNameFilter) {
+          dayItems = dayItems.filter((d: any) => (d.roomType || d.roomTypeName) === roomTypeNameFilter)
+        }
+      }
+
+      // Ensure all room types present (even zero values)
+      const allRoomTypes = await RoomType.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .select(['room_type_name'])
+
+      const allRoomTypeNames = new Set<string>()
+      for (const rt of allRoomTypes) {
+        const name = rt.roomTypeName
+        if (roomTypeNameFilter && name !== roomTypeNameFilter) continue
+        allRoomTypeNames.add(name)
+      }
+      const dayMap = new Map<string, any>()
+      for (const it of dayItems) {
+        const key = it.roomType || it.roomTypeName
+        dayMap.set(key, it)
+      }
+      for (const name of allRoomTypeNames) {
+        if (!dayMap.has(name)) {
+          dayItems.push({ roomType: name, roomNights: 0, roomRevenue: 0, order: 0 })
+        }
+      }
+
+      // Build PTD and YTD from DailySummaryFact ranges
+      const ptdStartDt = reportDate.startOf('month')
+      const ytdStartDt = reportDate.startOf('year')
+
+      const ptdFacts = await DailySummaryFact.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('audit_date', [ptdStartDt.toJSDate(), reportDate.toJSDate()])
+
+      const ytdFacts = await DailySummaryFact.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('audit_date', [ytdStartDt.toJSDate(), reportDate.toJSDate()])
+
+      const aggregateFacts = (facts: any[]) => {
+        const map = new Map<string, { roomNights: number, revenue: number, order?: number }>()
+        for (const f of facts) {
+          const arr: any = f.revenueByRoomType
+          if (!Array.isArray(arr)) continue
+          for (const item of arr) {
+            const key: string = item.roomType || item.roomTypeName || 'Unknown'
+            if (roomTypeNameFilter && key !== roomTypeNameFilter) continue
+            const nights = Number(item.roomNights ?? item.asOnRoomNights ?? 0)
+            const rev = Number(item.roomRevenue ?? item.asOnRevenue ?? 0)
+            const order = Number(item.order ?? 0)
+            const g = map.get(key) || { roomNights: 0, revenue: 0, order }
+            g.roomNights += nights
+            g.revenue += rev
+            g.order = Math.min(g.order ?? order ?? 0, order ?? 0)
+            map.set(key, g)
+          }
+        }
+        return map
+      }
+
+      const ptdMap = aggregateFacts(ptdFacts)
+      const ytdMap = aggregateFacts(ytdFacts)
+
+      // Inject current day into PTD/YTD when summary lacks stored room-type breakdown
+      if (!Array.isArray(storedDay) || storedDay.length === 0) {
+        for (const it of dayItems) {
+          const key = it.roomType || it.roomTypeName || 'Unknown'
+          if (roomTypeNameFilter && key !== roomTypeNameFilter) continue
+          const nights = Number(it.roomNights ?? it.asOnRoomNights ?? 0)
+          const rev = Number(it.roomRevenue ?? it.asOnRevenue ?? 0)
+          const order = Number(it.order ?? 0)
+
+          const p = ptdMap.get(key) || { roomNights: 0, revenue: 0, order }
+          p.roomNights += nights
+          p.revenue += rev
+          p.order = Math.min(p.order ?? order ?? 0, order ?? 0)
+          ptdMap.set(key, p)
+
+          const y = ytdMap.get(key) || { roomNights: 0, revenue: 0, order }
+          y.roomNights += nights
+          y.revenue += rev
+          y.order = Math.min(y.order ?? order ?? 0, order ?? 0)
+          ytdMap.set(key, y)
+        }
+      }
+
+      // Seed PTD/YTD maps with zero entries for any missing room types
+      for (const name of allRoomTypeNames) {
+        if (!ptdMap.has(name)) ptdMap.set(name, { roomNights: 0, revenue: 0, order: 0 })
+        if (!ytdMap.has(name)) ytdMap.set(name, { roomNights: 0, revenue: 0, order: 0 })
+      }
+
+      // Totals per period
+      const totalsAsOn = dayItems.reduce(
+        (acc: any, it: any) => {
+          acc.roomNights += Number(it.roomNights ?? it.asOnRoomNights ?? 0)
+          acc.revenue += Number(it.roomRevenue ?? it.asOnRevenue ?? 0)
+          return acc
+        },
+        { roomNights: 0, revenue: 0 }
+      )
+
+      const totalsPtd = Array.from(ptdMap.values()).reduce(
+        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        { roomNights: 0, revenue: 0 }
+      )
+      const totalsYtd = Array.from(ytdMap.values()).reduce(
+        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        { roomNights: 0, revenue: 0 }
+      )
+
+      // Union of keys across periods
+      const keys = new Set<string>()
+      for (const it of dayItems) keys.add(it.roomType || it.roomTypeName || 'Unknown')
+      for (const name of allRoomTypeNames) keys.add(name)
+      for (const k of ptdMap.keys()) keys.add(k)
+      for (const k of ytdMap.keys()) keys.add(k)
+
+      const rows: any[] = []
+      for (const key of keys) {
+        const dayIt = dayItems.find((d: any) => (d.roomType || d.roomTypeName || 'Unknown') === key)
+        const ptdIt = ptdMap.get(key)
+        const ytdIt = ytdMap.get(key)
+
+        const asOnRoomNights = Number(dayIt?.roomNights ?? dayIt?.asOnRoomNights ?? 0)
+        const asOnRevenue = Number(dayIt?.roomRevenue ?? dayIt?.asOnRevenue ?? 0)
+        const asOnAdr = asOnRoomNights > 0 ? asOnRevenue / asOnRoomNights : 0
+        const asOnPercentage = totalsAsOn.revenue > 0 ? (asOnRevenue / totalsAsOn.revenue) * 100 : 0
+        const asOnRoomPercentage = totalsAsOn.roomNights > 0 ? (asOnRoomNights / totalsAsOn.roomNights) * 100 : 0
+
+        const ptdRoomNights = Number(ptdIt?.roomNights ?? 0)
+        const ptdRevenue = Number(ptdIt?.revenue ?? 0)
+        const ptdAdr = ptdRoomNights > 0 ? ptdRevenue / ptdRoomNights : 0
+        const ptdPercentage = totalsPtd.revenue > 0 ? (ptdRevenue / totalsPtd.revenue) * 100 : 0
+        const ptdRoomNightsPercentage = totalsPtd.roomNights > 0 ? (ptdRoomNights / totalsPtd.roomNights) * 100 : 0
+
+        const ytdRoomNights = Number(ytdIt?.roomNights ?? 0)
+        const ytdRevenue = Number(ytdIt?.revenue ?? 0)
+        const ytdAdr = ytdRoomNights > 0 ? ytdRevenue / ytdRoomNights : 0
+        const ytdPercentage = totalsYtd.revenue > 0 ? (ytdRevenue / totalsYtd.revenue) * 100 : 0
+        const ytdRoomNightsPercentage = totalsYtd.roomNights > 0 ? (ytdRoomNights / totalsYtd.roomNights) * 100 : 0
+
+        const order = Math.min(
+          Number(dayIt?.order ?? 0) || 0,
+          Number(ptdIt?.order ?? 0) || 0,
+          Number(ytdIt?.order ?? 0) || 0
+        )
+
+        rows.push({
+          roomTypeName: key,
+          // As On
+          asOnRoomNights,
+          asOnRevenue,
+          asOnAdr,
+          asOnPercentage,
+          asOnRoomPercentage,
+          // PTD
+          ptdRoomNights,
+          ptdRevenue,
+          ptdAdr,
+          ptdPercentage,
+          ptdRoomNightsPercentage,
+          // To Date (same as PTD)
+          toDateRoomNights: ptdRoomNights,
+          toDateRevenue: ptdRevenue,
+          toDateAdr: ptdAdr,
+          toDatePercentage: ptdPercentage,
+          // YTD
+          ytdRoomNights,
+          ytdRevenue,
+          ytdAdr,
+          ytdPercentage,
+          ytdRoomNightsPercentage,
+          order
+        })
+      }
+
+      // Sort and assemble revenue data
+      const revenueData = {
+        reportDate: reportDate.toFormat('yyyy-MM-dd'),
+        ptdStartDate: ptdStartDt.toFormat('yyyy-MM-dd'),
+        ytdStartDate: ytdStartDt.toFormat('yyyy-MM-dd'),
+        hotelId,
+        roomTypeId: roomTypeId || 'All Room Types',
+        revenueByRoomType: rows.sort((a, b) => {
+          if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
+          return b.asOnRevenue - a.asOnRevenue
+        }),
+        totals: {
+          asOn: {
+            roomNights: totalsAsOn.roomNights,
+            revenue: totalsAsOn.revenue,
+            percentage: 100,
+            adr: totalsAsOn.roomNights > 0 ? totalsAsOn.revenue / totalsAsOn.roomNights : 0
+          },
+          ptd: {
+            roomNights: totalsPtd.roomNights,
+            revenue: totalsPtd.revenue,
+            percentage: 100,
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+          },
+          toDate: {
+            roomNights: totalsPtd.roomNights,
+            revenue: totalsPtd.revenue,
+            percentage: 100,
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+          },
+          ytd: {
+            roomNights: totalsYtd.roomNights,
+            revenue: totalsYtd.revenue,
+            percentage: 100,
+            adr: totalsYtd.roomNights > 0 ? totalsYtd.revenue / totalsYtd.roomNights : 0
+          }
+        },
+        summary: {
+          totalRoomTypes: rows.length,
+          totalTransactions: { asOn: 0, ptd: 0, ytd: 0 }
+        }
+      }
+
+      // Get hotel name and user info
       const { default: Hotel } = await import('#models/hotel')
       const hotel = await Hotel.find(hotelId)
       const hotelName = hotel?.hotelName!
-
-      // Get user info
       const user = auth?.user
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
-
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateRevenueByRoomTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
