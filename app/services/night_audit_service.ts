@@ -344,6 +344,8 @@ export default class NightAuditService {
       totalOutstandingFolios: summary.totalOutstandingFolios,
       totalOutstandingFoliosBalance: summary.totalOutstandingFoliosBalance,
       managerReportData: managerReportData,
+      revenueByRateType: managerReportData?.revenueByRateType ?? null,
+      revenueByRoomType: managerReportData?.revenueByRoomType ?? null,
       nightAuditReportData: nightAuditReportData,
       dailyRevenueReportData: dailyRevenueReportData,
       roomStatusReportData: roomStatusReportData,
@@ -788,8 +790,10 @@ export default class NightAuditService {
       // Get all reservations with check-in date matching audit date but not yet checked in
       const pendingReservations = await Reservation.query()
         .where('hotel_id', hotelId)
-        .where('arrived_date', '=', auditDate)
-        .orWhere('depart_date', '=', auditDate)
+        .where((query) => {
+          query.where('arrived_date', '=', auditDate)
+            .orWhere('depart_date', '=', auditDate)
+        })
         .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
         .preload('guest')
         .preload('folios')
