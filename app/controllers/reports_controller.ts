@@ -2817,6 +2817,10 @@ export default class ReportsController {
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
     // section 15 Total revenu
     const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary);
+
+    // New: Revenue breakdowns for the audit day
+    const revenueByRateType = await this.getRevenueByRateTypeForDay(hotelId, reportDate)
+    const revenueByRoomType = await this.getRevenueByRoomTypeForDay(hotelId, reportDate)
     return {
       roomCharges,
       extraCharges,
@@ -2832,7 +2836,9 @@ export default class ReportsController {
       posSummary,
       posPayment,
       revenueSummary,
-      totalRevenue
+      totalRevenue,
+      revenueByRateType,
+      revenueByRoomType
     }
   }
 
@@ -3087,6 +3093,123 @@ export default class ReportsController {
       .whereNotIn('status', ['cancelled', 'void'])
 
     return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
+  }
+
+  /**
+   * Compute revenue by rate type for a given audit day.
+   * Shape per item:
+   * { rateType, roomNights, roomRevenue, adr, nightsPct, revenuePct }
+   */
+  private async getRevenueByRateTypeForDay(hotelId: number, reportDate: DateTime) {
+    const dayStr = reportDate.toFormat('yyyy-MM-dd')
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('transaction_date', dayStr)
+      .where('category', TransactionCategory.ROOM)
+      .where('transaction_type', TransactionType.CHARGE)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .whereRaw('COALESCE(is_voided, false) = false')
+      .whereNotNull('reservation_room_id')
+      .preload('reservationRoom', (rr) => {
+        rr.preload('rateType', (rt) => {
+          rt.select(['id', 'rate_type_name', Database.raw('sort_order as sortOrder')])
+        })
+      })
+
+    // Aggregate by rate type using in-memory grouping
+    const byRate = new Map<string, { revenue: number, roomIds: Set<number>, order: number }>()
+    for (const tx of transactions) {
+      const rateName = tx.reservationRoom?.rateType?.rateTypeName || 'Unknown'
+      const order = Number(tx.reservationRoom?.rateType?.$extras?.sortOrder ?? 0)
+      const group = byRate.get(rateName) || { revenue: 0, roomIds: new Set<number>(), order }
+      group.revenue += Number(tx.amount || 0)
+      if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
+      // Always keep the smallest sort order if mixed
+      group.order = Math.min(group.order, order)
+      byRate.set(rateName, group)
+    }
+
+    const totals = Array.from(byRate.values()).reduce(
+      (acc, g) => {
+        acc.totalRevenue += g.revenue
+        acc.totalNights += g.roomIds.size
+        return acc
+      },
+      { totalRevenue: 0, totalNights: 0 }
+    )
+
+    const result = Array.from(byRate.entries()).map(([rateType, g]) => {
+      const roomNights = g.roomIds.size
+      const roomRevenue = g.revenue
+      const adr = roomNights > 0 ? roomRevenue / roomNights : 0
+      const nightsPct = totals.totalNights > 0 ? (roomNights / totals.totalNights) * 100 : 0
+      const revenuePct = totals.totalRevenue > 0 ? (roomRevenue / totals.totalRevenue) * 100 : 0
+      return { rateType, roomNights, roomRevenue, adr, nightsPct, revenuePct, order: g.order }
+    })
+    // Order by rate type sort order ascending, then by revenue desc
+    return result
+      .sort((a, b) => {
+        if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
+        return b.roomRevenue - a.roomRevenue
+      })
+  }
+
+  /**
+   * Compute revenue by room type for a given audit day.
+   * Shape per item:
+   * { roomType, roomNights, roomRevenue, adr, nightsPct, revenuePct }
+   */
+  private async getRevenueByRoomTypeForDay(hotelId: number, reportDate: DateTime) {
+    const dayStr = reportDate.toFormat('yyyy-MM-dd')
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('transaction_date', dayStr)
+      .where('category', TransactionCategory.ROOM)
+      .where('transaction_type', TransactionType.CHARGE)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .whereRaw('COALESCE(is_voided, false) = false')
+      .whereNotNull('reservation_room_id')
+      .preload('reservationRoom', (rr) => {
+        rr.preload('roomType', (rt) => {
+          rt.select(['id', 'room_type_name', 'sort_order'])
+        })
+      })
+
+    // Aggregate by room type using in-memory grouping
+    const byRoomType = new Map<string, { revenue: number, roomIds: Set<number>, order: number }>()
+    for (const tx of transactions) {
+      const roomTypeName = tx.reservationRoom?.roomType?.roomTypeName || 'Unknown'
+      const order = Number(tx.reservationRoom?.roomType?.sortOrder ?? 0)
+      const group = byRoomType.get(roomTypeName) || { revenue: 0, roomIds: new Set<number>(), order }
+      group.revenue += Number(tx.amount || 0)
+      if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
+      group.order = Math.min(group.order, order)
+      byRoomType.set(roomTypeName, group)
+    }
+
+    const totals = Array.from(byRoomType.values()).reduce(
+      (acc, g) => {
+        acc.totalRevenue += g.revenue
+        acc.totalNights += g.roomIds.size
+        return acc
+      },
+      { totalRevenue: 0, totalNights: 0 }
+    )
+
+    const result = Array.from(byRoomType.entries()).map(([roomType, g]) => {
+      const roomNights = g.roomIds.size
+      const roomRevenue = g.revenue
+      const adr = roomNights > 0 ? roomRevenue / roomNights : 0
+      const nightsPct = totals.totalNights > 0 ? (roomNights / totals.totalNights) * 100 : 0
+      const revenuePct = totals.totalRevenue > 0 ? (roomRevenue / totals.totalRevenue) * 100 : 0
+      return { roomType, roomNights, roomRevenue, adr, nightsPct, revenuePct, order: g.order }
+    })
+    // Order by room type sort order ascending, then by revenue desc
+    return result
+      .sort((a, b) => {
+        if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
+        return b.roomRevenue - a.roomRevenue
+      })
   }
 
   /**

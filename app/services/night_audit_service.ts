@@ -344,6 +344,8 @@ export default class NightAuditService {
       totalOutstandingFolios: summary.totalOutstandingFolios,
       totalOutstandingFoliosBalance: summary.totalOutstandingFoliosBalance,
       managerReportData: managerReportData,
+      revenueByRateType: managerReportData?.revenueByRateType ?? null,
+      revenueByRoomType: managerReportData?.revenueByRoomType ?? null,
       nightAuditReportData: nightAuditReportData,
       dailyRevenueReportData: dailyRevenueReportData,
       roomStatusReportData: roomStatusReportData,

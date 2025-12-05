@@ -109,6 +109,42 @@ export default class DailySummaryFact extends BaseModel {
   declare managerReportData: object | null
 
   @column({
+    columnName: 'revenue_by_rate_type',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | object | null) => {
+      if (value === null) return null
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return null
+        }
+      }
+      return typeof value === 'object' ? value : null
+    }
+  })
+  declare revenueByRateType: object | null
+
+  @column({
+    columnName: 'revenue_by_room_type',
+    serialize: (value: object | null) => value,
+    prepare: (value: object | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | object | null) => {
+      if (value === null) return null
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return null
+        }
+      }
+      return typeof value === 'object' ? value : null
+    }
+  })
+  declare revenueByRoomType: object | null
+
+  @column({
     columnName: 'night_audit_report_data',
     serialize: (value: object | null) => value,
     prepare: (value: object | null) => value ? JSON.stringify(value) : null,
