@@ -8,6 +8,8 @@ import Database from '@adonisjs/lucid/services/db'
 import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
 import LoggerService from '#services/logger_service'
 import ReportsController from '#controllers/reports_controller'
+import Hotel from '#models/hotel'
+import PosService from '#services/pos_service'
 
 export interface NightAuditFilters {
   auditDate: DateTime
@@ -81,17 +83,42 @@ export default class NightAuditService {
 
     // Generate all report data
     const reportsController = new ReportsController()
-    const [sectionsData, nightAuditData, dailyRevenueData, roomStatusData] = await Promise.all([
+    const [sectionsData, nightAuditData, dailyRevenueData, roomStatusData, posNightAuditData] = await Promise.all([
       reportsController.generateManagementReportSections(hotelId, auditDate, 'XAF'),
       reportsController.generateNightAuditSections(hotelId, auditDate, 'XAF'),
       reportsController.getDailyRevenueData(hotelId, auditDate, []),
-      reportsController.getRoomStatusReportData(hotelId, auditDate, 'XAF')
+      reportsController.getRoomStatusReportData(hotelId, auditDate, 'XAF'),
+      this.fetchPosNightAudit(hotelId, auditDate)
     ])
 
+    // Merge POS data into the night audit report data, if available
+    const nightAuditDataWithPos = {
+      ...(nightAuditData || {}),
+      posNightAudit: posNightAuditData || null,
+    }
+
     // Store the calculated data with all report data
-    await this.storeDailySummary(summary, userId, sectionsData, nightAuditData, dailyRevenueData, roomStatusData)
+    await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
     return summary
+  }
+
+  /**
+   * Fetch POS night audit details from external endpoint and return raw data
+   * The returned payload is stored under DailySummaryFact.nightAuditReportData.posNightAudit
+   */
+  private static async fetchPosNightAudit(hotelId: number, auditDate: DateTime): Promise<any | null> {
+    try {
+      const hotel = await Hotel.find(hotelId)
+      if (!hotel || !hotel.posApiKey) {
+        return null
+      }
+
+      return await PosService.getNightAudit(hotelId, auditDate, hotel.posApiKey)
+    } catch (err: any) {
+      console.error('Error fetching POS night audit:', err?.message || err)
+      return null
+    }
   }
 
   /**

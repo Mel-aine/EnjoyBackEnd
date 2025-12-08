@@ -14,7 +14,9 @@ import NightAuditService from '../services/night_audit_service.js'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import numberToWords from 'number-to-words'
+import PosService from '#services/pos_service'
 export default class ReportsController {
+  private posNightAuditCache = new Map<string, any>()
   /**
    * Get all available report types
    */
@@ -4528,9 +4530,9 @@ export default class ReportsController {
   }
   private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any,) {
     return {
-      today: (posRevenue.today || 0) + (pmsRevenue.today || 0),
-      ptd: (posRevenue.ptd || 0) + (pmsRevenue.ptd || 0),
-      ytd: (posRevenue.ytd || 0) + (pmsRevenue.ytd || 0)
+      today: (posRevenue?.totalWithoutTax?.today || 0) + (pmsRevenue?.today || 0),
+      ptd: (posRevenue?.totalWithoutTax?.ptd || 0) + (pmsRevenue?.ptd || 0),
+      ytd: (posRevenue?.totalWithoutTax?.ytd || 0) + (pmsRevenue?.ytd || 0)
     }
   }
   /**
@@ -9349,100 +9351,62 @@ export default class ReportsController {
   }
 
   async getManagementPosSummaryData(hotelId: number, reportDate: DateTime) {
-    return {
-      outlets: [
-        {
-          outlet: "Restaurant Chez Madeleine",
-          categories: [
-            {
-              name: "Category - Boissons",
-              today: 0,
-              ptd: 0,
-              ytd: 0,
-
-            }
-          ],
-          totalWithTax: {
-            today: 0,
-            ptd: 0,
-            ytd: 0,
-          },
-          totalWithoutTax: {
-            today: 0,
-            ptd: 0,
-            ytd: 0,
-          }
-        },
-        {
-          outlet: "TERRACINA",
-          categories: [
-            {
-              name: "Category - autres",
-              today: 0,
-              ptd: 0,
-              ytd: 0,
-
-            },
-            {
-              name: "Category - Boissons",
-              today: 0,
-              ptd: 0,
-              ytd: 0,
-
-            }
-          ],
-          totalWithTax: {
-            today: 0,
-            ptd: 0,
-            ytd: 0,
-          },
-          totalWithoutTax: {
-            today: 0,
-            ptd: 0,
-            ytd: 0,
-          }
-        },
-
-      ], totalWithTax: {
-        today: 0,
-        ptd: 0,
-        ytd: 0,
-      },
-      totalWithoutTax: {
-        today: 0,
-        ptd: 0,
-        ytd: 0,
+    try {
+      const payload = await this.getPosNightAuditPayload(hotelId, reportDate)
+      if (payload && payload.posSummary) {
+        return payload.posSummary
+      }
+      return {
+        outlets: [],
+        totalWithTax: { today: 0, ptd: 0, ytd: 0 },
+        totalWithoutTax: { today: 0, ptd: 0, ytd: 0 },
+      }
+    } catch (error) {
+      logger.error({ msg: 'ReportsController.getManagementPosSummaryData', error })
+      return {
+        outlets: [],
+        totalWithTax: { today: 0, ptd: 0, ytd: 0 },
+        totalWithoutTax: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
 
   async getManagementPosPaymentSummaryData(hotelId: number, reportDate: DateTime) {
-    return {
-      outlets: [
-        {
-          outlet: "Restaurant Chez Madeleine",
-          payments: [
-            {
-              name: "Payment - Espèce",
-              today: 0,
-              ptd: 0,
-              ytd: 0,
-            }
-          ],
-          total: {
-            today: 0,
-            ptd: 0,
-            ytd: 0,
-          }
-        }
-      ],
-      total: {
-        today: 0,
-        ptd: 0,
-        ytd: 0,
+    try {
+      const payload = await this.getPosNightAuditPayload(hotelId, reportDate)
+      if (payload && payload.posPayment) {
+        return payload.posPayment
+      }
+      return {
+        outlets: [],
+        total: { today: 0, ptd: 0, ytd: 0 },
+      }
+    } catch (error) {
+      logger.error({ msg: 'ReportsController.getManagementPosPaymentSummaryData', error })
+      return {
+        outlets: [],
+        total: { today: 0, ptd: 0, ytd: 0 },
       }
     }
+  }
 
+  private async getPosNightAuditPayload(hotelId: number, reportDate: DateTime) {
+    const key = `${hotelId}-${reportDate.toISODate()}`
+    if (this.posNightAuditCache.has(key)) {
+      return this.posNightAuditCache.get(key)
+    }
+    try {
+      const hotel = await Hotel.find(hotelId)
+      if (!hotel || !hotel.posApiKey) {
+        return null
+      }
+      const payload = await PosService.getNightAudit(hotelId, reportDate, hotel.posApiKey)
+      this.posNightAuditCache.set(key, payload ?? null)
+      return payload ?? null
+    } catch (error) {
+      logger.error({ msg: 'ReportsController.getPosNightAuditPayload', error })
+      return null
+    }
   }
 
   /**

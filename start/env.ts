@@ -69,6 +69,14 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Variables for configuring external POS integration
+  |----------------------------------------------------------
+  */
+  POS_API_BASE_URL: Env.schema.string.optional(),
+  POS_API_TIMEOUT_MS: Env.schema.number.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring the cloudinary package
   |----------------------------------------------------------
   */

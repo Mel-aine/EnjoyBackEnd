@@ -214,16 +214,16 @@
             </tr>
           @endeach
           <tr class="section-total">
-            <td>
+            <td style="width: 40%;">
               <strong>Total Extra Charges</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.extraCharges.totals?.today || content.extraCharges.today) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.extraCharges.totals?.ptd || content.extraCharges.ptd) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.extraCharges.totals?.ytd || content.extraCharges.ytd) }}</strong>
             </td>
           </tr>
@@ -332,16 +332,16 @@
           @endeach
           
           <tr class="section-total">
-            <td>
+            <td style="width: 40%;">
               <strong>Total Tax</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.tax.totals?.today || content.tax.today) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.tax.totals?.ptd || content.tax.ptd) }}</strong>
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               <strong>{{ formatCurrency(content.tax.totals?.ytd || content.tax.ytd) }}</strong>
             </td>
           </tr>
@@ -1119,16 +1119,16 @@
       <table>
         <tbody>
           <tr class="">
-            <td class="">
+            <td style="width: 40%;" >
               Room Revenue
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.today) }}
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.ptd) }}
             </td>
-            <td class="currency">
+            <td class="currency" style="width: 20%;">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.ytd) }}
             </td>
           </tr>
