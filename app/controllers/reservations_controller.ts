@@ -1004,6 +1004,43 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   /**
+   * Get minimal reservation and room details for quick views.
+   * GET /reservation/:reservationId/basicdetails
+   */
+  public async getReservationBasicDetails({ params, response }: HttpContext) {
+    try {
+      const reservationId = parseInt(params.reservationId, 10)
+      if (isNaN(reservationId)) {
+        return response.badRequest({ message: 'Invalid reservation ID. Must be a valid number.' })
+      }
+
+      const reservation = await Reservation.query()
+        .select(['id', 'reservation_number', 'status', 'guest_id', 'arrived_date', 'depart_date'])
+        .where('id', reservationId)
+        .preload('guest', (gq) => gq.select(['id', 'firstName', "lastName", 'title']))
+        .preload('reservationRooms', (rq) => {
+          rq.select(['id', 'room_id', 'status', 'check_in_date', 'check_out_date','roomRateId'])
+            .preload('room', (roomQ) => {
+              roomQ.select(['id', 'room_number', 'room_type_id'])
+                .preload('roomType', (rtQ) => rtQ.select(['id', 'room_type_name']))
+            })
+            .preload('roomRates', (rateQ) => {
+              rateQ.select(['id', 'rate_type_id'])
+                .preload('rateType', (rtQ) => rtQ.select(['id', 'rate_type_name']))
+            })
+        })
+        .first()
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+      return response.ok(reservation)
+    } catch (error) {
+      return response.internalServerError({ message: 'Failed to get basic reservation details', error: error.message })
+    }
+  }
+
+  /**
    * Calculate balance summary from folio transactions
    */
   public static calculateBalanceSummary(folios: any[]) {

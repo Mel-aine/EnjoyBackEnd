@@ -787,24 +787,42 @@ export default class NightAuditService {
    */
   static async getPendingReservations(hotelId: number, auditDate: string) {
     try {
-      // Get all reservations with check-in date matching audit date but not yet checked in
+      // Get all reservations with check-in/depart date matching audit date, selecting only needed fields
       const pendingReservations = await Reservation.query()
+        .select(['id', 'hotel_id', 'guest_id','isGroup','arrived_date', 'reservationTypeId', 'depart_date', 'status', 'confirmation_number'])
         .where('hotel_id', hotelId)
         .where((query) => {
-          query.where('arrived_date', '=', auditDate)
-            .orWhere('depart_date', '=', auditDate)
+          query.where('arrived_date', '=', auditDate).orWhere('depart_date', '=', auditDate)
         })
         .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
-        .preload('guest')
-        .preload('folios')
-        .preload('reservationRooms', (roomQuery) => {
-          roomQuery.whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING, 'reserved'])
-          roomQuery.preload('room')
-          roomQuery.preload('roomRates', (rateQuery) => {
-            rateQuery.preload('rateType')
-          })
+        .preload('guest', (guestQuery) => {
+          guestQuery.select(['id', 'firstName', "lastName", 'title'])
         })
-        .preload('bookingSource')
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'balance', 'total_payments'])
+        })
+        .preload('reservationType', (typeQuery) => {
+          typeQuery.select(['id', 'name'])
+        })
+        .preload('reservationRooms', (roomQuery) => {
+          roomQuery
+            .select(['id', 'room_id', 'status', 'check_in_date', 'check_out_date', 'roomRateId'])
+            .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING, 'reserved'])
+            .preload('room', (rQuery) => {
+              rQuery
+                .select(['id', 'room_number', 'room_type_id'])
+                .preload('roomType', (rtQuery) => {
+                  rtQuery.select(['id', 'room_type_name'])
+                })
+            })
+            .preload('roomRates', (rateQuery) => {
+              rateQuery
+                .select(['id', 'rate_type_id'])
+                .preload('rateType', (rtQuery) => {
+                  rtQuery.select(['id', 'rate_type_name'])
+                })
+            })
+        })
         .orderBy('arrived_date', 'asc')
 
       const pendingReservationsList = []
@@ -828,7 +846,7 @@ export default class NightAuditService {
             room_number: reservationRoom.room?.roomNumber,
             room_type: reservationRoom.room?.roomType,
             rate_type: reservationRoom.roomRates?.rateType?.rateTypeName,
-            reservation_type: reservation.reservationType,
+            reservation_type: reservation.reservationType?.name,
             scheduled_arrival: reservationRoom.checkInDate,
             departure: reservationRoom.checkOutDate,
             total_amount: Math.abs(totalBalance),

@@ -1136,6 +1136,7 @@ router
       .group(() => {
         router.post('/create', [ReservationsController, 'saveReservation']) // Create a new reservation
         router.get('/:reservationId/details', [ReservationsController, 'getReservationDetails'])
+        router.get('/:reservationId/basicdetails', [ReservationsController, 'getReservationBasicDetails'])
         // Create reservation with past-date handling (auto check-in/checkout) without notifying channel for past intervals
         router.post('/inserttrasaction', [ReservationsController, 'insertTransaction'])
         // Import reservations from CSV (maps each row to ReservationData)
