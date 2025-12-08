@@ -282,7 +282,7 @@ export default class ReservationFolioService {
             // Ensure both dates reflect the exact charge date: arrivedDate + (night - 1)
             postingDate: transactionDate ?? DateTime.now(),
             transactionDate,
-            status: TransactionStatus.POSTED,
+            status: TransactionStatus.PENDING,
             createdBy: postedBy,
             lastModifiedBy: postedBy,
           } as any)
@@ -349,7 +349,7 @@ export default class ReservationFolioService {
                   transactionTime: nowIsoTime,
                   postingDate: transactionDate ?? DateTime.now(),
                   transactionDate,
-                  status: TransactionStatus.POSTED,
+                  status: TransactionStatus.PENDING,
                   createdBy: postedBy,
                   lastModifiedBy: postedBy,
                 } as any)

@@ -476,6 +476,7 @@ export default class NightAuditService {
           .where('status', '=', 'checked_in')
           .where('check_in_date', '<=', auditDateStr)
           .andWhere('check_out_date', '>=', auditDateStr)
+          .preload('folios')
           .preload('reservation', (reservationQuery) => {
             reservationQuery
               .preload('guest')
@@ -537,6 +538,7 @@ export default class NightAuditService {
         else if (reservation.status === 'checked_in' && checkInDate === auditDateStr) {
           roomStatus = 'arrived'
           return true
+          
         }
 
         return false
@@ -545,7 +547,7 @@ export default class NightAuditService {
       if (activeReservationRoom) {
         currentReservation = activeReservationRoom.reservation
         guest = currentReservation?.guest
-        folio = currentReservation?.folios[0]
+        folio = currentReservation?.folios[0]??activeReservationRoom.folios[0]
       }
 
       // Determine if action is required (checkout date matches audit date)
@@ -667,7 +669,7 @@ export default class NightAuditService {
   /**
    * Get pending nightly charges for occupied rooms that haven't been billed
    */
-  static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
+static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
     try {
       // Get all occupied rooms for the audit date with room rates from reservationRooms
       const occupiedRooms = await Reservation.query()

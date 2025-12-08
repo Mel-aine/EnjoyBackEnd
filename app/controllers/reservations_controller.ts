@@ -296,24 +296,28 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await trx.commit()
       console.log('Transaction committed successfully')
 
+      // Queue post-commit tasks to run asynchronously
+      setImmediate(() => {
+        (async () => {
+          try {
+            const CheckinCheckoutNotificationService = (
+              await import('#services/notification_action_service')
+            ).default
+            await CheckinCheckoutNotificationService.notifyCheckInCompleted(
+              reservation.id,
+              auth.user!.id
+            )
+          } catch (notifError) {
+            console.error('Error sending check-in notifications:', notifError)
+          }
 
-      // NOTIFICATIONS
-      try {
-        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
-
-        await CheckinCheckoutNotificationService.notifyCheckInCompleted(
-          reservation.id,
-          auth.user!.id
-        )
-
-      } catch (notifError) {
-        console.error(' Error sending check-in notifications:', notifError)
-
-      }
-
-
-
-      await GuestSummaryService.recomputeFromReservation(reservation.id)
+          try {
+            await GuestSummaryService.recomputeFromReservation(reservation.id)
+          } catch (summaryError) {
+            console.error('Error recomputing guest summary:', summaryError)
+          }
+        })()
+      })
 
       return response.ok({
         message: allRoomsCheckedIn ? 'Check-in successful' : 'Partial check-in successful',
