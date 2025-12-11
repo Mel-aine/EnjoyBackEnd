@@ -311,7 +311,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code:'RESERVATION_CONFIRMATION_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Reservation Confirmation [ReservationNumber]',
         contentTemplate:
@@ -345,7 +345,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
         //Room change notification
       {
         code: 'ROOM_MOVE_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Room Changed [ReservationNumber]',
         contentTemplate:
@@ -370,7 +370,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'RESERVATION_CANCELLED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Reservation Cancelled [ReservationNumber]',
         contentTemplate:
@@ -378,7 +378,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'RESERVATION_PARTIAL_CANCELLED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Reservation Partially Cancelled [ReservationNumber]',
         contentTemplate:
@@ -386,7 +386,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'RESERVATION_CANCELLED_GUEST_OTA',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Reservation Cancelled [ReservationNumber]',
         contentTemplate:
@@ -403,7 +403,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'RESERVATION_VOIDED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Reservation Voided [ReservationNumber]',
         contentTemplate:
@@ -419,7 +419,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'PAX_CHANGED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Guest Count Changed [ReservationNumber]',
         contentTemplate:
@@ -444,7 +444,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'RATE_CHANGED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Rate Changed [ReservationNumber]',
         contentTemplate:
@@ -461,7 +461,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'CHECKIN_COMPLETED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Check-In Completed [ReservationNumber]',
         contentTemplate:
@@ -477,7 +477,7 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       },
       {
         code: 'CHECKOUT_COMPLETED_GUEST',
-        channel: 'IN_APP',
+        channel: 'EMAIL',
         locale: 'en',
         subjectTemplate: 'Check-Out Completed [ReservationNumber]',
         contentTemplate:
