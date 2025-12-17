@@ -13,6 +13,7 @@ export default class HotelHistoriesController {
         roomType,
         rateType,
         reservationType,
+        reservationNumber,
         source,
         showBookings,
         dateType,
@@ -41,10 +42,16 @@ export default class HotelHistoriesController {
         query.where((subQuery) => {
           subQuery
             .whereRaw('LOWER(guest_name) LIKE ?', [`%${searchLower}%`])
-            .orWhere('reservation_number', 'LIKE', `%${searchText}%`)
+            // .orWhere('reservation_number', 'LIKE', `%${searchText}%`)
             .orWhere('email', 'LIKE', `%${searchText}%`)
             .orWhere('mobile_no', 'LIKE', `%${searchText}%`)
         })
+      }
+
+      //reservation Number
+
+      if(reservationNumber) {
+        query.where('reservation_number',reservationNumber)
       }
 
       // Filtre par type de chambre (room)

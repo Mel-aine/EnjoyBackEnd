@@ -175,7 +175,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         console.log('Invalid reservation rooms without roomId:', invalidRooms.map(r => r.id))
         await trx.rollback()
         return response.badRequest({
-
+          code: "ROOM_NOT_ASSIGNED",
           message: `Cannot check in reservation rooms without an assigned room.`
         })
       }
