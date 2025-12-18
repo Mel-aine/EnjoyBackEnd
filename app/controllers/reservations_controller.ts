@@ -167,7 +167,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
       }
 
-      const now = actualCheckInTime ? DateTime.fromISO(actualCheckInTime) : DateTime.now()
+      // Use the scheduled arrival/check-in date, not the actual time
+      const checkInDateTime = reservation.checkInDate ?? reservation.arrivedDate ?? DateTime.now()
       const checkedInRooms = []
       // Vérifier que toutes les chambres ont un roomId valide
       const invalidRooms = reservationRoomsToCheckIn.filter((rr) => !rr.roomId)
@@ -175,7 +176,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         console.log('Invalid reservation rooms without roomId:', invalidRooms.map(r => r.id))
         await trx.rollback()
         return response.badRequest({
-
+          code: "ROOM_NOT_ASSIGNED",
           message: `Cannot check in reservation rooms without an assigned room.`
         })
       }
@@ -184,8 +185,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       //  Mise à jour de chaque chambre
       for (const reservationRoom of reservationRoomsToCheckIn) {
         reservationRoom.status = 'checked_in'
-        reservationRoom.checkInDate = now
-        reservationRoom.actualCheckIn = now
+        reservationRoom.checkInDate = checkInDateTime
+        reservationRoom.actualCheckIn = checkInDateTime
+        // Keep actualCheckInTime aligned to the scheduled check-in date
+        reservationRoom.actualCheckInTime = checkInDateTime
         reservationRoom.checkedInBy = auth.user!.id
         reservationRoom.guestNotes = notes || reservationRoom.guestNotes
 
@@ -224,7 +227,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Met à jour la réservation
       if (allRoomsCheckedIn) {
         reservation.status = ReservationStatus.CHECKED_IN
-        reservation.checkInDate = now
+        reservation.checkInDate = checkInDateTime
         reservation.checkedInBy = auth.user!.id
         console.log('Updating reservation status to CHECKED_IN')
       } else {
@@ -241,7 +244,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const checkedRoomNumbers = checkedInRooms.map((r) => r.roomNumber).join(', ') || 'N/A'
       const checkInType = allRoomsCheckedIn ? 'FULL' : 'PARTIAL'
-      const checkInTimeStr = now.toFormat('yyyy-MM-dd HH:mm')
+      const checkInTimeStr = checkInDateTime.toFormat('yyyy-MM-dd HH:mm')
 
       const logDescription = allRoomsCheckedIn
         ? `Full check-in completed for Reservation #${reservation.reservationNumber}. Rooms: ${checkedRoomNumbers}. Checked in at ${checkInTimeStr}.`
@@ -257,7 +260,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         description: logDescription,
         meta: {
           type: checkInType,
-          checkInTime: now.toISO(),
+          checkInTime: checkInDateTime.toISO(),
           roomsCheckedIn: checkedInRooms.map((r) => ({
             id: r.id,
             roomId: r.roomId,
@@ -283,7 +286,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             reservationId: reservation.id,
             reservationNumber: reservation.reservationNumber,
             checkInType,
-            checkInTime: now.toISO(),
+            checkInTime: checkInDateTime.toISO(),
             rooms: checkedRoomNumbers,
             notes,
           },
@@ -475,15 +478,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       const updatedRooms: any[] = []
-      const checkOutDateTime = actualCheckOutTime
-        ? DateTime.fromISO(actualCheckOutTime)
-        : DateTime.now()
+      // Use the scheduled departure/check-out date, not the actual time
+      const checkOutDateTime = reservation.checkOutDate ?? reservation.departDate ?? DateTime.now()
 
       // Update reservation rooms
       for (const reservationRoom of reservationRoomRecords) {
         // Update reservation room status
         reservationRoom.status = 'checked_out'
         reservationRoom.checkOutDate = checkOutDateTime
+        // Keep actual check-out fields aligned to the scheduled date
+        reservationRoom.actualCheckOut = checkOutDateTime
+        reservationRoom.actualCheckOutTime = checkOutDateTime
         reservationRoom.checkedOutBy = auth.user!.id
         reservationRoom.lastModifiedBy = auth.user!.id
 
@@ -3383,7 +3388,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         if (shouldAutoCheckOut && roomRecords.length > 0) {
           for (const rr of roomRecords) {
             rr.status = 'checked_out'
-            rr.checkOutDate = now
+            // Use the scheduled depart date/time as the checkout timestamp
+            rr.checkOutDate =( reservation.checkOutDate ?? reservation.departDate )!
             rr.checkedOutBy = auth.user?.id!
             rr.lastModifiedBy = auth.user?.id!
             await rr.save()
@@ -3394,7 +3400,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             }
           }
           reservation.status = ReservationStatus.CHECKED_OUT
-          reservation.checkOutDate = now
+          // Keep reservation checkout at the scheduled depart date/time
+          reservation.checkOutDate = (reservation.checkOutDate ?? reservation.departDate)!
           reservation.checkedOutBy = auth.user?.id!
           await reservation.save()
           await LoggerService.log({
@@ -3403,7 +3410,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Reservation',
             entityId: reservation.id,
             hotelId: reservation.hotelId,
-            description: `Auto check-out after creation due to past check-out date for reservation #${reservation.reservationNumber}.`,
+            description: `Auto check-out processed using scheduled depart date/time for reservation #${reservation.reservationNumber}.`,
             ctx,
           })
         }
@@ -3668,10 +3675,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
           discountRate: 0,
           netAmount: -Math.abs(amount),
           grossAmount: -Math.abs(amount),
-          transactionDate: DateTime.now(),
-          transactionTime: DateTime.now().toFormat('HH:mm:ss'),
-          postingDate: DateTime.now(),
-          serviceDate: DateTime.now(),
+          // Align transaction timestamps with the reservation's depart/checkout date
+          transactionDate: reservation.checkOutDate ?? reservation.departDate ?? DateTime.now(),
+          transactionTime: (reservation.checkOutDate ?? reservation.departDate ?? DateTime.now()).toFormat('HH:mm:ss'),
+          postingDate: reservation.checkOutDate ?? reservation.departDate ?? DateTime.now(),
+          serviceDate: reservation.checkOutDate ?? reservation.departDate ?? DateTime.now(),
           reference: reference || '',
           paymentMethodId: paymentMethodId,
           paymentReference: reference || '',

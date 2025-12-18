@@ -243,6 +243,7 @@ export default class OtaController {
           ratePlans.push({
             id: rateType.id,
             name: rateType.rateTypeName,
+            roomRateId: roomRate.id,
             shortCode: rateType.shortCode,
             features,
             basePrice: pricing?.basePrice ?? null,

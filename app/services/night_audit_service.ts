@@ -565,7 +565,7 @@ export default class NightAuditService {
         else if (reservation.status === 'checked_in' && checkInDate === auditDateStr) {
           roomStatus = 'arrived'
           return true
-          
+
         }
 
         return false
@@ -921,39 +921,16 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
           .whereRaw('DATE(transaction_date) = ?', [auditDate])
           .andWhere('transaction_type', TransactionType.CHARGE)
           .where('is_voided', false)
-          .first()
-
-        if (!existingTransaction) {
-          errors.push({
-            folioId: charge.folioId,
-            chargeDate: auditDate,
-            error: 'Existing transaction not found for update'
-          })
-          continue
-        }
-
-        // Get the folio to update balance
-        const folio = await Folio.findOrFail(charge.folioId)
-
-        // Calculate the difference for balance adjustment
-        const amountDifference = charge.amount - existingTransaction.amount
-
-        // Update the existing transaction
-        await existingTransaction.merge({
-          amount: charge.amount,
-          description: charge.description,
+          .update({
+            description: charge.description,
           status: TransactionStatus.POSTED,
-        }).save()
+          })
 
-        // Update folio balance with the difference
-        await folio.merge({
-          totalCharges: folio.totalCharges + amountDifference,
-          balance: folio.balance + amountDifference,
-        }).save()
+
 
         postedCharges.push({
           folioId: charge.folio_id,
-          transactionId: existingTransaction.id,
+          transactionId: existingTransaction.map((sp:any)=>sp.id),
           amount: charge.amount,
           chargeType: charge.chargeType,
           chargeDate: charge.charge_date,
@@ -967,19 +944,17 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
             action: 'UPDATE',
             resourceType: 'FolioTransaction',
             entityType: 'FolioTransaction',
-            resourceId: existingTransaction.id,
+            resourceId: folio.id,
             entityId: charge.folioId,
             hotelId: hotelId,
             details: {
               folioId: charge.folio_id,
               transactionType: TransactionType.CHARGE,
-              oldAmount: existingTransaction.amount,
+              oldAmount: charge.amount,
               newAmount: charge.amount,
-              amountDifference: amountDifference,
               chargeType: charge.chargeType,
               chargeDate: charge.charge_date,
               auditDate: auditDate,
-              reference: existingTransaction.reference
             }
           })
         }

@@ -56,10 +56,12 @@ export default class NotificationsController {
   public async listForMe(ctx: HttpContext) {
     const { response, auth } = ctx
     const userId = auth.user?.id
+    const hotelId = auth.user?.hotelId
     if (!userId) return response.unauthorized({ message: 'Not authenticated' })
     const items = await Notification.query()
       .where('recipient_type', 'STAFF')
       .andWhere('recipient_id', userId)
+      .andWhere('hotel_id', hotelId as any)
       .orderBy('created_at', 'desc')
       .limit(100)
       .preload('template')
@@ -75,6 +77,9 @@ export default class NotificationsController {
     if (!notif) return response.notFound({ message: 'Notification not found' })
     // Optional: ensure only recipient can mark read
     if (notif.recipientType === 'STAFF' && notif.recipientId !== auth.user?.id) {
+      return response.forbidden({ message: 'Forbidden' })
+    }
+    if (auth.user?.hotelId && notif.hotelId !== auth.user.hotelId) {
       return response.forbidden({ message: 'Forbidden' })
     }
     await notif.merge({ isRead: true }).save()
