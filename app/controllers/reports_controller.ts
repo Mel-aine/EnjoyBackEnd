@@ -9400,8 +9400,10 @@ export default class ReportsController {
       if (!hotel || !hotel.posApiKey) {
         return null
       }
-      const payload = await PosService.getNightAudit(hotelId, reportDate, hotel.posApiKey)
+      const apikey= 'eb8324f9ebf04e83c669958deb5187ef887434af5d45fe9f8dd87eb7bd1e057b'
+      const payload = await PosService.getNightAudit(hotelId, reportDate, apikey)
       this.posNightAuditCache.set(key, payload ?? null)
+      console.log('payload@@@@@@', payload)
       return payload ?? null
     } catch (error) {
       logger.error({ msg: 'ReportsController.getPosNightAuditPayload', error })
