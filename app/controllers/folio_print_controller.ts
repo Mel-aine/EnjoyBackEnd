@@ -80,6 +80,7 @@ export default class FolioPrintController {
 
       return response.send(pdfBuffer)
     } catch (error) { 
+      console.log('error@@@@@@', error)
       return response.status(500).json({
         success: false,
         message: 'Failed to generate folio PDF',
