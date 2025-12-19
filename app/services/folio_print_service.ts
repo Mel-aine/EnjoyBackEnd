@@ -193,14 +193,16 @@ export class FolioPrintService {
       checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
       checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
       numberOfNights: reservation.numberOfNights || 1,
-      roomNumber: reservation.roomType?.rooms?.[0].roomNumber,
-      roomType: reservation.roomType?.roomTypeName || 'Standard Room',
+      roomNumber: `${reservation.reservationRooms?.[0]?.room?.roomNumber} - ${ reservation.roomType?.roomTypeName}`,
+      roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'Standard Room',
+      rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'Standard Rate',
+      tarrif: reservation.reservationRooms?.[0]?.roomRate || 0,
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
       status: reservation.status || reservation.reservationStatus,
-      checkedInBy: reservation.checkedInByUser.fullName,
-      checkedOutBy: reservation.checkedOutByUser.fullName,
-      reservedBy: reservation.reservedByUser.fullName
+      checkedInBy: reservation.checkedInByUser?.fullName,
+      checkedOutBy: reservation.checkedOutByUser?.fullName,
+      reservedBy: reservation.reservedByUser?.fullName
     } 
 
     // Prepare folio information
