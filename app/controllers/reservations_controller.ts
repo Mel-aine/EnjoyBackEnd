@@ -168,7 +168,20 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Use the scheduled arrival/check-in date, not the actual time
-      const checkInDateTime = reservation.checkInDate ?? reservation.arrivedDate ?? DateTime.now()
+      // const checkInDateTime = reservation.checkInDate ?? reservation.arrivedDate ?? DateTime.now()
+      let checkInDateTime: DateTime
+
+      if (reservation.checkInDate) {
+        checkInDateTime = DateTime.isDateTime(reservation.checkInDate)
+          ? reservation.checkInDate
+          : DateTime.fromJSDate(new Date(reservation.checkInDate))
+      } else if (reservation.arrivedDate) {
+        checkInDateTime = DateTime.isDateTime(reservation.arrivedDate)
+          ? reservation.arrivedDate
+          : DateTime.fromJSDate(new Date(reservation.arrivedDate))
+      } else {
+        checkInDateTime = DateTime.now()
+      }
       const checkedInRooms = []
       // Vérifier que toutes les chambres ont un roomId valide
       const invalidRooms = reservationRoomsToCheckIn.filter((rr) => !rr.roomId)
@@ -188,7 +201,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservationRoom.checkInDate = checkInDateTime
         reservationRoom.actualCheckIn = checkInDateTime
         // Keep actualCheckInTime aligned to the scheduled check-in date
-        reservationRoom.actualCheckInTime = checkInDateTime
+        reservationRoom.actualCheckIn = checkInDateTime
         reservationRoom.checkedInBy = auth.user!.id
         reservationRoom.guestNotes = notes || reservationRoom.guestNotes
 
@@ -346,294 +359,583 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
 
-  public async checkOut(ctx: HttpContext) {
-    const { params, response, request, auth } = ctx
-    const { reservationRooms, actualCheckOutTime, notes } = request.body()
-    console.log('➡️ checkOut called with params:', params, 'body:', request.body())
+  // public async checkOut(ctx: HttpContext) {
+  //   const { params, response, request, auth } = ctx
+  //   const { reservationRooms, actualCheckOutTime, notes } = request.body()
+  //   console.log('➡️ checkOut called with params:', params, 'body:', request.body())
 
-    if (!auth.user) {
-      return response.unauthorized({
+  //   if (!auth.user) {
+  //     return response.unauthorized({
+  //       success: false,
+  //       message: 'Authentication required',
+  //       errors: ['User is not authenticated'],
+  //     })
+  //   }
+
+  //   const trx = await db.transaction()
+
+  //   try {
+  //     // Validate input parameters
+  //     if (!params.reservationId) {
+  //       console.log('❌ Missing reservationId')
+  //       await trx.rollback()
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Reservation ID is required',
+  //         errors: ['Missing reservation ID'],
+  //       })
+  //     }
+
+  //     if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+  //       console.log('❌ Invalid reservationRooms:', reservationRooms)
+  //       await trx.rollback()
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Reservation rooms are required',
+  //         errors: ['reservationRooms must be a non-empty array'],
+  //       })
+  //     }
+
+  //     // Fetch reservation with transaction
+  //     const reservation = await Reservation.query({ client: trx })
+  //       .where('id', params.reservationId)
+  //       .preload('folios', (folioQuery) => {
+  //         folioQuery.preload('transactions')
+  //       })
+  //       .first()
+  //     console.log('📦 Reservation fetched:', reservation?.id, reservation?.status)
+
+  //     if (!reservation) {
+  //       await trx.rollback()
+  //       return response.notFound({
+  //         success: false,
+  //         message: 'Reservation not found',
+  //         errors: ['Reservation does not exist'],
+  //       })
+  //     }
+
+  //     // Validate reservation status
+  //     if (reservation.status === ReservationStatus.CHECKED_OUT) {
+  //       await trx.rollback()
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Reservation is already checked out',
+  //         errors: ['Cannot check out an already checked out reservation'],
+  //       })
+  //     }
+
+  //     if (reservation.status !== ReservationStatus.CHECKED_IN) {
+  //       await trx.rollback()
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Reservation must be checked in before check out',
+  //         errors: [`Current status: ${reservation.status}`],
+  //       })
+  //     }
+
+  //     const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
+  //     console.log('💰 Balance summary calculated:', balanceSummary)
+
+  //     // Check if there's an outstanding balance
+  //     if (balanceSummary.outstandingBalance > 0) {
+  //       console.log('⚠️ Outstanding balance detected:', balanceSummary.outstandingBalance)
+  //       await trx.rollback()
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Cannot check out with outstanding balance',
+  //         errors: [
+  //           `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
+  //         ],
+  //         data: {
+  //           balanceSummary,
+  //           outstandingAmount: balanceSummary.outstandingBalance,
+  //         },
+  //       })
+  //     }
+
+  //     // Fetch reservation rooms with transaction
+  //     const reservationRoomRecords = await ReservationRoom.query({ client: trx })
+  //       .whereIn('id', reservationRooms)
+  //       .where('reservationId', params.reservationId)
+  //       .preload('room')
+  //     console.log(
+  //       '🛏️ Reservation rooms fetched:',
+  //       reservationRoomRecords.map((r) => ({ id: r.roomId, status: r.status }))
+  //     )
+
+  //     if (reservationRoomRecords.length === 0) {
+  //       await trx.rollback()
+  //       return response.notFound({
+  //         success: false,
+  //         message: 'No reservation rooms found',
+  //         errors: ['No matching reservation rooms for the provided IDs'],
+  //       })
+  //     }
+
+  //     // Validate room statuses
+  //     const invalidRooms = reservationRoomRecords.filter(
+  //       (room) => room.status === 'checked_out' || room.status === 'cancelled'
+  //     )
+
+  //     if (invalidRooms.length > 0) {
+  //       console.log(
+  //         '⚠️ Invalid rooms for checkout:',
+  //         invalidRooms.map((r) => ({ id: r.id, status: r.status }))
+  //       )
+  //       await trx.rollback()
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Some rooms cannot be checked out',
+  //         errors: invalidRooms.map((room) => `Room ${room.id} is already ${room.status}`),
+  //       })
+  //     }
+
+  //     const updatedRooms: any[] = []
+  //     // Use the scheduled departure/check-out date, not the actual time
+  //     // const checkOutDateTime = reservation.checkOutDate ?? reservation.departDate ?? DateTime.now()
+
+  //     let checkOutDateTime: DateTime
+
+  //     if (reservation.checkOutDate) {
+  //       checkOutDateTime = DateTime.isDateTime(reservation.checkOutDate)
+  //         ? reservation.checkOutDate
+  //         : DateTime.fromJSDate(new Date(reservation.checkOutDate))
+  //     } else if (reservation.departDate) {
+  //       checkOutDateTime = DateTime.isDateTime(reservation.departDate)
+  //         ? reservation.departDate
+  //         : DateTime.fromJSDate(new Date(reservation.departDate))
+  //     } else {
+  //       checkOutDateTime = DateTime.now()
+  //     }
+
+  //     // Update reservation rooms
+  //     for (const reservationRoom of reservationRoomRecords) {
+  //       // Update reservation room status
+  //       reservationRoom.status = 'checked_out'
+  //       reservationRoom.checkOutDate = checkOutDateTime
+  //       // Keep actual check-out fields aligned to the scheduled date
+  //       reservationRoom.actualCheckOut = checkOutDateTime
+  //       reservationRoom.actualCheckOutTime = checkOutDateTime
+  //       reservationRoom.checkedOutBy = auth.user!.id
+  //       reservationRoom.lastModifiedBy = auth.user!.id
+
+  //       if (notes) {
+  //         reservationRoom.guestNotes = notes
+  //       }
+
+  //       await reservationRoom.useTransaction(trx).save()
+  //       updatedRooms.push(reservationRoom)
+
+  //       // Update associated room status to dirty
+  //       if (reservationRoom.room) {
+  //         console.log(`🧹 Marking room ${reservationRoom.room.id} as dirty`)
+  //         reservationRoom.room.status = 'available'
+  //         reservationRoom.room.housekeepingStatus = 'dirty'
+  //         await reservationRoom.room.useTransaction(trx).save()
+  //         updatedRooms.push(reservationRoom.room.id)
+  //       }
+  //     }
+
+  //     // Check if all reservation rooms are checked out
+  //     const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
+  //       .where('reservationId', params.reservationId)
+  //       .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
+
+  //     console.log('📊 Remaining checked-in rooms:', remainingCheckedInRooms.length)
+
+  //     const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
+
+  //     // Update reservation status if all rooms are checked out
+  //     if (allRoomsCheckedOut) {
+  //       console.log('✅ All rooms checked out, updating reservation status')
+  //       reservation.checkOutDate = checkOutDateTime
+  //       reservation.status = ReservationStatus.CHECKED_OUT
+  //       reservation.checkedOutBy = auth.user!.id
+  //       await reservation.useTransaction(trx).save()
+  //     }
+
+  //     // Log the check-out activity
+  //     await LoggerService.log({
+  //       actorId: auth.user.id,
+  //       action: 'CHECK_OUT',
+  //       entityType: 'Reservation',
+  //       entityId: reservation.id,
+  //       hotelId: reservation.hotelId,
+  //       description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
+  //       ctx: ctx,
+  //     })
+
+  //     //log for Guest
+  //     if (reservation.guestId) {
+  //       await LoggerService.log({
+  //         actorId: auth.user.id,
+  //         action: 'CHECK_OUT',
+  //         entityType: 'Guest',
+  //         entityId: reservation.guestId,
+  //         hotelId: reservation.hotelId,
+  //         description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
+  //         meta: {
+  //           reservationId: reservation.id,
+  //           reservationNumber: reservation.reservationNumber,
+  //           rooms: reservationRooms,
+  //         },
+  //         ctx: ctx,
+  //       })
+  //     }
+
+  //     await trx.commit()
+
+  //     // Send thank-you email after successful checkout (non-blocking for transaction)
+  //     try {
+  //       const folios = reservation.folios || []
+  //       const closedFolioIds = folios
+  //         .filter((f) => f.status === FolioStatus.CLOSED)
+  //         .map((f) => f.id)
+  //       const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
+  //       await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
+  //     } catch (emailErr: any) {
+  //       logger.warn('Failed to send checkout thank-you email', {
+  //         reservationId: reservation.id,
+  //         error: emailErr?.message,
+  //       })
+  //     }
+
+  //     try {
+  //       const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+
+  //       await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
+  //         reservation.id,
+  //         auth.user!.id,
+  //         {
+  //           checkedOutRooms: reservationRoomRecords.map(rr => ({
+  //             roomNumber: rr.room?.roomNumber || 'N/A',
+  //             roomId: rr.roomId
+  //           })),
+  //           checkOutTime: checkOutDateTime,
+  //           allRoomsCheckedOut
+  //         }
+  //       )
+  //       console.log(' Check-out notifications sent successfully')
+  //     } catch (notifError) {
+  //       console.error(' Error sending check-out notifications:', notifError)
+  //     }
+
+  //     await GuestSummaryService.recomputeFromReservation(reservation.id)
+  //     return response.ok({
+  //       success: true,
+  //       message: 'Check-out completed successfully',
+  //       data: {
+  //         reservation: {
+  //           id: reservation.id,
+  //           reservationNumber: reservation.reservationNumber,
+  //           status: reservation.status,
+  //           checkOutDate: reservation.checkOutDate,
+  //           allRoomsCheckedOut,
+  //         },
+  //         checkedOutRooms: updatedRooms.map((room) => ({
+  //           id: room.id,
+  //           roomId: room.roomId,
+  //           status: room.status,
+  //           // actualCheckOutTime: room.actualCheckOutTime,
+  //           //checkedOutBy: room.checkedOutBy,
+  //           //finalBillAmount: room.finalBillAmount,
+  //           //depositRefund: room.depositRefund
+  //         })),
+  //         updatedRooms,
+  //         balanceSummary,
+  //       },
+  //     })
+  //   } catch (error) {
+  //     await trx.rollback()
+  //     logger.error('Error during reservation check-out:', {
+  //       reservationId: params.reservationId,
+  //       reservationRooms,
+  //       error: error.message,
+  //       stack: error.stack,
+  //     })
+
+  //     return response.status(500).json({
+  //       success: false,
+  //       message: 'An error occurred during check-out',
+  //       errors: [error.message],
+  //     })
+  //   }
+  // }
+
+  public async checkOut(ctx: HttpContext) {
+  const { params, response, request, auth } = ctx
+  const { reservationRooms, actualCheckOutTime, notes } = request.body()
+
+  if (!auth.user) {
+    console.log('[CHECKOUT] Erreur: Utilisateur non authentifié');
+    return response.unauthorized({
+      success: false,
+      message: 'Authentication required',
+      errors: ['User is not authenticated'],
+    })
+  }
+
+  const trx = await db.transaction()
+
+  try {
+    if (!params.reservationId) {
+      await trx.rollback()
+      return response.badRequest({
         success: false,
-        message: 'Authentication required',
-        errors: ['User is not authenticated'],
+        message: 'Reservation ID is required',
+        errors: ['Missing reservation ID'],
       })
     }
 
-    const trx = await db.transaction()
+    if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+      await trx.rollback()
+      return response.badRequest({
+        success: false,
+        message: 'Reservation rooms are required',
+        errors: ['reservationRooms must be a non-empty array'],
+      })
+    }
 
-    try {
-      // Validate input parameters
-      if (!params.reservationId) {
-        console.log('❌ Missing reservationId')
-        await trx.rollback()
-        return response.badRequest({
-          success: false,
-          message: 'Reservation ID is required',
-          errors: ['Missing reservation ID'],
-        })
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', params.reservationId)
+      .preload('folios', (folioQuery) => {
+        folioQuery.preload('transactions')
+      })
+      .first()
+
+    if (!reservation) {
+      await trx.rollback()
+      return response.notFound({
+        success: false,
+        message: 'Reservation not found',
+        errors: ['Reservation does not exist'],
+      })
+    }
+
+
+    if (reservation.status === ReservationStatus.CHECKED_OUT) {
+      await trx.rollback()
+      return response.badRequest({
+        success: false,
+        message: 'Reservation is already checked out',
+        errors: ['Cannot check out an already checked out reservation'],
+      })
+    }
+
+    if (reservation.status !== ReservationStatus.CHECKED_IN) {
+      await trx.rollback()
+      return response.badRequest({
+        success: false,
+        message: 'Reservation must be checked in before check out',
+        errors: [`Current status: ${reservation.status}`],
+      })
+    }
+
+    const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
+
+    if (balanceSummary.outstandingBalance > 0) {
+      await trx.rollback()
+      return response.badRequest({
+        success: false,
+        message: 'Cannot check out with outstanding balance',
+        errors: [
+          `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
+        ],
+        data: {
+          balanceSummary,
+          outstandingAmount: balanceSummary.outstandingBalance,
+        },
+      })
+    }
+
+    const reservationRoomRecords = await ReservationRoom.query({ client: trx })
+      .whereIn('id', reservationRooms)
+      .where('reservationId', params.reservationId)
+      .preload('room')
+
+
+    if (reservationRoomRecords.length === 0) {
+
+      await trx.rollback()
+      return response.notFound({
+        success: false,
+        message: 'No reservation rooms found',
+        errors: ['No matching reservation rooms for the provided IDs'],
+      })
+    }
+    const invalidRooms = reservationRoomRecords.filter(
+      (room) => room.status === 'checked_out' || room.status === 'cancelled'
+    )
+
+
+    if (invalidRooms.length > 0) {
+      console.log('[CHECKOUT] Erreur: Chambres invalides:', invalidRooms.map(r => ({ id: r.id, status: r.status })));
+      await trx.rollback()
+      return response.badRequest({
+        success: false,
+        message: 'Some rooms cannot be checked out',
+        errors: invalidRooms.map((room) => `Room ${room.id} is already ${room.status}`),
+      })
+    }
+
+    const updatedRooms: any[] = []
+
+    let checkOutDateTime: DateTime
+
+    if (reservation.checkOutDate) {
+      checkOutDateTime = DateTime.isDateTime(reservation.checkOutDate)
+        ? reservation.checkOutDate
+        : DateTime.fromJSDate(new Date(reservation.checkOutDate))
+    } else if (reservation.departDate) {
+      checkOutDateTime = DateTime.isDateTime(reservation.departDate)
+        ? reservation.departDate
+        : DateTime.fromJSDate(new Date(reservation.departDate))
+    } else {
+      checkOutDateTime = DateTime.now()
+    }
+
+    for (const reservationRoom of reservationRoomRecords) {
+
+      reservationRoom.status = 'checked_out'
+      reservationRoom.checkOutDate = checkOutDateTime
+      reservationRoom.actualCheckOut = checkOutDateTime
+      reservationRoom.actualCheckOut = checkOutDateTime
+      reservationRoom.checkedOutBy = auth.user!.id
+      reservationRoom.lastModifiedBy = auth.user!.id
+
+      if (notes) {
+        reservationRoom.guestNotes = notes
       }
 
-      if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
-        console.log('❌ Invalid reservationRooms:', reservationRooms)
-        await trx.rollback()
-        return response.badRequest({
-          success: false,
-          message: 'Reservation rooms are required',
-          errors: ['reservationRooms must be a non-empty array'],
-        })
+      await reservationRoom.useTransaction(trx).save()
+      updatedRooms.push(reservationRoom)
+
+      if (reservationRoom.room) {
+        reservationRoom.room.status = 'available'
+        reservationRoom.room.housekeepingStatus = 'dirty'
+        await reservationRoom.room.useTransaction(trx).save()
       }
+    }
 
-      // Fetch reservation with transaction
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', params.reservationId)
-        .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
-        })
-        .first()
-      console.log('📦 Reservation fetched:', reservation?.id, reservation?.status)
+    const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
+      .where('reservationId', params.reservationId)
+      .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
 
-      if (!reservation) {
-        await trx.rollback()
-        return response.notFound({
-          success: false,
-          message: 'Reservation not found',
-          errors: ['Reservation does not exist'],
-        })
-      }
+    const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
 
-      // Validate reservation status
-      if (reservation.status === ReservationStatus.CHECKED_OUT) {
-        await trx.rollback()
-        return response.badRequest({
-          success: false,
-          message: 'Reservation is already checked out',
-          errors: ['Cannot check out an already checked out reservation'],
-        })
-      }
+    if (allRoomsCheckedOut) {
+      reservation.checkOutDate = checkOutDateTime
+      reservation.status = ReservationStatus.CHECKED_OUT
+      reservation.checkedOutBy = auth.user!.id
+      await reservation.useTransaction(trx).save()
+    }
 
-      if (reservation.status !== ReservationStatus.CHECKED_IN) {
-        await trx.rollback()
-        return response.badRequest({
-          success: false,
-          message: 'Reservation must be checked in before check out',
-          errors: [`Current status: ${reservation.status}`],
-        })
-      }
+    await LoggerService.log({
+      actorId: auth.user.id,
+      action: 'CHECK_OUT',
+      entityType: 'Reservation',
+      entityId: reservation.id,
+      hotelId: reservation.hotelId,
+      description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
+      ctx: ctx,
+    })
 
-      const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
-      console.log('💰 Balance summary calculated:', balanceSummary)
-
-      // Check if there's an outstanding balance
-      if (balanceSummary.outstandingBalance > 0) {
-        console.log('⚠️ Outstanding balance detected:', balanceSummary.outstandingBalance)
-        await trx.rollback()
-        return response.badRequest({
-          success: false,
-          message: 'Cannot check out with outstanding balance',
-          errors: [
-            `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
-          ],
-          data: {
-            balanceSummary,
-            outstandingAmount: balanceSummary.outstandingBalance,
-          },
-        })
-      }
-
-      // Fetch reservation rooms with transaction
-      const reservationRoomRecords = await ReservationRoom.query({ client: trx })
-        .whereIn('id', reservationRooms)
-        .where('reservationId', params.reservationId)
-        .preload('room')
-      console.log(
-        '🛏️ Reservation rooms fetched:',
-        reservationRoomRecords.map((r) => ({ id: r.roomId, status: r.status }))
-      )
-
-      if (reservationRoomRecords.length === 0) {
-        await trx.rollback()
-        return response.notFound({
-          success: false,
-          message: 'No reservation rooms found',
-          errors: ['No matching reservation rooms for the provided IDs'],
-        })
-      }
-
-      // Validate room statuses
-      const invalidRooms = reservationRoomRecords.filter(
-        (room) => room.status === 'checked_out' || room.status === 'cancelled'
-      )
-
-      if (invalidRooms.length > 0) {
-        console.log(
-          '⚠️ Invalid rooms for checkout:',
-          invalidRooms.map((r) => ({ id: r.id, status: r.status }))
-        )
-        await trx.rollback()
-        return response.badRequest({
-          success: false,
-          message: 'Some rooms cannot be checked out',
-          errors: invalidRooms.map((room) => `Room ${room.id} is already ${room.status}`),
-        })
-      }
-
-      const updatedRooms: any[] = []
-      // Use the scheduled departure/check-out date, not the actual time
-      const checkOutDateTime = reservation.checkOutDate ?? reservation.departDate ?? DateTime.now()
-
-      // Update reservation rooms
-      for (const reservationRoom of reservationRoomRecords) {
-        // Update reservation room status
-        reservationRoom.status = 'checked_out'
-        reservationRoom.checkOutDate = checkOutDateTime
-        // Keep actual check-out fields aligned to the scheduled date
-        reservationRoom.actualCheckOut = checkOutDateTime
-        reservationRoom.actualCheckOutTime = checkOutDateTime
-        reservationRoom.checkedOutBy = auth.user!.id
-        reservationRoom.lastModifiedBy = auth.user!.id
-
-        if (notes) {
-          reservationRoom.guestNotes = notes
-        }
-
-        await reservationRoom.useTransaction(trx).save()
-        updatedRooms.push(reservationRoom)
-
-        // Update associated room status to dirty
-        if (reservationRoom.room) {
-          console.log(`🧹 Marking room ${reservationRoom.room.id} as dirty`)
-          reservationRoom.room.status = 'available'
-          reservationRoom.room.housekeepingStatus = 'dirty'
-          await reservationRoom.room.useTransaction(trx).save()
-          updatedRooms.push(reservationRoom.room.id)
-        }
-      }
-
-      // Check if all reservation rooms are checked out
-      const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
-        .where('reservationId', params.reservationId)
-        .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
-
-      console.log('📊 Remaining checked-in rooms:', remainingCheckedInRooms.length)
-
-      const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
-
-      // Update reservation status if all rooms are checked out
-      if (allRoomsCheckedOut) {
-        console.log('✅ All rooms checked out, updating reservation status')
-        reservation.checkOutDate = checkOutDateTime
-        reservation.status = ReservationStatus.CHECKED_OUT
-        reservation.checkedOutBy = auth.user!.id
-        await reservation.useTransaction(trx).save()
-      }
-
-      // Log the check-out activity
+    if (reservation.guestId) {
       await LoggerService.log({
         actorId: auth.user.id,
         action: 'CHECK_OUT',
-        entityType: 'Reservation',
-        entityId: reservation.id,
+        entityType: 'Guest',
+        entityId: reservation.guestId,
         hotelId: reservation.hotelId,
-        description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
+        description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
+        meta: {
+          reservationId: reservation.id,
+          reservationNumber: reservation.reservationNumber,
+          rooms: reservationRooms,
+        },
         ctx: ctx,
       })
+    }
+    await trx.commit()
 
-      //log for Guest
-      if (reservation.guestId) {
-        await LoggerService.log({
-          actorId: auth.user.id,
-          action: 'CHECK_OUT',
-          entityType: 'Guest',
-          entityId: reservation.guestId,
-          hotelId: reservation.hotelId,
-          description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
-          meta: {
-            reservationId: reservation.id,
-            reservationNumber: reservation.reservationNumber,
-            rooms: reservationRooms,
-          },
-          ctx: ctx,
-        })
-      }
-
-      await trx.commit()
-
-      // Send thank-you email after successful checkout (non-blocking for transaction)
-      try {
-        const folios = reservation.folios || []
-        const closedFolioIds = folios
-          .filter((f) => f.status === FolioStatus.CLOSED)
-          .map((f) => f.id)
-        const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
-        await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
-      } catch (emailErr: any) {
-        logger.warn('Failed to send checkout thank-you email', {
-          reservationId: reservation.id,
-          error: emailErr?.message,
-        })
-      }
-
-      try {
-        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
-
-        await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
-          reservation.id,
-          auth.user!.id,
-          {
-            checkedOutRooms: reservationRoomRecords.map(rr => ({
-              roomNumber: rr.room?.roomNumber || 'N/A',
-              roomId: rr.roomId
-            })),
-            checkOutTime: checkOutDateTime,
-            allRoomsCheckedOut
-          }
-        )
-        console.log(' Check-out notifications sent successfully')
-      } catch (notifError) {
-        console.error(' Error sending check-out notifications:', notifError)
-      }
-
-      await GuestSummaryService.recomputeFromReservation(reservation.id)
-      return response.ok({
-        success: true,
-        message: 'Check-out completed successfully',
-        data: {
-          reservation: {
-            id: reservation.id,
-            reservationNumber: reservation.reservationNumber,
-            status: reservation.status,
-            checkOutDate: reservation.checkOutDate,
-            allRoomsCheckedOut,
-          },
-          checkedOutRooms: updatedRooms.map((room) => ({
-            id: room.id,
-            roomId: room.roomId,
-            status: room.status,
-            // actualCheckOutTime: room.actualCheckOutTime,
-            //checkedOutBy: room.checkedOutBy,
-            //finalBillAmount: room.finalBillAmount,
-            //depositRefund: room.depositRefund
-          })),
-          updatedRooms,
-          balanceSummary,
-        },
-      })
-    } catch (error) {
-      await trx.rollback()
-      logger.error('Error during reservation check-out:', {
-        reservationId: params.reservationId,
-        reservationRooms,
-        error: error.message,
-        stack: error.stack,
-      })
-
-      return response.status(500).json({
-        success: false,
-        message: 'An error occurred during check-out',
-        errors: [error.message],
+    try {
+      const folios = reservation.folios || []
+      const closedFolioIds = folios
+        .filter((f) => f.status === FolioStatus.CLOSED)
+        .map((f) => f.id)
+      const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
+      await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
+    } catch (emailErr: any) {
+      console.error('[CHECKOUT] Erreur lors de l\'envoi de l\'email:', emailErr);
+      logger.warn('Failed to send checkout thank-you email', {
+        reservationId: reservation.id,
+        error: emailErr?.message,
       })
     }
+
+    try {
+
+      const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+
+      await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
+        reservation.id,
+        auth.user!.id,
+        {
+          checkedOutRooms: reservationRoomRecords.map(rr => ({
+            roomNumber: rr.room?.roomNumber || 'N/A',
+            roomId: rr.roomId
+          })),
+          checkOutTime: checkOutDateTime,
+          allRoomsCheckedOut
+        }
+      )
+    } catch (notifError) {
+      console.error('[CHECKOUT] Erreur lors de l\'envoi des notifications:', notifError);
+      logger.error('Error sending check-out notifications', notifError)
+    }
+
+    await GuestSummaryService.recomputeFromReservation(reservation.id)
+
+    return response.ok({
+      success: true,
+      message: 'Check-out completed successfully',
+      data: {
+        reservation: {
+          id: reservation.id,
+          reservationNumber: reservation.reservationNumber,
+          status: reservation.status,
+          checkOutDate: reservation.checkOutDate,
+          allRoomsCheckedOut,
+        },
+        checkedOutRooms: updatedRooms.map((room) => ({
+          id: room.id,
+          roomId: room.roomId,
+          status: room.status,
+        })),
+        updatedRooms,
+        balanceSummary,
+      },
+    })
+  } catch (error) {
+    console.error('[CHECKOUT] Erreur capturée dans le bloc catch principal:', error);
+    console.error('[CHECKOUT] Stack trace:', error.stack);
+
+    await trx.rollback()
+
+    logger.error('Error during reservation check-out', {
+      reservationId: params.reservationId,
+      reservationRooms,
+      error: error.message,
+      stack: error.stack,
+    })
+
+    return response.status(500).json({
+      success: false,
+      message: 'An error occurred during check-out',
+      errors: [error.message],
+    })
   }
+}
 
   public async undoCheckIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
