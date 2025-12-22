@@ -124,7 +124,7 @@ export default class FolioTransactionsController {
         .select(['id','transactionNumber'])
         .orderBy('transactionNumber', 'desc')
         .first()
-      const transactionNumber = (lastTransaction?.transactionNumber || 0) + 1
+      const transactionNumber = (Number(lastTransaction?.transactionNumber) || 0) + 1
       console.log('transactionNumber',transactionNumber)
 
       // Generate transaction code if not provided
@@ -246,6 +246,7 @@ export default class FolioTransactionsController {
         category: category,
         particular: particular,
         description: payload.description,
+        notes: payload.notes || '',
 
         // Persist base amount into the canonical amount fields
         amount: baseAmount,
@@ -269,7 +270,7 @@ export default class FolioTransactionsController {
         discountAmount: 0,
         discountRate: 0,
         reservationId: payload.reservationId,
-        
+
         transactionDate: payload.transactionDate ? DateTime.fromJSDate(new Date(payload.transactionDate)) : DateTime.now(),
         postingDate: payload.postingDate ? DateTime.fromJSDate(new Date(payload.postingDate)) : DateTime.now(),
         serviceDate: DateTime.now(),

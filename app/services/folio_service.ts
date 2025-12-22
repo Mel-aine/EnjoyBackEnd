@@ -559,6 +559,7 @@ export default class FolioService {
       category: data.category,
       particular,
       description: data.description,
+      notes: data.notes || '',
       amount: grossAmount,
       totalAmount: netAmount + (Number(computedTaxAmount) || 0) + (data.serviceChargeAmount || 0),
       quantity: data.quantity || 1,
