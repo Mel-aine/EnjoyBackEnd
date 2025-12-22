@@ -359,8 +359,8 @@ export default class CityLedgerService {
    * Generate next transaction number for the hotel.
    */
   private static async generateTransactionNumber(hotelId: number): Promise<number> {
-    const lastTxn = await FolioTransaction.query().where('hotel_id', hotelId).orderBy('id', 'desc').first()
-    return (lastTxn?.transactionNumber || 0) + 1
+    const lastTxn = await FolioTransaction.query().where('hotel_id', hotelId).orderBy('transactionNumber', 'desc').first()
+    return (Number(lastTxn?.transactionNumber) || 0) + 1
   }
 
   /**

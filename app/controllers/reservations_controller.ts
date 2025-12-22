@@ -1705,23 +1705,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
    * Met à jour les folios après amendement de la réservation
    * Delete existing room charges and repost them based on new stay details
    */
+
+
   private async updateFoliosAfterAmendment(reservation: any, trx: any, userId: number) {
-    // Charger les folios avec les transactions
-    await reservation.load('folios')
+  await reservation.load('folios')
 
-    // Supprimer toutes les transactions de type Room Charge et recalculer les totaux
-    const result = await FolioTransaction.query()
-      .whereIn('folioId', reservation.folios.map((f: any) => f.id))
-      .where('transactionType', TransactionType.CHARGE)
-      .where('category', TransactionCategory.ROOM)
-      .where('status', '!=', TransactionStatus.VOIDED)
-      .delete()
-    logger.info('result')
-    logger.info(result.length)
+  // On utilise le 'trx' passé en paramètre
+  await FolioTransaction.query({ client: trx })
+    .whereIn('folioId', reservation.folios.map((f: any) => f.id))
+    .where('transactionType', TransactionType.CHARGE)
+    .where('category', TransactionCategory.ROOM)
+    .where('status', '!=', TransactionStatus.VOIDED)
+    .delete()
 
-    // Reposter les Room Charges en fonction des nouvelles données de séjour
-    await ReservationFolioService.postRoomCharges(reservation.id, userId)
-  }
+
+  await ReservationFolioService.postRoomCharges(reservation.id, userId, trx)
+}
+
 
   /**
    * Verify if user can extend stay in the hotel
@@ -3950,7 +3950,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Generate transaction number
-      const transactionNumber = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+       const lastTx = await FolioTransaction.query()
+              .where('hotelId', folio.hotelId)
+              .orderBy('transactionNumber', 'desc')
+              .first()
+        const transactionNumber = Number((lastTx?.transactionNumber || 0)) + 1
+
 
 
       // Create payment transaction
@@ -4277,6 +4282,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
             // Recalculer les montants basés sur le nouveau nombre de nuits
             const roomRate = reservationRoom.roomRate || 0
+
             const taxPerNight = reservationRoom.taxAmount
               ? reservationRoom.taxAmount / (reservationRoom.nights || 1)
               : 0
@@ -4297,7 +4303,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           await reservationRoom.merge(roomUpdateData).useTransaction(trx).save()
         }
       }
-      await trx.commit()
+
       // 📌 Mise à jour uniquement du lastModifiedBy sur la réservation principale
       await reservation
         .merge({
@@ -4325,9 +4331,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reason: reason || 'Stay amendment requested',
         timestamp: DateTime.now(),
       }
+
       //  Mise à jour des folios si la réservation a des folios existants
       if (reservation.folios && reservation.folios.length > 0) {
-        await this.updateFoliosAfterAmendment(reservation, null, auth.user?.id || 1)
+        await this.updateFoliosAfterAmendment(reservation, trx, auth.user?.id || 1)
       }
 
 
@@ -4460,7 +4467,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         console.warn('Notification STAY_AMENDED failed:', (err as any)?.message)
       }
 
-
+       await trx.commit()
       return response.ok({
         message: 'Stay amended successfully',
         reservationId: reservationId,

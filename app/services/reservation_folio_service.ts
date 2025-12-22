@@ -177,8 +177,8 @@ export default class ReservationFolioService {
   /**
    * Auto-post room charges to folio based on reservation
    */
-  static async postRoomCharges(reservationId: number, postedBy: number): Promise<void> {
-    const localTrx = await db.transaction()
+  static async postRoomCharges(reservationId: number, postedBy: number, externalTrx?: any): Promise<void> {
+    const localTrx = externalTrx || await db.transaction()
 
     try {
       const reservation = await Reservation.query({ client: localTrx })
@@ -208,12 +208,18 @@ export default class ReservationFolioService {
       const targetFolioId = reservation.folios[0].id
 
       // Find next transaction number for hotel's batch
-      const lastTx = await FolioTransaction.query({ client: localTrx })
-        .where('hotelId', reservation.hotelId)
-        .orderBy('transactionNumber', 'desc')
-        .first()
+      // const lastTx = await FolioTransaction.query({ client: localTrx })
+      //   .where('hotelId', reservation.hotelId)
+      //   .orderBy('transactionNumber', 'desc')
+      //   .first()
 
-      let nextNumber = lastTx?.transactionNumber ? Number(`${lastTx.transactionNumber}`) + 1 : 1
+      // let nextNumber = lastTx?.transactionNumber ? Number(`${lastTx.transactionNumber}`) + 1 : 1
+      const lastTx = await FolioTransaction.query({ client: localTrx })
+      .where('hotel_id', reservation.hotelId)
+      .orderBy('transaction_number', 'desc')
+      .first()
+
+    let nextNumber = lastTx?.transactionNumber ? Number(lastTx.transactionNumber) + 1 : 1
       const nowIsoTime = DateTime.now().toISOTime()
 
       const batch: Partial<FolioTransaction>[] = []
@@ -360,13 +366,15 @@ export default class ReservationFolioService {
       }
 
       if (batch.length > 0) {
-        await FolioTransaction.createMany(batch as any[], { client: localTrx })
-        await FolioService.updateFolioTotals(targetFolioId, localTrx)
-      }
+      await FolioTransaction.createMany(batch as any[], { client: localTrx })
+      await FolioService.updateFolioTotals(targetFolioId, localTrx)
+    }
 
-      await localTrx.commit()
+    // On ne commit que si on a créé la transaction nous-mêmes
+    if (!externalTrx) await localTrx.commit()
+
     } catch (error) {
-      await localTrx.rollback()
+      if (!externalTrx) await localTrx.rollback()
       throw error
     }
   }
@@ -459,6 +467,7 @@ export default class ReservationFolioService {
           .orderBy('postingDate', 'asc')
           .preload('paymentMethod')
           .preload('modifier')
+          .preload('creator')
       )
       .orderBy('folioType', 'asc')
       .orderBy('createdAt', 'asc')
