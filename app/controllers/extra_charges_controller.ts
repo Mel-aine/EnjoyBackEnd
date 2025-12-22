@@ -7,48 +7,66 @@ export default class ExtraChargesController {
   /**
    * Display a list of extra charges
    */
-  public async index({ params, request, response }: HttpContext) {
-    try {
-      const page = request.input('page', 1)
-      const limit = request.input('limit', 10)
-      const hotelId = params.hotelId
-      const search = request.input('search')
+ public async index({ params, request, response }: HttpContext) {
+  try {
+    const hotelId = params.hotelId
+    const all = request.input('all', false)
+    const search = request.input('search')
 
-      if (!hotelId) {
-        return response.badRequest({ success: false, message: 'hotelId is required' })
-      }
+    if (!hotelId) {
+      return response.badRequest({ success: false, message: 'hotelId is required' })
+    }
 
-      const query = ExtraCharge.query()
-        .where('is_deleted', false)
+    const query = ExtraCharge.query()
+      .where('is_deleted', false)
+      .where('hotel_id', Number(hotelId))
+
+    if (search) {
+      query.where((builder) => {
+        builder
+          .where('name', 'LIKE', `%${search}%`)
+          .orWhere('short_code', 'LIKE', `%${search}%`)
+          .orWhere('description', 'LIKE', `%${search}%`)
+      })
+    }
+
+    query.orderBy('front_desk_sort_key', 'asc')
+
+    // Si all=true, retourner tout sans pagination
+    if (all === true || all === 'true') {
+      const extraCharges = await query
         .preload('hotel')
         .preload('taxRates')
-        .preload('createdByUser')
-        .preload('updatedByUser')
-
-      query.where('hotel_id', Number(hotelId))
-
-      if (search) {
-        query.where((builder) => {
-          builder
-            .where('name', 'LIKE', `%${search}%`)
-            .orWhere('short_code', 'LIKE', `%${search}%`)
-            .orWhere('description', 'LIKE', `%${search}%`)
-        })
-      }
-
-      const extraCharges = await query.orderBy('front_desk_sort_key', 'asc').paginate(page, limit)
 
       return response.ok({
         success: true,
         data: extraCharges,
-      })
-    } catch (error) {
-      return response.internalServerError({
-        success: false,
-        message: error.message || 'Erreur lors de la récupération des frais supplémentaires',
+        meta: { total: extraCharges.length, all: true }
       })
     }
+
+    // Sinon pagination
+    const page = request.input('page', 1)
+    const limit = request.input('limit', 10)
+
+    const extraCharges = await query
+      .preload('hotel')
+      .preload('taxRates')
+      .preload('createdByUser')
+      .preload('updatedByUser')
+      .paginate(page, limit)
+
+    return response.ok({
+      success: true,
+      data: extraCharges,
+    })
+  } catch (error) {
+    return response.internalServerError({
+      success: false,
+      message: error.message || 'Erreur lors de la récupération des frais supplémentaires',
+    })
   }
+ }
 
   /**
    * Show form for creating a new extra charge
