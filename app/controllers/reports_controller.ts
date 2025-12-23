@@ -15,6 +15,7 @@ import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import numberToWords from 'number-to-words'
 import PosService from '#services/pos_service'
+import { formatCurrency } from '../utils/utilities.js'
 export default class ReportsController {
   private posNightAuditCache = new Map<string, any>()
   /**
@@ -1404,7 +1405,7 @@ export default class ReportsController {
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
-      .whereIn('status', ['checked_in', 'confirmed'])
+      .whereIn('status', ['checked_in'])
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
@@ -1434,7 +1435,7 @@ export default class ReportsController {
           const roomRate = Number(reservationRoom.roomRates?.baseRate ?? offeredTariff ?? 0)
           const normalTariff = roomRate
           const taxAmount = reservationRoom.taxAmount || 0
-          const totalRent = Number(offeredTariff) + Number(taxAmount)
+          const totalRent = Number(offeredTariff)
           const variance = normalTariff > 0 ? ((roomRate - totalRent) / Number(normalTariff) * 100) : 0
 
           roomChargesData.push({
@@ -1450,17 +1451,19 @@ export default class ReportsController {
             totalTax: taxAmount,
             totalRent,
             variance: variance,
-            checkinBy: reservationRoom.checkedInByUser ? `${reservationRoom.checkedInByUser.firstName} ${reservationRoom.checkedInByUser.lastName}` : 'N/A'
+            checkinBy: reservationRoom.checkedInByUser ? `${reservationRoom.checkedInByUser.lastName}` : 'N/A'
           })
 
           totals.normalTariff += Number(normalTariff)
           totals.offeredTariff += Number(offeredTariff)
           totals.totalTax += Number(taxAmount)
           totals.totalRent += Number(totalRent)
-          totals.totalVariant += Number(variance)
         }
       }
     }
+
+    totals.totalVariant =
+      totals.normalTariff > 0 ? ((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100 : 0
 
     return { data: roomChargesData, totals }
   }
@@ -1545,8 +1548,8 @@ export default class ReportsController {
       .where('hotel_id', hotelId)
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
-      .where('status', TransactionStatus.POSTED)
-      .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      //.where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(current_working_date) = ?', [reportDateStr])
 
     const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
     const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
@@ -2355,11 +2358,11 @@ export default class ReportsController {
             <td>${row.company}</td>
             <td class="center">${row.rentDate}</td>
             <td>${row.rateType}</td>
-            <td class="number">${row.normalTariff}</td>
-            <td class="number">${row.offeredTariff}</td>
-            <td class="number">${row.totalTax}</td>
-            <td class="number">${row.totalRent}</td>
-            <td class="number">${row.variance}</td>
+            <td class="number">${formatCurrency(row.normalTariff)}</td>
+            <td class="number">${formatCurrency(row.offeredTariff)}</td>
+            <td class="number">${formatCurrency(row.totalTax)}</td>
+            <td class="number">${formatCurrency(row.totalRent)}</td>
+            <td class="number">${row.variance?.toFixed(0)}</td>
             <td>${row.checkinBy}</td>
           </tr>
           `).join('')}
@@ -2371,11 +2374,11 @@ export default class ReportsController {
             <td><strong></strong></td>
             <td><strong></strong></td>
             <td><strong>Total (${currency})</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.normalTariff}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.offeredTariff}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalTax}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalRent}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalVariant}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.roomCharges.totals.normalTariff)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.roomCharges.totals.offeredTariff)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.roomCharges.totals.totalTax)}</strong></td>  
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.roomCharges.totals.totalRent)}</strong></td>
+            <td class="number border-dashed"><strong>${sectionsData.roomCharges.totals.totalVariant?.toFixed(0)}</strong></td>
             <td></td>
           </tr>
         </tbody>
@@ -2403,24 +2406,24 @@ export default class ReportsController {
           ${sectionsData.dailySales.data.map((row: any) => `
           <tr>
             <td>${row.salesType}</td>
-            <td class="number ">${row.roomCharges}</td>
-            <td class="number">${row.extraCharges}</td>
-            <td class="number">${row.roomTax}</td>
-            <td class="number">${row.extraTax}</td>
-            <td class="number">${row.discount}</td>
-            <td class="number">${row.adjustment}</td>
-            <td class="number">${row.totalSales}</td>
+            <td class="number ">${formatCurrency(row.roomCharges)}</td>
+            <td class="number">${formatCurrency(row.extraCharges)}</td>
+            <td class="number">${formatCurrency(row.roomTax)}</td>
+            <td class="number">${formatCurrency(row.extraTax)}</td>
+            <td class="number">${formatCurrency(row.discount)}</td>
+            <td class="number">${formatCurrency(row.adjustment)}</td>
+            <td class="number">${formatCurrency(row.totalSales)}</td>
           </tr>
           `).join('')}
           <tr class="totals-row">
             <td><strong>Total (${currency})</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.roomCharges}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.extraCharges}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.roomTax}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.extraTax}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.discount}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.adjustment}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.dailySales.totals.totalSales}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.roomCharges)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.extraCharges)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.roomTax)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.extraTax)}</strong></td> 
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.discount)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.adjustment)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.totalSales)}</strong></td>
           </tr>
         </tbody>
       </table>
@@ -2452,13 +2455,13 @@ export default class ReportsController {
             <td class="center">${row.folioNo}</td>
             <td>${row.guest}</td>
             <td class="center">${row.chargeDate}</td>
-            <td class="center">${row.voucherNo}</td>
+            <td class="center">${row.voucherNo ?? ''}</td>
             <td>${row.charge}</td>
-            <td class="number">${row.unitPrice}</td>
+            <td class="number">${formatCurrency(row.unitPrice)}</td>
             <td class="number">${row.units}</td>
-            <td class="number">${row.amount}</td>
+            <td class="number">${formatCurrency(row.amount)}</td>
             <td class="center">${row.enteredOn}</td>
-            <td>${row.remark}</td>
+            <td>${row.remark ?? ''}</td>
           </tr>
           `).join('')}
           <tr class="totals-row">
@@ -9400,7 +9403,7 @@ export default class ReportsController {
       if (!hotel || !hotel.posApiKey) {
         return null
       }
-      
+
       const payload = await PosService.getNightAudit(hotelId, reportDate, hotel.posApiKey)
       this.posNightAuditCache.set(key, payload ?? null)
       console.log('payload@@@@@@', payload)
