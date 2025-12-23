@@ -663,279 +663,279 @@ export default class ReservationsController extends CrudController<typeof Reserv
   // }
 
   public async checkOut(ctx: HttpContext) {
-  const { params, response, request, auth } = ctx
-  const { reservationRooms, actualCheckOutTime, notes } = request.body()
+    const { params, response, request, auth } = ctx
+    const { reservationRooms, actualCheckOutTime, notes } = request.body()
 
-  if (!auth.user) {
-    console.log('[CHECKOUT] Erreur: Utilisateur non authentifié');
-    return response.unauthorized({
-      success: false,
-      message: 'Authentication required',
-      errors: ['User is not authenticated'],
-    })
-  }
-
-  const trx = await db.transaction()
-
-  try {
-    if (!params.reservationId) {
-      await trx.rollback()
-      return response.badRequest({
+    if (!auth.user) {
+      console.log('[CHECKOUT] Erreur: Utilisateur non authentifié');
+      return response.unauthorized({
         success: false,
-        message: 'Reservation ID is required',
-        errors: ['Missing reservation ID'],
+        message: 'Authentication required',
+        errors: ['User is not authenticated'],
       })
     }
 
-    if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
-      await trx.rollback()
-      return response.badRequest({
-        success: false,
-        message: 'Reservation rooms are required',
-        errors: ['reservationRooms must be a non-empty array'],
-      })
-    }
+    const trx = await db.transaction()
 
-    const reservation = await Reservation.query({ client: trx })
-      .where('id', params.reservationId)
-      .preload('folios', (folioQuery) => {
-        folioQuery.preload('transactions')
-      })
-      .first()
-
-    if (!reservation) {
-      await trx.rollback()
-      return response.notFound({
-        success: false,
-        message: 'Reservation not found',
-        errors: ['Reservation does not exist'],
-      })
-    }
-
-
-    if (reservation.status === ReservationStatus.CHECKED_OUT) {
-      await trx.rollback()
-      return response.badRequest({
-        success: false,
-        message: 'Reservation is already checked out',
-        errors: ['Cannot check out an already checked out reservation'],
-      })
-    }
-
-    if (reservation.status !== ReservationStatus.CHECKED_IN) {
-      await trx.rollback()
-      return response.badRequest({
-        success: false,
-        message: 'Reservation must be checked in before check out',
-        errors: [`Current status: ${reservation.status}`],
-      })
-    }
-
-    const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
-
-    if (balanceSummary.outstandingBalance > 0) {
-      await trx.rollback()
-      return response.badRequest({
-        success: false,
-        message: 'Cannot check out with outstanding balance',
-        errors: [
-          `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
-        ],
-        data: {
-          balanceSummary,
-          outstandingAmount: balanceSummary.outstandingBalance,
-        },
-      })
-    }
-
-    const reservationRoomRecords = await ReservationRoom.query({ client: trx })
-      .whereIn('id', reservationRooms)
-      .where('reservationId', params.reservationId)
-      .preload('room')
-
-
-    if (reservationRoomRecords.length === 0) {
-
-      await trx.rollback()
-      return response.notFound({
-        success: false,
-        message: 'No reservation rooms found',
-        errors: ['No matching reservation rooms for the provided IDs'],
-      })
-    }
-    const invalidRooms = reservationRoomRecords.filter(
-      (room) => room.status === 'checked_out' || room.status === 'cancelled'
-    )
-
-
-    if (invalidRooms.length > 0) {
-      console.log('[CHECKOUT] Erreur: Chambres invalides:', invalidRooms.map(r => ({ id: r.id, status: r.status })));
-      await trx.rollback()
-      return response.badRequest({
-        success: false,
-        message: 'Some rooms cannot be checked out',
-        errors: invalidRooms.map((room) => `Room ${room.id} is already ${room.status}`),
-      })
-    }
-
-    const updatedRooms: any[] = []
-
-    let checkOutDateTime: DateTime
-
-    if (reservation.checkOutDate) {
-      checkOutDateTime = DateTime.isDateTime(reservation.checkOutDate)
-        ? reservation.checkOutDate
-        : DateTime.fromJSDate(new Date(reservation.checkOutDate))
-    } else if (reservation.departDate) {
-      checkOutDateTime = DateTime.isDateTime(reservation.departDate)
-        ? reservation.departDate
-        : DateTime.fromJSDate(new Date(reservation.departDate))
-    } else {
-      checkOutDateTime = DateTime.now()
-    }
-
-    for (const reservationRoom of reservationRoomRecords) {
-
-      reservationRoom.status = 'checked_out'
-      reservationRoom.checkOutDate = checkOutDateTime
-      reservationRoom.actualCheckOut = checkOutDateTime
-      reservationRoom.actualCheckOut = checkOutDateTime
-      reservationRoom.checkedOutBy = auth.user!.id
-      reservationRoom.lastModifiedBy = auth.user!.id
-
-      if (notes) {
-        reservationRoom.guestNotes = notes
+    try {
+      if (!params.reservationId) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Reservation ID is required',
+          errors: ['Missing reservation ID'],
+        })
       }
 
-      await reservationRoom.useTransaction(trx).save()
-      updatedRooms.push(reservationRoom)
-
-      if (reservationRoom.room) {
-        reservationRoom.room.status = 'available'
-        reservationRoom.room.housekeepingStatus = 'dirty'
-        await reservationRoom.room.useTransaction(trx).save()
+      if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Reservation rooms are required',
+          errors: ['reservationRooms must be a non-empty array'],
+        })
       }
-    }
 
-    const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
-      .where('reservationId', params.reservationId)
-      .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
+      const reservation = await Reservation.query({ client: trx })
+        .where('id', params.reservationId)
+        .preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions')
+        })
+        .first()
 
-    const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
+      if (!reservation) {
+        await trx.rollback()
+        return response.notFound({
+          success: false,
+          message: 'Reservation not found',
+          errors: ['Reservation does not exist'],
+        })
+      }
 
-    if (allRoomsCheckedOut) {
-      reservation.checkOutDate = checkOutDateTime
-      reservation.status = ReservationStatus.CHECKED_OUT
-      reservation.checkedOutBy = auth.user!.id
-      await reservation.useTransaction(trx).save()
-    }
 
-    await LoggerService.log({
-      actorId: auth.user.id,
-      action: 'CHECK_OUT',
-      entityType: 'Reservation',
-      entityId: reservation.id,
-      hotelId: reservation.hotelId,
-      description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
-      ctx: ctx,
-    })
+      if (reservation.status === ReservationStatus.CHECKED_OUT) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Reservation is already checked out',
+          errors: ['Cannot check out an already checked out reservation'],
+        })
+      }
 
-    if (reservation.guestId) {
+      if (reservation.status !== ReservationStatus.CHECKED_IN) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Reservation must be checked in before check out',
+          errors: [`Current status: ${reservation.status}`],
+        })
+      }
+
+      const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
+
+      if (balanceSummary.outstandingBalance > 0) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Cannot check out with outstanding balance',
+          errors: [
+            `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
+          ],
+          data: {
+            balanceSummary,
+            outstandingAmount: balanceSummary.outstandingBalance,
+          },
+        })
+      }
+
+      const reservationRoomRecords = await ReservationRoom.query({ client: trx })
+        .whereIn('id', reservationRooms)
+        .where('reservationId', params.reservationId)
+        .preload('room')
+
+
+      if (reservationRoomRecords.length === 0) {
+
+        await trx.rollback()
+        return response.notFound({
+          success: false,
+          message: 'No reservation rooms found',
+          errors: ['No matching reservation rooms for the provided IDs'],
+        })
+      }
+      const invalidRooms = reservationRoomRecords.filter(
+        (room) => room.status === 'checked_out' || room.status === 'cancelled'
+      )
+
+
+      if (invalidRooms.length > 0) {
+        console.log('[CHECKOUT] Erreur: Chambres invalides:', invalidRooms.map(r => ({ id: r.id, status: r.status })));
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Some rooms cannot be checked out',
+          errors: invalidRooms.map((room) => `Room ${room.id} is already ${room.status}`),
+        })
+      }
+
+      const updatedRooms: any[] = []
+
+      let checkOutDateTime: DateTime
+
+      if (reservation.checkOutDate) {
+        checkOutDateTime = DateTime.isDateTime(reservation.checkOutDate)
+          ? reservation.checkOutDate
+          : DateTime.fromJSDate(new Date(reservation.checkOutDate))
+      } else if (reservation.departDate) {
+        checkOutDateTime = DateTime.isDateTime(reservation.departDate)
+          ? reservation.departDate
+          : DateTime.fromJSDate(new Date(reservation.departDate))
+      } else {
+        checkOutDateTime = DateTime.now()
+      }
+
+      for (const reservationRoom of reservationRoomRecords) {
+
+        reservationRoom.status = 'checked_out'
+        reservationRoom.checkOutDate = checkOutDateTime
+        reservationRoom.actualCheckOut = checkOutDateTime
+        reservationRoom.actualCheckOut = checkOutDateTime
+        reservationRoom.checkedOutBy = auth.user!.id
+        reservationRoom.lastModifiedBy = auth.user!.id
+
+        if (notes) {
+          reservationRoom.guestNotes = notes
+        }
+
+        await reservationRoom.useTransaction(trx).save()
+        updatedRooms.push(reservationRoom)
+
+        if (reservationRoom.room) {
+          reservationRoom.room.status = 'available'
+          reservationRoom.room.housekeepingStatus = 'dirty'
+          await reservationRoom.room.useTransaction(trx).save()
+        }
+      }
+
+      const remainingCheckedInRooms = await ReservationRoom.query({ client: trx })
+        .where('reservationId', params.reservationId)
+        .whereNotIn('status', ['checked_out', 'cancelled', 'no_show'])
+
+      const allRoomsCheckedOut = remainingCheckedInRooms.length === 0
+
+      if (allRoomsCheckedOut) {
+        reservation.checkOutDate = checkOutDateTime
+        reservation.status = ReservationStatus.CHECKED_OUT
+        reservation.checkedOutBy = auth.user!.id
+        await reservation.useTransaction(trx).save()
+      }
+
       await LoggerService.log({
         actorId: auth.user.id,
         action: 'CHECK_OUT',
-        entityType: 'Guest',
-        entityId: reservation.guestId,
+        entityType: 'Reservation',
+        entityId: reservation.id,
         hotelId: reservation.hotelId,
-        description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
-        meta: {
-          reservationId: reservation.id,
-          reservationNumber: reservation.reservationNumber,
-          rooms: reservationRooms,
-        },
+        description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
         ctx: ctx,
       })
-    }
-    await trx.commit()
 
-    try {
-      const folios = reservation.folios || []
-      const closedFolioIds = folios
-        .filter((f) => f.status === FolioStatus.CLOSED)
-        .map((f) => f.id)
-      const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
-      await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
-    } catch (emailErr: any) {
-      console.error('[CHECKOUT] Erreur lors de l\'envoi de l\'email:', emailErr);
-      logger.warn('Failed to send checkout thank-you email', {
-        reservationId: reservation.id,
-        error: emailErr?.message,
+      if (reservation.guestId) {
+        await LoggerService.log({
+          actorId: auth.user.id,
+          action: 'CHECK_OUT',
+          entityType: 'Guest',
+          entityId: reservation.guestId,
+          hotelId: reservation.hotelId,
+          description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
+          meta: {
+            reservationId: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            rooms: reservationRooms,
+          },
+          ctx: ctx,
+        })
+      }
+      await trx.commit()
+
+      try {
+        const folios = reservation.folios || []
+        const closedFolioIds = folios
+          .filter((f) => f.status === FolioStatus.CLOSED)
+          .map((f) => f.id)
+        const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
+        await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
+      } catch (emailErr: any) {
+        console.error('[CHECKOUT] Erreur lors de l\'envoi de l\'email:', emailErr);
+        logger.warn('Failed to send checkout thank-you email', {
+          reservationId: reservation.id,
+          error: emailErr?.message,
+        })
+      }
+
+      try {
+
+        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+
+        await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
+          reservation.id,
+          auth.user!.id,
+          {
+            checkedOutRooms: reservationRoomRecords.map(rr => ({
+              roomNumber: rr.room?.roomNumber || 'N/A',
+              roomId: rr.roomId
+            })),
+            checkOutTime: checkOutDateTime,
+            allRoomsCheckedOut
+          }
+        )
+      } catch (notifError) {
+        console.error('[CHECKOUT] Erreur lors de l\'envoi des notifications:', notifError);
+        logger.error('Error sending check-out notifications', notifError)
+      }
+
+      await GuestSummaryService.recomputeFromReservation(reservation.id)
+
+      return response.ok({
+        success: true,
+        message: 'Check-out completed successfully',
+        data: {
+          reservation: {
+            id: reservation.id,
+            reservationNumber: reservation.reservationNumber,
+            status: reservation.status,
+            checkOutDate: reservation.checkOutDate,
+            allRoomsCheckedOut,
+          },
+          checkedOutRooms: updatedRooms.map((room) => ({
+            id: room.id,
+            roomId: room.roomId,
+            status: room.status,
+          })),
+          updatedRooms,
+          balanceSummary,
+        },
+      })
+    } catch (error) {
+      console.error('[CHECKOUT] Erreur capturée dans le bloc catch principal:', error);
+      console.error('[CHECKOUT] Stack trace:', error.stack);
+
+      await trx.rollback()
+
+      logger.error('Error during reservation check-out', {
+        reservationId: params.reservationId,
+        reservationRooms,
+        error: error.message,
+        stack: error.stack,
+      })
+
+      return response.status(500).json({
+        success: false,
+        message: 'An error occurred during check-out',
+        errors: [error.message],
       })
     }
-
-    try {
-
-      const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
-
-      await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
-        reservation.id,
-        auth.user!.id,
-        {
-          checkedOutRooms: reservationRoomRecords.map(rr => ({
-            roomNumber: rr.room?.roomNumber || 'N/A',
-            roomId: rr.roomId
-          })),
-          checkOutTime: checkOutDateTime,
-          allRoomsCheckedOut
-        }
-      )
-    } catch (notifError) {
-      console.error('[CHECKOUT] Erreur lors de l\'envoi des notifications:', notifError);
-      logger.error('Error sending check-out notifications', notifError)
-    }
-
-    await GuestSummaryService.recomputeFromReservation(reservation.id)
-
-    return response.ok({
-      success: true,
-      message: 'Check-out completed successfully',
-      data: {
-        reservation: {
-          id: reservation.id,
-          reservationNumber: reservation.reservationNumber,
-          status: reservation.status,
-          checkOutDate: reservation.checkOutDate,
-          allRoomsCheckedOut,
-        },
-        checkedOutRooms: updatedRooms.map((room) => ({
-          id: room.id,
-          roomId: room.roomId,
-          status: room.status,
-        })),
-        updatedRooms,
-        balanceSummary,
-      },
-    })
-  } catch (error) {
-    console.error('[CHECKOUT] Erreur capturée dans le bloc catch principal:', error);
-    console.error('[CHECKOUT] Stack trace:', error.stack);
-
-    await trx.rollback()
-
-    logger.error('Error during reservation check-out', {
-      reservationId: params.reservationId,
-      reservationRooms,
-      error: error.message,
-      stack: error.stack,
-    })
-
-    return response.status(500).json({
-      success: false,
-      message: 'An error occurred during check-out',
-      errors: [error.message],
-    })
   }
-}
 
   public async undoCheckIn(ctx: HttpContext) {
     const { params, response, request, auth } = ctx
@@ -1330,7 +1330,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('id', reservationId)
         .preload('guest', (gq) => gq.select(['id', 'firstName', "lastName", 'title']))
         .preload('reservationRooms', (rq) => {
-          rq.select(['id', 'room_id', 'status', 'check_in_date', 'check_out_date','roomRateId'])
+          rq.select(['id', 'room_id', 'status', 'check_in_date', 'check_out_date', 'roomRateId'])
             .preload('room', (roomQ) => {
               roomQ.select(['id', 'room_number', 'room_type_id'])
                 .preload('roomType', (rtQ) => rtQ.select(['id', 'room_type_name']))
@@ -1708,19 +1708,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
   private async updateFoliosAfterAmendment(reservation: any, trx: any, userId: number) {
-  await reservation.load('folios')
+    await reservation.load('folios')
 
-  // On utilise le 'trx' passé en paramètre
-  await FolioTransaction.query({ client: trx })
-    .whereIn('folioId', reservation.folios.map((f: any) => f.id))
-    .where('transactionType', TransactionType.CHARGE)
-    .where('category', TransactionCategory.ROOM)
-    .where('status', '!=', TransactionStatus.VOIDED)
-    .delete()
+    // On utilise le 'trx' passé en paramètre
+    await FolioTransaction.query({ client: trx })
+      .whereIn('folioId', reservation.folios.map((f: any) => f.id))
+      .where('transactionType', TransactionType.CHARGE)
+      .where('category', TransactionCategory.ROOM)
+      .where('status', '!=', TransactionStatus.VOIDED)
+      .delete()
 
 
-  await ReservationFolioService.postRoomCharges(reservation.id, userId, trx)
-}
+    await ReservationFolioService.postRoomCharges(reservation.id, userId, trx)
+  }
 
 
   /**
@@ -3691,7 +3691,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           for (const rr of roomRecords) {
             rr.status = 'checked_out'
             // Use the scheduled depart date/time as the checkout timestamp
-            rr.checkOutDate =( reservation.checkOutDate ?? reservation.departDate )!
+            rr.checkOutDate = (reservation.checkOutDate ?? reservation.departDate)!
             rr.checkedOutBy = auth.user?.id!
             rr.lastModifiedBy = auth.user?.id!
             await rr.save()
@@ -3950,11 +3950,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Generate transaction number
-       const lastTx = await FolioTransaction.query()
-              .where('hotelId', folio.hotelId)
-              .orderBy('transactionNumber', 'desc')
-              .first()
-        const transactionNumber = Number((lastTx?.transactionNumber || 0)) + 1
+      const lastTx = await FolioTransaction.query()
+        .where('hotelId', folio.hotelId)
+        .orderBy('transactionNumber', 'desc')
+        .first()
+      const transactionNumber = Number((lastTx?.transactionNumber || 0)) + 1
 
 
 
@@ -4467,7 +4467,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         console.warn('Notification STAY_AMENDED failed:', (err as any)?.message)
       }
 
-       await trx.commit()
+      await trx.commit()
       return response.ok({
         message: 'Stay amended successfully',
         reservationId: reservationId,
@@ -4761,12 +4761,38 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       await trx.commit()
 
-        try {
-          const NotificationService = (await import('#services/notification_service')).default
-          console.log('send notification ROOM_MOVE')
+      try {
+        const NotificationService = (await import('#services/notification_service')).default
+        console.log('send notification ROOM_MOVE')
 
-          // Variables communes
-          const vars = await NotificationService.buildVariables('ROOM_MOVE', {
+        // Variables communes
+        const vars = await NotificationService.buildVariables('ROOM_MOVE', {
+          hotelId: reservation.hotelId,
+          reservationId: reservation.id,
+          guestId: reservation.guestId,
+          extra: {
+            ReservationNumber: reservation.reservationNumber || '',
+            OldRoomNumber: originalRoomInfo.roomNumber,
+            NewRoomNumber: newRoom.roomNumber,
+            EffectiveDate: moveDate.toISODate() || '',
+            Reason: reason || '',
+          },
+        })
+
+        // Notify staff who performed the action
+        await NotificationService.sendWithTemplate({
+          templateCode: 'ROOM_MOVE_STAFF',
+          recipientType: 'STAFF',
+          recipientId: auth.user?.id || 1,
+          variables: vars,
+          relatedEntityType: 'Reservation',
+          relatedEntityId: reservation.id,
+          actorId: auth.user?.id,
+          hotelId: reservation.hotelId,
+        })
+        // Notify guest if available (email/SMS template)
+        if (reservation.guestId) {
+          const guestVars = await NotificationService.buildVariables('ROOM_MOVE_GUEST', {
             hotelId: reservation.hotelId,
             reservationId: reservation.id,
             guestId: reservation.guestId,
@@ -4775,51 +4801,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
               OldRoomNumber: originalRoomInfo.roomNumber,
               NewRoomNumber: newRoom.roomNumber,
               EffectiveDate: moveDate.toISODate() || '',
-              Reason: reason || '',
             },
           })
 
-          // Notify staff who performed the action
           await NotificationService.sendWithTemplate({
-            templateCode: 'ROOM_MOVE_STAFF',
-            recipientType: 'STAFF',
-            recipientId: auth.user?.id || 1,
-            variables: vars,
+            templateCode: 'ROOM_MOVE_GUEST',
+            recipientType: 'GUEST',
+            recipientId: reservation.guestId,
+            variables: guestVars,
             relatedEntityType: 'Reservation',
             relatedEntityId: reservation.id,
             actorId: auth.user?.id,
             hotelId: reservation.hotelId,
           })
-          // Notify guest if available (email/SMS template)
-          if (reservation.guestId) {
-            const guestVars = await NotificationService.buildVariables('ROOM_MOVE_GUEST', {
-              hotelId: reservation.hotelId,
-              reservationId: reservation.id,
-              guestId: reservation.guestId,
-              extra: {
-                ReservationNumber: reservation.reservationNumber || '',
-                OldRoomNumber: originalRoomInfo.roomNumber,
-                NewRoomNumber: newRoom.roomNumber,
-                EffectiveDate: moveDate.toISODate() || '',
-              },
-            })
-
-            await NotificationService.sendWithTemplate({
-              templateCode: 'ROOM_MOVE_GUEST',
-              recipientType: 'GUEST',
-              recipientId: reservation.guestId,
-              variables: guestVars,
-              relatedEntityType: 'Reservation',
-              relatedEntityId: reservation.id,
-              actorId: auth.user?.id,
-              hotelId: reservation.hotelId,
-            })
-          }
-          console.log('notification ROOM_MOVE sent')
-        } catch (notifErr) {
-          console.warn('Notification ROOM_MOVE failed:', (notifErr as any)?.message)
-          console.error('Notification ROOM_MOVE failed:', notifErr)
         }
+        console.log('notification ROOM_MOVE sent')
+      } catch (notifErr) {
+        console.warn('Notification ROOM_MOVE failed:', (notifErr as any)?.message)
+        console.error('Notification ROOM_MOVE failed:', notifErr)
+      }
 
 
       // Reload reservation with updated room assignments
@@ -5612,89 +5612,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)
         .where('status', '!=', 'voided')
-
-      for (const folio of folios) {
-        // Appliquer les frais no-show
-        const totalNoShowFees = allRoomsSelected ? noShowFees : noShowFees * selectedRooms.length
-        if (totalNoShowFees > 0) {
-          await FolioService.postTransaction(
-            {
-              folioId: folio.id,
-              transactionType: TransactionType.CHARGE,
-              category: TransactionCategory.NO_SHOW_FEE,
-              description: `No-show fee - ${reason || 'Guest did not arrive'}`,
-              amount: totalNoShowFees,
-              quantity: 1,
-              unitPrice: totalNoShowFees,
-              reference: `NOSHOW-${reservation.reservationNumber}`,
-              notes: `No-show fee applied on ${now.toISODate()}`,
-              postedBy: auth.user?.id!,
-            },
-            trx
-          )
-        }
-
-        // Annuler les transactions actives
-        const activeTransactions = await FolioTransaction.query({ client: trx })
-          .where('folioId', folio.id)
-          .where('status', '!=', 'voided')
-
-        for (const transaction of activeTransactions) {
-          // Vérifier qu'on ne void pas une transaction déjà voidée
-          if (transaction.status !== 'voided') {
-            await FolioService.postTransaction(
-              {
-                folioId: folio.id,
-                transactionType: TransactionType.VOID,
-                category: TransactionCategory.VOID,
-                description: `Void: ${transaction.description} (No-show)`,
-                amount: -transaction.amount,
-                quantity: 1,
-                unitPrice: -transaction.amount,
-                reference: `VOID-${transaction.transactionNumber}`,
-                notes: `Voided due to no-show: ${reason || 'Guest did not arrive'}`,
-                postedBy: auth.user?.id!,
-              },
-              trx
-            )
-
-            transaction.voidedDate = now
-            transaction.voidReason = 'No-show reservation'
-            transaction.voidedBy = auth.user?.id!
-            await transaction.useTransaction(trx).save()
-          }
-        }
-
-        // Mettre le folio à jour si nécessaire (balance / status)
-        await folio.useTransaction(trx).refresh()
-        if (Math.abs(folio.balance) > 0.01) {
-          await FolioService.postTransaction(
-            {
-              folioId: folio.id,
-              transactionType: TransactionType.ADJUSTMENT,
-              category: TransactionCategory.ADJUSTMENT,
-              description: `Balancing adjustment - No-show processing`,
-              amount: -folio.balance,
-              quantity: 1,
-              unitPrice: -folio.balance,
-              reference: `BAL-${reservation.reservationNumber}`,
-              notes: `Balancing adjustment after no-show processing`,
-              postedBy: auth.user?.id!,
-            },
-            trx
-          )
-        }
-
-        await folio
-          .useTransaction(trx)
-          .merge({
-            status: FolioStatus.VOIDED,
-            voidedDate: now,
-            voidReason: `No-show reservation: ${reason || 'Guest did not arrive'}`,
-            lastModifiedBy: auth.user?.id,
-          })
-          .save()
+        
+      if (folios && folios.length > 0 && noShowFees > 0) {
+        await FolioService.postTransaction(
+          {
+            folioId: folios[0].id,
+            transactionType: TransactionType.CHARGE,
+            category: TransactionCategory.NO_SHOW_FEE,
+            description: `No-show fee - ${reason || 'Guest did not arrive'}`,
+            amount: noShowFees,
+            quantity: 1,
+            unitPrice: noShowFees,
+            reference: `NOSHOW-${reservation.reservationNumber}`,
+            notes: `No-show fee applied on ${now.toISODate()}`,
+            postedBy: auth.user?.id!,
+          },
+          trx
+        )
       }
+
 
       console.log('All folios processed, sending audit log')
 
