@@ -3103,7 +3103,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 phonePrimary: primaryGuest.phonePrimary,
                 nationality: primaryGuest.nationality,
                 guestType: 'individual',
-                guestCode : generateGuestCode(),
+                guestCode: generateGuestCode(),
                 status: 'active',
                 createdBy: auth.user?.id,
               }, { client: trx })
@@ -5579,8 +5579,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
   public async markNoShow({ params, request, response, auth }: HttpContext) {
-    console.log('--- markNoShow start ---', { params })
-    const startTime = Date.now()
 
     const trx = await db.transaction()
 
@@ -5647,31 +5645,39 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // --- Folio fees et voids ---
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)
+        .whereIn('reservationRoomId', selectedRooms)
         .where('status', '!=', 'voided')
-        
-      if (folios && folios.length > 0 && noShowFees > 0) {
-        await FolioService.postTransaction(
-          {
-            folioId: folios[0].id,
-            transactionType: TransactionType.CHARGE,
-            category: TransactionCategory.NO_SHOW_FEE,
-            description: `No-show fee - ${reason || 'Guest did not arrive'}`,
-            amount: noShowFees,
-            quantity: 1,
-            unitPrice: noShowFees,
-            reference: `NOSHOW-${reservation.reservationNumber}`,
-            notes: `No-show fee applied on ${now.toISODate()}`,
-            postedBy: auth.user?.id!,
-          },
-          trx
-        )
+
+      if (folios && folios.length > 0) {
+        // 1. Récupérer les IDs des folios concernés
+        const folioIds = folios.map(f => f.id)
+
+        if (folioIds.length > 0) {
+          // On cible ici les transactions de type PAYMENT comme dans votre preload
+          await FolioTransaction.query({ client: trx })
+            .whereIn('folio_id', folioIds)
+            .whereNot('transaction_type', TransactionType.PAYMENT)
+            .update({ status: TransactionStatus.VOIDED })
+        }
+
+         if (noShowFees > 0) {
+          await FolioService.postTransaction(
+            {
+              folioId: folios[0].id,
+              transactionType: TransactionType.CHARGE,
+              category: TransactionCategory.NO_SHOW_FEE,
+              description: `No-show fee - ${reason || 'Guest did not arrive'}`,
+              amount: noShowFees,
+              quantity: 1,
+              unitPrice: noShowFees,
+              reference: `NOSHOW-${reservation.reservationNumber}`,
+              notes: `No-show fee applied on ${now.toISODate()}`,
+              postedBy: auth.user?.id!,
+            },
+            trx
+          )
+        }
       }
-
-
-      console.log('All folios processed, sending audit log')
-
-      // --- Audit log ---
-
       const affectedRooms = allRoomsSelected
         ? reservation.reservationRooms.map(r => r.roomId).join(', ')
         : reservation.reservationRooms
@@ -5708,10 +5714,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await trx.commit()
 
       await reservation.save() // update the reservation at the end
-
-      console.log('Transaction committed', { durationMs: Date.now() - startTime })
-
-      await GuestSummaryService.recomputeFromReservation(reservation.id)
+      setImmediate(async () => {
+        await GuestSummaryService.recomputeFromReservation(reservation.id)
+      })
 
       return response.ok({
         message: 'Reservation marked as no-show successfully',
