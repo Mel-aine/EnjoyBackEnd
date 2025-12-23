@@ -441,7 +441,7 @@ export default class PdfGenerationService {
                     <td>${reservation.adults + reservation.children || 1}</td>
                     <td>${reservation.adults || 1} / ${reservation.children || 0}</td>
                     <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                    <td>${folio.roomNumber}</td>
+                    <td>${reservation.reservationRooms?.[0]?.room?.roomNumber || 'N/A'}</td>
                 </tr>
             </table>
     
@@ -453,7 +453,7 @@ export default class PdfGenerationService {
                     <th>Date of Departure</th>
                     <td>${new Date(reservation.departureDate).toLocaleDateString('fr-FR')}</td>
                     <th>Tariff</th>
-                    <td>${totals.roomCharges?.toLocaleString() || '0'}</td>
+                    <td>${reservation.tarriff || '0'}</td>
                 </tr>
                 <tr>
                     <th>Time Of Arrival</th>
@@ -564,7 +564,7 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 33%;"><span class="label">Reserved By :</span> ${reservation.reservedBy || 'N/A'}</td>
-                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy}</td>
+                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy  || 'N/A'}</td>
                         <td style="width: 33%;"><span class="label">Checked Out By :</span> ${reservation.checkedOutBy || 'N/A'}</td>
                         <td style="width: 33%;"><span class="label">Modified by :</span> ${reservation.modifier || 'N/A'}</td>
                     </tr>

@@ -53,6 +53,10 @@ export interface NightAuditSummary {
 }
 
 export default class NightAuditService {
+  private static toAuditDateValue(auditDate: DateTime): string {
+    return auditDate.toISODate()!
+  }
+
   /**
    * Calculate and store night audit data for a specific date
    */
@@ -100,6 +104,13 @@ export default class NightAuditService {
     // Store the calculated data with all report data
     await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
+      const hotel = await Hotel.find(hotelId)
+      if (hotel) {
+        hotel.lastNightAuditDate = DateTime.now();
+        hotel.currentWorkingDate = DateTime.now().startOf('day')
+        await hotel.save()
+      }
+
     return summary
   }
 
@@ -131,7 +142,7 @@ export default class NightAuditService {
     // Get all transactions for the audit date
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .whereBetween('transaction_date', [startOfDay.toJSDate(), endOfDay.toJSDate()])
+      .whereBetween('current_working_date', [startOfDay.toJSDate(), endOfDay.toJSDate()])
       .where('is_voided', false)
 
     let totalRoomRevenue = 0
@@ -214,7 +225,7 @@ export default class NightAuditService {
     // Calculate RevPAR and ADR
     const roomRevenueResult = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .where('transaction_date', auditDate.toJSDate())
+      .where('current_working_date', auditDate.toJSDate())
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
       .where('is_voided', false)
@@ -297,7 +308,7 @@ export default class NightAuditService {
     // Total payments received on audit date
     const paymentsResult = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .where('transaction_date', auditDateJS)
+      .where('current_working_date', auditDateJS)
       .where('transaction_type', TransactionType.PAYMENT)
       .where('is_voided', false)
       .sum('amount as total')
@@ -341,7 +352,7 @@ export default class NightAuditService {
   ): Promise<DailySummaryFact> {
     // Check if record already exists for this date and hotel
     const existing = await DailySummaryFact.query()
-      .where('audit_date', summary.auditDate.toJSDate())
+      .where('audit_date', this.toAuditDateValue(summary.auditDate))
       .where('hotel_id', summary.hotelId)
       .first()
 
@@ -433,7 +444,7 @@ export default class NightAuditService {
    */
   static async getNightAuditDetails(auditDate: DateTime, hotelId: number): Promise<DailySummaryFact | null> {
     return await DailySummaryFact.query()
-      .where('audit_date', auditDate.toJSDate())
+      .where('audit_date', this.toAuditDateValue(auditDate))
       .where('hotel_id', hotelId)
       .first()
   }
@@ -448,7 +459,7 @@ export default class NightAuditService {
   ): Promise<DailySummaryFact[]> {
     return await DailySummaryFact.query()
       .where('hotel_id', hotelId)
-      .whereBetween('audit_date', [dateFrom.toJSDate(), dateTo.toJSDate()])
+      .whereBetween('audit_date', [this.toAuditDateValue(dateFrom), this.toAuditDateValue(dateTo)])
       .orderBy('audit_date', 'desc')
   }
 
@@ -456,14 +467,16 @@ export default class NightAuditService {
    * Delete night audit record for a specific date
    */
   static async deleteNightAudit(auditDate: DateTime, hotelId: number, userId?: number): Promise<boolean> {
+    const auditDateValue = this.toAuditDateValue(auditDate)
+
     // Get the record before deletion for logging
     const recordToDelete = userId ? await DailySummaryFact.query()
-      .where('audit_date', auditDate.toISODate()!)
+      .where('audit_date', auditDateValue)
       .where('hotel_id', hotelId)
       .first() : null
 
     const deleted = await DailySummaryFact.query()
-      .where('audit_date', auditDate.toISODate()!)
+      .where('audit_date', auditDateValue)
       .where('hotel_id', hotelId)
       .delete()
 
@@ -722,7 +735,7 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
         .whereIn('folio_id', folioIds)
         .where('transaction_type', TransactionType.CHARGE)
         .where('status', TransactionStatus.PENDING)
-        .whereRaw('DATE(transaction_date) = ?', [auditDate])
+        .whereRaw('DATE(current_working_date) = ?', [auditDate])
         .preload('folio', (folioQuery: any) => {
           folioQuery.preload('reservation', (reservationQuery: any) => {
             reservationQuery.preload('guest')
@@ -918,7 +931,7 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
         const existingTransaction = await FolioTransaction.query()
           .where('folio_id', charge.folioId)
           .where('hotel_id', hotelId)
-          .whereRaw('DATE(transaction_date) = ?', [auditDate])
+          .whereRaw('DATE(current_working_date) = ?', [auditDate])
           .andWhere('transaction_type', TransactionType.CHARGE)
           .where('is_voided', false)
           .update({
