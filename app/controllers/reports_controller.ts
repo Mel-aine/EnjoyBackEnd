@@ -1430,9 +1430,9 @@ export default class ReportsController {
     for (const reservation of reservations) {
       for (const reservationRoom of reservation.reservationRooms) {
         if (reservationRoom.room) {
-          const roomRate = reservationRoom.roomRates.baseRate
-          const normalTariff = roomRate
           const offeredTariff = reservationRoom.roomRate ?? 0
+          const roomRate = Number(reservationRoom.roomRates?.baseRate ?? offeredTariff ?? 0)
+          const normalTariff = roomRate
           const taxAmount = reservationRoom.taxAmount || 0
           const totalRent = Number(offeredTariff) + Number(taxAmount)
           const variance = normalTariff > 0 ? ((roomRate - totalRent) / Number(normalTariff) * 100) : 0
