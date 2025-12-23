@@ -195,6 +195,12 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'auto_night_audit_time' })
   declare autoNightAuditTime  : string | null
 
+  @column.date({ columnName: 'current_working_date' })
+  declare currentWorkingDate: DateTime | null
+
+  @column.dateTime({ columnName: 'last_night_audit_date' })
+  declare lastNightAuditDate: DateTime | null
+
   @column({ columnName: 'registration_no_1' })
   declare registrationNo1: string | null
 
