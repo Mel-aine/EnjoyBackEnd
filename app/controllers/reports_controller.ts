@@ -1435,7 +1435,7 @@ export default class ReportsController {
           const roomRate = Number(reservationRoom.roomRates?.baseRate ?? offeredTariff ?? 0)
           const normalTariff = roomRate
           const taxAmount = reservationRoom.taxAmount || 0
-          const totalRent = Number(offeredTariff) + Number(taxAmount)
+          const totalRent = Number(offeredTariff)
           const variance = normalTariff > 0 ? ((roomRate - totalRent) / Number(normalTariff) * 100) : 0
 
           roomChargesData.push({
