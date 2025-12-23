@@ -553,83 +553,55 @@ export default class ReservationService {
   /**
    * Process reservation with multiple guests support
    */
-  public static async processReservationGuests(
-    reservationId: number,
-    data: ReservationData,
-    trx?: any
-  ): Promise<{ primaryGuest: Guest; allGuests: Guest[] }> {
-    // Vérifier que l'ID de réservation est valide
-    if (!reservationId || isNaN(reservationId)) {
-      throw new Error(`ID de réservation invalide: ${reservationId}`)
-    }
-
-    // Vérifier que la transaction est bien passée
-    logger.info('Transaction dans processReservationGuests:', !!trx)
-
-    // Vérifier que la réservation existe avant de traiter les invités
-    const reservationExists = await db.from('reservations')
-      .where('id', reservationId)
-      .useTransaction(trx)
-      .first()
-
-    if (!reservationExists) {
-      throw new Error(`La réservation avec l'ID ${reservationId} n'existe pas dans processReservationGuests`)
-    }
-
-    const createdBy = data.created_by
-
-    // Create primary guest from main reservation data
-    let primaryGuest = await this.createOrFindGuest(data, trx)
-
-    // If additional guests are provided, create them
-    let allGuests: Guest[] = [primaryGuest]
-
-    if (data.guests && data.guests.length > 0) {
-      // Ensure primary guest is marked as primary if not explicitly set
-      const primaryGuestData: GuestData = {
-        first_name: data.first_name,
-        last_name: data.last_name,
-        email: data.email,
-        phone_primary: data.phone_primary,
-        title: data.title,
-        company_name: data.company_name,
-        address_line: data.address_line,
-        country: data.country,
-        state: data.state,
-        city: data.city,
-        zipcode: data.zipcode,
-        is_primary: true,
-        guest_type: 'adult'
-      }
-
-      // Combine primary guest with additional guests
-      const allGuestsData = [primaryGuestData, ...data.guests]
-
-      // Create all guests and associate with reservation
-      allGuests = await this.createGuestsForReservation(reservationId, allGuestsData, createdBy, trx)
-
-      // S'assurer que primaryGuest est bien l'invité principal
-      const primaryGuestFromList = allGuests.find(g => g.email?.toLowerCase() === data.email?.toLowerCase())
-      if (primaryGuestFromList) {
-        primaryGuest = primaryGuestFromList
-      }
-    } else {
-      // Just associate the primary guest with the reservation
-      await db.table('reservation_guests')
-        .useTransaction(trx)
-        .insert({
-          reservation_id: reservationId,
-          guest_id: primaryGuest.id,
-          is_primary: true,
-          guest_type: 'adult',
-          created_by: createdBy,
-          created_at: new Date(),
-          updated_at: new Date()
-        })
-    }
-
-    return { primaryGuest, allGuests }
+   public static async processReservationGuests(
+  reservationId: number,
+  data: ReservationData,
+  trx?: any
+): Promise<{ primaryGuest: Guest; allGuests: Guest[] }> {
+  // Vérifier que l'ID de réservation est valide
+  if (!reservationId || isNaN(reservationId)) {
+    throw new Error(`ID de réservation invalide: ${reservationId}`)
   }
+
+  // Vérifier que la transaction est bien passée
+  logger.info('Transaction dans processReservationGuests:', !!trx)
+
+  // Vérifier que la réservation existe avant de traiter les invités
+  const reservationExists = await db.from('reservations')
+    .where('id', reservationId)
+    .useTransaction(trx)
+    .first()
+
+  if (!reservationExists) {
+    throw new Error(`La réservation avec l'ID ${reservationId} n'existe pas dans processReservationGuests`)
+  }
+
+  const createdBy = data.created_by
+
+  // Create primary guest from main reservation data
+  let primaryGuest = await this.createOrFindGuest(data, trx)
+
+  //Ne créer QU'UNE SEULE entrée reservation_guest pour le primary
+  let allGuests: Guest[] = [primaryGuest]
+
+  // Créer UNE SEULE entrée pour le primary guest dans reservation_guests
+  await db.table('reservation_guests')
+    .useTransaction(trx)
+    .insert({
+      reservation_id: reservationId,
+      guest_id: primaryGuest.id,
+      is_primary: true,
+      guest_type: 'adult',
+      created_by: createdBy,
+      created_at: new Date(),
+      updated_at: new Date()
+    })
+
+  return { primaryGuest, allGuests }
+}
+
+
+
 
 
 }

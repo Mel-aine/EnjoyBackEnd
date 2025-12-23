@@ -1392,23 +1392,26 @@ export default class RoomsController {
    * Update housekeeping status - WITH RESTRICTIONS
    */
 
+
   public async updateHousekeepingStatus({ params, request, response,auth }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
 
-      const { housekeepingStatus, data, removeRemarkId } = request.only([
-        'housekeepingStatus',
-        'data',
-        'removeRemarkId',
-      ])
+      const body = request.all()
+
+      const housekeepingStatus = body.housekeepingStatus || body.data?.housekeepingStatus
+      const remarkInfo = body.data?.data ? body.data.data : body.data
+      const data = body.data
+      const removeRemarkId = body.removeRemarkId
+
+      console.log('data received for updateHousekeepingStatus:', {
+        housekeepingStatus,
+        data,
+        removeRemarkId,
+      })
 
       //  Vérification business rules pour le housekeepingStatus
       if (housekeepingStatus) {
-        if (!this.canUpdateHousekeepingStatus(room, housekeepingStatus)) {
-          return response.badRequest({
-            message: 'Invalid housekeeping status transition. Can only clean dirty rooms.',
-          })
-        }
         room.housekeepingStatus = housekeepingStatus
       }
 
@@ -1423,51 +1426,55 @@ export default class RoomsController {
       }
 
       //Ajouter une nouvelle remarque
-      if (data) {
-        const newRemark = {
-          id: Date.now().toString(),
-          ...data,
-          createdAt: new Date().toISOString(),
-        }
-        currentRemarks.push(newRemark)
-
-        // Mettre à jour le housekeeper si besoin
-        if (newRemark.housekeeper) {
-          room.assignedHousekeeperId = newRemark.housekeeper
-        }
+      if (remarkInfo && (remarkInfo.remark || remarkInfo.fdRemark)) {
+      const newRemark = {
+        id: Date.now().toString(),
+        remark: remarkInfo.remark,
+        fdRemark: remarkInfo.fdRemark,
+        status: remarkInfo.status || housekeepingStatus,
+        housekeeperId: remarkInfo.housekeeper,
+        createdAt: new Date().toISOString(),
       }
 
-      //  Sauvegarder le tableau mis à jour
-      room.housekeepingRemarks = currentRemarks
-      await room.save()
+      currentRemarks.push(newRemark)
+      console.log('New Clean Remark pushed:', newRemark)
+
+      // Mettre à jour le housekeeper assigné
+      if (remarkInfo.housekeeper) {
+        room.assignedHousekeeperId = remarkInfo.housekeeper
+      }
+    }
+
+    room.housekeepingRemarks = currentRemarks
+    await room.save()
+
 
       //notifications
-
-      try {
-        await CheckInCheckOutNotificationService.notifyIssueDetected(
-          room.id,
-          auth.user!.id,
-          data?.remark || 'Nouvelle remarque détectée',
-
-        )
-      } catch (notifError) {
-        console.error(`Notification error for room ${room.id}:`, notifError)
-      }
-
-
+      setImmediate(async () => {
+        try {
+          await CheckInCheckOutNotificationService.notifyIssueDetected(
+            room.id,
+            auth.user?.id!,
+            remarkInfo?.remark || 'Nouvelle remarque détectée'
+          )
+        } catch (err) {
+          console.error("Erreur task de fond:", err.message)
+        }
+      })
 
       return response.ok({
         message: 'Housekeeping status updated successfully',
         data: room,
       })
     } catch (error) {
-      console.error('❌ Error in updateHousekeepingStatus:', error)
+      console.error(' Error in updateHousekeepingStatus:', error)
       return response.badRequest({
         message: 'Failed to update housekeeping status',
         error: error.message,
       })
     }
   }
+
 
   /**
    * PRIVATE HELPER METHODS - BUSINESS LOGIC
