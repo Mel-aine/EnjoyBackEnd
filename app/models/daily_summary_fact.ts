@@ -7,7 +7,7 @@ import User from '#models/user'
 export default class DailySummaryFact extends BaseModel {
   public static table = 'daily_summary_facts'
 
-  @column({ isPrimary: true })
+  @column.date({ isPrimary: true, columnName: 'audit_date' })
   declare auditDate: DateTime
 
   @column()

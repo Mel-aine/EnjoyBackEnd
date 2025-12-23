@@ -2959,7 +2959,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+        .where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
         .where('category', 'room')
         .whereNotIn('status', ['cancelled', 'void'])
 
@@ -2970,7 +2970,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
         .where('category', 'room')
         .whereNotIn('status', ['cancelled', 'void'])
 
@@ -2981,7 +2981,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
         .where('category', 'room')
         .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3051,7 +3051,7 @@ export default class ReportsController {
             .where('status', ReservationStatus.CANCELLED)
         })
       })
-      .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .where('category', TransactionCategory.CANCELLATION_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3071,7 +3071,7 @@ export default class ReportsController {
             .where('status', ReservationStatus.NOSHOW)
         })
       })
-      .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .where('category', TransactionCategory.NO_SHOW_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3090,7 +3090,7 @@ export default class ReportsController {
           reservationQuery.where('hotel_id', hotelId)
         })
       })
-      .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .where('category', TransactionCategory.LATE_CHECKOUT_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3106,7 +3106,7 @@ export default class ReportsController {
     const dayStr = reportDate.toFormat('yyyy-MM-dd')
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .where('transaction_date', dayStr)
+      .where('current_working_date', dayStr)
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
       .whereNotIn('status', ['cancelled', 'voided'])
@@ -3165,7 +3165,7 @@ export default class ReportsController {
     const dayStr = reportDate.toFormat('yyyy-MM-dd')
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .where('transaction_date', dayStr)
+      .where('current_working_date', dayStr)
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
       .whereNotIn('status', ['cancelled', 'voided'])
@@ -3235,7 +3235,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
         .whereNotNull('description')
@@ -3317,7 +3317,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('discount_id', discount.id)
         .where('status', 'posted')
         .whereNotIn('status', ['cancelled', 'voided'])
@@ -3379,7 +3379,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('category', 'adjustment')
         .where('status', 'posted')
         .whereNotIn('status', ['cancelled', 'voided'])
@@ -3463,7 +3463,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('status', 'posted')
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
@@ -3534,7 +3534,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
         .where('transaction_type', TransactionType.PAYMENT)
         .whereNotIn('status', ['cancel', 'voided'])
         .whereNot('isVoided', true)
@@ -3617,21 +3617,21 @@ export default class ReportsController {
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('transaction_date', '<', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .where('current_working_date', '<', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalancePTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('transaction_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
+        .where('current_working_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalanceYTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('transaction_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
+        .where('current_working_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3640,7 +3640,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3648,7 +3648,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3656,7 +3656,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3665,7 +3665,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3673,7 +3673,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3681,7 +3681,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3690,7 +3690,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3698,7 +3698,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3706,7 +3706,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3788,7 +3788,7 @@ export default class ReportsController {
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
+        .where('current_working_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
         .where('category', TransactionCategory.DEPOSIT)
         .where('is_voided', false)
         .sum('amount as total')
@@ -3796,14 +3796,14 @@ export default class ReportsController {
       const openingBalancePTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
+        .where('current_working_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalanceYTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
+        .where('current_working_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3813,7 +3813,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3822,7 +3822,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3831,7 +3831,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('current_working_date', [ytdStartDate, reportDate.endOf('day')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3841,7 +3841,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3850,7 +3850,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3859,7 +3859,7 @@ export default class ReportsController {
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ytdStartDate, reportDate.endOf('day')])
+        .whereBetween('current_working_date', [ytdStartDate, reportDate.endOf('day')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3939,21 +3939,21 @@ export default class ReportsController {
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('transaction_date', '<', reportDate.startOf('day'))
+        .where('current_working_date', '<', reportDate.startOf('day'))
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalancePTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('transaction_date', '<', ptdStartDate)
+        .where('current_working_date', '<', ptdStartDate)
         .where('is_voided', false)
         .sum('amount as total')
 
       const openingBalanceYTD = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('transaction_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
+        .where('current_working_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3963,7 +3963,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3972,7 +3972,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3981,7 +3981,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3990,7 +3990,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3998,7 +3998,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4006,7 +4006,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4016,7 +4016,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('transaction_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4025,7 +4025,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('transaction_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4034,7 +4034,7 @@ export default class ReportsController {
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('transaction_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -5292,7 +5292,7 @@ export default class ReportsController {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('transaction_date', [startDate, endDate])
+        .whereBetween('current_working_date', [startDate, endDate])
         .where('category', 'room')
         .where('status', 'posted')
         .preload('folio', (folioQuery: any) => {
@@ -5540,7 +5540,7 @@ export default class ReportsController {
             }
           })
         })
-        .whereBetween('transaction_date', [startDate, endDate])
+        .whereBetween('current_working_date', [startDate, endDate])
         .where('category', 'room')
         .whereNotIn('status', ['cancel', 'void'])
         .preload('folio', (folioQuery: any) => {
@@ -6596,7 +6596,7 @@ export default class ReportsController {
           reservationQuery.where('hotel_id', hotelId)
         })
       })
-      .whereBetween('transaction_date', [monthStart.toFormat('yyyy-MM-dd'), monthEnd.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [monthStart.toFormat('yyyy-MM-dd'), monthEnd.toFormat('yyyy-MM-dd')])
       .where('category', 'room')
       .where('status', 'posted')
       .preload('folio', (folioQuery) => {
@@ -6851,7 +6851,7 @@ export default class ReportsController {
           reservationQuery.where('hotel_id', hotelId)
         })
       })
-      .where('transaction_date', reportDate.toFormat('yyyy-MM-dd'))
+      .where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
       .where('status', 'posted')
       .preload('folio', (folioQuery) => {
         folioQuery.preload('reservation', (reservationQuery) => {
@@ -7906,7 +7906,7 @@ export default class ReportsController {
       // Apply date filter based on dateType
       if (dateType === 'transaction') {
         query = query.whereHas('transactions', (transactionQuery) => {
-          transactionQuery.whereBetween('transaction_date', [dateFrom, dateTo])
+          transactionQuery.whereBetween('current_working_date', [dateFrom, dateTo])
         })
       } else if (dateType === 'Arrival') {
         query = query.whereHas('reservation', (reservationQuery) => {
@@ -9670,14 +9670,14 @@ export default class ReportsController {
       }
 
       const transactions = await FolioTransaction.query()
-        .whereBetween('transaction_date', [fromDate.startOf('day'), toDate.endOf('day')])
+        .whereBetween('current_working_date', [fromDate.startOf('day'), toDate.endOf('day')])
         .where('is_voided', false)
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.where('company_id', companyId)
           folioQuery.preload('hotel')
         })
         .preload('paymentMethod')
-        .orderBy('transaction_date', 'asc')
+        .orderBy('current_working_date', 'asc')
 
       if (!transactions || transactions.length === 0) {
         return response.notFound({

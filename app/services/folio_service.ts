@@ -574,6 +574,7 @@ export default class FolioService {
       transactionCode: transactionCode,
       transactionTime: DateTime.now().toISOTime(),
       postingDate: DateTime.now(),
+      currentWorkingDate:data.transactionDate,
       paymentMethodId: data.paymentMethodId,
       transactionDate: data.transactionDate || DateTime.now(),
       status: TransactionStatus.POSTED,
