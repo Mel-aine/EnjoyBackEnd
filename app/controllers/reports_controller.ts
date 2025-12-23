@@ -1458,10 +1458,12 @@ export default class ReportsController {
           totals.offeredTariff += Number(offeredTariff)
           totals.totalTax += Number(taxAmount)
           totals.totalRent += Number(totalRent)
-          totals.totalVariant += Number(variance)
         }
       }
     }
+
+    totals.totalVariant =
+      totals.normalTariff > 0 ? ((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100 : 0
 
     return { data: roomChargesData, totals }
   }
