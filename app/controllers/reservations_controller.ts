@@ -15,6 +15,8 @@ import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import CancellationPolicy from '#models/cancellation_policy'
+import ReservationGuest from '#models/reservation_guest'
+import { generateGuestCode } from '../utils/generate_guest_code.js'
 import {
   FolioStatus,
   FolioType,
@@ -3081,15 +3083,48 @@ export default class ReservationsController extends CrudController<typeof Reserv
         logger.info('Réservation mise à jour avec primary guest ID:', primaryGuest.id)
 
         // Réservations de chambres - only if rooms are provided
+
         if (rooms.length > 0) {
           for (let index = 0; index < rooms.length; index++) {
             const room = rooms[index]
+
+            // Déterminer quel guest assigner à cette chambre
+            let assignedGuestId = primaryGuest.id
+
+            // Pour les chambres après la première, créer un nouveau guest
+            if (index > 0) {
+              // Créer une copie du primary guest pour cette chambre
+              const roomGuest = await Guest.create({
+                hotelId: data.hotel_id,
+                title: primaryGuest.title,
+                firstName: primaryGuest.firstName,
+                lastName: primaryGuest.lastName,
+                email: null, // Éviter les doublons d'email
+                phonePrimary: primaryGuest.phonePrimary,
+                nationality: primaryGuest.nationality,
+                guestType: 'individual',
+                guestCode : generateGuestCode(),
+                status: 'active',
+                createdBy: auth.user?.id,
+              }, { client: trx })
+
+              assignedGuestId = roomGuest.id
+
+              // Créer une entrée reservation_guest pour ce nouvel invité
+              await ReservationGuest.create({
+                reservationId: reservation.id,
+                guestId: roomGuest.id,
+                isPrimary: false,
+                createdBy: auth.user?.id,
+              }, { client: trx })
+            }
+
             await ReservationRoom.create(
               {
                 reservationId: reservation.id,
                 roomTypeId: room.room_type_id,
                 roomId: room.room_id || null,
-                guestId: primaryGuest.id,
+                guestId: assignedGuestId,
                 checkInDate: DateTime.fromISO(data.arrived_date),
                 checkOutDate: DateTime.fromISO(data.depart_date),
                 checkInTime: data.check_in_time,
@@ -3124,6 +3159,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             )
           }
         }
+
 
         // Logging
         const guestCount = allGuests.length
