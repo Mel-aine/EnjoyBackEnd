@@ -1,4 +1,5 @@
 import router from '@adonisjs/core/services/router'
+import env from '#start/env'
 import UsersController from '#controllers/users_controller'
 import RolesController from '#controllers/roles_controller'
 import ReservationsController from '#controllers/reservations_controller'
@@ -88,7 +89,8 @@ router.get('/reset-password', async ({ request, response }) => {
   let html = readFileSync(filePath, 'utf-8')
   html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
   html = html.replace(/\{\{TOKEN\}\}/g, token)
-  const loginUrl = `${baseUrl}/swagger`
+  const liveEndpoint = (env.get('LIVE_ENPOINT')!).replace(/\/$/, '')
+  const loginUrl = `${liveEndpoint}/swagger`
   html = html.replace(/\{\{LOGIN_URL\}\}/g, loginUrl)
   response.type('html')
   return response.send(html)
