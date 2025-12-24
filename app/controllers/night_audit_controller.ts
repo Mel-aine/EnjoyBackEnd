@@ -56,7 +56,8 @@ export default class NightAuditController {
       return response.internalServerError({
         success: false,
         message: 'Failed to calculate night audit',
-        error: error.message
+        error: error.message,
+        errors:error
       })
     }
   }

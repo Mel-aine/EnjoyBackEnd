@@ -557,6 +557,7 @@ export default class FolioService {
       transactionNumber,
       transactionType: data.transactionType,
       category: data.category,
+      isAdvanceDeposit: data.category === TransactionCategory.DEPOSIT,
       particular,
       description: data.description,
       notes: data.notes || '',
