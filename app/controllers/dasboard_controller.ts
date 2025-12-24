@@ -132,7 +132,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
           .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
           .sum('amount as totalRevenue')
           .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
@@ -143,7 +143,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
           .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"))
           .sum('amount as totalRevenue')
           .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')"))
@@ -171,7 +171,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
           .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
@@ -196,7 +196,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
           .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 3 THEN 'Q1'
@@ -240,7 +240,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
           .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
@@ -261,7 +261,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
           .select(Database.raw(`
           CASE
             WHEN EXTRACT(MONTH FROM transaction_date) BETWEEN 1 AND 6 THEN 'S1'
@@ -291,7 +291,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfYear!, endOfYear!])
+          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
           .sum('amount as totalRevenue')
           .first()
 
@@ -300,7 +300,7 @@ export default class DashboardController {
           .where('hotel_id', serviceId)
           .where('transaction_type', 'payment')
           .where('is_voided', false)
-          .whereBetween('transaction_date', [startOfPrevYear!, endOfPrevYear!])
+          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
           .sum('amount as totalRevenue')
           .first()
 

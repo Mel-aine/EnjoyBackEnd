@@ -23,10 +23,12 @@ export class ChannexService {
   private client: AxiosInstance
   private baseURL: string
   private apiKey: string
+  private channexUrl:string
 
   constructor() {
     this.apiKey = env.get('CHANNEX_API_KEY') || 'uDLcCU1XVVraqAVOGfKNvXqVaTyE73jnmDXdPr8gufyR0SF91CQeIwJjWm2qrOX3'
     this.baseURL = env.get('CHANNEX_BASE_URL') || 'https://staging.channex.io/api/v1'
+    this.channexUrl =env.get('CHANNEX_URL') || 'https://app.channex.io'
 
     // Initialize HTTP client with base configuration
     this.client = axios.create({
@@ -1192,6 +1194,6 @@ export class ChannexService {
       params.append('allow_open_bookings', 'true')
     }
 
-    return `https://staging.channex.io/auth/exchange?${params.toString().replaceAll('%2F', '/')}`
+    return `${this.channexUrl}/auth/exchange?${params.toString().replaceAll('%2F', '/')}`
   }
 }

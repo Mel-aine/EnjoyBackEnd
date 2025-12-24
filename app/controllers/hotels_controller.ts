@@ -128,6 +128,10 @@ export default class HotelsController {
         cancellationPolicy: payload.cancellationPolicy,
         hotelPolicy: payload.policies,
         propertyType: 'hotel',
+        ...(payload.nightAuditStartTime !== undefined
+          ? { nightAuditStartTime: payload.nightAuditStartTime }
+          : {}),
+        ...(payload.nightAuditEndTime !== undefined ? { nightAuditEndTime: payload.nightAuditEndTime } : {}),
       }, { client: trx })
 
       let adminUser = null

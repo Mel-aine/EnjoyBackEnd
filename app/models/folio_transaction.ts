@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, manyToMany, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, manyToMany, beforeCreate, afterCreate, afterUpdate } from '@adonisjs/lucid/orm'
 import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { TransactionType, TransactionCategory, TransactionStatus } from '#app/enums'
 import Hotel from './hotel.js'
@@ -94,6 +94,9 @@ export default class FolioTransaction extends BaseModel {
 
   @column.dateTime()
   declare serviceDate: DateTime
+
+  @column.date({ columnName: 'current_working_date' })
+  declare currentWorkingDate: DateTime | null
 
   @column()
   declare reference: string
@@ -580,6 +583,16 @@ export default class FolioTransaction extends BaseModel {
 
   }
   // Register the hook
+  @beforeCreate()
+  public static async beforeCreate(transaction: FolioTransaction) {
+    if (transaction.currentWorkingDate || !transaction.hotelId) {
+      return
+    }
+
+    const hotel = await Hotel.query().where('id', transaction.hotelId).select(['id', 'current_working_date']).first()
+    transaction.currentWorkingDate = hotel?.currentWorkingDate ?? DateTime.now()
+  }
+
   @afterCreate()
   public static afterCreate(transaction: FolioTransaction) {
     TransactionHook.checkFolioStatus(transaction)
