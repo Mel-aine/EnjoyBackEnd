@@ -791,7 +791,7 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
             room_number: reservationRoom?.room?.roomNumber,
             guest_name: `${reservation.guest?.displayName}`,
             room_type: reservationRoom?.room?.roomType?.roomTypeName,
-            rate_type: reservationRoom?.roomRates.rateType.rateTypeName,
+            rate_type: reservationRoom?.roomRates?.rateType?.rateTypeName,
             rate: transaction.amount,
             charge_date: auditDate,
             transaction_date: transaction.transactionDate,
