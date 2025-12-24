@@ -1443,7 +1443,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           
           // --- 2. Calcul des montants NETS (HT) ---
           // Prix offert Net = Montant transaction / 1.1925
-          const netOffered = dailyTransaction?.amount
+          const netOffered = Number(dailyTransaction?.amount || 0)
           
           // Prix Normal Net = BaseRate du contrat / 1.1925
           const grossNormal = Number(reservationRoom.roomRates?.baseRate || 0)
@@ -3639,7 +3639,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-        .where('current_working_date', '<', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .where('current_working_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
