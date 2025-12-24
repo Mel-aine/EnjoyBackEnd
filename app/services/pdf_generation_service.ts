@@ -441,7 +441,7 @@ export default class PdfGenerationService {
                     <td>${reservation.adults + reservation.children || 1}</td>
                     <td>${reservation.adults || 1} / ${reservation.children || 0}</td>
                     <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                    <td>${reservation.reservationRooms?.[0]?.room?.roomNumber || 'N/A'}</td>
+                    <td>${reservation.roomNumber || 'N/A'}</td>
                 </tr>
             </table>
     

@@ -1430,7 +1430,7 @@ export default class ReportsController {
     for (const reservation of reservations) {
       for (const reservationRoom of reservation.reservationRooms) {
         if (reservationRoom.room) {
-          const roomRate = reservationRoom.roomRates.baseRate
+          const roomRate = reservationRoom.roomRates?.baseRate
           const normalTariff = roomRate
           const offeredTariff = reservationRoom.roomRate ?? 0
           const taxAmount = reservationRoom.taxAmount || 0
@@ -2355,7 +2355,7 @@ export default class ReportsController {
             <td>${row.company}</td>
             <td class="center">${row.rentDate}</td>
             <td>${row.rateType}</td>
-            <td class="number">${row.normalTariff}</td>
+            <td class="number">${(row.normalTariff)}</td>
             <td class="number">${row.offeredTariff}</td>
             <td class="number">${row.totalTax}</td>
             <td class="number">${row.totalRent}</td>
