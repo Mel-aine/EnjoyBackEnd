@@ -198,20 +198,22 @@
       <table>
         <tbody>
           @each(extraCharge in Object.keys(content.extraCharges.extraCharges || {}))
-            <tr>
-              <td style="width: 40%;">
-                {{ extraCharge }}
-              </td>
-              <td class="currency" style="width: 20%;">
-                {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].today) }}
-              </td>
-              <td class="currency" style="width: 20%;">
-                {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ptd) }}
-              </td>
-              <td class="currency" style="width: 20%;">
-                {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ytd) }}
-              </td>
-            </tr>
+            @if(!content.extraCharges.extraCharges[extraCharge].isDeleted)
+              <tr>
+                <td style="width: 40%;">
+                  {{ extraCharge }}
+                </td>
+                <td class="currency" style="width: 20%;">
+                  {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].today) }}
+                </td>
+                <td class="currency" style="width: 20%;">
+                  {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ptd) }}
+                </td>
+                <td class="currency" style="width: 20%;">
+                  {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ytd) }}
+                </td>
+              </tr>
+            @endif
           @endeach
           <tr class="section-total">
             <td style="width: 40%;">

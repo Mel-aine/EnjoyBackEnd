@@ -1443,7 +1443,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           
           // --- 2. Calcul des montants NETS (HT) ---
           // Prix offert Net = Montant transaction / 1.1925
-          const netOffered = dailyTransaction.amount
+          const netOffered = dailyTransaction?.amount
           
           // Prix Normal Net = BaseRate du contrat / 1.1925
           const grossNormal = Number(reservationRoom.roomRates?.baseRate || 0)

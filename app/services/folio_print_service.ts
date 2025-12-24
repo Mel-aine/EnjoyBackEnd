@@ -386,10 +386,13 @@ export class FolioPrintService {
             .preload('room', (roomSubQuery) => {
               roomSubQuery.preload('taxRates')
             }).preload('roomType')
+            roomQuery.preload('roomRates', (rateQuery: any) => {
+              rateQuery.preload('rateType')
+            })
         })
-        // .preload('checkedInByUser')
-        // .preload('checkedOutByUser')
-        // .preload('reservedByUser')
+        .preload('checkedInByUser')
+        .preload('checkedOutByUser')
+        .preload('reservedByUser')
         .firstOrFail()
 
             // Charger le folio associé à cette réservation
@@ -463,7 +466,9 @@ export class FolioPrintService {
         checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
         checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
         numberOfNights: reservation.numberOfNights || 1,
-        roomType: reservation.roomType?.roomTypeName || 'Standard Room',
+        roomNumber: `${reservation.reservationRooms?.[0]?.room.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`,
+        roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'none',
+        rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'none',
         adults: reservation.adults || 1,
         children: reservation.children || 0,
         status: reservation.status || 'Confirmed',
