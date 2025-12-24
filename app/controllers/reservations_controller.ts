@@ -3720,7 +3720,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             ctx,
           })
         }
-
+        /*
         // Auto check-out if check-out time is passed
         const shouldAutoCheckOut = reservation.checkOutDate && reservation.checkOutDate <= now
         if (shouldAutoCheckOut && roomRecords.length > 0) {
@@ -3752,6 +3752,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             ctx,
           })
         }
+          */
 
         await GuestSummaryService.recomputeFromReservation(reservation.id)
 

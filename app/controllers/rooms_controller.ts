@@ -1207,156 +1207,122 @@ export default class RoomsController {
    * Bulk Update - WITH BUSINESS LOGIC RESTRICTIONS
    */
 
-  async bulkUpdate({ request, response,auth }: HttpContext) {
-    try {
-      const {
-        room_ids,
-        operation,
-        housekeeping_status,
-        room_status,
-        housekeeper_id,
-        user_id,
-        clear_remarks,
-      } = request.only([
-        'room_ids',
-        'operation',
-        'housekeeping_status',
-        'room_status',
-        'housekeeper_id',
-        'user_id',
-        'clear_remarks',
-      ])
+async bulkUpdate({ request, response, auth }: HttpContext) {
+  try {
+    const {
+      room_ids,
+      operation,
+      housekeeping_status,
+      housekeeper_id,
+      user_id,
+    } = request.only([
+      'room_ids',
+      'operation',
+      'housekeeping_status',
+      'housekeeper_id',
+      'user_id',
+    ])
 
-      // Validation des données
-      if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
-        return response.badRequest({ message: 'Room IDs are required and must be an array' })
-      }
+    //  Validations de base
+    if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
+      return response.badRequest({ message: 'Room IDs are required and must be an array' })
+    }
+    if (!operation) {
+      return response.badRequest({ message: 'Operation is required' })
+    }
 
-      if (!operation) {
-        return response.badRequest({ message: 'Operation is required' })
-      }
-      const rooms = await Room.query().whereIn('id', room_ids)
-      const roomsToUpdate = await Room.query().whereIn('id', room_ids)
+    //  Récupérer les chambres (une seule fois)
+    const rooms = await Room.query().whereIn('id', room_ids)
+    if (rooms.length === 0) {
+      return response.badRequest({ message: 'No rooms found for the provided IDs' })
+    }
 
-      if (roomsToUpdate.length !== room_ids.length) {
-        return response.badRequest({ message: 'Some room IDs do not exist' })
-      }
+    //  Préparer les données de mise à jour SQL
+    const updateData: any = {
+      last_modified_by: user_id || auth.user?.id,
+      updated_at: DateTime.now(),
+    }
+
+    switch (operation) {
+      case 'set_status':
+        if (housekeeping_status) {
+          updateData.housekeeping_status = housekeeping_status
+        }
+        break
+      case 'assign_housekeeper':
+        updateData.assigned_housekeeper_id = housekeeper_id || null
+        break
+      case 'clear_status':
+        updateData.housekeeping_status = null
+        break
+      case 'clear_remark':
+        updateData.housekeeping_remarks = null
+        break
+      case 'unassign_housekeeper':
+        updateData.assigned_housekeeper_id = null
+        break
+    }
+
+    //  Exécuter la mise à jour massive en SQL
+    const updatedCount = await Room.query().whereIn('id', room_ids).update(updateData)
 
 
+    const actorId = auth.user?.id || 0
+    const finalNewStatus = updateData.housekeeping_status
+    const finalHousekeeperId = housekeeper_id || 0
 
-      // Préparer les données de mise à jour
-      const updateData: any = {
-        last_modified_by: user_id,
-        updated_at: DateTime.now(),
-      }
-
-      // Appliquer la mise à jour selon l'opération
-      switch (operation) {
-        case 'set_status':
-          if (housekeeping_status === 'dirty') {
-            // On veut marquer la chambre "propre"
-            updateData.housekeeping_status = 'dirty'
-          } else if (housekeeping_status === 'clean') {
-            // On veut marquer la chambre "sale"
-            updateData.housekeeping_status = 'clean'
-            // updateData.assigned_housekeeper_id = null // si sale, on retire housekeeper
-          }
-          break
-
-        case 'assign_housekeeper':
-          updateData.assigned_housekeeper_id = housekeeper_id || null
-          break
-
-        case 'clear_status':
-          updateData.housekeeping_status = null
-          // updateData.assigned_housekeeper_id = null
-          break
-
-        case 'clear_remark':
-          updateData.housekeeping_remarks = null
-          break
-
-        case 'unassign_housekeeper':
-          updateData.assigned_housekeeper_id = null
-          break
-      }
-
-      const updatedCount = await Room.query().whereIn('id', room_ids).update(updateData)
+    setImmediate(async () => {
+      console.log(`⏱️ Background Task: Sending notifications for ${rooms.length} rooms...`)
 
       const HousekeepingNotifService = CheckInCheckOutNotificationService
 
-      for (const room of rooms) {
-        const oldStatus:any = room.housekeepingStatus
-        const newStatus = updateData.housekeeping_status ?? oldStatus
-
+      // On traite toutes les notifications en parallèle pour gagner encore plus de temps
+      const notificationPromises = rooms.map(async (room) => {
         try {
-          switch (newStatus) {
-            case 'clean':
-              await HousekeepingNotifService.notifyRoomReady(
-                room.id,
-                housekeeper_id || 0,
-                auth.user!.id
-              )
-              break
+          const oldStatus: any = room.housekeepingStatus
+          const newStatus = finalNewStatus ?? oldStatus
 
-            case 'dirty':
-              await HousekeepingNotifService.notifyRoomDirty(
-                room.id,
-                auth.user!.id,
-                'normal'
-              )
-              break
-
-            case 'inspected':
-              await HousekeepingNotifService.notifyRoomInspected(
-                room.id,
-                auth.user!.id,
-                true,
-
-              )
-              break
-
-            case 'out_of_order':
-              await HousekeepingNotifService.notifyRoomBlocked(
-                room.id,
-                auth.user!.id,
-                'Maintenance requise',
-
-              )
-              break
+          // Notifications spécifiques au type de statut
+          if (newStatus === 'clean') {
+            await HousekeepingNotifService.notifyRoomReady(room.id, finalHousekeeperId, actorId)
+          } else if (newStatus === 'dirty') {
+            await HousekeepingNotifService.notifyRoomDirty(room.id, actorId, 'normal')
+          } else if (newStatus === 'inspected') {
+            await HousekeepingNotifService.notifyRoomInspected(room.id, actorId, true)
+          } else if (newStatus === 'out_of_order') {
+            await HousekeepingNotifService.notifyRoomBlocked(room.id, actorId, 'Maintenance requise')
           }
 
-          // Notification de changement de statut
+          // Notification de changement de statut global
           if (oldStatus !== newStatus) {
-            await HousekeepingNotifService.notifyStatusChange(
-              room.id,
-              oldStatus,
-              newStatus,
-              auth.user!.id,
-
-            )
+            await HousekeepingNotifService.notifyStatusChange(room.id, oldStatus, newStatus, actorId)
           }
-
-        } catch (notifError) {
-          console.error(`Notification error for room ${room.id}:`, notifError)
+        } catch (err) {
+          console.error(` Background Notif Error for Room ${room.id}:`, err.message)
         }
-      }
-
-      return response.ok({
-        message: `Successfully updated ${updatedCount} rooms`,
-        updated_count: updatedCount,
-        operation,
-        affected_rooms: room_ids,
       })
-    } catch (error) {
-      console.error('Error in bulk update:', error)
 
-      return response.internalServerError({
-        message: 'Error updating rooms. Please try again later.',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      })
-    }
+      // On attend que toutes les promesses soient terminées (Settled = succès ou échec)
+      await Promise.allSettled(notificationPromises)
+
+    })
+
+    // Réponse immédiate au client
+    return response.ok({
+      message: `Successfully updated ${updatedCount} rooms`,
+      updated_count: updatedCount,
+      operation,
+      affected_rooms: room_ids,
+    })
+
+  } catch (error) {
+    console.error('❌ Error in bulk update:', error)
+    return response.internalServerError({
+      message: 'Error updating rooms. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    })
   }
+}
 
   /**
    * Update room status - WITH BUSINESS LOGIC
@@ -1506,26 +1472,6 @@ export default class RoomsController {
   }
 
 
-  /**
-   * Vérifie si on peut changer le statut de ménage
-   */
-  private canUpdateHousekeepingStatus(room: any, newStatus: string): boolean {
-    // Ne peut changer que de dirty à clean pour les chambres disponibles
-    if (
-      room.status === 'available' &&
-      room.housekeepingStatus === 'dirty' &&
-      newStatus === 'clean'
-    ) {
-      return true
-    }
-
-    // Peut mettre dirty si disponible
-    if (room.status === 'available' && newStatus === 'dirty') {
-      return true
-    }
-
-    return false
-  }
 
   /**
    * Détermine la section d'une chambre basée sur l'étage et le type
