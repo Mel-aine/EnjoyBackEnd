@@ -1398,8 +1398,9 @@ export default class ReportsController {
   /**
    * Section 1: Room Charges Data
    */
-  private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency: string) {
+private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency: string) {
     const { default: Reservation } = await import('#models/reservation')
+    const TVA_COEFF = 1.1925 // Coefficient pour 19,25% de taxe
 
     const reservations = await Reservation.query()
       .where('hotel_id', hotelId)
@@ -1413,11 +1414,15 @@ export default class ReportsController {
         roomQuery.preload('roomRates', (rateQuery: any) => {
           rateQuery.preload('rateType')
         })
+        roomQuery.preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions', (transacQuery) => {
+            // On filtre pour ne prendre que les frais de chambre du jour
+            transacQuery.where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
+          })
+        })
       })
-      .preload('folios')
       .preload('guest')
       .preload('businessSource')
-    // 
 
     const roomChargesData = []
     let totals = {
@@ -1431,39 +1436,52 @@ export default class ReportsController {
     for (const reservation of reservations) {
       for (const reservationRoom of reservation.reservationRooms) {
         if (reservationRoom.room) {
-          const offeredTariff = reservationRoom.roomRate ?? 0
-          const roomRate = Number(reservationRoom.roomRates?.baseRate ?? offeredTariff ?? 0)
-          const normalTariff = roomRate
-          const taxAmount = reservationRoom.taxAmount || 0
-          const totalRent = Number(offeredTariff)
-          const variance = normalTariff > 0 ? ((roomRate - totalRent) / Number(normalTariff) * 100) : 0
+          
+          // --- 1. Récupération de la transaction réelle du jour (Offered) ---
+          // On cherche dans les transactions du folio liées à cette chambre
+          const dailyTransaction = reservationRoom.folios?.[0]?.transactions?.[0]
+          
+          // --- 2. Calcul des montants NETS (HT) ---
+          // Prix offert Net = Montant transaction / 1.1925
+          const netOffered = dailyTransaction.amount
+          
+          // Prix Normal Net = BaseRate du contrat / 1.1925
+          const grossNormal = Number(reservationRoom.roomRates?.baseRate || 0)
+          const netNormal = (grossNormal-4000) / TVA_COEFF
+
+          // --- 3. Calcul de la Taxe (Part de TVA sur le prix offert) ---
+          const taxAmount = Number(dailyTransaction?.taxAmount || 0)
+          const totalAmount= Number(dailyTransaction?.totalAmount || 0)
+
+          // --- 4. Calcul de la variance sur les montants NETS ---
+          const variance = netNormal > 0 ? -((netNormal - netOffered) / netNormal * 100) : 0
 
           roomChargesData.push({
             room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
-            folioNo: reservation.folios?.[0]?.folioNumber,
+            folioNo: reservationRoom.folios?.[0]?.folioNumber || 'N/A',
             guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : '',
             source: reservation.businessSource?.name || '',
             company: reservation.companyName || '',
-            rentDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+            rentDate: reportDate.toFormat('dd/MM/yyyy'),
             rateType: reservationRoom.roomRates?.rateType?.rateTypeName,
-            normalTariff,
-            offeredTariff,
-            totalTax: taxAmount,
-            totalRent,
+            normalTariff: netNormal,    // Prix net théorique
+            offeredTariff: netOffered,  // Prix net réellement appliqué
+            totalTax: taxAmount,        // Montant de la TVA collectée
+            totalRent: totalAmount,      // Revenu net pour l'hôtel
             variance: variance,
             checkinBy: reservationRoom.checkedInByUser ? `${reservationRoom.checkedInByUser.lastName}` : 'N/A'
           })
-
-          totals.normalTariff += Number(normalTariff)
-          totals.offeredTariff += Number(offeredTariff)
-          totals.totalTax += Number(taxAmount)
-          totals.totalRent += Number(totalRent)
+          
+          totals.normalTariff += netNormal
+          totals.offeredTariff += Number(netOffered)
+          totals.totalTax += taxAmount
+          totals.totalRent += totalAmount
         }
       }
     }
 
     totals.totalVariant =
-      totals.normalTariff > 0 ? ((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100 : 0
+      totals.normalTariff > 0 ? -((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100 : 0
 
     return { data: roomChargesData, totals }
   }
@@ -1555,6 +1573,7 @@ export default class ReportsController {
     const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
     const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
 
+    
     return {
       salesType: 'Room Sales',
       roomCharges,
