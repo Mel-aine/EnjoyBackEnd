@@ -305,7 +305,26 @@ export default class HotelsController {
       })
     }
   }
+ /**
+   * Show a specific hotel
+   */
+  async details({ params, response }: HttpContext) {
+    try {
+      const hotel = await Hotel.query()
+        .where('id', params.id)
+        .firstOrFail()
 
+      return response.ok({
+        message: 'Hotel retrieved successfully',
+        data: hotel
+      })
+    } catch (error) {
+      return response.notFound({
+        message: 'Hotel not found',
+        error: error.message
+      })
+    }
+  }
   /**
    * Update a hotel
    */

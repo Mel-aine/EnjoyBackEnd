@@ -7,6 +7,8 @@ import FolioTransaction from '#models/folio_transaction'
 import Currency from '#models/currency'
 import User from '#models/user'
 import TaxRate from '#models/tax_rate'
+import ReservationRoom from '#models/reservation_room'
+import RoomRate from '#models/room_rate'
 import { TransactionCategory } from '../enums.js'
 import logger from '@adonisjs/core/services/logger'
 
@@ -111,6 +113,7 @@ export class FolioPrintService {
             roomQuery.preload('room', (roomSubQuery) => {
               roomSubQuery.preload('taxRates')
             }).preload('roomType')
+
           })
           //.preload('creator')
           .preload('checkedOutByUser')
@@ -135,6 +138,14 @@ export class FolioPrintService {
       .preload('guest')
       .preload('roomType', (roomTypeQuery) => {
         roomTypeQuery.preload('rooms')
+      })
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('room')
+        roomQuery.preload('roomType')
+        roomQuery.preload('checkedInByUser')
+        roomQuery.preload('roomRates', (rateQuery: any) => {
+          rateQuery.preload('rateType')
+        })
       })
       .preload('checkedInByUser')
       .preload('checkedOutByUser')
@@ -193,10 +204,10 @@ export class FolioPrintService {
       checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
       checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
       numberOfNights: reservation.numberOfNights || 1,
-      roomNumber: `${reservation.reservationRooms?.[0]?.room?.roomNumber} - ${ reservation.roomType?.roomTypeName}`,
-      roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'Standard Room',
-      rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'Standard Rate',
-      tarrif: reservation.reservationRooms?.[0]?.roomRate || 0,
+      roomNumber: `${reservation.reservationRooms?.[0]?.room.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`,
+      roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'none',
+      rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'none',
+      tarrif: reservation.reservationRooms?.[0]?.roomRates?.baseRate || 0,
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
       status: reservation.status || reservation.reservationStatus,
@@ -215,7 +226,7 @@ export class FolioPrintService {
       closedDate: folio.closedDate || undefined,
       currencyCode: folio.currencyCode,
       exchangeRate: folio.exchangeRate || 1,
-      roomNumber: folio.reservationRoom?.room?.roomNumber
+      roomNumber: `${reservation.reservationRooms?.[0]?.room.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`
     }
 
     // Prepare transactions
@@ -375,10 +386,13 @@ export class FolioPrintService {
             .preload('room', (roomSubQuery) => {
               roomSubQuery.preload('taxRates')
             }).preload('roomType')
+            roomQuery.preload('roomRates', (rateQuery: any) => {
+              rateQuery.preload('rateType')
+            })
         })
-        // .preload('checkedInByUser')
-        // .preload('checkedOutByUser')
-        // .preload('reservedByUser')
+        .preload('checkedInByUser')
+        .preload('checkedOutByUser')
+        .preload('reservedByUser')
         .firstOrFail()
 
             // Charger le folio associé à cette réservation
@@ -452,7 +466,9 @@ export class FolioPrintService {
         checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
         checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
         numberOfNights: reservation.numberOfNights || 1,
-        roomType: reservation.roomType?.roomTypeName || 'Standard Room',
+        roomNumber: `${reservation.reservationRooms?.[0]?.room.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`,
+        roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'none',
+        rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'none',
         adults: reservation.adults || 1,
         children: reservation.children || 0,
         status: reservation.status || 'Confirmed',

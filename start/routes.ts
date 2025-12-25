@@ -792,7 +792,8 @@ router
         router.get('/', hotelsController.index.bind(hotelsController)) // Get all hotels with pagination and search
         //router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
         router.get('/:id', hotelsController.show.bind(hotelsController)) // Get specific hotel details
-        router.put('/:id', hotelsController.update.bind(hotelsController)) // Update hotel information
+        router.put('/:id', hotelsController.update.bind(hotelsController)) 
+        router.get('/:id/details', hotelsController.details.bind(hotelsController))// Update hotel information
         router.put('/:id/information', hotelsController.updateHotelInformation.bind(hotelsController)) // Update complete hotel information
         router.put('/:id/notices', hotelsController.updateNotices.bind(hotelsController)) // Update hotel notices
         router.put('/:id/formula-setting', hotelsController.updateFormulaSetting.bind(hotelsController)) // Update hotel formula settings

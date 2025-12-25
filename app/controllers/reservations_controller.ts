@@ -6751,117 +6751,138 @@ export default class ReservationsController extends CrudController<typeof Reserv
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Guest Registration Card</title>
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            background-color: #f8fafc;
+            font-size: 0.7rem;
+        }
+        .registration-card {
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 0.8rem;
+            line-height: 1.8;
+            max-width: 210mm;
+        }
+        .hotel-info {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .hotel-info h3 {
+            font-weight: 600;
+            margin: 0.2rem 0;
+            font-size: 0.9rem;
+        }
+        .hotel-info p {
+            font-size: 0.65rem;
+            margin: 0.1rem 0;
+            line-height: 1.1;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 0.5rem;
+        }
+        .header .title {
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+        .header .card-no {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        .section {
+            border-bottom: 1px solid #000;
+            padding: 0.15rem 0;
+            margin-top: 0.4rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .section-title {
+            font-weight: 700;
+            flex-basis: 18%;
+            flex-shrink: 0;
+            margin-right: 0.3rem;
+            white-space: nowrap;
+            font-size: 0.7rem;
+        }
+        .section-content {
+            flex-grow: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .field {
+             display: flex;
+             align-items: flex-end;
+             flex-basis: 50%;
+             padding-bottom: 0.2rem;
+             gap: 0.3rem;
+             min-height: 1.3rem;
+         }
+         .field-label {
+             font-weight: 500;
+             white-space: nowrap;
+             line-height: 1.2;
+             min-width: 60px;
+             flex-shrink: 0;
+             font-size: 0.7rem;
+         }
+        .input-line {
+            flex-grow: 1;
+            border-bottom: 1px solid #000;
+            min-height: 1em;
+            padding-left: 0.15rem;
+            font-size: 0.7rem;
+        }
+        .note-section {
+            margin-top: 0.5rem;
+            padding: 0.3rem;
+            border: 1px solid #000;
+        }
+        .note-section .field-label {
+            margin-right: 0.3rem;
+        }
+        .note-section p {
+            margin-top: 0.2rem;
+            font-size: 0.6rem;
+            line-height: 1.2;
+        }
+        .signature-section {
+            margin-top: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-section .signature-field {
+            flex-basis: 48%;
+        }
+        .signature-section label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #4b5063;
+            margin-bottom: 0.2rem;
+        }
+        .divider {
+            border-top: 1px solid #000;
+            margin: 0.4rem 0;
+        }
+        @media print {
             body {
-                font-family: 'Inter', sans-serif;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-                background-color: #f8fafc;
-                font-size: 0.875rem;
+                background: none;
+                padding: 0;
             }
             .registration-card {
-                margin: 0 auto;
-                background-color: #ffffff;
-                padding: 1.5rem;
-                line-height: 1.5;
-            }
-            .hotel-info {
-                text-align: center;
-                margin-bottom: 1rem;
-            }
-            .hotel-info p {
-                font-size: 0.875rem;
-                margin: 0;
-            }
-            .header {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-end;
-                margin-bottom: 1rem;
-            }
-            .header .title {
-                font-size: 1.25rem;
-                font-weight: 700;
-            }
-            .header .card-no {
-                font-size: 1rem;
-                font-weight: 500;
-            }
-            .section {
-                border-bottom: 1px solid #000;
-                padding: 0.25rem 0;
-                margin-top: 1rem;
-                display: flex;
-                gap: 1.5rem;
-            }
-            .section-title {
-                font-weight: 700;
-                flex-basis: 20%;
-                flex-shrink: 0;
-                margin-right: 0.5rem;
-                white-space: nowrap;
-            }
-            .section-content {
-                flex-grow: 1;
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: space-between;
-            }
-            .field {
-                 display: flex;
-                 align-items: flex-end;
-                 flex-basis: 50%;
-                 padding-bottom: 0.5rem;
-                 gap: 0.5rem;
-                 min-height: 2rem;
-             }
-             .field-label {
-                 font-weight: 500;
-                 white-space: nowrap;
-                 line-height: 1.5;
-                 min-width: 80px;
-                 flex-shrink: 0;
-             }
-            .input-line {
-                flex-grow: 1;
-                border-bottom: 1px solid #000;
-                min-height: 1.2em;
-                padding-left: 0.25rem;
-            }
-            .note-section {
-                margin-top: 1rem;
-                padding: 0.5rem 0;
+                box-shadow: none;
                 border: 1px solid #000;
-                padding-left: 0.5rem;
             }
-            .note-section .field-label {
-                margin-right: 0.5rem;
-            }
-            .signature-section {
-                margin-top: 2rem;
-                display: flex;
-                justify-content: space-between;
-            }
-            .signature-section .signature-field {
-                flex-basis: 48%;
-            }
-            .divider {
-                border-top: 1px solid #000;
-                margin: 1rem 0;
-            }
-            @media print {
-                body {
-                    background: none;
-                    padding: 0;
-                }
-                .registration-card {
-                    box-shadow: none;
-                    border: 1px solid #000;
-                }
-            }
-        </style>
+        }
+    </style>
     </head>
     <body>
         <div class="registration-card">

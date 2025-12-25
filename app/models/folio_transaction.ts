@@ -271,6 +271,9 @@ export default class FolioTransaction extends BaseModel {
   declare transferReason: string
 
   @column()
+  declare isAdvanceDeposit: boolean
+
+  @column()
   declare isTransferFromAdvanceDeposit: boolean
 
   @column()
