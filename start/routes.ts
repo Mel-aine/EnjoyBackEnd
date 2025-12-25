@@ -90,7 +90,7 @@ router.get('/reset-password', async ({ request, response }) => {
   html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
   html = html.replace(/\{\{TOKEN\}\}/g, token)
   const liveEndpoint = (env.get('LIVE_ENPOINT')!).replace(/\/$/, '')
-  const loginUrl = `${liveEndpoint}/swagger`
+  const loginUrl = `${liveEndpoint}/`
   html = html.replace(/\{\{LOGIN_URL\}\}/g, loginUrl)
   response.type('html')
   return response.send(html)
