@@ -1916,6 +1916,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
       .preload('roomType')
+      .orderBy('sort_key', 'asc')
       .orderBy('floor_number', 'asc')
       .orderBy('room_number', 'asc')
 

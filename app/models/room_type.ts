@@ -100,7 +100,11 @@ declare rateTypes: ManyToMany<typeof RateType>
   @belongsTo(() => Hotel, { foreignKey: 'hotelId' })
   declare hotel: BelongsTo<typeof Hotel>
 
-  @hasMany(() => Room)
+  @hasMany(() => Room, {
+    onQuery: (query) => {
+      query.orderBy('sort_key', 'asc')
+    },
+  })
   declare rooms: HasMany<typeof Room>
 
   @hasMany(() => RoomRate)
