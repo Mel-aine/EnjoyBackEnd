@@ -1406,7 +1406,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
-      .whereIn('status', ['checked_in'])
+      .whereIn('status', ['checked_in',ReservationStatus.CONFIRMED])
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
@@ -1424,7 +1424,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .preload('guest')
       .preload('businessSource')
 
-    const roomChargesData = []
+    const roomChargesDataEntries: Array<{
+      sortKey: number
+      roomNumber: string
+      data: any
+    }> = []
     let totals = {
       normalTariff: 0,
       offeredTariff: 0,
@@ -1456,7 +1460,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           // --- 4. Calcul de la variance sur les montants NETS ---
           const variance = netNormal > 0 ? -((netNormal - netOffered) / netNormal * 100) : 0
 
-          roomChargesData.push({
+          const sortKeyRaw = (reservationRoom.room as any)?.sortKey ?? (reservationRoom.room as any)?.sort_key
+          const sortKey =
+            sortKeyRaw === undefined || sortKeyRaw === null ? Number.POSITIVE_INFINITY : Number(sortKeyRaw)
+          const roomNumber = String(reservationRoom.room.roomNumber ?? '')
+
+          roomChargesDataEntries.push({
+            sortKey,
+            roomNumber,
+            data: {
             room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
             folioNo: reservationRoom.folios?.[0]?.folioNumber || 'N/A',
             guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : '',
@@ -1470,6 +1482,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             totalRent: totalAmount,      // Revenu net pour l'hôtel
             variance: variance,
             checkinBy: reservationRoom.checkedInByUser ? `${reservationRoom.checkedInByUser.lastName}` : 'N/A'
+            },
           })
           
           totals.normalTariff += netNormal
@@ -1482,6 +1495,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
     totals.totalVariant =
       totals.normalTariff > 0 ? -((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100 : 0
+
+    const roomChargesData = roomChargesDataEntries
+      .sort((a, b) => {
+        if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
+        return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true, sensitivity: 'base' })
+      })
+      .map((e) => e.data)
 
     return { data: roomChargesData, totals }
   }
