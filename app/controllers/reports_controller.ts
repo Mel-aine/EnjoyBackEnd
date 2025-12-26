@@ -1447,15 +1447,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           
           // --- 2. Calcul des montants NETS (HT) ---
           // Prix offert Net = Montant transaction / 1.1925
-          const netOffered = Number(dailyTransaction?.amount || 0)
+          const netOffered = Number(dailyTransaction?.roomFinalNetAmount || 0)
           
           // Prix Normal Net = BaseRate du contrat / 1.1925
           const grossNormal = Number(reservationRoom.roomRates?.baseRate || 0)
           const netNormal = (grossNormal-4000) / TVA_COEFF
 
           // --- 3. Calcul de la Taxe (Part de TVA sur le prix offert) ---
-          const taxAmount = Number(dailyTransaction?.taxAmount || 0)
-          const totalAmount= Number(dailyTransaction?.totalAmount || 0)
+          const taxAmount = Number(dailyTransaction?.roomFinalRateTaxe || 0)
+          const totalAmount= Number(dailyTransaction?.roomFinalRate || 0)
 
           // --- 4. Calcul de la variance sur les montants NETS ---
           const variance = netNormal > 0 ? -((netNormal - netOffered) / netNormal * 100) : 0
@@ -1589,8 +1589,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       //.where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(current_working_date) = ?', [reportDateStr])
 
-    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.roomFinalNetAmount || 0)), 0)
+    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.roomFinalRateTaxe || 0)), 0)
     const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
 
     

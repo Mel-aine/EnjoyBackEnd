@@ -207,26 +207,104 @@ export default class ReservationFolioService {
 
       const targetFolioId = reservation.folios[0].id
 
-      // Find next transaction number for hotel's batch
-      // const lastTx = await FolioTransaction.query({ client: localTrx })
-      //   .where('hotelId', reservation.hotelId)
-      //   .orderBy('transactionNumber', 'desc')
-      //   .first()
-
-      // let nextNumber = lastTx?.transactionNumber ? Number(`${lastTx.transactionNumber}`) + 1 : 1
       const lastTx = await FolioTransaction.query({ client: localTrx })
-      .where('hotel_id', reservation.hotelId)
-      .orderBy('transaction_number', 'desc')
-      .first()
+        .where('hotel_id', reservation.hotelId)
+        .orderBy('transaction_number', 'desc')
+        .first()
 
-    let nextNumber = lastTx?.transactionNumber ? Number(lastTx.transactionNumber) + 1 : 1
+      let nextNumber = lastTx?.transactionNumber ? Number(lastTx.transactionNumber) + 1 : 1
       const nowIsoTime = DateTime.now().toISOTime()
 
       const batch: Partial<FolioTransaction>[] = []
 
+      const normalizeGuestTarget = (value: unknown) => `${value ?? ''}`.trim().toLowerCase()
+      const getGuestCountForTarget = (
+        targetGuestType: unknown,
+        counts: { adults: number; children: number; infants: number }
+      ) => {
+        const target = normalizeGuestTarget(targetGuestType)
+        if (target === 'adult' || target === 'adults') return counts.adults
+        if (target === 'child' || target === 'children') return counts.children
+        if (target === 'infant' || target === 'infants') return counts.infants
+        return counts.adults + counts.children + counts.infants
+      }
+
       for (const reservationRoom of reservation.reservationRooms) {
         const rawNights = reservationRoom.nights
         const effectiveNights = rawNights === 0 ? 1 : rawNights
+        const packageGrossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
+        const mealPlanIncluded = Boolean((reservationRoom as any).mealPlanRateInclude)
+        const mealPlan: any = (reservationRoom as any).mealPlan
+        const guestCounts = {
+          adults: Number((reservationRoom as any).adults ?? 0),
+          children: Number((reservationRoom as any).children ?? 0),
+          infants: Number((reservationRoom as any).infants ?? 0),
+        }
+
+        const mealPlanComponents: Array<{
+          extra: any
+          quantity: number
+          netAmount: number
+          taxAmount: number
+          unitPrice: number
+          totalGross: number
+        }> = []
+
+        let mealPlanGrossPerDay = 0
+        if (
+          mealPlanIncluded &&
+          mealPlan &&
+          Array.isArray(mealPlan.extraCharges) &&
+          mealPlan.extraCharges.length > 0
+        ) {
+          for (const extra of mealPlan.extraCharges as any[]) {
+            const qtyPerDay = Number(extra.$extras?.pivot_quantity_per_day ?? 0)
+            const targetGuestType = extra.$extras?.pivot_target_guest_type
+            const baseQty = Math.max(0, qtyPerDay)
+            const guestCount = Math.max(0, getGuestCountForTarget(targetGuestType, guestCounts))
+            const quantity = extra.fixedPrice ? baseQty : baseQty * guestCount
+            const unitPriceGross = Number(extra.rate || 0)
+            const totalGross = unitPriceGross * quantity
+
+            if (quantity <= 0 || totalGross <= 0) continue
+
+            mealPlanGrossPerDay += totalGross
+
+            let percentageSum = 0
+            let flatSum = 0
+            const extraTaxes = Array.isArray((extra as any).taxRates) && (extra as any).taxRates.length
+              ? (extra as any).taxRates
+              : ((extra as any).taxRate ? [(extra as any).taxRate] : [])
+
+            for (const t of extraTaxes as any[]) {
+              const postingType = (t as any)?.postingType
+              if (postingType === 'flat_percentage' && (t as any)?.percentage) {
+                percentageSum += Number((t as any).percentage) || 0
+              } else if (postingType === 'flat_amount' && (t as any)?.amount) {
+                flatSum += Number((t as any).amount) || 0
+              }
+            }
+
+            const adjustedGross = Math.max(0, totalGross - (flatSum * quantity))
+            const percRate = percentageSum > 0 ? percentageSum / 100 : 0
+            const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
+            const includedTaxAmount = Math.max(0, totalGross - netWithoutTax)
+            const unitPriceNet = quantity > 0 ? (netWithoutTax / quantity) : netWithoutTax
+
+            mealPlanComponents.push({
+              extra,
+              quantity,
+              netAmount: netWithoutTax,
+              taxAmount: includedTaxAmount,
+              unitPrice: unitPriceNet,
+              totalGross,
+            })
+          }
+        }
+
+        const totalRoomAmount = mealPlanIncluded
+          ? Math.max(0, packageGrossDailyRate - mealPlanGrossPerDay)
+          : packageGrossDailyRate
         const grossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
         let baseAmount = grossDailyRate
         let totalDailyAmount = grossDailyRate
@@ -244,8 +322,10 @@ export default class ReservationFolioService {
           }
         }
         const adjustedGross = Math.max(0, grossDailyRate - flatSum)
+        const roomAdjustedGross = Math.max(0, totalRoomAmount - flatSum)
         const percRate = percentageSum > 0 ? percentageSum / 100 : 0
         const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
+        const roomNetWithoutTax = percRate > 0 ? roomAdjustedGross / (1 + percRate) : roomAdjustedGross
         baseAmount = netWithoutTax
         totalDailyAmount = grossDailyRate
 
@@ -276,6 +356,9 @@ export default class ReservationFolioService {
             quantity: 1,
             unitPrice: amount,
             taxAmount: dailyTaxAmount,
+            roomFinalRate: totalRoomAmount,
+            roomFinalRateTaxe: totalRoomAmount - roomNetWithoutTax,
+            roomFinalNetAmount: roomNetWithoutTax,
             serviceChargeAmount: 0,
             discountAmount: 0,
             netAmount: amount,
@@ -294,87 +377,16 @@ export default class ReservationFolioService {
             lastModifiedBy: postedBy,
           } as any)
 
-          // Post meal plan extra charges per day based on guests
-          // TODO meal plan
-          /*const mealPlan = (reservationRoom as any).mealPlan
-          if (mealPlan && Array.isArray(mealPlan.extraCharges) && mealPlan.extraCharges.length > 0) {
-            for (const extra of mealPlan.extraCharges as any[]) {
-              const qtyPerDay: number = Number(extra.$extras?.pivot_quantity_per_day ?? 0)
-              const adults = Number(reservationRoom.adults || reservation.adults || 0)
-              const children = Number(reservationRoom.children || reservation.children || 0)
-              const infants = Number(reservationRoom.infants || reservation.infants || 0)
-
-              let guestsCount = adults + children + infants
-              const quantity = Math.max(0, qtyPerDay * guestsCount)
-              const unitPriceGross = Number(extra.rate || 0)
-              const extAmountGross = unitPriceGross * quantity
-
-              // Compute included tax portion based on extra charge related taxes
-              let percentageSum = 0
-              let flatSum = 0
-              const extraTaxes = Array.isArray((extra as any).taxRates) && (extra as any).taxRates.length
-                ? (extra as any).taxRates
-                : ((extra as any).taxRate ? [(extra as any).taxRate] : [])
-
-              for (const t of extraTaxes as any[]) {
-                const postingType = (t as any)?.postingType
-                if (postingType === 'flat_percentage' && (t as any)?.percentage) {
-                  percentageSum += Number((t as any).percentage) || 0
-                } else if (postingType === 'flat_amount' && (t as any)?.amount) {
-                  flatSum += Number((t as any).amount) || 0
-                }
-              }
-
-              // Adjust for flat taxes (assumed per unit) and extract net from gross for percentage taxes
-              const adjustedGross = Math.max(0, extAmountGross - (flatSum * quantity))
-              const percRate = percentageSum > 0 ? percentageSum / 100 : 0
-              const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
-              const includedTaxAmount = Math.max(0, extAmountGross - netWithoutTax)
-              const unitPriceNet = quantity > 0 ? (netWithoutTax / quantity) : netWithoutTax
-
-              if (quantity > 0 && unitPriceNet > 0) {
-                batch.push({
-                  hotelId: reservation.hotelId,
-                  folioId: targetFolioId,
-                  reservationId: reservation.id,
-                  reservationRoomId: reservationRoom.id,
-                  transactionNumber: nextNumber++,
-                  transactionType: TransactionType.CHARGE,
-                  category: TransactionCategory.EXTRACT_CHARGE,
-                  particular: `${extra.name} Qt(${quantity})`,
-                  description: `${extra.name || 'Meal Component'} - ${mealPlan.name || 'Meal Plan'}, Night ${night}`,
-                  amount: netWithoutTax,
-                  quantity,
-                  unitPrice: unitPriceNet,
-                  taxAmount: includedTaxAmount,
-                  serviceChargeAmount: 0,
-                  discountAmount: 0,
-                  netAmount: netWithoutTax,
-                  grossAmount: netWithoutTax,
-                  totalAmount: netWithoutTax + includedTaxAmount,
-                  notes: `meal plan extra charge - Night ${night}`,
-                  transactionCode: generateTransactionCode(),
-                  transactionTime: nowIsoTime,
-                  postingDate: transactionDate ?? DateTime.now(),
-                  currentWorkingDate: transactionDate,
-                  transactionDate,
-                  status: TransactionStatus.PENDING,
-                  createdBy: postedBy,
-                  lastModifiedBy: postedBy,
-                } as any)
-              }
-            }
-          }*/
         }
       }
 
       if (batch.length > 0) {
-      await FolioTransaction.createMany(batch as any[], { client: localTrx })
-      await FolioService.updateFolioTotals(targetFolioId, localTrx)
-    }
+        await FolioTransaction.createMany(batch as any[], { client: localTrx })
+        await FolioService.updateFolioTotals(targetFolioId, localTrx)
+      }
 
-    // On ne commit que si on a créé la transaction nous-mêmes
-    if (!externalTrx) await localTrx.commit()
+      // On ne commit que si on a créé la transaction nous-mêmes
+      if (!externalTrx) await localTrx.commit()
 
     } catch (error) {
       if (!externalTrx) await localTrx.rollback()
