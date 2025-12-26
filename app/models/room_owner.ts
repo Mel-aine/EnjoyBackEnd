@@ -104,6 +104,9 @@ export default class RoomOwner extends BaseModel {
 
   @manyToMany(() => Room, {
     pivotTable: 'room_owner_assignments',
+    onQuery: (query) => {
+      query.orderBy('sort_key', 'asc')
+    },
   })
   declare rooms: ManyToMany<typeof Room>
 

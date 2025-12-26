@@ -508,6 +508,7 @@ export default class RoomsController {
         //.where('status', 'available')
         .preload('roomType')
         .preload('taxRates')
+        .orderBy('sort_key', 'asc')
       console.log(
         'All rooms of this type:',
         rooms.map((r) => r.id)
