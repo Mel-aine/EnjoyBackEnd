@@ -426,7 +426,7 @@ export default class ReportsEmailService {
   public async sendDailyEmail(hotelId: number, asOfDate?: string): Promise<void> {
     const hotel = await Hotel.findOrFail(hotelId)
     // Récupérer les données du rapport du jour
-    const todayData = await TodayReportService.buildDataForTodayHtml(hotelId, asOfDate)
+    const todayData = await TodayReportService.buildDataForTodayHtml(hotelId, hotel.currentWorkingDate?.toISODate()!)
 
     const dateStr = asOfDate ? DateTime.fromISO(asOfDate).toFormat('dd-MM-yyyy') : DateTime.now().toFormat('dd-MM-yyyy')
     const subject = `[${hotel.hotelName}] Daily Report - ${dateStr}`
