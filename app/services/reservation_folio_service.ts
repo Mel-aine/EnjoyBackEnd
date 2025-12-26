@@ -295,7 +295,8 @@ export default class ReservationFolioService {
           } as any)
 
           // Post meal plan extra charges per day based on guests
-          const mealPlan = (reservationRoom as any).mealPlan
+          // TODO meal plan
+          /*const mealPlan = (reservationRoom as any).mealPlan
           if (mealPlan && Array.isArray(mealPlan.extraCharges) && mealPlan.extraCharges.length > 0) {
             for (const extra of mealPlan.extraCharges as any[]) {
               const qtyPerDay: number = Number(extra.$extras?.pivot_quantity_per_day ?? 0)
@@ -363,7 +364,7 @@ export default class ReservationFolioService {
                 } as any)
               }
             }
-          }
+          }*/
         }
       }
 
