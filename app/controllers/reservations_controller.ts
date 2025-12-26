@@ -4346,6 +4346,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           lastModifiedBy: auth.user?.id!,
           arrivedDate: newArrivalDateTime,
           departDate: newDepartureDateTime,
+          checkInDate: newArrivalDateTime,
+          checkOutDate:newDepartureDateTime,
           nights: reservation.reservationRooms[0].nights,
         })
         .save()
