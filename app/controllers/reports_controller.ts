@@ -9926,4 +9926,250 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     // Mettre une majuscule initiale pour une meilleure présentation
     return words.charAt(0).toUpperCase() + words.slice(1)
   }
+    /**
+   * Generate Meal Plan Report PDF (Breakfast)
+   */
+  async generateMealPlanReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate } = request.only(['hotelId', 'asOnDate'])
+
+      // Validate required parameters
+      if (!hotelId) {
+        return response.badRequest({
+          success: false,
+          message: 'Hotel ID is required'
+        })
+      }
+
+      if (!asOnDate) {
+        return response.badRequest({
+          success: false,
+          message: 'As On Date is required'
+        })
+      }
+
+      // Parse and validate date
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+        })
+      }
+
+      // Import required models
+      const { default: Hotel } = await import('#models/hotel')
+
+      // Get hotel information
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      // Get authenticated user information
+      const user = auth.user
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
+
+      // Get breakfast reservations data
+      const breakfastData = await this.getMealPlanBreakfastData(hotelId, reportDate)
+
+      // Generate HTML content using Edge template
+      const htmlContent = await this.generateMealPlanReportHtml(
+        hotel.hotelName,
+        reportDate,
+        breakfastData,
+        printedBy
+      )
+
+      // Import PDF generation service
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+      // Format dates for display
+      const formattedDate = reportDate.toFormat('dd/MM/yyyy')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+      // Create header template
+      const headerTemplate = `
+      <div style="font-size:8px; width:100%; padding:2px 15px; margin:0;">
+        <!-- Hotel name and report title -->
+        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:3px; margin-bottom:2px;">
+          <div style="font-weight:bold; color:#00008B; font-size:11px;">${hotel.hotelName}</div>
+          <div style="font-size:11px; color:#8B0000; font-weight:bold;">Meal Plan</div>
+        </div>
+        
+        <!-- Report Info -->
+        <div style="font-size:8px; margin-bottom:2px; padding-bottom:3px; padding-top:3px;">
+          <span style="margin-right:8px;">Date: ${formattedDate}</span>
+        </div>
+        
+        <div style="border-top:1px solid #333; margin:0;"></div>
+        
+        <!-- Column Headers -->
+        <table style="width:100%; border-collapse:collapse; font-size:8px; margin:0; padding:0;">
+          <thead>
+            <tr style="background-color:#f5f5f5;">
+              <th style="width:8%; text-align:left; padding:3px 1px; font-weight:bold;">Room No</th>
+              <th style="width:18%; text-align:left; padding:3px 20px; font-weight:bold;">Guest Name</th>
+              <th style="width:12%; text-align:left; padding:3px 1px; font-weight:bold;">Rate Type</th>
+              <th style="width:12%; text-align:center; padding:3px 1px; font-weight:bold;">Arrival</th>
+              <th style="width:12%; text-align:center; padding:3px 1px; font-weight:bold;">Departure</th>
+              <th style="width:20%; text-align:left; padding:3px 1px; font-weight:bold;">Company Name</th>
+              <th style="width:9%; text-align:center; padding:3px 1px; font-weight:bold;">Adult</th>
+              <th style="width:9%; text-align:center; padding:3px 1px; font-weight:bold;">Child</th>
+            </tr>
+          </thead>
+        </table>
+        
+        <div style="border-top:1px solid #333; margin-top:1px;"></div>
+      </div>
+      `
+
+      // Create footer template
+      const footerTemplate = `
+      <div style="font-size:7px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+        <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+        <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+      </div>`
+
+      // Generate PDF with header and footer
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        margin: {
+          top: '120px',
+          right: '10px',
+          bottom: '70px',
+          left: '10px'
+        },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true
+      })
+
+      // Set response headers
+      const fileName = `meal-plan-breakfast-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating meal plan report PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate meal plan report PDF',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get breakfast reservations data for a specific date
+   */
+  public async getMealPlanBreakfastData(hotelId: number, reportDate: DateTime) {
+    const { default: Reservation } = await import('#models/reservation')
+    
+    // Get all reservations for the hotel where:
+    // - Rate Type is "Bed & Breakfast" or similar
+    // - Reservation is active on the report date (arrival <= reportDate < departure)
+    const reservations = await Reservation.query()
+      .where('hotelId', hotelId)
+      .where('checkInDate', '<=', reportDate.toSQLDate())
+      .where('checkOutDate', '>', reportDate.toSQLDate())
+      .whereHas('reservationRooms', (roomQuery) => {
+        roomQuery.whereHas('roomRates', (rateQuery) => {
+          rateQuery.whereHas('rateType', (rateTypeQuery) => {
+            rateTypeQuery
+              .where('rateTypeName', 'like', '%B&B%')
+          })
+        })
+      })
+      .preload('guest',(guestQuey) =>{
+        guestQuey.preload('companyAccount')
+      })
+      //.preload('company_name')
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery
+          .preload('room')
+          .preload('roomType')
+          .preload('roomRates', (rateQuery) => {
+            rateQuery.preload('rateType')
+          })
+      })
+      .orderBy('id', 'asc')
+
+    // Format the data
+    const breakfastList = reservations.map((reservation) => {
+      // Get the first room and its rate type
+      const firstRoom = reservation.reservationRooms?.[0]
+      const roomNumber = firstRoom?.room?.roomNumber || 'N/A'
+      const rateType = firstRoom?.roomRates?.rateType?.rateTypeName || 'N/A'
+      
+      return {
+        roomNo: roomNumber,
+        guestName: reservation.guest 
+          ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim() 
+          : 'N/A',
+        rateType: rateType,
+        arrival: DateTime.fromJSDate(reservation.checkInDate).toFormat('dd/MM/yyyy'),
+        departure: DateTime.fromJSDate(reservation.checkOutDate).toFormat('dd/MM/yyyy'),
+        companyName: reservation.guest.companyAccount?.companyName || '-' ,
+        adult: reservation.adults || 0,
+        child: reservation.children || 0
+      }
+    })
+
+    // Calculate totals
+    const totalGuests = breakfastList.reduce((sum, item) => sum + item.adult + item.child, 0)
+    const totalAdults = breakfastList.reduce((sum, item) => sum + item.adult, 0)
+    const totalChildren = breakfastList.reduce((sum, item) => sum + item.child, 0)
+
+    return {
+      reservations: breakfastList,
+      totalReservations: breakfastList.length,
+      totalGuests,
+      totalAdults,
+      totalChildren
+    }
+  }
+
+  /**
+   * Generate HTML content for Meal Plan Report using Edge template
+   */
+  public async generateMealPlanReportHtml(
+  hotelName: string,
+  reportDate: DateTime,
+  breakfastData: any,
+  printedBy: string = 'System'
+): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('path')
+
+  // Configure Edge with views directory
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  // Format dates
+  const asOnDate = reportDate.toFormat('dd/MM/yyyy')
+  const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+  // Prepare template data
+  const templateData = {
+    hotelName,
+    asOnDate,
+    printedOn,
+    printedBy,
+    breakfastData,
+    header: {
+      hotelName,
+      reportTitle: 'Meal Plan Report - Breakfast',
+      reportDate: asOnDate
+    },
+    footer: {
+      printedBy,
+      printedOn
+    }
+  }
+
+  // Render template
+  return await edge.render('reports/meal_plan_report', templateData)
+  }
 }

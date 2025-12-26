@@ -163,6 +163,10 @@
       {
         "id": "travel_agent_commission_summary",
         "name": "Travel Agent Commission - Summary"
+      },
+      {
+        "id": "meal_plan",
+        "name": "Meal Plan"
       }
     ]
   },
