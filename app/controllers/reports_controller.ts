@@ -2984,6 +2984,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         })
         .where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
         .where('category', 'room')
+        .where('transaction_type',TransactionType.CHARGE)
         .whereNotIn('status', ['cancelled', 'void'])
 
       // PTD room charges
@@ -3247,7 +3248,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     // Get all extra charges for the hotel
     const extraCharges = await ExtraCharge.query()
       .where('hotel_id', hotelId)
-
+      .where('is_deleted',false)
       .select('id', 'name', 'short_code')
 
     const getExtraChargesByPeriod = async (startDate: DateTime, endDate: DateTime) => {
