@@ -1596,14 +1596,7 @@ export default class ReportsController {
     const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
 
     // 1. Room Sales - Regular room charges posted on the report date
-    const roomSalesData = await this.getRoomSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
+    const roomSalesData = await this.getRoomSalesData(hotelId, reportDateStr)
     salesData.push(roomSalesData)
     this.addToTotals(totals, roomSalesData)
 
@@ -1700,33 +1693,37 @@ export default class ReportsController {
   /**
    * Get Room Sales Data - Regular room charges posted on the report date
    */
-  private async getRoomSalesData(
-    hotelId: number,
-    reportDateStr: string,
-    FolioTransaction: any,
-    TransactionCategory: any,
-    TransactionType: any,
-    TransactionStatus: any
-  ) {
-    const transactions = await FolioTransaction.query()
-      .where('hotel_id', hotelId)
-      .where('category', TransactionCategory.ROOM)
-      .where('transaction_type', TransactionType.CHARGE)
-      //.where('status', TransactionStatus.POSTED)
-      .whereRaw('DATE(current_working_date) = ?', [reportDateStr])
+  private async getRoomSalesData(hotelId: number, reportDateStr: string) {
+    const { default: Reservation } = await import('#models/reservation')
 
-    const roomCharges = transactions.reduce(
-      (sum: number, t: any) => sum + Number(t.roomFinalNetAmount || 0),
-      0
-    )
-    const roomTax = transactions.reduce(
-      (sum: number, t: any) => sum + Number(t.roomFinalRateTaxe || 0),
-      0
-    )
-    const discount = transactions.reduce(
-      (sum: number, t: any) => sum + Number(t.discountAmount || 0),
-      0
-    )
+    const reservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('arrived_date', '<=', reportDateStr)
+      .where('depart_date', '>', reportDateStr)
+      .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('room')
+        roomQuery.preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions', (transacQuery) => {
+            transacQuery.where('current_working_date', reportDateStr)
+          })
+        })
+      })
+
+    let roomCharges = 0
+    let roomTax = 0
+    let discount = 0
+
+    for (const reservation of reservations as any[]) {
+      for (const reservationRoom of reservation.reservationRooms as any[]) {
+        const dailyTransaction = reservationRoom.folios?.[0]?.transactions?.[0]
+        if (!reservationRoom.room || !dailyTransaction) continue
+
+        roomCharges += Number(dailyTransaction?.roomFinalNetAmount || 0)
+        roomTax += Number(dailyTransaction?.roomFinalRateTaxe || 0)
+        discount += Number(dailyTransaction?.discountAmount || 0)
+      }
+    }
 
     return {
       salesType: 'Room Sales',
@@ -10750,7 +10747,12 @@ export default class ReportsController {
       .where('hotelId', hotelId)
       .where('checkInDate', '<=', reportIsoDate)
       .where('checkOutDate', '>', reportIsoDate)
-      .whereNotIn('status',[ReservationStatus.CANCELLED, ReservationStatus.VOIDED,ReservationStatus.NOSHOW, ReservationStatus.PENDING])
+      .whereNotIn('status', [
+        ReservationStatus.CANCELLED,
+        ReservationStatus.VOIDED,
+        ReservationStatus.NOSHOW,
+        ReservationStatus.PENDING,
+      ])
       .where('mealPlanRateInclude', true)
       .whereNotNull('mealPlanId')
       .preload('mealPlan')
