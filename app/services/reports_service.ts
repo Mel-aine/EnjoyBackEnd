@@ -1394,6 +1394,7 @@ export class FrontOfficeReportsService {
       .preload('cleaningStatuses', (cleaningQuery) => {
         cleaningQuery.orderBy('created_at', 'desc').limit(1)
       })
+      .orderBy('sort_key', 'asc')
       .orderBy('roomNumber', 'asc')
 
     if (filters.hotelId) {

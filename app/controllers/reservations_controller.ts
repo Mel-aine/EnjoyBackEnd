@@ -3152,6 +3152,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 status: numberOfNights === 0 ? 'day_use' : 'reserved',
                 rateTypeId: room.rate_type_id,
                 mealPlanId: room.meal_plan_id,
+                mealPlanRateInclude: room.meal_plan_rate_include ?? true,
                 isOwner: index === 0,
                 reservedByUser: auth.user?.id,
                 createdBy: data.created_by,
@@ -3646,6 +3647,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             status: numberOfNights === 0 ? 'day_use' : 'reserved',
             rateTypeId: room.rate_type_id,
             mealPlanId: room.meal_plan_id,
+            mealPlanRateInclude: room.meal_plan_rate_include ?? true,
             isOwner: index === 0,
             reservedByUser: auth.user?.id,
             createdBy: data.created_by,
@@ -5728,7 +5730,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             .update({ status: TransactionStatus.VOIDED })
         }
 
-         if (noShowFees > 0) {
+        if (noShowFees > 0) {
           await FolioService.postTransaction(
             {
               folioId: folios[0].id,

@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import { ReservationStatus, TransactionCategory, TransactionStatus, TransactionType } from '../enums.js'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
+import FolioService from '../services/folio_service.js'
 
 export default class PosController {
   /**
@@ -239,7 +240,7 @@ export default class PosController {
         itemSummary: itemSummaryData,
         status: TransactionStatus.COMPLETED
       })
-
+      await FolioService.updateFolioTotals(parseInt(folioId))
       return response.status(201).json({
         success: true,
         message: 'Room posting transaction created successfully',

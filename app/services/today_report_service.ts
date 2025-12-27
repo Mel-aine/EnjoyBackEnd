@@ -198,6 +198,7 @@ async function getHoldExpiring(hotelId: number, day: DateTime): Promise<Reservat
   return await q
     .where('is_hold', true)
     .where('hold_release_date', day.toSQL())
+    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
 }
 
 async function getHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -237,11 +238,14 @@ async function getTomorrowCheckOut(hotelId: number, day: DateTime): Promise<Rese
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
   return await q.where('depart_date', t.toISODate()!)
+    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
 }
 
 async function getTodayCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   return await q.where('depart_date', day.toISODate()!)
+    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
+    .where('status',toDbStatus(ReservationStatus.CHECKED_OUT))
 }
 
 async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -254,6 +258,7 @@ async function getTomorrowHoldCheckIn(hotelId: number, day: DateTime): Promise<R
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
   return await q.where('is_hold', true).where('arrived_date', t.toISODate()!)
+    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
 }
 
 async function getTomorrowEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {

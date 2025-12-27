@@ -1048,7 +1048,7 @@ export default class DashboardController {
         totalRooms,
         occupied,
         free,
-        occupancyRate: `${rate.toFixed(2)}%`,
+        occupancyRate: `${rate.toFixed(0)}%`,
       }
     })
 

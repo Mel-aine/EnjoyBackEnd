@@ -525,6 +525,7 @@ export default class NightAuditService {
               })
           })
       })
+      .orderBy('sort_key', 'asc')
       .orderBy('floor_number', 'asc')
       .orderBy('room_number', 'asc')
 
@@ -852,7 +853,7 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
             .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING, 'reserved'])
             .preload('room', (rQuery) => {
               rQuery
-                .select(['id', 'room_number', 'room_type_id'])
+                .select(['id', 'room_number', 'room_type_id', 'sort_key'])
                 .preload('roomType', (rtQuery) => {
                   rtQuery.select(['id', 'room_type_name'])
                 })
@@ -867,7 +868,11 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
         })
         .orderBy('arrived_date', 'asc')
 
-      const pendingReservationsList = []
+      const pendingReservationEntries: Array<{
+        sortKey: number
+        roomNumber: string
+        data: any
+      }> = []
       let totalReservations = 0
       let totalAmount = 0
       let totalDeposit = 0
@@ -895,15 +900,24 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
             deposit_amount: depositAmount,
             status: reservationRoom.status,
           }
-          pendingReservationsList.push(reservationData)
+          pendingReservationEntries.push({
+            sortKey: Number(reservationRoom.room?.sortKey || 0),
+            roomNumber: String(reservationRoom.room?.roomNumber || ''),
+            data: reservationData,
+          })
           totalReservations++
           totalAmount += Math.abs(totalBalance)
           totalDeposit += depositAmount
         }
       }
 
+      pendingReservationEntries.sort((a, b) => {
+        if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
+        return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true, sensitivity: 'base' })
+      })
+
       return {
-        pending_reservations: pendingReservationsList,
+        pending_reservations: pendingReservationEntries.map((e) => e.data),
         summary: {
           total_reservations: totalReservations,
           total_amount: totalAmount,
@@ -957,7 +971,7 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
             action: 'UPDATE',
             resourceType: 'FolioTransaction',
             entityType: 'FolioTransaction',
-            resourceId: folio.id,
+            resourceId: charge.folioId,
             entityId: charge.folioId,
             hotelId: hotelId,
             details: {

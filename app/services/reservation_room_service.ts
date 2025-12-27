@@ -105,6 +105,7 @@ export default class ReservationRoomService {
       //.where('status', 'available')
       //.where('housekeeping_status', 'clean')
       .select(['id', 'room_type_id'])
+      .orderBy('sort_key', 'asc')
 
     const roomIds = rooms.map((r) => r.id)
     if (roomIds.length === 0) {
@@ -167,6 +168,7 @@ export default class ReservationRoomService {
       .where('hotel_id', hotelId)
       .whereIn('room_type_id', roomTypeIds)
       .select(['id', 'room_type_id'])
+      .orderBy('sort_key', 'asc')
 
     const roomIds = rooms.map((r) => r.id)
     const totalsPerType: Record<number, number> = {}

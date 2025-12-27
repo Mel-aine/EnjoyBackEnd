@@ -423,7 +423,7 @@ export class HotelAnalyticsService {
       dailyMetrics.push({
         date: currentDate.toISODate(),
         total_available_rooms: totalRooms,
-        occupancy_rate: parseFloat(occupancyRate.toFixed(2)),
+        occupancy_rate: parseFloat(occupancyRate.toFixed(0)),
         allocated_rooms: occupiedRoomIds.size,
         unassigned_reservations: unassignedReservationsCount,
         room_status_stats: roomStatusStats,

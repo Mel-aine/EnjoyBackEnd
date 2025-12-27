@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      Meal Plan Report
+    </title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 9px;
+        margin: 0;
+        padding: 3px 15px 15px 15px;
+        color: #333;
+      }
+      
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
+      .horizontal-line {
+        border-top: 1px solid #333;
+        margin: 6px 0;
+      }
+      
+      .report-info {
+        margin-bottom: 12px;
+        font-size: 8px;
+      }
+      
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+      }
+      
+      th,
+      td {
+        text-align: left;
+        padding: 3px 1px;
+        font-size: 9px;
+      }
+      
+      .section-title {
+        font-weight: bold;
+        margin: 0px 0 3px 0;
+        font-size: 10px;
+      }
+      
+      .section-total {
+        font-weight: bold;
+        border-top: 1px dotted #333;
+        border-bottom: 1px dotted #333;
+      }
+      
+      .bold-section {
+        font-weight: bold;
+      }
+      
+      .text-center {
+        text-align: center;
+      }
+      
+      .footer-line {
+        border-top: 1px solid #333;
+        margin-bottom: 3px;
+      }
+      
+      .footer-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
+      .font-bold {
+        font-weight: 900;
+      }
+      
+      .summary-box {
+        margin-top: 10px;
+        padding: 6px;
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+      }
+      
+      @media print {
+        .page-break {
+          padding-top: 15px;
+          page-break-before: always;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main">
+      @each(mealPlan in mealPlansData.mealPlans)
+        <div class="section-title">
+          {{ mealPlan.mealPlanName }}
+        </div>
+        <table>
+          <tbody>
+            @each(reservation in mealPlan.reservations)
+              <tr>
+                <td style="width: 8%;">
+                  {{ reservation.roomNo }}
+                </td>
+                <td style="width: 18%;">
+                  {{ reservation.guestName }}
+                </td>
+                <td style="width: 12%;">
+                  {{ reservation.rateType }}
+                </td>
+                <td class="text-center" style="width: 12%;">
+                  {{ reservation.arrival }}
+                </td>
+                <td class="text-center" style="width: 12%;">
+                  {{ reservation.departure }}
+                </td>
+                <td style="width: 20%;">
+                  {{ reservation.companyName }}
+                </td>
+                <td class="text-center" style="width: 9%;">
+                  {{ reservation.adult }}
+                </td>
+                <td class="text-center" style="width: 9%;">
+                  {{ reservation.child }}
+                </td>
+              </tr>
+            @endeach
+          </tbody>
+        </table>
+
+        <div class="horizontal-line">
+        </div>
+        <table>
+          <tbody>
+            <tr class="bold-section">
+              <td style="width: 82%;">
+                <strong> Total({{ mealPlan.mealPlanName }})</strong>
+              </td>
+              <td style="width: 9%;" class="text-center">
+              <strong>{{ mealPlan.totalAdults }}</strong>
+              </td>
+              <td style="width: 9%;" class="text-center">
+                              <strong>{{ mealPlan.totalChildren }}</strong>
+
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="horizontal-line">
+        </div>
+      @endeach
+      
+      <!-- Summary Section -->
+      <table>
+        <tbody>
+          <tr class="bold-section">
+            <td style="width: 82%;">
+              <strong>Total</strong>
+            </td>
+            <td style="width: 9%;" class="text-center">
+            <strong>{{ mealPlansData.totalAdults }}</strong>
+            </td>
+            <td style="width: 9%;" class="text-center">
+            <strong>{{ mealPlansData.totalChildren }}</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="horizontal-line">
+      </div>
+    </div>
+  </body>
+</html>

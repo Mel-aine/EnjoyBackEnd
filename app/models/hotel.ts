@@ -454,7 +454,11 @@ export default class Hotel extends BaseModel {
   @hasMany(() => RoomType)
   declare roomTypes: HasMany<typeof RoomType>
 
-  @hasMany(() => Room)
+  @hasMany(() => Room, {
+    onQuery: (query) => {
+      query.orderBy('sort_key', 'asc')
+    },
+  })
   declare rooms: HasMany<typeof Room>
 
   @hasMany(() => RatePlan)
