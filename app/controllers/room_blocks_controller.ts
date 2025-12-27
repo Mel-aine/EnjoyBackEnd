@@ -87,18 +87,19 @@ export default class RoomBlocksController {
       console.log('Room block created successfully:', roomBlock.toJSON())
 
       //Notification
+      setImmediate(async () => {
 
-      try {
-        await CheckInCheckOutNotificationService.notifyRoomBlocked(
-          roomBlock.roomId,
-          auth.user!.id,
-          payload.reason || 'Maintenance requise',
+        try {
+          await CheckInCheckOutNotificationService.notifyRoomBlocked(
+            roomBlock.roomId,
+            auth.user!.id,
+            payload.reason || 'Maintenance requise',
 
-        )
-      } catch (notificationError) {
-        console.error('Error sending room block created notification:', notificationError)
-      }
-
+          )
+        } catch (notificationError) {
+          console.error('Error sending room block created notification:', notificationError)
+        }
+    })
       return response.created({
         success: true,
         message: 'Bloc de maintenance créé avec succès',
@@ -256,172 +257,191 @@ export default class RoomBlocksController {
   /**
    * Update Room Block
    */
-  public async update({ request, response, params }: HttpContext) {
-    try {
-      const id = params.id
-      const payload = await updateRoomBlockValidator.validate(request.all())
 
-      console.log('Updating room block:', id, 'with payload:', payload)
-
-      // Récupérer le bloc existant
-      const roomBlock = await RoomBlock.findOrFail(id)
-      const oldReason = roomBlock.reason || ''
+public async update({ request, response, params }: HttpContext) {
+  try {
+    const id = params.id
+    const payload = await updateRoomBlockValidator.validate(request.all())
 
 
-      // Validation des dates si fournies
-      if (payload.block_from_date && payload.block_to_date) {
-        const fromDate = DateTime.fromJSDate(payload.block_from_date)
-        const toDate = DateTime.fromJSDate(payload.block_to_date)
+    // Récupérer le bloc existant
+    const roomBlock = await RoomBlock.findOrFail(id)
 
-        if (!fromDate.isValid || !toDate.isValid) {
-          return response.badRequest({
-            success: false,
-            message: 'Format de date invalide',
-            errors: { dates: ['Invalid date format'] },
-          })
-        }
+    // Validation des dates si fournies
+    if (payload.block_from_date && payload.block_to_date) {
+      const fromDate = DateTime.fromJSDate(payload.block_from_date)
+      const toDate = DateTime.fromJSDate(payload.block_to_date)
 
-        if (fromDate >= toDate) {
-          return response.conflict({
-            success: false,
-            message: 'La date de début doit être antérieure à la date de fin',
-            errors: { dates: ['block_from_date cannot be after or equal to block_to_date'] },
-          })
-        }
+      if (!fromDate.isValid || !toDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Format de date invalide',
+          errors: { dates: ['Invalid date format'] },
+        })
       }
 
-      // Vérifier les réservations existantes si les dates ou la chambre changent
+      if (fromDate >= toDate) {
+        return response.conflict({
+          success: false,
+          message: 'La date de début doit être antérieure à la date de fin',
+          errors: { dates: ['block_from_date cannot be after or equal to block_to_date'] },
+        })
+      }
+    }
+    const roomChanged = payload.room_id !== undefined && payload.room_id !== roomBlock.roomId
+
+    // Comparer les dates en millisecondes pour détecter un vrai changement
+    let fromDateChanged = false
+    if (payload.block_from_date) {
+      const newFromDate = new Date(payload.block_from_date).getTime()
+      const currentFromDate = roomBlock.blockFromDate.toJSDate().getTime()
+      fromDateChanged = newFromDate !== currentFromDate
+    }
+
+    let toDateChanged = false
+    if (payload.block_to_date) {
+      const newToDate = new Date(payload.block_to_date).getTime()
+      const currentToDate = roomBlock.blockToDate.toJSDate().getTime()
+      toDateChanged = newToDate !== currentToDate
+    }
+
+    const needsOverlapCheck = roomChanged || fromDateChanged || toDateChanged
+
+
+    if (needsOverlapCheck) {
       const roomId = payload.room_id || roomBlock.roomId
       const fromDate = payload.block_from_date || roomBlock.blockFromDate.toJSDate()
       const toDate = payload.block_to_date || roomBlock.blockToDate.toJSDate()
 
-      if (payload.room_id || payload.block_from_date || payload.block_to_date) {
-        const overlappingReservations = await db
-          .from('reservation_rooms')
-          .where('room_id', roomId)
-          .where((query) => {
-            query.whereBetween('check_in_date', [fromDate, toDate])
-            query.orWhereBetween('check_out_date', [fromDate, toDate])
-            query.orWhere((subQuery) => {
-              subQuery
-                .where('check_in_date', '<=', fromDate)
-                .andWhere('check_out_date', '>=', toDate)
-            })
+
+      // Vérifier les réservations existantes
+      const overlappingReservations = await db
+        .from('reservation_rooms')
+        .where('room_id', roomId)
+        .where((query) => {
+          query.whereBetween('check_in_date', [fromDate, toDate])
+          query.orWhereBetween('check_out_date', [fromDate, toDate])
+          query.orWhere((subQuery) => {
+            subQuery
+              .where('check_in_date', '<=', fromDate)
+              .andWhere('check_out_date', '>=', toDate)
           })
-          .count('* as total')
+        })
+        .count('* as total')
 
-        if (Number(overlappingReservations[0].total) > 0) {
-          return response.conflict({
-            success: false,
-            message:
-              'Impossible de modifier le bloc: la chambre a une réservation active pour ces dates.',
-            errors: { reservations: ['Room has active reservations for these dates'] },
-          })
-        }
+      const reservationCount = Number(overlappingReservations[0].total)
 
-        // Vérifier les blocks existants (exclure le block actuel)
-        const overlappingBlocks = await RoomBlock.query()
-          .where('room_id', roomId)
-          .whereNot('id', id)
-          .where((query) => {
-            query.whereBetween('block_from_date', [fromDate, toDate])
-            query.orWhereBetween('block_to_date', [fromDate, toDate])
-            query.orWhere((subQuery) => {
-              subQuery
-                .where('block_from_date', '<=', fromDate)
-                .andWhere('block_to_date', '>=', toDate)
-            })
-          })
-          .count('* as total')
-
-        if (Number(overlappingBlocks[0].$extras.total) > 0) {
-          return response.conflict({
-            success: false,
-            message: 'La chambre est déjà bloquée pour les dates sélectionnées.',
-            errors: { blocks: ['Room is already blocked for the selected dates'] },
-          })
-        }
-      }
-
-      // Mettre à jour le bloc - handle dates separately to avoid type conflicts
-      const { block_from_date, block_to_date, ...otherFields } = payload
-
-      // Merge non-date fields first
-      roomBlock.merge(otherFields)
-
-      // Handle date fields separately
-      if (block_from_date) {
-        roomBlock.blockFromDate = DateTime.fromJSDate(block_from_date)
-      }
-      if (block_to_date) {
-        roomBlock.blockToDate = DateTime.fromJSDate(block_to_date)
-      }
-      await roomBlock.save()
-
-      // Recharger avec les relations
-      await roomBlock.load('room', (roomQuery) => {
-        roomQuery.preload('roomType')
-      })
-      await roomBlock.load('blockedBy')
-      await roomBlock.load('hotel')
-      await roomBlock.load('roomType')
-
-      console.log('Room block updated successfully:', roomBlock.toJSON())
-
-      //Notification
-
-        try {
-
-          if (payload.status === 'completed') {
-            await CheckInCheckOutNotificationService.notifyRoomUnblocked(
-              roomBlock.roomId,
-              roomBlock.blockedByUserId
-            )
-          } else {
-
-            await CheckInCheckOutNotificationService.notifyRoomBlockModified(
-              roomBlock.roomId,
-              roomBlock.blockedByUserId,
-              roomBlock.reason!,
-              payload.reason || roomBlock.reason || '',
-
-            )
-          }
-        } catch (notificationError) {
-          console.error('Error sending room block notification:', notificationError)
-        }
-
-
-      return response.ok({
-        success: true,
-        data: roomBlock,
-        message: 'Bloc de maintenance mis à jour avec succès',
-      })
-    } catch (error) {
-      console.error('Error updating room block:', error)
-
-      if (error.code === 'E_VALIDATION_FAILURE') {
-        return response.badRequest({
+      if (reservationCount > 0) {
+        return response.conflict({
           success: false,
-          message: 'Erreur de validation',
-          errors: error.messages,
+          message:
+            'Impossible de modifier le bloc: la chambre a une réservation active pour ces dates.',
+          errors: { reservations: ['Room has active reservations for these dates'] },
         })
       }
 
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({
+      // Vérifier les blocks existants (exclure le block actuel)
+      const overlappingBlocks = await RoomBlock.query()
+        .where('room_id', roomId)
+        .whereNot('id', id)
+        .where((query) => {
+          query.whereBetween('block_from_date', [fromDate, toDate])
+          query.orWhereBetween('block_to_date', [fromDate, toDate])
+          query.orWhere((subQuery) => {
+            subQuery
+              .where('block_from_date', '<=', fromDate)
+              .andWhere('block_to_date', '>=', toDate)
+          })
+        })
+        .count('* as total')
+
+      const blockCount = Number(overlappingBlocks[0].$extras.total)
+
+      if (blockCount > 0) {
+        return response.conflict({
           success: false,
-          message: 'Bloc de maintenance non trouvé',
+          message: 'La chambre est déjà bloquée pour les dates sélectionnées.',
+          errors: { blocks: ['Room is already blocked for the selected dates'] },
         })
       }
+    }
+    // Mettre à jour le bloc - handle dates separately to avoid type conflicts
+    const { block_from_date, block_to_date, ...otherFields } = payload
 
-      return response.internalServerError({
+    // Merge non-date fields first
+    roomBlock.merge(otherFields)
+
+    // Handle date fields separately
+    if (block_from_date) {
+      roomBlock.blockFromDate = DateTime.fromJSDate(block_from_date)
+    }
+    if (block_to_date) {
+      roomBlock.blockToDate = DateTime.fromJSDate(block_to_date)
+    }
+
+    await roomBlock.save()
+
+    // Recharger avec les relations
+    await roomBlock.load('room', (roomQuery) => {
+      roomQuery.preload('roomType')
+    })
+    await roomBlock.load('blockedBy')
+    await roomBlock.load('hotel')
+    await roomBlock.load('roomType')
+
+
+
+    // Notification (asynchrone pour ne pas bloquer la réponse)
+    setImmediate(async () => {
+      try {
+        if (payload.status === 'completed') {
+          await CheckInCheckOutNotificationService.notifyRoomUnblocked(
+            roomBlock.roomId,
+            roomBlock.blockedByUserId
+          )
+        } else {
+          await CheckInCheckOutNotificationService.notifyRoomBlockModified(
+            roomBlock.roomId,
+            roomBlock.blockedByUserId,
+            roomBlock.reason!,
+            payload.reason || roomBlock.reason || '',
+          )
+        }
+      } catch (notificationError) {
+        console.error('❌ Error sending room block notification:', notificationError)
+      }
+    })
+
+    return response.ok({
+      success: true,
+      data: roomBlock,
+      message: 'Bloc de maintenance mis à jour avec succès',
+    })
+  } catch (error) {
+    console.error('❌ Error updating room block:', error)
+
+    if (error.code === 'E_VALIDATION_FAILURE') {
+      return response.badRequest({
         success: false,
-        message: 'Erreur lors de la mise à jour du bloc de maintenance',
-        error: error.message,
+        message: 'Erreur de validation',
+        errors: error.messages,
       })
     }
+
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({
+        success: false,
+        message: 'Bloc de maintenance non trouvé',
+      })
+    }
+
+    return response.internalServerError({
+      success: false,
+      message: 'Erreur lors de la mise à jour du bloc de maintenance',
+      error: error.message,
+    })
   }
+}
 
   /**
    * Delete Room Block

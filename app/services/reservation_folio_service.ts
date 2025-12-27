@@ -205,15 +205,7 @@ export default class ReservationFolioService {
         throw new Error('No folio found for this reservation')
       }
 
-      const targetFolioId = reservation.folios[0].id
-
-      // Find next transaction number for hotel's batch
-      // const lastTx = await FolioTransaction.query({ client: localTrx })
-      //   .where('hotelId', reservation.hotelId)
-      //   .orderBy('transactionNumber', 'desc')
-      //   .first()
-
-      // let nextNumber = lastTx?.transactionNumber ? Number(`${lastTx.transactionNumber}`) + 1 : 1
+      // const targetFolioId = reservation.folios[0].id
       const lastTx = await FolioTransaction.query({ client: localTrx })
       .where('hotel_id', reservation.hotelId)
       .orderBy('transaction_number', 'desc')
@@ -225,6 +217,19 @@ export default class ReservationFolioService {
       const batch: Partial<FolioTransaction>[] = []
 
       for (const reservationRoom of reservation.reservationRooms) {
+
+        const targetFolio = reservation.folios.find(
+          (folio) => folio.reservationRoomId === reservationRoom.id
+        )
+
+        if (!targetFolio) {
+          console.warn(` No folio found for reservationRoom ${reservationRoom.id}. Skipping charges.`)
+          continue
+        }
+
+        const targetFolioId = targetFolio.id
+
+
         const rawNights = reservationRoom.nights
         const effectiveNights = rawNights === 0 ? 1 : rawNights
         const grossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
@@ -367,9 +372,18 @@ export default class ReservationFolioService {
         }
       }
 
-      if (batch.length > 0) {
+
+    if (batch.length > 0) {
       await FolioTransaction.createMany(batch as any[], { client: localTrx })
-      await FolioService.updateFolioTotals(targetFolioId, localTrx)
+
+      const folioIds = [...new Set(batch.map(tx => tx.folioId))]
+      console.log(`✅ Updating totals for ${folioIds.length} folios:`, folioIds)
+
+      for (const folioId of folioIds) {
+        if (folioId) {
+          await FolioService.updateFolioTotals(folioId, localTrx)
+        }
+      }
     }
 
     // On ne commit que si on a créé la transaction nous-mêmes
@@ -627,7 +641,9 @@ export default class ReservationFolioService {
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('guests')
-        .preload('reservationRooms')
+        .preload('reservationRooms', (query) => {
+        query.preload('guest')
+      })
         .firstOrFail()
 
 
@@ -647,30 +663,67 @@ export default class ReservationFolioService {
 
       const folios: Folio[] = []
 
-      // Create one folio per room for the primary guest
-      for (const reservationRoom of reservation.reservationRooms) {
-        const folioData: CreateFolioData = {
-          hotelId: reservation.hotelId,
-          guestId: primaryGuest.id,
-          reservationId: reservationId,
-          reservationRoomId: reservationRoom.id,
-          groupId: reservation.groupId ?? undefined,
-          folioType: FolioType.GUEST,
-          creditLimit: 0,
-          notes: `Folio for room ${reservationRoom.id} - Reservation ${reservation.confirmationNumber}`,
-          createdBy: confirmedBy,
-        }
+      for (const [index, reservationRoom] of reservation.reservationRooms.entries()) {
+      const roomGuest = reservationRoom.guestId
+        ? (await reservationRoom.load('guest'), reservationRoom.guest)
+        : primaryGuest
 
-        const folio = await FolioService.createFolio(folioData)
-        folios.push(folio)
+      // Générer un nom de folio distinct pour chaque chambre
+      const folioName = reservation.reservationRooms.length > 1
+        ? `Chambre ${index + 1} Folio`
+        : 'Main Folio'
+
+      const folioData: CreateFolioData = {
+        hotelId: reservation.hotelId,
+        guestId: roomGuest?.id || reservationRoom.guestId || primaryGuest.id, // CORRECTION ICI
+        reservationId: reservationId,
+        reservationRoomId: reservationRoom.id,
+        groupId: reservation.groupId ?? undefined,
+        folioType: reservation.reservationRooms.length > 1 ? FolioType.GUEST : FolioType.GUEST,
+        creditLimit: 0,
+        notes: `${folioName} - Room ${reservationRoom.roomId || reservationRoom.roomTypeId} - Reservation ${reservation.confirmationNumber}`,
+        createdBy: confirmedBy,
+
       }
 
-      // Post room charges to folios
-      await this.postRoomCharges(reservationId, confirmedBy)
+      const folio = await FolioService.createFolio(folioData)
+      folios.push(folio)
 
-      return folios
-    })
-  }
+      console.log(`✅ Folio créé: ${folioName} pour guest ID ${roomGuest?.id || reservationRoom.guestId}`)
+    }
+
+    // Post room charges to folios
+    await this.postRoomCharges(reservationId, confirmedBy)
+
+    return folios
+  })
+}
+
+
+  //     // Create one folio per room for the primary guest
+  //     for (const reservationRoom of reservation.reservationRooms) {
+  //       const folioData: CreateFolioData = {
+  //         hotelId: reservation.hotelId,
+  //         guestId: primaryGuest.id,
+  //         reservationId: reservationId,
+  //         reservationRoomId: reservationRoom.id,
+  //         groupId: reservation.groupId ?? undefined,
+  //         folioType: FolioType.GUEST,
+  //         creditLimit: 0,
+  //         notes: `Folio for room ${reservationRoom.id} - Reservation ${reservation.confirmationNumber}`,
+  //         createdBy: confirmedBy,
+  //       }
+
+  //       const folio = await FolioService.createFolio(folioData)
+  //       folios.push(folio)
+  //     }
+
+  //     // Post room charges to folios
+  //     await this.postRoomCharges(reservationId, confirmedBy)
+
+  //     return folios
+  //   })
+  // }
 
   /**
    * Get all guests for a reservation with their pivot data

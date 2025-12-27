@@ -8,7 +8,7 @@ export const createGuestValidator = vine.compile(
   vine.object({
     hotelId: vine.number().min(0).optional(),
     firstName: vine.string().trim().minLength(1).maxLength(100),
-    lastName: vine.string().trim().minLength(1).maxLength(100),
+    lastName: vine.string().trim().minLength(1).maxLength(100).optional(),
     contactType: vine.string().trim().minLength(1).maxLength(100).optional(),
     whatsappContact: vine.string().trim().minLength(1).maxLength(100).optional(),
     facebookContact: vine.string().trim().minLength(1).maxLength(100).optional(),

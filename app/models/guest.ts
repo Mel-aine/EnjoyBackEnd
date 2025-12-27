@@ -21,7 +21,7 @@ export default class Guest extends BaseModel {
   declare firstName: string
 
   @column()
-  declare lastName: string
+  declare lastName: string | null
 
   @column()
   declare middleName: string

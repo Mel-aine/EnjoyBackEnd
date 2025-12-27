@@ -68,7 +68,7 @@ export default class ReservationService {
 
     // Champs obligatoires
     if (!data.first_name?.trim()) errors.push('Le prénom est requis')
-    if (!data.last_name?.trim()) errors.push('Le nom est requis')
+    // if (!data.last_name?.trim()) errors.push('Le nom est requis')
     //if (!data.email?.trim()) errors.push("L'email est requis")
     if (!data.hotel_id) errors.push("L'ID du service/hôtel est requis")
     if (!data.arrived_date) errors.push("La date d'arrivée est requise")
