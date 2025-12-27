@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title>
-      Meal Plan Report - Breakfast
+      Meal Plan Report
     </title>
     <style>
       body {
@@ -95,98 +95,85 @@
   </head>
   <body>
     <div class="main">
-      <!-- Section: Breakfast Reservations -->
-      <div class="section-title">
-        Breakfast
-      </div>
+      @each(mealPlan in mealPlansData.mealPlans)
+        <div class="section-title">
+          {{ mealPlan.mealPlanName }}
+        </div>
+        <table>
+          <tbody>
+            @each(reservation in mealPlan.reservations)
+              <tr>
+                <td style="width: 8%;">
+                  {{ reservation.roomNo }}
+                </td>
+                <td style="width: 18%;">
+                  {{ reservation.guestName }}
+                </td>
+                <td style="width: 12%;">
+                  {{ reservation.rateType }}
+                </td>
+                <td class="text-center" style="width: 12%;">
+                  {{ reservation.arrival }}
+                </td>
+                <td class="text-center" style="width: 12%;">
+                  {{ reservation.departure }}
+                </td>
+                <td style="width: 20%;">
+                  {{ reservation.companyName }}
+                </td>
+                <td class="text-center" style="width: 9%;">
+                  {{ reservation.adult }}
+                </td>
+                <td class="text-center" style="width: 9%;">
+                  {{ reservation.child }}
+                </td>
+              </tr>
+            @endeach
+          </tbody>
+        </table>
+
+        <div class="horizontal-line">
+        </div>
+        <table>
+          <tbody>
+            <tr class="bold-section">
+              <td style="width: 82%;">
+                <strong> Total({{ mealPlan.reservations.length }})</strong>
+              </td>
+              <td style="width: 9%;" class="text-center">
+              <strong>{{ mealPlan.totalAdults }}</strong>
+              </td>
+              <td style="width: 9%;" class="text-center">
+                              <strong>{{ mealPlan.totalChildren }}</strong>
+
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="horizontal-line">
+        </div>
+      @endeach
+      
+      <!-- Summary Section -->
       <table>
         <tbody>
-          @each(reservation in breakfastData.reservations)
-          <tr>
-            <td style="width: 8%;">
-              {{ reservation.roomNo }}
+          <tr class="bold-section">
+            <td style="width: 82%;">
+              <strong>Total</strong>
             </td>
-            <td style="width: 18%;">
-              {{ reservation.guestName }}
+            <td style="width: 9%;" class="text-center">
+            <strong>{{ mealPlansData.totalAdults }}</strong>
             </td>
-            <td style="width: 12%;">
-              {{ reservation.rateType }}
-            </td>
-            <td class="text-center" style="width: 12%;">
-              {{ reservation.arrival }}
-            </td>
-            <td class="text-center" style="width: 12%;">
-              {{ reservation.departure }}
-            </td>
-            <td style="width: 20%;">
-              {{ reservation.companyName }}
-            </td>
-            <td class="text-center" style="width: 9%;">
-              {{ reservation.adult }}
-            </td>
-            <td class="text-center" style="width: 9%;">
-              {{ reservation.child }}
+            <td style="width: 9%;" class="text-center">
+            <strong>{{ mealPlansData.totalChildren }}</strong>
             </td>
           </tr>
-          @endeach
         </tbody>
       </table>
 
-      <!-- Summary Section -->
-      <div class="horizontal-line"></div>
-      <div class="section-title">
+      <div class="horizontal-line">
       </div>
-      <table>
-        <tbody>
-          <tr class="bold-section">
-            <td style="width: 20%;">
-              <strong>{{ breakfastData.totalReservations }}</strong>
-            </td>
-            <td style="width: 20%;">
-            </td>
-            <td style="width: 20%;">
-            </td>
-          </tr>
-          <tr class="bold-section">
-            <td>
-              <strong>Total Adults</strong>
-            </td>
-            <td>
-              <strong>{{ breakfastData.totalAdults }}</strong>
-            </td>
-            <td>
-            </td>
-            <td>
-            </td>
-          </tr>
-          <tr class="bold-section">
-            <td>
-              <strong>Total Children</strong>
-            </td>
-            <td>
-              <strong>{{ breakfastData.totalChildren }}</strong>
-            </td>
-            <td>
-            </td>
-            <td>
-            </td>
-          </tr>
-          <tr class="section-total">
-            <td>
-              <strong>Total Guests</strong>
-            </td>
-            <td>
-              <strong>{{ breakfastData.totalGuests }}</strong>
-            </td>
-            <td>
-            </td>
-            <td>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      
-      <div class="horizontal-line"></div>
     </div>
   </body>
 </html>

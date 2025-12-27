@@ -326,6 +326,10 @@ export default class ReservationFolioService {
         const percRate = percentageSum > 0 ? percentageSum / 100 : 0
         const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
         const roomNetWithoutTax = percRate > 0 ? roomAdjustedGross / (1 + percRate) : roomAdjustedGross
+        const rateBaseRateGross = parseFloat(`${reservationRoom.roomRates?.baseRate}`) || 0
+        const baseRateAdjustedGross = Math.max(0, rateBaseRateGross - flatSum)
+        const baseRateNetWithoutTax = percRate > 0 ? baseRateAdjustedGross / (1 + percRate) : baseRateAdjustedGross
+        const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax - mealPlanGrossPerDay)
         baseAmount = netWithoutTax
         totalDailyAmount = grossDailyRate
 
@@ -359,6 +363,7 @@ export default class ReservationFolioService {
             roomFinalRate: totalRoomAmount,
             roomFinalRateTaxe: totalRoomAmount - roomNetWithoutTax,
             roomFinalNetAmount: roomNetWithoutTax,
+            roomFinalBaseRate: roomFinalBaseRate,
             serviceChargeAmount: 0,
             discountAmount: 0,
             netAmount: amount,

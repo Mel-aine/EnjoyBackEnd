@@ -65,6 +65,9 @@ export default class FolioTransaction extends BaseModel {
   @column({ columnName: 'room_final_rate' })
   declare roomFinalRate: number
 
+  @column({ columnName: 'room_final_base_rate' })
+  declare roomFinalBaseRate: number
+
   @column({ columnName: 'room_final_rate_taxe' })
   declare roomFinalRateTaxe: number
 

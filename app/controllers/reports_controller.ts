@@ -1,10 +1,14 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import ReportsService, {
-  ReportFilters
-} from '#services/reports_service'
+import ReportsService, { ReportFilters } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
-import { PaymentMethodType, ReservationStatus, TransactionCategory, TransactionType, TransactionStatus } from '#app/enums'
+import {
+  PaymentMethodType,
+  ReservationStatus,
+  TransactionCategory,
+  TransactionType,
+  TransactionStatus,
+} from '#app/enums'
 import PaymentMethod from '#models/payment_method'
 import CompanyAccount from '#models/company_account'
 import PdfService from '#services/pdf_service'
@@ -26,13 +30,13 @@ export default class ReportsController {
       const availableReports = ReportsService.getAvailableReports()
       return response.ok({
         success: true,
-        data: availableReports
+        data: availableReports,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Erreur lors de la récupération des types de rapports',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -46,7 +50,7 @@ export default class ReportsController {
       if (!reportType) {
         return response.badRequest({
           success: false,
-          message: 'Le type de rapport est requis'
+          message: 'Le type de rapport est requis',
         })
       }
 
@@ -91,7 +95,9 @@ export default class ReportsController {
         // Colonnes sélectionnées
         selectedColumns: Array.isArray(filters.selectedColumns)
           ? filters.selectedColumns
-          : (filters.selectedColumns ? [filters.selectedColumns] : undefined),
+          : filters.selectedColumns
+            ? [filters.selectedColumns]
+            : undefined,
 
         // Filtres additionnels pour les rapports Front Office
         arrivalFrom: filters.arrivalFrom,
@@ -99,7 +105,7 @@ export default class ReportsController {
         roomType: filters.roomType,
         rateType: filters.rateType,
         user: filters.user,
-        checkin: filters.checkin
+        checkin: filters.checkin,
       }
 
       let reportData
@@ -181,13 +187,13 @@ export default class ReportsController {
         default:
           return response.badRequest({
             success: false,
-            message: `Type de rapport non reconnu: ${reportType}`
+            message: `Type de rapport non reconnu: ${reportType}`,
           })
       }
 
       return response.ok({
         success: true,
-        data: reportData
+        data: reportData,
       })
     } catch (error) {
       console.log(error)
@@ -205,19 +211,23 @@ export default class ReportsController {
    */
   async export({ request, response }: HttpContext) {
     try {
-      const { reportType, format = 'csv', filters = {} } = request.only(['reportType', 'format', 'filters'])
+      const {
+        reportType,
+        format = 'csv',
+        filters = {},
+      } = request.only(['reportType', 'format', 'filters'])
 
       if (!reportType) {
         return response.badRequest({
           success: false,
-          message: 'Le type de rapport est requis'
+          message: 'Le type de rapport est requis',
         })
       }
 
       if (!['csv', 'pdf', 'excel'].includes(format)) {
         return response.badRequest({
           success: false,
-          message: 'Format non supporté. Utilisez: csv, pdf, ou excel'
+          message: 'Format non supporté. Utilisez: csv, pdf, ou excel',
         })
       }
 
@@ -262,7 +272,9 @@ export default class ReportsController {
         // Colonnes sélectionnées
         selectedColumns: Array.isArray(filters.selectedColumns)
           ? filters.selectedColumns
-          : (filters.selectedColumns ? [filters.selectedColumns] : undefined),
+          : filters.selectedColumns
+            ? [filters.selectedColumns]
+            : undefined,
 
         // Filtres additionnels pour les rapports Front Office
         arrivalFrom: filters.arrivalFrom,
@@ -270,7 +282,7 @@ export default class ReportsController {
         roomType: filters.roomType,
         rateType: filters.rateType,
         user: filters.user,
-        checkin: filters.checkin
+        checkin: filters.checkin,
       }
 
       // Get report data using the same logic as generate method
@@ -342,7 +354,7 @@ export default class ReportsController {
         default:
           return response.badRequest({
             success: false,
-            message: `Type de rapport non reconnu: ${reportType}`
+            message: `Type de rapport non reconnu: ${reportType}`,
           })
       }
 
@@ -360,14 +372,14 @@ export default class ReportsController {
         default:
           return response.badRequest({
             success: false,
-            message: 'Format d\'export non supporté'
+            message: "Format d'export non supporté",
           })
       }
     } catch (error) {
       return response.internalServerError({
         success: false,
-        message: 'Erreur lors de l\'export du rapport',
-        error: error.message
+        message: "Erreur lors de l'export du rapport",
+        error: error.message,
       })
     }
   }
@@ -385,8 +397,8 @@ export default class ReportsController {
           top: '1cm',
           right: '1cm',
           bottom: '1cm',
-          left: '1cm'
-        }
+          left: '1cm',
+        },
       })
 
       // Définir les en-têtes de réponse pour le téléchargement du PDF
@@ -411,13 +423,13 @@ export default class ReportsController {
         filters = {},
         joins = [],
         groupBy = [],
-        orderBy = []
+        orderBy = [],
       } = request.only(['tableName', 'selectedFields', 'filters', 'joins', 'groupBy', 'orderBy'])
 
       if (!tableName) {
         return response.badRequest({
           success: false,
-          message: 'Le nom de la table est requis'
+          message: 'Le nom de la table est requis',
         })
       }
 
@@ -425,7 +437,7 @@ export default class ReportsController {
         hotelId: filters.hotelId ? parseInt(filters.hotelId) : undefined,
         startDate: filters.startDate,
         endDate: filters.endDate,
-        status: filters.status
+        status: filters.status,
       }
 
       const reportData = await ReportsService.generateCustomReport(
@@ -439,13 +451,13 @@ export default class ReportsController {
 
       return response.ok({
         success: true,
-        data: reportData
+        data: reportData,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Erreur lors de la génération du rapport personnalisé',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -466,45 +478,71 @@ export default class ReportsController {
           { name: 'folio_transactions', label: 'Transactions Folio' },
           { name: 'expenses', label: 'Dépenses' },
           { name: 'tasks', label: 'Tâches' },
-          { name: 'activity_logs', label: 'Journaux d\'Activité' }
+          { name: 'activity_logs', label: "Journaux d'Activité" },
         ],
         commonFields: {
           reservations: [
-            'id', 'confirmation_code', 'reservation_status', 'scheduled_arrival_date',
-            'scheduled_departure_date', 'adults', 'children',
-            'total_estimated_revenue', 'special_notes', 'created_at', 'updated_at'
+            'id',
+            'confirmation_code',
+            'reservation_status',
+            'scheduled_arrival_date',
+            'scheduled_departure_date',
+            'adults',
+            'children',
+            'total_estimated_revenue',
+            'special_notes',
+            'created_at',
+            'updated_at',
           ],
           guests: [
-            'id', 'firstName', 'lastName', 'email', 'phoneNumber', 'dateOfBirth',
-            'nationality', 'created_at', 'updated_at'
+            'id',
+            'firstName',
+            'lastName',
+            'email',
+            'phoneNumber',
+            'dateOfBirth',
+            'nationality',
+            'created_at',
+            'updated_at',
           ],
           rooms: [
-            'id', 'room_number', 'room_name', 'floor_number', 'max_occupancy_adults',
-            'room_status', 'housekeeping_status', 'maintenance_status'
+            'id',
+            'room_number',
+            'room_name',
+            'floor_number',
+            'max_occupancy_adults',
+            'room_status',
+            'housekeeping_status',
+            'maintenance_status',
           ],
           payments: [
-            'id', 'amount', 'payment_date', 'payment_status', 'payment_method',
-            'transaction_reference', 'created_at'
-          ]
+            'id',
+            'amount',
+            'payment_date',
+            'payment_status',
+            'payment_method',
+            'transaction_reference',
+            'created_at',
+          ],
         },
         joinOptions: [
           { table: 'guests', on: 'reservations.guest_id' },
           { table: 'hotels', on: 'reservations.hotel_id' },
           { table: 'room_types', on: 'reservations.primary_room_type_id' },
           { table: 'booking_sources', on: 'reservations.booking_source_id' },
-          { table: 'rate_plans', on: 'reservations.rate_plan_id' }
-        ]
+          { table: 'rate_plans', on: 'reservations.rate_plan_id' },
+        ],
       }
 
       return response.ok({
         success: true,
-        data: templates
+        data: templates,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Erreur lors de la récupération des modèles',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -517,7 +555,7 @@ export default class ReportsController {
       if (!reportData.data || reportData.data.length === 0) {
         return response.badRequest({
           success: false,
-          message: 'Aucune donnée à exporter'
+          message: 'Aucune donnée à exporter',
         })
       }
 
@@ -528,7 +566,7 @@ export default class ReportsController {
       let csvContent = headers.join(',') + '\n'
 
       reportData.data.forEach((row: any) => {
-        const values = headers.map(header => {
+        const values = headers.map((header) => {
           const value = row[header]
           // Escape commas and quotes in values
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
@@ -545,8 +583,8 @@ export default class ReportsController {
     } catch (error) {
       return response.internalServerError({
         success: false,
-        message: 'Erreur lors de l\'export CSV',
-        error: error.message
+        message: "Erreur lors de l'export CSV",
+        error: error.message,
       })
     }
   }
@@ -593,14 +631,14 @@ export default class ReportsController {
           generatedAt: reportData.generatedAt,
           totalRecords: reportData.totalRecords,
           summary: reportData.summary,
-          filename: filename
-        }
+          filename: filename,
+        },
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
-        message: 'Erreur lors de l\'export Excel',
-        error: error.message
+        message: "Erreur lors de l'export Excel",
+        error: error.message,
       })
     }
   }
@@ -615,12 +653,16 @@ export default class ReportsController {
       if (!hotelId || !month || !year) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID, month, and year are required'
+          message: 'Hotel ID, month, and year are required',
         })
       }
 
       // Create start and end dates for the month
-      const startDate = DateTime.fromObject({ year: parseInt(year), month: parseInt(month), day: 1 })
+      const startDate = DateTime.fromObject({
+        year: parseInt(year),
+        month: parseInt(month),
+        day: 1,
+      })
       const endDate = startDate.endOf('month')
 
       // Import Reservation model
@@ -635,10 +677,16 @@ export default class ReportsController {
 
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
 
       // Generate HTML content
-      const htmlContent = this.generateMonthlyOccupancyHtml(dailyReservationCounts, startDate, printedBy)
+      const htmlContent = this.generateMonthlyOccupancyHtml(
+        dailyReservationCounts,
+        startDate,
+        printedBy
+      )
 
       // Import PDF generation service
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
@@ -648,7 +696,10 @@ export default class ReportsController {
 
       // Set response headers
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="monthly-reservations-${year}-${month}.pdf"`)
+      response.header(
+        'Content-Disposition',
+        `attachment; filename="monthly-reservations-${year}-${month}.pdf"`
+      )
 
       return response.send(pdfBuffer)
     } catch (error) {
@@ -656,7 +707,7 @@ export default class ReportsController {
       return response.internalServerError({
         success: false,
         message: 'Failed to generate monthly reservations PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -671,7 +722,7 @@ export default class ReportsController {
       if (!hotelId || !asOnDate) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID and asOnDate are required'
+          message: 'Hotel ID and asOnDate are required',
         })
       }
 
@@ -680,20 +731,17 @@ export default class ReportsController {
       if (!reportDate.isValid) {
         return response.badRequest({
           success: false,
-          message: 'Invalid date format. Use YYYY-MM-DD format'
+          message: 'Invalid date format. Use YYYY-MM-DD format',
         })
       }
 
       // Import models
-      const { default: Hotel } = await import('#models/hotel')
+      const { default: HotelModel } = await import('#models/hotel')
       // Get hotel information
-      const hotel = await Hotel.findOrFail(hotelId)
+      const hotel = await HotelModel.findOrFail(hotelId)
       // Generate all sections data
-      let auditDetails = await NightAuditService.getNightAuditDetails(
-        reportDate,
-        Number(hotelId)
-      )
-      let roomsByStatus: any = {};
+      let auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
+      let roomsByStatus: any = {}
       if (auditDetails && auditDetails?.roomStatusReportData) {
         roomsByStatus = auditDetails?.roomStatusReportData
       } else {
@@ -702,7 +750,9 @@ export default class ReportsController {
       logger.info(roomsByStatus)
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
 
       // Generate HTML content
       const htmlContent = this.generateRoomStatusReportHtml(
@@ -729,7 +779,7 @@ export default class ReportsController {
       return response.internalServerError({
         success: false,
         message: 'Failed to generate room status report PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -753,18 +803,21 @@ export default class ReportsController {
       vacant: roomsByStatus.vacant.length,
       departed: roomsByStatus.departed.length,
       reserved: roomsByStatus.reserved.length,
-      blocked: roomsByStatus.blocked.length
+      blocked: roomsByStatus.blocked.length,
     }
 
     const generateRoomList = (rooms: any[]) => {
       if (rooms.length === 0) {
         return ''
       }
-      return rooms.map(room =>
-        `<div style="display: inline-block; margin: 2px 2px; padding: 4px 8px; background: #f8f9fa; border: 1px solid #dee2e6;  font-size: 12px;">
+      return rooms
+        .map(
+          (room) =>
+            `<div style="display: inline-block; margin: 2px 2px; padding: 4px 8px; background: #f8f9fa; border: 1px solid #dee2e6;  font-size: 12px;">
           ${room.roomNumber}
         </div>`
-      ).join('')
+        )
+        .join('')
     }
 
     return `
@@ -981,31 +1034,34 @@ export default class ReportsController {
 
       dailyCounts.push({
         day,
-        reservationCount: parseInt(reservationCount[0].$extras.total) || 0
+        reservationCount: parseInt(reservationCount[0].$extras.total) || 0,
       })
     }
 
     return dailyCounts
   }
 
-  public generateMonthlyOccupancyHtml(reservationData: any[], startDate: DateTime, printedBy: string = 'System'): string {
+  public generateMonthlyOccupancyHtml(
+    reservationData: any[],
+    startDate: DateTime,
+    printedBy: string = 'System'
+  ): string {
     const monthName = startDate.toFormat('MMMM yyyy')
 
     // Calculate chart data
-    const maxReservations = Math.max(...reservationData.map(d => d.reservationCount), 1)
+    const maxReservations = Math.max(...reservationData.map((d) => d.reservationCount), 1)
     const totalReservations = reservationData.reduce((sum, d) => sum + d.reservationCount, 0)
-    const avgReservations = reservationData.length > 0
-      ? (totalReservations / reservationData.length)?.toFixed(1)
-      : '0.0'
+    const avgReservations =
+      reservationData.length > 0 ? (totalReservations / reservationData.length)?.toFixed(1) : '0.0'
 
     // Set a fixed y-axis max for better visualization
     const yAxisMax = Math.max(maxReservations, 10)
     const maxChartHeight = 350
 
-    const chartData = reservationData.map(data => ({
+    const chartData = reservationData.map((data) => ({
       day: data.day,
       reservationCount: data.reservationCount,
-      height: Math.max((data.reservationCount / yAxisMax) * maxChartHeight, 2)
+      height: Math.max((data.reservationCount / yAxisMax) * maxChartHeight, 2),
     }))
 
     return `
@@ -1232,18 +1288,26 @@ export default class ReportsController {
                     <div class="grid-line"></div>
                 </div>
                 <div class="chart">
-                    ${chartData.map(data => `
+                    ${chartData
+                      .map(
+                        (data) => `
                         <div class="bar-container">
-                            ${data.reservationCount > 0 ? `
+                            ${
+                              data.reservationCount > 0
+                                ? `
                                 <div class="bar" style="height: ${data.height}px; background-color: #fb923c; /* Orange pour l'intérieur */">
                                     <div class="bar-value">${data.reservationCount}</div>
                                 </div>
-                            ` : ''}
+                            `
+                                : ''
+                            }
                         </div>
-                    `).join('')}
+                    `
+                      )
+                      .join('')}
                 </div>
                 <div class="x-axis">
-                    ${chartData.map(data => `<div class="x-label">${data.day}</div>`).join('')}
+                    ${chartData.map((data) => `<div class="x-label">${data.day}</div>`).join('')}
                 </div>
             </div>
         </div>
@@ -1285,21 +1349,21 @@ export default class ReportsController {
       if (!hotelId) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID is required'
+          message: 'Hotel ID is required',
         })
       }
 
       if (!asOnDate) {
         return response.badRequest({
           success: false,
-          message: 'As On Date is required'
+          message: 'As On Date is required',
         })
       }
 
       if (!currency) {
         return response.badRequest({
           success: false,
-          message: 'Currency is required'
+          message: 'Currency is required',
         })
       }
 
@@ -1308,7 +1372,7 @@ export default class ReportsController {
       if (!reportDate.isValid) {
         return response.badRequest({
           success: false,
-          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)',
         })
       }
 
@@ -1320,13 +1384,12 @@ export default class ReportsController {
 
       // Get authenticated user information
       const user = auth.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
 
       // Generate all sections data
-      const auditDetails = await NightAuditService.getNightAuditDetails(
-        reportDate,
-        Number(hotelId)
-      )
+      const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
       const sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
       //const sectionsData = auditDetails?.nightAuditReportData;
       // Generate HTML content
@@ -1355,7 +1418,7 @@ export default class ReportsController {
       return response.internalServerError({
         success: false,
         message: 'Failed to generate night audit report PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -1364,8 +1427,6 @@ export default class ReportsController {
    * Generate all sections data for Night Audit Report
    */
   public async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
-
-
     // Section 1: Room Charges
     const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
 
@@ -1384,29 +1445,27 @@ export default class ReportsController {
     // Section 6: Pax Analysis
     const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
 
-
     return {
       roomCharges,
       dailySales,
       miscCharges,
       roomStatus,
       paxStatus,
-      paxAnalysis
+      paxAnalysis,
     }
   }
 
   /**
    * Section 1: Room Charges Data
    */
-private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency: string) {
+  private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency: string) {
     const { default: Reservation } = await import('#models/reservation')
-    const TVA_COEFF = 1.1925 // Coefficient pour 19,25% de taxe
 
     const reservations = await Reservation.query()
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
-      .whereIn('status', ['checked_in',ReservationStatus.CONFIRMED])
+      .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
@@ -1434,57 +1493,61 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       offeredTariff: 0,
       totalTax: 0,
       totalRent: 0,
-      totalVariant: 0
+      totalVariant: 0,
     }
 
     for (const reservation of reservations) {
       for (const reservationRoom of reservation.reservationRooms) {
-        if (reservationRoom.room) {
-          
-          // --- 1. Récupération de la transaction réelle du jour (Offered) ---
-          // On cherche dans les transactions du folio liées à cette chambre
-          const dailyTransaction = reservationRoom.folios?.[0]?.transactions?.[0]
-          
+        // --- 1. Récupération de la transaction réelle du jour (Offered) ---
+        // On cherche dans les transactions du folio liées à cette chambre
+        const dailyTransaction = reservationRoom.folios?.[0]?.transactions?.[0]
+        if (reservationRoom.room && dailyTransaction) {
           // --- 2. Calcul des montants NETS (HT) ---
           // Prix offert Net = Montant transaction / 1.1925
           const netOffered = Number(dailyTransaction?.roomFinalNetAmount || 0)
-          
+
           // Prix Normal Net = BaseRate du contrat / 1.1925
-          const grossNormal = Number(reservationRoom.roomRates?.baseRate || 0)
-          const netNormal = (grossNormal-4000) / TVA_COEFF
+          const netNormal = Number(dailyTransaction?.roomFinalBaseRate || 0)
 
           // --- 3. Calcul de la Taxe (Part de TVA sur le prix offert) ---
           const taxAmount = Number(dailyTransaction?.roomFinalRateTaxe || 0)
-          const totalAmount= Number(dailyTransaction?.roomFinalRate || 0)
+          const totalAmount = Number(dailyTransaction?.roomFinalRate || 0)
 
           // --- 4. Calcul de la variance sur les montants NETS ---
-          const variance = netNormal > 0 ? -((netNormal - netOffered) / netNormal * 100) : 0
+          const variance = netNormal > 0 ? -(((netNormal - netOffered) / netNormal) * 100) : 0
 
-          const sortKeyRaw = (reservationRoom.room as any)?.sortKey ?? (reservationRoom.room as any)?.sort_key
+          const sortKeyRaw =
+            (reservationRoom.room as any)?.sortKey ?? (reservationRoom.room as any)?.sort_key
           const sortKey =
-            sortKeyRaw === undefined || sortKeyRaw === null ? Number.POSITIVE_INFINITY : Number(sortKeyRaw)
+            sortKeyRaw === undefined || sortKeyRaw === null
+              ? Number.POSITIVE_INFINITY
+              : Number(sortKeyRaw)
           const roomNumber = String(reservationRoom.room.roomNumber ?? '')
 
           roomChargesDataEntries.push({
             sortKey,
             roomNumber,
             data: {
-            room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
-            folioNo: reservationRoom.folios?.[0]?.folioNumber || 'N/A',
-            guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : '',
-            source: reservation.businessSource?.name || '',
-            company: reservation.companyName || '',
-            rentDate: reportDate.toFormat('dd/MM/yyyy'),
-            rateType: reservationRoom.roomRates?.rateType?.rateTypeName,
-            normalTariff: netNormal,    // Prix net théorique
-            offeredTariff: netOffered,  // Prix net réellement appliqué
-            totalTax: taxAmount,        // Montant de la TVA collectée
-            totalRent: totalAmount,      // Revenu net pour l'hôtel
-            variance: variance,
-            checkinBy: reservationRoom.checkedInByUser ? `${reservationRoom.checkedInByUser.lastName}` : 'N/A'
+              room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
+              folioNo: reservationRoom.folios?.[0]?.folioNumber || 'N/A',
+              guest: reservation.guest
+                ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+                : '',
+              source: reservation.businessSource?.name || '',
+              company: reservation.companyName || '',
+              rentDate: reportDate.toFormat('dd/MM/yyyy'),
+              rateType: reservationRoom.roomRates?.rateType?.rateTypeName,
+              normalTariff: netNormal, // Prix net théorique
+              offeredTariff: netOffered, // Prix net réellement appliqué
+              totalTax: taxAmount, // Montant de la TVA collectée
+              totalRent: totalAmount, // Revenu net pour l'hôtel
+              variance: variance,
+              checkinBy: reservationRoom.checkedInByUser
+                ? `${reservationRoom.checkedInByUser.lastName}`
+                : 'N/A',
             },
           })
-          
+
           totals.normalTariff += netNormal
           totals.offeredTariff += Number(netOffered)
           totals.totalTax += taxAmount
@@ -1494,12 +1557,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     }
 
     totals.totalVariant =
-      totals.normalTariff > 0 ? -((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100 : 0
+      totals.normalTariff > 0
+        ? -((totals.normalTariff - totals.totalRent) / totals.normalTariff) * 100
+        : 0
 
     const roomChargesData = roomChargesDataEntries
       .sort((a, b) => {
         if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
-        return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true, sensitivity: 'base' })
+        return a.roomNumber.localeCompare(b.roomNumber, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
       })
       .map((e) => e.data)
 
@@ -1522,43 +1590,94 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax: 0,
       discount: 0,
       adjustment: 0,
-      totalSales: 0
+      totalSales: 0,
     }
 
     const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
 
     // 1. Room Sales - Regular room charges posted on the report date
-    const roomSalesData = await this.getRoomSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    const roomSalesData = await this.getRoomSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(roomSalesData)
     this.addToTotals(totals, roomSalesData)
 
     // 2. Direct Room Sales - Direct sales transactions (walk-ins, etc.)
-    const directRoomSalesData = await this.getDirectRoomSalesData(hotelId, reportDateStr, FolioTransaction, Reservation, TransactionCategory, TransactionType, TransactionStatus)
+    const directRoomSalesData = await this.getDirectRoomSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      Reservation,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(directRoomSalesData)
     this.addToTotals(totals, directRoomSalesData)
 
     // 3. Cancellation Sales - Cancellation fees posted on the report date
-    const cancellationSalesData = await this.getCancellationSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    const cancellationSalesData = await this.getCancellationSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(cancellationSalesData)
     this.addToTotals(totals, cancellationSalesData)
 
     // 4. No Show Sales - No show fees posted on the report date
-    const noShowSalesData = await this.getNoShowSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    const noShowSalesData = await this.getNoShowSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(noShowSalesData)
     this.addToTotals(totals, noShowSalesData)
 
     // 5. Day Use Sales - Same day check-in and check-out reservations
-    const dayUseSalesData = await this.getDayUseSalesData(hotelId, reportDateStr, FolioTransaction, Reservation, TransactionCategory, TransactionType, TransactionStatus)
+    const dayUseSalesData = await this.getDayUseSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      Reservation,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(dayUseSalesData)
     this.addToTotals(totals, dayUseSalesData)
 
     // 6. Late Checkout Sales - Late checkout fees posted on the report date
-    const lateCheckoutSalesData = await this.getLateCheckoutSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    const lateCheckoutSalesData = await this.getLateCheckoutSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(lateCheckoutSalesData)
     this.addToTotals(totals, lateCheckoutSalesData)
 
     // 7. Incidental Sales - Incidental charges posted on the report date
-    const incidentalSalesData = await this.getIncidentalSalesData(hotelId, reportDateStr, FolioTransaction, TransactionCategory, TransactionType, TransactionStatus)
+    const incidentalSalesData = await this.getIncidentalSalesData(
+      hotelId,
+      reportDateStr,
+      FolioTransaction,
+      TransactionCategory,
+      TransactionType,
+      TransactionStatus
+    )
     salesData.push(incidentalSalesData)
     this.addToTotals(totals, incidentalSalesData)
 
@@ -1581,7 +1700,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
   /**
    * Get Room Sales Data - Regular room charges posted on the report date
    */
-  private async getRoomSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getRoomSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
       .where('category', TransactionCategory.ROOM)
@@ -1589,11 +1715,19 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       //.where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(current_working_date) = ?', [reportDateStr])
 
-    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.roomFinalNetAmount || 0)), 0)
-    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.roomFinalRateTaxe || 0)), 0)
-    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+    const roomCharges = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.roomFinalNetAmount || 0),
+      0
+    )
+    const roomTax = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.roomFinalRateTaxe || 0),
+      0
+    )
+    const discount = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.discountAmount || 0),
+      0
+    )
 
-    
     return {
       salesType: 'Room Sales',
       roomCharges,
@@ -1602,14 +1736,22 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax: 0,
       discount,
       adjustment: 0,
-      totalSales: roomCharges + roomTax - discount
+      totalSales: roomCharges + roomTax - discount,
     }
   }
 
   /**
    * Get Direct Room Sales Data - Direct sales transactions (walk-ins, etc.)
    */
-  private async getDirectRoomSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, Reservation: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getDirectRoomSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    Reservation: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     // Get reservations that were created and checked in on the same day (walk-ins)
     const walkInReservations = await Reservation.query()
       .where('hotel_id', hotelId)
@@ -1628,7 +1770,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         extraTax: 0,
         discount: 0,
         adjustment: 0,
-        totalSales: 0
+        totalSales: 0,
       }
     }
 
@@ -1638,10 +1780,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
+      .whereRaw('DATE(current_working_date) = ?', [reportDateStr])
 
-    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
-    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+    const roomCharges = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.roomFinalNetAmount || 0),
+      0
+    )
+    const roomTax = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.roomFinalRateTaxe || 0),
+      0
+    )
+    const discount = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.discountAmount || 0),
+      0
+    )
 
     return {
       salesType: 'Direct Room Sales',
@@ -1651,14 +1803,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax: 0,
       discount,
       adjustment: 0,
-      totalSales: roomCharges + roomTax - discount
+      totalSales: roomCharges + roomTax - discount,
     }
   }
 
   /**
    * Get Cancellation Sales Data - Cancellation fees posted on the report date
    */
-  private async getCancellationSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getCancellationSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
       .where('category', TransactionCategory.CANCELLATION_FEE)
@@ -1666,8 +1825,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
 
-    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const extraCharges = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.amount || 0),
+      0
+    )
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
 
     return {
       salesType: 'Cancellation Sales',
@@ -1677,14 +1839,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax,
       discount: 0,
       adjustment: 0,
-      totalSales: extraCharges + extraTax
+      totalSales: extraCharges + extraTax,
     }
   }
 
   /**
    * Get No Show Sales Data - No show fees posted on the report date
    */
-  private async getNoShowSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getNoShowSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
       .where('category', TransactionCategory.NO_SHOW_FEE)
@@ -1692,8 +1861,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
 
-    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const extraCharges = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.amount || 0),
+      0
+    )
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
 
     return {
       salesType: 'No Show Sales',
@@ -1703,14 +1875,22 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax,
       discount: 0,
       adjustment: 0,
-      totalSales: extraCharges + extraTax
+      totalSales: extraCharges + extraTax,
     }
   }
 
   /**
    * Get Day Use Sales Data - Same day check-in and check-out reservations
    */
-  private async getDayUseSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, Reservation: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getDayUseSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    Reservation: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     // Get reservations with same check-in and check-out date
     const dayUseReservations = await Reservation.query()
       .where('hotel_id', hotelId)
@@ -1729,7 +1909,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         extraTax: 0,
         discount: 0,
         adjustment: 0,
-        totalSales: 0
+        totalSales: 0,
       }
     }
 
@@ -1740,9 +1920,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
 
-    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
-    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+    const roomCharges = transactions.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+    const roomTax = transactions.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
+    const discount = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.discountAmount || 0),
+      0
+    )
 
     return {
       salesType: 'Day Use Sales',
@@ -1752,14 +1935,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax: 0,
       discount,
       adjustment: 0,
-      totalSales: roomCharges + roomTax - discount
+      totalSales: roomCharges + roomTax - discount,
     }
   }
 
   /**
    * Get Late Checkout Sales Data - Late checkout fees posted on the report date
    */
-  private async getLateCheckoutSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getLateCheckoutSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
       .where('category', TransactionCategory.LATE_CHECKOUT_FEE)
@@ -1767,8 +1957,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
 
-    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
+    const extraCharges = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.amount || 0),
+      0
+    )
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
 
     return {
       salesType: 'Late Checkout Sales',
@@ -1778,14 +1971,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax,
       discount: 0,
       adjustment: 0,
-      totalSales: extraCharges + extraTax
+      totalSales: extraCharges + extraTax,
     }
   }
 
   /**
    * Get Incidental Sales Data - Incidental charges posted on the report date
    */
-  private async getIncidentalSalesData(hotelId: number, reportDateStr: string, FolioTransaction: any, TransactionCategory: any, TransactionType: any, TransactionStatus: any) {
+  private async getIncidentalSalesData(
+    hotelId: number,
+    reportDateStr: string,
+    FolioTransaction: any,
+    TransactionCategory: any,
+    TransactionType: any,
+    TransactionStatus: any
+  ) {
     const incidentalCategories = [
       TransactionCategory.FOOD_BEVERAGE,
       TransactionCategory.TELEPHONE,
@@ -1796,7 +1996,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       TransactionCategory.PARKING,
       TransactionCategory.INTERNET,
       TransactionCategory.INCIDENTAL,
-      TransactionCategory.MISCELLANEOUS
+      TransactionCategory.MISCELLANEOUS,
     ]
 
     const transactions = await FolioTransaction.query()
@@ -1806,9 +2006,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
 
-    const extraCharges = transactions.reduce((sum: number, t: any) => sum + Number((t.amount || 0)), 0)
-    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number((t.taxAmount || 0)), 0)
-    const discount = transactions.reduce((sum: number, t: any) => sum + Number((t.discountAmount || 0)), 0)
+    const extraCharges = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.amount || 0),
+      0
+    )
+    const extraTax = transactions.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
+    const discount = transactions.reduce(
+      (sum: number, t: any) => sum + Number(t.discountAmount || 0),
+      0
+    )
 
     return {
       salesType: 'Incidental Sales',
@@ -1818,7 +2024,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       extraTax,
       discount,
       adjustment: 0,
-      totalSales: Number(extraCharges) + Number(extraTax) - Number(discount)
+      totalSales: Number(extraCharges) + Number(extraTax) - Number(discount),
     }
   }
 
@@ -1852,7 +2058,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       miscChargesData.push({
         room: room?.roomNumber,
         folioNo: charge.folio?.folioNumber,
-        guest: reservation?.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'N/A',
+        guest: reservation?.guest
+          ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+          : 'N/A',
         chargeDate: charge.createdAt.toFormat('dd/MM/yyyy'),
         voucherNo: charge.receiptNumber,
         charge: charge.description,
@@ -1860,7 +2068,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         units: charge.quantity || 1,
         amount: (charge.amount || 0) * (charge.quantity || 1),
         enteredOn: charge.createdAt.toFormat('dd/MM/yyyy HH:mm'),
-        remark: charge.notes
+        remark: charge.notes,
       })
 
       totals.units += charge.quantity || 1
@@ -1921,7 +2129,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       vacant: vacantCount,
       departed: departedCount,
       reserved: reservedCount,
-      blocked: blockedCount
+      blocked: blockedCount,
     }
   }
 
@@ -1964,7 +2172,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       vacant: [] as any[],
       departed: [] as any[],
       reserved: [] as any[],
-      blocked: [] as any[]
+      blocked: [] as any[],
     }
 
     // Get reservations checking out today
@@ -2001,8 +2209,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     })
 
     // Process current reservations
-    reservations.forEach(reservation => {
-      reservation.reservationRooms.forEach(rr => {
+    reservations.forEach((reservation) => {
+      reservation.reservationRooms.forEach((rr) => {
         if (rr.roomId) {
           occupiedRoomIds.add(rr.roomId)
         }
@@ -2010,8 +2218,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     })
 
     // Process due out rooms
-    checkingOutToday.forEach(reservation => {
-      reservation.reservationRooms.forEach(rr => {
+    checkingOutToday.forEach((reservation) => {
+      reservation.reservationRooms.forEach((rr) => {
         if (rr.roomId) {
           dueOutRoomIds.add(rr.roomId)
         }
@@ -2019,8 +2227,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     })
 
     // Process arriving today (reserved)
-    arrivingToday.forEach(reservation => {
-      reservation.reservationRooms.forEach(rr => {
+    arrivingToday.forEach((reservation) => {
+      reservation.reservationRooms.forEach((rr) => {
         if (rr.roomId) {
           reservedRoomIds.add(rr.roomId)
         }
@@ -2028,8 +2236,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     })
 
     // Process departed rooms
-    departedToday.forEach(reservation => {
-      reservation.reservationRooms.forEach(rr => {
+    departedToday.forEach((reservation) => {
+      reservation.reservationRooms.forEach((rr) => {
         if (rr.roomId) {
           departedRoomIds.add(rr.roomId)
         }
@@ -2037,11 +2245,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     })
 
     // Categorize all rooms
-    rooms.forEach(room => {
+    rooms.forEach((room) => {
       const roomInfo = {
         roomNumber: room.roomNumber,
         roomType: room.roomType?.roomTypeName || 'Unknown',
-        floorNumber: room.floorNumber
+        floorNumber: room.floorNumber,
       }
 
       if (departedRoomIds.has(room.id)) {
@@ -2058,7 +2266,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         roomsByStatus.vacant.push(roomInfo)
       }
     })
-    return roomsByStatus;
+    return roomsByStatus
   }
 
   /**
@@ -2083,9 +2291,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .preload('reservationRooms')
 
     const calculatePax = (reservations: any[]) => {
-      let rooms = 0, adults = 0, children = 0
+      let rooms = 0,
+        adults = 0,
+        children = 0
 
-      reservations.forEach(reservation => {
+      reservations.forEach((reservation) => {
         reservation.reservationRooms.forEach((rr: any) => {
           rooms += 1
           adults += rr.adults || 1
@@ -2104,14 +2314,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         status: 'Due Out',
         rooms: dueOutPax.rooms,
         adults: dueOutPax.adults,
-        children: dueOutPax.children
+        children: dueOutPax.children,
       },
       {
         status: 'Stayover',
         rooms: stayoverPax.rooms,
         adults: stayoverPax.adults,
-        children: stayoverPax.children
-      }
+        children: stayoverPax.children,
+      },
     ]
   }
 
@@ -2132,9 +2342,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         })
       })
 
-    const rateTypeAnalysis: { [key: string]: { adults: number, children: number } } = {}
+    const rateTypeAnalysis: { [key: string]: { adults: number; children: number } } = {}
 
-    reservations.forEach(reservation => {
+    reservations.forEach((reservation) => {
       reservation.reservationRooms.forEach((rr: any) => {
         const rateTypeName = rr.roomRates?.rateType?.rateTypeName
         if (!rateTypeAnalysis[rateTypeName]) {
@@ -2151,7 +2361,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .map(([rateType, data]) => ({
         rateType,
         adults: data.adults,
-        children: data.children
+        children: data.children,
       }))
   }
 
@@ -2389,7 +2599,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           </tr>
         </thead>
         <tbody>
-          ${sectionsData.roomCharges.data.map((row: any) => `
+          ${sectionsData.roomCharges.data
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -2405,7 +2617,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             <td class="number">${row.variance?.toFixed(0)}</td>
             <td>${row.checkinBy}</td>
           </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
           <tr class="totals-row">
            <td><strong></strong></td>
             <td><strong></strong></td>
@@ -2443,7 +2657,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           </tr>
         </thead>
         <tbody>
-          ${sectionsData.dailySales.data.map((row: any) => `
+          ${sectionsData.dailySales.data
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.salesType}</td>
             <td class="number ">${formatCurrency(row.roomCharges)}</td>
@@ -2454,7 +2670,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             <td class="number">${formatCurrency(row.adjustment)}</td>
             <td class="number">${formatCurrency(row.totalSales)}</td>
           </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
           <tr class="totals-row">
             <td><strong>Total (${currency})</strong></td>
             <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.roomCharges)}</strong></td>
@@ -2489,7 +2707,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           </tr>
         </thead>
         <tbody>
-          ${sectionsData.miscCharges.data.map((row: any) => `
+          ${sectionsData.miscCharges.data
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -2503,7 +2723,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             <td class="center">${row.enteredOn}</td>
             <td>${row.remark ?? ''}</td>
           </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
           <tr class="totals-row">
             <td><strong></strong></td>
             <td><strong></strong></td>
@@ -2565,14 +2787,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           </tr>
         </thead>
         <tbody>
-          ${sectionsData.paxStatus.map((row: any) => `
+          ${sectionsData.paxStatus
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.status}</td>
             <td class="number">${row.rooms}</td>
             <td class="number">${row.adults}</td>
             <td class="number">${row.children}</td>
           </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
@@ -2589,13 +2815,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           </tr>
         </thead>
         <tbody>
-          ${sectionsData.paxAnalysis.map((row: any) => `
+          ${sectionsData.paxAnalysis
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.rateType}</td>
             <td class="number">${row.adults}</td>
             <td class="number">${row.children}</td>
           </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
@@ -2619,43 +2849,43 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate: DateTime.now().startOf('month').toISO(),
-        endDate: DateTime.now().endOf('month').toISO()
+        endDate: DateTime.now().endOf('month').toISO(),
       }
 
       // Get key statistics for dashboard
       const [occupancyData, revenueData, arrivalData] = await Promise.all([
         ReportsService.getOccupancyReport(filters),
         ReportsService.getRevenueReport(filters),
-        ReportsService.getArrivalList(filters)
+        ReportsService.getArrivalList(filters),
       ])
 
       const stats = {
         occupancy: {
           current: occupancyData.summary?.averageOccupancyRate || 0,
           max: occupancyData.summary?.maxOccupancyRate || 0,
-          min: occupancyData.summary?.minOccupancyRate || 0
+          min: occupancyData.summary?.minOccupancyRate || 0,
         },
         revenue: {
           total: revenueData.summary?.totalRevenue || 0,
           average: revenueData.summary?.averageDailyRevenue || 0,
-          reservations: revenueData.summary?.totalReservations || 0
+          reservations: revenueData.summary?.totalReservations || 0,
         },
         arrivals: {
           today: arrivalData.totalRecords || 0,
           totalRevenue: arrivalData.summary?.totalRevenue || 0,
-          totalNights: arrivalData.summary?.totalNights || 0
-        }
+          totalNights: arrivalData.summary?.totalNights || 0,
+        },
       }
 
       return response.ok({
         success: true,
-        data: stats
+        data: stats,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Erreur lors de la récupération des statistiques',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -2671,21 +2901,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!hotelId) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID is required'
+          message: 'Hotel ID is required',
         })
       }
 
       if (!asOnDate) {
         return response.badRequest({
           success: false,
-          message: 'As On Date is required'
+          message: 'As On Date is required',
         })
       }
 
       if (!currency) {
         return response.badRequest({
           success: false,
-          message: 'Currency is required'
+          message: 'Currency is required',
         })
       }
 
@@ -2694,7 +2924,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!reportDate.isValid) {
         return response.badRequest({
           success: false,
-          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)',
         })
       }
 
@@ -2712,10 +2942,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       // Generate all sections data
       let sectionsData: any = {}
-      const auditDetails = await NightAuditService.getNightAuditDetails(
-        reportDate,
-        Number(hotelId)
-      )
+      const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
       if (auditDetails && auditDetails?.managerReportData) {
         sectionsData = auditDetails?.managerReportData
       } else {
@@ -2789,12 +3016,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '120px',
           right: '10px',
           bottom: '70px',
-          left: '10px'
+          left: '10px',
         },
         displayHeaderFooter: true,
         headerTemplate,
         footerTemplate,
-        printBackground: true
+        printBackground: true,
       })
 
       // Set response headers
@@ -2808,14 +3035,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Failed to generate management report PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
   /**
    * Generate all sections data for Management Report
    */
-  public async generateManagementReportSections(hotelId: number, reportDate: DateTime, currency: string) {
+  public async generateManagementReportSections(
+    hotelId: number,
+    reportDate: DateTime,
+    currency: string
+  ) {
     // Calculate PTD (Period To Date) - first day of month to report date
     const ptdStartDate = reportDate.startOf('month')
 
@@ -2823,45 +3054,94 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     const ytdStartDate = reportDate.startOf('year')
 
     // Section 1: Room Charges
-    const roomCharges = await this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+    const roomCharges = await this.getManagementRoomChargesData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate,
+      currency
+    )
 
     // Section 2: Extra Charges
-    const extraCharges = await this.getManagementExtraChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+    const extraCharges = await this.getManagementExtraChargesData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate
+    )
 
     // Section 3: Discounts
-    const discounts = await this.getManagementDiscountData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+    const discounts = await this.getManagementDiscountData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate
+    )
 
     // Section 4: Adjustments
-    const adjustments = await this.getManagementAdjustmentsData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+    const adjustments = await this.getManagementAdjustmentsData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate
+    )
 
     // Section 5: Tax
     const tax = await this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate)
 
     // Section 6: Payments
-    const payments = await this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate)
+    const payments = await this.getManagementPaymentData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate
+    )
 
     // Section 7: City Ledger
-    const cityLedger = await this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+    const cityLedger = await this.getManagementCityLedgerData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate,
+      currency
+    )
 
     // Section 8: Advance Deposit Ledger
-    const advanceDepositLedger = await this.getManagementAdvanceDepositLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+    const advanceDepositLedger = await this.getManagementAdvanceDepositLedgerData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate,
+      currency
+    )
 
     // Section 9: Guest Ledger
-    const guestLedger = await this.getManagementGuestLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency)
+    const guestLedger = await this.getManagementGuestLedgerData(
+      hotelId,
+      reportDate,
+      ptdStartDate,
+      ytdStartDate,
+      currency
+    )
 
     // Section 10: Room Summary
     const roomSummary = await this.getManagementRoomSummaryData(hotelId, reportDate)
 
     // Section 11: Statistics
-    const statistics = await this.getManagementStatisticsData(hotelId, reportDate, roomCharges, roomSummary)
+    const statistics = await this.getManagementStatisticsData(
+      hotelId,
+      reportDate,
+      roomCharges,
+      roomSummary
+    )
     // section 12
-    const posSummary = await this.getManagementPosSummaryData(hotelId, reportDate);
+    const posSummary = await this.getManagementPosSummaryData(hotelId, reportDate)
     // section 13
-    const posPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate);
+    const posPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate)
     // Section 14: Revenue Summary
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
     // section 15 Total revenu
-    const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary);
+    const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary)
 
     // New: Revenue breakdowns for the audit day
     const revenueByRateType = await this.getRevenueByRateTypeForDay(hotelId, reportDate)
@@ -2883,7 +3163,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       revenueSummary,
       totalRevenue,
       revenueByRateType,
-      revenueByRoomType
+      revenueByRoomType,
     }
   }
 
@@ -2898,7 +3178,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     printedBy: string = 'System'
   ): Promise<string> {
     const { default: edge } = await import('edge.js')
-    const path = await import('path')
+    const path = await import('node:path')
     logger.info(sectionsData)
 
     // Configure Edge with views directory
@@ -2925,25 +3205,37 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     // Calculate totals
     const totals = {
       revenueWithoutTax: {
-        today: (sectionsData.roomCharges?.total?.today || 0) + (sectionsData.extraCharges.totals?.today || 0) - Math.abs(sectionsData.discounts.totals?.today || 0) + (sectionsData.adjustments?.today || 0),
-        ptd: (sectionsData.roomCharges?.total?.ptd || 0) + (sectionsData.extraCharges.totals?.ptd || 0) - Math.abs((sectionsData.discounts.totals?.ptd || 0)) + (sectionsData.adjustments?.ptd || 0),
-        ytd: (sectionsData.roomCharges?.total?.ytd || 0) + (sectionsData.extraCharges.totals?.ytd || 0) - Math.abs((sectionsData.discounts.totals?.ytd || 0)) + (sectionsData.adjustments?.ytd || 0)
+        today:
+          (sectionsData.roomCharges?.total?.today || 0) +
+          (sectionsData.extraCharges.totals?.today || 0) -
+          Math.abs(sectionsData.discounts.totals?.today || 0) +
+          (sectionsData.adjustments?.today || 0),
+        ptd:
+          (sectionsData.roomCharges?.total?.ptd || 0) +
+          (sectionsData.extraCharges.totals?.ptd || 0) -
+          Math.abs(sectionsData.discounts.totals?.ptd || 0) +
+          (sectionsData.adjustments?.ptd || 0),
+        ytd:
+          (sectionsData.roomCharges?.total?.ytd || 0) +
+          (sectionsData.extraCharges.totals?.ytd || 0) -
+          Math.abs(sectionsData.discounts.totals?.ytd || 0) +
+          (sectionsData.adjustments?.ytd || 0),
       },
       revenueWithTax: {
         today: 0,
         ptd: 0,
-        ytd: 0
+        ytd: 0,
       },
       posToPs: {
         today: sectionsData.postings?.posToPmsPosting?.today || 0,
         ptd: sectionsData.postings?.posToPmsPosting?.ptd || 0,
-        ytd: sectionsData.postings?.posToPmsPosting?.ytd || 0
+        ytd: sectionsData.postings?.posToPmsPosting?.ytd || 0,
       },
       transferToGuestLedger: {
         today: sectionsData.postings?.transferChargesToGuestLedger?.today || 0,
         ptd: sectionsData.postings?.transferChargesToGuestLedger?.ptd || 0,
-        ytd: sectionsData.postings?.transferChargesToGuestLedger?.ytd || 0
-      }
+        ytd: sectionsData.postings?.transferChargesToGuestLedger?.ytd || 0,
+      },
     }
 
     // Calculate revenue with tax
@@ -2966,7 +3258,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       totalPages: 1, // Will be calculated by PDF service
       content: {
         ...sectionsData,
-        totals
+        totals,
       },
       formatCurrency,
       // Header specific data
@@ -2974,14 +3266,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         hotelName,
         reportTitle: 'Management Report',
         reportDate: asOnDate,
-        currency
+        currency,
       },
       // Footer specific data
       footer: {
         printedBy,
         printedOn,
-        pageInfo: 'Page {currentPage} of {totalPages}'
-      }
+        pageInfo: 'Page {currentPage} of {totalPages}',
+      },
     }
 
     // Render template
@@ -2991,7 +3283,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
   /**
    * Get Room Charges data for Management Report
    */
-  private async getManagementRoomChargesData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+  private async getManagementRoomChargesData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime,
+    currency: string
+  ) {
     try {
       const { default: FolioTransaction } = await import('#models/folio_transaction')
 
@@ -3004,7 +3302,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         })
         .where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
         .where('category', 'room')
-        .where('transaction_type',TransactionType.CHARGE)
+        .where('transaction_type', TransactionType.CHARGE)
         .whereNotIn('status', ['cancelled', 'void'])
 
       // PTD room charges
@@ -3014,7 +3312,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.toFormat('yyyy-MM-dd'),
+        ])
         .where('category', 'room')
         .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3025,7 +3326,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.toFormat('yyyy-MM-dd'),
+        ])
         .where('category', 'room')
         .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3047,17 +3351,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         roomCharges: {
           today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
           ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
-          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0)
+          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
         },
         cancellationRevenue: {
           today: todayCancellation,
           ptd: ptdCancellation,
-          ytd: ytdCancellation
+          ytd: ytdCancellation,
         },
         noShowRevenue: {
           today: todayNoShow,
           ptd: ptdNoShow,
-          ytd: ytdNoShow
+          ytd: ytdNoShow,
         },
         lateCheckoutCharges: {
           today: todayLateCheckout,
@@ -3065,10 +3369,19 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           ytd: ytdLateCheckout,
         },
         total: {
-          today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(todayCancellation) + Number(todayNoShow),
-          ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(ptdCancellation) + Number(ptdNoShow),
-          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) + Number(ytdCancellation) + Number(ytdNoShow)
-        }
+          today:
+            todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) +
+            Number(todayCancellation) +
+            Number(todayNoShow),
+          ptd:
+            ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) +
+            Number(ptdCancellation) +
+            Number(ptdNoShow),
+          ytd:
+            ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) +
+            Number(ytdCancellation) +
+            Number(ytdNoShow),
+        },
       }
     } catch (error) {
       console.error('Error in getManagementRoomChargesData:', error)
@@ -3077,7 +3390,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         cancellationRevenue: { today: 0, ptd: 0, ytd: 0 },
         noShowRevenue: { today: 0, ptd: 0, ytd: 0 },
         lateCheckoutCharges: { today: 0, ptd: 0, ytd: 0 },
-        total: { today: 0, ptd: 0, ytd: 0 }
+        total: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
@@ -3091,11 +3404,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     const result = await FolioTransaction.query()
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .where('status', ReservationStatus.CANCELLED)
+          reservationQuery.where('hotel_id', hotelId).where('status', ReservationStatus.CANCELLED)
         })
       })
-      .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [
+        startDate.toFormat('yyyy-MM-dd'),
+        endDate.toFormat('yyyy-MM-dd'),
+      ])
       .where('category', TransactionCategory.CANCELLATION_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3111,11 +3426,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     const result = await FolioTransaction.query()
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
-            .where('status', ReservationStatus.NOSHOW)
+          reservationQuery.where('hotel_id', hotelId).where('status', ReservationStatus.NOSHOW)
         })
       })
-      .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [
+        startDate.toFormat('yyyy-MM-dd'),
+        endDate.toFormat('yyyy-MM-dd'),
+      ])
       .where('category', TransactionCategory.NO_SHOW_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3134,7 +3451,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           reservationQuery.where('hotel_id', hotelId)
         })
       })
-      .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [
+        startDate.toFormat('yyyy-MM-dd'),
+        endDate.toFormat('yyyy-MM-dd'),
+      ])
       .where('category', TransactionCategory.LATE_CHECKOUT_FEE)
       .whereNotIn('status', ['cancelled', 'void'])
 
@@ -3163,7 +3483,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       })
 
     // Aggregate by rate type using in-memory grouping
-    const byRate = new Map<string, { revenue: number, roomIds: Set<number>, order: number }>()
+    const byRate = new Map<string, { revenue: number; roomIds: Set<number>; order: number }>()
     for (const tx of transactions) {
       const rateName = tx.reservationRoom?.rateType?.rateTypeName || 'Unknown'
       const order = 0 // RateType has no sort_order; default to 0
@@ -3193,11 +3513,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return { rateType, roomNights, roomRevenue, adr, nightsPct, revenuePct, order: g.order }
     })
     // Order by rate type sort order ascending, then by revenue desc
-    return result
-      .sort((a, b) => {
-        if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
-        return b.roomRevenue - a.roomRevenue
-      })
+    return result.sort((a, b) => {
+      if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
+      return b.roomRevenue - a.roomRevenue
+    })
   }
 
   /**
@@ -3222,11 +3541,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       })
 
     // Aggregate by room type using in-memory grouping
-    const byRoomType = new Map<string, { revenue: number, roomIds: Set<number>, order: number }>()
+    const byRoomType = new Map<string, { revenue: number; roomIds: Set<number>; order: number }>()
     for (const tx of transactions) {
       const roomTypeName = tx.reservationRoom?.roomType?.roomTypeName || 'Unknown'
       const order = Number(tx.reservationRoom?.roomType?.sortOrder ?? 0)
-      const group = byRoomType.get(roomTypeName) || { revenue: 0, roomIds: new Set<number>(), order }
+      const group = byRoomType.get(roomTypeName) || {
+        revenue: 0,
+        roomIds: new Set<number>(),
+        order,
+      }
       group.revenue += Number(tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
       group.order = Math.min(group.order, order)
@@ -3251,24 +3574,28 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return { roomType, roomNights, roomRevenue, adr, nightsPct, revenuePct, order: g.order }
     })
     // Order by room type sort order ascending, then by revenue desc
-    return result
-      .sort((a, b) => {
-        if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
-        return b.roomRevenue - a.roomRevenue
-      })
+    return result.sort((a, b) => {
+      if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0)
+      return b.roomRevenue - a.roomRevenue
+    })
   }
 
   /**
    * Get Extra Charges data for Management Report
    */
-  private async getManagementExtraChargesData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+  private async getManagementExtraChargesData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: ExtraCharge } = await import('#models/extra_charge')
 
     // Get all extra charges for the hotel
     const extraCharges = await ExtraCharge.query()
       .where('hotel_id', hotelId)
-      .where('is_deleted',false)
+      .where('is_deleted', false)
       .select('id', 'name', 'short_code')
 
     const getExtraChargesByPeriod = async (startDate: DateTime, endDate: DateTime) => {
@@ -3279,7 +3606,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
         .whereNotNull('description')
@@ -3291,15 +3621,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       let totalExtraCharges = 0
 
       // Initialize all extra charges with 0
-      extraCharges.forEach(extraCharge => {
+      extraCharges.forEach((extraCharge) => {
         extraChargeAmounts[extraCharge.name] = 0
       })
 
       // Match transaction descriptions with extra charge names
-      transactions.forEach(transaction => {
+      transactions.forEach((transaction) => {
         const description = transaction.description?.toLowerCase() || ''
 
-        extraCharges.forEach(extraCharge => {
+        extraCharges.forEach((extraCharge) => {
           const extraChargeName = extraCharge.name?.toLowerCase() || ''
 
           // Check if transaction description contains the extra charge name or short code
@@ -3326,16 +3656,16 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       totals: {
         today: todayData.totalExtraCharges,
         ptd: ptdData.totalExtraCharges,
-        ytd: ytdData.totalExtraCharges
-      }
+        ytd: ytdData.totalExtraCharges,
+      },
     }
 
     // Add individual extra charge data
-    extraCharges.forEach(extraCharge => {
+    extraCharges.forEach((extraCharge) => {
       result.extraCharges[extraCharge.name] = {
         today: todayData.extraChargeAmounts[extraCharge.name] || 0,
         ptd: ptdData.extraChargeAmounts[extraCharge.name] || 0,
-        ytd: ytdData.extraChargeAmounts[extraCharge.name] || 0
+        ytd: ytdData.extraChargeAmounts[extraCharge.name] || 0,
       }
     })
 
@@ -3345,14 +3675,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
   /**
    * Get Discount data for Management Report
    */
-  private async getManagementDiscountData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+  private async getManagementDiscountData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: Discount } = await import('#models/discount')
 
     // Get all active discounts for the hotel
-    const discounts = await Discount.query()
-      .where('hotel_id', hotelId)
-      .where('status', 'active')
+    const discounts = await Discount.query().where('hotel_id', hotelId).where('status', 'active')
 
     const getDiscountData = async (discount: any, startDate: DateTime, endDate: DateTime) => {
       const transactions = await FolioTransaction.query()
@@ -3361,14 +3694,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
         .where('discount_id', discount.id)
         .where('status', 'posted')
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
         .whereNotNull('discount_amount')
 
-      return transactions.reduce((sum: number, t: any) => sum + Math.abs(Number(t.discountAmount || 0)), 0)
+      return transactions.reduce(
+        (sum: number, t: any) => sum + Math.abs(Number(t.discountAmount || 0)),
+        0
+      )
     }
 
     const discountData = []
@@ -3389,7 +3728,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         applyOn: discount.applyOn,
         today,
         ptd,
-        ytd
+        ytd,
       })
       totalToday += today
       totalPtd += ptd
@@ -3401,19 +3740,24 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       totals: {
         today: totalToday,
         ptd: totalPtd,
-        ytd: totalYtd
+        ytd: totalYtd,
       },
       // Backward compatibility
       today: totalToday,
       ptd: totalPtd,
-      ytd: totalYtd
+      ytd: totalYtd,
     }
   }
 
   /**
    * Get Adjustments data for Management Report
    */
-  private async getManagementAdjustmentsData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+  private async getManagementAdjustmentsData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
 
     const getAdjustmentData = async (startDate: DateTime, endDate: DateTime) => {
@@ -3423,7 +3767,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
         .where('category', 'adjustment')
         .where('status', 'posted')
         .whereNotIn('status', ['cancelled', 'voided'])
@@ -3438,7 +3785,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         const description = transaction.particular
 
         // Check if it's a round off adjustment
-        const isRoundOff = description.toLowerCase().includes('round') ||
+        const isRoundOff =
+          description.toLowerCase().includes('round') ||
           description.toLowerCase().includes('unit adjustment') ||
           Math.abs(amount) < 1 // Small amounts are likely round offs
 
@@ -3451,7 +3799,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           adjustmentTypes[adjustmentType] += amount
           totalAmount += amount
         }
-
       })
 
       return { types: adjustmentTypes, total: totalAmount }
@@ -3465,37 +3812,44 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     const allTypes = new Set([
       ...Object.keys(todayData.types),
       ...Object.keys(ptdData.types),
-      ...Object.keys(ytdData.types)
+      ...Object.keys(ytdData.types),
     ])
 
-    const adjustmentData = Array.from(allTypes).map(type => ({
-      name: type,
-      today: todayData.types[type] || 0,
-      ptd: ptdData.types[type] || 0,
-      ytd: ytdData.types[type] || 0
-    })).filter(adj => adj.today !== 0 || adj.ptd !== 0 || adj.ytd !== 0)
+    const adjustmentData = Array.from(allTypes)
+      .map((type) => ({
+        name: type,
+        today: todayData.types[type] || 0,
+        ptd: ptdData.types[type] || 0,
+        ytd: ytdData.types[type] || 0,
+      }))
+      .filter((adj) => adj.today !== 0 || adj.ptd !== 0 || adj.ytd !== 0)
 
     return {
       adjustments: adjustmentData,
       totals: {
         today: todayData.total,
         ptd: ptdData.total,
-        ytd: ytdData.total
+        ytd: ytdData.total,
       },
       // Backward compatibility
       today: todayData.total,
       ptd: ptdData.total,
-      ytd: ytdData.total
+      ytd: ytdData.total,
     }
   }
 
   /**
    * Get Tax data for Management Report
    */
-  private async getManagementTaxData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+  private async getManagementTaxData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: Tax } = await import('#models/tax_rate')
-    const taxs = await Tax.query().where('hotel_id', hotelId);
+    const taxs = await Tax.query().where('hotel_id', hotelId)
     // logger.info(taxs)
 
     const getTaxData = async (taxId: number, startDate: DateTime, endDate: DateTime) => {
@@ -3507,7 +3861,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
         .where('status', 'posted')
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
@@ -3516,16 +3873,16 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         })
         .select('id', 'category', 'tax_amount', 'tax_rate', 'description', 'particular')
 
-
       let taxesAmount = 0
 
       transactions.forEach((transaction: any) => {
         // Process taxes from the relationship
         if (transaction.taxes && transaction.taxes.length > 0) {
-          transaction.taxes.filter((tax: any) => tax.taxRateId === taxId).forEach((tax: any) => {
-            taxesAmount += Number(tax.$pivot.taxAmount || 0)
-
-          })
+          transaction.taxes
+            .filter((tax: any) => tax.taxRateId === taxId)
+            .forEach((tax: any) => {
+              taxesAmount += Number(tax.$pivot.taxAmount || 0)
+            })
         }
       })
 
@@ -3543,7 +3900,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         name: tax.taxName,
         today,
         ptd,
-        ytd
+        ytd,
       })
       totalToday += today
       totalPtd += ptd
@@ -3554,31 +3911,40 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       totals: {
         today: totalToday,
         ptd: totalPtd,
-        ytd: totalYtd
+        ytd: totalYtd,
       },
       // Backward compatibility
       today: totalToday,
       ptd: totalPtd,
-      ytd: totalYtd
+      ytd: totalYtd,
     }
-
   }
 
   /**
    * Get Payment data for Management Report
    */
-  private async getManagementPaymentData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime) {
+  private async getManagementPaymentData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
 
     const getPaymentsByMethod = async (startDate: DateTime, endDate: DateTime) => {
-      const paymentMethods = await PaymentMethod.query().where('hotel_id', hotelId).where('methodType', PaymentMethodType.CASH);
+      const paymentMethods = await PaymentMethod.query()
+        .where('hotel_id', hotelId)
+        .where('methodType', PaymentMethodType.CASH)
       const payments = await FolioTransaction.query()
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
           })
         })
-        .whereBetween('current_working_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
         .where('transaction_type', TransactionType.PAYMENT)
         .whereNotIn('status', ['cancel', 'voided'])
         .whereNot('isVoided', true)
@@ -3586,15 +3952,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .preload('paymentMethod')
       const paymentMethodsList: any = {}
       let totalPayments = 0
-      paymentMethods.forEach(paymentMethod => {
+      paymentMethods.forEach((paymentMethod) => {
         paymentMethodsList[paymentMethod.methodName] = 0
       })
-      payments.filter(payment => payment.paymentMethod)?.forEach(payment => {
-        const method: any = payment.paymentMethod.methodName
-        const amount = Math.abs(payment.totalAmount || 0) // Payments are typically negative
-        paymentMethodsList[method] += amount
-        totalPayments += amount
-      })
+      payments
+        .filter((payment) => payment.paymentMethod)
+        ?.forEach((payment) => {
+          const method: any = payment.paymentMethod.methodName
+          const amount = Math.abs(payment.totalAmount || 0) // Payments are typically negative
+          paymentMethodsList[method] += amount
+          totalPayments += amount
+        })
 
       return { methods: paymentMethodsList, total: totalPayments }
     }
@@ -3607,15 +3975,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     const allMethods = new Set([
       ...Object.keys(todayPayments.methods),
       ...Object.keys(ptdPayments.methods),
-      ...Object.keys(ytdPayments.methods)
+      ...Object.keys(ytdPayments.methods),
     ])
 
     const paymentsByMethod = {}
-    allMethods.forEach(method => {
+    allMethods.forEach((method) => {
       paymentsByMethod[method] = {
         today: todayPayments.methods[method] || 0,
         ptd: ptdPayments.methods[method] || 0,
-        ytd: ytdPayments.methods[method] || 0
+        ytd: ytdPayments.methods[method] || 0,
       }
     })
 
@@ -3624,15 +3992,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       total: {
         today: todayPayments.total,
         ptd: ptdPayments.total,
-        ytd: ytdPayments.total
-      }
+        ytd: ytdPayments.total,
+      },
     }
   }
 
   /**
    * Placeholder methods for remaining sections - to be implemented
    */
-  private async getManagementCityLedgerData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+  private async getManagementCityLedgerData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime,
+    currency: string
+  ) {
     try {
       const { default: FolioTransaction } = await import('#models/folio_transaction')
       const { default: PaymentMethod } = await import('#models/payment_method')
@@ -3645,7 +4019,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('method_type', PaymentMethodType.CITY_LEDGER)
         .where('is_active', true)
 
-      const cityLedgerPaymentMethodIds = cityLedgerPaymentMethods.map(pm => pm.id)
+      const cityLedgerPaymentMethodIds = cityLedgerPaymentMethods.map((pm) => pm.id)
 
       if (cityLedgerPaymentMethodIds.length === 0) {
         return {
@@ -3653,7 +4027,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           paymentReceived: { today: 0, ptd: 0, ytd: 0 },
           chargesRaised: { today: 0, ptd: 0, ytd: 0 },
           outstandingCommission: { today: 0, ptd: 0, ytd: 0 },
-          closingBalance: { today: 0, ptd: 0, ytd: 0 }
+          closingBalance: { today: 0, ptd: 0, ytd: 0 },
         }
       }
 
@@ -3684,7 +4058,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3692,7 +4069,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3700,7 +4080,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3709,7 +4092,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3717,7 +4103,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3725,7 +4114,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3734,7 +4126,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3742,7 +4137,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
@@ -3750,20 +4148,26 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
         .where('is_commissionable', true)
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('commission_amount as total')
 
       // Calculate closing balance
-      const closingBalanceToday = (openingBalanceToday[0]?.$extras?.total || 0) +
+      const closingBalanceToday =
+        (openingBalanceToday[0]?.$extras?.total || 0) +
         (chargesToday[0]?.$extras?.total || 0) -
         Math.abs(paymentsToday[0]?.$extras?.total || 0)
 
-      const closingBalancePTD = (openingBalancePTD[0]?.$extras?.total || 0) +
+      const closingBalancePTD =
+        (openingBalancePTD[0]?.$extras?.total || 0) +
         (chargesPTD[0]?.$extras?.total || 0) -
         Math.abs(paymentsPTD[0]?.$extras?.total || 0)
 
-      const closingBalanceYTD = (openingBalanceYTD[0]?.$extras?.total || 0) +
+      const closingBalanceYTD =
+        (openingBalanceYTD[0]?.$extras?.total || 0) +
         (chargesYTD[0]?.$extras?.total || 0) -
         Math.abs(paymentsYTD[0]?.$extras?.total || 0)
 
@@ -3771,28 +4175,28 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         openingBalance: {
           today: openingBalanceToday[0]?.$extras?.total || 0,
           ptd: openingBalancePTD[0]?.$extras?.total || 0,
-          ytd: openingBalanceYTD[0]?.$extras?.total || 0
+          ytd: openingBalanceYTD[0]?.$extras?.total || 0,
         },
         paymentReceived: {
           today: Math.abs(paymentsToday[0]?.$extras?.total || 0),
           ptd: Math.abs(paymentsPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(paymentsYTD[0]?.$extras?.total || 0)
+          ytd: Math.abs(paymentsYTD[0]?.$extras?.total || 0),
         },
         chargesRaised: {
           today: chargesToday[0]?.$extras?.total || 0,
           ptd: chargesPTD[0]?.$extras?.total || 0,
-          ytd: chargesYTD[0]?.$extras?.total || 0
+          ytd: chargesYTD[0]?.$extras?.total || 0,
         },
         outstandingCommission: {
           today: commissionToday[0]?.$extras?.total || 0,
           ptd: commissionPTD[0]?.$extras?.total || 0,
-          ytd: commissionYTD[0]?.$extras?.total || 0
+          ytd: commissionYTD[0]?.$extras?.total || 0,
         },
         closingBalance: {
           today: closingBalanceToday,
           ptd: closingBalancePTD,
-          ytd: closingBalanceYTD
-        }
+          ytd: closingBalanceYTD,
+        },
       }
     } catch (error) {
       console.error('Error in getManagementCityLedgerData:', error)
@@ -3801,12 +4205,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         paymentReceived: { today: 0, ptd: 0, ytd: 0 },
         chargesRaised: { today: 0, ptd: 0, ytd: 0 },
         outstandingCommission: { today: 0, ptd: 0, ytd: 0 },
-        closingBalance: { today: 0, ptd: 0, ytd: 0 }
+        closingBalance: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
 
-  private async getManagementAdvanceDepositLedgerData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+  private async getManagementAdvanceDepositLedgerData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime,
+    currency: string
+  ) {
     try {
       const { default: FolioTransaction } = await import('#models/folio_transaction')
       const { default: PaymentMethod } = await import('#models/payment_method')
@@ -3817,14 +4227,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .where('method_type', PaymentMethodType.CASH)
 
-      const advanceDepositPaymentMethodIds = advanceDepositPaymentMethods.map(pm => pm.id)
+      const advanceDepositPaymentMethodIds = advanceDepositPaymentMethods.map((pm) => pm.id)
 
       if (advanceDepositPaymentMethodIds.length === 0) {
         return {
           openingBalance: { today: 0, ptd: 0, ytd: 0 },
           advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
           balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-          closingBalance: { today: 0, ptd: 0, ytd: 0 }
+          closingBalance: { today: 0, ptd: 0, ytd: 0 },
         }
       }
 
@@ -3857,7 +4267,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3866,7 +4279,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', true)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3885,7 +4301,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3894,7 +4313,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -3908,15 +4330,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .sum('amount as total')
 
       // Calculate closing balance
-      const closingBalanceToday = (openingBalanceToday[0]?.$extras?.total || 0) +
+      const closingBalanceToday =
+        (openingBalanceToday[0]?.$extras?.total || 0) +
         Math.abs(depositsToday[0]?.$extras?.total || 0) -
         Math.abs(transfersToday[0]?.$extras?.total || 0)
 
-      const closingBalancePTD = (openingBalancePTD[0]?.$extras?.total || 0) +
+      const closingBalancePTD =
+        (openingBalancePTD[0]?.$extras?.total || 0) +
         Math.abs(depositsPTD[0]?.$extras?.total || 0) -
         Math.abs(transfersPTD[0]?.$extras?.total || 0)
 
-      const closingBalanceYTD = (openingBalanceYTD[0]?.$extras?.total || 0) +
+      const closingBalanceYTD =
+        (openingBalanceYTD[0]?.$extras?.total || 0) +
         Math.abs(depositsYTD[0]?.$extras?.total || 0) -
         Math.abs(transfersYTD[0]?.$extras?.total || 0)
 
@@ -3924,23 +4349,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         openingBalance: {
           today: openingBalanceToday[0]?.$extras?.total || 0,
           ptd: openingBalancePTD[0]?.$extras?.total || 0,
-          ytd: openingBalanceYTD[0]?.$extras?.total || 0
+          ytd: openingBalanceYTD[0]?.$extras?.total || 0,
         },
         advanceDepositCollected: {
           today: Math.abs(depositsToday[0]?.$extras?.total || 0),
           ptd: Math.abs(depositsPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(depositsYTD[0]?.$extras?.total || 0)
+          ytd: Math.abs(depositsYTD[0]?.$extras?.total || 0),
         },
         balanceTransferToGuestLedger: {
           today: Math.abs(transfersToday[0]?.$extras?.total || 0),
           ptd: Math.abs(transfersPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(transfersYTD[0]?.$extras?.total || 0)
+          ytd: Math.abs(transfersYTD[0]?.$extras?.total || 0),
         },
         closingBalance: {
           today: closingBalanceToday,
           ptd: closingBalancePTD,
-          ytd: closingBalanceYTD
-        }
+          ytd: closingBalanceYTD,
+        },
       }
     } catch (error) {
       console.error('Error in getManagementAdvanceDepositLedgerData:', error)
@@ -3948,12 +4373,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         openingBalance: { today: 0, ptd: 0, ytd: 0 },
         advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
         balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-        closingBalance: { today: 0, ptd: 0, ytd: 0 }
+        closingBalance: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
 
-  private async getManagementGuestLedgerData(hotelId: number, reportDate: DateTime, ptdStartDate: DateTime, ytdStartDate: DateTime, currency: string) {
+  private async getManagementGuestLedgerData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime,
+    currency: string
+  ) {
     try {
       const { default: FolioTransaction } = await import('#models/folio_transaction')
       const { default: Folio } = await import('#models/folio')
@@ -3965,7 +4396,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .where('folio_type', FolioType.GUEST)
 
-      const guestFolioIds = guestFolios.map(f => f.id)
+      const guestFolioIds = guestFolios.map((f) => f.id)
 
       if (guestFolioIds.length === 0) {
         return {
@@ -3975,7 +4406,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           settlementByGuest: { today: 0, ptd: 0, ytd: 0 },
           outstandingPaymentOnCharges: { today: 0, ptd: 0, ytd: 0 },
           transferFromAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
-          closingBalance: { today: 0, ptd: 0, ytd: 0 }
+          closingBalance: { today: 0, ptd: 0, ytd: 0 },
         }
       }
 
@@ -4007,7 +4438,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4016,7 +4450,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4025,7 +4462,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.TRANSFER)
         .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4034,7 +4474,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4042,7 +4485,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4050,7 +4496,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4060,7 +4509,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('current_working_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4069,7 +4521,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('current_working_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4078,7 +4533,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereIn('folio_id', guestFolioIds)
         .where('transaction_type', TransactionType.PAYMENT)
         .where('is_advance_deposit', false)
-        .whereBetween('current_working_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('current_working_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('is_voided', false)
         .sum('amount as total')
 
@@ -4099,17 +4557,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .sum('balance as total')
 
       // Calculate closing balance
-      const closingBalanceToday = (openingBalanceToday[0]?.$extras?.total || 0) +
+      const closingBalanceToday =
+        (openingBalanceToday[0]?.$extras?.total || 0) +
         (chargesToday[0]?.$extras?.total || 0) +
         Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0) -
         Math.abs(settlementsToday[0]?.$extras?.total || 0)
 
-      const closingBalancePTD = (openingBalancePTD[0]?.$extras?.total || 0) +
+      const closingBalancePTD =
+        (openingBalancePTD[0]?.$extras?.total || 0) +
         (chargesPTD[0]?.$extras?.total || 0) +
         Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0) -
         Math.abs(settlementsPTD[0]?.$extras?.total || 0)
 
-      const closingBalanceYTD = (openingBalanceYTD[0]?.$extras?.total || 0) +
+      const closingBalanceYTD =
+        (openingBalanceYTD[0]?.$extras?.total || 0) +
         (chargesYTD[0]?.$extras?.total || 0) +
         Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0) -
         Math.abs(settlementsYTD[0]?.$extras?.total || 0)
@@ -4118,38 +4579,38 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         openingBalance: {
           today: openingBalanceToday[0]?.$extras?.total || 0,
           ptd: openingBalancePTD[0]?.$extras?.total || 0,
-          ytd: openingBalanceYTD[0]?.$extras?.total || 0
+          ytd: openingBalanceYTD[0]?.$extras?.total || 0,
         },
         carryForwardedAdvanceDeposit: {
           today: Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0),
           ptd: Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0)
+          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0),
         },
         chargePostedToGuestLedger: {
           today: chargesToday[0]?.$extras?.total || 0,
           ptd: chargesPTD[0]?.$extras?.total || 0,
-          ytd: chargesYTD[0]?.$extras?.total || 0
+          ytd: chargesYTD[0]?.$extras?.total || 0,
         },
         settlementByGuest: {
           today: Math.abs(settlementsToday[0]?.$extras?.total || 0),
           ptd: Math.abs(settlementsPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(settlementsYTD[0]?.$extras?.total || 0)
+          ytd: Math.abs(settlementsYTD[0]?.$extras?.total || 0),
         },
         outstandingPaymentOnCharges: {
           today: outstandingToday[0]?.$extras?.total || 0,
           ptd: outstandingPTD[0]?.$extras?.total || 0,
-          ytd: outstandingYTD[0]?.$extras?.total || 0
+          ytd: outstandingYTD[0]?.$extras?.total || 0,
         },
         transferFromAdvanceDeposit: {
           today: Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0),
           ptd: Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0)
+          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0),
         },
         closingBalance: {
           today: closingBalanceToday,
           ptd: closingBalancePTD,
-          ytd: closingBalanceYTD
-        }
+          ytd: closingBalanceYTD,
+        },
       }
     } catch (error) {
       console.error('Error in getManagementGuestLedgerData:', error)
@@ -4160,40 +4621,61 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         settlementByGuest: { today: 0, ptd: 0, ytd: 0 },
         outstandingPaymentOnCharges: { today: 0, ptd: 0, ytd: 0 },
         transferFromAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
-        closingBalance: { today: 0, ptd: 0, ytd: 0 }
+        closingBalance: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
 
-  private async getManagementStatisticsData(hotelId: number, reportDate: DateTime, roomCharges: any, roomSummary: any) {
+  private async getManagementStatisticsData(
+    hotelId: number,
+    reportDate: DateTime,
+    roomCharges: any,
+    roomSummary: any
+  ) {
     try {
       // Extract values from roomSummary
-      const totalAvailableRoomNights = roomSummary.totalAvailableRoomNights || { today: 0, ptd: 0, ytd: 0 };
-      const soldRooms = roomSummary.soldRoom || { today: 0, ptd: 0, ytd: 0 };
+      const totalAvailableRoomNights = roomSummary.totalAvailableRoomNights || {
+        today: 0,
+        ptd: 0,
+        ytd: 0,
+      }
+      const soldRooms = roomSummary.soldRoom || { today: 0, ptd: 0, ytd: 0 }
 
       // Extract values from roomCharges
-      const roomRevenue = roomCharges.roomCharges || { today: 0, ptd: 0, ytd: 0 };
+      const roomRevenue = roomCharges.roomCharges || { today: 0, ptd: 0, ytd: 0 }
 
       // Calculate Occupancy Rate
       const occupancyRate = {
-        today: totalAvailableRoomNights.today > 0 ? (soldRooms.today / totalAvailableRoomNights.today) * 100 : 0,
-        ptd: totalAvailableRoomNights.ptd > 0 ? (soldRooms.ptd / totalAvailableRoomNights.ptd) * 100 : 0,
-        ytd: totalAvailableRoomNights.ytd > 0 ? (soldRooms.ytd / totalAvailableRoomNights.ytd) * 100 : 0,
-      };
+        today:
+          totalAvailableRoomNights.today > 0
+            ? (soldRooms.today / totalAvailableRoomNights.today) * 100
+            : 0,
+        ptd:
+          totalAvailableRoomNights.ptd > 0
+            ? (soldRooms.ptd / totalAvailableRoomNights.ptd) * 100
+            : 0,
+        ytd:
+          totalAvailableRoomNights.ytd > 0
+            ? (soldRooms.ytd / totalAvailableRoomNights.ytd) * 100
+            : 0,
+      }
 
       // Calculate Average Daily Rate (ADR)
       const averageDailyRate = {
         today: soldRooms.today > 0 ? roomRevenue.today / soldRooms.today : 0,
         ptd: soldRooms.ptd > 0 ? roomRevenue.ptd / soldRooms.ptd : 0,
         ytd: soldRooms.ytd > 0 ? roomRevenue.ytd / soldRooms.ytd : 0,
-      };
+      }
 
       // Calculate Revenue Per Available Room (RevPAR)
       const revenuePerAvailableRoom = {
-        today: totalAvailableRoomNights.today > 0 ? roomRevenue.today / totalAvailableRoomNights.today : 0,
+        today:
+          totalAvailableRoomNights.today > 0
+            ? roomRevenue.today / totalAvailableRoomNights.today
+            : 0,
         ptd: totalAvailableRoomNights.ptd > 0 ? roomRevenue.ptd / totalAvailableRoomNights.ptd : 0,
         ytd: totalAvailableRoomNights.ytd > 0 ? roomRevenue.ytd / totalAvailableRoomNights.ytd : 0,
-      };
+      }
 
       return {
         occupancyRate: {
@@ -4211,14 +4693,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           ptd: Math.round(revenuePerAvailableRoom.ptd * 100) / 100,
           ytd: Math.round(revenuePerAvailableRoom.ytd * 100) / 100,
         },
-      };
+      }
     } catch (error) {
-      console.error('Error in getManagementStatisticsData:', error);
+      console.error('Error in getManagementStatisticsData:', error)
       return {
         occupancyRate: { today: 0, ptd: 0, ytd: 0 },
         averageDailyRate: { today: 0, ptd: 0, ytd: 0 },
         revenuePerAvailableRoom: { today: 0, ptd: 0, ytd: 0 },
-      };
+      }
     }
   }
 
@@ -4234,7 +4716,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const ytdStartDate = reportDate.startOf('year')
 
       // Get total rooms for the hotel
-      const totalRooms: any = await Database.from('rooms').where('hotel_id', hotelId).count('* as total')
+      const totalRooms: any = await Database.from('rooms')
+        .where('hotel_id', hotelId)
+        .count('* as total')
       logger.info('total room ')
       logger.info(JSON.stringify(totalRooms[0].total))
 
@@ -4247,32 +4731,47 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const blockedRoomsPTD = await RoomBlock.query()
         .where('hotel_id', hotelId)
-        .whereBetween('block_from_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('block_from_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.toFormat('yyyy-MM-dd'),
+        ])
         .count('* as total')
 
       const blockedRoomsYTD = await RoomBlock.query()
         .where('hotel_id', hotelId)
-        .whereBetween('block_from_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.toFormat('yyyy-MM-dd')])
+        .whereBetween('block_from_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.toFormat('yyyy-MM-dd'),
+        ])
         .count('* as total')
 
       // Get guest counts (adults and children) for each period
       const guestCountsToday = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .sum('adults as adults')
         .sum('children as children')
 
       const guestCountsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .sum('adults as adults')
         .sum('children as children')
 
       const guestCountsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .sum('adults as adults')
         .sum('children as children')
@@ -4280,13 +4779,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       // Calculate available room nights for each period
       const totalRoomsCount = parseInt(totalRooms[0].total)
       const availableRoomNightsToday = totalRoomsCount - (blockedRoomsToday[0].$extras.total || 0)
-      const availableRoomNightsPTD = totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) - (blockedRoomsPTD[0].$extras.total || 0)
-      const availableRoomNightsYTD = totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) - (blockedRoomsYTD[0].$extras.total || 0)
+      const availableRoomNightsPTD =
+        totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) -
+        (blockedRoomsPTD[0].$extras.total || 0)
+      const availableRoomNightsYTD =
+        totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) -
+        (blockedRoomsYTD[0].$extras.total || 0)
 
       // Get sold rooms (occupied rooms) for each period
       const soldRoomsToday = await ReservationRoom.query()
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
+          reservationQuery
+            .where('hotel_id', hotelId)
             .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
             .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         })
@@ -4295,7 +4799,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const soldRoomsPTD = await ReservationRoom.query()
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
+          reservationQuery
+            .where('hotel_id', hotelId)
             .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
             .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         })
@@ -4304,7 +4809,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const soldRoomsYTD = await ReservationRoom.query()
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
+          reservationQuery
+            .where('hotel_id', hotelId)
             .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
             .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         })
@@ -4314,7 +4820,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       // Get day use rooms for each period
       const dayUseRoomsToday = await ReservationRoom.query()
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
+          reservationQuery
+            .where('hotel_id', hotelId)
             .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
             .where('customer_type', 'day_use')
         })
@@ -4322,7 +4829,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const dayUseRoomsPTD = await ReservationRoom.query()
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
+          reservationQuery
+            .where('hotel_id', hotelId)
             .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
             .where('customer_type', 'day_use')
         })
@@ -4330,7 +4838,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const dayUseRoomsYTD = await ReservationRoom.query()
         .whereHas('reservation', (reservationQuery) => {
-          reservationQuery.where('hotel_id', hotelId)
+          reservationQuery
+            .where('hotel_id', hotelId)
             .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
             .where('customer_type', 'day_use')
         })
@@ -4339,21 +4848,30 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       // Get complimentary rooms for each period
       const complimentaryRoomsToday = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('complimentary_room', true)
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
 
       const complimentaryRoomsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('complimentary_room', true)
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
 
       const complimentaryRoomsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('complimentary_room', true)
         .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
         .count('* as total')
@@ -4361,30 +4879,51 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       // Get no show rooms for each period
       const noShowRoomsToday = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day').toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('status', 'no_show')
         .count('* as total')
 
       const noShowRoomsPTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('status', 'no_show')
         .count('* as total')
 
       const noShowRoomsYTD = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate.toFormat('yyyy-MM-dd'), reportDate.endOf('day').toFormat('yyyy-MM-dd')])
+        .whereBetween('arrived_date', [
+          ytdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+        ])
         .where('status', 'no_show')
         .count('* as total')
 
       // Calculate average guests per room
-      const totalGuestsToday = (guestCountsToday[0].$extras.adults || 0) + (guestCountsToday[0].$extras.children || 0)
-      const totalGuestsPTD = (guestCountsPTD[0].$extras.adults || 0) + (guestCountsPTD[0].$extras.children || 0)
-      const totalGuestsYTD = (guestCountsYTD[0].$extras.adults || 0) + (guestCountsYTD[0].$extras.children || 0)
+      const totalGuestsToday =
+        (guestCountsToday[0].$extras.adults || 0) + (guestCountsToday[0].$extras.children || 0)
+      const totalGuestsPTD =
+        (guestCountsPTD[0].$extras.adults || 0) + (guestCountsPTD[0].$extras.children || 0)
+      const totalGuestsYTD =
+        (guestCountsYTD[0].$extras.adults || 0) + (guestCountsYTD[0].$extras.children || 0)
 
-      const avgGuestsPerRoomToday = (soldRoomsToday[0].$extras.total || 0) > 0 ? totalGuestsToday / (soldRoomsToday[0].$extras.total || 1) : 0
-      const avgGuestsPerRoomPTD = (soldRoomsPTD[0].$extras.total || 0) > 0 ? totalGuestsPTD / (soldRoomsPTD[0].$extras.total || 1) : 0
-      const avgGuestsPerRoomYTD = (soldRoomsYTD[0].$extras.total || 0) > 0 ? totalGuestsYTD / (soldRoomsYTD[0].$extras.total || 1) : 0
+      const avgGuestsPerRoomToday =
+        (soldRoomsToday[0].$extras.total || 0) > 0
+          ? totalGuestsToday / (soldRoomsToday[0].$extras.total || 1)
+          : 0
+      const avgGuestsPerRoomPTD =
+        (soldRoomsPTD[0].$extras.total || 0) > 0
+          ? totalGuestsPTD / (soldRoomsPTD[0].$extras.total || 1)
+          : 0
+      const avgGuestsPerRoomYTD =
+        (soldRoomsYTD[0].$extras.total || 0) > 0
+          ? totalGuestsYTD / (soldRoomsYTD[0].$extras.total || 1)
+          : 0
 
       // Get confirmed reservations for each period
       const confirmedReservationsToday = await Reservation.query()
@@ -4467,73 +5006,73 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         totalRoom: {
           today: totalRoomsCount,
           ptd: totalRoomsCount,
-          ytd: totalRoomsCount
+          ytd: totalRoomsCount,
         },
         blockRoom: {
           today: blockedRoomsToday[0].$extras.total || 0,
           ptd: blockedRoomsPTD[0].$extras.total || 0,
-          ytd: blockedRoomsYTD[0].$extras.total || 0
+          ytd: blockedRoomsYTD[0].$extras.total || 0,
         },
         noOfGuestAdult: {
           today: guestCountsToday[0].$extras.adults || 0,
           ptd: guestCountsPTD[0].$extras.adults || 0,
-          ytd: guestCountsYTD[0].$extras.adults || 0
+          ytd: guestCountsYTD[0].$extras.adults || 0,
         },
         noOfGuestChild: {
           today: guestCountsToday[0].$extras.children || 0,
           ptd: guestCountsPTD[0].$extras.children || 0,
-          ytd: guestCountsYTD[0].$extras.children || 0
+          ytd: guestCountsYTD[0].$extras.children || 0,
         },
         totalAvailableRoomNights: {
           today: Math.max(0, availableRoomNightsToday),
           ptd: Math.max(0, availableRoomNightsPTD),
-          ytd: Math.max(0, availableRoomNightsYTD)
+          ytd: Math.max(0, availableRoomNightsYTD),
         },
         soldRoom: {
           today: soldRoomsToday[0].$extras.total || 0,
           ptd: soldRoomsPTD[0].$extras.total || 0,
-          ytd: soldRoomsYTD[0].$extras.total || 0
+          ytd: soldRoomsYTD[0].$extras.total || 0,
         },
         dayUseRoom: {
           today: dayUseRoomsToday[0].$extras.total || 0,
           ptd: dayUseRoomsPTD[0].$extras.total || 0,
-          ytd: dayUseRoomsYTD[0].$extras.total || 0
+          ytd: dayUseRoomsYTD[0].$extras.total || 0,
         },
         complimentaryRoom: {
           today: complimentaryRoomsToday[0].$extras.total || 0,
           ptd: complimentaryRoomsPTD[0].$extras.total || 0,
-          ytd: complimentaryRoomsYTD[0].$extras.total || 0
+          ytd: complimentaryRoomsYTD[0].$extras.total || 0,
         },
         noShows: {
           today: noShowRoomsToday[0].$extras.total || 0,
           ptd: noShowRoomsPTD[0].$extras.total || 0,
-          ytd: noShowRoomsYTD[0].$extras.total || 0
+          ytd: noShowRoomsYTD[0].$extras.total || 0,
         },
         averageGuestPerRoom: {
           today: Math.round(avgGuestsPerRoomToday * 100) / 100,
           ptd: Math.round(avgGuestsPerRoomPTD * 100) / 100,
-          ytd: Math.round(avgGuestsPerRoomYTD * 100) / 100
+          ytd: Math.round(avgGuestsPerRoomYTD * 100) / 100,
         },
         noOfReservationsConfirm: {
           today: confirmedReservationsToday[0].$extras.total || 0,
           ptd: confirmedReservationsPTD[0].$extras.total || 0,
-          ytd: confirmedReservationsYTD[0].$extras.total || 0
+          ytd: confirmedReservationsYTD[0].$extras.total || 0,
         },
         noOfReservationsUnconfirm: {
           today: unconfirmedReservationsToday[0].$extras.total || 0,
           ptd: unconfirmedReservationsPTD[0].$extras.total || 0,
-          ytd: unconfirmedReservationsYTD[0].$extras.total || 0
+          ytd: unconfirmedReservationsYTD[0].$extras.total || 0,
         },
         noOfWalkins: {
           today: walkInReservationsToday[0].$extras.total || 0,
           ptd: walkInReservationsPTD[0].$extras.total || 0,
-          ytd: walkInReservationsYTD[0].$extras.total || 0
+          ytd: walkInReservationsYTD[0].$extras.total || 0,
         },
         cancellations: {
           today: cancelReservationsToday[0].$extras.total || 0,
           ptd: cancelReservationsPTD[0].$extras.total || 0,
-          ytd: cancelReservationsYTD[0].$extras.total || 0
-        }
+          ytd: cancelReservationsYTD[0].$extras.total || 0,
+        },
       }
     } catch (error) {
       console.error('Error in getManagementStatisticsData:', error)
@@ -4555,7 +5094,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     }
   }
 
-  private async getManagementRevenueSummaryData(roomCharges: any, extraCharges: any,) {
+  private async getManagementRevenueSummaryData(roomCharges: any, extraCharges: any) {
     const roomChargesTotal = roomCharges?.total || { today: 0, ptd: 0, ytd: 0 }
     const extraChargesTotal = extraCharges?.totals || { today: 0, ptd: 0, ytd: 0 }
 
@@ -4565,18 +5104,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       pmsRevenue: {
         today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0),
         ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0),
-        ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0)
+        ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0),
       },
       today: (roomChargesTotal.today || 0) + (extraChargesTotal.today || 0),
       ptd: (roomChargesTotal.ptd || 0) + (extraChargesTotal.ptd || 0),
-      ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0)
+      ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0),
     }
   }
-  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any,) {
+  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any) {
     return {
       today: (posRevenue?.totalWithoutTax?.today || 0) + (pmsRevenue?.today || 0),
       ptd: (posRevenue?.totalWithoutTax?.ptd || 0) + (pmsRevenue?.ptd || 0),
-      ytd: (posRevenue?.totalWithoutTax?.ytd || 0) + (pmsRevenue?.ytd || 0)
+      ytd: (posRevenue?.totalWithoutTax?.ytd || 0) + (pmsRevenue?.ytd || 0),
     }
   }
   /**
@@ -4594,13 +5133,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.ok({
         success: true,
         data: revenueData,
-        message: 'Revenue by rate type data retrieved successfully'
+        message: 'Revenue by rate type data retrieved successfully',
       })
     } catch (error) {
       logger.error('Error generating revenue by rate type report:', error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -4610,7 +5149,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    */
   async generateRevenueByRateTypePdf({ request, response, auth }: HttpContext) {
     try {
-      const { hotelId, asOnDate, rateTypeId, currency = 'XAF' } = request.only(['hotelId', 'asOnDate', 'rateTypeId', 'currency'])
+      const {
+        hotelId,
+        asOnDate,
+        rateTypeId,
+        currency = 'XAF',
+      } = request.only(['hotelId', 'asOnDate', 'rateTypeId', 'currency'])
 
       const reportDate = DateTime.fromISO(asOnDate)
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
@@ -4624,7 +5168,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('hotel_id', parseInt(String(hotelId)))
         .where('audit_date', reportDate.toJSDate())
         .first()
-
 
       // Day-level items source (only the day is stored), fallback to compute the day only
       let dayItems: any[] | null = null
@@ -4643,7 +5186,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         const rt = await RateType.find(rateTypeId)
         rateTypeNameFilter = rt?.rateTypeName || null
         if (rateTypeNameFilter) {
-          dayItems = dayItems.filter((d: any) => (d.rateType || d.rateTypeName) === rateTypeNameFilter)
+          dayItems = dayItems.filter(
+            (d: any) => (d.rateType || d.rateTypeName) === rateTypeNameFilter
+          )
         }
       }
 
@@ -4684,7 +5229,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereBetween('audit_date', [ytdStartDt.toJSDate(), reportDate.toJSDate()])
 
       const aggregateFacts = (facts: any[]) => {
-        const map = new Map<string, { roomNights: number, revenue: number, order?: number }>()
+        const map = new Map<string, { roomNights: number; revenue: number; order?: number }>()
         for (const f of facts) {
           const arr: any = f.revenueByRateType
           if (!Array.isArray(arr)) continue
@@ -4748,11 +5293,19 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       )
 
       const totalsPtd = Array.from(ptdMap.values()).reduce(
-        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        (acc, g) => {
+          acc.roomNights += g.roomNights
+          acc.revenue += g.revenue
+          return acc
+        },
         { roomNights: 0, revenue: 0 }
       )
       const totalsYtd = Array.from(ytdMap.values()).reduce(
-        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        (acc, g) => {
+          acc.roomNights += g.roomNights
+          acc.revenue += g.revenue
+          return acc
+        },
         { roomNights: 0, revenue: 0 }
       )
 
@@ -4773,19 +5326,22 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         const asOnRevenue = Number(dayIt?.roomRevenue ?? dayIt?.asOnRevenue ?? 0)
         const asOnAdr = asOnRoomNights > 0 ? asOnRevenue / asOnRoomNights : 0
         const asOnPercentage = totalsAsOn.revenue > 0 ? (asOnRevenue / totalsAsOn.revenue) * 100 : 0
-        const asOnRoomPercentage = totalsAsOn.roomNights > 0 ? (asOnRoomNights / totalsAsOn.roomNights) * 100 : 0
+        const asOnRoomPercentage =
+          totalsAsOn.roomNights > 0 ? (asOnRoomNights / totalsAsOn.roomNights) * 100 : 0
 
         const ptdRoomNights = Number(ptdIt?.roomNights ?? 0)
         const ptdRevenue = Number(ptdIt?.revenue ?? 0)
         const ptdAdr = ptdRoomNights > 0 ? ptdRevenue / ptdRoomNights : 0
         const ptdPercentage = totalsPtd.revenue > 0 ? (ptdRevenue / totalsPtd.revenue) * 100 : 0
-        const ptdRoomNightsPercentage = totalsPtd.roomNights > 0 ? (ptdRoomNights / totalsPtd.roomNights) * 100 : 0
+        const ptdRoomNightsPercentage =
+          totalsPtd.roomNights > 0 ? (ptdRoomNights / totalsPtd.roomNights) * 100 : 0
 
         const ytdRoomNights = Number(ytdIt?.roomNights ?? 0)
         const ytdRevenue = Number(ytdIt?.revenue ?? 0)
         const ytdAdr = ytdRoomNights > 0 ? ytdRevenue / ytdRoomNights : 0
         const ytdPercentage = totalsYtd.revenue > 0 ? (ytdRevenue / totalsYtd.revenue) * 100 : 0
-        const ytdRoomNightsPercentage = totalsYtd.roomNights > 0 ? (ytdRoomNights / totalsYtd.roomNights) * 100 : 0
+        const ytdRoomNightsPercentage =
+          totalsYtd.roomNights > 0 ? (ytdRoomNights / totalsYtd.roomNights) * 100 : 0
 
         const order = Math.min(
           Number(dayIt?.order ?? 0) || 0,
@@ -4818,7 +5374,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           ytdAdr,
           ytdPercentage,
           ytdRoomNightsPercentage,
-          order
+          order,
         })
       }
 
@@ -4838,35 +5394,35 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             roomNights: totalsAsOn.roomNights,
             revenue: totalsAsOn.revenue,
             percentage: 100,
-            adr: totalsAsOn.roomNights > 0 ? totalsAsOn.revenue / totalsAsOn.roomNights : 0
+            adr: totalsAsOn.roomNights > 0 ? totalsAsOn.revenue / totalsAsOn.roomNights : 0,
           },
           ptd: {
             roomNights: totalsPtd.roomNights,
             revenue: totalsPtd.revenue,
             percentage: 100,
-            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0,
           },
           toDate: {
             roomNights: totalsPtd.roomNights,
             revenue: totalsPtd.revenue,
             percentage: 100,
-            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0,
           },
           ytd: {
             roomNights: totalsYtd.roomNights,
             revenue: totalsYtd.revenue,
             percentage: 100,
-            adr: totalsYtd.roomNights > 0 ? totalsYtd.revenue / totalsYtd.roomNights : 0
-          }
+            adr: totalsYtd.roomNights > 0 ? totalsYtd.revenue / totalsYtd.roomNights : 0,
+          },
         },
         summary: {
           totalRateTypes: rows.length,
           totalTransactions: {
             asOn: 0, // Not needed for PDF; derived from facts
             ptd: 0,
-            ytd: 0
-          }
-        }
+            ytd: 0,
+          },
+        },
       }
 
       // Get hotel name
@@ -4879,7 +5435,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
       // Generate HTML content using Edge template
-      const htmlContent = await this.generateRevenueByRateTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
+      const htmlContent = await this.generateRevenueByRateTypeHtml(
+        hotelName,
+        reportDate,
+        revenueData,
+        printedBy,
+        currency
+      )
 
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
@@ -4918,12 +5480,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '95px',
           right: '10px',
           bottom: '30px',
-          left: '10px'
+          left: '10px',
         },
         displayHeaderFooter: true,
         headerTemplate,
         footerTemplate,
-        printBackground: true
+        printBackground: true,
       })
 
       const filename = `revenue-by-rate-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -4932,13 +5494,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating revenue by rate type PDF:')
       logger.error(error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -4957,13 +5518,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.ok({
         success: true,
         data: revenueData,
-        message: 'Revenue by room type data retrieved successfully'
+        message: 'Revenue by room type data retrieved successfully',
       })
     } catch (error) {
       logger.error('Error generating revenue by room type report:', error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -5004,7 +5565,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           roomTypeName: m.roomType,
           roomNights: m.roomNights,
           roomRevenue: m.roomRevenue,
-          order: m.order ?? 0
+          order: m.order ?? 0,
         }))
       }
 
@@ -5014,7 +5575,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         const rt = await RoomType.find(roomTypeId)
         roomTypeNameFilter = rt?.roomTypeName || null
         if (roomTypeNameFilter) {
-          dayItems = dayItems.filter((d: any) => (d.roomType || d.roomTypeName) === roomTypeNameFilter)
+          dayItems = dayItems.filter(
+            (d: any) => (d.roomType || d.roomTypeName) === roomTypeNameFilter
+          )
         }
       }
 
@@ -5054,7 +5617,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .whereBetween('audit_date', [ytdStartDt.toJSDate(), reportDate.toJSDate()])
 
       const aggregateFacts = (facts: any[]) => {
-        const map = new Map<string, { roomNights: number, revenue: number, order?: number }>()
+        const map = new Map<string, { roomNights: number; revenue: number; order?: number }>()
         for (const f of facts) {
           const arr: any = f.revenueByRoomType
           if (!Array.isArray(arr)) continue
@@ -5117,11 +5680,19 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       )
 
       const totalsPtd = Array.from(ptdMap.values()).reduce(
-        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        (acc, g) => {
+          acc.roomNights += g.roomNights
+          acc.revenue += g.revenue
+          return acc
+        },
         { roomNights: 0, revenue: 0 }
       )
       const totalsYtd = Array.from(ytdMap.values()).reduce(
-        (acc, g) => { acc.roomNights += g.roomNights; acc.revenue += g.revenue; return acc },
+        (acc, g) => {
+          acc.roomNights += g.roomNights
+          acc.revenue += g.revenue
+          return acc
+        },
         { roomNights: 0, revenue: 0 }
       )
 
@@ -5142,19 +5713,22 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         const asOnRevenue = Number(dayIt?.roomRevenue ?? dayIt?.asOnRevenue ?? 0)
         const asOnAdr = asOnRoomNights > 0 ? asOnRevenue / asOnRoomNights : 0
         const asOnPercentage = totalsAsOn.revenue > 0 ? (asOnRevenue / totalsAsOn.revenue) * 100 : 0
-        const asOnRoomPercentage = totalsAsOn.roomNights > 0 ? (asOnRoomNights / totalsAsOn.roomNights) * 100 : 0
+        const asOnRoomPercentage =
+          totalsAsOn.roomNights > 0 ? (asOnRoomNights / totalsAsOn.roomNights) * 100 : 0
 
         const ptdRoomNights = Number(ptdIt?.roomNights ?? 0)
         const ptdRevenue = Number(ptdIt?.revenue ?? 0)
         const ptdAdr = ptdRoomNights > 0 ? ptdRevenue / ptdRoomNights : 0
         const ptdPercentage = totalsPtd.revenue > 0 ? (ptdRevenue / totalsPtd.revenue) * 100 : 0
-        const ptdRoomNightsPercentage = totalsPtd.roomNights > 0 ? (ptdRoomNights / totalsPtd.roomNights) * 100 : 0
+        const ptdRoomNightsPercentage =
+          totalsPtd.roomNights > 0 ? (ptdRoomNights / totalsPtd.roomNights) * 100 : 0
 
         const ytdRoomNights = Number(ytdIt?.roomNights ?? 0)
         const ytdRevenue = Number(ytdIt?.revenue ?? 0)
         const ytdAdr = ytdRoomNights > 0 ? ytdRevenue / ytdRoomNights : 0
         const ytdPercentage = totalsYtd.revenue > 0 ? (ytdRevenue / totalsYtd.revenue) * 100 : 0
-        const ytdRoomNightsPercentage = totalsYtd.roomNights > 0 ? (ytdRoomNights / totalsYtd.roomNights) * 100 : 0
+        const ytdRoomNightsPercentage =
+          totalsYtd.roomNights > 0 ? (ytdRoomNights / totalsYtd.roomNights) * 100 : 0
 
         const order = Math.min(
           Number(dayIt?.order ?? 0) || 0,
@@ -5187,7 +5761,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           ytdAdr,
           ytdPercentage,
           ytdRoomNightsPercentage,
-          order
+          order,
         })
       }
 
@@ -5207,31 +5781,31 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             roomNights: totalsAsOn.roomNights,
             revenue: totalsAsOn.revenue,
             percentage: 100,
-            adr: totalsAsOn.roomNights > 0 ? totalsAsOn.revenue / totalsAsOn.roomNights : 0
+            adr: totalsAsOn.roomNights > 0 ? totalsAsOn.revenue / totalsAsOn.roomNights : 0,
           },
           ptd: {
             roomNights: totalsPtd.roomNights,
             revenue: totalsPtd.revenue,
             percentage: 100,
-            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0,
           },
           toDate: {
             roomNights: totalsPtd.roomNights,
             revenue: totalsPtd.revenue,
             percentage: 100,
-            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0
+            adr: totalsPtd.roomNights > 0 ? totalsPtd.revenue / totalsPtd.roomNights : 0,
           },
           ytd: {
             roomNights: totalsYtd.roomNights,
             revenue: totalsYtd.revenue,
             percentage: 100,
-            adr: totalsYtd.roomNights > 0 ? totalsYtd.revenue / totalsYtd.roomNights : 0
-          }
+            adr: totalsYtd.roomNights > 0 ? totalsYtd.revenue / totalsYtd.roomNights : 0,
+          },
         },
         summary: {
           totalRoomTypes: rows.length,
-          totalTransactions: { asOn: 0, ptd: 0, ytd: 0 }
-        }
+          totalTransactions: { asOn: 0, ptd: 0, ytd: 0 },
+        },
       }
 
       // Get hotel name and user info
@@ -5242,7 +5816,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
       // Generate HTML content using Edge template
-      const htmlContent = await this.generateRevenueByRoomTypeHtml(hotelName, reportDate, revenueData, printedBy, currency)
+      const htmlContent = await this.generateRevenueByRoomTypeHtml(
+        hotelName,
+        reportDate,
+        revenueData,
+        printedBy,
+        currency
+      )
 
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
@@ -5282,12 +5862,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '95px',
           right: '10px',
           bottom: '30px',
-          left: '10px'
+          left: '10px',
         },
         displayHeaderFooter: true,
         headerTemplate,
         footerTemplate,
-        printBackground: true
+        printBackground: true,
       })
 
       const filename = `revenue-by-room-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -5296,13 +5876,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating revenue by room type PDF:', error)
       logger.error(error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -5310,7 +5889,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
   /**
    * Get revenue data grouped by rate type
    */
-  private async getRevenueByRateTypeData(hotelId: number, reportDate: DateTime, rateTypeId?: string) {
+  private async getRevenueByRateTypeData(
+    hotelId: number,
+    reportDate: DateTime,
+    rateTypeId?: string
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: RateType } = await import('#models/rate_type')
 
@@ -5320,7 +5903,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       .orderBy('rate_type_name', 'asc')
 
     if (rateTypeId) {
-      allRateTypes = allRateTypes.filter(rt => rt.id === parseInt(rateTypeId))
+      allRateTypes = allRateTypes.filter((rt) => rt.id === parseInt(rateTypeId))
     }
 
     //  Définir les périodes
@@ -5383,7 +5966,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
                   rateTypeName,
                   roomNights: 0,
                   revenue: 0,
-                  transactionCount: 0
+                  transactionCount: 0,
                 }
               }
 
@@ -5412,7 +5995,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       asOn: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
       ptd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
       toDate: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
-      ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 }
+      ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
     }
 
     for (const rateType of allRateTypes) {
@@ -5462,7 +6045,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         ytdRoomNights: ytdData.roomNights,
         ytdRevenue: ytdData.revenue,
         ytdPercentage: 0,
-        ytdAdr: ytdAdr
+        ytdAdr: ytdAdr,
       })
 
       // Accumuler les totaux
@@ -5481,27 +6064,24 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
     // 8. Calculer les pourcentages
     for (const rateTypeData of revenueByRateType) {
-      rateTypeData.asOnPercentage = totals.asOn.revenue > 0
-        ? (rateTypeData.asOnRevenue / totals.asOn.revenue) * 100
-        : 0
+      rateTypeData.asOnPercentage =
+        totals.asOn.revenue > 0 ? (rateTypeData.asOnRevenue / totals.asOn.revenue) * 100 : 0
 
-      rateTypeData.ptdPercentage = totals.ptd.revenue > 0
-        ? (rateTypeData.ptdRevenue / totals.ptd.revenue) * 100
-        : 0
+      rateTypeData.ptdPercentage =
+        totals.ptd.revenue > 0 ? (rateTypeData.ptdRevenue / totals.ptd.revenue) * 100 : 0
 
-      rateTypeData.toDatePercentage = totals.toDate.revenue > 0
-        ? (rateTypeData.toDateRevenue / totals.toDate.revenue) * 100
-        : 0
+      rateTypeData.toDatePercentage =
+        totals.toDate.revenue > 0 ? (rateTypeData.toDateRevenue / totals.toDate.revenue) * 100 : 0
 
-      rateTypeData.ytdPercentage = totals.ytd.revenue > 0
-        ? (rateTypeData.ytdRevenue / totals.ytd.revenue) * 100
-        : 0
+      rateTypeData.ytdPercentage =
+        totals.ytd.revenue > 0 ? (rateTypeData.ytdRevenue / totals.ytd.revenue) * 100 : 0
     }
 
     // Calculer les ADR totaux
     totals.asOn.adr = totals.asOn.roomNights > 0 ? totals.asOn.revenue / totals.asOn.roomNights : 0
     totals.ptd.adr = totals.ptd.roomNights > 0 ? totals.ptd.revenue / totals.ptd.roomNights : 0
-    totals.toDate.adr = totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
+    totals.toDate.adr =
+      totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
     totals.ytd.adr = totals.ytd.roomNights > 0 ? totals.ytd.revenue / totals.ytd.roomNights : 0
 
     return {
@@ -5516,42 +6096,46 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           roomNights: totals.asOn.roomNights,
           revenue: totals.asOn.revenue,
           percentage: 100,
-          adr: totals.asOn.adr
+          adr: totals.asOn.adr,
         },
         ptd: {
           roomNights: totals.ptd.roomNights,
           revenue: totals.ptd.revenue,
           percentage: 100,
-          adr: totals.ptd.adr
+          adr: totals.ptd.adr,
         },
         toDate: {
           roomNights: totals.toDate.roomNights,
           revenue: totals.toDate.revenue,
           percentage: 100,
-          adr: totals.toDate.adr
+          adr: totals.toDate.adr,
         },
         ytd: {
           roomNights: totals.ytd.roomNights,
           revenue: totals.ytd.revenue,
           percentage: 100,
-          adr: totals.ytd.adr
-        }
+          adr: totals.ytd.adr,
+        },
       },
       summary: {
         totalRateTypes: allRateTypes.length,
         totalTransactions: {
           asOn: asOnTransactions.length,
           ptd: ptdTransactions.length,
-          ytd: ytdTransactions.length
-        }
-      }
+          ytd: ytdTransactions.length,
+        },
+      },
     }
   }
 
   /**
    * Get revenue data grouped by room type
    */
-  private async getRevenueByRoomTypeData(hotelId: number, reportDate: DateTime, roomTypeId?: string) {
+  private async getRevenueByRoomTypeData(
+    hotelId: number,
+    reportDate: DateTime,
+    roomTypeId?: string
+  ) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: RoomType } = await import('#models/room_type')
 
@@ -5630,7 +6214,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
                 roomTypeName,
                 roomNights: 0,
                 revenue: 0,
-                transactionCount: 0
+                transactionCount: 0,
               }
             }
 
@@ -5658,7 +6242,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       asOn: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
       ptd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
       toDate: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
-      ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 }
+      ytd: { roomNights: 0, revenue: 0, percentage: 0, adr: 0 },
     }
 
     for (const roomType of allRoomTypes) {
@@ -5708,7 +6292,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         ytdRoomNights: ytdData.roomNights,
         ytdRevenue: ytdData.revenue,
         ytdPercentage: 0,
-        ytdAdr: ytdAdr
+        ytdAdr: ytdAdr,
       })
 
       // Accumuler les totaux
@@ -5728,44 +6312,41 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     // 8. Calculer les pourcentages
     for (const roomTypeData of revenueByRoomType) {
       // Pourcentages de Nuits (Room Nights)
-      roomTypeData.asOnRoomPercentage = totals.asOn.roomNights > 0
-        ? (roomTypeData.asOnRoomNights / totals.asOn.roomNights) * 100
-        : 0
+      roomTypeData.asOnRoomPercentage =
+        totals.asOn.roomNights > 0
+          ? (roomTypeData.asOnRoomNights / totals.asOn.roomNights) * 100
+          : 0
 
-      roomTypeData.ptdRoomNightsPercentage = totals.ptd.roomNights > 0
-        ? (roomTypeData.ptdRoomNights / totals.ptd.roomNights) * 100
-        : 0
+      roomTypeData.ptdRoomNightsPercentage =
+        totals.ptd.roomNights > 0 ? (roomTypeData.ptdRoomNights / totals.ptd.roomNights) * 100 : 0
 
-      roomTypeData.toDateRoomNightsPercentage = totals.toDate.roomNights > 0
-        ? (roomTypeData.toDateRoomNights / totals.toDate.roomNights) * 100
-        : 0
+      roomTypeData.toDateRoomNightsPercentage =
+        totals.toDate.roomNights > 0
+          ? (roomTypeData.toDateRoomNights / totals.toDate.roomNights) * 100
+          : 0
 
-      roomTypeData.ytdRoomNightsPercentage = totals.ytd.roomNights > 0
-        ? (roomTypeData.ytdRoomNights / totals.ytd.roomNights) * 100
-        : 0
+      roomTypeData.ytdRoomNightsPercentage =
+        totals.ytd.roomNights > 0 ? (roomTypeData.ytdRoomNights / totals.ytd.roomNights) * 100 : 0
 
       // Pourcentages de Revenu
-      roomTypeData.asOnPercentage = totals.asOn.revenue > 0
-        ? (roomTypeData.asOnRevenue / totals.asOn.revenue) * 100
-        : 0
+      roomTypeData.asOnPercentage =
+        totals.asOn.revenue > 0 ? (roomTypeData.asOnRevenue / totals.asOn.revenue) * 100 : 0
 
-      roomTypeData.ptdPercentage = totals.ptd.revenue > 0
-        ? (roomTypeData.ptdRevenue / totals.ptd.revenue) * 100
-        : 0
+      roomTypeData.ptdPercentage =
+        totals.ptd.revenue > 0 ? (roomTypeData.ptdRevenue / totals.ptd.revenue) * 100 : 0
 
-      roomTypeData.toDatePercentage = totals.toDate.revenue > 0
-        ? (roomTypeData.toDateRevenue / totals.toDate.revenue) * 100
-        : 0
+      roomTypeData.toDatePercentage =
+        totals.toDate.revenue > 0 ? (roomTypeData.toDateRevenue / totals.toDate.revenue) * 100 : 0
 
-      roomTypeData.ytdPercentage = totals.ytd.revenue > 0
-        ? (roomTypeData.ytdRevenue / totals.ytd.revenue) * 100
-        : 0
+      roomTypeData.ytdPercentage =
+        totals.ytd.revenue > 0 ? (roomTypeData.ytdRevenue / totals.ytd.revenue) * 100 : 0
     }
 
     // Calculer les ADR totaux
     totals.asOn.adr = totals.asOn.roomNights > 0 ? totals.asOn.revenue / totals.asOn.roomNights : 0
     totals.ptd.adr = totals.ptd.roomNights > 0 ? totals.ptd.revenue / totals.ptd.roomNights : 0
-    totals.toDate.adr = totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
+    totals.toDate.adr =
+      totals.toDate.roomNights > 0 ? totals.toDate.revenue / totals.toDate.roomNights : 0
     totals.ytd.adr = totals.ytd.roomNights > 0 ? totals.ytd.revenue / totals.ytd.roomNights : 0
 
     return {
@@ -5780,35 +6361,35 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           roomNights: totals.asOn.roomNights,
           revenue: totals.asOn.revenue,
           percentage: 100,
-          adr: totals.asOn.adr
+          adr: totals.asOn.adr,
         },
         ptd: {
           roomNights: totals.ptd.roomNights,
           revenue: totals.ptd.revenue,
           percentage: 100,
-          adr: totals.ptd.adr
+          adr: totals.ptd.adr,
         },
         toDate: {
           roomNights: totals.toDate.roomNights,
           revenue: totals.toDate.revenue,
           percentage: 100,
-          adr: totals.toDate.adr
+          adr: totals.toDate.adr,
         },
         ytd: {
           roomNights: totals.ytd.roomNights,
           revenue: totals.ytd.revenue,
           percentage: 100,
-          adr: totals.ytd.adr
-        }
+          adr: totals.ytd.adr,
+        },
       },
       summary: {
         totalRoomTypes: allRoomTypes.length,
         totalTransactions: {
           asOn: asOnTransactions.length,
           ptd: ptdTransactions.length,
-          ytd: ytdTransactions.length
-        }
-      }
+          ytd: ytdTransactions.length,
+        },
+      },
     }
   }
 
@@ -5858,14 +6439,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         hotelName,
         reportTitle: 'Revenue By Rate Type Report',
         reportDate: asOnDate,
-        currency
+        currency,
       },
       // Footer specific data
       footer: {
         printedBy,
         printedOn,
-        pageInfo: 'Page 1 of 1'
-      }
+        pageInfo: 'Page 1 of 1',
+      },
     }
 
     console.log('revenue@@@@', templateData)
@@ -5921,14 +6502,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         hotelName,
         reportTitle: 'Revenue By Room Type Report',
         reportDate: asOnDate,
-        currency
+        currency,
       },
       // Footer specific data
       footer: {
         printedBy,
         printedOn,
-        pageInfo: 'Page 1 of 1'
-      }
+        pageInfo: 'Page 1 of 1',
+      },
     }
 
     // Render template
@@ -5945,12 +6526,16 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!hotelId || !month || !year) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID, month, and year are required'
+          message: 'Hotel ID, month, and year are required',
         })
       }
 
       // Create start and end dates for the month
-      const reportDate = DateTime.fromObject({ year: parseInt(year), month: parseInt(month), day: 1 })
+      const reportDate = DateTime.fromObject({
+        year: parseInt(year),
+        month: parseInt(month),
+        day: 1,
+      })
       const monthStart = reportDate.startOf('month')
       const monthEnd = reportDate.endOf('month')
 
@@ -5969,7 +6554,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
       // Generate HTML content
-      const htmlContent = this.generateMonthlyRevenueHtml(hotelName, reportDate, revenueData, printedBy, currency)
+      const htmlContent = this.generateMonthlyRevenueHtml(
+        hotelName,
+        reportDate,
+        revenueData,
+        printedBy,
+        currency
+      )
 
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
@@ -5981,12 +6572,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating monthly revenue PDF:', error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -6014,7 +6604,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
       // Generate HTML content (you'll need to implement this method)
-      const htmlContent = this.generatePaymentSummaryHtml(hotelName, reportDate, paymentData, printedBy)
+      const htmlContent = this.generatePaymentSummaryHtml(
+        hotelName,
+        reportDate,
+        paymentData,
+        printedBy
+      )
 
       // Generate PDF
       const { default: PdfService } = await import('#services/pdf_service')
@@ -6026,12 +6621,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating payment summary PDF:', error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -6061,10 +6655,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const basePreload = (q: ReturnType<typeof ReservationRoom.query>) => {
         return q
           .preload('reservation', (resQ) => {
-            resQ
-              .preload('guest')
-              .preload('businessSource')
-              .preload('folios')
+            resQ.preload('guest').preload('businessSource').preload('folios')
           })
           .preload('guest')
           .preload('room')
@@ -6081,15 +6672,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           const roomTypeName = rr.roomType?.roomTypeName || '—'
           const folioNumber = (res?.folios && res.folios[0]?.folioNumber) || '—'
           const rateTypeName = rr.rateType?.rateTypeName || '—'
-          const arrival = rr.checkInDate?.toISODate?.() || res?.scheduledArrivalDate?.toISODate?.() || ''
-          const departure = rr.checkOutDate?.toISODate?.() || res?.scheduledDepartureDate?.toISODate?.() || ''
+          const arrival =
+            rr.checkInDate?.toISODate?.() || res?.scheduledArrivalDate?.toISODate?.() || ''
+          const departure =
+            rr.checkOutDate?.toISODate?.() || res?.scheduledDepartureDate?.toISODate?.() || ''
           const nights = rr.nights ?? res?.numberOfNights ?? 0
           const roomRate = rr.roomRate ?? res?.roomRate ?? 0
-          const total = rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
+          const total =
+            rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
 
           return {
             businessSource: businessSourceName,
-            reservationNumber: res?.reservationNumber || res?.confirmationNumber || String(res?.id || rr.reservationId),
+            reservationNumber:
+              res?.reservationNumber ||
+              res?.confirmationNumber ||
+              String(res?.id || rr.reservationId),
             guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
             arrival,
             departure,
@@ -6186,9 +6783,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       // Today Cancellation
       {
         const cancelledRooms = await basePreload(
-          ReservationRoom.query()
-            .where('hotelId', hotelId)
-            .where('status', 'cancelled')
+          ReservationRoom.query().where('hotelId', hotelId).where('status', 'cancelled')
           //  .whereRaw('DATE(updatedAt) = ?', [dateISO])
         )
         const rows = buildRows(cancelledRooms)
@@ -6211,7 +6806,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         )
         rows.forEach((r) => {
           const key = r.businessSource
-          if (!sections.tomorrowConfirmBooking.has(key)) sections.tomorrowConfirmBooking.set(key, [])
+          if (!sections.tomorrowConfirmBooking.has(key))
+            sections.tomorrowConfirmBooking.set(key, [])
           sections.tomorrowConfirmBooking.get(key)!.push(r)
         })
       }
@@ -6245,12 +6841,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         )
         rows.forEach((r) => {
           const key = r.businessSource
-          if (!sections.stayoverContinuedInHouse.has(key)) sections.stayoverContinuedInHouse.set(key, [])
+          if (!sections.stayoverContinuedInHouse.has(key))
+            sections.stayoverContinuedInHouse.set(key, [])
           sections.stayoverContinuedInHouse.get(key)!.push(r)
         })
       }
 
-      const toGroups = (m: Map<string, any[]>) => Array.from(m, ([businessSource, rows]) => ({ businessSource, rows }))
+      const toGroups = (m: Map<string, any[]>) =>
+        Array.from(m, ([businessSource, rows]) => ({ businessSource, rows }))
 
       return response.ok({
         success: true,
@@ -6312,15 +6910,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           const roomTypeName = rr.roomType?.roomTypeName || '—'
           const folioNumber = (res?.folios && res.folios[0]?.folioNumber) || '—'
           const rateTypeName = rr.rateType?.rateTypeName || '—'
-          const arrival = rr.checkInDate?.toISODate?.() || res?.scheduledArrivalDate?.toISODate?.() || ''
-          const departure = rr.checkOutDate?.toISODate?.() || res?.scheduledDepartureDate?.toISODate?.() || ''
+          const arrival =
+            rr.checkInDate?.toISODate?.() || res?.scheduledArrivalDate?.toISODate?.() || ''
+          const departure =
+            rr.checkOutDate?.toISODate?.() || res?.scheduledDepartureDate?.toISODate?.() || ''
           const nights = rr.nights ?? res?.numberOfNights ?? 0
           const roomRate = rr.roomRate ?? res?.roomRate ?? 0
-          const total = rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
+          const total =
+            rr.netAmount ?? rr.totalRoomCharges ?? res?.finalAmount ?? res?.totalAmount ?? 0
 
           return {
             businessSource: businessSourceName,
-            reservationNumber: res?.reservationNumber || res?.confirmationNumber || String(res?.id || rr.reservationId),
+            reservationNumber:
+              res?.reservationNumber ||
+              res?.confirmationNumber ||
+              String(res?.id || rr.reservationId),
             guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
             arrival,
             departure,
@@ -6339,16 +6943,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const basePreload = (q: ReturnType<typeof ReservationRoom.query>) => {
         return q
           .preload('reservation', (resQ) => {
-            resQ
-              .preload('guest')
-              .preload('businessSource')
-              .preload('folios')
+            resQ.preload('guest').preload('businessSource').preload('folios')
           })
           .preload('guest')
           .preload('room')
-          .preload('roomType', (roomQuery => {
+          .preload('roomType', (roomQuery) => {
             roomQuery.preload('rooms')
-          }))
+          })
           .preload('rateType')
       }
 
@@ -6357,83 +6958,89 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         {
           key: 'todayConfirmCheckin',
           title: 'Today Confirm Check-in',
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'reserved')
-              .where('checkInDate', '=', dateISO)
-          )
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'reserved')
+                .where('checkInDate', '=', dateISO)
+            ),
         },
         {
           key: 'stayoverInHouse',
           title: 'Stayover In House',
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'checked_in')
-              .where('checkOutDate', '>', dateISO)
-          )
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'checked_in')
+                .where('checkOutDate', '>', dateISO)
+            ),
         },
         {
           key: 'todayCheckout',
-          title: "Today Checkout",
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'checked_in')
-              .where('checkOutDate', '=', dateISO)
-          )
+          title: 'Today Checkout',
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'checked_in')
+                .where('checkOutDate', '=', dateISO)
+            ),
         },
         {
           key: 'todayNoShow',
           title: 'Today No Show',
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'no_show')
-              .where('checkInDate', '=', dateISO)
-          )
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'no_show')
+                .where('checkInDate', '=', dateISO)
+            ),
         },
         {
           key: 'todayCancellation',
           title: 'Today Cancellation',
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'cancelled')
-            //.whereRaw('DATE(updatedAt) = ?', [dateISO])
-          )
+          query: () =>
+            basePreload(
+              ReservationRoom.query().where('hotelId', hotelId).where('status', 'cancelled')
+              //.whereRaw('DATE(updatedAt) = ?', [dateISO])
+            ),
         },
         {
           key: 'tomorrowConfirmBooking',
-          title: "Tomorrow Confirm Booking ",
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'reserved')
-              .where('checkInDate', '=', nextISO)
-          )
+          title: 'Tomorrow Confirm Booking ',
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'reserved')
+                .where('checkInDate', '=', nextISO)
+            ),
         },
         {
           key: 'tomorrowCheckout',
-          title: "Tomorrow Checkout",
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'checked_in')
-              .where('checkOutDate', '=', nextISO)
-          )
+          title: 'Tomorrow Checkout',
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'checked_in')
+                .where('checkOutDate', '=', nextISO)
+            ),
         },
         {
           key: 'stayoverContinuedInHouse',
           title: 'Stayover Continued In House',
-          query: () => basePreload(
-            ReservationRoom.query()
-              .where('hotelId', hotelId)
-              .where('status', 'checked_in')
-              .where('checkOutDate', '>', nextISO)
-          )
-        }
+          query: () =>
+            basePreload(
+              ReservationRoom.query()
+                .where('hotelId', hotelId)
+                .where('status', 'checked_in')
+                .where('checkOutDate', '>', nextISO)
+            ),
+        },
       ]
       // Execute queries and organize data by business source
       const sections = []
@@ -6455,25 +7062,27 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         // Convert Map to array for template
         const groups = Array.from(groupsMap.entries()).map(([sourceName, rows]) => ({
           sourceName,
-          rows
+          rows,
         }))
 
         sections.push({
           title: sectionDef.title,
-          groups
+          groups,
         })
       }
 
       // Prepare data for template
       const user = auth?.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
+        : 'System'
 
       const reportData = {
         hotel,
         reportDate: reportDate.toFormat('yyyy-MM-dd'),
         printedBy,
         sections,
-        currentDateTime: new Date().toLocaleString('fr-FR') // Ajoutez cette ligne
+        currentDateTime: new Date().toLocaleString('fr-FR'), // Ajoutez cette ligne
       }
       console.log('reportData', reportData)
 
@@ -6488,7 +7097,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const html = await edge.render('reports/daily_operations', reportData)
 
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-
 
       const headerTemplate = `
       <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
@@ -6514,12 +7122,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '90px',
           right: '10px',
           bottom: '70px',
-          left: '10px'
+          left: '10px',
         },
         displayHeaderFooter: true,
         headerTemplate,
         footerTemplate,
-        printBackground: true
+        printBackground: true,
       })
 
       const filename = `daily-operations-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -6533,7 +7141,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.status(500).json({
         success: false,
         //message: 'Failed to generate daily operations report PDF',
-        error: error
+        error: error,
       })
     }
   }
@@ -6560,7 +7168,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
       // Generate HTML content (you'll need to implement this method)
-      const htmlContent = this.generateRevenueByRateTypeSummaryHtml(hotelName, reportDate, summaryData, printedBy)
+      const htmlContent = this.generateRevenueByRateTypeSummaryHtml(
+        hotelName,
+        reportDate,
+        summaryData,
+        printedBy
+      )
 
       // Generate PDF
       const { default: PdfService } = await import('#services/pdf_service')
@@ -6572,12 +7185,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating revenue by rate type summary PDF:', error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -6605,7 +7217,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const printedBy = user ? `${user.firstName} ${user.lastName}` : 'System'
 
       // Generate HTML content (you'll need to implement this method)
-      const htmlContent = this.generateStatisticsByRoomTypeHtml(hotelName, reportDate, statisticsData, printedBy)
+      const htmlContent = this.generateStatisticsByRoomTypeHtml(
+        hotelName,
+        reportDate,
+        statisticsData,
+        printedBy
+      )
 
       // Generate PDF
       const { default: PdfService } = await import('#services/pdf_service')
@@ -6617,12 +7234,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating statistics by room type PDF:', error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -6640,7 +7256,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           reservationQuery.where('hotel_id', hotelId)
         })
       })
-      .whereBetween('current_working_date', [monthStart.toFormat('yyyy-MM-dd'), monthEnd.toFormat('yyyy-MM-dd')])
+      .whereBetween('current_working_date', [
+        monthStart.toFormat('yyyy-MM-dd'),
+        monthEnd.toFormat('yyyy-MM-dd'),
+      ])
       .where('category', 'room')
       .where('status', 'posted')
       .preload('folio', (folioQuery) => {
@@ -6657,7 +7276,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     }
 
     // Calculate actual revenue for each day
-    transactions.forEach(transaction => {
+    transactions.forEach((transaction) => {
       const transactionDate = DateTime.fromISO(transaction.transactionDate)
       const day = transactionDate.day.toString()
       dailyRevenue[day] += Number(transaction.amount || 0)
@@ -6671,7 +7290,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       totalRevenue,
       monthStart,
       monthEnd,
-      daysInMonth
+      daysInMonth,
     }
   }
 
@@ -6694,7 +7313,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
     // Prepare chart data
     const chartData = []
-    const maxRevenue = Math.max(...Object.values(revenueData.dailyRevenue) as number[])
+    const maxRevenue = Math.max(...(Object.values(revenueData.dailyRevenue) as number[]))
     const chartHeight = 300
 
     for (let day = 1; day <= revenueData.daysInMonth; day++) {
@@ -6704,7 +7323,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         day,
         revenue,
         barHeight,
-        formattedRevenue: formatCurrency(revenue)
+        formattedRevenue: formatCurrency(revenue),
       })
     }
 
@@ -6836,20 +7455,30 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
                 <div class="chart-area">
                     <!-- Y-axis labels -->
                     <div class="y-axis">
-                        ${[0, 0.2, 0.4, 0.6, 0.8, 1.0].map(ratio => `
+                        ${[0, 0.2, 0.4, 0.6, 0.8, 1.0]
+                          .map(
+                            (ratio) => `
                             <div class="y-label" style="top: ${(1 - ratio) * 100}%">
                                 ${formatCurrency(maxRevenue * ratio).replace(currency + ' ', '')}
                             </div>
-                        `).join('')}
+                        `
+                          )
+                          .join('')}
                     </div>
 
                     <!-- Grid lines -->
-                    ${[0.2, 0.4, 0.6, 0.8].map(ratio => `
+                    ${[0.2, 0.4, 0.6, 0.8]
+                      .map(
+                        (ratio) => `
                         <div class="grid-line" style="top: ${(1 - ratio) * 100}%"></div>
-                    `).join('')}
+                    `
+                      )
+                      .join('')}
 
                     <!-- Bars -->
-                    ${chartData.map(data => `
+                    ${chartData
+                      .map(
+                        (data) => `
                         <div class="bar"
                              style="left: ${((data.day - 1) / revenueData.daysInMonth) * 100}%;
                                     width: ${(1 / revenueData.daysInMonth) * 100 * 0.8}%;
@@ -6857,15 +7486,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
                                     margin-left: ${(1 / revenueData.daysInMonth) * 100 * 0.1}%;">
                             ${data.revenue > 0 ? `<div class="bar-value">${data.formattedRevenue.replace(currency + ' ', '')}</div>` : ''}
                         </div>
-                    `).join('')}
+                    `
+                      )
+                      .join('')}
 
                     <!-- X-axis labels -->
                     <div class="x-axis">
-                        ${chartData.map(data => `
+                        ${chartData
+                          .map(
+                            (data) => `
                             <div class="x-label" style="left: ${(data.day / revenueData.daysInMonth) * 100}%">
                                 ${data.day}
                             </div>
-                        `).join('')}
+                        `
+                          )
+                          .join('')}
                     </div>
                 </div>
                 <div style="margin-top: 40px; font-weight: bold;">Date</div>
@@ -6916,13 +7551,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         discount: 0,
         roundOff: 0,
         taxes: 0,
-        net: 0
-      }
+        net: 0,
+      },
     }
 
     const guestTransactions = new Map()
 
-    transactions.forEach(transaction => {
+    transactions.forEach((transaction) => {
       const reservation = transaction.folio?.reservation
       if (!reservation) return
 
@@ -6941,14 +7576,16 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       if (!guestTransactions.has(guestKey)) {
         guestTransactions.set(guestKey, {
-          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : 'Unknown Guest',
+          guestName: guest
+            ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim()
+            : 'Unknown Guest',
           room: room?.roomNumber || 'N/A',
           rateType: rateType?.name || 'Standard',
           roomCharges: 0,
           discount: 0,
           roundOff: 0,
           taxes: 0,
-          net: 0
+          net: 0,
         })
       }
 
@@ -6966,13 +7603,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         guestData.roundOff += amount
       }
 
-      guestData.net = guestData.roomCharges - guestData.discount + guestData.roundOff + guestData.taxes
+      guestData.net =
+        guestData.roomCharges - guestData.discount + guestData.roundOff + guestData.taxes
     })
 
     // Convert map to array and calculate totals
     revenueData.transactions = Array.from(guestTransactions.values())
 
-    revenueData.transactions.forEach(transaction => {
+    revenueData.transactions.forEach((transaction) => {
       revenueData.totals.roomCharges += transaction.roomCharges
       revenueData.totals.discount += transaction.discount
       revenueData.totals.roundOff += transaction.roundOff
@@ -7138,7 +7776,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
                 <div class="night-audit">Night Audit</div>
             </div>
 
-            ${page === 0 ? `
+            ${
+              page === 0
+                ? `
             <!-- Report info only on first page -->
             <div class="report-info">
                 <div class="report-info-row">
@@ -7146,7 +7786,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
                     <div><strong>Daily Revenue by:</strong> ${revenueByText}</div>
                 </div>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
 
             <!-- Table -->
             <table>
@@ -7166,7 +7808,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       `
 
       // Add transaction rows for this page
-      pageTransactions.forEach(transaction => {
+      pageTransactions.forEach((transaction) => {
         html += `
                     <tr>
                         <td>${transaction.guestName}</td>
@@ -7227,7 +7869,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!hotelId || !asOnDate) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID and As On Date are required'
+          message: 'Hotel ID and As On Date are required',
         })
       }
 
@@ -7235,25 +7877,24 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!reportDate.isValid) {
         return response.badRequest({
           success: false,
-          message: 'Invalid date format. Use YYYY-MM-DD'
+          message: 'Invalid date format. Use YYYY-MM-DD',
         })
       }
 
       // Default revenue types if not specified
-      const revenueTypes = revenueBy ? revenueBy.split(',') : [
-        'room_revenue',
-        'no_show_revenue',
-        'cancellation_revenue',
-        'dayuser_revenue',
-        'late_check_out_revenue'
-      ]
+      const revenueTypes = revenueBy
+        ? revenueBy.split(',')
+        : [
+            'room_revenue',
+            'no_show_revenue',
+            'cancellation_revenue',
+            'dayuser_revenue',
+            'late_check_out_revenue',
+          ]
 
       // Get daily revenue data
-      const auditDetails = await NightAuditService.getNightAuditDetails(
-        reportDate,
-        Number(hotelId)
-      )
-      let revenueData: any = {};
+      const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
+      let revenueData: any = {}
       if (auditDetails && auditDetails?.dailyRevenueReportData) {
         revenueData = auditDetails?.dailyRevenueReportData || {}
       } else {
@@ -7267,10 +7908,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       // Get user info
       const user = auth?.user
-      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' : 'System'
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
 
       // Generate HTML content
-      const htmlContent = this.generateDailyRevenueHtml(hotelName, reportDate, revenueData, printedBy, revenueTypes)
+      const htmlContent = this.generateDailyRevenueHtml(
+        hotelName,
+        reportDate,
+        revenueData,
+        printedBy,
+        revenueTypes
+      )
 
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_service')
@@ -7282,29 +7931,22 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating daily revenue PDF:', error)
       logger.error(error)
       return response.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
 
   /**
- * Génère les données du rapport de disponibilité des chambres
- */
+   * Génère les données du rapport de disponibilité des chambres
+   */
   async generateRoomAvailabilityData({ request, response }: HttpContext) {
     try {
-      const {
-        hotelId,
-        dateFrom,
-        dateTo,
-        roomTypeId,
-        floor
-      } = request.body()
+      const { hotelId, dateFrom, dateTo, roomTypeId, floor } = request.body()
 
       // Validation des paramètres requis
       if (!dateFrom || !dateTo) {
@@ -7338,7 +7980,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         startDate: dateFrom,
         endDate: dateTo,
         roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-
       }
 
       // Récupérer les données de disponibilité des chambres
@@ -7346,15 +7987,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       // Calculer le résumé
       const totalRooms = roomAvailabilityData.data?.length || 0
-      const availableRooms = roomAvailabilityData.data?.filter((room: any) => room.status === 'available').length || 0
-      const occupiedRooms = roomAvailabilityData.data?.filter((room: any) => room.status === 'occupied').length || 0
+      const availableRooms =
+        roomAvailabilityData.data?.filter((room: any) => room.status === 'available').length || 0
+      const occupiedRooms =
+        roomAvailabilityData.data?.filter((room: any) => room.status === 'occupied').length || 0
       const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0
 
       const summary = {
         totalRooms,
         availableRooms,
         occupiedRooms,
-        occupancyRate
+        occupancyRate,
       }
 
       return response.ok({
@@ -7362,8 +8005,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         message: 'Room availability data generated successfully',
         data: {
           data: roomAvailabilityData.data || [],
-          summary
-        }
+          summary,
+        },
       })
     } catch (error) {
       console.error('Error generating room availability data:', error)
@@ -7380,13 +8023,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    */
   async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
     try {
-      const {
-        hotelId,
-        dateFrom,
-        dateTo,
-        roomTypeId,
-        floor
-      } = request.body()
+      const { hotelId, dateFrom, dateTo, roomTypeId, floor } = request.body()
 
       // Validation des paramètres requis
       if (!dateFrom || !dateTo) {
@@ -7409,7 +8046,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         startDate: dateFrom,
         endDate: dateTo,
         roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-
       }
 
       // Récupérer les données de disponibilité des chambres
@@ -7460,8 +8096,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     }
   }
 
-
-
   /**
    * Génère le contenu HTML simplifié pour le PDF
    */
@@ -7475,23 +8109,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     },
     printedBy: string = 'System'
   ): string {
-    const { dateFrom, dateTo, roomTypeId, floor } = options;
+    const { dateFrom, dateTo, roomTypeId, floor } = options
 
     // Calculs des statistiques à partir des données filtrées
-    const rooms = reportData.data || [];
-    const totalRooms = rooms.length;
-    const availableRooms = rooms.filter((room: any) => room.status === 'available').length;
-    const occupiedRooms = rooms.filter((room: any) => room.status === 'occupied').length;
-    const maintenanceRooms = rooms.filter((room: any) => room.status === 'maintenance').length;
-    const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : '0.0';
+    const rooms = reportData.data || []
+    const totalRooms = rooms.length
+    const availableRooms = rooms.filter((room: any) => room.status === 'available').length
+    const occupiedRooms = rooms.filter((room: any) => room.status === 'occupied').length
+    const maintenanceRooms = rooms.filter((room: any) => room.status === 'maintenance').length
+    const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : '0.0'
 
     // Générer les données pour les graphiques
-    const weeklyData = this.generateWeeklyData(reportData);
+    const weeklyData = this.generateWeeklyData(reportData)
 
     // Filtres appliqués pour affichage
-    const appliedFilters = [];
-    if (roomTypeId) appliedFilters.push(`Type: ${this.getRoomTypeName(roomTypeId)}`);
-    if (floor) appliedFilters.push(`Étage: ${floor}`);
+    const appliedFilters = []
+    if (roomTypeId) appliedFilters.push(`Type: ${this.getRoomTypeName(roomTypeId)}`)
+    if (floor) appliedFilters.push(`Étage: ${floor}`)
 
     return `
 <!DOCTYPE html>
@@ -7869,33 +8503,35 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     </script>
 </body>
 </html>
-  `;
+  `
   }
 
   // Méthode auxiliaire pour générer les données hebdomadaires
   private generateWeeklyData(reportData: any): number[] {
     if (reportData.weeklyOccupancy) {
-      return reportData.weeklyOccupancy;
+      return reportData.weeklyOccupancy
     }
 
-    const baseRate = reportData.data ?
-      ((reportData.data.filter((r: any) => r.status === 'occupied').length / reportData.data.length) * 100) :
-      70;
+    const baseRate = reportData.data
+      ? (reportData.data.filter((r: any) => r.status === 'occupied').length /
+          reportData.data.length) *
+        100
+      : 70
 
     return Array.from({ length: 7 }, (_, i) => {
-      const variation = (Math.random() - 0.5) * 20;
-      return Math.max(0, Math.min(100, Math.round(baseRate + variation)));
-    });
+      const variation = (Math.random() - 0.5) * 20
+      return Math.max(0, Math.min(100, Math.round(baseRate + variation)))
+    })
   }
 
   // Méthode auxiliaire pour obtenir le nom du type de chambre
   private getRoomTypeName(roomTypeId: string): string {
     const types: { [key: string]: string } = {
-      'standard': 'Standard',
-      'deluxe': 'Deluxe',
-      'suite': 'Suite'
-    };
-    return types[roomTypeId] || roomTypeId;
+      standard: 'Standard',
+      deluxe: 'Deluxe',
+      suite: 'Suite',
+    }
+    return types[roomTypeId] || roomTypeId
   }
 
   /**
@@ -7917,17 +8553,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           checkedIn: true,
           checkedOut: true,
           void: true,
-          unconfirmedReservation: true
+          unconfirmedReservation: true,
         },
-        hotelId
+        hotelId,
       } = request.only([
-        'dateType', 'dateFrom', 'dateTo', 'status', 'businessSource', 'include', 'hotelId'
+        'dateType',
+        'dateFrom',
+        'dateTo',
+        'status',
+        'businessSource',
+        'include',
+        'hotelId',
       ])
 
       if (!dateFrom || !dateTo) {
         return response.badRequest({
           success: false,
-          message: 'Date range is required'
+          message: 'Date range is required',
         })
       }
 
@@ -7955,12 +8597,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       } else if (dateType === 'Arrival') {
         query = query.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereBetween('arrivalDate', [dateFrom, dateTo])
-
         })
       } else if (dateType === 'Arrival') {
         query = query.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereBetween('departureDate', [dateFrom, dateTo])
-
         })
       }
 
@@ -8006,17 +8646,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       let totalCreditAmount = 0
       let totalBalanceAmount = 0
 
-      const folioList = folios.map(folio => {
+      const folioList = folios.map((folio) => {
         const chargeAmount = folio.transactions
-          .filter(t => t.category === TransactionCategory.ROOM)
+          .filter((t) => t.category === TransactionCategory.ROOM)
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
 
         const taxAmount = folio.transactions
-          .filter(t => t.category === TransactionCategory.TAX)
+          .filter((t) => t.category === TransactionCategory.TAX)
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
 
         const creditAmount = folio.transactions
-          .filter(t => t.category === 'payment')
+          .filter((t) => t.category === 'payment')
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
 
         const balanceAmount = chargeAmount + taxAmount - creditAmount
@@ -8037,7 +8677,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           chargeAmount: chargeAmount,
           taxAmount: taxAmount,
           creditAmount: creditAmount,
-          balanceAmount: balanceAmount
+          balanceAmount: balanceAmount,
         }
       })
 
@@ -8050,17 +8690,16 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
             totalChargeAmount: totalChargeAmount,
             totalTaxAmount: totalTaxAmount,
             totalCreditAmount: totalCreditAmount,
-            totalBalance: totalBalanceAmount
-          }
-        }
+            totalBalance: totalBalanceAmount,
+          },
+        },
       })
-
     } catch (error) {
       logger.error('Error generating folio list report:', error)
       return response.internalServerError({
         success: false,
         message: 'Error generating folio list report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8075,13 +8714,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         to,
         user = null,
         operation = null,
-        hotelId
+        hotelId,
       } = request.only(['from', 'to', 'user', 'operation', 'hotelId'])
 
       if (!from || !to) {
         return response.badRequest({
           success: false,
-          message: 'Date range is required'
+          message: 'Date range is required',
         })
       }
 
@@ -8089,9 +8728,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const ActivityLog = (await import('#models/activity_log')).default
 
       // Build query
-      let query = ActivityLog.query()
-        .preload('user')
-        .whereBetween('created_at', [from, to])
+      let query = ActivityLog.query().preload('user').whereBetween('created_at', [from, to])
 
       // Apply hotel filter
       if (hotelId) {
@@ -8106,14 +8743,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       // Apply operation filter
       if (operation) {
         const operations = Array.isArray(operation) ? operation : [operation]
-        const actionFilters = operations.map(op => {
+        const actionFilters = operations.map((op) => {
           switch (op) {
-            case 'roomrate_change': return 'ROOM_RATE_CHANGE'
-            case 'check_in': return 'CHECK_IN'
-            case 'check_out': return 'CHECK_OUT'
-            case 'room_assignment': return 'ROOM_ASSIGNMENT'
-            case 'payment': return 'PAYMENT'
-            default: return op.toUpperCase()
+            case 'roomrate_change':
+              return 'ROOM_RATE_CHANGE'
+            case 'check_in':
+              return 'CHECK_IN'
+            case 'check_out':
+              return 'CHECK_OUT'
+            case 'room_assignment':
+              return 'ROOM_ASSIGNMENT'
+            case 'payment':
+              return 'PAYMENT'
+            default:
+              return op.toUpperCase()
           }
         })
         query = query.whereIn('action', actionFilters)
@@ -8134,7 +8777,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           guest: log.description || '',
           user: log.user ? `${log.user.firstName} ${log.user.lastName}` : log.username || '',
           date: log.createdAt.toFormat('dd/MM/yyyy'),
-          time: log.createdAt.toFormat('HH:mm:ss')
+          time: log.createdAt.toFormat('HH:mm:ss'),
         })
 
         return acc
@@ -8144,16 +8787,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         success: true,
         data: {
           auditLogs: groupedLogs,
-          totalRecords: logs.length
-        }
+          totalRecords: logs.length,
+        },
       })
-
     } catch (error) {
       logger.error('Error generating audit report:', error)
       return response.internalServerError({
         success: false,
         message: 'Error generating audit report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8163,17 +8805,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    */
   async getVoidChargeReport({ request, response }: HttpContext) {
     try {
-      const {
-        from,
-        to,
-        by = null,
-        hotelId
-      } = request.only(['from', 'to', 'by', 'hotelId'])
+      const { from, to, by = null, hotelId } = request.only(['from', 'to', 'by', 'hotelId'])
 
       if (!from || !to) {
         return response.badRequest({
           success: false,
-          message: 'Date range is required'
+          message: 'Date range is required',
         })
       }
 
@@ -8190,7 +8827,6 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         .where('category', TransactionCategory.ROOM)
         .whereBetween('voidedDate', [from, to])
 
-
       // Apply hotel filter
       if (hotelId) {
         query = query.whereHas('folio', (folioQuery) => {
@@ -8205,7 +8841,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
 
-      const voidCharges = voidTransactions.map(transaction => ({
+      const voidCharges = voidTransactions.map((transaction) => ({
         folioNo: transaction.folio.folioNumber,
         invoiceNo: transaction.folio.invoiceNumber || '',
         guestName: transaction.folio.guest
@@ -8217,8 +8853,11 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         voidedBy: transaction.voidedByUser
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
-        voidedAt: transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') || transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
-        reason: transaction.voidReason || ''
+        voidedAt:
+          transaction.voidedAt?.toFormat('dd/MM/yyyy HH:mm:ss') ||
+          transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') ||
+          '',
+        reason: transaction.voidReason || '',
       }))
 
       const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
@@ -8228,16 +8867,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         data: {
           voidCharges,
           totalRecords: voidTransactions.length,
-          totalAmount: totalAmount
-        }
+          totalAmount: totalAmount,
+        },
       })
-
     } catch (error) {
       logger.error('Error generating void charge report:', error)
       return response.internalServerError({
         success: false,
         message: 'Error generating void charge report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8247,17 +8885,12 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    */
   async getVoidPaymentReport({ request, response }: HttpContext) {
     try {
-      const {
-        from,
-        to,
-        by = null,
-        hotelId
-      } = request.only(['from', 'to', 'by', 'hotelId'])
+      const { from, to, by = null, hotelId } = request.only(['from', 'to', 'by', 'hotelId'])
 
       if (!from || !to) {
         return response.badRequest({
           success: false,
-          message: 'Date range is required'
+          message: 'Date range is required',
         })
       }
 
@@ -8288,7 +8921,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
 
-      const voidPayments = voidTransactions.map(transaction => ({
+      const voidPayments = voidTransactions.map((transaction) => ({
         folioNo: transaction.folio.folioNumber,
         invoiceNo: transaction.folio.invoiceNumber || '',
         guestName: transaction.folio.guest
@@ -8301,7 +8934,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
         voidedAt: transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
-        reason: transaction.voidReason || ''
+        reason: transaction.voidReason || '',
       }))
 
       const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
@@ -8311,16 +8944,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         data: {
           voidPayments,
           totalRecords: voidTransactions.length,
-          totalAmount: totalAmount
-        }
+          totalAmount: totalAmount,
+        },
       })
-
     } catch (error) {
       logger.error('Error generating void payment report:', error)
       return response.internalServerError({
         success: false,
         message: 'Error generating void payment report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8330,19 +8962,14 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    */
   async getVoidTransactionReport({ request, response }: HttpContext) {
     try {
-      const {
-        from,
-        to,
-        by = null,
-        hotelId
-      } = request.only(['from', 'to', 'by', 'hotelId'])
+      const { from, to, by = null, hotelId } = request.only(['from', 'to', 'by', 'hotelId'])
 
       console.log('Received params:', { from, to, by, hotelId }) // DEBUG
 
       if (!from || !to) {
         return response.badRequest({
           success: false,
-          message: 'Date range is required'
+          message: 'Date range is required',
         })
       }
 
@@ -8384,7 +9011,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
 
-      const voidTransactionsList = voidTransactions.map(transaction => ({
+      const voidTransactionsList = voidTransactions.map((transaction) => ({
         folioNo: transaction.folio.folioNumber,
         invoiceNo: transaction.folio.invoiceNumber || '',
         guestName: transaction.folio.guest
@@ -8399,7 +9026,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
         voidedAt: transaction.voidedDate?.toFormat('dd/MM/yyyy HH:mm:ss') || '',
-        reason: transaction.voidReason || ''
+        reason: transaction.voidReason || '',
       }))
 
       const totalAmount = voidTransactions.reduce((sum, t) => sum + (t.amount || 0), 0)
@@ -8409,10 +9036,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         data: {
           voidTransactions: voidTransactionsList,
           totalRecords: voidTransactions.length,
-          totalAmount: totalAmount
-        }
+          totalAmount: totalAmount,
+        },
       })
-
     } catch (error) {
       logger.error('Error generating void transaction report:', error)
       console.log(error)
@@ -8420,7 +9046,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         success: false,
         /* message: 'Error generating void transaction report',
         error: error.message */
-        error
+        error,
       })
     }
   }
@@ -8430,17 +9056,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    */
   async getGuestListReport({ request, response }: HttpContext) {
     try {
-      const {
-        startDate,
-        endDate,
-        status
-      } = request.only(['startDate', 'endDate', 'status'])
+      const { startDate, endDate, status } = request.only(['startDate', 'endDate', 'status'])
 
       // Validate required parameters
       if (!startDate || !endDate) {
         return response.badRequest({
           success: false,
-          message: 'Start date and end date are required'
+          message: 'Start date and end date are required',
         })
       }
 
@@ -8464,15 +9086,17 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const reservations = await query.exec()
 
       // Format the guest list data
-      const guestList = reservations.map(reservation => {
-        const primaryRoom = reservation.reservationRooms.find(room => room.isOwner) || reservation.reservationRooms[0]
+      const guestList = reservations.map((reservation) => {
+        const primaryRoom =
+          reservation.reservationRooms.find((room) => room.isOwner) ||
+          reservation.reservationRooms[0]
 
         return {
           guestName: reservation.guest?.displayName || 'Guest not found',
           roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
           checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
           checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
-          status: reservation.reservationStatus
+          status: reservation.reservationStatus,
         }
       })
 
@@ -8484,11 +9108,10 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           filters: {
             startDate,
             endDate,
-            status: status || 'all'
-          }
-        }
+            status: status || 'all',
+          },
+        },
       })
-
     } catch (error) {
       //logger.error('Error generating guest list report:', error)
       console.log(error)
@@ -8509,20 +9132,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getPaymentSummaryReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating payment summary report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8535,20 +9158,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getRevenueByRateTypeSummaryReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating revenue by rate type summary report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8560,20 +9183,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateRevenueByRateTypeSummaryPdf(filters)
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', 'attachment; filename="revenue-by-rate-type-summary.pdf"')
+      response.header(
+        'Content-Disposition',
+        'attachment; filename="revenue-by-rate-type-summary.pdf"'
+      )
 
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating revenue by rate type summary PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8586,20 +9212,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getStatisticsByRoomTypeReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating statistics by room type report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8611,7 +9237,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateStatisticsByRoomTypePdf(filters)
@@ -8624,7 +9250,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating statistics by room type PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8637,20 +9263,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getBusinessAnalysisReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating business analysis report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8662,7 +9288,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateBusinessAnalysisPdf(filters)
@@ -8675,7 +9301,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating business analysis PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8688,20 +9314,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getContributionAnalysisReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating contribution analysis report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8713,20 +9339,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateContributionAnalysisReportPdf(filters)
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', 'attachment; filename="contribution-analysis-report.pdf"')
+      response.header(
+        'Content-Disposition',
+        'attachment; filename="contribution-analysis-report.pdf"'
+      )
 
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating contribution analysis PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8739,20 +9368,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getMonthlyCountryWisePaxAnalysisReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly country-wise PAX analysis',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8764,20 +9393,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyCountryWisePaxAnalysisPdf(filters)
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', 'attachment; filename="monthly-country-wise-pax-analysis.pdf"')
+      response.header(
+        'Content-Disposition',
+        'attachment; filename="monthly-country-wise-pax-analysis.pdf"'
+      )
 
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly country-wise PAX analysis PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8790,20 +9422,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getMonthlyRevenueByIncomeStreamReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly revenue by income stream report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8815,20 +9447,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyRevenueByIncomeStreamPdf(filters)
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', 'attachment; filename="monthly-revenue-by-income-stream.pdf"')
+      response.header(
+        'Content-Disposition',
+        'attachment; filename="monthly-revenue-by-income-stream.pdf"'
+      )
 
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly revenue by income stream PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8841,20 +9476,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getMonthlyStatisticsReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly statistics report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8866,7 +9501,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyStatisticsPdf(filters)
@@ -8879,7 +9514,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly statistics PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8892,20 +9527,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getMonthlySummaryReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly summary report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8917,7 +9552,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateMonthlySummaryPdf(filters)
@@ -8930,7 +9565,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly summary PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8943,20 +9578,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getMonthlyTaxReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly tax report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8968,7 +9603,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateMonthlyTaxPdf(filters)
@@ -8981,7 +9616,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating monthly tax PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -8994,20 +9629,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getRoomSaleStatisticsReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating room sale statistics report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9019,7 +9654,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateRoomSaleStatisticsPdf(filters)
@@ -9032,7 +9667,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating room sale statistics PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9045,20 +9680,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getRoomStatisticsReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating room statistics report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9070,7 +9705,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateRoomStatisticsPdf(filters)
@@ -9083,7 +9718,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating room statistics PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9096,20 +9731,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getRoomOnBooksReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating room on books report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9121,7 +9756,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateRoomOnBooksPdf(filters)
@@ -9134,7 +9769,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating room on books PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9147,20 +9782,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getYearlyStatisticsReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating yearly statistics report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9172,7 +9807,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateYearlyStatisticsPdf(filters)
@@ -9185,7 +9820,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating yearly statistics PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9198,20 +9833,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getPerformanceAnalysisReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating performance analysis report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9223,20 +9858,23 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generatePerformanceAnalysisReportPdf(filters)
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', 'attachment; filename="performance-analysis-report.pdf"')
+      response.header(
+        'Content-Disposition',
+        'attachment; filename="performance-analysis-report.pdf"'
+      )
 
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating performance analysis PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9249,20 +9887,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getIpReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating IP report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9274,7 +9912,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateIpReportPdf(filters)
@@ -9287,7 +9925,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating IP report PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9300,20 +9938,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getCityLedgerDetailReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating city ledger detail report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9325,7 +9963,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateCityLedgerDetailPdf(filters)
@@ -9338,7 +9976,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating city ledger detail PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9351,20 +9989,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const data = await ReportsService.getCityLedgerSummaryReport(filters)
 
       return response.ok({
         success: true,
-        data
+        data,
       })
     } catch (error) {
       return response.internalServerError({
         success: false,
         message: 'Error generating city ledger summary report',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9376,7 +10014,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const filters: ReportFilters = {
         hotelId: hotelId ? parseInt(hotelId) : undefined,
         startDate,
-        endDate
+        endDate,
       }
 
       const pdfBuffer = await ReportsService.generateCityLedgerSummaryPdf(filters)
@@ -9389,7 +10027,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Error generating city ledger summary PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9481,7 +10119,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!transaction) {
         return response.notFound({
           success: false,
-          message: 'Transaction not found'
+          message: 'Transaction not found',
         })
       }
       console.log('transaction.totalAmount', transaction.totalAmount)
@@ -9500,7 +10138,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
         printedBy: auth.user?.fullName,
-        printedAt: DateTime.now()
+        printedAt: DateTime.now(),
       }
       console.log(receiptData)
       // Generate PDF using Edge template
@@ -9519,23 +10157,25 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '20px',
           right: '20px',
           bottom: '20px',
-          left: '20px'
-        }
+          left: '20px',
+        },
       })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `inline; filename="receipt-${transaction.transactionNumber}.pdf"`)
+      response.header(
+        'Content-Disposition',
+        `inline; filename="receipt-${transaction.transactionNumber}.pdf"`
+      )
 
       return response.send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating receipt PDF:', error)
 
       console.log('Error generating receipt PDF:', error)
       return response.internalServerError({
         success: false,
-        error: error
+        error: error,
       })
     }
   }
@@ -9562,7 +10202,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!transaction) {
         return response.notFound({
           success: false,
-          message: 'Transaction not found'
+          message: 'Transaction not found',
         })
       }
 
@@ -9576,7 +10216,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         roomType: transaction.folio.reservationRoom?.room.roomType,
         paymentMethod: transaction.paymentMethod,
         printedBy: auth.user?.fullName || 'System',
-        printedAt: DateTime.now()
+        printedAt: DateTime.now(),
       }
       console.log('invoiceData.receipt', receiptData)
       // Generate PDF using Edge template
@@ -9595,22 +10235,24 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '20px',
           right: '20px',
           bottom: '20px',
-          left: '20px'
-        }
+          left: '20px',
+        },
       })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `inline; filename="invoice-${transaction.transactionNumber}.pdf"`)
+      response.header(
+        'Content-Disposition',
+        `inline; filename="invoice-${transaction.transactionNumber}.pdf"`
+      )
 
       return response.send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating receipt PDF:', error)
       return response.internalServerError({
         success: false,
         message: 'Error generating receipt PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9633,7 +10275,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!transaction) {
         return response.notFound({
           success: false,
-          message: 'Transaction not found'
+          message: 'Transaction not found',
         })
       }
 
@@ -9651,7 +10293,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         paymentMethod: transaction.paymentMethod,
         company,
         printedBy: auth.user?.fullName,
-        printedAt: DateTime.now()
+        printedAt: DateTime.now(),
       }
 
       const { default: edge } = await import('edge.js')
@@ -9662,19 +10304,21 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
-        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
       })
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `inline; filename="company-receipt-${transaction.transactionNumber}.pdf"`)
+      response.header(
+        'Content-Disposition',
+        `inline; filename="company-receipt-${transaction.transactionNumber}.pdf"`
+      )
       return response.send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating company receipt PDF:')
       logger.info(error)
       return response.internalServerError({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9691,7 +10335,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!companyId || !fromDateStr || !toDateStr) {
         return response.badRequest({
           success: false,
-          message: 'companyId, fromDate and toDate are required'
+          message: 'companyId, fromDate and toDate are required',
         })
       }
 
@@ -9701,7 +10345,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!fromDate.isValid || !toDate.isValid) {
         return response.badRequest({
           success: false,
-          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)',
         })
       }
 
@@ -9709,7 +10353,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!company) {
         return response.notFound({
           success: false,
-          message: 'Company account not found'
+          message: 'Company account not found',
         })
       }
 
@@ -9726,7 +10370,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!transactions || transactions.length === 0) {
         return response.notFound({
           success: false,
-          message: 'No transactions found for company in the given date range'
+          message: 'No transactions found for company in the given date range',
         })
       }
 
@@ -9767,7 +10411,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         company,
         dateRange: { from: fromDate, to: toDate },
         printedBy: auth.user?.fullName || 'System',
-        printedAt: DateTime.now()
+        printedAt: DateTime.now(),
       }
 
       const { default: edge } = await import('edge.js')
@@ -9778,19 +10422,18 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
-        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
       })
 
       response.header('Content-Type', 'application/pdf')
       const filename = `company-voucher-company-${companyId}-${fromDate.toFormat('yyyyLLdd')}-${toDate.toFormat('yyyyLLdd')}.pdf`
       response.header('Content-Disposition', `inline; filename="${filename}"`)
       return response.send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating company voucher PDF:', error)
       return response.internalServerError({
         success: false,
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -9802,7 +10445,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
         return response.badRequest({
           success: false,
-          message: 'Transaction IDs array is required'
+          message: 'Transaction IDs array is required',
         })
       }
 
@@ -9825,20 +10468,20 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!transactions || transactions.length === 0) {
         return response.notFound({
           success: false,
-          message: 'Transactions not found'
+          message: 'Transactions not found',
         })
       }
 
       // Get unique folios (au cas où les transactions viennent de différents folios)
-      const uniqueFolios = [...new Set(transactions.map(t => t.folio))]
+      const uniqueFolios = [...new Set(transactions.map((t) => t.folio))]
       const primaryFolio = transactions[0].folio
       const hotel = primaryFolio.hotel
       const guest = primaryFolio.guest
 
       // Separate charges, taxes and payments
-      const charges = transactions.filter(t => t.transactionType === 'charge')
-      const taxes = transactions.filter(t => t.transactionType === 'tax')
-      const payments = transactions.filter(t => t.transactionType === 'payment')
+      const charges = transactions.filter((t) => t.transactionType === 'charge')
+      const taxes = transactions.filter((t) => t.transactionType === 'tax')
+      const payments = transactions.filter((t) => t.transactionType === 'payment')
 
       // Calculate totals CORRIGÉS
       const totalCharges = charges.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
@@ -9854,7 +10497,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       const receiptData = {
         transactions, // Toutes les transactions
         charges: [...charges, ...taxes], // Charges incluant les taxes pour l'affichage
-        payments,     // Seulement les paiements
+        payments, // Seulement les paiements
         folios: uniqueFolios, // Tous les folios concernés
         hotel,
         guest,
@@ -9872,8 +10515,8 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           transactionCount: transactions.length,
           chargeCount: charges.length,
           taxCount: taxes.length,
-          paymentCount: payments.length
-        }
+          paymentCount: payments.length,
+        },
       }
 
       console.log('data.send@@@@', receiptData)
@@ -9886,9 +10529,9 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
 
       // Ajouter la fonction helper formatNumber
       edge.global('formatNumber', (number) => {
-        if (!number && number !== 0) return '0';
-        const num = parseFloat(number);
-        return new Intl.NumberFormat('fr-FR').format(num);
+        if (!number && number !== 0) return '0'
+        const num = parseFloat(number)
+        return new Intl.NumberFormat('fr-FR').format(num)
       })
 
       // Render the POS receipt template
@@ -9900,30 +10543,32 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '10px',
           right: '10px',
           bottom: '10px',
-          left: '10px'
-        }
+          left: '10px',
+        },
       })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `inline; filename="incidental-invoice-${DateTime.now().toFormat('yyyy-MM-dd')}.pdf"`)
+      response.header(
+        'Content-Disposition',
+        `inline; filename="incidental-invoice-${DateTime.now().toFormat('yyyy-MM-dd')}.pdf"`
+      )
 
       return response.send(pdfBuffer)
-
     } catch (error) {
       logger.error('Error generating incidental invoice PDF:')
       logger.info(error)
       return response.internalServerError({
         success: false,
         message: 'Error generating incidental invoice PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
   private calculateAmountInWords(amount: Float16Array | number) {
     // Vérifier que le montant est un nombre
     if (typeof amount !== 'number' || Number.isNaN(amount)) {
-      throw new Error('Le montant doit être un nombre');
+      throw new Error('Le montant doit être un nombre')
     }
 
     // Gérer les montants négatifs
@@ -9948,25 +10593,26 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
     // Mettre une majuscule initiale pour une meilleure présentation
     return words.charAt(0).toUpperCase() + words.slice(1)
   }
-    /**
-   * Generate Meal Plan Report PDF (Breakfast)
+  /**
+   * Generate Meal Plan Report PDF
    */
   async generateMealPlanReportPdf({ request, response, auth }: HttpContext) {
     try {
-      const { hotelId, asOnDate } = request.only(['hotelId', 'asOnDate'])
+      const { hotelId: rawHotelId, asOnDate } = request.only(['hotelId', 'asOnDate'])
+      const hotelId = Number(rawHotelId)
 
       // Validate required parameters
       if (!hotelId) {
         return response.badRequest({
           success: false,
-          message: 'Hotel ID is required'
+          message: 'Hotel ID is required',
         })
       }
 
       if (!asOnDate) {
         return response.badRequest({
           success: false,
-          message: 'As On Date is required'
+          message: 'As On Date is required',
         })
       }
 
@@ -9975,15 +10621,15 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       if (!reportDate.isValid) {
         return response.badRequest({
           success: false,
-          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)'
+          message: 'Invalid date format. Use ISO format (YYYY-MM-DD)',
         })
       }
 
       // Import required models
-      const { default: Hotel } = await import('#models/hotel')
+      const { default: HotelModel } = await import('#models/hotel')
 
       // Get hotel information
-      const hotel = await Hotel.findOrFail(hotelId)
+      const hotel = await HotelModel.findOrFail(hotelId)
 
       // Get authenticated user information
       const user = auth.user
@@ -9991,14 +10637,13 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
         : 'System'
 
-      // Get breakfast reservations data
-      const breakfastData = await this.getMealPlanBreakfastData(hotelId, reportDate)
+      const mealPlansData = await this.getMealPlanReportData(hotelId, reportDate)
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateMealPlanReportHtml(
         hotel.hotelName,
         reportDate,
-        breakfastData,
+        mealPlansData,
         printedBy
       )
 
@@ -10015,7 +10660,7 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
         <!-- Hotel name and report title -->
         <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:3px; margin-bottom:2px;">
           <div style="font-weight:bold; color:#00008B; font-size:11px;">${hotel.hotelName}</div>
-          <div style="font-size:11px; color:#8B0000; font-weight:bold;">Meal Plan</div>
+          <div style="font-size:11px; color:#8B0000; font-weight:bold;">Meal Plan Report</div>
         </div>
         
         <!-- Report Info -->
@@ -10060,16 +10705,16 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
           top: '120px',
           right: '10px',
           bottom: '70px',
-          left: '10px'
+          left: '10px',
         },
         displayHeaderFooter: true,
         headerTemplate,
         footerTemplate,
-        printBackground: true
+        printBackground: true,
       })
 
       // Set response headers
-      const fileName = `meal-plan-breakfast-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
+      const fileName = `meal-plan-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${fileName}"`)
 
@@ -10079,78 +10724,128 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
       return response.internalServerError({
         success: false,
         message: 'Failed to generate meal plan report PDF',
-        error: error.message
+        error: error.message,
       })
     }
   }
 
   /**
-   * Get breakfast reservations data for a specific date
+   * Get meal plan reservations data grouped by meal plan for a specific date
    */
-  public async getMealPlanBreakfastData(hotelId: number, reportDate: DateTime) {
-    const { default: Reservation } = await import('#models/reservation')
-    
-    // Get all reservations for the hotel where:
-    // - Rate Type is "Bed & Breakfast" or similar
-    // - Reservation is active on the report date (arrival <= reportDate < departure)
-    const reservations = await Reservation.query()
+  public async getMealPlanReportData(hotelId: number, reportDate: DateTime) {
+    const { default: ReservationRoom } = await import('#models/reservation_room')
+
+    const reportIsoDate = reportDate.toISODate()
+    if (!reportIsoDate) {
+      return {
+        mealPlans: [],
+        totalReservations: 0,
+        totalGuests: 0,
+        totalAdults: 0,
+        totalChildren: 0,
+      }
+    }
+
+    const rooms = await ReservationRoom.query()
       .where('hotelId', hotelId)
-      .where('checkInDate', '<=', reportDate.toSQLDate())
-      .where('checkOutDate', '>', reportDate.toSQLDate())
-      .whereHas('reservationRooms', (roomQuery) => {
-        roomQuery.whereHas('roomRates', (rateQuery) => {
-          rateQuery.whereHas('rateType', (rateTypeQuery) => {
-            rateTypeQuery
-              .where('rateTypeName', 'like', '%B&B%')
-          })
-        })
+      .where('checkInDate', '<=', reportIsoDate)
+      .where('checkOutDate', '>', reportIsoDate)
+      .whereNotIn('status',[ReservationStatus.CANCELLED, ReservationStatus.VOIDED,ReservationStatus.NOSHOW, ReservationStatus.PENDING])
+      .where('mealPlanRateInclude', true)
+      .whereNotNull('mealPlanId')
+      .preload('mealPlan')
+      .preload('guest', (guestQuery) => {
+        guestQuery.preload('companyAccount')
       })
-      .preload('guest',(guestQuey) =>{
-        guestQuey.preload('companyAccount')
+      .preload('room')
+      .preload('roomRates', (rateQuery) => {
+        rateQuery.preload('rateType')
       })
-      //.preload('company_name')
-      .preload('reservationRooms', (roomQuery) => {
-        roomQuery
-          .preload('room')
-          .preload('roomType')
-          .preload('roomRates', (rateQuery) => {
-            rateQuery.preload('rateType')
-          })
-      })
+      .orderBy('mealPlanId', 'asc')
       .orderBy('id', 'asc')
 
-    // Format the data
-    const breakfastList = reservations.map((reservation) => {
-      // Get the first room and its rate type
-      const firstRoom = reservation.reservationRooms?.[0]
-      const roomNumber = firstRoom?.room?.roomNumber || 'N/A'
-      const rateType = firstRoom?.roomRates?.rateType?.rateTypeName || 'N/A'
-      
-      return {
-        roomNo: roomNumber,
-        guestName: reservation.guest 
-          ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim() 
-          : 'N/A',
-        rateType: rateType,
-        arrival: DateTime.fromJSDate(reservation.checkInDate).toFormat('dd/MM/yyyy'),
-        departure: DateTime.fromJSDate(reservation.checkOutDate).toFormat('dd/MM/yyyy'),
-        companyName: reservation.guest.companyAccount?.companyName || '-' ,
-        adult: reservation.adults || 0,
-        child: reservation.children || 0
+    const mealPlansById = new Map<
+      number,
+      {
+        mealPlanId: number
+        mealPlanName: string
+        reservations: Array<{
+          roomNo: string
+          guestName: string
+          rateType: string
+          arrival: string
+          departure: string
+          companyName: string
+          adult: number
+          child: number
+        }>
+        totalGuests: number
+        totalAdults: number
+        totalChildren: number
       }
-    })
+    >()
+
+    for (const rr of rooms as any[]) {
+      const mpId = Number(rr?.mealPlanId || 0)
+      if (!mpId) continue
+
+      const mpName =
+        String(rr?.mealPlan?.name || '').trim() ||
+        String(rr?.mealPlan?.shortCode || '').trim() ||
+        `Meal plan ${mpId}`
+
+      const group =
+        mealPlansById.get(mpId) ??
+        ({
+          mealPlanId: mpId,
+          mealPlanName: mpName,
+          reservations: [],
+          totalGuests: 0,
+          totalAdults: 0,
+          totalChildren: 0,
+        } as any)
+
+      const roomNumber = rr?.room?.roomNumber || 'N/A'
+      const rateType = rr?.roomRates?.rateType?.rateTypeName || 'N/A'
+      const checkInDate = rr?.checkInDate ? rr.checkInDate.toFormat('dd/MM/yyyy') : 'N/A'
+      const checkOutDate = rr?.checkOutDate ? rr.checkOutDate.toFormat('dd/MM/yyyy') : 'N/A'
+      const adult = Number(rr?.adults || 0)
+      const child = Number(rr?.children || 0)
+
+      group.reservations.push({
+        roomNo: roomNumber,
+        guestName: rr.guest
+          ? `${rr.guest.firstName || ''} ${rr.guest.lastName || ''}`.trim()
+          : 'N/A',
+        rateType,
+        arrival: checkInDate,
+        departure: checkOutDate,
+        companyName: rr.guest?.companyAccount?.companyName || '-',
+        adult,
+        child,
+      })
+
+      group.totalAdults += adult
+      group.totalChildren += child
+      group.totalGuests += adult + child
+
+      mealPlansById.set(mpId, group)
+    }
+
+    const mealPlans = Array.from(mealPlansById.values())
 
     // Calculate totals
-    const totalGuests = breakfastList.reduce((sum, item) => sum + item.adult + item.child, 0)
-    const totalAdults = breakfastList.reduce((sum, item) => sum + item.adult, 0)
-    const totalChildren = breakfastList.reduce((sum, item) => sum + item.child, 0)
+    const totalGuests = mealPlans.reduce((sum, mp) => sum + mp.totalGuests, 0)
+    const totalAdults = mealPlans.reduce((sum, mp) => sum + mp.totalAdults, 0)
+    const totalChildren = mealPlans.reduce((sum, mp) => sum + mp.totalChildren, 0)
+    const totalReservations = mealPlans.reduce((sum, mp) => sum + mp.reservations.length, 0)
 
     return {
-      reservations: breakfastList,
-      totalReservations: breakfastList.length,
+      mealPlans,
+      totalReservations,
       totalGuests,
       totalAdults,
-      totalChildren
+      totalChildren,
     }
   }
 
@@ -10158,40 +10853,40 @@ private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency
    * Generate HTML content for Meal Plan Report using Edge template
    */
   public async generateMealPlanReportHtml(
-  hotelName: string,
-  reportDate: DateTime,
-  breakfastData: any,
-  printedBy: string = 'System'
-): Promise<string> {
-  const { default: edge } = await import('edge.js')
-  const path = await import('path')
+    hotelName: string,
+    reportDate: DateTime,
+    mealPlansData: any,
+    printedBy: string = 'System'
+  ): Promise<string> {
+    const { default: edge } = await import('edge.js')
+    const path = await import('node:path')
 
-  // Configure Edge with views directory
-  edge.mount(path.join(process.cwd(), 'resources/views'))
+    // Configure Edge with views directory
+    edge.mount(path.join(process.cwd(), 'resources/views'))
 
-  // Format dates
-  const asOnDate = reportDate.toFormat('dd/MM/yyyy')
-  const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    // Format dates
+    const asOnDate = reportDate.toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
 
-  // Prepare template data
-  const templateData = {
-    hotelName,
-    asOnDate,
-    printedOn,
-    printedBy,
-    breakfastData,
-    header: {
+    // Prepare template data
+    const templateData = {
       hotelName,
-      reportTitle: 'Meal Plan Report - Breakfast',
-      reportDate: asOnDate
-    },
-    footer: {
+      asOnDate,
+      printedOn,
       printedBy,
-      printedOn
+      mealPlansData,
+      header: {
+        hotelName,
+        reportTitle: 'Meal Plan Report',
+        reportDate: asOnDate,
+      },
+      footer: {
+        printedBy,
+        printedOn,
+      },
     }
-  }
 
-  // Render template
-  return await edge.render('reports/meal_plan_report', templateData)
+    // Render template
+    return await edge.render('reports/meal_plan_report', templateData)
   }
 }
