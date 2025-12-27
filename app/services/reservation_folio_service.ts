@@ -205,7 +205,8 @@ export default class ReservationFolioService {
         throw new Error('No folio found for this reservation')
       }
 
-      // const targetFolioId = reservation.folios[0].id
+      const targetFolioId = reservation.folios[0].id
+
       const lastTx = await FolioTransaction.query({ client: localTrx })
         .where('hotel_id', reservation.hotelId)
         .orderBy('transaction_number', 'desc')
@@ -474,7 +475,7 @@ export default class ReservationFolioService {
 
         // Apply each tax rate
         for (const taxRate of room.taxRates) {
-          const taxAmount = totalRoomAmount * (taxRate.amount / 100)
+          const taxAmount = totalRoomAmount * (taxRate.amount ?? 0 / 100)
 
           await FolioService.postTransaction({
             folioId: primaryFolio.id,
@@ -666,9 +667,7 @@ export default class ReservationFolioService {
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('guests')
-        .preload('reservationRooms', (query) => {
-        query.preload('guest')
-      })
+        .preload('reservationRooms')
         .firstOrFail()
 
 
@@ -688,67 +687,30 @@ export default class ReservationFolioService {
 
       const folios: Folio[] = []
 
-      for (const [index, reservationRoom] of reservation.reservationRooms.entries()) {
-      const roomGuest = reservationRoom.guestId
-        ? (await reservationRoom.load('guest'), reservationRoom.guest)
-        : primaryGuest
+      // Create one folio per room for the primary guest
+      for (const reservationRoom of reservation.reservationRooms) {
+        const folioData: CreateFolioData = {
+          hotelId: reservation.hotelId,
+          guestId: primaryGuest.id,
+          reservationId: reservationId,
+          reservationRoomId: reservationRoom.id,
+          groupId: reservation.groupId ?? undefined,
+          folioType: FolioType.GUEST,
+          creditLimit: 0,
+          notes: `Folio for room ${reservationRoom.id} - Reservation ${reservation.confirmationNumber}`,
+          createdBy: confirmedBy,
+        }
 
-      // Générer un nom de folio distinct pour chaque chambre
-      const folioName = reservation.reservationRooms.length > 1
-        ? `Chambre ${index + 1} Folio`
-        : 'Main Folio'
-
-      const folioData: CreateFolioData = {
-        hotelId: reservation.hotelId,
-        guestId: roomGuest?.id || reservationRoom.guestId || primaryGuest.id, // CORRECTION ICI
-        reservationId: reservationId,
-        reservationRoomId: reservationRoom.id,
-        groupId: reservation.groupId ?? undefined,
-        folioType: reservation.reservationRooms.length > 1 ? FolioType.GUEST : FolioType.GUEST,
-        creditLimit: 0,
-        notes: `${folioName} - Room ${reservationRoom.roomId || reservationRoom.roomTypeId} - Reservation ${reservation.confirmationNumber}`,
-        createdBy: confirmedBy,
-
+        const folio = await FolioService.createFolio(folioData)
+        folios.push(folio)
       }
 
-      const folio = await FolioService.createFolio(folioData)
-      folios.push(folio)
+      // Post room charges to folios
+      await this.postRoomCharges(reservationId, confirmedBy)
 
-      console.log(`✅ Folio créé: ${folioName} pour guest ID ${roomGuest?.id || reservationRoom.guestId}`)
-    }
-
-    // Post room charges to folios
-    await this.postRoomCharges(reservationId, confirmedBy)
-
-    return folios
-  })
-}
-
-
-  //     // Create one folio per room for the primary guest
-  //     for (const reservationRoom of reservation.reservationRooms) {
-  //       const folioData: CreateFolioData = {
-  //         hotelId: reservation.hotelId,
-  //         guestId: primaryGuest.id,
-  //         reservationId: reservationId,
-  //         reservationRoomId: reservationRoom.id,
-  //         groupId: reservation.groupId ?? undefined,
-  //         folioType: FolioType.GUEST,
-  //         creditLimit: 0,
-  //         notes: `Folio for room ${reservationRoom.id} - Reservation ${reservation.confirmationNumber}`,
-  //         createdBy: confirmedBy,
-  //       }
-
-  //       const folio = await FolioService.createFolio(folioData)
-  //       folios.push(folio)
-  //     }
-
-  //     // Post room charges to folios
-  //     await this.postRoomCharges(reservationId, confirmedBy)
-
-  //     return folios
-  //   })
-  // }
+      return folios
+    })
+  }
 
   /**
    * Get all guests for a reservation with their pivot data
