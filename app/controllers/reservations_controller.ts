@@ -1267,7 +1267,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         .preload('folios', (query) => {
           query.preload('transactions', (tq) => {
-            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED)
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')  
           })
         })
 

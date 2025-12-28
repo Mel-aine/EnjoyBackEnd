@@ -1820,6 +1820,7 @@ export default class FolioService {
     const transactions = await FolioTransaction.query({ client: trx })
       .where('folioId', folioId)
       .where('status', '!=', TransactionStatus.VOIDED)
+      .whereNull('mealPlanId')
 
     let totalCharges = 0
     let totalPayments = 0

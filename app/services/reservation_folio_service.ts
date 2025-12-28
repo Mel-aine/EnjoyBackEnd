@@ -177,8 +177,12 @@ export default class ReservationFolioService {
   /**
    * Auto-post room charges to folio based on reservation
    */
-  static async postRoomCharges(reservationId: number, postedBy: number, externalTrx?: any): Promise<void> {
-    const localTrx = externalTrx || await db.transaction()
+  static async postRoomCharges(
+    reservationId: number,
+    postedBy: number,
+    externalTrx?: any
+  ): Promise<void> {
+    const localTrx = externalTrx || (await db.transaction())
 
     try {
       const reservation = await Reservation.query({ client: localTrx })
@@ -205,8 +209,6 @@ export default class ReservationFolioService {
         throw new Error('No folio found for this reservation')
       }
 
-      const targetFolioId = reservation.folios[0].id
-
       const lastTx = await FolioTransaction.query({ client: localTrx })
         .where('hotel_id', reservation.hotelId)
         .orderBy('transaction_number', 'desc')
@@ -218,6 +220,28 @@ export default class ReservationFolioService {
       const batch: Partial<FolioTransaction>[] = []
 
       const normalizeGuestTarget = (value: unknown) => `${value ?? ''}`.trim().toLowerCase()
+      const normalizeAssignOnToken = (value: unknown): string | null => {
+        const raw = `${value ?? ''}`.trim()
+        if (!raw) return null
+        const key = raw.replaceAll('_', ' ').toLowerCase()
+        if (key === 'check in' || key === 'checkin') return 'CheckIn'
+        if (key === 'stay over' || key === 'stayover') return 'StayOver'
+        if (key === 'check out' || key === 'checkout') return 'CheckOut'
+        return raw
+      }
+      const parseAssignMealPlanOn = (value: unknown): Set<string> => {
+        if (Array.isArray(value)) {
+          const tokens = value.map((t) => normalizeAssignOnToken(t)).filter(Boolean) as string[]
+          return new Set(tokens)
+        }
+        const trimmed = `${value ?? ''}`.trim()
+        if (!trimmed) return new Set()
+        const tokens = trimmed
+          .split(',')
+          .map((t) => normalizeAssignOnToken(t))
+          .filter(Boolean) as string[]
+        return new Set(tokens)
+      }
       const getGuestCountForTarget = (
         targetGuestType: unknown,
         counts: { adults: number; children: number; infants: number }
@@ -230,22 +254,22 @@ export default class ReservationFolioService {
       }
 
       for (const reservationRoom of reservation.reservationRooms) {
-
         const targetFolio = reservation.folios.find(
           (folio) => folio.reservationRoomId === reservationRoom.id
         )
 
         if (!targetFolio) {
-          console.warn(` No folio found for reservationRoom ${reservationRoom.id}. Skipping charges.`)
+          console.warn(
+            ` No folio found for reservationRoom ${reservationRoom.id}. Skipping charges.`
+          )
           continue
         }
 
         const targetFolioId = targetFolio.id
 
-
         const rawNights = reservationRoom.nights
         const effectiveNights = rawNights === 0 ? 1 : rawNights
-        const packageGrossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
+        const packageGrossDailyRate = Number.parseFloat(`${reservationRoom.roomRate}`) || 0
         const mealPlanIncluded = Boolean((reservationRoom as any).mealPlanRateInclude)
         const mealPlan: any = (reservationRoom as any).mealPlan
         const guestCounts = {
@@ -285,9 +309,12 @@ export default class ReservationFolioService {
 
             let percentageSum = 0
             let flatSum = 0
-            const extraTaxes = Array.isArray((extra as any).taxRates) && (extra as any).taxRates.length
-              ? (extra as any).taxRates
-              : ((extra as any).taxRate ? [(extra as any).taxRate] : [])
+            const extraTaxes =
+              Array.isArray((extra as any).taxRates) && (extra as any).taxRates.length
+                ? (extra as any).taxRates
+                : (extra as any).taxRate
+                  ? [(extra as any).taxRate]
+                  : []
 
             for (const t of extraTaxes as any[]) {
               const postingType = (t as any)?.postingType
@@ -298,11 +325,11 @@ export default class ReservationFolioService {
               }
             }
 
-            const adjustedGross = Math.max(0, totalGross - (flatSum * quantity))
+            const adjustedGross = Math.max(0, totalGross - flatSum * quantity)
             const percRate = percentageSum > 0 ? percentageSum / 100 : 0
             const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
             const includedTaxAmount = Math.max(0, totalGross - netWithoutTax)
-            const unitPriceNet = quantity > 0 ? (netWithoutTax / quantity) : netWithoutTax
+            const unitPriceNet = quantity > 0 ? netWithoutTax / quantity : netWithoutTax
 
             mealPlanComponents.push({
               extra,
@@ -315,10 +342,17 @@ export default class ReservationFolioService {
           }
         }
 
+        const mealPlanAssignOnValue =
+          (mealPlan as any)?.assignMealPlanOn ?? (mealPlan as any)?.assign_meal_plan_on
+        const mealPlanAssignOn = parseAssignMealPlanOn(mealPlanAssignOnValue)
+        const allowMealPlanDays =
+          mealPlanIncluded && mealPlanComponents.length > 0 && mealPlanAssignOn.size > 0
+        const mealPlanId = allowMealPlanDays ? Number((mealPlan as any)?.id ?? 0) || null : null
+
         const totalRoomAmount = mealPlanIncluded
           ? Math.max(0, packageGrossDailyRate - mealPlanGrossPerDay)
           : packageGrossDailyRate
-        const grossDailyRate = parseFloat(`${reservationRoom.roomRate}`) || 0
+        const grossDailyRate = Number.parseFloat(`${reservationRoom.roomRate}`) || 0
         let baseAmount = grossDailyRate
         let totalDailyAmount = grossDailyRate
 
@@ -338,23 +372,27 @@ export default class ReservationFolioService {
         const roomAdjustedGross = Math.max(0, totalRoomAmount - flatSum)
         const percRate = percentageSum > 0 ? percentageSum / 100 : 0
         const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
-        const roomNetWithoutTax = percRate > 0 ? roomAdjustedGross / (1 + percRate) : roomAdjustedGross
-        const rateBaseRateGross = parseFloat(`${reservationRoom.roomRates?.baseRate}`) || 0
+        const roomNetWithoutTax =
+          percRate > 0 ? roomAdjustedGross / (1 + percRate) : roomAdjustedGross
+        const rateBaseRateGross = Number.parseFloat(`${reservationRoom.roomRates?.baseRate}`) || 0
         const baseRateAdjustedGross = Math.max(0, rateBaseRateGross - flatSum)
-        const baseRateNetWithoutTax = percRate > 0 ? baseRateAdjustedGross / (1 + percRate) : baseRateAdjustedGross
+        const baseRateNetWithoutTax =
+          percRate > 0 ? baseRateAdjustedGross / (1 + percRate) : baseRateAdjustedGross
         const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax - mealPlanGrossPerDay)
         baseAmount = netWithoutTax
         totalDailyAmount = grossDailyRate
 
         for (let night = 1; night <= effectiveNights; night++) {
           const dailyTaxAmount = Math.max(0, totalDailyAmount - baseAmount)
-          const transactionDate = rawNights === 0
-            ? reservation.arrivedDate
-            : reservation.arrivedDate?.plus({ days: night - 1 })
+          const transactionDate =
+            rawNights === 0
+              ? reservation.arrivedDate
+              : reservation.arrivedDate?.plus({ days: night - 1 })
 
-          const description = rawNights === 0
-            ? `Room ${reservationRoom.room?.roomNumber ?? ''} - Day use`
-            : `Room ${reservationRoom.room?.roomNumber ?? ''} - Night ${night}`
+          const description =
+            rawNights === 0
+              ? `Room ${reservationRoom.room?.roomNumber ?? ''} - Day use`
+              : `Room ${reservationRoom.room?.roomNumber ?? ''} - Night ${night}`
 
           const amount = baseAmount
           const totalAmount = baseAmount + dailyTaxAmount
@@ -395,26 +433,86 @@ export default class ReservationFolioService {
             lastModifiedBy: postedBy,
           } as any)
 
+          if (allowMealPlanDays) {
+            const arrivedDate = reservation.arrivedDate
+            const checkInDate = arrivedDate ?? transactionDate
+            const stayOverDate = arrivedDate
+              ? arrivedDate.plus({ days: night })
+              : (transactionDate?.plus({ days: 1 }) ?? transactionDate)
+            const checkOutDate =
+              reservation.departDate ??
+              arrivedDate?.plus({ days: effectiveNights }) ??
+              transactionDate?.plus({ days: 1 }) ??
+              transactionDate
+
+            const shouldCreateCheckIn =
+              night === 1 && mealPlanAssignOn.has('CheckIn') && Boolean(checkInDate)
+            const shouldCreateStayOver =
+              night < effectiveNights && mealPlanAssignOn.has('StayOver') && Boolean(stayOverDate)
+            const shouldCreateCheckOut =
+              night === effectiveNights && mealPlanAssignOn.has('CheckOut') && Boolean(checkOutDate)
+
+            const pushComponents = (
+              dayType: string,
+              mealPlanTransactionDate: DateTime | undefined
+            ) => {
+              for (const comp of mealPlanComponents) {
+                batch.push({
+                  hotelId: reservation.hotelId,
+                  folioId: targetFolioId,
+                  reservationId: reservation.id,
+                  reservationRoomId: reservationRoom.id,
+                  mealPlanId,
+                  extraChargeId: Number((comp.extra as any)?.id ?? 0) || null,
+                  transactionNumber: nextNumber++,
+                  transactionType: TransactionType.CHARGE,
+                  category: TransactionCategory.EXTRACT_CHARGE,
+                  particular: `${(comp.extra as any)?.name ?? ''} Qt(${comp.quantity})`,
+                  description: `${(comp.extra as any)?.name || 'Meal Component'} - ${mealPlan.name || 'Meal Plan'} (${dayType})`,
+                  amount: comp.netAmount,
+                  quantity: comp.quantity,
+                  unitPrice: comp.unitPrice,
+                  taxAmount: comp.taxAmount,
+                  serviceChargeAmount: 0,
+                  discountAmount: 0,
+                  netAmount: comp.netAmount,
+                  grossAmount: comp.netAmount,
+                  totalAmount: comp.netAmount + comp.taxAmount,
+                  notes: `meal plan extra charge - ${dayType}`,
+                  transactionCode: generateTransactionCode(),
+                  transactionTime: nowIsoTime,
+                  postingDate: mealPlanTransactionDate ?? DateTime.now(),
+                  currentWorkingDate: mealPlanTransactionDate,
+                  transactionDate: mealPlanTransactionDate,
+                  status: TransactionStatus.PENDING,
+                  createdBy: postedBy,
+                  lastModifiedBy: postedBy,
+                } as any)
+              }
+            }
+
+            if (shouldCreateCheckIn) pushComponents('CheckIn', checkInDate)
+            if (shouldCreateStayOver) pushComponents('StayOver', stayOverDate)
+            if (shouldCreateCheckOut) pushComponents('CheckOut', checkOutDate)
+          }
         }
       }
 
+      if (batch.length > 0) {
+        await FolioTransaction.createMany(batch as any[], { client: localTrx })
 
-    if (batch.length > 0) {
-      await FolioTransaction.createMany(batch as any[], { client: localTrx })
+        const folioIds = [...new Set(batch.map((tx) => tx.folioId))]
+        console.log(`✅ Updating totals for ${folioIds.length} folios:`, folioIds)
 
-      const folioIds = [...new Set(batch.map(tx => tx.folioId))]
-      console.log(`✅ Updating totals for ${folioIds.length} folios:`, folioIds)
-
-      for (const folioId of folioIds) {
-        if (folioId) {
-          await FolioService.updateFolioTotals(folioId, localTrx)
+        for (const folioId of folioIds) {
+          if (folioId) {
+            await FolioService.updateFolioTotals(folioId, localTrx)
+          }
         }
       }
-    }
 
       // On ne commit que si on a créé la transaction nous-mêmes
       if (!externalTrx) await localTrx.commit()
-
     } catch (error) {
       if (!externalTrx) await localTrx.rollback()
       throw error
@@ -462,14 +560,15 @@ export default class ReservationFolioService {
       if (room.taxRates && room.taxRates.length > 0) {
         // Calculate room charge amount for tax calculation
         const roomRate = reservationRoom.roomRates
-        const baseAmount = parseFloat(`${roomRate.baseRate}`) * nights
+        const baseAmount = Number.parseFloat(`${roomRate.baseRate}`) * nights
 
         // Calculate extra charges (already implemented above)
         const roomType = room.roomType
         const extraAdults = Math.max(0, reservationRoom.adults - (roomType?.baseAdult ?? 0))
         const extraChildren = Math.max(0, reservationRoom.children - (roomType?.baseChild ?? 0))
-        const extraChildAmount = extraChildren * parseFloat(`${roomRate.extraChildRate ?? 0}`)
-        const extraAdultAmount = extraAdults * parseFloat(`${roomRate.extraAdultRate ?? 0}`)
+        const extraChildAmount =
+          extraChildren * Number.parseFloat(`${roomRate.extraChildRate ?? 0}`)
+        const extraAdultAmount = extraAdults * Number.parseFloat(`${roomRate.extraAdultRate ?? 0}`)
 
         const totalRoomAmount = baseAmount + extraChildAmount + extraAdultAmount
 
@@ -669,7 +768,6 @@ export default class ReservationFolioService {
         .preload('guests')
         .preload('reservationRooms')
         .firstOrFail()
-
 
       // Check if folios already exist
       const existingFolios = await this.getFoliosForReservation(reservationId)

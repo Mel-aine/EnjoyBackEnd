@@ -49,7 +49,7 @@ export default class MealPlan extends BaseModel {
     pivotForeignKey: 'meal_plan_id',
     relatedKey: 'id',
     pivotRelatedForeignKey: 'extra_charge_id',
-    pivotColumns: ['quantity_per_day', 'target_guest_type']
+    pivotColumns: ['quantity_per_day', 'target_guest_type'],
   })
   declare extraCharges: ManyToMany<typeof ExtraCharge>
 

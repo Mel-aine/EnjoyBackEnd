@@ -4,13 +4,23 @@ import MealPlanComponent from '#models/meal_plan_component'
 
 const allowedAssignMealPlanOnList = ['CheckIn', 'StayOver', 'CheckOut'] as const
 type AssignMealPlanOnValue = (typeof allowedAssignMealPlanOnList)[number]
-const allowedAssignMealPlanOnValues = new Set<AssignMealPlanOnValue>(allowedAssignMealPlanOnList)
+const allowedAssignMealPlanOnValues = new Set<string>(allowedAssignMealPlanOnList)
+
+function normalizeAssignMealPlanOnToken(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  const key = raw.replaceAll('_', ' ').toLowerCase()
+  if (key === 'check in' || key === 'checkin') return 'CheckIn'
+  if (key === 'stay over' || key === 'stayover') return 'StayOver'
+  if (key === 'check out' || key === 'checkout') return 'CheckOut'
+  return raw
+}
 
 function normalizeAssignMealPlanOn(value: unknown): AssignMealPlanOnValue[] | null {
   if (value === null || value === undefined) return null
   if (Array.isArray(value)) {
     return value
-      .map((v) => String(v).trim())
+      .map((v) => normalizeAssignMealPlanOnToken(v))
       .filter((v) => v.length > 0) as AssignMealPlanOnValue[]
   }
   if (typeof value === 'string') {
@@ -19,12 +29,12 @@ function normalizeAssignMealPlanOn(value: unknown): AssignMealPlanOnValue[] | nu
     if (trimmed.includes(',')) {
       return trimmed
         .split(',')
-        .map((v) => v.trim())
+        .map((v) => normalizeAssignMealPlanOnToken(v))
         .filter((v) => v.length > 0) as AssignMealPlanOnValue[]
     }
-    return [trimmed] as AssignMealPlanOnValue[]
+    return [normalizeAssignMealPlanOnToken(trimmed)] as AssignMealPlanOnValue[]
   }
-  return [String(value).trim()] as AssignMealPlanOnValue[]
+  return [normalizeAssignMealPlanOnToken(value)] as AssignMealPlanOnValue[]
 }
 
 export default class MealPlansController {
@@ -95,16 +105,26 @@ export default class MealPlansController {
       const body = request.body()
       const assignMealPlanOn = normalizeAssignMealPlanOn(body.assignMealPlanOn)
       if (assignMealPlanOn) {
+        if (assignMealPlanOn.length === 0) {
+          return response.badRequest({
+            success: false,
+            message: "assignMealPlanOn must contain only: 'CheckIn', 'StayOver', 'CheckOut'",
+          })
+        }
         const invalidValues = assignMealPlanOn.filter((v) => !allowedAssignMealPlanOnValues.has(v))
         if (invalidValues.length) {
           return response.badRequest({
             success: false,
-            message:
-              "assignMealPlanOn must be comma-separated values from: CheckIn,StayOver,CheckOut",
+            message: "assignMealPlanOn must contain only: 'CheckIn', 'StayOver', 'CheckOut'",
           })
         }
       }
-      const assignMealPlanOnCsv = assignMealPlanOn ? Array.from(new Set(assignMealPlanOn)).join(',') : null
+      const assignMealPlanOnValuesUnique = assignMealPlanOn
+        ? (Array.from(new Set(assignMealPlanOn)) as AssignMealPlanOnValue[])
+        : null
+      const assignMealPlanOnCsv = assignMealPlanOnValuesUnique
+        ? assignMealPlanOnValuesUnique.join(',')
+        : null
 
       const mealPlan = await MealPlan.create({
         hotelId: Number(hotelId),
@@ -119,11 +139,13 @@ export default class MealPlansController {
       })
 
       // Optionally attach components
-      const components = body.components as Array<{
-        extraChargeId: number
-        quantityPerDay?: number
-        targetGuestType?: string
-      }> | undefined
+      const components = body.components as
+        | Array<{
+            extraChargeId: number
+            quantityPerDay?: number
+            targetGuestType?: string
+          }>
+        | undefined
 
       if (components?.length) {
         for (const comp of components) {
@@ -157,16 +179,26 @@ export default class MealPlansController {
       const body = request.body()
       const assignMealPlanOn = normalizeAssignMealPlanOn(body.assignMealPlanOn)
       if (assignMealPlanOn) {
+        if (assignMealPlanOn.length === 0) {
+          return response.badRequest({
+            success: false,
+            message: "assignMealPlanOn must contain only: 'CheckIn', 'StayOver', 'CheckOut'",
+          })
+        }
         const invalidValues = assignMealPlanOn.filter((v) => !allowedAssignMealPlanOnValues.has(v))
         if (invalidValues.length) {
           return response.badRequest({
             success: false,
-            message:
-              "assignMealPlanOn must be comma-separated values from: CheckIn,StayOver,CheckOut",
+            message: "assignMealPlanOn must contain only: 'CheckIn', 'StayOver', 'CheckOut'",
           })
         }
       }
-      const assignMealPlanOnCsv = assignMealPlanOn ? Array.from(new Set(assignMealPlanOn)).join(',') : null
+      const assignMealPlanOnValuesUnique = assignMealPlanOn
+        ? (Array.from(new Set(assignMealPlanOn)) as AssignMealPlanOnValue[])
+        : null
+      const assignMealPlanOnCsv = assignMealPlanOnValuesUnique
+        ? assignMealPlanOnValuesUnique.join(',')
+        : null
 
       const mealPlan = await MealPlan.query()
         .where('id', id)
@@ -185,11 +217,13 @@ export default class MealPlansController {
       await mealPlan.save()
 
       // Optionally update components (simple replace strategy if provided)
-      const components = body.components as Array<{
-        extraChargeId: number
-        quantityPerDay?: number
-        targetGuestType?: string
-      }> | undefined
+      const components = body.components as
+        | Array<{
+            extraChargeId: number
+            quantityPerDay?: number
+            targetGuestType?: string
+          }>
+        | undefined
 
       if (components) {
         // Remove existing components and recreate
@@ -220,7 +254,6 @@ export default class MealPlansController {
       return response.badRequest({ success: false, message: error.message })
     }
   }
-
 
   // Delete a meal plan
   public async destroy({ params, response }: HttpContext) {

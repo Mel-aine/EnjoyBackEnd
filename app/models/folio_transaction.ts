@@ -11,6 +11,7 @@ import Guest from './guest.js'
 import ReservationRoom from './reservation_room.js'
 import TaxRate from './tax_rate.js'
 import ExtraCharge from './extra_charge.js'
+import MealPlan from './meal_plan.js'
 import TransactionHook from '../hooks/transaction_hooks.js'
 
 export default class FolioTransaction extends BaseModel {
@@ -227,6 +228,9 @@ export default class FolioTransaction extends BaseModel {
   // Link to ExtraCharge when this transaction represents an extra charge
   @column({ columnName: 'extra_charge_id' })
   declare extraChargeId: number | null
+
+  @column({ columnName: 'meal_plan_id' })
+  declare mealPlanId: number | null
 
   @column()
   declare promotionCode: string
@@ -493,6 +497,9 @@ export default class FolioTransaction extends BaseModel {
   // Relation to ExtraCharge
   @belongsTo(() => ExtraCharge, { foreignKey: 'extraChargeId' })
   declare extraCharge: BelongsTo<typeof ExtraCharge>
+
+  @belongsTo(() => MealPlan, { foreignKey: 'mealPlanId' })
+  declare mealPlan: BelongsTo<typeof MealPlan>
 
   @manyToMany(() => TaxRate, {
     pivotTable: 'folio_transaction_taxes',
