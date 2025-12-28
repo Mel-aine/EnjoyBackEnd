@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, beforeSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, beforeSave, computed } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import RoomType from './room_type.js'
@@ -83,8 +83,14 @@ export default class ReservationRoom extends BaseModel {
   @column()
   declare totalRoomCharges: number
 
-  @column()
-  declare roomCharges: number
+  @computed()
+  get roomCharges() {
+    return this.totalRoomCharges
+  }
+
+  set roomCharges(value: number) {
+    this.totalRoomCharges = value
+  }
 
   @column()
   declare taxAmount: number

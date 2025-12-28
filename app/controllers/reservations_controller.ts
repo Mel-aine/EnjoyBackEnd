@@ -7641,7 +7641,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const folioId = getTargetFolioIdForRoom(reservationRoomId)
         if (!folioId) return
 
-        const doDay = (dayType: string, d: DateTime | undefined | null) => {
+        const doDay = async (dayType: string, d: DateTime | undefined | null) => {
           const dayIso = d ? d.toISODate() : null
           if (!dayIso) return
 
@@ -7728,9 +7728,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
           expectedMealPlanKeysByReservationRoomId.set(reservationRoomId, expectedSet)
         }
 
-        if (shouldCreateCheckIn) doDay('CheckIn', checkInDate)
-        if (shouldCreateStayOver) doDay('StayOver', stayOverDate)
-        if (shouldCreateCheckOut) doDay('CheckOut', checkOutDate)
+        if (shouldCreateCheckIn) await doDay('CheckIn', checkInDate)
+        if (shouldCreateStayOver) await doDay('StayOver', stayOverDate)
+        if (shouldCreateCheckOut) await doDay('CheckOut', checkOutDate)
       }
 
       if (payload.applyOn === 'stay') {
@@ -7814,7 +7814,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const roomTax = roomTransactions.reduce((sum, t) => sum + Number(t.taxAmount ?? 0), 0)
 
         rr.totalRoomCharges = Number(roomNet.toFixed(2))
-        rr.roomCharges = rr.totalRoomCharges
         rr.totalTaxesAmount = Number(roomTax.toFixed(2))
         rr.taxAmount =
           rr.nights && rr.nights > 0
