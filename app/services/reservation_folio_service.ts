@@ -468,7 +468,7 @@ export default class ReservationFolioService {
                   transactionType: TransactionType.CHARGE,
                   category: TransactionCategory.EXTRACT_CHARGE,
                   particular: `${(comp.extra as any)?.name ?? ''} Qt(${comp.quantity})`,
-                  description: `${(comp.extra as any)?.name || 'Meal Component'} - ${mealPlan.name || 'Meal Plan'} (${dayType})`,
+                  description: `${(comp.extra as any)?.name || 'Meal Component'} - ${mealPlan.name || 'Meal Plan'}`,
                   amount: comp.netAmount,
                   quantity: comp.quantity,
                   unitPrice: comp.unitPrice,

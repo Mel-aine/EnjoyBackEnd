@@ -401,6 +401,7 @@ export class FolioPrintService {
           .preload('transactions', (transactionQuery) => {
             transactionQuery
               .where('isVoided', false)
+              .whereNull('mealPlanId')
               .orderBy('transactionDate', 'asc')
               .orderBy('createdAt', 'asc')
           })

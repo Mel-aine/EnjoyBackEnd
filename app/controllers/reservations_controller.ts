@@ -701,7 +701,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', params.reservationId)
         .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+          })
         })
         .first()
 
@@ -2480,7 +2482,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('discount')
         .preload('paymentMethod')
         .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+          })
         })
         //.preload('hotel')
         .preload('reservationRooms', (rspQuery) => {
@@ -2782,7 +2786,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('discount')
         .preload('paymentMethod')
         .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+          })
         })
         .preload('reservationRooms', (rspQuery) => {
           rspQuery
@@ -4054,7 +4060,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Update reservation payment status if needed
       const updatedFolio = await Folio.query({ client: trx })
         .where('id', folio.id)
-        .preload('transactions')
+        .preload('transactions', (tq) => {
+          tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+        })
         .first()
 
       if (updatedFolio) {
@@ -6760,7 +6768,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('id', reservationId)
         .preload('hotel')
         .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+          })
         })
         .preload('reservationRooms', (query) => {
           query

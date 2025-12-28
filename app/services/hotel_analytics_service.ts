@@ -209,6 +209,7 @@ export class HotelAnalyticsService {
             'service_charge_amount',
             'tax_amount',
           ])
+          .whereNull('mealPlanId')
         })
       })
       .preload('bookingSource', (bsQuery) => {

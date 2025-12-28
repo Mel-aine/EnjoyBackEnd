@@ -1475,6 +1475,8 @@ export default class ReportsController {
         roomQuery.preload('folios', (folioQuery) => {
           folioQuery.preload('transactions', (transacQuery) => {
             // On filtre pour ne prendre que les frais de chambre du jour
+            transacQuery.where('transaction_type', TransactionType.CHARGE)
+            transacQuery.where('category', TransactionCategory.ROOM)
             transacQuery.where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
           })
         })
@@ -1705,34 +1707,53 @@ export default class ReportsController {
         roomQuery.preload('folios', (folioQuery) => {
           folioQuery.preload('transactions', (transacQuery) => {
             transacQuery.where('current_working_date', reportDateStr)
+            transacQuery.where('isVoided',false)
           })
         })
       })
 
     let roomCharges = 0
+    let extraCharges = 0
     let roomTax = 0
+    let extraTax = 0
     let discount = 0
 
     for (const reservation of reservations as any[]) {
       for (const reservationRoom of reservation.reservationRooms as any[]) {
-        const dailyTransaction = reservationRoom.folios?.[0]?.transactions?.[0]
+        const transactions = reservationRoom.folios?.[0]?.transactions ?? []
+        const dailyTransaction = transactions.find(
+          (t: any) =>
+            t &&
+            t.transactionType === TransactionType.CHARGE &&
+            t.category === TransactionCategory.ROOM
+        )
+        
         if (!reservationRoom.room || !dailyTransaction) continue
 
         roomCharges += Number(dailyTransaction?.roomFinalNetAmount || 0)
         roomTax += Number(dailyTransaction?.roomFinalRateTaxe || 0)
         discount += Number(dailyTransaction?.discountAmount || 0)
+
+        for (const t of transactions) {
+          if (!t) continue
+          if (t.status === TransactionStatus.VOIDED || t.isVoided === true) continue
+          if (t.transactionType !== TransactionType.CHARGE) continue
+          if (t.category !== TransactionCategory.EXTRACT_CHARGE) continue
+          extraCharges += Number(t.amount || 0)
+          extraTax += Number(t.taxAmount || 0)
+        }
       }
     }
 
     return {
       salesType: 'Room Sales',
       roomCharges,
-      extraCharges: 0,
+      extraCharges,
       roomTax,
-      extraTax: 0,
+      extraTax,
       discount,
       adjustment: 0,
-      totalSales: roomCharges + roomTax - discount,
+      totalSales: roomCharges + extraCharges + roomTax + extraTax - discount,
     }
   }
 
@@ -2032,14 +2053,21 @@ export default class ReportsController {
 
     const miscCharges = await Transaction.query()
       .where('hotel_id', hotelId)
-      .whereRaw('DATE(transaction_date) = ?', [reportDate.toFormat('yyyy-MM-dd')])
-      .where('transaction_type', 'charge')
-      .whereNot('category', 'room')
+      .where('current_working_date', [reportDate.toFormat('yyyy-MM-dd')])
+      .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
+      .whereNot('isVoided', true)
+      .whereNot('category', TransactionCategory.ROOM)
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereIn('status', ['pending',"confirmed",'checked_in','checked_out'])
+        })
+      })
       .preload('folio', (folioQuery: any) => {
         folioQuery.preload('reservation', (resQuery: any) => {
           resQuery.preload('guest')
           resQuery.preload('reservationRooms', (roomQuery: any) => {
             roomQuery.preload('room')
+            roomQuery.preload('roomType')
           })
         })
       })
@@ -2050,14 +2078,17 @@ export default class ReportsController {
     for (const charge of miscCharges) {
       const reservation = charge.folio?.reservation
       const room = reservation?.reservationRooms?.[0]?.room
+      const roomType = reservation?.reservationRooms?.[0]?.roomType
 
       miscChargesData.push({
+        _roomSortKey: room?.sortKey,
         room: room?.roomNumber,
+        roomType: roomType?.roomTypeName,
         folioNo: charge.folio?.folioNumber,
         guest: reservation?.guest
-          ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+          ? `${reservation.guest.displayName}`
           : 'N/A',
-        chargeDate: charge.createdAt.toFormat('dd/MM/yyyy'),
+        chargeDate: charge.currentWorkingDate?.toFormat('dd/MM/yyyy'),
         voucherNo: charge.receiptNumber,
         charge: charge.description,
         unitPrice: charge.amount || 0,
@@ -2071,7 +2102,19 @@ export default class ReportsController {
       totals.amount += (charge.amount || 0) * (charge.quantity || 1)
     }
 
-    return { data: miscChargesData, totals }
+    const sorted = miscChargesData
+      .slice()
+      .sort((a: any, b: any) => {
+        const aKey = typeof a._roomSortKey === 'number' ? a._roomSortKey : Number.MAX_SAFE_INTEGER
+        const bKey = typeof b._roomSortKey === 'number' ? b._roomSortKey : Number.MAX_SAFE_INTEGER
+        if (aKey !== bKey) return aKey - bKey
+        const aRoom = `${a.room ?? ''}`
+        const bRoom = `${b.room ?? ''}`
+        return aRoom.localeCompare(bRoom, undefined, { numeric: true, sensitivity: 'base' })
+      })
+      .map(({ _roomSortKey, ...row }: any) => row)
+
+    return { data: sorted, totals }
   }
 
   /**
@@ -2731,7 +2774,7 @@ export default class ReportsController {
             <td ><strong></strong></td>
             <td><strong>Total (${currency})</strong></td>
             <td class="number border-dashed"><strong>${sectionsData.miscCharges.totals.units}</strong></td>
-            <td class="number border-dashed"><strong>${sectionsData.miscCharges.totals.amount}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.miscCharges.totals.amount)}</strong></td>
             <td colspan="2"></td>
           </tr>
         </tbody>
@@ -2758,13 +2801,13 @@ export default class ReportsController {
         <tbody>
           <tr>
             <td class="center">${sectionsData.roomStatus.date}</td>
-            <td class="number">${sectionsData.roomStatus.totalRooms}</td>
-            <td class="number">${sectionsData.roomStatus.occupied}</td>
-            <td class="number">${sectionsData.roomStatus.dueOut}</td>
-            <td class="number">${sectionsData.roomStatus.departed}</td>
-            <td class="number">${sectionsData.roomStatus.vacant}</td>
-            <td class="number">${sectionsData.roomStatus.reserved}</td>
-            <td class="number">${sectionsData.roomStatus.blocked}</td>
+            <td class="number center">${sectionsData.roomStatus.totalRooms}</td>
+            <td class="number center">${sectionsData.roomStatus.occupied}</td>
+            <td class="number center">${sectionsData.roomStatus.dueOut}</td>
+            <td class="number center">${sectionsData.roomStatus.departed}</td>
+            <td class="number center">${sectionsData.roomStatus.vacant}</td>
+            <td class="number center">${sectionsData.roomStatus.reserved}</td>
+            <td class="number center">${sectionsData.roomStatus.blocked}</td>
           </tr>
         </tbody>
       </table>
@@ -2787,10 +2830,10 @@ export default class ReportsController {
         .map(
           (row: any) => `
           <tr>
-            <td>${row.status}</td>
-            <td class="number">${row.rooms}</td>
-            <td class="number">${row.adults}</td>
-            <td class="number">${row.children}</td>
+            <td class="center">${row.status}</td>
+            <td class="number center">${row.rooms}</td>
+            <td class="number center">${row.adults}</td>
+            <td class="number center">${row.children}</td>
           </tr>
           `
         )
@@ -2815,9 +2858,9 @@ export default class ReportsController {
         .map(
           (row: any) => `
           <tr>
-            <td>${row.rateType}</td>
-            <td class="number">${row.adults}</td>
-            <td class="number">${row.children}</td>
+            <td class="center">${row.rateType}</td>
+            <td class="number center">${row.adults}</td>
+            <td class="number center">${row.children}</td>
           </tr>
           `
         )
