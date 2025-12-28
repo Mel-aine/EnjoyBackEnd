@@ -16,7 +16,7 @@ import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import CancellationPolicy from '#models/cancellation_policy'
 import ReservationGuest from '#models/reservation_guest'
-import { generateGuestCode } from '../utils/generate_guest_code.js'
+import { generateGuestCode, generateTransactionCode } from '../utils/generate_guest_code.js'
 import {
   FolioStatus,
   FolioType,
@@ -1719,8 +1719,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
     await FolioTransaction.query({ client: trx })
       .whereIn('folioId', reservation.folios.map((f: any) => f.id))
       .where('transactionType', TransactionType.CHARGE)
-      .where('category', TransactionCategory.ROOM)
       .where('status', '!=', TransactionStatus.VOIDED)
+      .andWhere((q) => {
+        q.where('category', TransactionCategory.ROOM).orWhere((qq) => {
+          qq.where('category', TransactionCategory.EXTRACT_CHARGE).whereNotNull('mealPlanId')
+        })
+      })
       .delete()
 
 
@@ -7243,12 +7247,20 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (q) =>
-          q.preload('room', (rq) => rq.preload('taxRates'))
+          q
+            .preload('room', (rq) => rq.preload('taxRates').preload('roomType'))
+            .preload('roomRates')
+            .preload('mealPlan', (mpQuery) =>
+              mpQuery.preload('extraCharges', (ecQ) => {
+                ecQ.preload('taxRates')
+              })
+            )
         )
         .preload('folios', (q) =>
           q.preload('transactions', (tr) =>
-            tr.where('transactionType', TransactionType.CHARGE)
-              .where('category', TransactionCategory.ROOM)
+            tr
+              .where('transactionType', TransactionType.CHARGE)
+              .whereIn('category', [TransactionCategory.ROOM, TransactionCategory.EXTRACT_CHARGE])
           )
         )
         .preload('hotel', (hq) => hq.preload('roomChargesTaxRates'))
@@ -7265,19 +7277,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       const oldAdults = reservation.adults
       const oldChildren = reservation.children
-
-
-
-
-      // -------------------------------
-      // Build room -> taxRates map
-      // -------------------------------
-      const roomTaxMap: Record<string, TaxRate[]> = {}
-      for (const rr of reservation.reservationRooms) {
-        const roomNumber = rr.room?.roomNumber
-        const rates = (rr.room?.taxRates || []).filter((r: any) => r.isActive && r.appliesToRoomRate)
-        if (roomNumber) roomTaxMap[roomNumber] = rates
-      }
 
       // -------------------------------
       // Update reservation rooms
@@ -7317,13 +7316,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // -------------------------------
       // Determine transactions to update
       // -------------------------------
-      let transactionsToUpdate: FolioTransaction[] = []
-      const allFolioTransactions = reservation.folios.flatMap(f => f.transactions)
+      let roomChargeTransactionsToUpdate: FolioTransaction[] = []
+      const allFolioTransactions = reservation.folios.flatMap((f) => f.transactions)
+      const roomChargeTransactions = allFolioTransactions.filter(
+        (t) =>
+          t.transactionType === TransactionType.CHARGE &&
+          t.category === TransactionCategory.ROOM
+      )
       if (payload.applyOn === 'stay') {
-        transactionsToUpdate = allFolioTransactions
+        roomChargeTransactionsToUpdate = roomChargeTransactions
       } else {
         const idSet = new Set(payload.transactionIds || [])
-        transactionsToUpdate = allFolioTransactions.filter(t => idSet.has(t.id))
+        roomChargeTransactionsToUpdate = roomChargeTransactions.filter((t) => idSet.has(t.id))
       }
 
       // -------------------------------
@@ -7332,87 +7336,506 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Use hotel-level room charge tax rates to match creation path
       const hotelTaxRates = ((reservation.hotel as any)?.roomChargesTaxRates || [])
 
-      for (const t of transactionsToUpdate) {
-        if (t.isVoided || (t as any).status === 'voided') continue
+      const normalizeGuestTarget = (value: unknown) => `${value ?? ''}`.trim().toLowerCase()
+      const normalizeAssignOnToken = (value: unknown): string | null => {
+        const raw = `${value ?? ''}`.trim()
+        if (!raw) return null
+        const key = raw.replaceAll('_', ' ').toLowerCase()
+        if (key === 'check in' || key === 'checkin') return 'CheckIn'
+        if (key === 'stay over' || key === 'stayover') return 'StayOver'
+        if (key === 'check out' || key === 'checkout') return 'CheckOut'
+        return raw
+      }
+      const parseAssignMealPlanOn = (value: unknown): Set<string> => {
+        if (Array.isArray(value)) {
+          const tokens = value.map((t) => normalizeAssignOnToken(t)).filter(Boolean) as string[]
+          return new Set(tokens)
+        }
+        const trimmed = `${value ?? ''}`.trim()
+        if (!trimmed) return new Set()
+        const tokens = trimmed
+          .split(',')
+          .map((t) => normalizeAssignOnToken(t))
+          .filter(Boolean) as string[]
+        return new Set(tokens)
+      }
+      const getGuestCountForTarget = (
+        targetGuestType: unknown,
+        counts: { adults: number; children: number; infants: number }
+      ) => {
+        const target = normalizeGuestTarget(targetGuestType)
+        if (target === 'adult' || target === 'adults') return counts.adults
+        if (target === 'child' || target === 'children') return counts.children
+        if (target === 'infant' || target === 'infants') return counts.infants
+        return counts.adults + counts.children + counts.infants
+      }
+      const isoDate = (d: DateTime | null | undefined) => (d ? d.toISODate() : null)
+      const startOfDay = (d: DateTime) => d.startOf('day')
+      const safeDayDiff = (a: DateTime, b: DateTime) =>
+        Math.round(startOfDay(a).diff(startOfDay(b), 'days').days)
 
-        const rr = reservation.reservationRooms.find(rr => rr.room?.roomNumber === t.roomNumber)
+      let hotelPercentageSum = 0
+      let hotelFlatSum = 0
+      for (const tax of hotelTaxRates as any[]) {
+        if ((tax as any)?.postingType === 'flat_percentage' && (tax as any)?.percentage) {
+          hotelPercentageSum += Number((tax as any).percentage) || 0
+        } else if ((tax as any)?.postingType === 'flat_amount' && (tax as any)?.amount) {
+          hotelFlatSum += Number((tax as any).amount) || 0
+        }
+      }
+      const hotelPercRate = hotelPercentageSum > 0 ? hotelPercentageSum / 100 : 0
 
-        // Base amount = transaction amount + meal plan if included
-        let mealPlanAmount = 0
-        if (rr?.mealPlanRateInclude && rr?.mealPlanId) {
-          const mealPlan = await MealPlan.query({ client: trx })
-            .where('id', rr.mealPlanId)
-            .preload('extraCharges', (q) => q.where('isMealPlanComponent', true))
-            .first()
-          if (mealPlan) {
-            for (const extra of mealPlan.extraCharges) {
-              const pivot = (extra as any).$extras || {}
-              const quantityPerDay = pivot.quantity_per_day || 1
-              const nights = rr.nights || 1
-              mealPlanAmount += Number(extra.rate || 0) * quantityPerDay * nights
+      const roomPricingByReservationRoomId = new Map<
+        number,
+        {
+          baseAmount: number
+          dailyTaxAmount: number
+          roomFinalRate: number
+          roomFinalRateTaxe: number
+          roomFinalNetAmount: number
+          roomFinalBaseRate: number
+          effectiveNights: number
+          rawNights: number
+          mealPlanIncluded: boolean
+          mealPlanId: number | null
+          mealPlanName: string
+          mealPlanAssignOn: Set<string>
+          mealPlanComponents: Array<{
+            extra: any
+            extraChargeId: number | null
+            quantity: number
+            netAmount: number
+            taxAmount: number
+            unitPrice: number
+          }>
+        }
+      >()
+
+      for (const reservationRoom of reservation.reservationRooms as any[]) {
+        const rawNights = Number(reservationRoom.nights ?? 0)
+        const effectiveNights = rawNights === 0 ? 1 : rawNights
+        const grossDailyRate = Number.parseFloat(`${reservationRoom.roomRate}`) || 0
+        const mealPlanIncluded = Boolean((reservationRoom as any).mealPlanRateInclude)
+        const mealPlan: any = (reservationRoom as any).mealPlan
+        const guestCounts = {
+          adults: Number((reservationRoom as any).adults ?? reservation.adults ?? 0),
+          children: Number((reservationRoom as any).children ?? reservation.children ?? 0),
+          infants: Number((reservationRoom as any).infants ?? 0),
+        }
+
+        const mealPlanComponents: Array<{
+          extra: any
+          extraChargeId: number | null
+          quantity: number
+          netAmount: number
+          taxAmount: number
+          unitPrice: number
+        }> = []
+
+        let mealPlanGrossPerDay = 0
+        if (
+          mealPlanIncluded &&
+          mealPlan &&
+          Array.isArray(mealPlan.extraCharges) &&
+          mealPlan.extraCharges.length > 0
+        ) {
+          for (const extra of mealPlan.extraCharges as any[]) {
+            const qtyPerDay = Number(
+              extra.$extras?.pivot_quantity_per_day ??
+                extra.$extras?.quantity_per_day ??
+                extra.$extras?.pivot_quantityPerDay ??
+                extra.$extras?.quantityPerDay ??
+                0
+            )
+            const targetGuestType =
+              extra.$extras?.pivot_target_guest_type ??
+              extra.$extras?.target_guest_type ??
+              extra.$extras?.pivot_targetGuestType ??
+              extra.$extras?.targetGuestType
+            const baseQty = Math.max(0, qtyPerDay)
+            const guestCount = Math.max(0, getGuestCountForTarget(targetGuestType, guestCounts))
+            const quantity = (extra as any).fixedPrice ? baseQty : baseQty * guestCount
+            const unitPriceGross = Number(extra.rate || 0)
+            const totalGross = unitPriceGross * quantity
+
+            if (quantity <= 0 || totalGross <= 0) continue
+
+            mealPlanGrossPerDay += totalGross
+
+            let percentageSum = 0
+            let flatSum = 0
+            const extraTaxes =
+              Array.isArray((extra as any).taxRates) && (extra as any).taxRates.length
+                ? (extra as any).taxRates
+                : (extra as any).taxRate
+                  ? [(extra as any).taxRate]
+                  : []
+
+            for (const t of extraTaxes as any[]) {
+              const postingType = (t as any)?.postingType
+              if (postingType === 'flat_percentage' && (t as any)?.percentage) {
+                percentageSum += Number((t as any).percentage) || 0
+              } else if (postingType === 'flat_amount' && (t as any)?.amount) {
+                flatSum += Number((t as any).amount) || 0
+              }
             }
+
+            const adjustedGross = Math.max(0, totalGross - flatSum * quantity)
+            const percRate = percentageSum > 0 ? percentageSum / 100 : 0
+            const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
+            const includedTaxAmount = Math.max(0, totalGross - netWithoutTax)
+            const unitPriceNet = quantity > 0 ? netWithoutTax / quantity : netWithoutTax
+
+            mealPlanComponents.push({
+              extra,
+              extraChargeId: Number((extra as any)?.id ?? 0) || null,
+              quantity,
+              netAmount: netWithoutTax,
+              taxAmount: includedTaxAmount,
+              unitPrice: unitPriceNet,
+            })
           }
         }
 
-        // Update transaction fields from payload
-        if (payload.amount !== undefined) t.amount = payload.amount
+        const mealPlanAssignOnValue =
+          (mealPlan as any)?.assignMealPlanOn ?? (mealPlan as any)?.assign_meal_plan_on
+        const mealPlanAssignOn = parseAssignMealPlanOn(mealPlanAssignOnValue)
+        const allowMealPlanDays =
+          mealPlanIncluded && mealPlanComponents.length > 0 && mealPlanAssignOn.size > 0
+        const mealPlanId = allowMealPlanDays ? Number((mealPlan as any)?.id ?? 0) || null : null
+
+        const totalRoomAmount = mealPlanIncluded
+          ? Math.max(0, grossDailyRate - mealPlanGrossPerDay)
+          : grossDailyRate
+
+        const adjustedGross = Math.max(0, grossDailyRate - hotelFlatSum)
+        const roomAdjustedGross = Math.max(0, totalRoomAmount - hotelFlatSum)
+        const netWithoutTax = hotelPercRate > 0 ? adjustedGross / (1 + hotelPercRate) : adjustedGross
+        const roomNetWithoutTax =
+          hotelPercRate > 0 ? roomAdjustedGross / (1 + hotelPercRate) : roomAdjustedGross
+        const dailyTaxAmount = Math.max(0, grossDailyRate - netWithoutTax)
+
+        const rateBaseRateGross = Number.parseFloat(`${(reservationRoom as any).roomRates?.baseRate}`) || 0
+        const baseRateAdjustedGross = Math.max(0, rateBaseRateGross - hotelFlatSum)
+        const baseRateNetWithoutTax =
+          hotelPercRate > 0 ? baseRateAdjustedGross / (1 + hotelPercRate) : baseRateAdjustedGross
+        const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax - mealPlanGrossPerDay)
+
+        roomPricingByReservationRoomId.set(Number(reservationRoom.id), {
+          baseAmount: netWithoutTax,
+          dailyTaxAmount,
+          roomFinalRate: totalRoomAmount,
+          roomFinalRateTaxe: totalRoomAmount - roomNetWithoutTax,
+          roomFinalNetAmount: roomNetWithoutTax,
+          roomFinalBaseRate,
+          effectiveNights,
+          rawNights,
+          mealPlanIncluded,
+          mealPlanId,
+          mealPlanName: `${(mealPlan as any)?.name ?? ''}`,
+          mealPlanAssignOn,
+          mealPlanComponents,
+        })
+      }
+
+      for (const t of roomChargeTransactionsToUpdate) {
+        if (t.isVoided || t.status === TransactionStatus.VOIDED) continue
+
+        const rr =
+          reservation.reservationRooms.find((rr) => rr.id === t.reservationRoomId) ??
+          reservation.reservationRooms.find((rr) => rr.room?.roomNumber === t.roomNumber)
+
+        if (!rr) continue
+
+        const pricing = roomPricingByReservationRoomId.get(rr.id)
+        if (!pricing) continue
+
         if (payload.isComplementary !== undefined) t.complementary = payload.isComplementary
         if (payload.date) t.postingDate = DateTime.fromJSDate(payload.date as any)
-        if (payload.taxInclude !== undefined) (t as any).taxInclusive = Boolean(payload.taxInclude)
         if (payload.notes !== undefined) t.description = payload.notes
 
-        const baseAmount = Number(t.amount || 0) + mealPlanAmount
+        const quantity = Number(t.quantity ?? 1) || 1
         const sc = Number(t.serviceChargeAmount || 0)
-        const disc = Number(t.discountAmount || 0)
-        const taxRates = hotelTaxRates
+        const disc = Math.abs(Number(t.discountAmount || 0))
 
-        let totalPct = 0
-        let totalFlat = 0
-        for (const rate of taxRates) {
-          if ((rate as any).postingType === 'flat_percentage') totalPct += Number(rate.percentage || 0)
-          if ((rate as any).postingType === 'flat_amount') totalFlat += Number(rate.amount || 0)
-        }
+        const amount = Number(pricing.baseAmount.toFixed(2))
+        const taxAmount = Number(pricing.dailyTaxAmount.toFixed(2))
+        const grossAmount = Number((amount * quantity).toFixed(2))
+        const netAmount = Number((grossAmount - disc).toFixed(2))
+        const totalAmount = Number((netAmount + taxAmount + sc).toFixed(2))
 
-        if (payload.taxInclude) {
-          logger.info(baseAmount);
-          const pctIncluded = totalPct > 0 ? baseAmount * (totalPct / (100 + totalPct)) : 0
-          t.taxAmount = Number((pctIncluded + totalFlat).toFixed(2))
-          t.grossAmount = Number((baseAmount + sc - t.taxAmount - Math.abs(disc)).toFixed(2))
-          t.netAmount = Number((baseAmount - t.taxAmount).toFixed(2))
-          t.amount = t.grossAmount;
-          t.totalAmount = baseAmount;
-        } else {
-          const pctTax = totalPct > 0 ? baseAmount * (totalPct / 100) : 0
-          t.taxAmount = Number((pctTax + totalFlat).toFixed(2))
-          t.grossAmount = baseAmount;
-          t.grossAmount = Number((baseAmount).toFixed(2))
-          t.netAmount = Number((baseAmount - disc).toFixed(2))
-          t.totalAmount = Number(baseAmount + t.taxAmount)
-        }
+        t.amount = amount
+        t.unitPrice = amount
+        t.taxAmount = taxAmount
+        t.grossAmount = grossAmount
+        t.netAmount = netAmount
+        t.totalAmount = totalAmount
+        t.roomFinalRate = Number(pricing.roomFinalRate.toFixed(2))
+        t.roomFinalRateTaxe = Number(pricing.roomFinalRateTaxe.toFixed(2))
+        t.roomFinalNetAmount = Number(pricing.roomFinalNetAmount.toFixed(2))
+        t.roomFinalBaseRate = Number(pricing.roomFinalBaseRate.toFixed(2))
         t.lastModifiedBy = auth?.user?.id || t.lastModifiedBy
         await t.useTransaction(trx).save()
+      }
+
+      const lastTx = await FolioTransaction.query({ client: trx })
+        .where('hotelId', reservation.hotelId)
+        .select(['transactionNumber'])
+        .orderBy('transactionNumber', 'desc')
+        .first()
+      let nextNumber = lastTx?.transactionNumber ? Number(lastTx.transactionNumber) + 1 : 1
+      const nowIsoTime = DateTime.now().toISOTime()
+
+      const mealPlanTransactions = allFolioTransactions.filter(
+        (t) =>
+          t.transactionType === TransactionType.CHARGE &&
+          t.category === TransactionCategory.EXTRACT_CHARGE &&
+          t.mealPlanId != null
+      )
+
+      const expectedMealPlanKeysByReservationRoomId = new Map<number, Set<string>>()
+      const mealPlanBatch: Partial<FolioTransaction>[] = []
+
+      const getTargetFolioIdForRoom = (reservationRoomId: number) => {
+        const found = reservation.folios.find((f) => f.reservationRoomId === reservationRoomId)
+        if (found?.id) return found.id
+        const fallbackTx = roomChargeTransactions.find((t) => t.reservationRoomId === reservationRoomId)
+        return fallbackTx?.folioId ?? null
+      }
+
+      const upsertMealPlanForRoomNight = async (
+        reservationRoomId: number,
+        night: number,
+        pricing: any
+      ) => {
+        if (!pricing) return
+        if (!pricing.mealPlanIncluded) return
+        if (!pricing.mealPlanId) return
+        if (!pricing.mealPlanComponents.length) return
+        if (!pricing.mealPlanAssignOn.size) return
+
+        const arrivedDate = reservation.arrivedDate
+        const transactionDate =
+          pricing.rawNights === 0
+            ? arrivedDate
+            : arrivedDate?.plus({ days: night - 1 })
+
+        const checkInDate = arrivedDate ?? transactionDate
+        const stayOverDate = arrivedDate
+          ? arrivedDate.plus({ days: night })
+          : (transactionDate?.plus({ days: 1 }) ?? transactionDate)
+        const checkOutDate =
+          reservation.departDate ??
+          arrivedDate?.plus({ days: pricing.effectiveNights }) ??
+          transactionDate?.plus({ days: 1 }) ??
+          transactionDate
+
+        const shouldCreateCheckIn = night === 1 && pricing.mealPlanAssignOn.has('CheckIn') && Boolean(checkInDate)
+        const shouldCreateStayOver =
+          night < pricing.effectiveNights && pricing.mealPlanAssignOn.has('StayOver') && Boolean(stayOverDate)
+        const shouldCreateCheckOut =
+          night === pricing.effectiveNights &&
+          pricing.mealPlanAssignOn.has('CheckOut') &&
+          Boolean(checkOutDate)
+
+        const folioId = getTargetFolioIdForRoom(reservationRoomId)
+        if (!folioId) return
+
+        const doDay = (dayType: string, d: DateTime | undefined | null) => {
+          const dayIso = d ? d.toISODate() : null
+          if (!dayIso) return
+
+          const expectedSet = expectedMealPlanKeysByReservationRoomId.get(reservationRoomId) ?? new Set<string>()
+          for (const comp of pricing.mealPlanComponents) {
+            const key = `${reservationRoomId}|${comp.extraChargeId ?? ''}|${dayIso}`
+            expectedSet.add(key)
+
+            const existing = mealPlanTransactions.filter(
+              (tx) =>
+                tx.reservationRoomId === reservationRoomId &&
+                tx.extraChargeId === comp.extraChargeId &&
+                isoDate(tx.postingDate) === dayIso &&
+                !tx.isVoided &&
+                tx.status !== TransactionStatus.VOIDED
+            )
+
+            const particular = `${(comp.extra as any)?.name ?? ''} Qt(${comp.quantity})`
+            const description = `${(comp.extra as any)?.name || 'Meal Component'} - ${pricing.mealPlanName || 'Meal Plan'}`
+            const amount = Number(comp.netAmount.toFixed(2))
+            const taxAmount = Number(comp.taxAmount.toFixed(2))
+            const grossAmount = Number((amount * (Number(comp.quantity) || 0)).toFixed(2))
+            const netAmount = grossAmount
+            const totalAmount = Number((netAmount + taxAmount).toFixed(2))
+
+            if (existing.length > 0) {
+              for (const tx of existing) {
+                if (tx.status !== TransactionStatus.PENDING) continue
+                tx.merge({
+                  mealPlanId: pricing.mealPlanId,
+                  extraChargeId: comp.extraChargeId,
+                  particular,
+                  description,
+                  amount,
+                  quantity: Number(comp.quantity) || 0,
+                  unitPrice: Number(comp.unitPrice.toFixed(2)),
+                  taxAmount,
+                  netAmount,
+                  grossAmount: netAmount,
+                  totalAmount,
+                  notes: `meal plan extra charge - ${dayType}`,
+                  postingDate: d ?? tx.postingDate,
+                  currentWorkingDate: d ?? tx.currentWorkingDate,
+                  transactionDate: d ?? tx.transactionDate,
+                  lastModifiedBy: auth?.user?.id || tx.lastModifiedBy,
+                } as any)
+                tx.useTransaction(trx)
+                await tx.save()
+              }
+            } else {
+              mealPlanBatch.push({
+                hotelId: reservation.hotelId,
+                folioId: folioId,
+                reservationId: reservation.id,
+                reservationRoomId,
+                mealPlanId: pricing.mealPlanId,
+                extraChargeId: comp.extraChargeId,
+                transactionNumber: nextNumber++,
+                transactionCode: generateTransactionCode(),
+                transactionType: TransactionType.CHARGE,
+                category: TransactionCategory.EXTRACT_CHARGE,
+                particular,
+                description,
+                amount,
+                quantity: Number(comp.quantity) || 0,
+                unitPrice: Number(comp.unitPrice.toFixed(2)),
+                taxAmount,
+                serviceChargeAmount: 0,
+                discountAmount: 0,
+                netAmount,
+                grossAmount: netAmount,
+                totalAmount,
+                notes: `meal plan extra charge - ${dayType}`,
+                transactionTime: nowIsoTime,
+                postingDate: d ?? DateTime.now(),
+                currentWorkingDate: d ?? null,
+                transactionDate: d ?? DateTime.now(),
+                status: TransactionStatus.PENDING,
+                createdBy: auth.user?.id || 0,
+                lastModifiedBy: auth.user?.id || 0,
+              } as any)
+            }
+          }
+          expectedMealPlanKeysByReservationRoomId.set(reservationRoomId, expectedSet)
+        }
+
+        if (shouldCreateCheckIn) doDay('CheckIn', checkInDate)
+        if (shouldCreateStayOver) doDay('StayOver', stayOverDate)
+        if (shouldCreateCheckOut) doDay('CheckOut', checkOutDate)
+      }
+
+      if (payload.applyOn === 'stay') {
+        for (const rr of reservation.reservationRooms) {
+          const pricing = roomPricingByReservationRoomId.get(rr.id)
+          if (!pricing) continue
+          for (let night = 1; night <= pricing.effectiveNights; night++) {
+            await upsertMealPlanForRoomNight(rr.id, night, pricing)
+          }
+        }
+      } else {
+        const arrivedDate = reservation.arrivedDate
+        for (const t of roomChargeTransactionsToUpdate) {
+          const rrId = t.reservationRoomId
+          if (!rrId) continue
+          const pricing = roomPricingByReservationRoomId.get(rrId)
+          if (!pricing) continue
+          if (!arrivedDate || !t.postingDate) continue
+          const night = Math.max(1, Math.min(pricing.effectiveNights, safeDayDiff(t.postingDate, arrivedDate) + 1))
+          await upsertMealPlanForRoomNight(rrId, night, pricing)
+        }
+      }
+
+      const targetRoomIds = new Set<number>()
+      if (payload.applyOn === 'stay') {
+        for (const rr of reservation.reservationRooms) targetRoomIds.add(rr.id)
+      } else {
+        for (const t of roomChargeTransactionsToUpdate) {
+          if (t.reservationRoomId) targetRoomIds.add(t.reservationRoomId)
+        }
+      }
+
+      const expectedKeysForTargetRooms = new Set<string>()
+      for (const rrId of targetRoomIds) {
+        const set = expectedMealPlanKeysByReservationRoomId.get(rrId)
+        if (!set) continue
+        for (const k of set) expectedKeysForTargetRooms.add(k)
+      }
+
+      if (targetRoomIds.size > 0) {
+        for (const tx of mealPlanTransactions) {
+          if (!tx.reservationRoomId || !targetRoomIds.has(tx.reservationRoomId)) continue
+          if (tx.isVoided || tx.status === TransactionStatus.VOIDED) continue
+          if (tx.status !== TransactionStatus.PENDING) continue
+
+          const dayIso = isoDate(tx.postingDate)
+          if (!dayIso) continue
+          const key = `${tx.reservationRoomId}|${tx.extraChargeId ?? ''}|${dayIso}`
+          if (expectedKeysForTargetRooms.has(key)) continue
+
+          tx.merge({
+            isVoided: true,
+            status: TransactionStatus.VOIDED,
+            voidedBy: auth.user?.id || 0,
+            voidedAt: DateTime.now(),
+            voidReason: 'Meal plan updated',
+            lastModifiedBy: auth.user?.id || tx.lastModifiedBy,
+          } as any)
+          tx.useTransaction(trx)
+          await tx.save()
+        }
+      }
+
+      if (mealPlanBatch.length > 0) {
+        await FolioTransaction.createMany(mealPlanBatch as any[], { client: trx })
       }
 
       // -------------------------------
       // Update reservation totals
       // -------------------------------
       let totalRoomCharges = 0
-      let totalAmount = 0
+      let totalTaxes = 0
       for (const rr of reservation.reservationRooms) {
-        const roomTransactions = transactionsToUpdate.filter(t => t.roomNumber === rr.room?.roomNumber)
-        rr.totalRoomCharges = roomTransactions.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+        const roomTransactions = roomChargeTransactions.filter(
+          (t) =>
+            !t.isVoided &&
+            t.status !== TransactionStatus.VOIDED &&
+            (t.reservationRoomId === rr.id || t.roomNumber === rr.room?.roomNumber)
+        )
+        const roomNet = roomTransactions.reduce((sum, t) => sum + Number(t.netAmount ?? t.amount ?? 0), 0)
+        const roomTax = roomTransactions.reduce((sum, t) => sum + Number(t.taxAmount ?? 0), 0)
+
+        rr.totalRoomCharges = Number(roomNet.toFixed(2))
+        rr.roomCharges = rr.totalRoomCharges
+        rr.totalTaxesAmount = Number(roomTax.toFixed(2))
+        rr.taxAmount =
+          rr.nights && rr.nights > 0
+            ? Number((rr.totalTaxesAmount / rr.nights).toFixed(2))
+            : rr.totalTaxesAmount
         rr.totalAmount = rr.nights ? rr.roomRate * rr.nights : rr.roomRate
-        rr.netAmount = rr.totalAmount
+        rr.netAmount = Number((rr.totalRoomCharges + rr.totalTaxesAmount).toFixed(2))
         await rr.useTransaction(trx).save()
         totalRoomCharges += rr.totalRoomCharges
-        totalAmount += rr.totalAmount
+        totalTaxes += rr.totalTaxesAmount
       }
-      reservation.totalAmount = totalAmount
+      reservation.totalAmount = Number((totalRoomCharges + totalTaxes).toFixed(2))
+      reservation.taxAmount = Number(totalTaxes.toFixed(2))
+      reservation.finalAmount = reservation.totalAmount
+      reservation.remainingAmount =
+        reservation.totalAmount - Number.parseFloat(`${reservation.paidAmount ?? 0}`) || 0
       await reservation.useTransaction(trx).save()
 
       // Recalculate folio totals/balance to reflect transaction changes
       const affectedFolioIds = new Set<number>()
-      for (const t of transactionsToUpdate) {
+      for (const t of roomChargeTransactionsToUpdate) {
         if (t.folioId) affectedFolioIds.add(t.folioId)
       }
       for (const folioId of affectedFolioIds) {
@@ -7468,7 +7891,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         data: {
           reservationId: reservation.id,
           updatedRooms: reservation.reservationRooms.map(rr => rr.id),
-          updatedTransactions: transactionsToUpdate.map(t => t.id),
+          updatedTransactions: roomChargeTransactionsToUpdate.map((t) => t.id),
           reservation
         }
       })
