@@ -2,6 +2,31 @@ import type { HttpContext } from '@adonisjs/core/http'
 import MealPlan from '#models/meal_plan'
 import MealPlanComponent from '#models/meal_plan_component'
 
+const allowedAssignMealPlanOnList = ['CheckIn', 'StayOver', 'CheckOut'] as const
+type AssignMealPlanOnValue = (typeof allowedAssignMealPlanOnList)[number]
+const allowedAssignMealPlanOnValues = new Set<AssignMealPlanOnValue>(allowedAssignMealPlanOnList)
+
+function normalizeAssignMealPlanOn(value: unknown): AssignMealPlanOnValue[] | null {
+  if (value === null || value === undefined) return null
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => String(v).trim())
+      .filter((v) => v.length > 0) as AssignMealPlanOnValue[]
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+    if (trimmed.includes(',')) {
+      return trimmed
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0) as AssignMealPlanOnValue[]
+    }
+    return [trimmed] as AssignMealPlanOnValue[]
+  }
+  return [String(value).trim()] as AssignMealPlanOnValue[]
+}
+
 export default class MealPlansController {
   // List meal plans for a hotel
   public async index({ params, request, response }: HttpContext) {
@@ -68,6 +93,18 @@ export default class MealPlansController {
       if (!hotelId) return response.badRequest({ success: false, message: 'hotelId is required' })
 
       const body = request.body()
+      const assignMealPlanOn = normalizeAssignMealPlanOn(body.assignMealPlanOn)
+      if (assignMealPlanOn) {
+        const invalidValues = assignMealPlanOn.filter((v) => !allowedAssignMealPlanOnValues.has(v))
+        if (invalidValues.length) {
+          return response.badRequest({
+            success: false,
+            message:
+              "assignMealPlanOn must be comma-separated values from: CheckIn,StayOver,CheckOut",
+          })
+        }
+      }
+      const assignMealPlanOnCsv = assignMealPlanOn ? Array.from(new Set(assignMealPlanOn)).join(',') : null
 
       const mealPlan = await MealPlan.create({
         hotelId: Number(hotelId),
@@ -76,6 +113,7 @@ export default class MealPlansController {
         description: body.description,
         status: body.status ?? 'Active',
         isAllInclusive: body.isAllInclusive ?? false,
+        assignMealPlanOn: assignMealPlanOnCsv ?? 'StayOver',
         createdBy: user?.id ?? null,
         lastModifiedBy: user?.id ?? null,
       })
@@ -117,6 +155,18 @@ export default class MealPlansController {
       const { id, hotelId } = params
       const user = auth.user
       const body = request.body()
+      const assignMealPlanOn = normalizeAssignMealPlanOn(body.assignMealPlanOn)
+      if (assignMealPlanOn) {
+        const invalidValues = assignMealPlanOn.filter((v) => !allowedAssignMealPlanOnValues.has(v))
+        if (invalidValues.length) {
+          return response.badRequest({
+            success: false,
+            message:
+              "assignMealPlanOn must be comma-separated values from: CheckIn,StayOver,CheckOut",
+          })
+        }
+      }
+      const assignMealPlanOnCsv = assignMealPlanOn ? Array.from(new Set(assignMealPlanOn)).join(',') : null
 
       const mealPlan = await MealPlan.query()
         .where('id', id)
@@ -129,6 +179,7 @@ export default class MealPlansController {
         description: body.description ?? mealPlan.description,
         status: body.status ?? mealPlan.status,
         isAllInclusive: body.isAllInclusive ?? mealPlan.isAllInclusive,
+        assignMealPlanOn: assignMealPlanOnCsv ?? mealPlan.assignMealPlanOn,
         lastModifiedBy: user?.id ?? mealPlan.lastModifiedBy,
       })
       await mealPlan.save()

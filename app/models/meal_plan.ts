@@ -28,6 +28,9 @@ export default class MealPlan extends BaseModel {
   @column({ columnName: 'is_all_inclusive' })
   declare isAllInclusive: boolean
 
+  @column({ columnName: 'assign_meal_plan_on' })
+  declare assignMealPlanOn: string
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
