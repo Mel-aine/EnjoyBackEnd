@@ -1289,22 +1289,21 @@ export default class ReportsController {
                 </div>
                 <div class="chart">
                     ${chartData
-                      .map(
-                        (data) => `
+        .map(
+          (data) => `
                         <div class="bar-container">
-                            ${
-                              data.reservationCount > 0
-                                ? `
+                            ${data.reservationCount > 0
+              ? `
                                 <div class="bar" style="height: ${data.height}px; background-color: #fb923c; /* Orange pour l'intérieur */">
                                     <div class="bar-value">${data.reservationCount}</div>
                                 </div>
                             `
-                                : ''
-                            }
+              : ''
+            }
                         </div>
                     `
-                      )
-                      .join('')}
+        )
+        .join('')}
                 </div>
                 <div class="x-axis">
                     ${chartData.map((data) => `<div class="x-label">${data.day}</div>`).join('')}
@@ -2597,8 +2596,8 @@ export default class ReportsController {
         </thead>
         <tbody>
           ${sectionsData.roomCharges.data
-            .map(
-              (row: any) => `
+        .map(
+          (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -2615,8 +2614,8 @@ export default class ReportsController {
             <td>${row.checkinBy}</td>
           </tr>
           `
-            )
-            .join('')}
+        )
+        .join('')}
           <tr class="totals-row">
            <td><strong></strong></td>
             <td><strong></strong></td>
@@ -2655,8 +2654,8 @@ export default class ReportsController {
         </thead>
         <tbody>
           ${sectionsData.dailySales.data
-            .map(
-              (row: any) => `
+        .map(
+          (row: any) => `
           <tr>
             <td>${row.salesType}</td>
             <td class="number ">${formatCurrency(row.roomCharges)}</td>
@@ -2668,8 +2667,8 @@ export default class ReportsController {
             <td class="number">${formatCurrency(row.totalSales)}</td>
           </tr>
           `
-            )
-            .join('')}
+        )
+        .join('')}
           <tr class="totals-row">
             <td><strong>Total (${currency})</strong></td>
             <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.roomCharges)}</strong></td>
@@ -2705,8 +2704,8 @@ export default class ReportsController {
         </thead>
         <tbody>
           ${sectionsData.miscCharges.data
-            .map(
-              (row: any) => `
+        .map(
+          (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -2721,8 +2720,8 @@ export default class ReportsController {
             <td>${row.remark ?? ''}</td>
           </tr>
           `
-            )
-            .join('')}
+        )
+        .join('')}
           <tr class="totals-row">
             <td><strong></strong></td>
             <td><strong></strong></td>
@@ -2785,8 +2784,8 @@ export default class ReportsController {
         </thead>
         <tbody>
           ${sectionsData.paxStatus
-            .map(
-              (row: any) => `
+        .map(
+          (row: any) => `
           <tr>
             <td>${row.status}</td>
             <td class="number">${row.rooms}</td>
@@ -2794,8 +2793,8 @@ export default class ReportsController {
             <td class="number">${row.children}</td>
           </tr>
           `
-            )
-            .join('')}
+        )
+        .join('')}
         </tbody>
       </table>
     </div>
@@ -2813,16 +2812,16 @@ export default class ReportsController {
         </thead>
         <tbody>
           ${sectionsData.paxAnalysis
-            .map(
-              (row: any) => `
+        .map(
+          (row: any) => `
           <tr>
             <td>${row.rateType}</td>
             <td class="number">${row.adults}</td>
             <td class="number">${row.children}</td>
           </tr>
           `
-            )
-            .join('')}
+        )
+        .join('')}
         </tbody>
       </table>
     </div>
@@ -3295,8 +3294,10 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery) => {
           folioQuery.whereHas('reservation', (reservationQuery) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
           })
         })
+        .where('hotel_id', hotelId)
         .where('current_working_date', reportDate.toFormat('yyyy-MM-dd'))
         .where('category', 'room')
         .where('transaction_type', TransactionType.CHARGE)
@@ -3307,6 +3308,7 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery) => {
           folioQuery.whereHas('reservation', (reservationQuery) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
           })
         })
         .whereBetween('current_working_date', [
@@ -3321,6 +3323,8 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery) => {
           folioQuery.whereHas('reservation', (reservationQuery) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+
           })
         })
         .whereBetween('current_working_date', [
@@ -3346,9 +3350,9 @@ export default class ReportsController {
       const ytdLateCheckout = await this.getLateCheckoutRevenue(hotelId, ytdStartDate, reportDate)
       return {
         roomCharges: {
-          today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
-          ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
-          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0),
+          today: todayRoomCharges.reduce((acc, cur) => acc + Number(cur.roomFinalNetAmount), 0),
+          ptd: ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.roomFinalNetAmount), 0),
+          ytd: ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.roomFinalNetAmount), 0),
         },
         cancellationRevenue: {
           today: todayCancellation,
@@ -3367,15 +3371,15 @@ export default class ReportsController {
         },
         total: {
           today:
-            todayRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) +
+            todayRoomCharges.reduce((acc, cur) => acc + Number(cur.roomFinalNetAmount), 0) +
             Number(todayCancellation) +
             Number(todayNoShow),
           ptd:
-            ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) +
+            ptdRoomCharges.reduce((acc, cur) => acc + Number(cur.roomFinalNetAmount), 0) +
             Number(ptdCancellation) +
             Number(ptdNoShow),
           ytd:
-            ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.amount), 0) +
+            ytdRoomCharges.reduce((acc, cur) => acc + Number(cur.roomFinalNetAmount), 0) +
             Number(ytdCancellation) +
             Number(ytdNoShow),
         },
@@ -3601,6 +3605,8 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+
           })
         })
         .whereBetween('current_working_date', [
@@ -3689,6 +3695,7 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
           })
         })
         .whereBetween('current_working_date', [
@@ -3762,6 +3769,7 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
           })
         })
         .whereBetween('current_working_date', [
@@ -3856,6 +3864,8 @@ export default class ReportsController {
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservation', (reservationQuery: any) => {
             reservationQuery.where('hotel_id', hotelId)
+            reservationQuery.whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+
           })
         })
         .whereBetween('current_working_date', [
@@ -7453,29 +7463,29 @@ export default class ReportsController {
                     <!-- Y-axis labels -->
                     <div class="y-axis">
                         ${[0, 0.2, 0.4, 0.6, 0.8, 1.0]
-                          .map(
-                            (ratio) => `
+        .map(
+          (ratio) => `
                             <div class="y-label" style="top: ${(1 - ratio) * 100}%">
                                 ${formatCurrency(maxRevenue * ratio).replace(currency + ' ', '')}
                             </div>
                         `
-                          )
-                          .join('')}
+        )
+        .join('')}
                     </div>
 
                     <!-- Grid lines -->
                     ${[0.2, 0.4, 0.6, 0.8]
-                      .map(
-                        (ratio) => `
+        .map(
+          (ratio) => `
                         <div class="grid-line" style="top: ${(1 - ratio) * 100}%"></div>
                     `
-                      )
-                      .join('')}
+        )
+        .join('')}
 
                     <!-- Bars -->
                     ${chartData
-                      .map(
-                        (data) => `
+        .map(
+          (data) => `
                         <div class="bar"
                              style="left: ${((data.day - 1) / revenueData.daysInMonth) * 100}%;
                                     width: ${(1 / revenueData.daysInMonth) * 100 * 0.8}%;
@@ -7484,20 +7494,20 @@ export default class ReportsController {
                             ${data.revenue > 0 ? `<div class="bar-value">${data.formattedRevenue.replace(currency + ' ', '')}</div>` : ''}
                         </div>
                     `
-                      )
-                      .join('')}
+        )
+        .join('')}
 
                     <!-- X-axis labels -->
                     <div class="x-axis">
                         ${chartData
-                          .map(
-                            (data) => `
+        .map(
+          (data) => `
                             <div class="x-label" style="left: ${(data.day / revenueData.daysInMonth) * 100}%">
                                 ${data.day}
                             </div>
                         `
-                          )
-                          .join('')}
+        )
+        .join('')}
                     </div>
                 </div>
                 <div style="margin-top: 40px; font-weight: bold;">Date</div>
@@ -7773,9 +7783,8 @@ export default class ReportsController {
                 <div class="night-audit">Night Audit</div>
             </div>
 
-            ${
-              page === 0
-                ? `
+            ${page === 0
+          ? `
             <!-- Report info only on first page -->
             <div class="report-info">
                 <div class="report-info-row">
@@ -7784,8 +7793,8 @@ export default class ReportsController {
                 </div>
             </div>
             `
-                : ''
-            }
+          : ''
+        }
 
             <!-- Table -->
             <table>
@@ -7882,12 +7891,12 @@ export default class ReportsController {
       const revenueTypes = revenueBy
         ? revenueBy.split(',')
         : [
-            'room_revenue',
-            'no_show_revenue',
-            'cancellation_revenue',
-            'dayuser_revenue',
-            'late_check_out_revenue',
-          ]
+          'room_revenue',
+          'no_show_revenue',
+          'cancellation_revenue',
+          'dayuser_revenue',
+          'late_check_out_revenue',
+        ]
 
       // Get daily revenue data
       const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
@@ -8511,8 +8520,8 @@ export default class ReportsController {
 
     const baseRate = reportData.data
       ? (reportData.data.filter((r: any) => r.status === 'occupied').length /
-          reportData.data.length) *
-        100
+        reportData.data.length) *
+      100
       : 70
 
     return Array.from({ length: 7 }, (_, i) => {
