@@ -10745,8 +10745,8 @@ export default class ReportsController {
 
     const rooms = await ReservationRoom.query()
       .where('hotelId', hotelId)
-      .where('checkInDate', '<=', reportIsoDate)
-      .where('checkOutDate', '>', reportIsoDate)
+      .where('checkInDate', '<', reportIsoDate)
+      .where('checkOutDate', '>=', reportIsoDate)
       .whereNotIn('status', [
         ReservationStatus.CANCELLED,
         ReservationStatus.VOIDED,
@@ -10756,6 +10756,9 @@ export default class ReportsController {
       .where('mealPlanRateInclude', true)
       .whereNotNull('mealPlanId')
       .preload('mealPlan')
+      .preload('reservation', (reservationQuery) => {
+        reservationQuery.preload('businessSource')
+      })
       .preload('guest', (guestQuery) => {
         guestQuery.preload('companyAccount')
       })
@@ -10772,6 +10775,7 @@ export default class ReportsController {
         mealPlanId: number
         mealPlanName: string
         reservations: Array<{
+          sortKey: number
           roomNo: string
           guestName: string
           rateType: string
@@ -10813,8 +10817,19 @@ export default class ReportsController {
       const checkOutDate = rr?.checkOutDate ? rr.checkOutDate.toFormat('dd/MM/yyyy') : 'N/A'
       const adult = Number(rr?.adults || 0)
       const child = Number(rr?.children || 0)
+      const sortKeyRaw = rr?.room?.sortKey ?? rr?.room?.sort_key
+      const sortKey =
+        sortKeyRaw === undefined || sortKeyRaw === null
+          ? Number.POSITIVE_INFINITY
+          : Number(sortKeyRaw)
+      const companyName =
+        rr.guest?.companyAccount?.companyName ||
+        rr.reservation?.companyName ||
+        rr.reservation?.businessSource?.name ||
+        '-'
 
       group.reservations.push({
+        sortKey,
         roomNo: roomNumber,
         guestName: rr.guest
           ? `${rr.guest.firstName || ''} ${rr.guest.lastName || ''}`.trim()
@@ -10822,7 +10837,7 @@ export default class ReportsController {
         rateType,
         arrival: checkInDate,
         departure: checkOutDate,
-        companyName: rr.guest?.companyAccount?.companyName || '-',
+        companyName,
         adult,
         child,
       })
@@ -10834,7 +10849,17 @@ export default class ReportsController {
       mealPlansById.set(mpId, group)
     }
 
-    const mealPlans = Array.from(mealPlansById.values())
+    const mealPlans = Array.from(mealPlansById.values()).map((mp) => {
+      const reservations = mp.reservations
+        .slice()
+        .sort((a, b) => {
+          if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
+          return a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true, sensitivity: 'base' })
+        })
+        .map(({ sortKey, ...rest }) => rest)
+
+      return { ...mp, reservations }
+    })
 
     // Calculate totals
     const totalGuests = mealPlans.reduce((sum, mp) => sum + mp.totalGuests, 0)
