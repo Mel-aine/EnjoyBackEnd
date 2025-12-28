@@ -605,6 +605,7 @@ export default class ReservationFolioService {
       .preload('guest')
       .preload('transactions', (query) =>
         query
+          .whereNull('mealPlanId')
           .orderBy('postingDate', 'asc')
           .preload('paymentMethod')
           .preload('modifier')
