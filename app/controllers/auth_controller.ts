@@ -93,7 +93,7 @@ export default class AuthController {
         if (!login) return this.responseError('Invalid credentials', 401)
       }
       // Crée un access token (pour les requêtes API) et un refresh token dédié
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '60m' })
+      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '24h' })
       const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
 
       await LoggerService.log({

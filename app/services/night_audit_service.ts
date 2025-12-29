@@ -10,6 +10,7 @@ import LoggerService from '#services/logger_service'
 import ReportsController from '#controllers/reports_controller'
 import Hotel from '#models/hotel'
 import PosService from '#services/pos_service'
+import ReportsEmailService from './reports_email_service.js'
 
 export interface NightAuditFilters {
   auditDate: DateTime
@@ -106,9 +107,13 @@ export default class NightAuditService {
 
     const hotel = await Hotel.find(hotelId)
     if (hotel) {
-      //hotel.lastNightAuditDate = DateTime.now();
-      //hotel.currentWorkingDate = DateTime.now().startOf('day')
+      hotel.lastNightAuditDate = DateTime.now();
+      hotel.currentWorkingDate = DateTime.now().startOf('day')
       await hotel.save()
+      const emailService = new ReportsEmailService()
+      setImmediate(async () => {
+            await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+      })
     }
 
     return summary
