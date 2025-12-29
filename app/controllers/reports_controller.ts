@@ -2124,41 +2124,119 @@ export default class ReportsController {
     const { default: Room } = await import('#models/room')
     const { default: Reservation } = await import('#models/reservation')
 
-    const totalRooms = await Room.query().where('hotel_id', hotelId).count('* as total')
-    const totalRoomsCount = parseInt(totalRooms[0].$extras.total)
-
-    // Get occupancy statistics for the date
-    const occupied = await Reservation.query()
+    const rooms = await Room.query()
+      .select(['id', 'status', 'housekeeping_status'])
       .where('hotel_id', hotelId)
-      .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
-      .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
+
+    const totalRoomsCount = rooms.length
+    const today = reportDate.startOf('day')
+    const todayIso = today.toISODate()!
+
+    const staticBlockedOrOO = new Set<number>()
+    const staticDirtyOrCleaning = new Set<number>()
+    for (const room of rooms) {
+      if (
+        room.status === 'blocked' ||
+        room.status === 'out_of_order' ||
+        room.status === 'maintenance' ||
+        room.housekeepingStatus === 'out_of_order'
+      ) {
+        staticBlockedOrOO.add(room.id)
+      }
+      if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
+        staticDirtyOrCleaning.add(room.id)
+      }
+    }
+
+    const allCheckedInReservations = await Reservation.query()
+      .select(['id', 'arrived_date', 'depart_date', 'status'])
+      .where('hotel_id', hotelId)
       .where('status', 'checked_in')
-      .count('* as total')
+      .where('depart_date', '>=', todayIso)
+      .preload('reservationRooms', (rrq) => {
+        rrq.select(['room_id', 'check_out_date'])
+      })
 
-    const dueOut = await Reservation.query()
-      .where('hotel_id', hotelId)
-      .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
-      .where('status', 'checked_in')
-      .count('* as total')
+    const dueOutReservations = allCheckedInReservations.filter((reservation) =>
+      reservation.reservationRooms.some((rr: any) => {
+        if (!rr.checkOutDate) return false
+        return rr.checkOutDate <= today
+      })
+    )
 
-    const departed = await Reservation.query()
-      .where('hotel_id', hotelId)
-      .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
-      .where('status', 'checked_out')
-      .count('* as total')
+    const dueOutRoomIds = new Set<number>()
+    dueOutReservations.forEach((reservation) => {
+      reservation.reservationRooms.forEach((rr: any) => {
+        if (rr.checkOutDate && rr.roomId && rr.checkOutDate <= today) {
+          dueOutRoomIds.add(rr.roomId)
+        }
+      })
+    })
 
-    const reserved = await Reservation.query()
+    const checkedInRoomIds = new Set<number>()
+    allCheckedInReservations.forEach((r) => {
+      r.reservationRooms.forEach((rr: any) => {
+        if (rr.roomId) {
+          checkedInRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    const allConfirmedReservations = await Reservation.query()
+      .select(['id', 'status'])
       .where('hotel_id', hotelId)
-      .where('arrived_date', reportDate.toFormat('yyyy-MM-dd'))
       .where('status', 'confirmed')
-      .count('* as total')
+      .where('arrived_date', '=', todayIso)
+      .preload('reservationRooms', (rrq) => {
+        rrq.select(['room_id'])
+      })
 
-    const occupiedCount = parseInt(occupied[0].$extras.total)
-    const dueOutCount = parseInt(dueOut[0].$extras.total)
-    const departedCount = parseInt(departed[0].$extras.total)
-    const reservedCount = parseInt(reserved[0].$extras.total)
-    const vacantCount = totalRoomsCount - occupiedCount
-    const blockedCount = 0 // You may need to implement room blocking logic
+    const confirmedRoomIds = new Set<number>()
+    allConfirmedReservations.forEach((r) => {
+      r.reservationRooms.forEach((rr: any) => {
+        if (rr.roomId) {
+          confirmedRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    const departedReservations = await Reservation.query()
+      .select(['id', 'status'])
+      .where('hotel_id', hotelId)
+      .where('status', 'checked_out')
+      .where('depart_date', '=', todayIso)
+      .preload('reservationRooms', (rrq) => {
+        rrq.select(['room_id'])
+      })
+
+    const departedRoomIds = new Set<number>()
+    departedReservations.forEach((r) => {
+      r.reservationRooms.forEach((rr: any) => {
+        if (rr.roomId) {
+          departedRoomIds.add(rr.roomId)
+        }
+      })
+    })
+
+    const { default: RoomBlock } = await import('#models/room_block')
+    const allBlockedRoomIds = new Set<number>(staticBlockedOrOO)
+    const allRoomBlocks = await RoomBlock.query()
+      .select(['id', 'room_id', 'status'])
+      .where('hotel_id', hotelId)
+      .whereNot('status', 'completed')
+
+    allRoomBlocks.forEach((block: any) => {
+      if (block.roomId) {
+        allBlockedRoomIds.add(block.roomId)
+      }
+    })
+
+    const occupiedCount = checkedInRoomIds.size
+    const dueOutCount = dueOutRoomIds.size
+    const departedCount = departedRoomIds.size
+    const reservedCount = confirmedRoomIds.size
+    const blockedCount = allBlockedRoomIds.size
+    const vacantCount = Math.max(0, totalRoomsCount - occupiedCount - blockedCount)
 
     return {
       date: reportDate.toFormat('dd/MM/yyyy'),
