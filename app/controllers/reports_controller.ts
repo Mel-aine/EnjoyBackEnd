@@ -1429,23 +1429,29 @@ export default class ReportsController {
     // Section 1: Room Charges
     const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
 
-    // Section 2: Daily Sales
+    // section2: checkout
+
+    const checkout= await this.getCheckoutData(hotelId, reportDate, currency)
+
+    // Section 3: Daily Sales
     const dailySales = await this.getDailySalesData(hotelId, reportDate, currency)
 
-    // Section 3: Misc. Charges
+    // Section 4: Misc. Charges
     const miscCharges = await this.getMiscChargesData(hotelId, reportDate, currency)
 
-    // Section 4: Room Status
+    // Section 5: Room Status
     const roomStatus = await this.getRoomStatusData(hotelId, reportDate)
 
-    // Section 5: Pax Status
+    // Section 6: Pax Status
     const paxStatus = await this.getPaxStatusData(hotelId, reportDate)
 
-    // Section 6: Pax Analysis
+    // Section 7: Pax Analysis
     const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
+    
 
     return {
       roomCharges,
+      checkout,
       dailySales,
       miscCharges,
       roomStatus,
@@ -1573,6 +1579,156 @@ export default class ReportsController {
       .map((e) => e.data)
 
     return { data: roomChargesData, totals }
+  }
+  private async getCheckoutData(hotelId: number, reportDate: DateTime, currency: string) {
+    const { default: Reservation } = await import('#models/reservation')
+  
+    // Récupérer les réservations qui ont checkout le jour du rapport
+    const reservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .where('check_out_date', reportDate.toFormat('yyyy-MM-dd'))
+      .preload('reservationRooms', (roomQuery) => {
+        roomQuery.preload('room')
+        roomQuery.preload('roomType')
+        roomQuery.preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions')
+        })
+      })
+      .preload('guest')
+  
+    const checkoutDataEntries: Array<{
+      sortKey: number
+      roomNumber: string
+      data: any
+    }> = []
+    
+    let totals = {
+      nights: 0,
+      roomCharges: 0,
+      extraCharges: 0,
+      discount: 0,
+      tax: 0,
+      adjust: 0,
+      payment: 0,
+      balance: 0,
+    }
+  
+    for (const reservation of reservations) {
+      for (const reservationRoom of reservation.reservationRooms) {
+        const folio = reservationRoom.folios?.[0]
+        
+        if (reservationRoom.room && folio) {
+          // Calcul du nombre de nuits
+          const arrivalDate = DateTime.fromFormat(
+            reservation.arrivedDate || '',
+            'yyyy-MM-dd'
+          )
+          const departureDate = DateTime.fromFormat(
+            reservation.departDate || '',
+            'yyyy-MM-dd'
+          )
+          const nights = departureDate.diff(arrivalDate, 'days').days
+  
+          // Récupération directe depuis les transactions
+          const transactions = folio.transactions || []
+  
+          // Room Charges - transactions CHARGE avec catégorie ROOM
+          const roomCharges = transactions
+            .filter(
+              (t: any) =>
+                t.transactionType === TransactionType.CHARGE &&
+                t.category === TransactionCategory.ROOM
+            )
+            .reduce((sum: number, t: any) => sum + Number(t.roomFinalRate || 0), 0)
+  
+          // Extra Charges - transactions CHARGE hors catégorie ROOM
+          const extraCharges = transactions
+            .filter(
+              (t: any) =>
+                t.transactionType === TransactionType.CHARGE &&
+                t.category !== TransactionCategory.ROOM
+            )
+            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+  
+          // Discount - transactions DISCOUNT
+          const discount = Math.abs(
+            transactions
+              .filter((t: any) => t.transactionType === TransactionType.DISCOUNT)
+              .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+          )
+  
+          // Tax - somme des taxes sur les charges
+          const tax = transactions
+            .filter((t: any) => t.transactionType === TransactionType.CHARGE)
+            .reduce((sum: number, t: any) => sum + Number(t.roomFinalRateTaxe || 0), 0)
+  
+          // Adjust - transactions ADJUSTMENT
+          const adjust = transactions
+            .filter((t: any) => t.transactionType === TransactionType.ADJUSTMENT)
+            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+  
+          // Payment - transactions PAYMENT
+          const payment = transactions
+            .filter((t: any) => t.transactionType === TransactionType.PAYMENT)
+            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+  
+          // Balance
+          const totalCharges = roomCharges + extraCharges + tax - discount + adjust
+          const balance = totalCharges - payment
+  
+          const sortKeyRaw =
+            (reservationRoom.room as any)?.sortKey ?? (reservationRoom.room as any)?.sort_key
+          const sortKey =
+            sortKeyRaw === undefined || sortKeyRaw === null
+              ? Number.POSITIVE_INFINITY
+              : Number(sortKeyRaw)
+          const roomNumber = String(reservationRoom.room.roomNumber ?? '')
+  
+          checkoutDataEntries.push({
+            sortKey,
+            roomNumber,
+            data: {
+              room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
+              guest: reservation.guest
+                ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+                : '',
+              invoiceNo: folio.folioNumber || 'N/A',
+              arrival: arrivalDate.toFormat('dd/MM/yyyy'),
+              departure: departureDate.toFormat('dd/MM/yyyy'),
+              nights: reservationRoom.nights,
+              roomCharges: roomCharges,
+              extraCharges: extraCharges,
+              discount: discount,
+              tax: tax,
+              adjust: adjust,
+              payment: payment,
+              balance: balance,
+            },
+          })
+  
+          totals.nights += Math.round(nights)
+          totals.roomCharges += roomCharges
+          totals.extraCharges += extraCharges
+          totals.discount += discount
+          totals.tax += tax
+          totals.adjust += adjust
+          totals.payment += payment
+          totals.balance += balance
+        }
+      }
+    }
+  
+    const checkoutData = checkoutDataEntries
+      .sort((a, b) => {
+        if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
+        return a.roomNumber.localeCompare(b.roomNumber, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      })
+      .map((e) => e.data)
+  
+    return { data: checkoutData, totals }
   }
 
   /**
@@ -2678,8 +2834,70 @@ export default class ReportsController {
       </table>
       <div class="total-count">Total ${sectionsData.roomCharges.data.length}</div>
     </div>
+    <!-- Section 2: Checkout -->
+    <div class="section">
+      <div class="section-title">Checkout</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Guest</th>
+            <th>Invoice No.</th>
+            <th>Arrival</th>
+            <th>Departure</th>
+            <th>Nights</th>
+            <th>Room Charges<br/>(${currency})</th>
+            <th>Extra Charges<br/>(${currency})</th>
+            <th>Discount<br/>(${currency})</th>
+            <th>Tax<br/>(${currency})</th>
+            <th>Adjust<br/>(${currency})</th>
+            <th>Payment<br/>(${currency})</th>
+            <th>Balance<br/>(${currency})</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionsData.checkout.data
+        .map(
+          (row: any) => `
+          <tr>
+            <td>${row.room}</td>
+            <td>${row.guest}</td>
+            <td class="center">${row.invoiceNo}</td>
+            <td class="center">${row.arrival}</td>
+            <td class="center">${row.departure}</td>
+            <td class="number center">${row.nights}</td>
+            <td class="number">${formatCurrency(row.roomCharges)}</td>
+            <td class="number">${formatCurrency(row.extraCharges)}</td>
+            <td class="number">${formatCurrency(row.discount)}</td>
+            <td class="number">${formatCurrency(row.tax)}</td>
+            <td class="number">${formatCurrency(row.adjust)}</td>
+            <td class="number">${formatCurrency(row.payment)}</td>
+            <td class="number">${formatCurrency(row.balance)}</td>
+          </tr>
+          `
+        )
+        .join('')}
+          <tr class="totals-row">
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong></strong></td>
+            <td><strong>Total</strong></td>
+            <td class="number center border-dashed"><strong>${sectionsData.checkout.totals.nights}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.roomCharges)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.extraCharges)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.discount)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.tax)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.adjust)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.payment)}</strong></td>
+            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.balance)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="total-count">Total ${sectionsData.checkout.data.length}</div>
+    </div>
   
-    <!-- Section 2: Daily Sales -->
+    <!-- Section 3: Daily Sales -->
     <div class="section">
       <div class="section-title">Daily Sales</div>
       <table class="data-table">
@@ -2726,7 +2944,7 @@ export default class ReportsController {
       </table>
     </div>
   
-    <!-- Section 3: Misc. Charges -->
+    <!-- Section 4: Misc. Charges -->
     <div class="section">
       <div class="section-title">Misc. Charges</div>
       <table class="data-table">
@@ -2782,7 +3000,7 @@ export default class ReportsController {
       <div class="total-count">Total ${sectionsData.miscCharges.data.length}</div>
     </div>
   
-    <!-- Section 4: Room Status -->
+    <!-- Section 5: Room Status -->
     <div class="section">
       <div class="section-title">Room Status</div>
       <table class="data-table room-status-table">
@@ -2813,7 +3031,7 @@ export default class ReportsController {
       </table>
     </div>
   
-    <!-- Section 5: Pax Status -->
+    <!-- Section 6: Pax Status -->
     <div class="section">
       <div class="section-title">Pax Status</div>
       <table class="data-table pax-status-table">
@@ -2842,7 +3060,7 @@ export default class ReportsController {
       </table>
     </div>
   
-    <!-- Section 6: Pax Analysis -->
+    <!-- Section 7: Pax Analysis -->
     <div class="section">
       <div class="section-title">Pax Analysis</div>
       <table class="data-table pax-analysis-table">
