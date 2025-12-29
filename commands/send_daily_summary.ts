@@ -14,6 +14,7 @@ import DailySummaryFact from '#models/daily_summary_fact'
 import ReportsEmailService from '#services/reports_email_service'
 import Hotel from '#models/hotel'
 import { DateTime } from 'luxon'
+import NightAuditService from '#services/night_audit_service'
 
 export default class SendDailySummary extends BaseCommand {
   public static commandName = 'reports:send-daily-summary'
@@ -54,23 +55,22 @@ export default class SendDailySummary extends BaseCommand {
       return
     }
 
-    // Find the daily summary fact to send
-    let fact: DailySummaryFact | null = null
-    if (auditDate) {
-      fact = await DailySummaryFact.query()
-        .where('hotel_id', HOTEL_ID)
-        .where('audit_date', auditDate.toISODate())
-        .first()
-    } else {
-      fact = await DailySummaryFact.query()
-        .where('hotel_id', HOTEL_ID)
-        .orderBy('audit_date', 'desc')
-        .first()
-    }
+    const targetAuditDate = (auditDate ?? hotel.currentWorkingDate ?? DateTime.now()).startOf('day')
+
+    await NightAuditService.calculateNightAudit({
+      auditDate: targetAuditDate,
+      hotelId: HOTEL_ID,
+    })
+
+    const fact: DailySummaryFact | null = await NightAuditService.getNightAuditDetails(
+      targetAuditDate,
+      HOTEL_ID
+    )
 
     if (!fact) {
-      const target = auditDate ? auditDate.toISODate() : 'latest'
-      this.logger.error(`No DailySummaryFact found for hotel ${HOTEL_ID} (date=${target})`)
+      this.logger.error(
+        `No DailySummaryFact found for hotel ${HOTEL_ID} (date=${targetAuditDate.toISODate()})`
+      )
       return
     }
 
@@ -99,8 +99,8 @@ export default class SendDailySummary extends BaseCommand {
 
     try {
       const service = new ReportsEmailService()
-      //await service.sendDailySummaryEmail(fact)
-      await service.sendDailyEmail(fact.hotelId, fact.createdAt.toISODate()!)
+      await service.sendDailySummaryEmail(fact)
+      //await service.sendDailyEmail(fact.hotelId, fact.createdAt.toISODate()!)
       this.logger.success('Daily Summary email sent successfully.')
     } catch (error: any) {
       this.logger.error(`Failed to send Daily Summary email: ${error?.message || String(error)}`)

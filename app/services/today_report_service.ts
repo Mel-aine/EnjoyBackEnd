@@ -237,15 +237,16 @@ async function getTomorrowConfirmCheckIn(hotelId: number, day: DateTime): Promis
 async function getTomorrowCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('depart_date', t.toISODate()!)
-    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
+  return await q
+    .where('depart_date', t.toISODate()!)
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
 }
 
 async function getTodayCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
-  return await q.where('depart_date', day.toISODate()!)
-    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
-    .where('status',toDbStatus(ReservationStatus.CHECKED_OUT))
+  return await q
+    .where('depart_date', day.toISODate()!)
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
 }
 
 async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -326,8 +327,8 @@ export default class TodayReportService {
     ])
 
     const todaySections: SectionBlock[] = [
-      toSection("Today's Confirm Check-In", 'today_confirm_check_in', todayConfirmCheckIn),
-      toSection("Today's Check-Out", 'today_check_out', todayCheckOut),
+      toSection("Today Booking Confirm", 'today_confirm_check_in', todayConfirmCheckIn),
+      toSection("Today's Due Out", 'today_check_out', todayCheckOut),
       toSection('Staying Over', 'staying_over', stayingOver),
       toSection('Hold Expiring Today', 'hold_expiring_today', holdExpiringToday),
       toSection("Today's Hold Check-In", 'today_hold_check_in', todayHoldCheckIn),
@@ -351,8 +352,8 @@ export default class TodayReportService {
     ])
 
     const tomorrowSections: SectionBlock[] = [
-      toSection('Tomorrow Confirm Check-In', 'tomorrow_confirm_check_in', tomorrowConfirmCheckIn),
-      toSection('Tomorrow Check-Out', 'tomorrow_check_out', tomorrowCheckOut),
+      toSection('Tomorrow Booking Confirm', 'tomorrow_confirm_check_in', tomorrowConfirmCheckIn),
+      toSection('Due Out', 'tomorrow_check_out', tomorrowCheckOut),
       toSection('Hold Expiring Tomorrow', 'hold_expiring_tomorrow', holdExpiringTomorrow),
       toSection('Tomorrow Hold Check-In', 'tomorrow_hold_check_in', tomorrowHoldCheckIn),
       toSection('Enquiry Check-In Tomorrow', 'enquiry_check_in_tomorrow', enquiryCheckInTomorrow),
