@@ -23,7 +23,8 @@ export const postTransactionValidator = vine.compile(
     glAccountCode: vine.string().optional(),
     paymentMethodId: vine.number().positive().optional(),
     reference: vine.string().optional(),
-    notes: vine.string().optional()
+    notes: vine.string().optional(),
+    transactionDate: vine.string().optional()
   })
 )
 
@@ -46,7 +47,8 @@ export const updateTransactionValidator = vine.compile(
     glAccountCode: vine.string().optional(),
     paymentMethodId: vine.number().positive().optional(),
     reference: vine.string().optional(),
-    notes: vine.string().optional()
+    notes: vine.string().optional(),
+    transactionDate: vine.string().optional()
   })
 )
 // Validator for folio settlement
