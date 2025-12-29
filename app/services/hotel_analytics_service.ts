@@ -582,6 +582,7 @@ export class HotelAnalyticsService {
       .select(['id', 'arrived_date', 'depart_date', 'status'])
       .where('hotel_id', hotelId)
       .where('status', 'checked_in')
+      .where('depart_date','>=',today.toISODate()!)
       .preload('reservationRooms', (rrq) => {
         rrq.select(['room_id', 'check_out_date'])
       })
@@ -620,6 +621,7 @@ export class HotelAnalyticsService {
       .select(['id', 'status'])
       .where('hotel_id', hotelId)
       .where('status', 'confirmed')
+      .where('arrived_date', '=', startDate.toISODate()!)
       .preload('reservationRooms', (rrq) => {
         rrq.select(['room_id'])
       })
@@ -663,77 +665,11 @@ export class HotelAnalyticsService {
       0,
       totalRooms -
       globalRoomStatusStats.occupied -
-      globalRoomStatusStats.reserved -
-      globalRoomStatusStats.blocked -
-      globalRoomStatusStats.dirty
+      globalRoomStatusStats.blocked 
     )
 
 
-    // Calculate global room status statistics across all dates
-    // const globalRoomStatusStats = {
-    //     all: totalRooms,
-    //     vacant: 0,
-    //     occupied: 0,
-    //     reserved: 0,
-    //     blocked: 0,
-    //     dueOut: 0,
-    //     dirty: 0
-    // }
-
-    // // Get all reservations within the date range for global calculations
-    // const allActiveReservations = reservations.filter(
-    //     (r) => r.arrivedDate && r.departDate &&
-    //         r.arrivedDate <= endDate && r.departDate >= startDate
-    // )
-
-    // // Get all occupied room IDs across the entire date range
-    // const globalOccupiedRoomIds = new Set<number>()
-    // allActiveReservations.forEach(reservation => {
-    //     reservation.reservationRooms.forEach(rr => {
-    //         if (rr.roomId) {
-    //             globalOccupiedRoomIds.add(rr.roomId)
-    //         }
-    //     })
-    // })
-
-    // // Get reservations checking out within the date range
-    // const checkingOutInRange = reservations.filter(
-    //     (r) => r.departDate && r.departDate >= startDate && r.departDate <= endDate && r.status === 'checked_in'
-    // )
-
-    // // Get reservations arriving within the date range
-    // const arrivingInRange = reservations.filter(
-    //     (r) => r.arrivedDate && r.arrivedDate >= startDate && r.arrivedDate <= endDate && r.status === 'confirmed'
-    // )
-
-    // // roomBlocks already prefetched above; reuse here
-
-    // // Calculate global room status for each room
-    // for (const room of allRooms) {
-    //     const isOccupied = globalOccupiedRoomIds.has(room.id)
-    //     const isDueOut = checkingOutInRange.some(r =>
-    //         r.reservationRooms.some(rr => rr.roomId === room.id)
-    //     )
-    //     const isReserved = arrivingInRange.some(r =>
-    //         r.reservationRooms.some(rr => rr.roomId === room.id)
-    //     )
-
-    //     if (isOccupied) {
-    //         globalRoomStatusStats.occupied++
-    //         if (isDueOut) {
-    //             globalRoomStatusStats.dueOut++
-    //         }
-    //     } else if (isReserved) {
-    //         globalRoomStatusStats.reserved++
-    //     } else if (room.status === 'blocked' || room.status === 'out_of_order') {
-    //         globalRoomStatusStats.blocked++
-    //     } else if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
-    //         globalRoomStatusStats.dirty++
-    //     } else {
-    //         globalRoomStatusStats.vacant++
-    //     }
-    // }
-
+   
     // Sort grouped details by the 'order' field ascending
     const groupedDetailsSorted = Object.values(groupedDetails).sort((a: any, b: any) => {
       return (a.order ?? 0) - (b.order ?? 0)
