@@ -312,7 +312,7 @@ export default class BackfillMealplanExtractCharges extends BaseCommand {
                 netAmount: Number(comp.netAmount.toFixed(2)),
                 grossAmount: Number(comp.netAmount.toFixed(2)),
                 totalAmount: Number((comp.netAmount + comp.taxAmount).toFixed(2)),
-                notes: `meal plan extra charge - ${dayType}`,
+                notes: ``,
                 transactionCode: generateTransactionCode(),
                 transactionTime: nowIsoTime,
                 postingDate: d ?? DateTime.now(),

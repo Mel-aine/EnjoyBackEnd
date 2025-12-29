@@ -7519,7 +7519,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const baseRateAdjustedGross = Math.max(0, rateBaseRateGross - hotelFlatSum)
         const baseRateNetWithoutTax =
           hotelPercRate > 0 ? baseRateAdjustedGross / (1 + hotelPercRate) : baseRateAdjustedGross
-        const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax - mealPlanGrossPerDay)
+        const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax)
 
         roomPricingByReservationRoomId.set(Number(reservationRoom.id), {
           baseAmount: netWithoutTax,
@@ -7682,7 +7682,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   netAmount,
                   grossAmount: netAmount,
                   totalAmount,
-                  notes: `meal plan extra charge - ${dayType}`,
+                  notes: ``,
                   postingDate: d ?? tx.postingDate,
                   currentWorkingDate: d ?? tx.currentWorkingDate,
                   transactionDate: d ?? tx.transactionDate,
@@ -7714,7 +7714,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 netAmount,
                 grossAmount: netAmount,
                 totalAmount,
-                notes: `meal plan extra charge - ${dayType}`,
+                notes: ``,
                 transactionTime: nowIsoTime,
                 postingDate: d ?? DateTime.now(),
                 currentWorkingDate: d ?? null,
