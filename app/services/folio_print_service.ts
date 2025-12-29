@@ -2,14 +2,10 @@ import { DateTime } from 'luxon'
 import Folio from '#models/folio'
 import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
-import Guest from '#models/guest'
 import FolioTransaction from '#models/folio_transaction'
 import Currency from '#models/currency'
-import User from '#models/user'
-import TaxRate from '#models/tax_rate'
-import ReservationRoom from '#models/reservation_room'
-import RoomRate from '#models/room_rate'
-import { TransactionCategory } from '../enums.js'
+
+import { TransactionCategory, TransactionType } from '../enums.js'
 import logger from '@adonisjs/core/services/logger'
 
 export interface FolioPrintData {
@@ -37,17 +33,18 @@ export interface FolioPrintData {
     discountAmount: number
     netAmount: number
     status: string
+    balance:number
   }>
   totals: {
-    grandTotal: number
-    totalTax: number
-    totalPaid: number
-    balance: number
-    totalCharges: number
-    totalPayments: number
-    totalAdjustments: number
-    totalDiscounts: number
-    totalServiceCharges: number
+    totalCharges: number;
+    totalPayments: number;
+    totalAdjustments: number;
+    totalTaxes: number;
+    totalServiceCharges: number;
+    totalDiscounts: number;
+    outstandingBalance: number;
+    totalChargesWithTaxes: number;
+    balanceStatus: string;
   }
   taxRates: Array<{
     id: number
@@ -106,7 +103,7 @@ export class FolioPrintService {
       })
       .preload('reservation', (reservationQuery) => {
         reservationQuery
-         // .preload('hotel')
+          // .preload('hotel')
           .preload('guest')
           .preload('roomType')
           .preload('reservationRooms', (roomQuery) => {
@@ -189,15 +186,15 @@ export class FolioPrintService {
       email: folio.hotel.email || '',
       website: folio.hotel.website || '',
       logo: folio.hotel.logoUrl || undefined,
-      registrationNumber:folio.hotel.registrationNo1,
-      rcNumber:folio.hotel.registrationNo2,
+      registrationNumber: folio.hotel.registrationNo1,
+      rcNumber: folio.hotel.registrationNo2,
     }
 
     // Prepare reservation information
     const reservationData = {
-      guest:reservation.guest,
+      guest: reservation.guest,
       id: reservation.id,
-      confirmationCode: reservation.confirmationCode,
+      confirmationCode: reservation.reservationNumber,
       guestName: reservation.guest?.firstName + ' ' + reservation.guest?.lastName || 'Guest',
       arrivalDate: reservation.arrivedDate || reservation.scheduledArrivalDate,
       departureDate: reservation.departDate || reservation.scheduledDepartureDate,
@@ -205,16 +202,16 @@ export class FolioPrintService {
       checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
       numberOfNights: reservation.numberOfNights || 1,
       roomNumber: `${reservation.reservationRooms?.[0]?.room.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`,
-      roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'none',
+      roomType: reservation.reservationRooms?.[0]?.roomType?.roomTypeName || 'none',
       rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'none',
-      tarrif: reservation.reservationRooms?.[0]?.roomRates?.baseRate || 0,
+      tarrif: reservation.reservationRooms?.[0]?.rateAmount || 0,
       adults: reservation.adults || reservation.numAdultsTotal || 1,
       children: reservation.children || reservation.numChildrenTotal || 0,
       status: reservation.status || reservation.reservationStatus,
       checkedInBy: reservation.checkedInByUser?.fullName,
       checkedOutBy: reservation.checkedOutByUser?.fullName,
       reservedBy: reservation.reservedByUser?.fullName
-    } 
+    }
 
     // Prepare folio information
     const folioData = {
@@ -230,19 +227,26 @@ export class FolioPrintService {
     }
 
     // Prepare transactions
-    const transactions = folio.transactions.map(transaction => ({
-      id: transaction.id,
-      transactionNumber: transaction.transactionNumber,
-      date: transaction.transactionDate,
-      description: transaction.description,
-      category: transaction.category,
-      amount: transaction.amount,
-      taxAmount: transaction.taxAmount || 0,
-      serviceChargeAmount: transaction.serviceChargeAmount || 0,
-      discountAmount: transaction.discountAmount || 0,
-      netAmount: transaction.netAmount || transaction.amount,
-      status: transaction.status
-    }))
+    const transactions: Array<Record<string, any>> = []
+    let balance = 0
+    for (const transaction of folio.transactions) {
+      const amount = transaction.amount ?? 0
+      balance += Number(amount)
+      transactions.push({
+        id: transaction.id,
+        transactionNumber: transaction.transactionNumber,
+        date: transaction.transactionDate,
+        description: transaction.description,
+        category: transaction.category,
+        amount,
+        taxAmount: transaction.taxAmount || 0,
+        serviceChargeAmount: transaction.serviceChargeAmount || 0,
+        discountAmount: transaction.discountAmount || 0,
+        netAmount: transaction.netAmount ?? amount,
+        balance,
+        status: transaction.status
+      })
+    }
 
     // Prepare billing address
     const billingAddress = {
@@ -329,7 +333,7 @@ export class FolioPrintService {
 
     // Prepare billing address from guest - EN CAMELCASE
     const billingAddress = {
-      name: reservation.guest ? 
+      name: reservation.guest ?
         `${reservation.guest.firstName} ${reservation.guest.lastName}` : undefined,
       address: reservation.guest?.address || undefined,
       city: reservation.guest?.city || undefined,
@@ -379,38 +383,39 @@ export class FolioPrintService {
       const reservation = await Reservation.query()
         .where('id', reservationId)
         .preload('hotel')
-        .preload('guest')
+        .preload('guest',(questQuery)=>questQuery.preload('companyAccount'))
         .preload('roomType')
         .preload('reservationRooms', (roomQuery) => {
           roomQuery
             .preload('room', (roomSubQuery) => {
               roomSubQuery.preload('taxRates')
             }).preload('roomType')
-            roomQuery.preload('roomRates', (rateQuery: any) => {
-              rateQuery.preload('rateType')
-            })
+          roomQuery.preload('roomRates', (rateQuery: any) => {
+            rateQuery.preload('rateType')
+          })
         })
         .preload('checkedInByUser')
         .preload('checkedOutByUser')
         .preload('reservedByUser')
+        .preload('businessSource')
         .firstOrFail()
 
-            // Charger le folio associé à cette réservation
+      // Charger le folio associé à cette réservation
       const folio = await Folio.query()
-          .where('reservationId', reservationId)
-          .preload('transactions', (transactionQuery) => {
-            transactionQuery
-              .where('isVoided', false)
-              .whereNull('mealPlanId')
-              .orderBy('transactionDate', 'asc')
-              .orderBy('createdAt', 'asc')
-          })
-          .first()
-        
-        if (!folio) {
-          throw new Error('No folio found for this reservation')
-        }
-        
+        .where('reservationId', reservationId)
+        .preload('transactions', (transactionQuery) => {
+          transactionQuery
+            .where('isVoided', false)
+            .whereNull('mealPlanId')
+            .orderBy('transactionDate', 'asc')
+            .orderBy('createdAt', 'asc')
+        })
+        .first()
+
+      if (!folio) {
+        throw new Error('No folio found for this reservation')
+      }
+
 
       if (!reservation.hotel) {
         throw new Error('Hotel not found for this reservation')
@@ -419,13 +424,9 @@ export class FolioPrintService {
       // Collect tax rates from rooms
       const taxRates = this.collectTaxRatesFromRooms(reservation)
 
-      // Calculate estimated totals for booking
-      const totals = this.calculateBookingTotals(reservation, taxRates)
-      console.log('totalFolios', totals)
-
       // Calculate overall totals including folio transactions
-      const total = this.calculateBalanceSummary([folio])
-      console.log('totalFolio', total)
+      const totals = this.calculateBalanceSummary([folio])
+      console.log('totalFolio', totals)
       //c
       // Prepare hotel information
       const hotel = {
@@ -443,47 +444,101 @@ export class FolioPrintService {
         registrationNumber: reservation.hotel.registrationNo1,
         rcNumber: reservation.hotel.registrationNo2
       }
-      const transactions = folio.transactions.map(transaction => ({
-        id: transaction.id,
-        transactionNumber: transaction.transactionNumber,
-        date: transaction.transactionDate,
-        description: transaction.description,
-        category: transaction.category,
-        amount: transaction.amount,
-        taxAmount: transaction.taxAmount || 0,
-        serviceChargeAmount: transaction.serviceChargeAmount || 0,
-        discountAmount: transaction.discountAmount || 0,
-        netAmount: transaction.netAmount || transaction.amount,
-        status: transaction.status
-      }))
+      const transactions: Array<Record<string, any>> = []
+      let balance = 0
+      const getDayKey = (value: any) => value?.toISODate?.() ?? ''
+      const getMillis = (value: any) => value?.toMillis?.() ?? 0
+      const getSameDayPriority = (t: any) => {
+        if (t?.category === TransactionCategory.ROOM) return 0
+        switch (t?.transactionType) {
+          case TransactionType.CHARGE:
+            return 1
+          case TransactionType.TAX:
+            return 2
+          case TransactionType.ADJUSTMENT:
+            return 3
+          case TransactionType.PAYMENT:
+            return 4
+          case TransactionType.DISCOUNT:
+            return 5
+          case TransactionType.REFUND:
+            return 6
+          default:
+            return 7
+        }
+      }
+
+      const sortedFolioTransactions = [...folio.transactions].sort((a: any, b: any) => {
+        const dayA = getDayKey(a?.transactionDate)
+        const dayB = getDayKey(b?.transactionDate)
+
+        if (dayA !== dayB) {
+          return getMillis(a?.transactionDate) - getMillis(b?.transactionDate)
+        }
+
+        const priorityDiff = getSameDayPriority(a) - getSameDayPriority(b)
+        if (priorityDiff !== 0) return priorityDiff
+
+        return getMillis(a?.createdAt) - getMillis(b?.createdAt)
+      })
+
+      for (const transaction of sortedFolioTransactions) {
+        const rawAmount = Number(transaction.totalAmount ?? transaction.amount ?? 0)
+        const balanceDelta =
+          transaction.category === TransactionCategory.PAYMENT || transaction.category === TransactionCategory.DISCOUNT
+            ? -Math.abs(rawAmount)
+            : rawAmount
+        balance += balanceDelta
+        transactions.push({
+          id: transaction.id,
+          transactionNumber: transaction.transactionNumber,
+          date: transaction.transactionDate,
+          description: transaction.particular,
+          category: transaction.category,
+          amount: balanceDelta,
+          taxAmount: transaction.taxAmount || 0,
+          serviceChargeAmount: transaction.serviceChargeAmount || 0,
+          discountAmount: transaction.discountAmount || 0,
+          netAmount: balanceDelta,
+          balance,
+          status: transaction.status
+        })
+      }
       // Prepare reservation information
+      const firstRoomChargeTransaction = sortedFolioTransactions.find(
+        (t: any) => t?.category === TransactionCategory.ROOM && t?.transactionType === TransactionType.CHARGE
+      )
       const reservationData = {
         guest: reservation.guest,
         id: reservation.id,
-        confirmationCode: reservation.confirmationCode,
-        guestName: reservation.guest ? 
-          `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim() : 
+        confirmationCode: reservation.reservationNumber,
+        guestName: reservation.guest ?
+          `${reservation.guest.displayName}`.trim() :
           'Guest',
         checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
         checkOutDate: reservation.checkOutDate || reservation.scheduledDepartureDate,
         numberOfNights: reservation.numberOfNights || 1,
         roomNumber: `${reservation.reservationRooms?.[0]?.room.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`,
-        roomType:  reservation.reservationRooms?.[0]?.roomType?.roomTypeName|| 'none',
+        roomType: reservation.reservationRooms?.[0]?.roomType?.roomTypeName || 'none',
         rateType: reservation.reservationRooms?.[0]?.roomRates?.rateType?.rateTypeName || 'none',
         adults: reservation.adults || 1,
         children: reservation.children || 0,
         status: reservation.status || 'Confirmed',
-        checkedInBy: reservation.checkedInByUser ? 
-          `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : undefined,
-        checkedOutBy: reservation.checkedOutByUser ? 
-          `${reservation.checkedInByUser.firstName} ${reservation.checkedInByUser.lastName}` : undefined,
-        reservedBy: reservation.reservedByUser ? 
-          `${reservation.reservedByUser.firstName} ${reservation.reservedByUser.lastName}` : undefined,
+        checkedInBy: reservation.checkedInByUser ?
+          `${reservation.checkedInByUser.fullName}` : undefined,
+        checkedOutBy: reservation.checkedOutByUser ?
+          `${reservation.checkedOutByUser.fullName}` : undefined,
+        reservedBy: reservation.reservedByUser ?
+          `${reservation.reservedByUser.fullName}` : undefined,
         roomCharge: reservation.roomRate || 0,
-        actualArrivalDatetime: reservation.actualArrivalDatetime
+        actualArrivalDatetime: reservation.actualArrivalDatetime,
+        checkInTime: reservation.checkInTime || '00:00',
+        checkOutTime: reservation.checkOutTime || '00:00',
+        tariff: Number(firstRoomChargeTransaction?.roomFinalNetAmount ?? 0) || 0,
+        company:reservation.guest.companyAccount?.companyName || reservation.businessSource?.name
       }
 
-          // Prepare folio information
+      // Prepare folio information
       const folioData = {
         id: folio.id,
         folioNumber: folio.folioNumber,
@@ -497,7 +552,7 @@ export class FolioPrintService {
 
       // Prepare billing address from guest
       const billingAddress = {
-        name: reservation.guest ? 
+        name: reservation.guest ?
           `${reservation.guest.firstName} ${reservation.guest.lastName}` : undefined,
         address: reservation.guest?.address || undefined,
         city: reservation.guest?.city || undefined,
@@ -529,7 +584,6 @@ export class FolioPrintService {
         folio: folioData,
         transactions,
         totals,
-        total:total,
         taxRates,
         billingAddress,
         currency,
@@ -569,6 +623,7 @@ export class FolioPrintService {
               break
             case 'tax':
               totalTaxes += amount
+              totalCharges += amount
               break
             case 'discount':
               totalDiscounts += Math.abs(amount) // Discounts are typically negative
@@ -604,16 +659,16 @@ export class FolioPrintService {
       balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
     }
   }
-/**
- * Calculate estimated totals for booking confirmation
- */
+  /**
+   * Calculate estimated totals for booking confirmation
+   */
   private calculateBookingTotals(reservation: Reservation, taxRates: any[]) {
     const roomCharge = reservation.roomRate || reservation.baseRate || 0
     const numberOfNights = reservation.numberOfNights || 1
-    
+
     // Calculate base charges
-    const totalCharges = roomCharge * numberOfNights
-    
+    const totalCharges = roomCharge
+
     // Calculate estimated taxes
     let totalTax = 0
     taxRates.forEach(taxRate => {
@@ -625,13 +680,13 @@ export class FolioPrintService {
         }
       }
     })
-    
+
     // For booking confirmation, assume no payments or adjustments yet
     const totalPayments = 0
     const totalAdjustments = 0
     const totalDiscounts = 0
     const totalServiceCharges = 0
-    
+
     const grandTotal = totalCharges + totalTax + totalServiceCharges - totalDiscounts
     const balance = grandTotal - totalPayments - totalAdjustments
 
@@ -656,7 +711,7 @@ export class FolioPrintService {
 
     // Collect unique tax rates from all rooms in the reservation
     reservation.reservationRooms?.forEach(reservationRoom => {
-      reservationRoom.room?.taxRates?.forEach(taxRate => {  
+      reservationRoom.room?.taxRates?.forEach(taxRate => {
         if (taxRate.isActive && !taxRatesMap.has(taxRate.taxRateId)) {
           taxRatesMap.set(taxRate.taxRateId, {
             id: taxRate.taxRateId,
@@ -711,25 +766,25 @@ export class FolioPrintService {
     let totalServiceCharges = 0
     let totalDiscounts = 0
     let totalAdjustments = 0
-  
+
     transactions.forEach(transaction => {
       // CRITIQUE : Convertir TOUJOURS en nombre avec parseFloat
-      const amount = parseFloat(transaction.amount.toString()) || 0
+      const amount = parseFloat(transaction.totalAmount.toString()) || 0
       const taxAmount = parseFloat(transaction.taxAmount?.toString() || '0')
       const serviceChargeAmount = parseFloat(transaction.serviceChargeAmount?.toString() || '0')
       const discountAmount = parseFloat(transaction.discountAmount?.toString() || '0')
-      
+
       // Déterminer le type de transaction basé sur la description ou la catégorie
       // puisque transactionType n'est pas disponible dans vos logs
       const description = transaction.description?.toLowerCase() || ''
-      
+
       if (description.includes('payment') || description.includes('paiement')) {
         // C'est un paiement
         totalPayments += Math.abs(amount)
       } else if (description.includes('adjustment') || description.includes('ajustement')) {
         // C'est un ajustement - traiter comme une charge
         totalCharges += amount
-        
+
         // Calculer la taxe si nécessaire
         if (taxAmount === 0 && taxRates.length > 0) {
           const calculatedTax = this.calculateTaxForTransaction(transaction, taxRates)
@@ -740,7 +795,7 @@ export class FolioPrintService {
       } else if (transaction.category === 'room' && !description.includes('payment')) {
         // Charge de chambre
         totalCharges += amount
-        
+
         // Calculer la taxe si nécessaire
         if (taxAmount === 0 && taxRates.length > 0) {
           const calculatedTax = this.calculateTaxForTransaction(transaction, taxRates)
@@ -757,16 +812,16 @@ export class FolioPrintService {
         totalCharges += amount
         totalTax += taxAmount
       }
-  
+
       // Ajouter les frais de service et réductions
       totalServiceCharges += serviceChargeAmount
       totalDiscounts += discountAmount
     })
-  
+
     // Calcul du total général - TOUS LES CALCULS SONT MAINTENANT NUMÉRIQUES
     const grandTotal = totalCharges + totalTax + totalServiceCharges - totalDiscounts
     const balance = grandTotal - totalPayments - totalAdjustments
-  
+
     console.log('DEBUG TOTALS:', {
       totalCharges,
       totalTax,
@@ -776,7 +831,7 @@ export class FolioPrintService {
       totalPayments,
       balance
     })
-  
+
     return {
       grandTotal: parseFloat(grandTotal.toFixed(2)),
       totalTax: parseFloat(totalTax.toFixed(2)),

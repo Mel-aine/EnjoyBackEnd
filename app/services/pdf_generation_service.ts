@@ -187,7 +187,7 @@ export default class PdfGenerationService {
     } = data
 
     // Convert amount to words (simplified version)
-    const amountInWords = this.numberToWords(totals.grandTotal)
+    const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
 
     return `<!DOCTYPE html>
     <html lang="fr">
@@ -413,9 +413,9 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 50%;">
-                            <span class="label">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}<br>
+                            <span class="label">Folio No./Res No.</span> ${folio.folioNumber} / ${reservation.reservationNumber || 'N/A'}<br>
                             <span class="label">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}<br>
-                            <span class="label">Company Name</span> : ${reservation.guest?.companyName || 'None'}
+                            <span class="label">Company Name</span> : ${reservation.guest?.companyName || reservation.businessSource?.name || reservation.bookingSource?.sourceName || (reservation as any).sourceOfBusiness || 'None'}
                         </td>
                         <td style="width: 25%;">
                             <span class="label">Invoice No.</span> : ${folio.folioNumber || 'N/A'}
@@ -453,13 +453,13 @@ export default class PdfGenerationService {
                     <th>Date of Departure</th>
                     <td>${new Date(reservation.departureDate).toLocaleDateString('fr-FR')}</td>
                     <th>Tariff</th>
-                    <td>${reservation.tarriff || '0'}</td>
+                    <td>${reservation.tariff || '0'}</td>
                 </tr>
                 <tr>
                     <th>Time Of Arrival</th>
-                    <td>${this.formatTimeShort(reservation.checkInDate)}</td>
+                    <td>${reservation.checkInTime}</td>
                     <th>Time of Departure</th>
-                    <td>${this.formatTimeShort(reservation.checkOutDate)}</td>
+                    <td>${reservation.checkOutTime}</td>
                     <th>Rate Type</th>
                     <td>${reservation.rateType || 'N/A'}</td>
                 </tr>
@@ -485,7 +485,7 @@ export default class PdfGenerationService {
                         <td>${transaction.description}</td>
                         <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatAmount(transaction.amount) : '0'}</td>
                         <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
-                        <td class="text-right">${this.formatAmount(transaction.netAmount)}</td>
+                        <td class="text-right">${this.formatAmount(transaction.balance)}</td>
                     </tr>
                     `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
                 </tbody>
@@ -496,13 +496,13 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 85%; text-align: right;" class="label">Grand Total</td>
-                        <td style="width: 5%; text-align: right;">${totals.totalCharges?.toLocaleString() || '0'}</td>
+                        <td style="width: 5%; text-align: right;">${totals.totalChargesWithTaxes?.toLocaleString() || '0'}</td>
                         <td style="width: 5%; text-align: right;">-${totals.totalPayments?.toLocaleString() || '0'}</td>
                         <td style="width: 5%;"></td>
                     </tr>
                     <tr>
                         <td style="text-align: right;" class="label">Tax</td>
-                        <td style="text-align: right;">${totals.totalTax?.toLocaleString() || '0'}</td>
+                        <td style="text-align: right;">${this.formatCurrency(totals.totalTaxes)}</td>
                         <td></td>
                         <td></td>
                     </tr>
@@ -514,7 +514,7 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 20%;" class="label">This Folio is in :</td>
-                        <td style="width: 30%;">${totals.grandTotal.toLocaleString()}XAF</td>
+                        <td style="width: 30%;">${totals.totalChargesWithTaxes.toLocaleString()}XAF</td>
                         <td style="width: 30%;">${amountInWords}</td>
                         <td style="width: 10%;" class="label">Total Paid</td>
                         <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
@@ -522,7 +522,7 @@ export default class PdfGenerationService {
                     <tr>
                         <td colspan="3"></td>
                         <td class="label">Balance</td>
-                        <td style="text-align: right;">${totals.balance.toLocaleString()}</td>
+                        <td style="text-align: right;">${totals.outstandingBalance.toLocaleString()}</td>
                     </tr>
                 </table>
             </div>
@@ -1041,9 +1041,9 @@ static async generateSuitaHotelPdf(
  */
     private static formatCurrency(amount: number): string {
         if (amount === null || amount === undefined || isNaN(amount)) {
-            return 'XAF 0'
+            return '0'
         }
-        return `XAF ${Math.round(Number(amount)).toLocaleString('en-US', { 
+        return `${Math.round(Number(amount)).toLocaleString('fr-FR', { 
             minimumFractionDigits: 0, 
             maximumFractionDigits: 0 
         })}`
@@ -1061,7 +1061,7 @@ static async generateSuitaHotelPdf(
         } = data
         
         // Convert amount to words
-        const amountInWords = this.numberToWords(totals.grandTotal)
+        const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
 
         return `<!DOCTYPE html>
         <html lang="fr">
@@ -1316,10 +1316,9 @@ static async generateSuitaHotelPdf(
                             <td style="width: 50%;">
                                 <div><span class="font-bold">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
                                 <div><span class="font-bold">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}</div>
-                                <div><span class="font-bold">Company Name</span> : ${reservation.guest?.companyName || 'None'}</div>
+                                <div><span class="font-bold">Company Name</span> : ${reservation.company||'nome'}</div>
                             </td>
                             <td style="width: 25%;">
-                                <div><span class="font-bold">Invoice No.</span> : ${folio.folioNumber || 'N/A'}</div>
                             </td>
                             <td style="width: 25%;">
                                 <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</div>
@@ -1359,15 +1358,15 @@ static async generateSuitaHotelPdf(
                         <th colspan="2">Date of Departure</th>
                         <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td> 
                         <th>Tariff</th>
-                        <td>${this.formatCurrency(totals.roomCharges || 0)}</td>
+                        <td>${this.formatCurrency(reservation.tariff || 0)}</td>
                     </tr>
                     <tr>
                         <th colspan="2">Time Of Arrival</th>
-                        <td>${this.formatTimeShort(reservation.checkInDate)}</td>
+                        <td>${reservation.checkInTime}</td>
                         <th colspan="2">Time of Departure</th>
-                        <td>${this.formatTimeShort(reservation.checkOutDate)}</td>
+                        <td>${reservation.checkOutTime}</td>
                         <th>Rate Type</th>
-                        <td>${reservation.rateType || 'N/A'}</td>
+                        <td>${reservation.rateType}</td>
                     </tr>
                 </table>
         
@@ -1388,11 +1387,11 @@ static async generateSuitaHotelPdf(
                             ${transactions?.map((transaction, index) => `
                             <tr>
                                 <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
-                                <td>${transaction.transactionNumber || ''}</td>
+                                <td>${ (transaction.amount || 0) < 0 ? transaction.transactionNumber || '' : ''}</td>
                                 <td>${transaction.description}</td>
                                 <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatCurrency(transaction.amount) : this.formatCurrency(0)}</td>
                                 <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatCurrency(Math.abs(transaction.amount)) : this.formatCurrency(0)}</td>
-                                <td class="text-right">${this.formatCurrency(transaction.netAmount)}</td>
+                                <td class="text-right">${this.formatCurrency(transaction.balance)}</td>
                             </tr>
                             `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
                         </tbody>
@@ -1403,12 +1402,12 @@ static async generateSuitaHotelPdf(
                 <div class="totals-section">
                     <div class="total-line">
                         <span class="font-bold">Grand Total</span>
-                        <span style="margin-left: 30px;">${this.formatCurrency(total.totalCharges || 0)}</span>
-                        <span style="margin-left: 30px;">-${this.formatCurrency(total.totalPayments || 0)}</span>
+                        <span style="margin-left: 30px;">${this.formatCurrency(totals.totalChargesWithTaxes || 0)}</span>
+                        <span style="margin-left: 30px;">-${this.formatCurrency(totals.totalPayments || 0)}</span>
                     </div>
                     <div>
                         <span class="font-bold">Tax</span>
-                        <span style="margin-left: 60px;">${this.formatCurrency(total.totalTaxes || 0)}</span>
+                        <span style="margin-left: 60px;">${this.formatCurrency(totals.totalTaxes || 0)}</span>
                     </div>
                 </div>
 
@@ -1419,13 +1418,13 @@ static async generateSuitaHotelPdf(
                             <td class="font-bold" style="width: 25%;">This Folio is in ${currency.code}</td>
                             <td style="width: 35%;">${amountInWords}</td>
                             <td class="font-bold" style="width: 20%;">Total Paid</td>
-                            <td class="text-right" style="width: 20%;">${this.formatCurrency(total.totalPayments)}</td>
+                            <td class="text-right" style="width: 20%;">${this.formatCurrency(totals.totalPayments || 0)}</td>
                         </tr>
                         <tr>
                             <td></td>
                             <td></td>
                             <td class="font-bold">Balance</td>
-                            <td class="text-right">${this.formatCurrency(total.outstandingBalance)}</td>
+                            <td class="text-right">${this.formatCurrency(totals.outstandingBalance)}</td>
                         </tr>
                     </table>
                 </div>
@@ -1546,28 +1545,77 @@ static async generateSuitaHotelPdf(
    * Format amount with 2 decimal places
    */
   private static formatAmount(amount: number): string {
-    return amount?.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+    return amount?.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     })
   }
   /** 
    * Format time to HH'h'mm
    */
     private static formatTimeShort(dateValue: any): string {
-    if (!dateValue) return 'N/A';
-    
+    if (dateValue === null || dateValue === undefined || dateValue === '') return 'N/A'
+
+    const formatHm = (hours: number, minutes: number) => {
+      const hh = String(Math.floor(hours)).padStart(2, '0')
+      const mm = String(Math.floor(minutes)).padStart(2, '0')
+      return `${hh}:${mm}`
+    }
+
+    const coerceHoursMinutes = (rawHours: number) => {
+      if (!Number.isFinite(rawHours)) return null
+      if (rawHours < 0) return null
+      const hours = Math.floor(rawHours) % 24
+      const minutes = Math.round((rawHours - Math.floor(rawHours)) * 60)
+      const normalizedHours = (hours + Math.floor(minutes / 60)) % 24
+      const normalizedMinutes = minutes % 60
+      return { hours: normalizedHours, minutes: normalizedMinutes }
+    }
+
     try {
-        const date = new Date(dateValue);
-        if (isNaN(date.getTime())) return 'N/A';
-        
-        return date.toLocaleTimeString('fr-FR', {
+      if (typeof dateValue === 'number') {
+        const hm = coerceHoursMinutes(dateValue)
+        return hm ? formatHm(hm.hours, hm.minutes) : 'N/A'
+      }
+
+      if (typeof dateValue === 'string') {
+        const value = dateValue.trim()
+        if (value === '') return 'N/A'
+
+        const timeMatch = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+        if (timeMatch) {
+          const hours = Number(timeMatch[1])
+          const minutes = Number(timeMatch[2])
+          if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 'N/A'
+          if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return 'N/A'
+          return formatHm(hours, minutes)
+        }
+
+        const hoursOnlyMatch = value.match(/^(\d{1,2})(?:\.(\d+))?$/)
+        if (hoursOnlyMatch) {
+          const rawHours = Number(value)
+          const hm = coerceHoursMinutes(rawHours)
+          return hm ? formatHm(hm.hours, hm.minutes) : 'N/A'
+        }
+      }
+
+      const date = new Date(dateValue)
+      if (isNaN(date.getTime())) return 'N/A'
+
+      const formatted = date.toLocaleTimeString('fr-FR', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
-        }).replace(':', 'h'); // Optionnel: remplace ":" par "h" (14h30 au lieu de 14:30)
-    } catch (error) {
-        return 'N/A';
+      })
+
+      const parts = formatted.split(':')
+      if (parts.length < 2) return 'N/A'
+      const hours = Number(parts[0])
+      const minutes = Number(parts[1])
+      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 'N/A'
+      return formatHm(hours, minutes)
+    } catch {
+      return 'N/A'
     }
 }
 }
