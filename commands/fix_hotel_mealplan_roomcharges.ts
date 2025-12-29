@@ -231,10 +231,11 @@ export default class FixHotelMealplanRoomcharges extends BaseCommand {
         percRate > 0 ? roomAdjustedGross / (1 + percRate) : roomAdjustedGross
 
       const rateBaseRateGross = Number.parseFloat(`${rr.roomRates?.baseRate}`) || 0
+      console.log('base rate', rateBaseRateGross)
       const baseRateAdjustedGross = Math.max(0, rateBaseRateGross - flatSum)
       const baseRateNetWithoutTax =
         percRate > 0 ? baseRateAdjustedGross / (1 + percRate) : baseRateAdjustedGross
-      const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax - mealPlanGrossPerDay)
+      const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax)
       const roomFinalRate = totalRoomAmount
       const roomFinalNetAmount = roomNetWithoutTax
       const roomFinalRateTaxe = totalRoomAmount - roomNetWithoutTax

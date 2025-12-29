@@ -378,7 +378,7 @@ export default class ReservationFolioService {
         const baseRateAdjustedGross = Math.max(0, rateBaseRateGross - flatSum)
         const baseRateNetWithoutTax =
           percRate > 0 ? baseRateAdjustedGross / (1 + percRate) : baseRateAdjustedGross
-        const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax - mealPlanGrossPerDay)
+        const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax)
         baseAmount = netWithoutTax
         totalDailyAmount = grossDailyRate
 
