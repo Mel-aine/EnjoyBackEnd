@@ -13,6 +13,8 @@ type RowItem = {
   reservationRef: string
   guestName: string
   roomDescription: string
+  roomNumber?: string
+  roomSortKey?: number | null
   pax: number
   meal: string
   checkIn: string
@@ -28,18 +30,15 @@ type GroupBlock = {
 
 type SectionBlock = {
   key:
-  | 'today_confirm_check_in'
-  | 'today_check_out'
-  | 'staying_over'
-  | 'hold_expiring_today'
-  | 'today_hold_check_in'
-  | 'enquiry_check_in_today'
-  | 'yesterday_no_show'
-  | 'tomorrow_confirm_check_in'
-  | 'tomorrow_check_out'
-  | 'hold_expiring_tomorrow'
-  | 'tomorrow_hold_check_in'
-  | 'enquiry_check_in_tomorrow'
+  | 'in_house'
+  | 'due_out'
+  | 'confirmed_departure'
+  | 'booking_confirmed'
+  | 'arrival'
+  | 'extended'
+  | 'stay'
+  | 'tomorrow_booking_confirm'
+  | 'tomorrow_departure'
   title: string
   bookingCount: number
   roomsCount: number
@@ -86,6 +85,10 @@ function formatMeal(board?: Reservation['board_basis_type'] | null): string {
 function fmtDate(date?: DateTime | null, withTime = false): string {
   if (!date) return ''
   return withTime ? date.toFormat('dd-MM-yyyy HH:mm:ss') : date.toFormat('dd-MM-yyyy')
+}
+
+function toSqlDate(day: DateTime): string {
+  return day.toFormat('yyyy-MM-dd')
 }
 
 function getBusinessSourceName(res: Reservation): string {
@@ -142,6 +145,8 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
         guestName:
           guest?.displayName || `${guest?.title ? guest?.title + ' ' : ''}${guest?.firstName ?? ''} ${guest?.lastName ?? ''}`.trim(),
         roomDescription: roomDescription || (defaultRoomType?.roomTypeName || 'Room'),
+        roomNumber: room?.roomNumber,
+        roomSortKey: typeof room?.sortKey === 'number' ? room.sortKey : null,
         pax,
         meal,
         checkIn: fmtDate(rr.checkInDate),
@@ -151,6 +156,20 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
       }
     })
   }
+
+  return [
+    {
+      reservationRef,
+      guestName: ((res as any).guest as Guest | undefined)?.displayName || '',
+      roomDescription: defaultRoomType?.roomTypeName || 'Room',
+      pax: Number(res.guestCount ?? 0),
+      meal: formatMeal(res.board_basis_type),
+      checkIn: fmtDate(res.arrivedDate ?? res.checkInDate),
+      checkOut: fmtDate(res.departDate ?? res.checkOutDate),
+      outstandingAmount: Number(res.remainingAmount ?? 0),
+      currency,
+    },
+  ]
 }
 
 function queryBase(hotelId: number) {
@@ -180,17 +199,29 @@ function toDbStatus(status: ReservationStatus): string {
 
 async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
   return await q
-    .where('arrived_date', day.toISODate()!)
+    .whereRaw('DATE(arrived_date) = ?', [todayStr])
     .where('status', toDbStatus(ReservationStatus.CONFIRMED))
 }
 
 async function getStayingOver(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
   // Stayover: checked-in and departure after the audit date
   return await q
     .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
-    .where('depart_date', '>', day.toSQL())
+    .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
+}
+
+async function getInHouse(hotelId: number, day: DateTime): Promise<Reservation[]> {
+  const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
+  const yesterdayStr = toSqlDate(day.minus({ days: 1 }))
+  return await q
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
+    .whereRaw('DATE(arrived_date) <= ?', [yesterdayStr])
+    .whereRaw('DATE(depart_date) >= ?', [todayStr])
 }
 
 async function getHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -203,17 +234,19 @@ async function getHoldExpiring(hotelId: number, day: DateTime): Promise<Reservat
 
 async function getHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
   return await q
     .where('is_hold', true)
-    .where('arrived_date', day.toISODate()!)
+    .whereRaw('DATE(arrived_date) = ?', [todayStr])
 }
 
 async function getEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
   // Treat Pending/Waitlist as enquiry
   return await q
     .whereIn('status', [toDbStatus(ReservationStatus.PENDING), 'waitlist'])
-    .where('arrived_date', day.toISODate()!)
+    .whereRaw('DATE(arrived_date) = ?', [todayStr])
 }
 
 async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -229,23 +262,67 @@ async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reser
 async function getTomorrowConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
+  const tomorrowStr = toSqlDate(t)
   return await q
-    .where('arrived_date', t.toISODate()!)
+    .whereRaw('DATE(arrived_date) = ?', [tomorrowStr])
     .where('status', toDbStatus(ReservationStatus.CONFIRMED))
+}
+
+async function getConfirmedDepartureToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
+  const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
+  return await q
+    .where('status', toDbStatus(ReservationStatus.CHECKED_OUT))
+    .where((qb) => {
+      qb
+        .whereRaw('DATE(depart_date) = ?', [todayStr])
+    })
+}
+
+async function getArrivalToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
+  const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
+  return await q
+    .whereRaw('DATE(arrived_date) = ?', [todayStr])
+    .whereIn('status', [
+      toDbStatus(ReservationStatus.CONFIRMED),
+      toDbStatus(ReservationStatus.CHECKED_IN),
+    ])
+}
+
+async function getExtendedToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
+  const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
+  return await q
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
+    .whereRaw('DATE(arrived_date) > ?', [todayStr])
+    .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
+}
+
+async function getStayToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
+  const q = queryBase(hotelId)
+  const todayStr = toSqlDate(day)
+  return await q
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
+    .whereRaw('DATE(arrived_date) < ?', [todayStr])
+    .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
 }
 
 async function getTomorrowCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('depart_date', t.toISODate()!)
-    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
+  const tomorrowStr = toSqlDate(t)
+  return await q
+    .whereRaw('DATE(depart_date) = ?', [tomorrowStr])
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
 }
 
 async function getTodayCheckOut(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
-  return await q.where('depart_date', day.toISODate()!)
-    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
-    .where('status',toDbStatus(ReservationStatus.CHECKED_OUT))
+  const todayStr = toSqlDate(day)
+  return await q
+    .whereRaw('DATE(depart_date) = ?', [todayStr])
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
 }
 
 async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -257,16 +334,18 @@ async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<
 async function getTomorrowHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
-  return await q.where('is_hold', true).where('arrived_date', t.toISODate()!)
+  const tomorrowStr = toSqlDate(t)
+  return await q.where('is_hold', true).whereRaw('DATE(arrived_date) = ?', [tomorrowStr])
     .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
 }
 
 async function getTomorrowEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const t = day.plus({ days: 1 })
+  const tomorrowStr = toSqlDate(t)
   return await q
     .whereIn('status', [toDbStatus(ReservationStatus.PENDING), 'waitlist'])
-    .where('arrived_date', t.toISODate()!)
+    .whereRaw('DATE(arrived_date) = ?', [tomorrowStr])
 }
 
 function toSection(title: string, key: SectionBlock['key'], reservations: Reservation[]): SectionBlock {
@@ -284,7 +363,47 @@ function toSection(title: string, key: SectionBlock['key'], reservations: Reserv
     roomsCount += (reservationRooms?.length ?? res.roomsRequested ?? 1)
   }
 
-  const groups: GroupBlock[] = Array.from(groupsMap.entries()).map(([businessSource, rows]) => ({ businessSource, rows }))
+  const normalizeSortKey = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v)
+    return null
+  }
+
+  const compareRows = (a: RowItem, b: RowItem) => {
+    const ak = normalizeSortKey(a.roomSortKey)
+    const bk = normalizeSortKey(b.roomSortKey)
+
+    if (ak !== null && bk !== null && ak !== bk) return ak - bk
+    if (ak !== null && bk === null) return -1
+    if (ak === null && bk !== null) return 1
+
+    const an = a.roomNumber || ''
+    const bn = b.roomNumber || ''
+    const byNumber = an.localeCompare(bn, undefined, { numeric: true, sensitivity: 'base' })
+    if (byNumber !== 0) return byNumber
+
+    return a.roomDescription.localeCompare(b.roomDescription, undefined, { numeric: true, sensitivity: 'base' })
+  }
+
+  const groups: GroupBlock[] = Array.from(groupsMap.entries())
+    .map(([businessSource, rows]) => ({
+      businessSource,
+      rows: rows.slice().sort(compareRows),
+    }))
+    .sort((a, b) => {
+      const aMin = a.rows.reduce<number>((min, r) => {
+        const k = normalizeSortKey(r.roomSortKey)
+        return k === null ? min : Math.min(min, k)
+      }, Number.POSITIVE_INFINITY)
+
+      const bMin = b.rows.reduce<number>((min, r) => {
+        const k = normalizeSortKey(r.roomSortKey)
+        return k === null ? min : Math.min(min, k)
+      }, Number.POSITIVE_INFINITY)
+
+      if (aMin !== bMin) return aMin - bMin
+      return a.businessSource.localeCompare(b.businessSource, undefined, { sensitivity: 'base' })
+    })
 
   return {
     key,
@@ -308,54 +427,45 @@ export default class TodayReportService {
 
     // Today sections
     const [
-      todayConfirmCheckIn,
-      todayCheckOut,
-      stayingOver,
-      holdExpiringToday,
-      todayHoldCheckIn,
-      enquiryCheckInToday,
-      yesterdayNoShow,
+      inHouse,
+      dueOut,
+      confirmedDeparture,
+      bookingConfirmed,
+      arrival,
+      extended,
+      stay,
     ] = await Promise.all([
-      getTodayConfirmCheckIn(hotelId, today),
+      getInHouse(hotelId, today),
       getTodayCheckOut(hotelId, today),
-      getStayingOver(hotelId, today),
-      getHoldExpiring(hotelId, today),
-      getHoldCheckIn(hotelId, today),
-      getEnquiryCheckIn(hotelId, today),
-      getYesterdayNoShow(hotelId, today),
+      getConfirmedDepartureToday(hotelId, today),
+      getTodayConfirmCheckIn(hotelId, today),
+      getArrivalToday(hotelId, today),
+      getExtendedToday(hotelId, today),
+      getStayToday(hotelId, today),
     ])
 
     const todaySections: SectionBlock[] = [
-      toSection("Today's Confirm Check-In", 'today_confirm_check_in', todayConfirmCheckIn),
-      toSection("Today's Check-Out", 'today_check_out', todayCheckOut),
-      toSection('Staying Over', 'staying_over', stayingOver),
-      toSection('Hold Expiring Today', 'hold_expiring_today', holdExpiringToday),
-      toSection("Today's Hold Check-In", 'today_hold_check_in', todayHoldCheckIn),
-      toSection('Enquiry Check-In Today', 'enquiry_check_in_today', enquiryCheckInToday),
-      toSection('Yesterday No Show Booking', 'yesterday_no_show', yesterdayNoShow),
+      toSection('IN HOUSE AT DAILY REPORT', 'in_house', inHouse),
+      toSection('DUE OUT', 'due_out', dueOut),
+      toSection('CONFIRMED DEPARTURE', 'confirmed_departure', confirmedDeparture),
+      toSection('BOOKING CONFIRMED', 'booking_confirmed', bookingConfirmed),
+      toSection('ARRIVAL', 'arrival', arrival),
+      toSection('EXTENDED', 'extended', extended),
+      toSection('STAY', 'stay', stay),
     ]
 
     // Tomorrow sections
     const [
-      tomorrowConfirmCheckIn,
-      tomorrowCheckOut,
-      holdExpiringTomorrow,
-      tomorrowHoldCheckIn,
-      enquiryCheckInTomorrow,
+      tomorrowBookingConfirm,
+      tomorrowDeparture,
     ] = await Promise.all([
       getTomorrowConfirmCheckIn(hotelId, today),
       getTomorrowCheckOut(hotelId, today),
-      getTomorrowHoldExpiring(hotelId, today),
-      getTomorrowHoldCheckIn(hotelId, today),
-      getTomorrowEnquiryCheckIn(hotelId, today),
     ])
 
     const tomorrowSections: SectionBlock[] = [
-      toSection('Tomorrow Confirm Check-In', 'tomorrow_confirm_check_in', tomorrowConfirmCheckIn),
-      toSection('Tomorrow Check-Out', 'tomorrow_check_out', tomorrowCheckOut),
-      toSection('Hold Expiring Tomorrow', 'hold_expiring_tomorrow', holdExpiringTomorrow),
-      toSection('Tomorrow Hold Check-In', 'tomorrow_hold_check_in', tomorrowHoldCheckIn),
-      toSection('Enquiry Check-In Tomorrow', 'enquiry_check_in_tomorrow', enquiryCheckInTomorrow),
+      toSection('TOMORROW BOOKING CONFIRM', 'tomorrow_booking_confirm', tomorrowBookingConfirm),
+      toSection('TOMORROW DEPARTURE', 'tomorrow_departure', tomorrowDeparture),
     ]
 
     const hotelBlock = {

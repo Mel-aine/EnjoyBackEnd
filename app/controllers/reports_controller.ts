@@ -1718,6 +1718,21 @@ export default class ReportsController {
     let extraTax = 0
     let discount = 0
 
+    const extractCharges = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('current_working_date', [reportDateStr])
+      .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
+      .whereNot('isVoided', true)
+      .whereIn('category', [TransactionCategory.EXTRACT_CHARGE, TransactionCategory.POSTING])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+        })
+      })
+
+    extraCharges = extractCharges.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+    extraTax = extractCharges.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
+
     for (const reservation of reservations as any[]) {
       for (const reservationRoom of reservation.reservationRooms as any[]) {
         const transactions = reservationRoom.folios?.[0]?.transactions ?? []
@@ -1733,15 +1748,6 @@ export default class ReportsController {
         roomCharges += Number(dailyTransaction?.roomFinalNetAmount || 0)
         roomTax += Number(dailyTransaction?.roomFinalRateTaxe || 0)
         discount += Number(dailyTransaction?.discountAmount || 0)
-
-        for (const t of transactions) {
-          if (!t) continue
-          if (t.status === TransactionStatus.VOIDED || t.isVoided === true) continue
-          if (t.transactionType !== TransactionType.CHARGE) continue
-          if (t.category !== TransactionCategory.EXTRACT_CHARGE) continue
-          extraCharges += Number(t.amount || 0)
-          extraTax += Number(t.taxAmount || 0)
-        }
       }
     }
 
@@ -2059,7 +2065,7 @@ export default class ReportsController {
       .whereNot('category', TransactionCategory.ROOM)
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (resQuery) => {
-          resQuery.whereIn('status', ['pending',"confirmed",'checked_in','checked_out'])
+          resQuery.whereIn('status', ["confirmed",'checked_in','checked_out'])
         })
       })
       .preload('folio', (folioQuery: any) => {
@@ -2452,7 +2458,7 @@ export default class ReportsController {
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
-      .where('status', 'checked_in')
+      .whereIn('status', ['checked_in','confirmed'])
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('roomRates', (rateQuery) => {
           rateQuery.preload('rateType')

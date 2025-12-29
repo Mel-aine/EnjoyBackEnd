@@ -2,19 +2,20 @@ import { DateTime } from 'luxon'
 import DailySummaryFact from '#models/daily_summary_fact'
 import FolioTransaction from '#models/folio_transaction'
 import Reservation from '#models/reservation'
+import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
 import Folio from '#models/folio'
-import Database from '@adonisjs/lucid/services/db'
 import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
 import LoggerService from '#services/logger_service'
 import ReportsController from '#controllers/reports_controller'
 import Hotel from '#models/hotel'
 import PosService from '#services/pos_service'
+import ReportsEmailService from './reports_email_service.js'
 
 export interface NightAuditFilters {
   auditDate: DateTime
   hotelId: number
-  userId: number
+  userId?: number
 }
 
 export interface NightAuditSummary {
@@ -109,6 +110,10 @@ export default class NightAuditService {
       hotel.lastNightAuditDate = DateTime.now();
       hotel.currentWorkingDate = DateTime.now().startOf('day')
       await hotel.save()
+      const emailService = new ReportsEmailService()
+      setImmediate(async () => {
+            await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+      })
     }
 
     return summary
@@ -136,14 +141,23 @@ export default class NightAuditService {
    * Calculate revenue-related metrics
    */
   private static async calculateRevenueMetrics(auditDate: DateTime, hotelId: number) {
-    const startOfDay = auditDate.startOf('day')
-    const endOfDay = auditDate.endOf('day')
-
+    const startOfDay = auditDate
+    const allowedReservationStatuses = [
+      'checked_in',
+      'checked_out',
+      ReservationStatus.CONFIRMED,
+    ]
+    console.log('data',auditDate)
     // Get all transactions for the audit date
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .whereBetween('current_working_date', [startOfDay.toJSDate(), endOfDay.toJSDate()])
+      .where('current_working_date', startOfDay.toJSDate())
       .where('is_voided', false)
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereIn('status', allowedReservationStatuses)
+        })
+      })
 
     let totalRoomRevenue = 0
     let totalFoodBeverageRevenue = 0
@@ -154,22 +168,30 @@ export default class NightAuditService {
     let totalDiscounts = 0
 
     for (const transaction of transactions) {
-      const amount = Math.abs(transaction.amount || 0)
+      const amount = Math.abs(transaction.roomFinalNetAmount ||transaction.amount || 0)
 
       if (transaction.transactionType === TransactionType.CHARGE) {
         switch (transaction.category) {
           case TransactionCategory.ROOM:
             totalRoomRevenue += amount
+            totalTaxes+= Math.abs((transaction as any).roomFinalRateTaxe || 0)
             break
           case TransactionCategory.FOOD_BEVERAGE:
+          case TransactionCategory.EXTRACT_CHARGE:
             totalFoodBeverageRevenue += amount
+            totalResortFees += Math.abs((transaction as any).taxAmount || 0)
             break
           case TransactionCategory.TAX:
+            totalTaxes += amount
+            break
           case TransactionCategory.CITY_TAX:
             totalTaxes += amount
             break
           case TransactionCategory.RESORT_FEE:
-            totalResortFees += amount
+            totalMiscellaneousRevenue += amount
+            break
+          case TransactionCategory.POSTING:
+            totalResortFees += Number(amount)
             break
           default:
             totalMiscellaneousRevenue += amount
@@ -200,6 +222,12 @@ export default class NightAuditService {
    * Calculate occupancy-related metrics
    */
   private static async calculateOccupancyMetrics(auditDate: DateTime, hotelId: number) {
+    const allowedReservationStatuses = [
+      'checked_in',
+      'checked_out',
+      ReservationStatus.CONFIRMED,
+    ]
+
     // Get total available rooms
     const totalAvailableRooms = await Room.query()
       .where('hotel_id', hotelId)
@@ -210,16 +238,18 @@ export default class NightAuditService {
     const totalRooms = Number(totalAvailableRooms?.$extras.total || 0)
 
     // Get occupied rooms for the audit date
-    const occupiedRoomsResult = await Database.from('reservations')
-      .join('reservation_rooms', 'reservations.id', 'reservation_rooms.reservation_id')
-      .where('reservations.hotel_id', hotelId)
-      .where('reservations.status', ReservationStatus.CHECKED_IN)
-      .where('reservations.check_in_date', '<=', auditDate.toJSDate())
-      .where('reservations.check_out_date', '>', auditDate.toJSDate())
-      .countDistinct('reservation_rooms.room_id as occupied')
+    const occupiedRoomsResult = await ReservationRoom.query()
+      .whereHas('reservation', (reservationQuery) => {
+        reservationQuery
+          .where('hotel_id', hotelId)
+          .whereIn('status', allowedReservationStatuses)
+          .where('check_in_date', '<=', auditDate.toJSDate())
+          .where('check_out_date', '>', auditDate.toJSDate())
+      })
+      .countDistinct('room_id as occupied')
       .first()
 
-    const occupiedRooms = Number(occupiedRoomsResult?.occupied || 0)
+    const occupiedRooms = Number(occupiedRoomsResult?.$extras.occupied || 0)
     const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0
 
     // Calculate RevPAR and ADR
@@ -229,7 +259,12 @@ export default class NightAuditService {
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
       .where('is_voided', false)
-      .sum('amount as total_room_revenue')
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereIn('status', allowedReservationStatuses)
+        })
+      })
+      .sum('room_final_net_amount as total_room_revenue')
       .first()
 
     const totalRoomRevenue = Number(roomRevenueResult?.$extras.total_room_revenue || 0)
@@ -255,7 +290,7 @@ export default class NightAuditService {
     const checkedInResult = await Reservation.query()
       .where('hotel_id', hotelId)
       .where('check_in_date', auditDateJS)
-      .where('status', ReservationStatus.CHECKED_IN)
+      .where('status', 'checked_in')
       .count('* as total')
       .first()
 
@@ -263,7 +298,7 @@ export default class NightAuditService {
     const checkedOutResult = await Reservation.query()
       .where('hotel_id', hotelId)
       .where('check_out_date', auditDateJS)
-      .where('status', ReservationStatus.CHECKED_OUT)
+      .where('status', 'checked_out')
       .count('* as total')
       .first()
 
@@ -304,6 +339,11 @@ export default class NightAuditService {
    */
   private static async calculateFinancialMetrics(auditDate: DateTime, hotelId: number) {
     const auditDateJS = auditDate.toJSDate()
+    const allowedReservationStatuses = [
+      'checked_in',
+      'checked_out',
+      ReservationStatus.CONFIRMED,
+    ]
 
     // Total payments received on audit date
     const paymentsResult = await FolioTransaction.query()
@@ -315,27 +355,31 @@ export default class NightAuditService {
       .first()
 
     // Outstanding folios and balances
-    const outstandingFoliosResult = await Database.from('folios')
+    const outstandingFoliosResult = await Folio.query()
       .where('hotel_id', hotelId)
       .where('balance', '>', 0)
-      .select(
-        Database.raw('COUNT(*) as total_folios'),
-        Database.raw('SUM(balance) as total_balance')
-      )
+      .whereHas('reservation', (reservationQuery) => {
+        reservationQuery.whereIn('status', allowedReservationStatuses)
+      })
+      .count('* as total_folios')
+      .sum('balance as total_balance')
       .first()
 
     // Total accounts receivable (sum of all positive folio balances)
     const accountsReceivableResult = await Folio.query()
       .where('hotel_id', hotelId)
       .where('balance', '>', 0)
+      .whereHas('reservation', (reservationQuery) => {
+        reservationQuery.whereIn('status', allowedReservationStatuses)
+      })
       .sum('balance as total')
       .first()
 
     return {
       totalPaymentsReceived: Math.abs(Number(paymentsResult?.$extras.total || 0)),
       totalAccountsReceivable: Number(accountsReceivableResult?.$extras.total || 0),
-      totalOutstandingFolios: Number(outstandingFoliosResult?.total_folios || 0),
-      totalOutstandingFoliosBalance: Number(outstandingFoliosResult?.total_balance || 0)
+      totalOutstandingFolios: Number(outstandingFoliosResult?.$extras.total_folios || 0),
+      totalOutstandingFoliosBalance: Number(outstandingFoliosResult?.$extras.total_balance || 0)
     }
   }
 
@@ -664,7 +708,7 @@ export default class NightAuditService {
    * Get unsettled folios for night audit
    */
   static async getUnsettledFoliosForAudit(hotelId: number, auditDate: string) {
-    ///const auditDateTime = DateTime.fromISO(auditDate)
+    void auditDate
 
     // Get all folios with outstanding balances for the hotel
     const unsettledFolios = await Folio.query()

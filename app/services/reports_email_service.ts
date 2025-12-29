@@ -8,7 +8,7 @@ import TodayReportService from '#services/today_report_service'
 import ReportsController from '../controllers/reports_controller.js'
 import NightAuditService from './night_audit_service.js'
 import EmailAccount from '#models/email_account'
-import logger from '@adonisjs/core/services/logger'
+import { formatCurrency } from '../utils/utilities.js'
 
 type AnyRecipient = string | { address: string; name?: string }
 
@@ -118,14 +118,11 @@ export default class ReportsEmailService {
 
     const currency = hotel.currencyCode || ''
 
-    const money = (n?: number) => {
-      if (typeof n !== 'number') return '-'
-      return `${currency} ${n.toFixed(2)}`
-    }
+    const money = formatCurrency
 
     const percent = (n?: number) => {
       if (typeof n !== 'number') return '-'
-      return `${(n * 100).toFixed(2)}%`
+      return `${(n * 100).toFixed(0)}%`
     }
 
     const contactInfo = hotel.contactInfo as Record<string, unknown> | null
@@ -154,17 +151,16 @@ export default class ReportsEmailService {
           </thead>
           <tbody>
             <tr><td style="border:1px solid #e5e7eb">Total Room Revenue</td><td style="border:1px solid #e5e7eb">${money(fact.totalRoomRevenue)}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Total F&B Revenue</td><td style="border:1px solid #e5e7eb">${money(fact.totalFoodBeverageRevenue)}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Total Misc Revenue</td><td style="border:1px solid #e5e7eb">${money(fact.totalMiscellaneousRevenue)}</td></tr>
+            <tr><td style="border:1px solid #e5e7eb">Total Extra charge</td><td style="border:1px solid #e5e7eb">${money(fact.totalFoodBeverageRevenue)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Total Taxes</td><td style="border:1px solid #e5e7eb">${money(fact.totalTaxes)}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Total Resort Fees</td><td style="border:1px solid #e5e7eb">${money(fact.totalResortFees)}</td></tr>
+            <tr><td style="border:1px solid #e5e7eb">Total Extra Charge Taxe</td><td style="border:1px solid #e5e7eb">${money(fact.totalResortFees)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Total Revenue</td><td style="border:1px solid #e5e7eb">${money(fact.totalRevenue)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Total Payments</td><td style="border:1px solid #e5e7eb">${money(fact.totalPayments)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Total Discounts</td><td style="border:1px solid #e5e7eb">${money(fact.totalDiscounts)}</td></tr>
 
             <tr><td style="border:1px solid #e5e7eb">Occupied Rooms</td><td style="border:1px solid #e5e7eb">${typeof fact.occupiedRooms === 'number' ? fact.occupiedRooms : '-'}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Available Rooms</td><td style="border:1px solid #e5e7eb">${typeof fact.totalAvailableRooms === 'number' ? fact.totalAvailableRooms : '-'}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Occupancy Rate</td><td style="border:1px solid #e5e7eb">${percent(fact.occupancyRate)}</td></tr>
+            <tr><td style="border:1px solid #e5e7eb">Occupancy Rate</td><td style="border:1px solid #e5e7eb">${fact.occupancyRate}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">RevPAR</td><td style="border:1px solid #e5e7eb">${money(fact.revPAR)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">ADR</td><td style="border:1px solid #e5e7eb">${money(fact.adr)}</td></tr>
 
@@ -174,10 +170,6 @@ export default class ReportsEmailService {
             <tr><td style="border:1px solid #e5e7eb">Cancellations</td><td style="border:1px solid #e5e7eb">${typeof fact.numCancellations === 'number' ? fact.numCancellations : '-'}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Bookings Made</td><td style="border:1px solid #e5e7eb">${typeof fact.numBookingsMade === 'number' ? fact.numBookingsMade : '-'}</td></tr>
 
-            <tr><td style="border:1px solid #e5e7eb">Payments Received</td><td style="border:1px solid #e5e7eb">${money(fact.totalPaymentsReceived)}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Accounts Receivable</td><td style="border:1px solid #e5e7eb">${money(fact.totalAccountsReceivable)}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Outstanding Folios</td><td style="border:1px solid #e5e7eb">${typeof fact.totalOutstandingFolios === 'number' ? fact.totalOutstandingFolios : '-'}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Outstanding Folios Balance</td><td style="border:1px solid #e5e7eb">${money(fact.totalOutstandingFoliosBalance)}</td></tr>
           </tbody>
         </table>
 
@@ -442,6 +434,7 @@ export default class ReportsEmailService {
     console.log(defaultAccount);
     const finalTo: AnyRecipient[] = defaultAccount
       ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }]
+      //? [{ address: 'styvesdaudet@gmail.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
       : []
 
     if (finalTo.length === 0) {
@@ -481,21 +474,18 @@ export default class ReportsEmailService {
   private buildTodayReportHtml(data: any): string {
     // Couleurs pour chaque section (selon le modèle)
     const sectionColors: Record<string, string> = {
-      'today_confirm_check_in': '#48ca10',
-      'staying_over': '#b0c957',
-      'today_check_out': '#e22a2a',
-      'hold_expiring_today': '#e8a40c',
-      'today_hold_check_in': '#e85d0c',
-      'enquiry_check_in_today': '#00aceb',
-      'yesterday_no_show': '#2e2800',
-      'tomorrow_confirm_check_in': '#48ca10',
-      'tomorrow_check_out': '#e22a2a',
-      'hold_expiring_tomorrow': '#e8a40c',
-      'tomorrow_hold_check_in': '#e85d0c',
-      'enquiry_check_in_tomorrow': '#00aceb'
+      'in_house': '#48ca10',
+      'due_out': '#e8a40c',
+      'confirmed_departure': '#e22a2a',
+      'booking_confirmed': '#00aceb',
+      'arrival': '#48ca10',
+      'extended': '#b0c957',
+      'stay': '#b0c957',
+      'tomorrow_booking_confirm': '#00aceb',
+      'tomorrow_departure': '#e22a2a'
     }
 
-    const buildSection = (section: any) => {
+    const buildSection = (section: any, showReservationHeaderRow: boolean) => {
       const color = sectionColors[section.key] || '#48ca10'
 
       return `
@@ -504,12 +494,13 @@ export default class ReportsEmailService {
           <tbody>
               <tr
                   style="background-color:${color};font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;color: white;">
-                  <td align="left" width="100%" colspan="8" style="padding:0.5em;">${section.title} : ${section.bookingCount} Booking | ${section.roomsCount} Rooms</td>
+                  <td align="left" width="100%" colspan="8" style="padding:0.5em;">${section.title} : ${section.bookingCount} Booking</td>
               </tr>
               <tr>
                   <td colspan="8" style="padding:7.5pt 0.75pt 0.75pt">
                       <table width="100%" border="0" cellspacing="0" cellpadding="0">
                           <tbody>
+                              ${showReservationHeaderRow ? `
                               <tr
                                   style="background-color: #eec294; font-family: Verdana, Arial, Helvetica, sans-serif;font-size:8pt;font-weight: normal;">
                                   <th align="left" width="8%" style="padding: 3.75pt;">Reservation</th>
@@ -521,6 +512,7 @@ export default class ReportsEmailService {
                                   <th align="left" width="12%" style="padding: 3.75pt;">Check Out</th>
                                   <th align="left" width="3%" style="padding: 3.75pt;">Outstanding Amt. (${data?.hotel?.currency ?? 'XAF'})</th>
                               </tr>
+                              ` : ''}
                               ${(section.groups as Array<{ businessSource: string, rows: any[] }>).map(group => `
                                 <tr style="font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;">
                                     <td align="left" width="100%" colspan="8"
@@ -606,15 +598,15 @@ export default class ReportsEmailService {
                 ${data.introLine}</p>
 
             <!-- Today Sections -->
-            ${data.todaySections.map(section => buildSection(section)).join('')}
+            ${data.todaySections.map((section: any, index: number) => buildSection(section, index === 0)).join('')}
 
             <hr>
             <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:22px;padding-bottom:0.4em;color: #66667a;">
-                <b>Arrival/Departure Tomorrow</b>
+                <b>TOMORROW BOOKING CONFIRM/DEPARTURE</b>
             </p>
 
             <!-- Tomorrow Sections -->
-            ${data.tomorrowSections.map(section => buildSection(section)).join('')}
+            ${data.tomorrowSections.map((section: any) => buildSection(section, false)).join('')}
             
             <hr>
         </div>
