@@ -104,12 +104,12 @@ export default class NightAuditService {
     // Store the calculated data with all report data
     await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
-      const hotel = await Hotel.find(hotelId)
-      if (hotel) {
-        hotel.lastNightAuditDate = DateTime.now();
-        hotel.currentWorkingDate = DateTime.now().startOf('day')
-        await hotel.save()
-      }
+    const hotel = await Hotel.find(hotelId)
+    if (hotel) {
+      hotel.lastNightAuditDate = DateTime.now();
+      hotel.currentWorkingDate = DateTime.now().startOf('day')
+      await hotel.save()
+    }
 
     return summary
   }
@@ -588,7 +588,7 @@ export default class NightAuditService {
       if (activeReservationRoom) {
         currentReservation = activeReservationRoom.reservation
         guest = currentReservation?.guest
-        folio = currentReservation?.folios[0]??activeReservationRoom.folios[0]
+        folio = currentReservation?.folios[0] ?? activeReservationRoom.folios[0]
       }
 
       // Determine if action is required (checkout date matches audit date)
@@ -710,7 +710,7 @@ export default class NightAuditService {
   /**
    * Get pending nightly charges for occupied rooms that haven't been billed
    */
-static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
+  static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
     try {
       // Get all occupied rooms for the audit date with room rates from reservationRooms
       const occupiedRooms = await Reservation.query()
@@ -832,7 +832,7 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
     try {
       // Get all reservations with check-in/depart date matching audit date, selecting only needed fields
       const pendingReservations = await Reservation.query()
-        .select(['id', 'hotel_id', 'guest_id','isGroup','arrived_date', 'reservationTypeId', 'depart_date', 'status', 'confirmation_number'])
+        .select(['id', 'hotel_id', 'guest_id', 'isGroup', 'arrived_date', 'reservationTypeId', 'depart_date', 'status', 'confirmation_number'])
         .where('hotel_id', hotelId)
         .where((query) => {
           query.where('arrived_date', '=', auditDate).orWhere('depart_date', '=', auditDate)
@@ -949,15 +949,14 @@ static async getPendingNightlyCharges(hotelId: number, auditDate: string) {
           .andWhere('transaction_type', TransactionType.CHARGE)
           .where('is_voided', false)
           .update({
-            description: charge.description,
-          status: TransactionStatus.POSTED,
+            status: TransactionStatus.POSTED,
           })
 
 
 
         postedCharges.push({
           folioId: charge.folio_id,
-          transactionId: existingTransaction.map((sp:any)=>sp.id),
+          transactionId: existingTransaction.map((sp: any) => sp.id),
           amount: charge.amount,
           chargeType: charge.chargeType,
           chargeDate: charge.charge_date,
