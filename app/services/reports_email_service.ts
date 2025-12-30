@@ -434,9 +434,8 @@ export default class ReportsEmailService {
     console.log(defaultAccount);
     const finalTo: AnyRecipient[] = defaultAccount
       ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }]
-      //? [{ address: 'styvesdaudet@gmail.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
+      //? [{ address: 'reservation@suita-hotel.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
       : []
-
     if (finalTo.length === 0) {
       // No default email account; do nothing gracefully
       return
@@ -474,18 +473,15 @@ export default class ReportsEmailService {
   private buildTodayReportHtml(data: any): string {
     // Couleurs pour chaque section (selon le modèle)
     const sectionColors: Record<string, string> = {
-      'today_confirm_check_in': '#48ca10',
-      'staying_over': '#b0c957',
-      'today_check_out': '#e22a2a',
-      'hold_expiring_today': '#e8a40c',
-      'today_hold_check_in': '#e85d0c',
-      'enquiry_check_in_today': '#00aceb',
-     // 'yesterday_no_show': '#2e2800',
-      'tomorrow_confirm_check_in': '#48ca10',
-      'tomorrow_check_out': '#e22a2a',
-      'hold_expiring_tomorrow': '#e8a40c',
-      'tomorrow_hold_check_in': '#e85d0c',
-      'enquiry_check_in_tomorrow': '#00aceb'
+      'in_house': '#48ca10',
+      'due_out': '#e8a40c',
+      'confirmed_departure': '#e22a2a',
+      'booking_confirmed': '#00aceb',
+      'arrival': '#48ca10',
+      'extended': '#b0c957',
+      'stay': '#b0c957',
+      'tomorrow_booking_confirm': '#00aceb',
+      'tomorrow_departure': '#e22a2a'
     }
 
     const buildSection = (section: any, showReservationHeaderRow: boolean) => {
@@ -605,7 +601,7 @@ export default class ReportsEmailService {
 
             <hr>
             <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:22px;padding-bottom:0.4em;color: #66667a;">
-                <b>Arrival/Departure Tomorrow</b>
+                <b>TOMORROW BOOKING CONFIRM/DEPARTURE</b>
             </p>
 
             <!-- Tomorrow Sections -->

@@ -99,6 +99,86 @@ export default class CompanyAccountService {
     .paginate(page, perPage)
 }
 
+ async listAll(
+    filters: any = {},
+    sortBy: string = 'id',
+    order: 'asc' | 'desc' = 'asc'
+  ): Promise<CompanyAccount[]> {
+    const query = this.buildQuery(filters)
+
+    return await query.orderBy(sortBy, order)
+  }
+
+  private buildQuery(filters: any) {
+    let query = CompanyAccount.query()
+
+    // Apply filters
+    for (const key in filters) {
+      const value = filters[key]
+
+      // Skip empty or undefined values
+      if (value === '' || value === null || value === undefined) {
+        continue
+      }
+
+      // Handle special filters
+      switch (key) {
+        case 'searchText':
+          // Search in company name, contact person name, or email
+          query.where((subQuery) => {
+            subQuery
+              .whereILike('company_name', `%${value}%`)
+              .orWhereILike('contact_person_name', `%${value}%`)
+              .orWhereILike('primary_email', `%${value}%`)
+          })
+          break
+
+        case 'minBalance':
+          query.where('current_balance', '>=', parseFloat(value))
+          break
+
+        case 'maxBalance':
+          query.where('current_balance', '<=', parseFloat(value))
+          break
+
+        case 'account_status':
+        case 'status':
+          query.where('account_status', value)
+          break
+
+        case 'billing_country':
+        case 'country':
+          query.where('billing_country', value)
+          break
+
+        case 'primary_email':
+        case 'email':
+          query.whereILike('primary_email', `%${value}%`)
+          break
+
+        case 'hotel_id':
+          query.where('hotel_id', value)
+          break
+
+        default:
+          // Handle array filters
+          if (Array.isArray(value)) {
+            query.whereIn(key, value)
+          } else {
+            query.where(key, value)
+          }
+          break
+      }
+    }
+
+    // Apply relationships
+    query.preload('hotel')
+    query.preload('creator')
+    query.preload('modifier')
+
+    return query
+  }
+
   /**
    * Get a company account by ID
    */
@@ -292,11 +372,11 @@ export default class CompanyAccountService {
     if (companyId !== undefined && !Number.isNaN(companyId)) {
       query.andWhere('id', companyId)
     }
-  
+
     if (searchText) {
       query.andWhere('company_name', 'like', `%${searchText}%`)
     }
-  
+
     const results = await query.orderBy('company_name', 'asc').paginate(page, perPage)
     return results
   }

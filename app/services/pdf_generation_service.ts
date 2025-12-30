@@ -67,7 +67,8 @@ export default class PdfGenerationService {
       
       return pdfBuffer
     } catch (error) {
-      throw new Error(`Failed to generate PDF: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate PDF: ${message}`)
     }
   }
 
@@ -118,7 +119,8 @@ export default class PdfGenerationService {
       
       return pdfBuffer
     } catch (error) {
-      throw new Error(`Failed to generate PDF from HTML: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate PDF from HTML: ${message}`)
     }
   }
 
@@ -169,7 +171,8 @@ export default class PdfGenerationService {
 
       return pdfBuffer
     } catch (error) {
-      throw new Error(`Failed to generate booking PDF: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate booking PDF: ${message}`)
     }
   }
 
@@ -514,15 +517,15 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 20%;" class="label">This Folio is in :</td>
-                        <td style="width: 30%;">${totals.totalChargesWithTaxes.toLocaleString()}XAF</td>
+                        <td style="width: 30%;">${this.formatCurrency(totals.totalChargesWithTaxes || 0)}XAF</td>
                         <td style="width: 30%;">${amountInWords}</td>
                         <td style="width: 10%;" class="label">Total Paid</td>
-                        <td style="width: 10%; text-align: right;">${totals.totalPayments.toLocaleString()}</td>
+                        <td style="width: 10%; text-align: right;">${this.formatCurrency(totals.totalPayments || 0)}</td>
                     </tr>
                     <tr>
                         <td colspan="3"></td>
                         <td class="label">Balance</td>
-                        <td style="text-align: right;">${totals.outstandingBalance.toLocaleString()}</td>
+                        <td style="text-align: right;">${this.formatCurrency(totals.outstandingBalance || 0)}</td>
                     </tr>
                 </table>
             </div>
@@ -1481,7 +1484,8 @@ static async generateSuitaHotelPdf(
    * d implementation)
    */
   private static numberToWords(amount: number): string {  
-    if (amount === 0) return 'Zero'
+    const n = Number(amount)
+    if (!Number.isFinite(n) || n === 0) return 'Zero'
     
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
     const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
@@ -1513,12 +1517,14 @@ static async generateSuitaHotelPdf(
 
     let result = ''
     let thousandIndex = 0
+    let remaining = Math.floor(Math.abs(n))
     
-    while (amount > 0) {
-      if (amount % 1000 !== 0) {
-        result = convertHundreds(amount % 1000) + thousands[thousandIndex] + ' ' + result
+    while (remaining > 0) {
+      if (remaining % 1000 !== 0) {
+        result =
+          convertHundreds(remaining % 1000) + thousands[thousandIndex] + ' ' + result
       }
-      amount = Math.floor(amount / 1000)
+      remaining = Math.floor(remaining / 1000)
       thousandIndex++
     }
     
@@ -1545,9 +1551,12 @@ static async generateSuitaHotelPdf(
    * Format amount with 2 decimal places
    */
   private static formatAmount(amount: number): string {
-    return amount?.toLocaleString('fr-FR', {
+    if (amount === null || amount === undefined || !Number.isFinite(Number(amount))) {
+      return '0'
+    }
+    return Number(amount).toLocaleString('fr-FR', {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     })
   }
   /** 

@@ -1118,18 +1118,25 @@ export default class FoliosController {
    */
   async postTransaction({ request, response, auth }: HttpContext) {
     try {
+
       const payload = await request.validateUsing(postTransactionValidator)
 
-      const transaction = await FolioService.postTransaction({
-        ...payload,
-        postedBy: auth.user!.id
-      })
+       const transactionData = {
+      ...payload,
+      transactionDate: payload.transactionDate
+        ? DateTime.fromFormat(payload.transactionDate, 'yyyy-MM-dd')
+        : DateTime.now() ,
+      postedBy: auth.user!.id
+    }
+
+    const transaction = await FolioService.postTransaction(transactionData)
 
       return response.created({
         message: 'Transaction posted successfully',
         data: transaction
       })
     } catch (error) {
+      console.error('Transaction post error:', error)
       // Return field-level validation errors when schema fails
       const messages = (error as any)?.messages
       if (Array.isArray(messages)) {

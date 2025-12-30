@@ -759,6 +759,7 @@ export default class ReservationFolioService {
    * Create folios for all guests when reservation is confirmed
    * This method should be called when a reservation status is updated to 'confirmed'
    */
+
   static async createFoliosOnConfirmation(
     reservationId: number,
     confirmedBy: number
@@ -776,7 +777,7 @@ export default class ReservationFolioService {
         return existingFolios
       }
 
-      // Get primary guest
+      // Get primary guest (for fallback only)
       const primaryGuest =
         reservation.guests.find((guest) => guest.$extras.pivot_is_primary) || reservation.guests[0]
 
@@ -785,12 +786,13 @@ export default class ReservationFolioService {
       }
 
       const folios: Folio[] = []
-
-      // Create one folio per room for the primary guest
+      // Create one folio per room
       for (const reservationRoom of reservation.reservationRooms) {
+        const roomGuestId = reservationRoom.guestId || primaryGuest.id
+
         const folioData: CreateFolioData = {
           hotelId: reservation.hotelId,
-          guestId: primaryGuest.id,
+          guestId: roomGuestId,
           reservationId: reservationId,
           reservationRoomId: reservationRoom.id,
           groupId: reservation.groupId ?? undefined,
