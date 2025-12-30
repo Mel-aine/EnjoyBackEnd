@@ -3736,34 +3736,33 @@ export default class ReportsController {
         ])
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
-        .whereNotNull('description')
+        .whereNotNull('extra_charge_id')
         .where('category', TransactionCategory.EXTRACT_CHARGE)
         .where('transactionType', TransactionType.CHARGE)
-        .select('description', 'amount')
+        .select('extra_charge_id', 'amount')
 
       const extraChargeAmounts: any = {}
       let totalExtraCharges = 0
 
+      const extraChargeNameById = new Map<number, string>()
+
       // Initialize all extra charges with 0
       extraCharges.forEach((extraCharge) => {
         extraChargeAmounts[extraCharge.name] = 0
+        if (extraCharge.id) extraChargeNameById.set(Number(extraCharge.id), extraCharge.name)
       })
 
-      // Match transaction descriptions with extra charge names
+      // Aggregate by extra_charge_id
       transactions.forEach((transaction) => {
-        const description = transaction.description?.toLowerCase() || ''
+        const extraChargeId = Number(transaction.extraChargeId)
+        if (!extraChargeId) return
 
-        extraCharges.forEach((extraCharge) => {
-          const extraChargeName = extraCharge.name?.toLowerCase() || ''
+        const extraChargeName = extraChargeNameById.get(extraChargeId)
+        if (!extraChargeName) return
 
-          // Check if transaction description contains the extra charge name or short code
-          if (description.includes(extraChargeName)) {
-            logger.info(`Extra charge found: ${extraCharge.name} - ${transaction.amount}`)
-            const amount = Number(transaction.amount || 0)
-            extraChargeAmounts[extraCharge.name] += amount
-            totalExtraCharges += amount
-          }
-        })
+        const amount = Number(transaction.amount || 0)
+        extraChargeAmounts[extraChargeName] += amount
+        totalExtraCharges += amount
       })
 
       return { extraChargeAmounts, totalExtraCharges }
