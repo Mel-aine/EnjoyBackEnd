@@ -161,7 +161,8 @@ export class HotelAnalyticsService {
         'number_of_nights',
         'payment_status',
         "guestId",
-        "bookingSourceId"
+        "bookingSourceId",
+        "businessSourceId",
       ])
       .where('hotel_id', hotelId)
       .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
@@ -218,6 +219,9 @@ export class HotelAnalyticsService {
       })
       .preload('bookingSource', (bsQuery) => {
         bsQuery.select(['id', 'source_name', 'source_code'])
+      })
+      .preload('businessSource', (busQuery) => {
+        busQuery.select(['id', 'name'])
       })
 
     // 4. Calculate daily occupancy metrics
