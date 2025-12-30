@@ -434,9 +434,8 @@ export default class ReportsEmailService {
     console.log(defaultAccount);
     const finalTo: AnyRecipient[] = defaultAccount
       ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }]
-      //? [{ address: 'styvesdaudet@gmail.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
+      //? [{ address: 'reservation@suita-hotel.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
       : []
-
     if (finalTo.length === 0) {
       // No default email account; do nothing gracefully
       return
