@@ -181,7 +181,7 @@ function queryBase(hotelId: number) {
     .preload('businessSource')
     .preload('hotel')
     .preload('reservationRooms', (rr) =>
-      rr
+      rr.where('is_splited_origin', false)
         .preload('room')
         .preload('roomType')
         .preload('rateType')

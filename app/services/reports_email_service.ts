@@ -426,20 +426,30 @@ export default class ReportsEmailService {
 
     const pdfContent = await this.generateTodayReportPdf(todayData)
 
+    const { to: resolvedTo, cc: resolvedCc, bcc: resolvedBcc } = this.resolveRecipients(hotel)
+
     // Recipient: use hotel's default EmailAccount address only
     const defaultAccount = await EmailAccount.query()
       .where('hotel_id', hotel.id)
       //.where('is_default', true)
       .first()
     console.log(defaultAccount);
-    const finalTo: AnyRecipient[] = defaultAccount
-      ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }]
-      //? [{ address: 'reservation@suita-hotel.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
-      : []
+    let finalTo: AnyRecipient[] = defaultAccount 
+       ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }] 
+       : []
+    
+    if (finalTo.length === 0) {
+      if (hotel.email) {
+        finalTo = [hotel.email]
+      }
+    }
+
     if (finalTo.length === 0) {
       // No default email account; do nothing gracefully
       return
     }
+
+    const finalCc = [...resolvedTo, ...resolvedCc]
 
     const attachments = [{
       filename: `Daily_Report_${dateStr}.pdf`,
@@ -449,11 +459,13 @@ export default class ReportsEmailService {
 
     // HTML minimal pour l'email
     const html = this.buildTodayReportHtml(todayData)
-    // Send a single email to the default account, no CC/BCC, no explicit from
+    
     await MailService.sendWithAttachments({
-      to: finalTo[0],
+      to: finalTo,
       subject,
       html,
+      cc: finalCc,
+      bcc: resolvedBcc,
       attachments,
     })
   }

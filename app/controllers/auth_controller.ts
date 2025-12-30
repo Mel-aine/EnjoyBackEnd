@@ -9,6 +9,7 @@ import RolePermission from '#models/role_permission'
 import BookingSource from '#models/booking_source'
 import BusinessSource from '#models/business_source'
 import ReservationType from '#models/reservation_type'
+import RateType from '#models/rate_type'
 import Currency from '../models/currency.js'
 import PasswordResetToken from '#models/password_reset_token'
 import { DateTime } from 'luxon'
@@ -345,11 +346,15 @@ export default class AuthController {
         businessSources,
         reservationTypes,
         currencies,
+        rateTypes,
       ] = await Promise.all([
         BookingSource.query().whereIn('hotel_id', hotelIds),
         BusinessSource.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
         ReservationType.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
         Currency.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+        RateType.query().whereIn('hotel_id', hotelIds).where('is_deleted', false).preload('roomTypes', (query) => {
+          query.preload('roomRates')
+        }),
       ])
 
       console.log('💱 Currencies:', currencies.length)
@@ -373,7 +378,8 @@ export default class AuthController {
           bookingSources,
           businessSources,
           reservationTypes,
-          currencies
+          currencies,
+          rateTypes
         },
       })
     } catch (error: any) {

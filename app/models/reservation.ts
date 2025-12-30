@@ -446,6 +446,9 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'split_reservation_id' })
   declare splitReservationId: number | null
 
+  @column({ columnName: 'is_splited_origin' })
+  declare isSplitedOrigin: boolean
+
   @column({ columnName: 'tax_exempt' })
   declare taxExempt: boolean
 

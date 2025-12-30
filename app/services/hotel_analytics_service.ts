@@ -659,6 +659,22 @@ export class HotelAnalyticsService {
       .select(['id', 'room_id', 'status'])
       .where('hotel_id', hotelId)
       .whereNot('status', 'completed')
+      .where((query) => {
+        query
+          .whereBetween('block_from_date', [
+            startDate.toFormat('yyyy-MM-dd'),
+            endDate.toFormat('yyyy-MM-dd'),
+          ])
+          .orWhereBetween('block_to_date', [
+            startDate.toFormat('yyyy-MM-dd'),
+            endDate.toFormat('yyyy-MM-dd'),
+          ])
+          .orWhere((subQuery) => {
+            subQuery
+              .where('block_from_date', '<=', startDate.toFormat('yyyy-MM-dd'))
+              .andWhere('block_to_date', '>=', endDate.toFormat('yyyy-MM-dd'))
+          })
+      })
       .preload('room', (rq) => {
         rq.select(['id'])
       })

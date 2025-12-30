@@ -59,10 +59,43 @@ export default class NightAuditService {
   }
 
   /**
+   * Update status of occupied rooms to dirty
+   */
+  private static async updateOccupiedRoomsToDirty(hotelId: number, auditDate: DateTime) {
+    const auditDateStr = auditDate.toISODate()!
+
+    // Find all occupied rooms (rooms with checked-in reservations overlapping the audit date)
+    const occupiedRooms = await Room.query()
+      .where('hotel_id', hotelId)
+      .whereHas('reservationRooms', (query) => {
+        query.whereHas('reservation', (resQuery) => {
+          resQuery.where('status', 'checked_in')
+        })
+        .where('check_in_date', '<=', auditDateStr)
+        .where('check_out_date', '>=', auditDateStr)
+      })
+
+    if (occupiedRooms.length > 0) {
+      const roomIds = occupiedRooms.map(r => r.id)
+      await Room.query()
+        .whereIn('id', roomIds)
+        .update({
+          housekeeping_status: 'dirty',
+          updated_at: DateTime.now().toSQL()
+        })
+      
+      console.log(`Updated ${occupiedRooms.length} occupied rooms to dirty status for audit date ${auditDateStr}`)
+    }
+  }
+
+  /**
    * Calculate and store night audit data for a specific date
    */
   static async calculateNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
     const { auditDate, hotelId, userId } = filters
+
+    // Update occupied rooms to dirty status
+    await this.updateOccupiedRoomsToDirty(hotelId, auditDate)
 
     // Calculate all metrics in parallel for better performance
     const [
