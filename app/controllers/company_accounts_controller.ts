@@ -21,10 +21,25 @@ export default class CompanyAccountsController {
       if (params?.hotelId) {
         filters.hotel_id = Number(params.hotelId)
       }
+      const all = request.input('all', false)
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 10)
       const sortBy = request.input('sortBy', 'id')
       const order = request.input('order', 'asc')
+
+      // Si all=true, retourner tous les enregistrements sans pagination
+      if (all === true || all === 'true') {
+        const allCompanyAccounts = await this.service.listAll(filters, sortBy, order)
+
+        return response.ok({
+          success: true,
+          data: allCompanyAccounts,
+          meta: {
+            total: allCompanyAccounts.length,
+            all: true
+          }
+        })
+      }
 
       const companyAccounts = await this.service.list(filters, sortBy, order, page, perPage)
 

@@ -862,15 +862,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       await trx.commit()
 
+    setImmediate(async () => {
       try {
+        // Email
         const folios = reservation.folios || []
         const closedFolioIds = folios
           .filter((f) => f.status === FolioStatus.CLOSED)
           .map((f) => f.id)
         const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
-        await ReservationEmailService.sendCheckoutThanks(reservation.id, folioIdsForEmail, auth.user!.id)
+
+        await ReservationEmailService.sendCheckoutThanks(
+          reservation.id,
+          folioIdsForEmail,
+          auth.user!.id
+        )
       } catch (emailErr: any) {
-        console.error('[CHECKOUT] Erreur lors de l\'envoi de l\'email:', emailErr);
         logger.warn('Failed to send checkout thank-you email', {
           reservationId: reservation.id,
           error: emailErr?.message,
@@ -878,8 +884,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       try {
-
-        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+        // Notifications
+        const CheckinCheckoutNotificationService = (
+          await import('#services/notification_action_service')
+        ).default
 
         await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
           reservation.id,
@@ -894,9 +902,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
           }
         )
       } catch (notifError) {
-        console.error('[CHECKOUT] Erreur lors de l\'envoi des notifications:', notifError);
         logger.error('Error sending check-out notifications', notifError)
       }
+
+      try {
+        // Recalcul guest summary
+        await GuestSummaryService.recomputeFromReservation(reservation.id)
+      } catch (summaryError) {
+        logger.error('Error recomputing guest summary', summaryError)
+      }
+    })
+
 
       await GuestSummaryService.recomputeFromReservation(reservation.id)
 
