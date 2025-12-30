@@ -1065,7 +1065,221 @@ static async generateSuitaHotelPdf(
         
         // Convert amount to words
         const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
-
+        
+        // Pagination: diviser les transactions en groupes de 10
+        const TRANSACTIONS_PER_PAGE = 10;
+        const transactionPages: any[][] = [];
+        
+        if (transactions && transactions.length > 0) {
+            for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
+                transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
+            }
+        } else {
+            transactionPages.push([]);
+        }
+        
+        const totalPages = transactionPages.length;
+        
+        // Fonction pour générer les lignes de transactions d'une page
+        const generateTransactionRows = (pageTransactions: any[]) => {
+            if (pageTransactions.length === 0) {
+                return '<tr><td colspan="6" class="text-center">No transactions found</td></tr>';
+            }
+            
+            return pageTransactions.map((transaction, index) => `
+                <tr>
+                    <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
+                    <td>${(transaction.amount || 0) < 0 ? transaction.transactionNumber || '' : ''}</td>
+                    <td>${transaction.description}</td>
+                    <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatCurrency(transaction.amount) : this.formatCurrency(0)}</td>
+                    <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatCurrency(Math.abs(transaction.amount)) : this.formatCurrency(0)}</td>
+                    <td class="text-right">${this.formatCurrency(transaction.balance)}</td>
+                </tr>
+            `).join('');
+        };
+        
+        // Fonction pour générer une page complète
+        const generatePage = (pageTransactions: any[], pageNumber: number) => `
+            <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
+                <!-- Header -->
+                <div class="header">
+                    <div class="registration-info">
+                        <p>M${hotel.registrationNumber || 'N/A'}</p>
+                        <p>RC${hotel.rcNumber || 'N/A'}</p>
+                    </div>
+                    <div class="hotel-info">
+                        <h1>${hotel.name}</h1>
+                        <div class="hotel-details">
+                            <p>${hotel.address}</p>
+                            <p>Phone: ${hotel.phone}; Email: ${hotel.email}</p>
+                            <p>URL: ${hotel.website || 'N/A'}</p>
+                        </div>
+                        <div class="tax-invoice">Tax Invoice</div>
+                    </div>
+                </div>
+        
+                <!-- Invoice Details -->
+                <div class="invoice-details">
+                    <table class="details-table">
+                        <tr>
+                            <td style="width: 50%;">
+                                <div><span class="font-bold">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
+                                <div><span class="font-bold">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}</div>
+                                <div><span class="font-bold">Company Name</span> : ${reservation.company||'nome'}</div>
+                            </td>
+                            <td style="width: 25%;">
+                            </td>
+                            <td style="width: 25%;">
+                                <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+        
+                <!-- Guest Details & Stay Details - Combined Table -->
+                <table class="header-table">
+                    <colgroup>
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 24%;">
+                        <col style="width: 18%;">
+                        <col style="width: 18%;">
+                    </colgroup>
+                    <tr>
+                        <th colspan="2">Nationality</th>
+                        <th>No of Pax</th>
+                        <th colspan="2">Adult Child</th>
+                        <th>G.R. Card No</th>
+                        <th colspan="2" style="border:none; border-bottom: none; border-top: none">Room No</th>
+                    </tr>
+                    <tr>
+                        <td colspan="2"></td>
+                        <td style="border:none;">${reservation.adults + reservation.children || 1}</td>
+                        <td colspan="2">${reservation.adults || 1} / ${reservation.children || 0}</td>
+                        <td>${reservation.guest?.guestCode || 'N/A'}</td>
+                        <td colspan="2" style="border:none; border-bottom: none; text-align:center;">${reservation.roomNumber || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <th colspan="2">Date of Arrival</th>
+                        <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
+                        <th colspan="2">Date of Departure</th>
+                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td> 
+                        <th>Tariff</th>
+                        <td>${this.formatCurrency(reservation.tariff || 0)}</td>
+                    </tr>
+                    <tr>
+                        <th colspan="2">Time Of Arrival</th>
+                        <td>${reservation.checkInTime}</td>
+                        <th colspan="2">Time of Departure</th>
+                        <td>${reservation.checkOutTime}</td>
+                        <th>Rate Type</th>
+                        <td>${reservation.rateType}</td>
+                    </tr>
+                </table>
+        
+                <!-- Charges Table -->
+                <div class="charges-table">
+                    <table class="header-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Ref.No.</th>
+                                <th>Particular</th>
+                                <th>Charges</th>
+                                <th>Payment</th>
+                                <th>Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${generateTransactionRows(pageTransactions)}
+                        </tbody>
+                    </table>
+                </div>
+        
+                <!-- Totals Section -->
+                <div class="totals-section">
+                    <div class="total-line">
+                        <span class="font-bold">Grand Total</span>
+                        <span style="margin-left: 30px;">${this.formatCurrency(totals.totalChargesWithTaxes || 0)}</span>
+                        <span style="margin-left: 30px;">-${this.formatCurrency(totals.totalPayments || 0)}</span>
+                    </div>
+                    <div>
+                        <span class="font-bold">Tax</span>
+                        <span style="margin-left: 60px;">${this.formatCurrency(totals.totalTaxes || 0)}</span>
+                    </div>
+                </div>
+    
+                <!-- Amount in Words -->
+                <div class="amount-words">
+                    <table class="amount-table">
+                        <tr>
+                            <td class="font-bold" style="width: 25%;">This Folio is in ${currency.code}</td>
+                            <td style="width: 35%;">${amountInWords}</td>
+                            <td class="font-bold" style="width: 20%;">Total Paid</td>
+                            <td class="text-right" style="width: 20%;">${this.formatCurrency(totals.totalPayments || 0)}</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td class="font-bold">Balance</td>
+                            <td class="text-right">${this.formatCurrency(totals.outstandingBalance)}</td>
+                        </tr>
+                    </table>
+                </div>
+        
+                <!-- Bill To Section -->
+                <div class="bill-to">
+                    <div style="margin-bottom: 8px;">
+                        <span class="font-bold">Bill To</span>
+                        <span style="margin-left: 40px;">: ${reservation.guest?.displayName || 'N/A'}</span>
+                    </div>
+                    <div>
+                        <span class="font-bold">Address</span>
+                        <span style="margin-left: 35px;">: ${reservation.guest?.address || reservation.guest?.country || 'N/A'}</span>
+                    </div>
+                    <div>
+                        <span class="font-bold">Remark</span>
+                    </div>
+                </div>
+        
+                <!-- Footer -->
+                <div class="footer">
+                    <p>Thank you for your stay with us. Please visit us again.</p>
+                </div>
+        
+                <!-- Folio Notice -->
+                <div class="folio-notice">
+                    <p>Folio NOTICE</p>
+                    <p>Folio NOTICE</p>
+                </div>
+        
+                <!-- User Tracking Information -->
+                <div class="user-tracking">
+                    <div>
+                        <span class="font-bold">Reserved By:</span> ${reservation.reservedBy || 'N/A'}
+                    </div>
+                    <div>
+                        <span class="font-bold">Checked In By:</span> ${reservation.checkedInBy || 'N/A'}
+                    </div>
+                    <div>
+                        <span class="font-bold">Checked Out By:</span> ${reservation.checkedOutBy || 'N/A'}
+                    </div>
+                </div>
+    
+                <!-- Page Info -->
+                <div class="page-info">
+                    Page ${pageNumber} of ${totalPages}
+                </div>
+            </div>
+        `;
+        
+        // Générer toutes les pages
+        const allPages = transactionPages.map((pageTransactions, index) => 
+            generatePage(pageTransactions, index + 1)
+        ).join('');
+    
         return `<!DOCTYPE html>
         <html lang="fr">
         <head>
@@ -1077,6 +1291,11 @@ static async generateSuitaHotelPdf(
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
+            }
+            
+            @page {
+                size: A4;
+                margin: 10mm;
             }
             
             body {
@@ -1249,7 +1468,6 @@ static async generateSuitaHotelPdf(
             .text-right { text-align: right; }
             .text-center { text-align: center; }
             
-            /* Nouveau style pour les tableaux d'en-tête comme dans l'image */
             .header-table {
                 width: 100%;
                 border-collapse: collapse;
@@ -1273,7 +1491,6 @@ static async generateSuitaHotelPdf(
                 text-align: center;
             }
             
-            /* Style pour le tableau des charges - sans bordures internes */
             .charges-table .header-table tbody tr td {
                 border-left: none;
                 border-right: none;
@@ -1291,191 +1508,33 @@ static async generateSuitaHotelPdf(
             .charges-table .header-table tbody tr td:last-child {
                 border-right: 1px solid #000;
             }
+            
+            /* Gestion de la pagination automatique */
+            .charges-table .header-table tbody tr {
+                page-break-inside: avoid;
+            }
+            
+            .charges-table .header-table thead {
+                display: table-header-group;
+            }
+            
+            .charges-table .header-table tfoot {
+                display: table-footer-group;
+            }
+            
+            @media print {
+                .container {
+                    page-break-after: always;
+                }
+                
+                .container:last-child {
+                    page-break-after: auto;
+                }
+            }
         </style>
         </head>
         <body>
-            <div class="container">
-                <!-- Header -->
-                <div class="header">
-                    <div class="registration-info">
-                        <p>M${hotel.registrationNumber || 'N/A'}</p>
-                        <p>RC${hotel.rcNumber || 'N/A'}</p>
-                    </div>
-                    <div class="hotel-info">
-                        <h1>${hotel.name}</h1>
-                        <div class="hotel-details">
-                            <p>${hotel.address}</p>
-                            <p>Phone: ${hotel.phone}; Email: ${hotel.email}</p>
-                            <p>URL: ${hotel.website || 'N/A'}</p>
-                        </div>
-                        <div class="tax-invoice">Tax Invoice</div>
-                    </div>
-                </div>
-        
-                <!-- Invoice Details -->
-                <div class="invoice-details">
-                    <table class="details-table">
-                        <tr>
-                            <td style="width: 50%;">
-                                <div><span class="font-bold">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
-                                <div><span class="font-bold">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}</div>
-                                <div><span class="font-bold">Company Name</span> : ${reservation.company||'nome'}</div>
-                            </td>
-                            <td style="width: 25%;">
-                            </td>
-                            <td style="width: 25%;">
-                                <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-        
-                <!-- Guest Details & Stay Details - Combined Table -->
-                <table class="header-table">
-                    <colgroup>
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 24%;">
-                        <col style="width: 18%;">
-                        <col style="width: 18%;">
-                    </colgroup>
-                    <tr>
-                        <th colspan="2">Nationality</th>
-                        <th>No of Pax</th>
-                        <th colspan="2">Adult Child</th>
-                        <th>G.R. Card No</th>
-                        <th colspan="2" style="border:none; border-bottom: none; border-top: none">Room No</th>
-                    </tr>
-                    <tr>
-                        <td colspan="2"></td>
-                        <td style="border:none;">${reservation.adults + reservation.children || 1}</td>
-                        <td colspan="2">${reservation.adults || 1} / ${reservation.children || 0}</td>
-                        <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                        <td colspan="2" style="border:none; border-bottom: none; text-align:center;">${reservation.roomNumber || 'N/A'}</td>
-                    </tr>
-                    <tr>
-                        <th colspan="2">Date of Arrival</th>
-                        <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
-                        <th colspan="2">Date of Departure</th>
-                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td> 
-                        <th>Tariff</th>
-                        <td>${this.formatCurrency(reservation.tariff || 0)}</td>
-                    </tr>
-                    <tr>
-                        <th colspan="2">Time Of Arrival</th>
-                        <td>${reservation.checkInTime}</td>
-                        <th colspan="2">Time of Departure</th>
-                        <td>${reservation.checkOutTime}</td>
-                        <th>Rate Type</th>
-                        <td>${reservation.rateType}</td>
-                    </tr>
-                </table>
-        
-                <!-- Charges Table -->
-                <div class="charges-table">
-                    <table class="header-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Ref.No.</th>
-                                <th>Particular</th>
-                                <th>Charges</th>
-                                <th>Payment</th>
-                                <th>Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${transactions?.map((transaction, index) => `
-                            <tr>
-                                <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
-                                <td>${ (transaction.amount || 0) < 0 ? transaction.transactionNumber || '' : ''}</td>
-                                <td>${transaction.description}</td>
-                                <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatCurrency(transaction.amount) : this.formatCurrency(0)}</td>
-                                <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatCurrency(Math.abs(transaction.amount)) : this.formatCurrency(0)}</td>
-                                <td class="text-right">${this.formatCurrency(transaction.balance)}</td>
-                            </tr>
-                            `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-        
-                <!-- Totals Section -->
-                <div class="totals-section">
-                    <div class="total-line">
-                        <span class="font-bold">Grand Total</span>
-                        <span style="margin-left: 30px;">${this.formatCurrency(totals.totalChargesWithTaxes || 0)}</span>
-                        <span style="margin-left: 30px;">-${this.formatCurrency(totals.totalPayments || 0)}</span>
-                    </div>
-                    <div>
-                        <span class="font-bold">Tax</span>
-                        <span style="margin-left: 60px;">${this.formatCurrency(totals.totalTaxes || 0)}</span>
-                    </div>
-                </div>
-
-                <!-- Amount in Words -->
-                <div class="amount-words">
-                    <table class="amount-table">
-                        <tr>
-                            <td class="font-bold" style="width: 25%;">This Folio is in ${currency.code}</td>
-                            <td style="width: 35%;">${amountInWords}</td>
-                            <td class="font-bold" style="width: 20%;">Total Paid</td>
-                            <td class="text-right" style="width: 20%;">${this.formatCurrency(totals.totalPayments || 0)}</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td class="font-bold">Balance</td>
-                            <td class="text-right">${this.formatCurrency(totals.outstandingBalance)}</td>
-                        </tr>
-                    </table>
-                </div>
-        
-                <!-- Bill To Section -->
-                <div class="bill-to">
-                    <div style="margin-bottom: 8px;">
-                        <span class="font-bold">Bill To</span>
-                        <span style="margin-left: 40px;">: ${reservation.guest?.displayName || 'N/A'}</span>
-                    </div>
-                    <div>
-                        <span class="font-bold">Address</span>
-                        <span style="margin-left: 35px;">: ${reservation.guest?.address || reservation.guest?.country || 'N/A'}</span>
-                    </div>
-                    <div>
-                        <span class="font-bold">Remark</span>
-                    </div>
-                </div>
-        
-                <!-- Footer -->
-                <div class="footer">
-                    <p>Thank you for your stay with us. Please visit us again.</p>
-                </div>
-        
-                <!-- Folio Notice -->
-                <div class="folio-notice">
-                    <p>Folio NOTICE</p>
-                    <p>Folio NOTICE</p>
-                </div>
-        
-                <!-- User Tracking Information -->
-                <div class="user-tracking">
-                    <div>
-                        <span class="font-bold">Reserved By:</span> ${reservation.reservedBy || 'N/A'}
-                    </div>
-                    <div>
-                        <span class="font-bold">Checked In By:</span> ${reservation.checkedInBy || 'N/A'}
-                    </div>
-                    <div>
-                        <span class="font-bold">Checked Out By:</span> ${reservation.checkedOutBy || 'N/A'}
-                    </div>
-                </div>
-
-                <!-- Page Info -->
-                <div class="page-info">
-                    Page 1 of 1
-                </div>
-            </div>
+            ${allPages}
         </body>
         </html>`
     }
