@@ -195,7 +195,7 @@ export class FolioPrintService {
       guest: reservation.guest,
       id: reservation.id,
       confirmationCode: reservation.reservationNumber,
-      guestName: reservation.guest?.firstName + ' ' + reservation.guest?.lastName || 'Guest',
+      guestName: reservation.guest?.displayName || 'Guest',
       arrivalDate: reservation.arrivedDate || reservation.scheduledArrivalDate,
       departureDate: reservation.departDate || reservation.scheduledDepartureDate,
       checkInDate: reservation.checkInDate || reservation.scheduledArrivalDate,
@@ -334,7 +334,7 @@ export class FolioPrintService {
     // Prepare billing address from guest - EN CAMELCASE
     const billingAddress = {
       name: reservation.guest ?
-        `${reservation.guest.firstName} ${reservation.guest.lastName}` : undefined,
+        `${reservation.guest.displayName}` : undefined,
       address: reservation.guest?.address || undefined,
       city: reservation.guest?.city || undefined,
       state: reservation.guest?.stateProvince || undefined,
@@ -376,8 +376,9 @@ export class FolioPrintService {
  * This method only requires reservationId as it focuses on booking confirmation
  */
   public async generateHotelFolioPrintData(
-    reservationId: number
-  ): Promise<Omit<FolioPrintData, 'folio' | 'transactions'>> {
+    reservationId: number,
+    folioId: number | null = null
+  ): Promise<FolioPrintData> {
     try {
       // Load reservation with necessary relationships
       const reservation = await Reservation.query()
@@ -401,7 +402,7 @@ export class FolioPrintService {
         .firstOrFail()
 
       // Charger le folio associé à cette réservation
-      const folio = await Folio.query()
+      const folioQuery = Folio.query()
         .where('reservationId', reservationId)
         .preload('transactions', (transactionQuery) => {
           transactionQuery
@@ -410,7 +411,12 @@ export class FolioPrintService {
             .orderBy('transactionDate', 'asc')
             .orderBy('createdAt', 'asc')
         })
-        .first()
+
+      if (folioId !== null) {
+        folioQuery.where('id', folioId)
+      }
+
+      const folio = await folioQuery.first()
 
       if (!folio) {
         throw new Error('No folio found for this reservation')
@@ -550,10 +556,10 @@ export class FolioPrintService {
         exchangeRate: folio.exchangeRate || 1
       }
 
-      // Prepare billing address from guest
+      // Prepare billing address from guest - EN CAMELCASE
       const billingAddress = {
         name: reservation.guest ?
-          `${reservation.guest.firstName} ${reservation.guest.lastName}` : undefined,
+          `${reservation.guest.displayName}` : undefined,
         address: reservation.guest?.address || undefined,
         city: reservation.guest?.city || undefined,
         state: reservation.guest?.stateProvince || undefined,
