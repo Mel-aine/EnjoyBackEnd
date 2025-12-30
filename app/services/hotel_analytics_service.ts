@@ -183,6 +183,7 @@ export class HotelAnalyticsService {
             'check_out_time',
             'adults',
             'children',
+            'guestId',
             'special_requests',
             'room_rate',
             "isSplitedOrigin",
@@ -195,6 +196,9 @@ export class HotelAnalyticsService {
                 rtQuery.select(['id', 'room_type_name'])
               })
           })
+        .preload('guest', (guestQuery) => {
+        guestQuery.select(['id', 'title', 'first_name', 'last_name'])
+      })
       })
       .preload('guest', (gq) => {
         gq.select(['id', 'title', 'first_name', 'last_name'])
@@ -514,13 +518,20 @@ export class HotelAnalyticsService {
           if (reservationRoom.room && reservationRoom.room.roomType) {
             const roomType = reservationRoom.room.roomType.roomTypeName
             const isMaster = (index === 0 && reservation.reservationRooms.length > 1 ) && reservation.isGroup// First reservation room is the master
-
+             let guestName = ''
+              if (reservationRoom.guest) {
+                // Si la chambre a son propre guest, l'utiliser
+                guestName = `${reservationRoom.guest.title || ''} ${reservationRoom.guest.firstName || ''} ${reservationRoom.guest.lastName || ''}`.trim()
+              } else if (reservation.guest) {
+                // Sinon, fallback au primary guest de la réservation
+                guestName = reservation.guest.displayName || `${reservation.guest.title || ''} ${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
+              }
             if (groupedDetails[roomType]) {
               groupedDetails[roomType].reservations.push({
                 reservation_id: reservation.id,
                 reservation_room_id: reservationRoom.id,
                 is_master: isMaster,
-                guest_name: `${reservation.guest?.displayName}`.trim(),
+                guest_name: guestName,
                 check_in_date: reservationRoom.checkInDate || reservation.arrivedDate,
                 check_out_date: reservationRoom.checkOutDate || reservation.departDate,
                 reservation_status: getReservationStatus(reservation, today),
@@ -665,11 +676,11 @@ export class HotelAnalyticsService {
       0,
       totalRooms -
       globalRoomStatusStats.occupied -
-      globalRoomStatusStats.blocked 
+      globalRoomStatusStats.blocked
     )
 
 
-   
+
     // Sort grouped details by the 'order' field ascending
     const groupedDetailsSorted = Object.values(groupedDetails).sort((a: any, b: any) => {
       return (a.order ?? 0) - (b.order ?? 0)

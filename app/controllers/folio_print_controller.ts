@@ -48,39 +48,33 @@ export default class FolioPrintController {
    */
   async printFolioPdf({ request, response }: HttpContext) {
     try {
-      // Validate input
       const folioId = request.input('folioId')
       const reservationId = request.input('reservationId')
-      const currencyId = request.input('currencyId') // Optional
+      const currencyId = request.input('currencyId')
 
       if (!folioId || !reservationId) {
         return response.status(400).json({
           success: false,
-          message: 'folioId and reservationId are required'
+          message: 'folioId and reservationId are required',
         })
       }
 
-      // Generate folio print data
-      const folioPrintData = await FolioPrintService.generateFolioPrintData(
-        folioId,
-        reservationId,
-        currencyId
+      const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(
+        Number(reservationId),
+        Number(folioId),
       )
-      console.log('data.receive:', folioId, reservationId, currencyId)
-      console.log('folioPrintData@@@@@', folioPrintData)
-      // Generate PDF from folio print data
-      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      const pdfBuffer = await PdfGenerationService.generateFolioPdf(folioPrintData)
 
-      console.log('pdfBuffer@@@@@@', pdfBuffer)
-      // Set response headers for PDF download
+      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
+      const pdfBuffer = await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
+
+      const folioNumber = folioPrintData?.folio?.folioNumber || String(folioId)
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="folio-${folioPrintData.folio.folioNumber}.pdf"`)
+      response.header('Content-Disposition', `attachment; filename="folio-${folioNumber}.pdf"`)
       response.header('Content-Length', pdfBuffer.length.toString())
 
       return response.send(pdfBuffer)
     } catch (error) { 
-      console.log('error@@@@@@', error)
+      console.error('Error generating folio PDF:', error)
       return response.status(500).json({
         success: false,
         message: 'Failed to generate folio PDF',
@@ -123,6 +117,7 @@ export default class FolioPrintController {
   async printHotelPdf({ request, response }: HttpContext) {
     try {
       const reservationId = request.input('reservationId')
+      const folioIdInput = request.input('folioId')
       const currencyId = request.input('currencyId')
 
       if (!reservationId) {
@@ -133,7 +128,12 @@ export default class FolioPrintController {
       }
 
       // CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
-      const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(reservationId)
+      const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(
+        Number(reservationId),
+        folioIdInput !== undefined && folioIdInput !== null && folioIdInput !== '' && Number.isFinite(Number(folioIdInput))
+          ? Number(folioIdInput)
+          : null
+      )
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
       const bookingPdf = await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
 

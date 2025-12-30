@@ -1996,6 +1996,21 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     let extraTax = 0
     let discount = 0
 
+    const extractCharges = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('current_working_date', [reportDateStr])
+      .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
+      .whereNot('isVoided', true)
+      .whereIn('category', [TransactionCategory.EXTRACT_CHARGE, TransactionCategory.POSTING])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+        })
+      })
+
+    extraCharges = extractCharges.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+    extraTax = extractCharges.reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
+
     for (const reservation of reservations as any[]) {
       for (const reservationRoom of reservation.reservationRooms as any[]) {
         const transactions = reservationRoom.folios?.[0]?.transactions ?? []
@@ -2011,15 +2026,6 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         roomCharges += Number(dailyTransaction?.roomFinalNetAmount || 0)
         roomTax += Number(dailyTransaction?.roomFinalRateTaxe || 0)
         discount += Number(dailyTransaction?.discountAmount || 0)
-
-        for (const t of transactions) {
-          if (!t) continue
-          if (t.status === TransactionStatus.VOIDED || t.isVoided === true) continue
-          if (t.transactionType !== TransactionType.CHARGE) continue
-          if (t.category !== TransactionCategory.EXTRACT_CHARGE) continue
-          extraCharges += Number(t.amount || 0)
-          extraTax += Number(t.taxAmount || 0)
-        }
       }
     }
 
@@ -2337,7 +2343,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .whereNot('category', TransactionCategory.ROOM)
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (resQuery) => {
-          resQuery.whereIn('status', ['pending',"confirmed",'checked_in','checked_out'])
+          resQuery.whereIn('status', ["confirmed",'checked_in','checked_out'])
         })
       })
       .preload('folio', (folioQuery: any) => {
@@ -2730,7 +2736,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
-      .where('status', 'checked_in')
+      .whereIn('status', ['checked_in','confirmed'])
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('roomRates', (rateQuery) => {
           rateQuery.preload('rateType')
@@ -4182,34 +4188,33 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         ])
         .whereNotIn('status', ['cancelled', 'voided'])
         .whereNot('isVoided', true)
-        .whereNotNull('description')
+        .whereNotNull('extra_charge_id')
         .where('category', TransactionCategory.EXTRACT_CHARGE)
         .where('transactionType', TransactionType.CHARGE)
-        .select('description', 'amount')
+        .select('extra_charge_id', 'amount')
 
       const extraChargeAmounts: any = {}
       let totalExtraCharges = 0
 
+      const extraChargeNameById = new Map<number, string>()
+
       // Initialize all extra charges with 0
       extraCharges.forEach((extraCharge) => {
         extraChargeAmounts[extraCharge.name] = 0
+        if (extraCharge.id) extraChargeNameById.set(Number(extraCharge.id), extraCharge.name)
       })
 
-      // Match transaction descriptions with extra charge names
+      // Aggregate by extra_charge_id
       transactions.forEach((transaction) => {
-        const description = transaction.description?.toLowerCase() || ''
+        const extraChargeId = Number(transaction.extraChargeId)
+        if (!extraChargeId) return
 
-        extraCharges.forEach((extraCharge) => {
-          const extraChargeName = extraCharge.name?.toLowerCase() || ''
+        const extraChargeName = extraChargeNameById.get(extraChargeId)
+        if (!extraChargeName) return
 
-          // Check if transaction description contains the extra charge name or short code
-          if (description.includes(extraChargeName)) {
-            logger.info(`Extra charge found: ${extraCharge.name} - ${transaction.amount}`)
-            const amount = Number(transaction.amount || 0)
-            extraChargeAmounts[extraCharge.name] += amount
-            totalExtraCharges += amount
-          }
-        })
+        const amount = Number(transaction.amount || 0)
+        extraChargeAmounts[extraChargeName] += amount
+        totalExtraCharges += amount
       })
 
       return { extraChargeAmounts, totalExtraCharges }

@@ -217,6 +217,5 @@ export default class DailySummaryFact extends BaseModel {
   public static async sendEmail(dailySummaryFact: DailySummaryFact) {
     const emailService = new ReportsEmailService()
     await emailService.sendDailySummaryEmail(dailySummaryFact)
-    await emailService.sendDailyEmail(dailySummaryFact.hotelId, dailySummaryFact.createdAt.toISODate()!)
   }
 }

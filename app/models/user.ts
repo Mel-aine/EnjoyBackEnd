@@ -185,7 +185,7 @@ export default class  User extends AuthFinder(BaseModel) {
 
   // Define accessTokens before the beforeSave hook
   static accessTokens = DbAccessTokensProvider.forModel(User, {
-    expiresIn: '30 days',
+    expiresIn: '24 hours',
     prefix: 'ray_',
     table: 'auth_access_tokens',
     type: 'auth_token',
