@@ -1415,26 +1415,21 @@ public generateMonthlyOccupancyHtml(
    * Generate all sections data for Night Audit Report
    */
   public async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
-    // Section 1: Room Charges
-    const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
-
-
-    // Section 3: Daily Sales
-    const dailySales = await this.getDailySalesData(hotelId, reportDate, currency)
-
-
-    // Section 4: Misc. Charges
-    const miscCharges = await this.getMiscChargesData(hotelId, reportDate, currency)
-
-    // Section 5: Room Status
-    const roomStatus = await this.getRoomStatusData(hotelId, reportDate)
-
-    // Section 6: Pax Status
-    const paxStatus = await this.getPaxStatusData(hotelId, reportDate)
-
-    // Section 7: Pax Analysis
-    const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
-    
+    const [
+      roomCharges,
+      dailySales,
+      miscCharges,
+      roomStatus,
+      paxStatus,
+      paxAnalysis
+    ] = await Promise.all([
+      this.getRoomChargesData(hotelId, reportDate, currency),
+      this.getDailySalesData(hotelId, reportDate, currency),
+      this.getMiscChargesData(hotelId, reportDate, currency),
+      this.getRoomStatusData(hotelId, reportDate),
+      this.getPaxStatusData(hotelId, reportDate),
+      this.getPaxAnalysisData(hotelId, reportDate)
+    ])
 
     return {
       roomCharges,
@@ -1575,8 +1570,7 @@ public generateMonthlyOccupancyHtml(
     const { default: Reservation } = await import('#models/reservation')
     const { TransactionCategory, TransactionType, TransactionStatus } = await import('#app/enums')
 
-    const salesData = []
-    let totals = {
+    const totals = {
       roomCharges: 0,
       extraCharges: 0,
       roomTax: 0,
@@ -1588,84 +1582,92 @@ public generateMonthlyOccupancyHtml(
 
     const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
 
-    // 1. Room Sales - Regular room charges posted on the report date
-    const roomSalesData = await this.getRoomSalesData(hotelId, reportDateStr)
-    salesData.push(roomSalesData)
-    this.addToTotals(totals, roomSalesData)
+    const [
+      roomSalesData,
+      directRoomSalesData,
+      cancellationSalesData,
+      noShowSalesData,
+      dayUseSalesData,
+      lateCheckoutSalesData,
+      incidentalSalesData
+    ] = await Promise.all([
+      // 1. Room Sales
+      this.getRoomSalesData(hotelId, reportDateStr),
+      
+      // 2. Direct Room Sales
+      this.getDirectRoomSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        Reservation,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 2. Direct Room Sales - Direct sales transactions (walk-ins, etc.)
-    const directRoomSalesData = await this.getDirectRoomSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      Reservation,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(directRoomSalesData)
-    this.addToTotals(totals, directRoomSalesData)
+      // 3. Cancellation Sales
+      this.getCancellationSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 3. Cancellation Sales - Cancellation fees posted on the report date
-    const cancellationSalesData = await this.getCancellationSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(cancellationSalesData)
-    this.addToTotals(totals, cancellationSalesData)
+      // 4. No Show Sales
+      this.getNoShowSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 4. No Show Sales - No show fees posted on the report date
-    const noShowSalesData = await this.getNoShowSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(noShowSalesData)
-    this.addToTotals(totals, noShowSalesData)
+      // 5. Day Use Sales
+      this.getDayUseSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        Reservation,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 5. Day Use Sales - Same day check-in and check-out reservations
-    const dayUseSalesData = await this.getDayUseSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      Reservation,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(dayUseSalesData)
-    this.addToTotals(totals, dayUseSalesData)
+      // 6. Late Checkout Sales
+      this.getLateCheckoutSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 6. Late Checkout Sales - Late checkout fees posted on the report date
-    const lateCheckoutSalesData = await this.getLateCheckoutSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(lateCheckoutSalesData)
-    this.addToTotals(totals, lateCheckoutSalesData)
+      // 7. Incidental Sales
+      this.getIncidentalSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      )
+    ])
 
-    // 7. Incidental Sales - Incidental charges posted on the report date
-    const incidentalSalesData = await this.getIncidentalSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(incidentalSalesData)
-    this.addToTotals(totals, incidentalSalesData)
+    const salesData = [
+      roomSalesData,
+      directRoomSalesData,
+      cancellationSalesData,
+      noShowSalesData,
+      dayUseSalesData,
+      lateCheckoutSalesData,
+      incidentalSalesData
+    ]
+
+    salesData.forEach(data => this.addToTotals(totals, data))
 
     return { data: salesData, totals }
   }
@@ -3166,99 +3168,109 @@ public generateMonthlyOccupancyHtml(
     // Calculate YTD (Year To Date) - first day of year to report date
     const ytdStartDate = reportDate.startOf('year')
 
-    // Section 1: Room Charges
-    const roomCharges = await this.getManagementRoomChargesData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
+    const [
+      roomCharges,
+      extraCharges,
+      discounts,
+      adjustments,
+      tax,
+      payments,
+      cityLedger,
+      advanceDepositLedger,
+      guestLedger,
+      roomSummary,
+      posSummary,
+      posPayment,
+      revenueByRateType,
+      revenueByRoomType
+    ] = await Promise.all([
+      // Section 1: Room Charges
+      this.getManagementRoomChargesData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 2: Extra Charges
+      this.getManagementExtraChargesData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 3: Discounts
+      this.getManagementDiscountData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 4: Adjustments
+      this.getManagementAdjustmentsData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 5: Tax
+      this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+      // Section 6: Payments
+      this.getManagementPaymentData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 7: City Ledger
+      this.getManagementCityLedgerData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 8: Advance Deposit Ledger
+      this.getManagementAdvanceDepositLedgerData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 9: Guest Ledger
+      this.getManagementGuestLedgerData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 10: Room Summary
+      this.getManagementRoomSummaryData(hotelId, reportDate),
+      // Section 12: POS Summary
+      this.getManagementPosSummaryData(hotelId, reportDate),
+      // Section 13: POS Payment
+      this.getManagementPosPaymentSummaryData(hotelId, reportDate),
+      // Revenue breakdowns
+      this.getRevenueByRateTypeForDay(hotelId, reportDate),
+      this.getRevenueByRoomTypeForDay(hotelId, reportDate)
+    ])
 
-    // Section 2: Extra Charges
-    const extraCharges = await this.getManagementExtraChargesData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 3: Discounts
-    const discounts = await this.getManagementDiscountData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 4: Adjustments
-    const adjustments = await this.getManagementAdjustmentsData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 5: Tax
-    const tax = await this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate)
-
-    // Section 6: Payments
-    const payments = await this.getManagementPaymentData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 7: City Ledger
-    const cityLedger = await this.getManagementCityLedgerData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
-
-    // Section 8: Advance Deposit Ledger
-    const advanceDepositLedger = await this.getManagementAdvanceDepositLedgerData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
-
-    // Section 9: Guest Ledger
-    const guestLedger = await this.getManagementGuestLedgerData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
-
-    // Section 10: Room Summary
-    const roomSummary = await this.getManagementRoomSummaryData(hotelId, reportDate)
-
-    // Section 11: Statistics
+    // Section 11: Statistics (depends on roomCharges and roomSummary)
     const statistics = await this.getManagementStatisticsData(
       hotelId,
       reportDate,
       roomCharges,
       roomSummary
     )
-    // section 12
-    const posSummary = await this.getManagementPosSummaryData(hotelId, reportDate)
-    // section 13
-    const posPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate)
-    // Section 14: Revenue Summary
+
+    // Section 14: Revenue Summary (depends on roomCharges and extraCharges)
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
-    // section 15 Total revenu
+    
+    // Section 15: Total Revenue (depends on posSummary and revenueSummary)
     const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary)
 
-    // New: Revenue breakdowns for the audit day
-    const revenueByRateType = await this.getRevenueByRateTypeForDay(hotelId, reportDate)
-    const revenueByRoomType = await this.getRevenueByRoomTypeForDay(hotelId, reportDate)
     return {
       roomCharges,
       extraCharges,
@@ -3781,10 +3793,16 @@ public generateMonthlyOccupancyHtml(
 
     // Add individual extra charge data
     extraCharges.forEach((extraCharge) => {
-      result.extraCharges[extraCharge.name] = {
-        today: todayData.extraChargeAmounts[extraCharge.name] || 0,
-        ptd: ptdData.extraChargeAmounts[extraCharge.name] || 0,
-        ytd: ytdData.extraChargeAmounts[extraCharge.name] || 0,
+      const today = todayData.extraChargeAmounts[extraCharge.name] || 0
+      const ptd = ptdData.extraChargeAmounts[extraCharge.name] || 0
+      const ytd = ytdData.extraChargeAmounts[extraCharge.name] || 0
+
+      if (today !== 0 || ptd !== 0 || ytd !== 0) {
+        result.extraCharges[extraCharge.name] = {
+          today,
+          ptd,
+          ytd,
+        }
       }
     })
 
@@ -4103,10 +4121,16 @@ public generateMonthlyOccupancyHtml(
 
     const paymentsByMethod = {}
     allMethods.forEach((method) => {
-      paymentsByMethod[method] = {
-        today: todayPayments.methods[method] || 0,
-        ptd: ptdPayments.methods[method] || 0,
-        ytd: ytdPayments.methods[method] || 0,
+      const today = todayPayments.methods[method] || 0
+      const ptd = ptdPayments.methods[method] || 0
+      const ytd = ytdPayments.methods[method] || 0
+
+      if (today !== 0 || ptd !== 0 || ytd !== 0) {
+        paymentsByMethod[method] = {
+          today,
+          ptd,
+          ytd,
+        }
       }
     })
 
@@ -4838,292 +4862,308 @@ public generateMonthlyOccupancyHtml(
       const ptdStartDate = reportDate.startOf('month')
       const ytdStartDate = reportDate.startOf('year')
 
-      // Get total rooms for the hotel
-      const totalRooms: any = await Database.from('rooms')
-        .where('hotel_id', hotelId)
-        .count('* as total')
+      // Execute all database queries in parallel
+      const [
+        totalRooms,
+        blockedRoomsToday,
+        blockedRoomsPTD,
+        blockedRoomsYTD,
+        guestCountsToday,
+        guestCountsPTD,
+        guestCountsYTD,
+        soldRoomsToday,
+        soldRoomsPTD,
+        soldRoomsYTD,
+        dayUseRoomsToday,
+        dayUseRoomsPTD,
+        dayUseRoomsYTD,
+        complimentaryRoomsToday,
+        complimentaryRoomsPTD,
+        complimentaryRoomsYTD,
+        noShowRoomsToday,
+        noShowRoomsPTD,
+        noShowRoomsYTD,
+        confirmedReservationsToday,
+        confirmedReservationsPTD,
+        confirmedReservationsYTD,
+        unconfirmedReservationsToday,
+        unconfirmedReservationsPTD,
+        unconfirmedReservationsYTD,
+        walkInReservationsToday,
+        walkInReservationsPTD,
+        walkInReservationsYTD,
+        cancelReservationsYTD,
+        cancelReservationsToday,
+        cancelReservationsPTD
+      ] = await Promise.all([
+        // Get total rooms for the hotel
+        Database.from('rooms').where('hotel_id', hotelId).count('* as total'),
+
+        // Get blocked rooms
+        RoomBlock.query()
+          .where('hotel_id', hotelId)
+          .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
+          .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
+          .count('* as total'),
+        RoomBlock.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('block_from_date', [
+            ptdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.toFormat('yyyy-MM-dd'),
+          ])
+          .count('* as total'),
+        RoomBlock.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('block_from_date', [
+            ytdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.toFormat('yyyy-MM-dd'),
+          ])
+          .count('* as total'),
+
+        // Get guest counts
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .sum('adults as adults')
+          .sum('children as children'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            ptdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .sum('adults as adults')
+          .sum('children as children'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            ytdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .sum('adults as adults')
+          .sum('children as children'),
+
+        // Get sold rooms
+        ReservationRoom.query()
+          .whereHas('reservation', (reservationQuery) => {
+            reservationQuery
+              .where('hotel_id', hotelId)
+              .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+              .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          })
+          .where('status', 'checked_in')
+          .count('* as total'),
+        ReservationRoom.query()
+          .whereHas('reservation', (reservationQuery) => {
+            reservationQuery
+              .where('hotel_id', hotelId)
+              .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+              .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          })
+          .where('status', 'checked_in')
+          .count('* as total'),
+        ReservationRoom.query()
+          .whereHas('reservation', (reservationQuery) => {
+            reservationQuery
+              .where('hotel_id', hotelId)
+              .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+              .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          })
+          .where('status', 'checked_in')
+          .count('* as total'),
+
+        // Get day use rooms
+        ReservationRoom.query()
+          .whereHas('reservation', (reservationQuery) => {
+            reservationQuery
+              .where('hotel_id', hotelId)
+              .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+              .where('customer_type', 'day_use')
+          })
+          .count('* as total'),
+        ReservationRoom.query()
+          .whereHas('reservation', (reservationQuery) => {
+            reservationQuery
+              .where('hotel_id', hotelId)
+              .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+              .where('customer_type', 'day_use')
+          })
+          .count('* as total'),
+        ReservationRoom.query()
+          .whereHas('reservation', (reservationQuery) => {
+            reservationQuery
+              .where('hotel_id', hotelId)
+              .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+              .where('customer_type', 'day_use')
+          })
+          .count('* as total'),
+
+        // Get complimentary rooms
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .where('complimentary_room', true)
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            ptdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .where('complimentary_room', true)
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            ytdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .where('complimentary_room', true)
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .count('* as total'),
+
+        // Get no show rooms
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            reportDate.startOf('day').toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .where('status', 'no_show')
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            ptdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .where('status', 'no_show')
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [
+            ytdStartDate.toFormat('yyyy-MM-dd'),
+            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
+          ])
+          .where('status', 'no_show')
+          .count('* as total'),
+
+        // Get confirmed reservations
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+          .where('status', 'confirmed')
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+          .where('status', 'confirmed')
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+          .where('status', 'confirmed')
+          .count('* as total'),
+
+        // Get unconfirmed reservations
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+          .whereIn('status', ['pending', 'waitlist'])
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+          .whereIn('status', ['pending', 'waitlist'])
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+          .whereIn('status', ['pending', 'waitlist'])
+          .count('* as total'),
+
+        // Get walk-in reservations
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+          .where('customer_type', 'walk_in')
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+          .where('customer_type', 'walk_in')
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+          .where('customer_type', 'walk_in')
+          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .count('* as total'),
+
+        // Get cancelled reservations
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
+          .where('status', 'cancelled')
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
+          .where('status', 'cancelled')
+          .count('* as total'),
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
+          .where('status', 'cancelled')
+          .count('* as total')
+      ])
+
       logger.info('total room ')
-      logger.info(JSON.stringify(totalRooms[0].total))
-
-      // Get blocked rooms for each period
-      const blockedRoomsToday = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
-        .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
-        .count('* as total')
-
-      const blockedRoomsPTD = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('block_from_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.toFormat('yyyy-MM-dd'),
-        ])
-        .count('* as total')
-
-      const blockedRoomsYTD = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('block_from_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.toFormat('yyyy-MM-dd'),
-        ])
-        .count('* as total')
-
-      // Get guest counts (adults and children) for each period
-      const guestCountsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('adults as adults')
-        .sum('children as children')
-
-      const guestCountsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('adults as adults')
-        .sum('children as children')
-
-      const guestCountsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('adults as adults')
-        .sum('children as children')
+      logger.info(JSON.stringify((totalRooms as any)[0].total))
 
       // Calculate available room nights for each period
-      const totalRoomsCount = parseInt(totalRooms[0].total)
-      const availableRoomNightsToday = totalRoomsCount - (blockedRoomsToday[0].$extras.total || 0)
+      const totalRoomsCount = parseInt((totalRooms as any)[0].total)
+      const availableRoomNightsToday = totalRoomsCount - ((blockedRoomsToday as any)[0].$extras.total || 0)
       const availableRoomNightsPTD =
         totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) -
-        (blockedRoomsPTD[0].$extras.total || 0)
+        ((blockedRoomsPTD as any)[0].$extras.total || 0)
       const availableRoomNightsYTD =
         totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) -
-        (blockedRoomsYTD[0].$extras.total || 0)
-
-      // Get sold rooms (occupied rooms) for each period
-      const soldRoomsToday = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
-
-      const soldRoomsPTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
-
-      const soldRoomsYTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
-
-      // Get day use rooms for each period
-      const dayUseRoomsToday = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-            .where('customer_type', 'day_use')
-        })
-        .count('* as total')
-
-      const dayUseRoomsPTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-            .where('customer_type', 'day_use')
-        })
-        .count('* as total')
-
-      const dayUseRoomsYTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-            .where('customer_type', 'day_use')
-        })
-        .count('* as total')
-
-      // Get complimentary rooms for each period
-      const complimentaryRoomsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('complimentary_room', true)
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const complimentaryRoomsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('complimentary_room', true)
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const complimentaryRoomsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('complimentary_room', true)
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      // Get no show rooms for each period
-      const noShowRoomsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('status', 'no_show')
-        .count('* as total')
-
-      const noShowRoomsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('status', 'no_show')
-        .count('* as total')
-
-      const noShowRoomsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('status', 'no_show')
-        .count('* as total')
+        ((blockedRoomsYTD as any)[0].$extras.total || 0)
 
       // Calculate average guests per room
       const totalGuestsToday =
-        (guestCountsToday[0].$extras.adults || 0) + (guestCountsToday[0].$extras.children || 0)
+        ((guestCountsToday as any)[0].$extras.adults || 0) + ((guestCountsToday as any)[0].$extras.children || 0)
       const totalGuestsPTD =
-        (guestCountsPTD[0].$extras.adults || 0) + (guestCountsPTD[0].$extras.children || 0)
+        ((guestCountsPTD as any)[0].$extras.adults || 0) + ((guestCountsPTD as any)[0].$extras.children || 0)
       const totalGuestsYTD =
-        (guestCountsYTD[0].$extras.adults || 0) + (guestCountsYTD[0].$extras.children || 0)
+        ((guestCountsYTD as any)[0].$extras.adults || 0) + ((guestCountsYTD as any)[0].$extras.children || 0)
 
       const avgGuestsPerRoomToday =
-        (soldRoomsToday[0].$extras.total || 0) > 0
-          ? totalGuestsToday / (soldRoomsToday[0].$extras.total || 1)
+        ((soldRoomsToday as any)[0].$extras.total || 0) > 0
+          ? totalGuestsToday / ((soldRoomsToday as any)[0].$extras.total || 1)
           : 0
       const avgGuestsPerRoomPTD =
-        (soldRoomsPTD[0].$extras.total || 0) > 0
-          ? totalGuestsPTD / (soldRoomsPTD[0].$extras.total || 1)
+        ((soldRoomsPTD as any)[0].$extras.total || 0) > 0
+          ? totalGuestsPTD / ((soldRoomsPTD as any)[0].$extras.total || 1)
           : 0
       const avgGuestsPerRoomYTD =
-        (soldRoomsYTD[0].$extras.total || 0) > 0
-          ? totalGuestsYTD / (soldRoomsYTD[0].$extras.total || 1)
+        ((soldRoomsYTD as any)[0].$extras.total || 0) > 0
+          ? totalGuestsYTD / ((soldRoomsYTD as any)[0].$extras.total || 1)
           : 0
-
-      // Get confirmed reservations for each period
-      const confirmedReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('status', 'confirmed')
-        .count('* as total')
-
-      const confirmedReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('status', 'confirmed')
-        .count('* as total')
-
-      const confirmedReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('status', 'confirmed')
-        .count('* as total')
-
-      // Get unconfirmed reservations for each period
-      const unconfirmedReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .whereIn('status', ['pending', 'waitlist'])
-        .count('* as total')
-
-      const unconfirmedReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .whereIn('status', ['pending', 'waitlist'])
-        .count('* as total')
-
-      const unconfirmedReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .whereIn('status', ['pending', 'waitlist'])
-        .count('* as total')
-
-      // Get walk-in reservations for each period
-      const walkInReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('customer_type', 'walk_in')
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const walkInReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('customer_type', 'walk_in')
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const walkInReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('customer_type', 'walk_in')
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-      const cancelReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('status', 'cancelled')
-        .count('* as total')
-
-      const cancelReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('status', 'cancelled')
-        .count('* as total')
-
-      const cancelReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('status', 'cancelled')
-        .count('* as total')
 
       return {
         totalRoom: {
@@ -5132,19 +5172,19 @@ public generateMonthlyOccupancyHtml(
           ytd: totalRoomsCount,
         },
         blockRoom: {
-          today: blockedRoomsToday[0].$extras.total || 0,
-          ptd: blockedRoomsPTD[0].$extras.total || 0,
-          ytd: blockedRoomsYTD[0].$extras.total || 0,
+          today: (blockedRoomsToday as any)[0].$extras.total || 0,
+          ptd: (blockedRoomsPTD as any)[0].$extras.total || 0,
+          ytd: (blockedRoomsYTD as any)[0].$extras.total || 0,
         },
         noOfGuestAdult: {
-          today: guestCountsToday[0].$extras.adults || 0,
-          ptd: guestCountsPTD[0].$extras.adults || 0,
-          ytd: guestCountsYTD[0].$extras.adults || 0,
+          today: (guestCountsToday as any)[0].$extras.adults || 0,
+          ptd: (guestCountsPTD as any)[0].$extras.adults || 0,
+          ytd: (guestCountsYTD as any)[0].$extras.adults || 0,
         },
         noOfGuestChild: {
-          today: guestCountsToday[0].$extras.children || 0,
-          ptd: guestCountsPTD[0].$extras.children || 0,
-          ytd: guestCountsYTD[0].$extras.children || 0,
+          today: (guestCountsToday as any)[0].$extras.children || 0,
+          ptd: (guestCountsPTD as any)[0].$extras.children || 0,
+          ytd: (guestCountsYTD as any)[0].$extras.children || 0,
         },
         totalAvailableRoomNights: {
           today: Math.max(0, availableRoomNightsToday),
@@ -5152,24 +5192,24 @@ public generateMonthlyOccupancyHtml(
           ytd: Math.max(0, availableRoomNightsYTD),
         },
         soldRoom: {
-          today: soldRoomsToday[0].$extras.total || 0,
-          ptd: soldRoomsPTD[0].$extras.total || 0,
-          ytd: soldRoomsYTD[0].$extras.total || 0,
+          today: (soldRoomsToday as any)[0].$extras.total || 0,
+          ptd: (soldRoomsPTD as any)[0].$extras.total || 0,
+          ytd: (soldRoomsYTD as any)[0].$extras.total || 0,
         },
         dayUseRoom: {
-          today: dayUseRoomsToday[0].$extras.total || 0,
-          ptd: dayUseRoomsPTD[0].$extras.total || 0,
-          ytd: dayUseRoomsYTD[0].$extras.total || 0,
+          today: (dayUseRoomsToday as any)[0].$extras.total || 0,
+          ptd: (dayUseRoomsPTD as any)[0].$extras.total || 0,
+          ytd: (dayUseRoomsYTD as any)[0].$extras.total || 0,
         },
         complimentaryRoom: {
-          today: complimentaryRoomsToday[0].$extras.total || 0,
-          ptd: complimentaryRoomsPTD[0].$extras.total || 0,
-          ytd: complimentaryRoomsYTD[0].$extras.total || 0,
+          today: (complimentaryRoomsToday as any)[0].$extras.total || 0,
+          ptd: (complimentaryRoomsPTD as any)[0].$extras.total || 0,
+          ytd: (complimentaryRoomsYTD as any)[0].$extras.total || 0,
         },
         noShows: {
-          today: noShowRoomsToday[0].$extras.total || 0,
-          ptd: noShowRoomsPTD[0].$extras.total || 0,
-          ytd: noShowRoomsYTD[0].$extras.total || 0,
+          today: (noShowRoomsToday as any)[0].$extras.total || 0,
+          ptd: (noShowRoomsPTD as any)[0].$extras.total || 0,
+          ytd: (noShowRoomsYTD as any)[0].$extras.total || 0,
         },
         averageGuestPerRoom: {
           today: Math.round(avgGuestsPerRoomToday * 100) / 100,
@@ -5177,24 +5217,24 @@ public generateMonthlyOccupancyHtml(
           ytd: Math.round(avgGuestsPerRoomYTD * 100) / 100,
         },
         noOfReservationsConfirm: {
-          today: confirmedReservationsToday[0].$extras.total || 0,
-          ptd: confirmedReservationsPTD[0].$extras.total || 0,
-          ytd: confirmedReservationsYTD[0].$extras.total || 0,
+          today: (confirmedReservationsToday as any)[0].$extras.total || 0,
+          ptd: (confirmedReservationsPTD as any)[0].$extras.total || 0,
+          ytd: (confirmedReservationsYTD as any)[0].$extras.total || 0,
         },
         noOfReservationsUnconfirm: {
-          today: unconfirmedReservationsToday[0].$extras.total || 0,
-          ptd: unconfirmedReservationsPTD[0].$extras.total || 0,
-          ytd: unconfirmedReservationsYTD[0].$extras.total || 0,
+          today: (unconfirmedReservationsToday as any)[0].$extras.total || 0,
+          ptd: (unconfirmedReservationsPTD as any)[0].$extras.total || 0,
+          ytd: (unconfirmedReservationsYTD as any)[0].$extras.total || 0,
         },
         noOfWalkins: {
-          today: walkInReservationsToday[0].$extras.total || 0,
-          ptd: walkInReservationsPTD[0].$extras.total || 0,
-          ytd: walkInReservationsYTD[0].$extras.total || 0,
+          today: (walkInReservationsToday as any)[0].$extras.total || 0,
+          ptd: (walkInReservationsPTD as any)[0].$extras.total || 0,
+          ytd: (walkInReservationsYTD as any)[0].$extras.total || 0,
         },
         cancellations: {
-          today: cancelReservationsToday[0].$extras.total || 0,
-          ptd: cancelReservationsPTD[0].$extras.total || 0,
-          ytd: cancelReservationsYTD[0].$extras.total || 0,
+          today: (cancelReservationsToday as any)[0].$extras.total || 0,
+          ptd: (cancelReservationsPTD as any)[0].$extras.total || 0,
+          ytd: (cancelReservationsYTD as any)[0].$extras.total || 0,
         },
       }
     } catch (error) {
@@ -10217,6 +10257,12 @@ public generateMonthlyOccupancyHtml(
     try {
       const payload = await this.getPosNightAuditPayload(hotelId, reportDate)
       if (payload && payload.posSummary) {
+        // Filter out outlets with zero categories
+        if (payload.posSummary.outlets && Array.isArray(payload.posSummary.outlets)) {
+          payload.posSummary.outlets = payload.posSummary.outlets.filter(
+            (outlet: any) => outlet.categories && outlet.categories.length > 0
+          )
+        }
         return payload.posSummary
       }
       return {
@@ -10238,6 +10284,12 @@ public generateMonthlyOccupancyHtml(
     try {
       const payload = await this.getPosNightAuditPayload(hotelId, reportDate)
       if (payload && payload.posPayment) {
+        // Filter out outlets with zero payments
+        if (payload.posPayment.outlets && Array.isArray(payload.posPayment.outlets)) {
+          payload.posPayment.outlets = payload.posPayment.outlets.filter(
+            (outlet: any) => outlet.payments && outlet.payments.length > 0
+          )
+        }
         return payload.posPayment
       }
       return {
