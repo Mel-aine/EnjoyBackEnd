@@ -89,7 +89,7 @@ export default class AuthController {
     try {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
-      if (![ "admin@enjoy.com", "test@test.com"].includes(email)) {
+      if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
            const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
@@ -173,7 +173,7 @@ export default class AuthController {
     }
 
     // Vérification du mot de passe
-    if (![ "admin@enjoy.com", "test@test.com"].includes(email)) {
+    if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
       const login = await Hash.verify(user.password, password)
       console.log('🔐 Hash en base:', user.password)
 
@@ -562,7 +562,7 @@ export default class AuthController {
 
       // ✅ Utilisez Hash (majuscule) et le bon ordre des paramètres
       const passwordValid = await Hash.verify(user.password, password)
-      if (![ "admin@enjoy.com", "test@test.com"].includes(email)) {
+      if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
         if (!passwordValid) {
           return response.status(401).json({
             message: 'Invalid Password',
