@@ -2076,7 +2076,13 @@ public generateMonthlyOccupancyHtml(
     const miscChargesData = []
     let totals = { units: 0, amount: 0 }
 
-    for (const charge of miscCharges) {
+    const chargesWithRoom = miscCharges.filter((t: any) => {
+      const res = t.folio?.reservation
+      const rrs = res?.reservationRooms || []
+      return rrs.some((rr: any) => rr?.room?.id || rr?.roomId)
+    })
+
+    for (const charge of chargesWithRoom) {
       const reservation = charge.folio?.reservation
       const room = reservation?.reservationRooms?.[0]?.room
       const roomType = reservation?.reservationRooms?.[0]?.roomType
@@ -4855,390 +4861,266 @@ public generateMonthlyOccupancyHtml(
     try {
       const { default: Room } = await import('#models/room')
       const { default: Reservation } = await import('#models/reservation')
-      const { default: ReservationRoom } = await import('#models/reservation_room')
       const { default: RoomBlock } = await import('#models/room_block')
 
       // Calculate PTD and YTD start dates
       const ptdStartDate = reportDate.startOf('month')
       const ytdStartDate = reportDate.startOf('year')
 
+      // Helper to format date
+      const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+      
+      const rDate = reportDate.toISODate()
+      const ptdDate = ptdStartDate.toISODate()
+      const ytdDate = ytdStartDate.toISODate()
+
+      // Helper for overlap days calculation
+      const getOverlapDays = (start: string, end: string, rangeStart: string, rangeEnd: string) => {
+        if (!start || !end || !rangeStart || !rangeEnd) return 0
+        const s = start > rangeStart ? start : rangeStart
+        const e = end < rangeEnd ? end : rangeEnd
+        if (s > e) return 0
+        const d1 = new Date(s)
+        const d2 = new Date(e)
+        // Add 1 to include the start day, result in days
+        return Math.floor((d2.getTime() - d1.getTime()) / (1000 * 3600 * 24)) + 1
+      }
+
       // Execute all database queries in parallel
-      const [
-        totalRooms,
-        blockedRoomsToday,
-        blockedRoomsPTD,
-        blockedRoomsYTD,
-        guestCountsToday,
-        guestCountsPTD,
-        guestCountsYTD,
-        soldRoomsToday,
-        soldRoomsPTD,
-        soldRoomsYTD,
-        dayUseRoomsToday,
-        dayUseRoomsPTD,
-        dayUseRoomsYTD,
-        complimentaryRoomsToday,
-        complimentaryRoomsPTD,
-        complimentaryRoomsYTD,
-        noShowRoomsToday,
-        noShowRoomsPTD,
-        noShowRoomsYTD,
-        confirmedReservationsToday,
-        confirmedReservationsPTD,
-        confirmedReservationsYTD,
-        unconfirmedReservationsToday,
-        unconfirmedReservationsPTD,
-        unconfirmedReservationsYTD,
-        walkInReservationsToday,
-        walkInReservationsPTD,
-        walkInReservationsYTD,
-        cancelReservationsYTD,
-        cancelReservationsToday,
-        cancelReservationsPTD
-      ] = await Promise.all([
-        // Get total rooms for the hotel
-        Database.from('rooms').where('hotel_id', hotelId).count('* as total'),
-
-        // Get blocked rooms
+      // We fetch raw data and aggregate in memory to avoid "count(*)" queries as requested
+      const [allRooms, allBlocks, allReservations] = await Promise.all([
+        Room.query().where('hotel_id', hotelId),
+        
         RoomBlock.query()
           .where('hotel_id', hotelId)
-          .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
-          .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
-          .count('* as total'),
-        RoomBlock.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('block_from_date', [
-            ptdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.toFormat('yyyy-MM-dd'),
-          ])
-          .count('* as total'),
-        RoomBlock.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('block_from_date', [
-            ytdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.toFormat('yyyy-MM-dd'),
-          ])
-          .count('* as total'),
-
-        // Get guest counts
+          .where('block_from_date', '<=', fmt(reportDate))
+          .where('block_to_date', '>=', fmt(ytdStartDate)),
+          
         Reservation.query()
           .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .sum('adults as adults')
-          .sum('children as children'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            ptdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .sum('adults as adults')
-          .sum('children as children'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            ytdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .sum('adults as adults')
-          .sum('children as children'),
-
-        // Get sold rooms
-        ReservationRoom.query()
-          .whereHas('reservation', (reservationQuery) => {
-            reservationQuery
-              .where('hotel_id', hotelId)
-              .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-              .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+          .where((q) => {
+            // Fetch reservations that are relevant for any of the metrics (Today, PTD, YTD)
+            // This includes active stays, recent arrivals, and recent cancellations
+            q.where('depart_date', '>=', fmt(ytdStartDate))
+             .orWhereRaw('DATE(updated_at) >= ?', [fmt(ytdStartDate)])
           })
-          .where('status', 'checked_in')
-          .count('* as total'),
-        ReservationRoom.query()
-          .whereHas('reservation', (reservationQuery) => {
-            reservationQuery
-              .where('hotel_id', hotelId)
-              .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-              .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          })
-          .where('status', 'checked_in')
-          .count('* as total'),
-        ReservationRoom.query()
-          .whereHas('reservation', (reservationQuery) => {
-            reservationQuery
-              .where('hotel_id', hotelId)
-              .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-              .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          })
-          .where('status', 'checked_in')
-          .count('* as total'),
-
-        // Get day use rooms
-        ReservationRoom.query()
-          .whereHas('reservation', (reservationQuery) => {
-            reservationQuery
-              .where('hotel_id', hotelId)
-              .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-              .where('customer_type', 'day_use')
-          })
-          .count('* as total'),
-        ReservationRoom.query()
-          .whereHas('reservation', (reservationQuery) => {
-            reservationQuery
-              .where('hotel_id', hotelId)
-              .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-              .where('customer_type', 'day_use')
-          })
-          .count('* as total'),
-        ReservationRoom.query()
-          .whereHas('reservation', (reservationQuery) => {
-            reservationQuery
-              .where('hotel_id', hotelId)
-              .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-              .where('customer_type', 'day_use')
-          })
-          .count('* as total'),
-
-        // Get complimentary rooms
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .where('complimentary_room', true)
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            ptdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .where('complimentary_room', true)
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            ytdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .where('complimentary_room', true)
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .count('* as total'),
-
-        // Get no show rooms
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .where('status', 'no_show')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            ptdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .where('status', 'no_show')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [
-            ytdStartDate.toFormat('yyyy-MM-dd'),
-            reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-          ])
-          .where('status', 'no_show')
-          .count('* as total'),
-
-        // Get confirmed reservations
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-          .where('status', 'confirmed')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-          .where('status', 'confirmed')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-          .where('status', 'confirmed')
-          .count('* as total'),
-
-        // Get unconfirmed reservations
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-          .whereIn('status', ['pending', 'waitlist'])
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-          .whereIn('status', ['pending', 'waitlist'])
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-          .whereIn('status', ['pending', 'waitlist'])
-          .count('* as total'),
-
-        // Get walk-in reservations
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-          .where('customer_type', 'walk_in')
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-          .where('customer_type', 'walk_in')
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-          .where('customer_type', 'walk_in')
-          .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-          .count('* as total'),
-
-        // Get cancelled reservations
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-          .where('status', 'cancelled')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-          .where('status', 'cancelled')
-          .count('* as total'),
-        Reservation.query()
-          .where('hotel_id', hotelId)
-          .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-          .where('status', 'cancelled')
-          .count('* as total')
+          .preload('reservationRooms')
       ])
 
-      logger.info('total room ')
-      logger.info(JSON.stringify((totalRooms as any)[0].total))
+      // Initialize counters
+      const stats = {
+        totalRooms: allRooms.length,
+        blocked: { today: 0, ptd: 0, ytd: 0 },
+        guests: { 
+          today: { adults: 0, children: 0 }, 
+          ptd: { adults: 0, children: 0 }, 
+          ytd: { adults: 0, children: 0 } 
+        },
+        sold: { today: 0, ptd: 0, ytd: 0 },
+        dayUse: { today: 0, ptd: 0, ytd: 0 },
+        comp: { today: 0, ptd: 0, ytd: 0 },
+        noShow: { today: 0, ptd: 0, ytd: 0 },
+        confirmed: { today: 0, ptd: 0, ytd: 0 },
+        unconfirmed: { today: 0, ptd: 0, ytd: 0 },
+        walkIn: { today: 0, ptd: 0, ytd: 0 },
+        cancelled: { today: 0, ptd: 0, ytd: 0 }
+      }
 
-      // Calculate available room nights for each period
-      const totalRoomsCount = parseInt((totalRooms as any)[0].total)
-      const availableRoomNightsToday = totalRoomsCount - ((blockedRoomsToday as any)[0].$extras.total || 0)
-      const availableRoomNightsPTD =
-        totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) -
-        ((blockedRoomsPTD as any)[0].$extras.total || 0)
-      const availableRoomNightsYTD =
-        totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) -
-        ((blockedRoomsYTD as any)[0].$extras.total || 0)
+      // Process Room Blocks
+      allBlocks.forEach(block => {
+        const from = block.blockFromDate ? block.blockFromDate.toISODate() : ''
+        const to = block.blockToDate ? block.blockToDate.toISODate() : ''
+        
+        if (!from || !to || !rDate || !ptdDate || !ytdDate) return
 
-      // Calculate average guests per room
-      const totalGuestsToday =
-        ((guestCountsToday as any)[0].$extras.adults || 0) + ((guestCountsToday as any)[0].$extras.children || 0)
-      const totalGuestsPTD =
-        ((guestCountsPTD as any)[0].$extras.adults || 0) + ((guestCountsPTD as any)[0].$extras.children || 0)
-      const totalGuestsYTD =
-        ((guestCountsYTD as any)[0].$extras.adults || 0) + ((guestCountsYTD as any)[0].$extras.children || 0)
+        // Blocked Today: Active on report date
+        if (from <= rDate && to >= rDate) {
+          stats.blocked.today++
+        }
+        // Blocked PTD/YTD: Room Nights Overlap
+        stats.blocked.ptd += getOverlapDays(from, to, ptdDate, rDate)
+        stats.blocked.ytd += getOverlapDays(from, to, ytdDate, rDate)
+      })
 
-      const avgGuestsPerRoomToday =
-        ((soldRoomsToday as any)[0].$extras.total || 0) > 0
-          ? totalGuestsToday / ((soldRoomsToday as any)[0].$extras.total || 1)
-          : 0
-      const avgGuestsPerRoomPTD =
-        ((soldRoomsPTD as any)[0].$extras.total || 0) > 0
-          ? totalGuestsPTD / ((soldRoomsPTD as any)[0].$extras.total || 1)
-          : 0
-      const avgGuestsPerRoomYTD =
-        ((soldRoomsYTD as any)[0].$extras.total || 0) > 0
-          ? totalGuestsYTD / ((soldRoomsYTD as any)[0].$extras.total || 1)
-          : 0
+      // Process Reservations
+      allReservations.forEach(res => {
+        const arrival = res.arrivedDate ? res.arrivedDate.toISODate() : ''
+        const depart = res.departDate ? res.departDate.toISODate() : ''
+        
+        // Day Use: Arrival and Departure dates are the same
+        const isDayUse = arrival && depart && arrival === depart
+
+        // departDate is exclusive in PMS usually, so inclusive stay end is depart - 1 day
+        // For Day Use, stay is same day
+        let stayEnd = ''
+        if (isDayUse) {
+            stayEnd = arrival
+        } else if (res.departDate) {
+            stayEnd = res.departDate.minus({ days: 1 }).toISODate()
+        }
+        
+        const updated = res.updatedAt ? res.updatedAt.toISODate() : ''
+        const roomCount = res.reservationRooms ? res.reservationRooms.length : 0
+        
+        if (!rDate || !ptdDate || !ytdDate) return
+
+        // --- Occupancy Metrics (Sold, Comp, DayUse, Guests) ---
+        // Based on Room Nights / Guest Nights overlap
+        if (['checked_in', 'checked_out', 'completed'].includes(res.status) && arrival && stayEnd) {
+           const daysToday = getOverlapDays(arrival, stayEnd, rDate, rDate)
+           const daysPTD = getOverlapDays(arrival, stayEnd, ptdDate, rDate)
+           const daysYTD = getOverlapDays(arrival, stayEnd, ytdDate, rDate)
+           
+           // Effective room count for TODAY:
+           // Treat split-origin/destination moves as a single room for the day.
+           // Count concurrent non-split rooms separately.
+           let roomCountTodayEff = 0
+           const rrs: any[] = Array.isArray((res as any).reservationRooms) ? (res as any).reservationRooms : []
+           const coversToday = (rr: any) => {
+             const ci = rr.checkInDate ? rr.checkInDate.toISODate() : ''
+             const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : ''
+             return !!ci && !!co && ci <= rDate && co > rDate
+           }
+           const normalCoverCount = rrs.filter(
+             (rr) => !rr.isSplitedOrigin && !rr.isplitedDestinatination && coversToday(rr)
+           ).length
+           const hasSplitCover = rrs.some(
+             (rr) => (rr.isSplitedOrigin || rr.isplitedDestinatination) && coversToday(rr)
+           )
+           roomCountTodayEff = normalCoverCount + (hasSplitCover ? 1 : 0)
+           if (roomCountTodayEff === 0 && daysToday > 0) {
+             // Fallback: if reservation is in-house today but no RR segments loaded, count as 1
+             roomCountTodayEff = 1
+           }
+ 
+           if (isDayUse) {
+              stats.dayUse.today += daysToday * roomCountTodayEff
+              stats.dayUse.ptd += daysPTD * roomCount
+              stats.dayUse.ytd += daysYTD * roomCount
+           } else if (res.complimentaryRoom) {
+              stats.comp.today += daysToday * roomCountTodayEff
+              stats.comp.ptd += daysPTD * roomCount
+              stats.comp.ytd += daysYTD * roomCount
+           } else {
+              stats.sold.today += daysToday * roomCountTodayEff
+              stats.sold.ptd += daysPTD * roomCount
+              stats.sold.ytd += daysYTD * roomCount
+           }
+
+           // Guest Nights
+           const adults = res.adults || 0
+           const children = res.children || 0
+           
+           if (daysToday > 0) {
+             stats.guests.today.adults += adults
+             stats.guests.today.children += children
+           }
+           stats.guests.ptd.adults += adults * daysPTD
+           stats.guests.ptd.children += children * daysPTD
+           stats.guests.ytd.adults += adults * daysYTD
+           stats.guests.ytd.children += children * daysYTD
+        }
+
+        // --- Event Metrics (NoShow, Confirmed, Unconfirmed, WalkIn) ---
+        // Based on Arrival Date (Count of events/arrivals)
+        if (arrival) {
+          const isArrivedToday = arrival === rDate
+          const isArrivedPTD = arrival >= ptdDate && arrival <= rDate
+          const isArrivedYTD = arrival >= ytdDate && arrival <= rDate
+          
+          // 8. No Show Rooms
+          if (res.status === 'no_show') {
+            if (isArrivedToday) stats.noShow.today++
+            if (isArrivedPTD) stats.noShow.ptd++
+            if (isArrivedYTD) stats.noShow.ytd++
+          }
+  
+          // 10. Confirmed
+          if (res.status === 'confirmed') {
+            if (isArrivedToday) stats.confirmed.today++
+            if (isArrivedPTD) stats.confirmed.ptd++
+            if (isArrivedYTD) stats.confirmed.ytd++
+          }
+  
+          // 11. Unconfirmed
+          if (['pending', 'waitlist'].includes(res.status)) {
+            if (isArrivedToday) stats.unconfirmed.today++
+            if (isArrivedPTD) stats.unconfirmed.ptd++
+            if (isArrivedYTD) stats.unconfirmed.ytd++
+          }
+  
+          // 12. Walk-ins
+          if (res.customerType === 'walk_in' && !['cancelled', 'voided'].includes(res.status)) {
+            if (isArrivedToday) stats.walkIn.today++
+            if (isArrivedPTD) stats.walkIn.ptd++
+            if (isArrivedYTD) stats.walkIn.ytd++
+          }
+        }
+        
+        // 13. Cancellations (Based on Update Date)
+        if (res.status === 'cancelled' && updated) {
+          if (updated === rDate) stats.cancelled.today++
+          if (updated >= ptdDate && updated <= rDate) stats.cancelled.ptd++
+          if (updated >= ytdDate && updated <= rDate) stats.cancelled.ytd++
+        }
+      })
+
+      // 4. Total Available Room nights: Total Rooms - Blocked Rooms (OOO)
+      const availableRoomNightsToday = stats.totalRooms - stats.blocked.today
+      const availableRoomNightsPTD = stats.totalRooms * Math.abs(ptdStartDate.diff(reportDate, 'days').days + 1) - stats.blocked.ptd
+      const availableRoomNightsYTD = stats.totalRooms * Math.abs(ytdStartDate.diff(reportDate, 'days').days + 1) - stats.blocked.ytd
+
+      // 9. Average Guest Per Room: Total Guests / (Sold + Comp)
+      const occupiedToday = stats.sold.today + stats.comp.today
+      const occupiedPTD = stats.sold.ptd + stats.comp.ptd
+      const occupiedYTD = stats.sold.ytd + stats.comp.ytd
+
+      const guestsToday = stats.guests.today.adults + stats.guests.today.children
+      const guestsPTD = stats.guests.ptd.adults + stats.guests.ptd.children
+      const guestsYTD = stats.guests.ytd.adults + stats.guests.ytd.children
+
+      const avgGuestsPerRoomToday = occupiedToday > 0 ? guestsToday / occupiedToday : 0
+      const avgGuestsPerRoomPTD = occupiedPTD > 0 ? guestsPTD / occupiedPTD : 0
+      const avgGuestsPerRoomYTD = occupiedYTD > 0 ? guestsYTD / occupiedYTD : 0
 
       return {
         totalRoom: {
-          today: totalRoomsCount,
-          ptd: totalRoomsCount,
-          ytd: totalRoomsCount,
+          today: stats.totalRooms,
+          ptd: stats.totalRooms,
+          ytd: stats.totalRooms,
         },
-        blockRoom: {
-          today: (blockedRoomsToday as any)[0].$extras.total || 0,
-          ptd: (blockedRoomsPTD as any)[0].$extras.total || 0,
-          ytd: (blockedRoomsYTD as any)[0].$extras.total || 0,
-        },
+        blockRoom: stats.blocked,
         noOfGuestAdult: {
-          today: (guestCountsToday as any)[0].$extras.adults || 0,
-          ptd: (guestCountsPTD as any)[0].$extras.adults || 0,
-          ytd: (guestCountsYTD as any)[0].$extras.adults || 0,
+          today: stats.guests.today.adults,
+          ptd: stats.guests.ptd.adults,
+          ytd: stats.guests.ytd.adults,
         },
         noOfGuestChild: {
-          today: (guestCountsToday as any)[0].$extras.children || 0,
-          ptd: (guestCountsPTD as any)[0].$extras.children || 0,
-          ytd: (guestCountsYTD as any)[0].$extras.children || 0,
+          today: stats.guests.today.children,
+          ptd: stats.guests.ptd.children,
+          ytd: stats.guests.ytd.children,
         },
         totalAvailableRoomNights: {
           today: Math.max(0, availableRoomNightsToday),
           ptd: Math.max(0, availableRoomNightsPTD),
           ytd: Math.max(0, availableRoomNightsYTD),
         },
-        soldRoom: {
-          today: (soldRoomsToday as any)[0].$extras.total || 0,
-          ptd: (soldRoomsPTD as any)[0].$extras.total || 0,
-          ytd: (soldRoomsYTD as any)[0].$extras.total || 0,
-        },
-        dayUseRoom: {
-          today: (dayUseRoomsToday as any)[0].$extras.total || 0,
-          ptd: (dayUseRoomsPTD as any)[0].$extras.total || 0,
-          ytd: (dayUseRoomsYTD as any)[0].$extras.total || 0,
-        },
-        complimentaryRoom: {
-          today: (complimentaryRoomsToday as any)[0].$extras.total || 0,
-          ptd: (complimentaryRoomsPTD as any)[0].$extras.total || 0,
-          ytd: (complimentaryRoomsYTD as any)[0].$extras.total || 0,
-        },
-        noShows: {
-          today: (noShowRoomsToday as any)[0].$extras.total || 0,
-          ptd: (noShowRoomsPTD as any)[0].$extras.total || 0,
-          ytd: (noShowRoomsYTD as any)[0].$extras.total || 0,
-        },
+        soldRoom: stats.sold,
+        dayUseRoom: stats.dayUse,
+        complimentaryRoom: stats.comp,
+        noShows: stats.noShow,
         averageGuestPerRoom: {
           today: Math.round(avgGuestsPerRoomToday * 100) / 100,
           ptd: Math.round(avgGuestsPerRoomPTD * 100) / 100,
           ytd: Math.round(avgGuestsPerRoomYTD * 100) / 100,
         },
-        noOfReservationsConfirm: {
-          today: (confirmedReservationsToday as any)[0].$extras.total || 0,
-          ptd: (confirmedReservationsPTD as any)[0].$extras.total || 0,
-          ytd: (confirmedReservationsYTD as any)[0].$extras.total || 0,
-        },
-        noOfReservationsUnconfirm: {
-          today: (unconfirmedReservationsToday as any)[0].$extras.total || 0,
-          ptd: (unconfirmedReservationsPTD as any)[0].$extras.total || 0,
-          ytd: (unconfirmedReservationsYTD as any)[0].$extras.total || 0,
-        },
-        noOfWalkins: {
-          today: (walkInReservationsToday as any)[0].$extras.total || 0,
-          ptd: (walkInReservationsPTD as any)[0].$extras.total || 0,
-          ytd: (walkInReservationsYTD as any)[0].$extras.total || 0,
-        },
-        cancellations: {
-          today: (cancelReservationsToday as any)[0].$extras.total || 0,
-          ptd: (cancelReservationsPTD as any)[0].$extras.total || 0,
-          ytd: (cancelReservationsYTD as any)[0].$extras.total || 0,
-        },
+        noOfReservationsConfirm: stats.confirmed,
+        noOfReservationsUnconfirm: stats.unconfirmed,
+        noOfWalkins: stats.walkIn,
+        cancellations: stats.cancelled,
       }
     } catch (error) {
-      console.error('Error in getManagementStatisticsData:', error)
+      console.error('Error in getManagementRoomSummaryData:', error)
       return {
         totalRoom: { today: 0, ptd: 0, ytd: 0 },
         blockRoom: { today: 0, ptd: 0, ytd: 0 },
@@ -5248,11 +5130,12 @@ public generateMonthlyOccupancyHtml(
         soldRoom: { today: 0, ptd: 0, ytd: 0 },
         dayUseRoom: { today: 0, ptd: 0, ytd: 0 },
         complimentaryRoom: { today: 0, ptd: 0, ytd: 0 },
-        noShowRooms: { today: 0, ptd: 0, ytd: 0 },
+        noShows: { today: 0, ptd: 0, ytd: 0 },
         averageGuestPerRoom: { today: 0, ptd: 0, ytd: 0 },
         noOfReservationsConfirm: { today: 0, ptd: 0, ytd: 0 },
         noOfReservationsUnconfirm: { today: 0, ptd: 0, ytd: 0 },
         noOfWalkins: { today: 0, ptd: 0, ytd: 0 },
+        cancellations: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
