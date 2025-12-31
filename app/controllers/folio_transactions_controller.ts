@@ -121,11 +121,11 @@ export default class FolioTransactionsController {
       // Generate transaction number
       const lastTransaction = await FolioTransaction.query()
         .where('hotelId', folio.hotelId)
-        .select(['id','transactionNumber'])
+        .select(['id', 'transactionNumber'])
         .orderBy('transactionNumber', 'desc')
         .first()
       const transactionNumber = (Number(lastTransaction?.transactionNumber) || 0) + 1
-      console.log('transactionNumber',transactionNumber)
+      console.log('transactionNumber', transactionNumber)
 
       // Generate transaction code if not provided
       const transactionCode = generateTransactionCode()
@@ -364,7 +364,7 @@ export default class FolioTransactionsController {
               amount: transaction.amount
             },
             hotelId: transaction.hotelId,
-            ctx:ctx
+            ctx: ctx
           })
         } catch (receiptError) {
           // Log error but don't fail the transaction creation
@@ -1071,45 +1071,6 @@ export default class FolioTransactionsController {
    * Private method to update folio totals
    */
   private async updateFolioTotals(folioId: number) {
-    const folio = await Folio.findOrFail(folioId)
-
-    const transactions = await FolioTransaction.query()
-      .where('folioId', folioId)
-      .where('isVoided', false)
-
-    let totalCharges = 0
-    let totalPayments = 0
-    let totalAdjustments = 0
-    let totalTaxes = 0
-    let totalServiceCharges = 0
-    let totalDiscounts = 0
-
-    for (const transaction of transactions) {
-      switch (transaction.transactionType) {
-        case TransactionType.CHARGE:
-          totalCharges += parseFloat(`${transaction.amount ?? 0}`)
-          break
-        case TransactionType.PAYMENT:
-          totalPayments += Math.abs(parseFloat(`${transaction.amount ?? 0}`))
-          break
-        case TransactionType.ADJUSTMENT:
-          totalAdjustments += parseFloat(`${transaction.amount ?? 0}`)
-          break
-      }
-
-      totalTaxes += parseFloat(`${transaction.taxAmount ?? 0}`) || 0
-      totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount ?? 0}`) || 0
-      totalDiscounts += parseFloat(`${transaction.discountAmount ?? 0}`) || 0
-    }
-
-    folio.totalCharges = totalCharges
-    folio.totalPayments = totalPayments
-    folio.totalAdjustments = totalAdjustments
-    folio.totalTaxes = totalTaxes
-    folio.totalServiceCharges = totalServiceCharges
-    folio.totalDiscounts = totalDiscounts
-    folio.balance = totalCharges + totalAdjustments + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts
-
-    await folio.save()
+    await FolioService.updateFolioTotals(folioId)
   }
 }

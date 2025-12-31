@@ -1817,51 +1817,61 @@ export default class FolioService {
    * Update folio totals based on transactions
    */
   static async updateFolioTotals(folioId: number, trx?: TransactionClientContract): Promise<void> {
-    const transactions = await FolioTransaction.query({ client: trx })
-      .where('folioId', folioId)
-      .where('status', '!=', TransactionStatus.VOIDED)
-      .whereNull('mealPlanId')
+    const performUpdate = async (client: TransactionClientContract) => {
+      const transactions = await FolioTransaction.query({ client })
+        .where('folioId', folioId)
+        .where('status', '!=', TransactionStatus.VOIDED)
+        .whereNull('mealPlanId')
 
-    let totalCharges = 0
-    let totalPayments = 0
-    let totalAdjustments = 0
-    let totalTaxes = 0
-    let totalServiceCharges = 0
-    let totalDiscounts = 0
+      let totalCharges = 0
+      let totalPayments = 0
+      let totalAdjustments = 0
+      let totalTaxes = 0
+      let totalServiceCharges = 0
+      let totalDiscounts = 0
 
-    for (const transaction of transactions) {
-      if (transaction.transactionType === TransactionType.CHARGE) {
-        totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
-      } else if (transaction.transactionType === TransactionType.PAYMENT) {
-        totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
-      } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
-        totalAdjustments += parseFloat(`${transaction.totalAmount}`) || 0
-      } else if (transaction.transactionType === TransactionType.TRANSFER) {
-        // Treat transfer-in as charge (debit), transfer-out as payment (credit)
-        if (transaction.category === TransactionCategory.TRANSFER_IN) {
+      for (const transaction of transactions) {
+        if (transaction.transactionType === TransactionType.CHARGE) {
           totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
-        } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
+        } else if (transaction.transactionType === TransactionType.PAYMENT) {
           totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+        } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
+          totalAdjustments += parseFloat(`${transaction.totalAmount}`) || 0
+        } else if (transaction.transactionType === TransactionType.TRANSFER) {
+          // Treat transfer-in as charge (debit), transfer-out as payment (credit)
+          if (transaction.category === TransactionCategory.TRANSFER_IN) {
+            totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
+            totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+          }
+        } else if (transaction.transactionType === TransactionType.REFUND) {
+          totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
         }
+
+        totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
+        totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
+        totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
       }
 
-      totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
-      totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
-      totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
+      const balance = totalCharges + totalAdjustments - totalPayments
+
+      await Folio.query({ client })
+        .where('id', folioId)
+        .update({
+          totalCharges,
+          totalPayments,
+          totalAdjustments,
+          totalTaxes,
+          totalServiceCharges,
+          totalDiscounts,
+          balance
+        })
     }
 
-    const balance = totalCharges + totalAdjustments - totalPayments
-
-    await Folio.query({ client: trx })
-      .where('id', folioId)
-      .update({
-        totalCharges,
-        totalPayments,
-        totalAdjustments,
-        totalTaxes,
-        totalServiceCharges,
-        totalDiscounts,
-        balance
-      })
+    if (trx) {
+      await performUpdate(trx)
+    } else {
+      await db.transaction(performUpdate)
+    }
   }
 }
