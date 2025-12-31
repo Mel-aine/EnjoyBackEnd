@@ -683,7 +683,7 @@ export default class ReportsController {
       // Get authenticated user information
       const user = auth.user
       const printedBy = user
-        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        ? `${user.fullName|| ''}`.trim()
         : 'System'
 
       // Generate HTML content
@@ -1038,29 +1038,72 @@ public async getDailyReservationCounts(hotelId: number, startDate: DateTime, end
   if (roomCount === 0) {
     throw new Error('Hotel has no active rooms')
   }
+
+  // Preload all reservations overlapping the month, including reservation rooms and their assigned rooms
+  const allReservations = await Reservation.query()
+    .where('hotel_id', hotelId)
+    .whereRaw('DATE(arrived_date) <= ?', [endDate.toSQLDate()])
+    .whereRaw('DATE(depart_date) > ?', [startDate.toSQLDate()])
+    .whereNotIn('status', ['cancelled', 'voided','no_show'])
+    .preload('reservationRooms', (rrQuery) => {
+      rrQuery
+        .preload('room')
+        .select([
+          'id',
+          'room_id',
+          'check_in_date',
+          'check_out_date',
+          'is_splited_origin',
+          'isplited_destinatination',
+        ])
+    })
   
   const daysInMonth = endDate.day
-  const dailyCounts = []
+  const dailyCounts: Array<{ day: number; reservationCount: number; occupancyRate: number; totalRooms: number }> = []
   
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = startDate.set({ day })
-    
-    // Count occupied rooms for this day (guests present during this day)
-    // A room is occupied if: arrived_date <= currentDate AND departure_date > currentDate
-    const occupiedRooms = await Reservation.query()
-      .where('hotel_id', hotelId)
-      .whereRaw('DATE(arrived_date) <= ?', [currentDate.toSQLDate()])
-      .whereRaw('DATE(depart_date) > ?', [currentDate.toSQLDate()])
-      .whereNotIn('status', ['cancelled', 'voided'])
-      .count('* as total')
-    
-    const count = parseInt(occupiedRooms[0].$extras.total) || 0
-    const occupancyRate = roomCount > 0 ? ((count / roomCount) * 100).toFixed(2) : 0
+    const currentDateStr = currentDate.toISODate()!
+
+    // Helper to determine if a reservation room covers the current date
+    const coversToday = (rr: any): boolean => {
+      const ci = rr.checkInDate ? rr.checkInDate.toISODate() : null
+      const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : null
+      return !!ci && !!co && ci <= currentDateStr && co > currentDateStr
+    }
+
+    // Calculate effective occupied rooms for the day:
+    // - Only count reservation rooms with an assigned room (room_id present)
+    // - Merge split segments (is_splited_origin / isplited_destinatination) into a single count per reservation
+    // - Count non-split assigned segments individually
+    let occupiedEffectiveRooms = 0
+
+    for (const reservation of allReservations) {
+      const todaysRRs = Array.isArray((reservation as any).reservationRooms)
+        ? (reservation as any).reservationRooms.filter((rr: any) => coversToday(rr) && (rr.roomId || (rr.room && rr.room.id)))
+        : []
+
+      if (todaysRRs.length === 0) {
+        continue // no assigned room for today, do not consider
+      }
+
+      const normalAssignedCount = todaysRRs.filter(
+        (rr: any) => !rr.isSplitedOrigin && !rr.isplitedDestinatination
+      ).length
+
+      const hasAssignedSplit = todaysRRs.some(
+        (rr: any) => rr.isSplitedOrigin || rr.isplitedDestinatination
+      )
+
+      occupiedEffectiveRooms += normalAssignedCount + (hasAssignedSplit ? 1 : 0)
+    }
+
+    const occupancyRate = roomCount > 0 ? Math.round(((occupiedEffectiveRooms / roomCount) * 100) * 100) / 100 : 0
     
     dailyCounts.push({
       day,
-      reservationCount: count,
-      occupancyRate: parseFloat(occupancyRate), // Taux d'occupation en pourcentage
+      reservationCount: occupiedEffectiveRooms,
+      occupancyRate,
       totalRooms: roomCount,
     })
   }
@@ -2421,6 +2464,8 @@ public generateMonthlyOccupancyHtml(
 
       reservations.forEach((reservation) => {
         reservation.reservationRooms.forEach((rr: any) => {
+          const assigned = rr?.roomId || rr?.room?.id
+          if (!assigned) return
           rooms += 1
           adults += rr.adults || 1
           children += rr.children || 0
@@ -2470,11 +2515,12 @@ public generateMonthlyOccupancyHtml(
 
     reservations.forEach((reservation) => {
       reservation.reservationRooms.forEach((rr: any) => {
+        const assigned = rr?.roomId || rr?.room?.id
+        if (!assigned) return
         const rateTypeName = rr.roomRates?.rateType?.rateTypeName
         if (!rateTypeAnalysis[rateTypeName]) {
           rateTypeAnalysis[rateTypeName] = { adults: 0, children: 0 }
         }
-
         rateTypeAnalysis[rateTypeName].adults += rr.adults || 1
         rateTypeAnalysis[rateTypeName].children += rr.children || 0
       })
@@ -4960,7 +5006,10 @@ public generateMonthlyOccupancyHtml(
         }
         
         const updated = res.updatedAt ? res.updatedAt.toISODate() : ''
-        const roomCount = res.reservationRooms ? res.reservationRooms.length : 0
+        const assignedRRs: any[] = Array.isArray((res as any).reservationRooms)
+          ? (res as any).reservationRooms.filter((rr: any) => rr?.roomId || rr?.room?.id)
+          : []
+        const roomCount = assignedRRs.length
         
         if (!rDate || !ptdDate || !ytdDate) return
 
@@ -4982,10 +5031,17 @@ public generateMonthlyOccupancyHtml(
              return !!ci && !!co && ci <= rDate && co > rDate
            }
            const normalCoverCount = rrs.filter(
-             (rr) => !rr.isSplitedOrigin && !rr.isplitedDestinatination && coversToday(rr)
+             (rr) =>
+               (rr?.roomId || rr?.room?.id) &&
+               !rr.isSplitedOrigin &&
+               !rr.isplitedDestinatination &&
+               coversToday(rr)
            ).length
            const hasSplitCover = rrs.some(
-             (rr) => (rr.isSplitedOrigin || rr.isplitedDestinatination) && coversToday(rr)
+             (rr) =>
+               (rr?.roomId || rr?.room?.id) &&
+               (rr.isSplitedOrigin || rr.isplitedDestinatination) &&
+               coversToday(rr)
            )
            roomCountTodayEff = normalCoverCount + (hasSplitCover ? 1 : 0)
            if (roomCountTodayEff === 0 && daysToday > 0) {
@@ -7300,6 +7356,14 @@ public generateMonthlyOccupancyHtml(
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
           reservationQuery.where('hotel_id', hotelId)
+            .preload('reservationRooms', (rrQuery) => {
+              rrQuery.select([
+                'id',
+                'room_id',
+                'check_in_date',
+                'check_out_date',
+              ])
+            })
         })
       })
       .whereBetween('current_working_date', [
@@ -7309,7 +7373,16 @@ public generateMonthlyOccupancyHtml(
       .where('category', 'room')
       .where('status', 'posted')
       .preload('folio', (folioQuery) => {
-        folioQuery.preload('reservation')
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('reservationRooms', (rrQuery) => {
+            rrQuery.select([
+              'id',
+              'room_id',
+              'check_in_date',
+              'check_out_date',
+            ])
+          })
+        })
       })
 
     // Group by day and calculate daily revenue
@@ -7325,7 +7398,17 @@ public generateMonthlyOccupancyHtml(
     transactions.forEach((transaction) => {
       const transactionDate = DateTime.fromISO(transaction.transactionDate)
       const day = transactionDate.day.toString()
-      dailyRevenue[day] += Number(transaction.amount || 0)
+      const reservation = transaction.folio?.reservation
+      if (!reservation) return
+      const currentDateStr = transactionDate.toISODate()
+      if (!currentDateStr) return
+      const hasAssignedOnDate = (reservation.reservationRooms || []).some((rr: any) => {
+        const ci = rr.checkInDate ? rr.checkInDate.toISODate() : null
+        const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : null
+        return rr.roomId && ci && co && ci <= currentDateStr && co > currentDateStr
+      })
+      if (!hasAssignedOnDate) return
+      dailyRevenue[day] += Number(transaction.roomFinalNetAmount || 0)
     })
 
     // Calculate total revenue
@@ -7665,6 +7748,10 @@ public generateMonthlyOccupancyHtml(
     transactions.forEach((transaction) => {
       const reservation = transaction.folio?.reservation
       if (!reservation) return
+      const hasAssigned = (reservation.reservationRooms || []).some(
+        (rr: any) => rr?.roomId || rr?.room?.id
+      )
+      if (!hasAssigned) return
 
       const guest = reservation.guest
       const reservationRoom = reservation.reservationRooms?.[0]
@@ -9190,19 +9277,22 @@ public generateMonthlyOccupancyHtml(
       const reservations = await query.exec()
 
       // Format the guest list data
-      const guestList = reservations.map((reservation) => {
-        const primaryRoom =
-          reservation.reservationRooms.find((room) => room.isOwner) ||
-          reservation.reservationRooms[0]
-
-        return {
-          guestName: reservation.guest?.displayName || 'Guest not found',
-          roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
-          checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
-          checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
-          status: reservation.reservationStatus,
-        }
-      })
+      const guestList = reservations
+        .filter((reservation) =>
+          (reservation.reservationRooms || []).some((rr: any) => rr?.roomId || rr?.room?.id)
+        )
+        .map((reservation) => {
+          const primaryRoom =
+            reservation.reservationRooms.find((room) => room.isOwner && (room.room?.id || room.roomId)) ||
+            reservation.reservationRooms.find((room) => room.room?.id || room.roomId)
+          return {
+            guestName: reservation.guest?.displayName || 'Guest not found',
+            roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
+            checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+            checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
+            status: reservation.reservationStatus,
+          }
+        })
 
       return response.ok({
         success: true,

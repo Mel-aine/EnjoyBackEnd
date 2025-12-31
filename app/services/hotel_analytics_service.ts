@@ -241,12 +241,14 @@ export class HotelAnalyticsService {
             (rr: any) =>
               !rr.isSplitedOrigin &&
               !rr.isplitedDestinatination &&
-              coversToday(rr)
+              coversToday(rr) &&
+              rr.roomId
           ).length
           const hasSplit = reservation.reservationRooms.some(
             (rr: any) =>
               (rr.isSplitedOrigin || rr.isplitedDestinatination) &&
-              coversToday(rr)
+              coversToday(rr) &&
+              rr.roomId
           )
           occupiedEffCount += normalCount + (hasSplit ? 1 : 0)
           for (const rsp of reservation.reservationRooms) {
