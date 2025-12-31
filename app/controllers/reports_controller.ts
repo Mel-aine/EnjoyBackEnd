@@ -1418,15 +1418,10 @@ public generateMonthlyOccupancyHtml(
     // Section 1: Room Charges
     const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
 
-    // section2: checkout
-
-    const checkout= await this.getCheckoutData(hotelId, reportDate, currency)
 
     // Section 3: Daily Sales
     const dailySales = await this.getDailySalesData(hotelId, reportDate, currency)
 
-    const receiptSummary = await this.getReceiptSummaryData(hotelId, reportDate, currency)
-    const receiptDetails = await this.getReceiptDetailsData(hotelId, reportDate, currency)
 
     // Section 4: Misc. Charges
     const miscCharges = await this.getMiscChargesData(hotelId, reportDate, currency)
@@ -1443,14 +1438,11 @@ public generateMonthlyOccupancyHtml(
 
     return {
       roomCharges,
-      checkout,
       dailySales,
       miscCharges,
       roomStatus,
       paxStatus,
-      paxAnalysis,
-      receiptDetails,
-      receiptSummary
+      paxAnalysis
     }
   }
 
@@ -1574,145 +1566,6 @@ public generateMonthlyOccupancyHtml(
 
     return { data: roomChargesData, totals }
   }
-  private async getCheckoutData(hotelId: number, reportDate: DateTime, currency: string) {
-    const { default: Reservation } = await import('#models/reservation')
-  
-    // Récupérer les réservations qui ont checkout le jour du rapport
-    const reservations = await Reservation.query()
-      .where('hotel_id', hotelId)
-      .where('check_out_date', reportDate.toFormat('yyyy-MM-dd'))
-      .preload('reservationRooms', (roomQuery) => {
-        roomQuery.preload('room')
-        roomQuery.preload('roomType')
-        roomQuery.preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
-        })
-      })
-      .preload('guest')
-  
-    const checkoutDataEntries: Array<{
-      sortKey: number
-      roomNumber: string
-      data: any
-    }> = []
-    
-    let totals = {
-      nights: 0,
-      roomCharges: 0,
-      extraCharges: 0,
-      discount: 0,
-      tax: 0,
-      adjust: 0,
-      payment: 0,
-      balance: 0,
-    }
-  
-    for (const reservation of reservations) {
-      for (const reservationRoom of reservation.reservationRooms) {
-        const folio = reservationRoom.folios?.[0]
-        
-        if (reservationRoom.room && folio) {
-          // Récupération directe depuis les transactions
-          const transactions = folio.transactions || []
-  
-          // Room Charges - transactions CHARGE avec catégorie ROOM
-          const roomCharges = transactions
-            .filter(
-              (t: any) =>
-                t.transactionType === TransactionType.CHARGE &&
-                t.category === TransactionCategory.ROOM
-            )
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Extra Charges - transactions CHARGE hors catégorie ROOM
-          const extraCharges = transactions
-            .filter(
-              (t: any) =>
-                t.transactionType === TransactionType.CHARGE &&
-                t.category !== TransactionCategory.ROOM
-            )
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Discount - transactions DISCOUNT
-          const discount = Math.abs(
-            transactions
-              .filter((t: any) => t.transactionType === TransactionType.DISCOUNT)
-              .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-          )
-  
-          // Tax - somme des taxes sur les charges
-          const tax = transactions
-            .filter((t: any) => t.transactionType === TransactionType.CHARGE)
-            .reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
-  
-          // Adjust - transactions ADJUSTMENT
-          const adjust = transactions
-            .filter((t: any) => t.transactionType === TransactionType.ADJUSTMENT)
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Payment - transactions PAYMENT
-          const payment = transactions
-            .filter((t: any) => t.transactionType === TransactionType.PAYMENT)
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Balance
-          const totalCharges = roomCharges + extraCharges + tax - discount + adjust
-          const balance = totalCharges - payment
-  
-          const sortKeyRaw =
-            (reservationRoom.room as any)?.sortKey ?? (reservationRoom.room as any)?.sort_key
-          const sortKey =
-            sortKeyRaw === undefined || sortKeyRaw === null
-              ? Number.POSITIVE_INFINITY
-              : Number(sortKeyRaw)
-          const roomNumber = String(reservationRoom.room.roomNumber ?? '')
-  
-          checkoutDataEntries.push({
-            sortKey,
-            roomNumber,
-            data: {
-              room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
-              guest: reservation.guest
-                ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
-                : '',
-              invoiceNo: folio.folioNumber || 'N/A',
-              arrival: reservation.arrivedDate.toFormat('dd/MM/yyyy'),
-              departure: reservation.departDate.toFormat('dd/MM/yyyy'),
-              nights: reservationRoom.nights,
-              roomCharges: roomCharges,
-              extraCharges: extraCharges,
-              discount: discount,
-              tax: tax,
-              adjust: adjust,
-              payment: payment,
-              balance: balance,
-            },
-          })
-  
-          totals.nights += Math.round(reservationRoom.nights)
-          totals.roomCharges += roomCharges
-          totals.extraCharges += extraCharges
-          totals.discount += discount
-          totals.tax += tax
-          totals.adjust += adjust
-          totals.payment += payment
-          totals.balance += balance
-        }
-      }
-    }
-  
-    const checkoutData = checkoutDataEntries
-      .sort((a, b) => {
-        if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
-        return a.roomNumber.localeCompare(b.roomNumber, undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        })
-      })
-      .map((e) => e.data)
-  
-    return { data: checkoutData, totals }
-  }
 
   /**
    * Section 2: Daily Sales Data
@@ -1817,133 +1670,6 @@ public generateMonthlyOccupancyHtml(
     return { data: salesData, totals }
   }
 
-  /**
- * Section: Receipt Summary Data
- * Récupère les données agrégées par utilisateur et par méthode de paiement
- */
-private async getReceiptSummaryData(hotelId: number, reportDate: DateTime, currency: string) {
-  const { default: Receipt } = await import('#models/receipt')
-
-  const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
-
-  // Récupérer tous les reçus du jour
-  const receipts = await Receipt.query()
-    .where('hotelId', hotelId)
-    .where('paymentDate', reportDateStr)
-    .where('isVoided', false)
-    .preload('creator')
-    .preload('paymentMethod')
-
-  // Grouper par utilisateur
-  const userMap = new Map()
-  // Grouper par méthode de paiement
-  const payMethodMap = new Map()
-
-  let totalByUser = 0
-  let totalByPayMethod = 0
-
-  receipts.forEach(receipt => {
-    const amount = Number(receipt.totalAmount || 0)
-    const userId = receipt.creator?.id
-    const userName = receipt.creator 
-      ? `${receipt.creator.firstName} ${receipt.creator.lastName}`.trim() 
-      : 'Unknown'
-    const payMethodId = receipt.paymentMethodId
-    const payMethodName = receipt.paymentMethod?.methodName || 'Unknown'
-
-    // Agrégation par utilisateur
-    if (!userMap.has(userId)) {
-      userMap.set(userId, {
-        user: userName,
-        amount: 0
-      })
-    }
-    userMap.get(userId).amount += amount
-
-    // Agrégation par méthode de paiement
-    if (!payMethodMap.has(payMethodId)) {
-      payMethodMap.set(payMethodId, {
-        payMethod: payMethodName,
-        amount: 0
-      })
-    }
-    payMethodMap.get(payMethodId).amount += amount
-
-    totalByUser += amount
-    totalByPayMethod += amount
-  })
-
-  return {
-    byUser: Array.from(userMap.values()),
-    totalByUser,
-    byPayMethod: Array.from(payMethodMap.values()),
-    totalByPayMethod
-  }
-}
-
-/**
- * Section: Receipt Details Data
- * Récupère tous les reçus groupés par méthode de paiement
- */
-private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, currency: string) {
-  const { default: Receipt } = await import('#models/receipt')
-
-  const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
-
-  // Récupérer tous les reçus du jour
-  const receipts = await Receipt.query()
-    .where('hotelId', hotelId)
-    .where('paymentDate', reportDateStr)
-    .where('isVoided', false)
-    .preload('creator')
-    .preload('paymentMethod')
-    .preload('folioTransaction')
-    .orderBy('paymentMethodId', 'asc')
-    .orderBy('createdAt', 'asc')
-
-  // Grouper par méthode de paiement
-  const paymentMethodsMap = new Map()
-  let grandTotal = 0
-  let totalCount = 0
-
-  receipts.forEach(receipt => {
-    const payMethodId = receipt.paymentMethodId
-    const payMethodName = receipt.paymentMethod?.methodName || 'Unknown'
-    const amount = Number(receipt.totalAmount || 0)
-    const userName = receipt.creator 
-      ? `${receipt.creator.firstName} ${receipt.creator.lastName}`.trim() 
-      : 'System'
-
-    if (!paymentMethodsMap.has(payMethodId)) {
-      paymentMethodsMap.set(payMethodId, {
-        method: payMethodName,
-        receipts: [],
-        subtotal: 0
-      })
-    }
-
-    const paymentMethodGroup = paymentMethodsMap.get(payMethodId)
-    
-    paymentMethodGroup.receipts.push({
-      date: reportDate.toFormat('dd/MM/yyyy'),
-      reference: receipt.receiptNumber || 'N/A',
-      amount: amount,
-      user: userName,
-      enteredOn: DateTime.fromJSDate(receipt.createdAt).toFormat('dd/MM/yyyy HH:mm'),
-      remark: receipt.folioTransaction.notes || ''
-    })
-
-    paymentMethodGroup.subtotal += amount
-    grandTotal += amount
-    totalCount++
-  })
-
-  return {
-    paymentMethods: Array.from(paymentMethodsMap.values()),
-    grandTotal,
-    totalCount
-  }
-}
 
   /**
    * Helper method to add sales data to totals
@@ -3026,70 +2752,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </tbody>
       </table>
       <div class="total-count">Total ${sectionsData.roomCharges.data.length}</div>
- <!-- Section 2: Checkout -->
-    <div class="section">
-      <div class="section-title">Checkout</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Room</th>
-            <th>Guest</th>
-            <th>Invoice No.</th>
-            <th>Arrival</th>
-            <th>Departure</th>
-            <th>Nights</th>
-            <th>Room Charges<br/>(${currency})</th>
-            <th>Extra Charges<br/>(${currency})</th>
-            <th>Discount<br/>(${currency})</th>
-            <th>Tax<br/>(${currency})</th>
-            <th>Adjust<br/>(${currency})</th>
-            <th>Payment<br/>(${currency})</th>
-            <th>Balance<br/>(${currency})</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sectionsData.checkout.data
-        .map(
-          (row: any) => `
-          <tr>
-            <td>${row.room}</td>
-            <td>${row.guest}</td>
-            <td class="center">${row.invoiceNo}</td>
-            <td class="center">${row.arrival}</td>
-            <td class="center">${row.departure}</td>
-            <td class="number center">${row.nights}</td>
-            <td class="number">${formatCurrency(row.roomCharges)}</td>
-            <td class="number">${formatCurrency(row.extraCharges)}</td>
-            <td class="number">${formatCurrency(row.discount)}</td>
-            <td class="number">${formatCurrency(row.tax)}</td>
-            <td class="number">${formatCurrency(row.adjust)}</td>
-            <td class="number">${formatCurrency(row.payment)}</td>
-            <td class="number">${formatCurrency(row.balance)}</td>
-          </tr>
-          `
-        )
-        .join('')}
-          <tr class="totals-row">
-            <td><strong></strong></td>
-            <td><strong></strong></td>
-            <td><strong></strong></td>
-            <td><strong></strong></td>
-            <td><strong>Total</strong></td>
-            <td class="number center border-dashed"><strong>${sectionsData.checkout.totals.nights}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.roomCharges)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.extraCharges)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.discount)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.tax)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.adjust)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.payment)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.balance)}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total-count">Total ${sectionsData.checkout.data.length}</div>
-    </div>
-    
-    <!-- Section 3: Daily Sales -->
+  
+    <!-- Section 2: Daily Sales -->
     <div class="section">
       <div class="section-title">Daily Sales</div>
       <table class="data-table">
@@ -3135,117 +2799,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </tbody>
       </table>
     </div>
-
-     <!-- Section 4: Receipt Details -->
-    <div class="section">
-      <div class="section-title">Receipt Details</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Payment Method</th>
-            <th>Date</th>
-            <th>Receipt Reference</th>
-            <th>Amount<br/>(${currency})</th>
-            <th>User</th>
-            <th>Entered On</th>
-            <th>Remark</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sectionsData.receiptDetails.paymentMethods
-        .map(
-          (paymentMethod: any) => `
-          ${paymentMethod.receipts
-            .map(
-              (receipt: any, index: number) => `
-          <tr>
-            ${index === 0 ? `<td rowspan="${paymentMethod.receipts.length + 1}" style="vertical-align: top; font-weight: bold; background-color: #f5f5f5;">${paymentMethod.method}</td>` : ''}
-            <td class="center">${receipt.date}</td>
-            <td>${receipt.reference}</td>
-            <td class="number">${formatCurrency(receipt.amount)}</td>
-            <td>${receipt.user}</td>
-            <td class="center">${receipt.enteredOn}</td>
-            <td>${receipt.remark ?? ''}</td>
-          </tr>
-              `
-            )
-            .join('')}
-          <tr class="totals-row">
-            <td colspan="2"><strong>Subtotal</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(paymentMethod.subtotal)}</strong></td>
-            <td colspan="3"></td>
-          </tr>
-          `
-        )
-        .join('')}
-          <tr class="totals-row" style="background-color: #e8e8e8;">
-            <td colspan="3"><strong>Grand Total (${currency})</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.receiptDetails.grandTotal)}</strong></td>
-            <td colspan="3"></td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total-count">Total ${sectionsData.receiptDetails.totalCount} Receipt(s)</div>
-    </div>
-        <!-- Section 4: Receipt Summary -->
-    <div class="section">
-      <div class="section-title">Receipt Summary</div>
-      <div style="display: flex; gap: 30px;">
-        <!-- Table 1: By User -->
-        <table class="data-table" style="width: 35%;">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Amount<br/>(${currency})</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sectionsData.receiptSummary.byUser
-          .map(
-            (row: any) => `
-            <tr>
-              <td>${row.user}</td>
-              <td class="number">${formatCurrency(row.amount)}</td>
-            </tr>
-            `
-          )
-          .join('')}
-            <tr class="totals-row">
-              <td><strong>Total (${currency})</strong></td>
-              <td class="number border-dashed"><strong>${formatCurrency(sectionsData.receiptSummary.totalByUser)}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Table 2: By Payment Method -->
-        <table class="data-table" style="width: 35%;">
-          <thead>
-            <tr>
-              <th>Pay Method</th>
-              <th>Amount<br/>(${currency})</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sectionsData.receiptSummary.byPayMethod
-          .map(
-            (row: any) => `
-            <tr>
-              <td>${row.payMethod}</td>
-              <td class="number">${formatCurrency(row.amount)}</td>
-            </tr>
-            `
-          )
-          .join('')}
-            <tr class="totals-row">
-              <td><strong>Total (${currency})</strong></td>
-              <td class="number border-dashed"><strong>${formatCurrency(sectionsData.receiptSummary.totalByPayMethod)}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   
-    <!-- Section 4: Misc. Charges -->
+    <!-- Section 3: Misc. Charges -->
     <div class="section">
       <div class="section-title">Misc. Charges</div>
       <table class="data-table">
@@ -3301,7 +2856,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       <div class="total-count">Total ${sectionsData.miscCharges.data.length}</div>
     </div>
   
-    <!-- Section 5: Room Status -->
+    <!-- Section 4: Room Status -->
     <div class="section">
       <div class="section-title">Room Status</div>
       <table class="data-table room-status-table">
@@ -3332,7 +2887,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       </table>
     </div>
   
-    <!-- Section 6: Pax Status -->
+    <!-- Section 5: Pax Status -->
     <div class="section">
       <div class="section-title">Pax Status</div>
       <table class="data-table pax-status-table">
@@ -3361,7 +2916,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       </table>
     </div>
   
-    <!-- Section 7: Pax Analysis -->
+    <!-- Section 6: Pax Analysis -->
     <div class="section">
       <div class="section-title">Pax Analysis</div>
       <table class="data-table pax-analysis-table">
