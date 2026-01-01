@@ -669,7 +669,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const { reservationRooms, actualCheckOutTime, notes } = request.body()
 
     if (!auth.user) {
-      console.log('[CHECKOUT] Erreur: Utilisateur non authentifié');
       return response.unauthorized({
         success: false,
         message: 'Authentication required',
@@ -744,6 +743,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
           message: 'Cannot check out with outstanding balance',
           errors: [
             `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
+          ],
+          data: {
+            balanceSummary,
+            outstandingAmount: balanceSummary.outstandingBalance,
+          },
+        })
+      }
+
+      if (balanceSummary.outstandingBalance < -0.01) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Cannot check out with negative balance (Credit). No refund mechanism available.',
+          errors: [
+            `Negative balance of ${balanceSummary.outstandingBalance} must be refunded before checkout`,
           ],
           data: {
             balanceSummary,
@@ -913,8 +927,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
     })
 
-
-      await GuestSummaryService.recomputeFromReservation(reservation.id)
 
       return response.ok({
         success: true,
