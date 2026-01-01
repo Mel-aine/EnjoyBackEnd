@@ -2493,7 +2493,7 @@ public generateMonthlyOccupancyHtml(
   ): string {
     const formattedDate = reportDate.toFormat('dd-MM-yyyy')
     const currentDateTime = DateTime.now().toFormat('dd-MM-yyyy HH:mm:ss')
-
+  
     return `
   <!DOCTYPE html>
   <html lang="en">
@@ -2502,12 +2502,13 @@ public generateMonthlyOccupancyHtml(
     <style>
       @page {
         size: A4;
+        margin: 15mm 10mm 15mm 10mm;
       }
       
       body {
         font-family: Arial, sans-serif;
         margin: 0;
-        padding: 0;
+        padding: 10px;
         color: #000;
         line-height: 1.3;
         font-size: 9px;
@@ -2535,8 +2536,6 @@ public generateMonthlyOccupancyHtml(
         color: #800020;
       }
       
-  
-      
       .report-info {
         padding: 3px 0 3px 0;
         margin: 0;
@@ -2554,7 +2553,6 @@ public generateMonthlyOccupancyHtml(
         margin: 12px 0;
         padding-bottom: 8px;
         border-bottom: 1px dashed #666;
-        page-break-inside: avoid;
       }
       
       .section-title {
@@ -2617,10 +2615,10 @@ public generateMonthlyOccupancyHtml(
         padding: 4px 3px;
         font-size: 8px;
       }
-
+  
       .totals-row td.border-dashed {
-      border-top: 1.5px dashed #000 !important;
-      border-bottom: 1px dashed #000 !important;
+        border-top: 1.5px dashed #000 !important;
+        border-bottom: 1px dashed #000 !important;
       }
       
       .total-count {
@@ -2630,7 +2628,6 @@ public generateMonthlyOccupancyHtml(
         text-align: right;
       }
       
-      /* Styles pour les tableaux de statut réduits */
       .data-table.room-status-table {
         width: 70%;
         margin-left: 0;
@@ -2650,10 +2647,7 @@ public generateMonthlyOccupancyHtml(
       }
       
       .footer {
-        position: fixed;
-        bottom: 15px;
-        left: 20px;
-        right: 20px;
+        margin-top: 20px;
         padding-top: 8px;
         border-top: 1px solid #000;
         display: flex;
@@ -2661,20 +2655,51 @@ public generateMonthlyOccupancyHtml(
         align-items: center;
         font-size: 8px;
       }
-        @media print {
+      
+      @media print {
         body { 
           margin: 0;
-          padding: 0;
+          padding: 10px;
         }
+        
         .page-header { 
           page-break-after: avoid;
-        }
-        .section { 
           page-break-inside: avoid;
         }
+        
+        .report-info {
+          page-break-after: avoid;
+          page-break-inside: avoid;
+        }
+        
+        .section { 
+          page-break-inside: auto;
+        }
+        
+        .section-title {
+          page-break-after: avoid;
+        }
+        
+        .data-table {
+          page-break-inside: auto;
+        }
+        
+        .data-table thead {
+          display: table-header-group;
+        }
+        
+        .data-table tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+        
+        .totals-row {
+          page-break-inside: avoid;
+        }
+        
         .footer {
-          position: fixed;
-          bottom: 0;
+          margin-top: 20px;
+          page-break-inside: avoid;
         }
       }
     </style>
@@ -2714,8 +2739,8 @@ public generateMonthlyOccupancyHtml(
         </thead>
         <tbody>
           ${sectionsData.roomCharges.data
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -2732,10 +2757,10 @@ public generateMonthlyOccupancyHtml(
             <td>${row.checkinBy}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
           <tr class="totals-row">
-           <td><strong></strong></td>
+            <td><strong></strong></td>
             <td><strong></strong></td>
             <td><strong></strong></td>
             <td><strong></strong></td>
@@ -2752,6 +2777,7 @@ public generateMonthlyOccupancyHtml(
         </tbody>
       </table>
       <div class="total-count">Total ${sectionsData.roomCharges.data.length}</div>
+    </div>
   
     <!-- Section 2: Daily Sales -->
     <div class="section">
@@ -2771,8 +2797,8 @@ public generateMonthlyOccupancyHtml(
         </thead>
         <tbody>
           ${sectionsData.dailySales.data
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.salesType}</td>
             <td class="number ">${formatCurrency(row.roomCharges)}</td>
@@ -2784,8 +2810,8 @@ public generateMonthlyOccupancyHtml(
             <td class="number">${formatCurrency(row.totalSales)}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
           <tr class="totals-row">
             <td><strong>Total (${currency})</strong></td>
             <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.roomCharges)}</strong></td>
@@ -2821,8 +2847,8 @@ public generateMonthlyOccupancyHtml(
         </thead>
         <tbody>
           ${sectionsData.miscCharges.data
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -2837,8 +2863,8 @@ public generateMonthlyOccupancyHtml(
             <td>${row.remark ?? ''}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
           <tr class="totals-row">
             <td><strong></strong></td>
             <td><strong></strong></td>
@@ -2901,8 +2927,8 @@ public generateMonthlyOccupancyHtml(
         </thead>
         <tbody>
           ${sectionsData.paxStatus
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td class="center">${row.status}</td>
             <td class="number center">${row.rooms}</td>
@@ -2910,8 +2936,8 @@ public generateMonthlyOccupancyHtml(
             <td class="number center">${row.children}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
@@ -2929,16 +2955,16 @@ public generateMonthlyOccupancyHtml(
         </thead>
         <tbody>
           ${sectionsData.paxAnalysis
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td class="center">${row.rateType}</td>
             <td class="number center">${row.adults}</td>
             <td class="number center">${row.children}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
