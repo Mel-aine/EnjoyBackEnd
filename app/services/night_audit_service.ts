@@ -4,6 +4,7 @@ import FolioTransaction from '#models/folio_transaction'
 import Reservation from '#models/reservation'
 import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
+import RoomBlock from '#models/room_block'
 import Folio from '#models/folio'
 import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
 import LoggerService from '#services/logger_service'
@@ -71,8 +72,8 @@ export default class NightAuditService {
         query.whereHas('reservation', (resQuery) => {
           resQuery.where('status', 'checked_in')
         })
-        .where('check_in_date', '<=', auditDateStr)
-        .where('check_out_date', '>=', auditDateStr)
+          .where('check_in_date', '<=', auditDateStr)
+          .where('check_out_date', '>=', auditDateStr)
       })
 
     if (occupiedRooms.length > 0) {
@@ -83,7 +84,7 @@ export default class NightAuditService {
           housekeeping_status: 'dirty',
           updated_at: DateTime.now().toSQL()
         })
-      
+
       console.log(`Updated ${occupiedRooms.length} occupied rooms to dirty status for audit date ${auditDateStr}`)
     }
   }
@@ -145,7 +146,7 @@ export default class NightAuditService {
       await hotel.save()
       const emailService = new ReportsEmailService()
       setImmediate(async () => {
-            await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+        await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
       })
     }
 
@@ -180,7 +181,7 @@ export default class NightAuditService {
       'checked_out',
       ReservationStatus.CONFIRMED,
     ]
-    console.log('data',auditDate)
+    console.log('data', auditDate)
     // Get all transactions for the audit date
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
@@ -201,13 +202,13 @@ export default class NightAuditService {
     let totalDiscounts = 0
 
     for (const transaction of transactions) {
-      const amount = Math.abs(transaction.roomFinalNetAmount ||transaction.amount || 0)
+      const amount = Math.abs(transaction.roomFinalNetAmount || transaction.amount || 0)
 
       if (transaction.transactionType === TransactionType.CHARGE) {
         switch (transaction.category) {
           case TransactionCategory.ROOM:
             totalRoomRevenue += amount
-            totalTaxes+= Math.abs((transaction as any).roomFinalRateTaxe || 0)
+            totalTaxes += Math.abs((transaction as any).roomFinalRateTaxe || 0)
             break
           case TransactionCategory.FOOD_BEVERAGE:
           case TransactionCategory.EXTRACT_CHARGE:
@@ -268,16 +269,29 @@ export default class NightAuditService {
       .count('* as total')
       .first()
 
-    const totalRooms = Number(totalAvailableRooms?.$extras.total || 0)
+    // Get blocked rooms count for the audit date that are not OOO
+    const blockedRoomsResult = await RoomBlock.query()
+      .where('hotel_id', hotelId)
+      .whereNot('status', 'completed')
+      .where('block_from_date', '<=', auditDate.toFormat('yyyy-MM-dd'))
+      .where('block_to_date', '>=', auditDate.toFormat('yyyy-MM-dd'))
+      .whereHas('room', (roomQuery) => {
+        roomQuery.where('status', '!=', 'out_of_order')
+      })
+      .countDistinct('room_id as total')
+      .first()
+
+    const blockedRooms = Number(blockedRoomsResult?.$extras.total || 0)
+    const totalRooms = Math.max(0, Number(totalAvailableRooms?.$extras.total || 0) - blockedRooms)
 
     // Get occupied rooms for the audit date
     const occupiedRoomsResult = await ReservationRoom.query()
+      .where('check_in_date', '<=', auditDate.toJSDate())
+      .where('check_out_date', '>', auditDate.toJSDate())
       .whereHas('reservation', (reservationQuery) => {
         reservationQuery
           .where('hotel_id', hotelId)
           .whereIn('status', allowedReservationStatuses)
-          .where('check_in_date', '<=', auditDate.toJSDate())
-          .where('check_out_date', '>', auditDate.toJSDate())
       })
       .countDistinct('room_id as occupied')
       .first()

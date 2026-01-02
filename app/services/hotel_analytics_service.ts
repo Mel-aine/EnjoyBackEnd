@@ -266,23 +266,7 @@ export class HotelAnalyticsService {
         }
       }
 
-      const occupancyRate = totalRooms > 0 ? (occupiedEffCount / totalRooms) * 100 : 0
 
-      // Calculate available rooms per room type using precomputed totals
-      const availableRoomsByType: {
-        [key: number]: { room_type_id: number; room_type_name: string; available_count: number }
-      } = {}
-
-      roomTypes.forEach((roomType) => {
-        const baseAvailable =
-          (roomsByTypeTotal.get(roomType.id) || 0) -
-          (staticExcludedByTypeCount.get(roomType.id) || 0)
-        availableRoomsByType[roomType.id] = {
-          room_type_id: roomType.id,
-          room_type_name: roomType.roomTypeName,
-          available_count: baseAvailable,
-        }
-      })
 
       // Get blocked room IDs for this specific date from preloaded blocks
       const blockedRoomIds = new Set<number>()
@@ -298,6 +282,25 @@ export class HotelAnalyticsService {
           if (block.room) {
             blockedRoomIds.add(block.room.id)
           }
+        }
+      })
+
+      const netTotalRooms = Math.max(0, totalRooms - blockedRoomIds.size)
+      const occupancyRate = netTotalRooms > 0 ? (occupiedEffCount / netTotalRooms) * 100 : 0
+
+      // Calculate available rooms per room type using precomputed totals
+      const availableRoomsByType: {
+        [key: number]: { room_type_id: number; room_type_name: string; available_count: number }
+      } = {}
+
+      roomTypes.forEach((roomType) => {
+        const baseAvailable =
+          (roomsByTypeTotal.get(roomType.id) || 0) -
+          (staticExcludedByTypeCount.get(roomType.id) || 0)
+        availableRoomsByType[roomType.id] = {
+          room_type_id: roomType.id,
+          room_type_name: roomType.roomTypeName,
+          available_count: baseAvailable,
         }
       })
 
@@ -440,7 +443,7 @@ export class HotelAnalyticsService {
 
       dailyMetrics.push({
         date: currentDate.toISODate(),
-        total_available_rooms: totalRooms,
+        total_available_rooms: netTotalRooms,
         occupancy_rate: parseFloat(occupancyRate.toFixed(0)),
         allocated_rooms: occupiedEffCount,
         unassigned_reservations: unassignedReservationsCount,
