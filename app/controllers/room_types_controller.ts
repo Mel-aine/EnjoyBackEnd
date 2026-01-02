@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import RoomType from '#models/room_type'
 import { createRoomTypeValidator, updateRoomTypeValidator } from '#validators/room_type'
 import logger from '@adonisjs/core/services/logger'
+import Room from '#models/room'
 
 export default class RoomTypesController {
   /**
@@ -148,12 +149,16 @@ export default class RoomTypesController {
       const roomType = await RoomType.findOrFail(params.id)
 
       // Check if there are any rooms of this type
-      const roomsCount = await roomType.related('rooms').query().count('* as total')
-      if (roomsCount[0].$extras.total > 0) {
+      const roomsCount = await Room.query()
+        .where('room_type_id', params.id)
+        .count('* as total')
+
+      if (Number(roomsCount[0].$extras.total) > 0) {
         return response.badRequest({
-          message: 'Cannot delete room type with existing rooms'
+          message: 'Impossible de supprimer un type de chambre avec des chambres existantes',
         })
       }
+
 
       // Soft delete
       roomType.isDeleted = true

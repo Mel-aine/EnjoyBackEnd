@@ -530,6 +530,12 @@ export class HotelAnalyticsService {
                 // Sinon, fallback au primary guest de la réservation
                 guestName = reservation.guest.displayName || `${reservation.guest.title || ''} ${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
               }
+
+              // Ajouter le nom de la Business Source si disponible
+              const businessSourceName = reservation.businessSource?.name
+              if (businessSourceName) {
+                guestName = guestName ? `${guestName} // ${businessSourceName}` : businessSourceName
+              }
             if (groupedDetails[roomType]) {
               groupedDetails[roomType].reservations.push({
                 reservation_id: reservation.id,
@@ -564,6 +570,7 @@ export class HotelAnalyticsService {
                 groupName: reservation.groupName,
                 remainingAmount: reservation.remainingAmount,
                 bookingSource: reservation.bookingSource,
+                businessSource: reservation.businessSource,
                 totalNights: reservation.numberOfNights,
                 paymentStatus: reservation.paymentStatus,
                 balance_summary: balanceSummary,

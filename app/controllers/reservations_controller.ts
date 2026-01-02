@@ -1319,11 +1319,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
         JSON.parse(auth.user?.permisPrivileges || '[]')
       )
 
+
+
       const result = {
         ...reservation.toJSON(),
         balanceSummary,
         avgDailyRate,
         availableActions,
+        displayName: reservation.displayName,
       }
 
       return response.ok(result)
@@ -2496,6 +2499,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('guest')
         .preload('roomType')
         .preload('bookingSource')
+        .preload('businessSource')
         .preload('reservationType', (sQuery: any) => {
           sQuery.select(['id', 'name'])
         })

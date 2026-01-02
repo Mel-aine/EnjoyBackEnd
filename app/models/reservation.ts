@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, afterCreate,beforeSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, beforeSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -597,7 +597,14 @@ export default class Reservation extends BaseModel {
   }
 
   get displayName() {
-    return `${this.confirmationCode} - ${this.guest?.firstName} ${this.guest?.lastName}`
+    const guestName = `${this.guest?.title ?? ''} ${this.guest?.firstName ?? ''} ${this.guest?.lastName ?? ''}`.trim()
+    const businessSourceName = this.businessSource?.name
+
+    if (businessSourceName) {
+      return guestName ? `${guestName} // ${businessSourceName}` : businessSourceName
+    }
+
+    return guestName
   }
 
   /**
