@@ -162,6 +162,9 @@ export class HotelAnalyticsService {
       .preload('bookingSource', (bsQuery) => {
         bsQuery.select(['id', 'source_name', 'source_code'])
       })
+      .preload('businessSource', (busQuery) => {
+        busQuery.select(['id', 'name'])
+      })
     const [allRooms, roomBlocks, reservations] = await Promise.all([
       roomsPromise,
       blocksPromise,
@@ -214,9 +217,7 @@ export class HotelAnalyticsService {
       }
     }
 
-      .preload('businessSource', (busQuery) => {
-        busQuery.select(['id', 'name'])
-      })
+
 
     // 4. Calculate daily occupancy metrics
     const dailyMetrics = []
