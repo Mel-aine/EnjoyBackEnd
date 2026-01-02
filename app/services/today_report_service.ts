@@ -175,7 +175,9 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
 function queryBase(hotelId: number) {
   return Reservation.query()
     .where('hotel_id', hotelId)
-    .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+    .whereDoesntHave('reservationRooms', (rr) => {
+      rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+    })
     .preload('guest')
     .preload('roomType')
     .preload('bookingSource')

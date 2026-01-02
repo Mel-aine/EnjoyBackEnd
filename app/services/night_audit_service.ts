@@ -348,6 +348,9 @@ export default class NightAuditService {
       .where('hotel_id', hotelId)
       .where('check_in_date', auditDateJS)
       .where('status', 'checked_in')
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .count('* as total')
       .first()
 
@@ -356,6 +359,9 @@ export default class NightAuditService {
       .where('hotel_id', hotelId)
       .where('check_out_date', auditDateJS)
       .where('status', 'checked_out')
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .count('* as total')
       .first()
 
@@ -379,6 +385,9 @@ export default class NightAuditService {
     const bookingsMadeResult = await Reservation.query()
       .where('hotel_id', hotelId)
       .whereRaw('DATE(created_at) = ?', [auditDate.toFormat('yyyy-MM-dd')])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .count('* as total')
       .first()
 
@@ -831,6 +840,9 @@ export default class NightAuditService {
       const occupiedRooms = await Reservation.query()
         .where('hotel_id', hotelId)
         .where('status', 'checked_in')
+        .whereDoesntHave('reservationRooms', (rr) => {
+          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
         .whereRaw('DATE(arrived_date) <= ?', [auditDate])
         .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [auditDate])
         .preload('guest')
@@ -953,7 +965,9 @@ export default class NightAuditService {
           query.where('arrived_date', '=', auditDate).orWhere('depart_date', '=', auditDate)
         })
         .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
-        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        .whereDoesntHave('reservationRooms', (rr) => {
+          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
         .preload('guest', (guestQuery) => {
           guestQuery.select(['id', 'firstName', "lastName", 'title'])
         })
