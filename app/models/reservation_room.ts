@@ -49,6 +49,9 @@ export default class ReservationRoom extends BaseModel {
   @column.date()
   declare checkOutDate: DateTime
 
+  @column.date()
+  declare extendDate: DateTime | null
+
   @column()
   declare checkInTime: string
 

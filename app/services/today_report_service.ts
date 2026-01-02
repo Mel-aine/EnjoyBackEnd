@@ -293,10 +293,24 @@ async function getArrivalToday(hotelId: number, day: DateTime): Promise<Reservat
 async function getExtendedToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const todayStr = toSqlDate(day)
-  return await q
+  const reservations = await q
     .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
-    .whereRaw('DATE(arrived_date) > ?', [todayStr])
-    .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
+    .whereHas('reservationRooms', (query) => {
+      query.whereRaw('DATE(extend_date) = ?', [todayStr])
+    })
+
+  // Filter reservation rooms to include ONLY those extended today
+  reservations.forEach((res) => {
+    if (res.reservationRooms) {
+      const filtered = res.reservationRooms.filter((rr) => {
+        return rr.extendDate && toSqlDate(rr.extendDate) === todayStr
+      })
+      // Cast to any to bypass strict relation type check
+      ;(res as any).reservationRooms = filtered
+    }
+  })
+
+  return reservations
 }
 
 async function getStayToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
