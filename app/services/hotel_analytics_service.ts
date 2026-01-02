@@ -116,6 +116,7 @@ export class HotelAnalyticsService {
             'id',
             'room_id',
             'room_type_id',
+            'status',
             'check_in_date',
             'check_out_date',
             'check_in_time',
@@ -453,23 +454,26 @@ export class HotelAnalyticsService {
     const groupedDetails: { [key: string]: any } = {}
     const today = DateTime.now().startOf('day')
 
-    const getReservationStatus = (reservation: Reservation, today: DateTime): string => {
-      if (reservation.status === 'confirmed') {
+    const getReservationStatus = (entity: any, today: DateTime): string => {
+      const status = entity.status
+      const departureDate =entity.checkOutDate || entity.departDate
+
+      if (status === 'confirmed' || status === 'reserved') {
         return 'confirmed'
-      } else if (reservation.status === 'request') {
+      } else if (status === 'request') {
         return 'request'
-      } else if (reservation.status === 'blocked') {
+      } else if (status === 'blocked') {
         return 'blocked'
-      } else if (reservation.status === 'checkout') {
+      } else if (status=='check_out'||status === 'checkout') {
         return 'checkout'
-      } else if (reservation.status === 'checked_in') {
-        if (reservation.departDate?.hasSame(today, 'day')) {
+      } else if (status === 'checked_in') {
+        if (departureDate?.hasSame(today, 'day')) {
           return 'departure'
         } else {
           return 'inhouse'
         }
       }
-      return reservation.status
+      return status
     }
 
     // Precompute occupied rooms for today
@@ -546,7 +550,7 @@ export class HotelAnalyticsService {
                 guest_name: guestName,
                 check_in_date: reservationRoom.checkInDate || reservation.arrivedDate,
                 check_out_date: reservationRoom.checkOutDate || reservation.departDate,
-                reservation_status: getReservationStatus(reservation, today),
+                reservation_status: getReservationStatus(reservationRoom, today) || getReservationStatus(reservation, today),
                 is_checking_in_today:
                   (reservationRoom.checkInDate || reservation.arrivedDate)?.hasSame(today, 'day') ??
                   false,
