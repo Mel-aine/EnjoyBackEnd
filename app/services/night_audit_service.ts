@@ -4,6 +4,7 @@ import FolioTransaction from '#models/folio_transaction'
 import Reservation from '#models/reservation'
 import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
+import RoomBlock from '#models/room_block'
 import Folio from '#models/folio'
 import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
 import LoggerService from '#services/logger_service'
@@ -59,10 +60,44 @@ export default class NightAuditService {
   }
 
   /**
+   * Update status of occupied rooms to dirty
+   */
+  private static async updateOccupiedRoomsToDirty(hotelId: number, auditDate: DateTime) {
+    const auditDateStr = auditDate.toISODate()!
+
+    // Find all occupied rooms (rooms with checked-in reservations overlapping the audit date)
+    const occupiedRooms = await Room.query()
+      .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+      .whereHas('reservationRooms', (query) => {
+        query.whereHas('reservation', (resQuery) => {
+          resQuery.where('status', 'checked_in')
+        })
+          .where('check_in_date', '<=', auditDateStr)
+          .where('check_out_date', '>=', auditDateStr)
+      })
+
+    if (occupiedRooms.length > 0) {
+      const roomIds = occupiedRooms.map(r => r.id)
+      await Room.query()
+        .whereIn('id', roomIds)
+        .update({
+          housekeeping_status: 'dirty',
+          updated_at: DateTime.now().toSQL()
+        })
+
+      console.log(`Updated ${occupiedRooms.length} occupied rooms to dirty status for audit date ${auditDateStr}`)
+    }
+  }
+
+  /**
    * Calculate and store night audit data for a specific date
    */
   static async calculateNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
     const { auditDate, hotelId, userId } = filters
+
+    // Update occupied rooms to dirty status
+    await this.updateOccupiedRoomsToDirty(hotelId, auditDate)
 
     // Calculate all metrics in parallel for better performance
     const [
@@ -112,7 +147,7 @@ export default class NightAuditService {
       await hotel.save()
       const emailService = new ReportsEmailService()
       setImmediate(async () => {
-            await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+        await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
       })
     }
 
@@ -147,7 +182,7 @@ export default class NightAuditService {
       'checked_out',
       ReservationStatus.CONFIRMED,
     ]
-    console.log('data',auditDate)
+    console.log('data', auditDate)
     // Get all transactions for the audit date
     const transactions = await FolioTransaction.query()
       .where('hotel_id', hotelId)
@@ -156,6 +191,9 @@ export default class NightAuditService {
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereIn('status', allowedReservationStatuses)
+          reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+          })
         })
       })
 
@@ -168,13 +206,13 @@ export default class NightAuditService {
     let totalDiscounts = 0
 
     for (const transaction of transactions) {
-      const amount = Math.abs(transaction.roomFinalNetAmount ||transaction.amount || 0)
+      const amount = Math.abs(transaction.roomFinalNetAmount || transaction.amount || 0)
 
       if (transaction.transactionType === TransactionType.CHARGE) {
         switch (transaction.category) {
           case TransactionCategory.ROOM:
             totalRoomRevenue += amount
-            totalTaxes+= Math.abs((transaction as any).roomFinalRateTaxe || 0)
+            totalTaxes += Math.abs((transaction as any).roomFinalRateTaxe || 0)
             break
           case TransactionCategory.FOOD_BEVERAGE:
           case TransactionCategory.EXTRACT_CHARGE:
@@ -232,19 +270,35 @@ export default class NightAuditService {
     const totalAvailableRooms = await Room.query()
       .where('hotel_id', hotelId)
       .where('status', '!=', 'out_of_order')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .count('* as total')
       .first()
 
-    const totalRooms = Number(totalAvailableRooms?.$extras.total || 0)
+    // Get blocked rooms count for the audit date that are not OOO
+    const blockedRoomsResult = await RoomBlock.query()
+      .where('hotel_id', hotelId)
+      .whereNot('status', 'completed')
+      .where('block_from_date', '<=', auditDate.toFormat('yyyy-MM-dd'))
+      .where('block_to_date', '>=', auditDate.toFormat('yyyy-MM-dd'))
+      .whereHas('room', (roomQuery) => {
+        roomQuery.where('status', '!=', 'out_of_order')
+        roomQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      })
+      .countDistinct('room_id as total')
+      .first()
+
+    const blockedRooms = Number(blockedRoomsResult?.$extras.total || 0)
+    const totalRooms = Math.max(0, Number(totalAvailableRooms?.$extras.total || 0) - blockedRooms)
 
     // Get occupied rooms for the audit date
     const occupiedRoomsResult = await ReservationRoom.query()
+      .where('check_in_date', '<=', auditDate.toJSDate())
+      .where('check_out_date', '>', auditDate.toJSDate())
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .whereHas('reservation', (reservationQuery) => {
         reservationQuery
           .where('hotel_id', hotelId)
           .whereIn('status', allowedReservationStatuses)
-          .where('check_in_date', '<=', auditDate.toJSDate())
-          .where('check_out_date', '>', auditDate.toJSDate())
       })
       .countDistinct('room_id as occupied')
       .first()
@@ -262,6 +316,9 @@ export default class NightAuditService {
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereIn('status', allowedReservationStatuses)
+          reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+          })
         })
       })
       .sum('room_final_net_amount as total_room_revenue')
@@ -351,6 +408,13 @@ export default class NightAuditService {
       .where('current_working_date', auditDateJS)
       .where('transaction_type', TransactionType.PAYMENT)
       .where('is_voided', false)
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+        reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
+          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
+      })
       .sum('amount as total')
       .first()
 
@@ -360,6 +424,9 @@ export default class NightAuditService {
       .where('balance', '>', 0)
       .whereHas('reservation', (reservationQuery) => {
         reservationQuery.whereIn('status', allowedReservationStatuses)
+        reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
+          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
       })
       .count('* as total_folios')
       .sum('balance as total_balance')
@@ -371,6 +438,9 @@ export default class NightAuditService {
       .where('balance', '>', 0)
       .whereHas('reservation', (reservationQuery) => {
         reservationQuery.whereIn('status', allowedReservationStatuses)
+        reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
+          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
       })
       .sum('balance as total')
       .first()
@@ -554,6 +624,7 @@ export default class NightAuditService {
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
       .where('is_deleted', false)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('roomType')
       .preload('reservationRooms', (reservationRoomQuery) => {
         reservationRoomQuery
@@ -882,6 +953,7 @@ export default class NightAuditService {
           query.where('arrived_date', '=', auditDate).orWhere('depart_date', '=', auditDate)
         })
         .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
         .preload('guest', (guestQuery) => {
           guestQuery.select(['id', 'firstName', "lastName", 'title'])
         })

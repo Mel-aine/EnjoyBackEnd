@@ -100,7 +100,7 @@ export default class SendDailySummary extends BaseCommand {
     try {
       const service = new ReportsEmailService()
       await service.sendDailySummaryEmail(fact)
-      //await service.sendDailyEmail(fact.hotelId, fact.createdAt.toISODate()!)
+      await service.sendDailyEmail(fact.hotelId, fact.auditDate.toISODate()!)
       this.logger.success('Daily Summary email sent successfully.')
     } catch (error: any) {
       this.logger.error(`Failed to send Daily Summary email: ${error?.message || String(error)}`)

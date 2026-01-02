@@ -96,6 +96,7 @@ export class ReservationReportsService {
       .preload('ratePlan')
       .preload('creator')
       .whereBetween('arrived_date', [startDate, endDate])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .orderBy('arrived_date', 'asc')
   
     // Filtre obligatoire : Hotel ID
@@ -473,6 +474,9 @@ export class ReservationReportsService {
       query.where('market_code_id', filters.market)
     }
 
+    // Exclure les chambres Paymaster
+    query.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+
     const reservations = await query
     const totalRecords = reservations.length
 
@@ -542,6 +546,7 @@ export class ReservationReportsService {
       .preload('bookingSource')
       .preload('ratePlan')
       .where('reservation_status', 'Confirmed')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .orderBy('scheduled_arrival_date', 'asc')
 
     if (filters.hotelId) {
@@ -602,6 +607,7 @@ export class ReservationReportsService {
       .preload('folios')
       .preload('creator')
       .whereBetween('cancellation_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       //.where('reservation_status', 'Cancelled')
       .orderBy('cancellation_date', 'desc')
 
@@ -715,6 +721,7 @@ export class ReservationReportsService {
       .preload('reservationType')
       .preload('ratePlan')
       .preload('creator')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       //.where('reservation_status', 'No-Show')
       .orderBy('arrived_date', 'desc')
 
@@ -820,6 +827,12 @@ export class ReservationReportsService {
       )
       .whereBetween('scheduled_arrival_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')])
       .whereIn('reservation_status', ['Confirmed', 'Guaranteed'])
+      .whereNotExists((builder) => {
+        builder
+          .from('room_types')
+          .whereColumn('room_types.id', 'reservations.room_type_id')
+          .where('room_types.is_paymaster', true)
+      })
       .groupByRaw('DATE(scheduled_arrival_date)')
       .orderBy('date', 'asc')
 
@@ -861,6 +874,7 @@ export class ReservationReportsService {
       .preload('folios')
       //.preload('creator')
       .whereBetween('voided_date', [startDate.toFormat('yyyy-MM-dd'), endDate.toFormat('yyyy-MM-dd')]) 
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       //.where('reservation_status', 'Void')
       .orderBy('voided_date', 'desc')
 
@@ -1029,6 +1043,9 @@ export class FrontOfficeReportsService {
       query.whereNotNull('check_in_date')
     }
 
+    // Exclure les chambres Paymaster
+    query.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+
     const reservations = await query
     const totalRecords = reservations.length
 
@@ -1117,6 +1134,7 @@ export class FrontOfficeReportsService {
       .preload('ratePlan')
       .where('reservation_status', 'Checked-Out')
       .whereBetween('actual_departure_datetime', [startDate.toString(), endDate.toString()])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .orderBy('actual_departure_datetime', 'desc')
 
     if (filters.hotelId) {
@@ -1328,6 +1346,7 @@ export class FrontOfficeReportsService {
     const query = Room.query()
       .preload('hotel')
       .preload('roomType')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .orderBy('sort_key', 'asc')
       .orderBy('roomNumber', 'asc')
 
@@ -1504,6 +1523,7 @@ export class BackOfficeReportsService {
       .join('folios', 'folio_transactions.folio_id', 'folios.id')
       .join('reservations', 'folios.reservation_id', 'reservations.id')
       .leftJoin('room_types', 'reservations.primary_room_type_id', 'room_types.id')
+      .whereRaw('(room_types.is_paymaster IS NULL OR room_types.is_paymaster = false)')
       .select(
         Database.raw('DATE(folio_transactions.transaction_date) as date'),
         'room_types.type_name as room_type',
@@ -1590,6 +1610,11 @@ export class BackOfficeReportsService {
       .preload('folio', (folioQuery) => {
         folioQuery.preload('reservation', (reservationQuery) => {
           reservationQuery.preload('guest')
+        })
+      })
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (reservationQuery) => {
+          reservationQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
         })
       })
       .where('transaction_type', TransactionType.PAYMENT)
@@ -1714,9 +1739,11 @@ export class StatisticalReportsService {
 
     // Get total rooms by hotel
     const totalRoomsQuery = Database.from('rooms')
-      .select('hotel_id')
+      .leftJoin('room_types', 'rooms.room_type_id', 'room_types.id')
+      .whereRaw('(room_types.is_paymaster IS NULL OR room_types.is_paymaster = false)')
+      .select('rooms.hotel_id')
       .count('* as total_rooms')
-      .groupBy('hotel_id')
+      .groupBy('rooms.hotel_id')
 
     if (filters.hotelId) {
       totalRoomsQuery.where('hotel_id', filters.hotelId)
@@ -1727,6 +1754,9 @@ export class StatisticalReportsService {
     // Get occupancy data
     const occupancyQuery = Database.from('reservation_rooms')
       .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+      .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
+      .join('room_types', 'rooms.room_type_id', 'room_types.id')
+      .whereRaw('(room_types.is_paymaster IS NULL OR room_types.is_paymaster = false)')
       .select(
         'reservations.hotel_id',
         Database.raw('DATE(reservation_rooms.check_in_date) as date'),
@@ -1925,6 +1955,8 @@ export class StatisticalReportsService {
 
     const query = Database.from('reservations')
       .join('booking_sources', 'reservations.booking_source_id', 'booking_sources.id')
+      .leftJoin('room_types', 'reservations.primary_room_type_id', 'room_types.id')
+      .whereRaw('(room_types.is_paymaster IS NULL OR room_types.is_paymaster = false)')
       .select(
         'booking_sources.sourceName',
         'booking_sources.sourceType',
@@ -2027,6 +2059,17 @@ export class CustomReportsService {
       })
     } else {
       query = query.orderBy(`${tableName}.createdAt`, 'desc')
+    }
+
+    // Add Paymaster exclusion based on table
+    if (tableName === 'rooms') {
+       query.leftJoin('room_types', 'rooms.room_type_id', 'room_types.id')
+       query.whereRaw('(room_types.is_paymaster IS NULL OR room_types.is_paymaster = false)')
+    } else if (tableName === 'reservations') {
+       query.leftJoin('room_types', 'reservations.primary_room_type_id', 'room_types.id')
+       query.whereRaw('(room_types.is_paymaster IS NULL OR room_types.is_paymaster = false)')
+    } else if (tableName === 'room_types') {
+       query.whereRaw('(is_paymaster IS NULL OR is_paymaster = false)')
     }
 
     const data = await query

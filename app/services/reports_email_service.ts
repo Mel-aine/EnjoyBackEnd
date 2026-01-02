@@ -158,8 +158,8 @@ export default class ReportsEmailService {
             <tr><td style="border:1px solid #e5e7eb">Total Payments</td><td style="border:1px solid #e5e7eb">${money(fact.totalPayments)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Total Discounts</td><td style="border:1px solid #e5e7eb">${money(fact.totalDiscounts)}</td></tr>
 
-            <tr><td style="border:1px solid #e5e7eb">Occupied Rooms</td><td style="border:1px solid #e5e7eb">${typeof fact.occupiedRooms === 'number' ? fact.occupiedRooms : '-'}</td></tr>
-            <tr><td style="border:1px solid #e5e7eb">Available Rooms</td><td style="border:1px solid #e5e7eb">${typeof fact.totalAvailableRooms === 'number' ? fact.totalAvailableRooms : '-'}</td></tr>
+            <tr><td style="border:1px solid #e5e7eb">Occupied Room${fact.occupiedRooms === 1 ? '' : 's'}</td><td style="border:1px solid #e5e7eb">${typeof fact.occupiedRooms === 'number' ? fact.occupiedRooms : '-'}</td></tr>
+            <tr><td style="border:1px solid #e5e7eb">Available Room${fact.totalAvailableRooms === 1 ? '' : 's'}</td><td style="border:1px solid #e5e7eb">${typeof fact.totalAvailableRooms === 'number' ? fact.totalAvailableRooms : '-'}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">Occupancy Rate</td><td style="border:1px solid #e5e7eb">${fact.occupancyRate}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">RevPAR</td><td style="border:1px solid #e5e7eb">${money(fact.revPAR)}</td></tr>
             <tr><td style="border:1px solid #e5e7eb">ADR</td><td style="border:1px solid #e5e7eb">${money(fact.adr)}</td></tr>
@@ -426,20 +426,30 @@ export default class ReportsEmailService {
 
     const pdfContent = await this.generateTodayReportPdf(todayData)
 
+    const { to: resolvedTo, cc: resolvedCc, bcc: resolvedBcc } = this.resolveRecipients(hotel)
+
     // Recipient: use hotel's default EmailAccount address only
     const defaultAccount = await EmailAccount.query()
       .where('hotel_id', hotel.id)
       //.where('is_default', true)
       .first()
     console.log(defaultAccount);
-    const finalTo: AnyRecipient[] = defaultAccount
-      ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }]
-      //? [{ address: 'reservation@suita-hotel.com', name: defaultAccount.displayName },{address:'melaineevans7@gmail.com',name: defaultAccount.displayName}] ///{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }
-      : []
+    let finalTo: AnyRecipient[] = defaultAccount 
+       ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }] 
+       : []
+    
+    if (finalTo.length === 0) {
+      if (hotel.email) {
+        finalTo = [hotel.email]
+      }
+    }
+
     if (finalTo.length === 0) {
       // No default email account; do nothing gracefully
       return
     }
+
+    const finalCc = [...resolvedTo, ...resolvedCc]
 
     const attachments = [{
       filename: `Daily_Report_${dateStr}.pdf`,
@@ -449,11 +459,13 @@ export default class ReportsEmailService {
 
     // HTML minimal pour l'email
     const html = this.buildTodayReportHtml(todayData)
-    // Send a single email to the default account, no CC/BCC, no explicit from
+    
     await MailService.sendWithAttachments({
-      to: finalTo[0],
+      to: finalTo,
       subject,
       html,
+      cc: finalCc,
+      bcc: resolvedBcc,
       attachments,
     })
   }
@@ -493,7 +505,7 @@ export default class ReportsEmailService {
           <tbody>
               <tr
                   style="background-color:${color};font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;color: white;">
-                  <td align="left" width="100%" colspan="8" style="padding:0.5em;">${section.title} : ${section.bookingCount} Booking</td>
+                  <td align="left" width="100%" colspan="8" style="padding:0.5em;">${section.title} : ${section.bookingCount} Room${section.bookingCount > 1 ? 's' : ''}</td>
               </tr>
               <tr>
                   <td colspan="8" style="padding:7.5pt 0.75pt 0.75pt">

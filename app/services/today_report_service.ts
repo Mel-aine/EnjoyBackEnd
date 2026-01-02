@@ -175,13 +175,15 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
 function queryBase(hotelId: number) {
   return Reservation.query()
     .where('hotel_id', hotelId)
+    .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
     .preload('guest')
     .preload('roomType')
     .preload('bookingSource')
     .preload('businessSource')
     .preload('hotel')
     .preload('reservationRooms', (rr) =>
-      rr
+      rr.where('is_splited_origin', false)
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
         .preload('room')
         .preload('roomType')
         .preload('rateType')
@@ -293,10 +295,24 @@ async function getArrivalToday(hotelId: number, day: DateTime): Promise<Reservat
 async function getExtendedToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const todayStr = toSqlDate(day)
-  return await q
+  const reservations = await q
     .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
-    .whereRaw('DATE(arrived_date) > ?', [todayStr])
-    .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
+    .whereHas('reservationRooms', (query) => {
+      query.whereRaw('DATE(extend_date) = ?', [todayStr])
+    })
+
+  // Filter reservation rooms to include ONLY those extended today
+  reservations.forEach((res) => {
+    if (res.reservationRooms) {
+      const filtered = res.reservationRooms.filter((rr) => {
+        return rr.extendDate && toSqlDate(rr.extendDate) === todayStr
+      })
+      // Cast to any to bypass strict relation type check
+      ;(res as any).reservationRooms = filtered
+    }
+  })
+
+  return reservations
 }
 
 async function getStayToday(hotelId: number, day: DateTime): Promise<Reservation[]> {

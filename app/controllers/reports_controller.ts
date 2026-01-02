@@ -675,17 +675,23 @@ export default class ReportsController {
         endDate
       )
 
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.find(parseInt(hotelId))
+      const hotelName = hotel?.hotelName!
+
+
       // Get authenticated user information
       const user = auth.user
       const printedBy = user
-        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        ? `${user.fullName|| ''}`.trim()
         : 'System'
 
       // Generate HTML content
       const htmlContent = this.generateMonthlyOccupancyHtml(
         dailyReservationCounts,
         startDate,
-        printedBy
+        printedBy,
+        hotelName
       )
 
       // Import PDF generation service
@@ -1016,326 +1022,354 @@ export default class ReportsController {
   /**
    * Get daily reservation counts for a month
    */
-  public async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
-    const { default: Reservation } = await import('#models/reservation')
-
-    const daysInMonth = endDate.day
-    const dailyCounts = []
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = startDate.set({ day })
-
-      // Count reservations for this day (arrivals)
-      const reservationCount = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereRaw('DATE(arrived_date) = ?', [currentDate.toSQLDate()])
-        .whereNotIn('status', ['cancelled', 'voided'])
-        .count('* as total')
-
-      dailyCounts.push({
-        day,
-        reservationCount: parseInt(reservationCount[0].$extras.total) || 0,
-      })
-    }
-
-    return dailyCounts
+// Function to get daily occupancy rates
+public async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
+  const { default: Reservation } = await import('#models/reservation')
+  const { default: Room } = await import('#models/room')
+  
+  // Count total active rooms for the hotel
+  const totalRooms = await Room.query()
+    .where('hotel_id', hotelId)
+    .where('isDeleted', false)
+    .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+    .count('* as total')
+  
+  const roomCount = parseInt(totalRooms[0].$extras.total) || 0
+  
+  if (roomCount === 0) {
+    throw new Error('Hotel has no active rooms')
   }
 
-  public generateMonthlyOccupancyHtml(
-    reservationData: any[],
-    startDate: DateTime,
-    printedBy: string = 'System'
-  ): string {
-    const monthName = startDate.toFormat('MMMM yyyy')
+  // Preload all reservations overlapping the month, including reservation rooms and their assigned rooms
+  const allReservations = await Reservation.query()
+    .where('hotel_id', hotelId)
+    .whereRaw('DATE(arrived_date) <= ?', [endDate.toSQLDate()])
+    .whereRaw('DATE(depart_date) > ?', [startDate.toSQLDate()])
+    .whereNotIn('status', ['cancelled', 'voided','no_show'])
+    .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+    .preload('reservationRooms', (rrQuery) => {
+      rrQuery
+        .preload('room')
+        .select([
+          'id',
+          'room_id',
+          'check_in_date',
+          'check_out_date',
+          'is_splited_origin',
+          'isplited_destinatination',
+        ])
+    })
+  
+  const daysInMonth = endDate.day
+  const dailyCounts: Array<{ day: number; reservationCount: number; occupancyRate: number; totalRooms: number }> = []
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = startDate.set({ day })
+    const currentDateStr = currentDate.toISODate()!
 
-    // Calculate chart data
-    const maxReservations = Math.max(...reservationData.map((d) => d.reservationCount), 1)
-    const totalReservations = reservationData.reduce((sum, d) => sum + d.reservationCount, 0)
-    const avgReservations =
-      reservationData.length > 0 ? (totalReservations / reservationData.length)?.toFixed(1) : '0.0'
+    // Helper to determine if a reservation room covers the current date
+    const coversToday = (rr: any): boolean => {
+      const ci = rr.checkInDate ? rr.checkInDate.toISODate() : null
+      const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : null
+      return !!ci && !!co && ci <= currentDateStr && co > currentDateStr
+    }
 
-    // Set a fixed y-axis max for better visualization
-    const yAxisMax = Math.max(maxReservations, 10)
-    const maxChartHeight = 350
+    // Calculate effective occupied rooms for the day:
+    // - Only count reservation rooms with an assigned room (room_id present)
+    // - Merge split segments (is_splited_origin / isplited_destinatination) into a single count per reservation
+    // - Count non-split assigned segments individually
+    let occupiedEffectiveRooms = 0
 
-    const chartData = reservationData.map((data) => ({
-      day: data.day,
-      reservationCount: data.reservationCount,
-      height: Math.max((data.reservationCount / yAxisMax) * maxChartHeight, 2),
-    }))
+    for (const reservation of allReservations) {
+      const todaysRRs = Array.isArray((reservation as any).reservationRooms)
+        ? (reservation as any).reservationRooms.filter((rr: any) => coversToday(rr) && (rr.roomId || (rr.room && rr.room.id)))
+        : []
 
-    return `
+      if (todaysRRs.length === 0) {
+        continue // no assigned room for today, do not consider
+      }
+
+      const normalAssignedCount = todaysRRs.filter(
+        (rr: any) => !rr.isSplitedOrigin && !rr.isplitedDestinatination
+      ).length
+
+      const hasAssignedSplit = todaysRRs.some(
+        (rr: any) => rr.isSplitedOrigin || rr.isplitedDestinatination
+      )
+
+      occupiedEffectiveRooms += normalAssignedCount + (hasAssignedSplit ? 1 : 0)
+    }
+
+    const occupancyRate = roomCount > 0 ? Math.round(((occupiedEffectiveRooms / roomCount) * 100) * 100) / 100 : 0
+    
+    dailyCounts.push({
+      day,
+      reservationCount: occupiedEffectiveRooms,
+      occupancyRate,
+      totalRooms: roomCount,
+    })
+  }
+  
+  return dailyCounts
+}
+
+
+// Génération HTML avec le style exact du PDF - VERSION LARGE
+public generateMonthlyOccupancyHtml(
+  reservationData: any[],
+  startDate: DateTime,
+  printedBy: string = 'System',
+  hotelName: string = ''
+): string {
+  const monthName = startDate.toFormat('MMMM yyyy')
+  const yAxisMax = 100
+  const maxChartHeight = 350
+
+  const chartData = reservationData.map((data) => ({
+    day: data.day,
+    occupancyRate: data.occupancyRate,
+    height: Math.max((data.occupancyRate / yAxisMax) * maxChartHeight, 3),
+  }))
+
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monthly Reservations Report - ${monthName}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+        @page {
+            size: A4 landscape;
+            margin: 15mm;
+        }
+        
+        @media print {
+            body {
+                width: 297mm;
+                height: 210mm;
+            }
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            padding: 1.5rem;
-            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #fff;
+            padding: 10px;
+            width: 100%;
         }
+        
         .container {
-            background-color: white;
-            padding: 2rem;
-            max-width: 64rem;
-            margin-left: auto;
-            margin-right: auto;
+            max-width: 100%;
+            margin: 0 auto;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-            border-bottom: 3px solid #3b82f6;
-            padding-bottom: 1.5rem;
-        }
-        .header-content {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            margin-top: 0.5rem;
-        }
-        .header-legend {
-            background-color: #3b82f6;
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-        }
-        .title {
-            background-color: #3b82f6;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            display: inline-block;
-            font-size: 1.5rem;
+        
+        /* En-tête avec nom d'hôtel en rouge bordeaux */
+        .hotel-name {
+            font-size: 16px;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            color: #8B0000;
+            margin-bottom: 10px;
+            border-bottom: 3px solidrgb(11, 10, 10);
         }
+        
+        /* Ligne horizontale rouge bordeaux */
+        .header-line {
+            border-top: 3px
+        }
+        
+        /* Titre centré en rouge bordeaux */
+        .title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: #8B0000;
+            margin-bottom: 20px;
+        }
+        
+        /* Légende avec carré bleu */
+        .legend-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .legend-square {
+            width: 18px;
+            height: 18px;
+            background-color: #3b82f6;
+        }
+        .legend-text {
+            font-size: 14px;
+            color: #000;
+            font-weight: 600;
+        }
+        
+        /* Graphique */
         .chart-container {
-            margin: 2rem 0;
             position: relative;
             height: 450px;
-            border: 1px solid #d1d5db;
-            background-color: #f9fafb;
-            padding: 1.5rem;
+            padding: 20px 20px 60px 60px;
+            border: 2px solid #ddd;
+            background: #fafafa;
         }
-        .chart-wrapper {
+        .y-axis {
             position: absolute;
-            top: 2rem;
-            left: 5rem;
-            right: 2rem;
-            bottom: 5rem;
-            border-left: 2px solid #1f2937;
-            border-bottom: 2px solid #1f2937;
+            left: 10px;
+            top: 20px;
+            bottom: 75px;
+            width: 45px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .y-label {
+            font-size: 13px;
+            color: #000;
+            font-weight: 600;
+        }
+        .chart-area {
+            position: absolute;
+            left: 60px;
+            right: 20px;
+            top: 20px;
+            bottom: 75px;
+            border-left: 3px solid #000;
+            border-bottom: 3px solid #000;
+        }
+        .grid-lines {
+            position: absolute;
+            left: 0; right: 0; top: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .grid-line {
+            border-top: 1px dashed #ccc;
+            width: 100%;
         }
         .chart {
+            position: absolute;
+            left: 0; right: 0; bottom: 0; top: 0;
             display: flex;
             align-items: flex-end;
-            height: 100%;
-            padding: 0 0.5rem;
-            gap: 3px;
+            padding: 0 5px;
+            gap: 5px;
         }
         .bar-container {
             flex: 1;
             position: relative;
             height: 100%;
             display: flex;
+            justify-content: center;
             align-items: flex-end;
         }
         .bar {
-            background: #3b82f6;
             width: 100%;
+            background-color: #3b82f6 !important;
             position: relative;
-            border: 1px solid #3b82f6; /* Bordure bleue */
+            min-height: 3px;
+            border: 1px solid #2563eb;
         }
         .bar-value {
             position: absolute;
-            top: -1.25rem;
+            top: -22px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 0.65rem;
-            color: #1f2937;
+            font-size: 11px;
+            color: #000;
             font-weight: 700;
             white-space: nowrap;
-            
         }
         .x-axis {
             position: absolute;
-            bottom: -2rem;
-            left: 0;
-            right: 0;
+            left: 60px;
+            right: 20px;
+            bottom: 30px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
         }
         .x-label {
-            font-size: 0.75rem;
-            color: #6b7280;
-            text-align: center;
             flex: 1;
-        }
-        .y-axis {
-            position: absolute;
-            left: 1.5rem;
-            top: 2rem;
-            bottom: 5rem;
-            height: calc(100% - 7rem);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: flex-end;
-            z-index: 2;
-        }
-        .y-label {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-right: 3px;
-            line-height: 1;
-            transform: translateY(50%);
-        }
-        .y-label-zero {
-            position: relative;
-            margin-right: 3px;
-            display: flex;
-            align-items: center;
-            line-height: 1;
-            transform: translateY(50%);
-        }
-        .blue-flag {
-            width: 8px;
-            height: 8px;
-            background-color: #3b82f6;
-            border-radius: 50%;
-            margin-right: 0.25rem;
-        }
-        .grid-lines {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 0;
-            height: 100%;
-            display: flex;
-            flex-direction: column-reverse;
-            justify-content: space-between;
-            z-index: 1;
-            padding-bottom: 0.2rem;
-        }
-        .grid-line {
-            border-top: 1px dashed #e5e7eb;
-            width: 100%;
-        }
-        .legend-container {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background-color: #f1f5f9;
-            border-radius: 0.5rem;
-        }
-        .legend-item {
             text-align: center;
+            font-size: 12px;
+            color: #000;
+            font-weight: 600;
         }
-        .legend-value {
-            font-size: 1rem;
-            font-weight: 400;
-            color: #1f2937;
-        }
-        .legend-label {
-            font-size: 0.5rem;
-            color: #6b7280;
-            margin-top: 0.25rem;
-        }
+        
+        /* Footer */
         .footer {
-            margin-top: 2rem;
-            text-align: center;
-            font-size: 0.7rem;
-            color: #9ca3af;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 1rem;
+            margin-top: 20px;
             display: flex;
             justify-content: space-between;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 11px;
+            color: #666;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1 class="title">Monthly Reservations Report - ${monthName}</h1>
-            <div class="header-content">
-                <div class="header-legend">
-                    ■ Daily Reservations
-                </div>
-            </div>
+        <!-- En-tête -->
+        <div class="hotel-name">${hotelName}</div>
+        <h1 class="title">Monthly Occupancy - ${monthName}</h1>
+        
+        <!-- Légende -->
+        <div class="legend-box">
+            <div class="legend-square"></div>
+            <span class="legend-text">Occupancy %</span>
         </div>
 
+        <!-- Graphique -->
         <div class="chart-container">
             <div class="y-axis">
-                <div class="y-label">${Math.ceil(yAxisMax)}</div>
-                <div class="y-label">${Math.ceil(yAxisMax * 0.75)}</div>
-                <div class="y-label">${Math.ceil(yAxisMax * 0.5)}</div>
-                <div class="y-label">${Math.ceil(yAxisMax * 0.25)}</div>
-                <div class="y-label-zero"><span class="blue-flag"></span>0</div>
+                <div class="y-label">100</div>
+                <div class="y-label">80</div>
+                <div class="y-label">60</div>
+                <div class="y-label">40</div>
+                <div class="y-label">20</div>
+                <div class="y-label">0</div>
             </div>
-            <div class="chart-wrapper">
+            
+            <div class="chart-area">
                 <div class="grid-lines">
                     <div class="grid-line"></div>
                     <div class="grid-line"></div>
                     <div class="grid-line"></div>
                     <div class="grid-line"></div>
+                    <div class="grid-line"></div>
                 </div>
+                
                 <div class="chart">
-                    ${chartData
-        .map(
-          (data) => `
+                    ${chartData.map(data => `
                         <div class="bar-container">
-                            ${data.reservationCount > 0
-              ? `
-                                <div class="bar" style="height: ${data.height}px; background-color: #fb923c; /* Orange pour l'intérieur */">
-                                    <div class="bar-value">${data.reservationCount}</div>
+                            ${data.occupancyRate > 0 ? `
+                                <div class="bar" style="height: ${data.height}px; background-color: #3b82f6;">
+                                    <div class="bar-value">${data.occupancyRate}</div>
                                 </div>
-                            `
-              : ''
-            }
+                            ` : ''}
                         </div>
-                    `
-        )
-        .join('')}
+                    `).join('')}
                 </div>
-                <div class="x-axis">
-                    ${chartData.map((data) => `<div class="x-label">${data.day}</div>`).join('')}
-                </div>
+            </div>
+            
+            <div class="x-axis">
+                ${chartData.map(data => `<div class="x-label">${data.day}</div>`).join('')}
             </div>
         </div>
 
-        <div class="legend-container">
-            <div class="legend-item">
-                <div class="legend-value">${avgReservations}</div>
-                <div class="legend-label">Average Daily Reservations</div>
-            </div>
-            <div class="legend-item">
-                <div class="legend-value">${maxReservations}</div>
-                <div class="legend-label">Peak Daily Reservations</div>
-            </div>
-            <div class="legend-item">
-                <div class="legend-value">${totalReservations}</div>
-                <div class="legend-label">Total Reservations</div>
-            </div>
-        </div>
-
+        <!-- Footer -->
         <div class="footer">
-            <p>Printed On: ${DateTime.now().toFormat('dd/MM/yyyy HH:mm')}</p>
-            <p>Printed By: ${printedBy}</p>
-            <p>Page 1 of 1</p>
+            <span>Printed By: ${printedBy}</span>
+            <span>Printed On: ${DateTime.now().toFormat('dd-MM-yyyy HH:mm:ss')}</span>
+            <span>Page 1 of 1</span>
         </div>
     </div>
 </body>
 </html>
-    `
-  }
+  `
+}
 
   /**
    * Generate Night Audit Report PDF
@@ -1426,42 +1460,29 @@ export default class ReportsController {
    * Generate all sections data for Night Audit Report
    */
   public async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
-    // Section 1: Room Charges
-    const roomCharges = await this.getRoomChargesData(hotelId, reportDate, currency)
-
-    // section2: checkout
-
-    const checkout= await this.getCheckoutData(hotelId, reportDate, currency)
-
-    // Section 3: Daily Sales
-    const dailySales = await this.getDailySalesData(hotelId, reportDate, currency)
-
-    const receiptSummary = await this.getReceiptSummaryData(hotelId, reportDate, currency)
-    const receiptDetails = await this.getReceiptDetailsData(hotelId, reportDate, currency)
-
-    // Section 4: Misc. Charges
-    const miscCharges = await this.getMiscChargesData(hotelId, reportDate, currency)
-
-    // Section 5: Room Status
-    const roomStatus = await this.getRoomStatusData(hotelId, reportDate)
-
-    // Section 6: Pax Status
-    const paxStatus = await this.getPaxStatusData(hotelId, reportDate)
-
-    // Section 7: Pax Analysis
-    const paxAnalysis = await this.getPaxAnalysisData(hotelId, reportDate)
-    
-
-    return {
+    const [
       roomCharges,
-      checkout,
       dailySales,
       miscCharges,
       roomStatus,
       paxStatus,
-      paxAnalysis,
-      receiptDetails,
-      receiptSummary
+      paxAnalysis
+    ] = await Promise.all([
+      this.getRoomChargesData(hotelId, reportDate, currency),
+      this.getDailySalesData(hotelId, reportDate, currency),
+      this.getMiscChargesData(hotelId, reportDate, currency),
+      this.getRoomStatusData(hotelId, reportDate),
+      this.getPaxStatusData(hotelId, reportDate),
+      this.getPaxAnalysisData(hotelId, reportDate)
+    ])
+
+    return {
+      roomCharges,
+      dailySales,
+      miscCharges,
+      roomStatus,
+      paxStatus,
+      paxAnalysis
     }
   }
 
@@ -1476,6 +1497,9 @@ export default class ReportsController {
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
       .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
@@ -1543,7 +1567,7 @@ export default class ReportsController {
               room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
               folioNo: reservationRoom.folios?.[0]?.folioNumber || 'N/A',
               guest: reservation.guest
-                ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+                ? `${reservation.guest.displayName}`
                 : '',
               source: reservation.businessSource?.name || '',
               company: reservation.companyName || '',
@@ -1555,7 +1579,7 @@ export default class ReportsController {
               totalRent: totalAmount, // Revenu net pour l'hôtel
               variance: variance,
               checkinBy: reservationRoom.checkedInByUser
-                ? `${reservationRoom.checkedInByUser.lastName}`
+                ? `${reservationRoom.checkedInByUser?.fullName}`
                 : 'N/A',
             },
           })
@@ -1585,145 +1609,6 @@ export default class ReportsController {
 
     return { data: roomChargesData, totals }
   }
-  private async getCheckoutData(hotelId: number, reportDate: DateTime, currency: string) {
-    const { default: Reservation } = await import('#models/reservation')
-  
-    // Récupérer les réservations qui ont checkout le jour du rapport
-    const reservations = await Reservation.query()
-      .where('hotel_id', hotelId)
-      .where('check_out_date', reportDate.toFormat('yyyy-MM-dd'))
-      .preload('reservationRooms', (roomQuery) => {
-        roomQuery.preload('room')
-        roomQuery.preload('roomType')
-        roomQuery.preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions')
-        })
-      })
-      .preload('guest')
-  
-    const checkoutDataEntries: Array<{
-      sortKey: number
-      roomNumber: string
-      data: any
-    }> = []
-    
-    let totals = {
-      nights: 0,
-      roomCharges: 0,
-      extraCharges: 0,
-      discount: 0,
-      tax: 0,
-      adjust: 0,
-      payment: 0,
-      balance: 0,
-    }
-  
-    for (const reservation of reservations) {
-      for (const reservationRoom of reservation.reservationRooms) {
-        const folio = reservationRoom.folios?.[0]
-        
-        if (reservationRoom.room && folio) {
-          // Récupération directe depuis les transactions
-          const transactions = folio.transactions || []
-  
-          // Room Charges - transactions CHARGE avec catégorie ROOM
-          const roomCharges = transactions
-            .filter(
-              (t: any) =>
-                t.transactionType === TransactionType.CHARGE &&
-                t.category === TransactionCategory.ROOM
-            )
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Extra Charges - transactions CHARGE hors catégorie ROOM
-          const extraCharges = transactions
-            .filter(
-              (t: any) =>
-                t.transactionType === TransactionType.CHARGE &&
-                t.category !== TransactionCategory.ROOM
-            )
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Discount - transactions DISCOUNT
-          const discount = Math.abs(
-            transactions
-              .filter((t: any) => t.transactionType === TransactionType.DISCOUNT)
-              .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-          )
-  
-          // Tax - somme des taxes sur les charges
-          const tax = transactions
-            .filter((t: any) => t.transactionType === TransactionType.CHARGE)
-            .reduce((sum: number, t: any) => sum + Number(t.taxAmount || 0), 0)
-  
-          // Adjust - transactions ADJUSTMENT
-          const adjust = transactions
-            .filter((t: any) => t.transactionType === TransactionType.ADJUSTMENT)
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Payment - transactions PAYMENT
-          const payment = transactions
-            .filter((t: any) => t.transactionType === TransactionType.PAYMENT)
-            .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
-  
-          // Balance
-          const totalCharges = roomCharges + extraCharges + tax - discount + adjust
-          const balance = totalCharges - payment
-  
-          const sortKeyRaw =
-            (reservationRoom.room as any)?.sortKey ?? (reservationRoom.room as any)?.sort_key
-          const sortKey =
-            sortKeyRaw === undefined || sortKeyRaw === null
-              ? Number.POSITIVE_INFINITY
-              : Number(sortKeyRaw)
-          const roomNumber = String(reservationRoom.room.roomNumber ?? '')
-  
-          checkoutDataEntries.push({
-            sortKey,
-            roomNumber,
-            data: {
-              room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
-              guest: reservation.guest
-                ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
-                : '',
-              invoiceNo: folio.folioNumber || 'N/A',
-              arrival: reservation.arrivedDate.toFormat('dd/MM/yyyy'),
-              departure: reservation.departDate.toFormat('dd/MM/yyyy'),
-              nights: reservationRoom.nights,
-              roomCharges: roomCharges,
-              extraCharges: extraCharges,
-              discount: discount,
-              tax: tax,
-              adjust: adjust,
-              payment: payment,
-              balance: balance,
-            },
-          })
-  
-          totals.nights += Math.round(reservationRoom.nights)
-          totals.roomCharges += roomCharges
-          totals.extraCharges += extraCharges
-          totals.discount += discount
-          totals.tax += tax
-          totals.adjust += adjust
-          totals.payment += payment
-          totals.balance += balance
-        }
-      }
-    }
-  
-    const checkoutData = checkoutDataEntries
-      .sort((a, b) => {
-        if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
-        return a.roomNumber.localeCompare(b.roomNumber, undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        })
-      })
-      .map((e) => e.data)
-  
-    return { data: checkoutData, totals }
-  }
 
   /**
    * Section 2: Daily Sales Data
@@ -1733,8 +1618,7 @@ export default class ReportsController {
     const { default: Reservation } = await import('#models/reservation')
     const { TransactionCategory, TransactionType, TransactionStatus } = await import('#app/enums')
 
-    const salesData = []
-    let totals = {
+    const totals = {
       roomCharges: 0,
       extraCharges: 0,
       roomTax: 0,
@@ -1746,215 +1630,96 @@ export default class ReportsController {
 
     const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
 
-    // 1. Room Sales - Regular room charges posted on the report date
-    const roomSalesData = await this.getRoomSalesData(hotelId, reportDateStr)
-    salesData.push(roomSalesData)
-    this.addToTotals(totals, roomSalesData)
+    const [
+      roomSalesData,
+      directRoomSalesData,
+      cancellationSalesData,
+      noShowSalesData,
+      dayUseSalesData,
+      lateCheckoutSalesData,
+      incidentalSalesData
+    ] = await Promise.all([
+      // 1. Room Sales
+      this.getRoomSalesData(hotelId, reportDateStr),
+      
+      // 2. Direct Room Sales
+      this.getDirectRoomSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        Reservation,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 2. Direct Room Sales - Direct sales transactions (walk-ins, etc.)
-    const directRoomSalesData = await this.getDirectRoomSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      Reservation,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(directRoomSalesData)
-    this.addToTotals(totals, directRoomSalesData)
+      // 3. Cancellation Sales
+      this.getCancellationSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 3. Cancellation Sales - Cancellation fees posted on the report date
-    const cancellationSalesData = await this.getCancellationSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(cancellationSalesData)
-    this.addToTotals(totals, cancellationSalesData)
+      // 4. No Show Sales
+      this.getNoShowSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 4. No Show Sales - No show fees posted on the report date
-    const noShowSalesData = await this.getNoShowSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(noShowSalesData)
-    this.addToTotals(totals, noShowSalesData)
+      // 5. Day Use Sales
+      this.getDayUseSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        Reservation,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 5. Day Use Sales - Same day check-in and check-out reservations
-    const dayUseSalesData = await this.getDayUseSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      Reservation,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(dayUseSalesData)
-    this.addToTotals(totals, dayUseSalesData)
+      // 6. Late Checkout Sales
+      this.getLateCheckoutSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      ),
 
-    // 6. Late Checkout Sales - Late checkout fees posted on the report date
-    const lateCheckoutSalesData = await this.getLateCheckoutSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(lateCheckoutSalesData)
-    this.addToTotals(totals, lateCheckoutSalesData)
+      // 7. Incidental Sales
+      this.getIncidentalSalesData(
+        hotelId,
+        reportDateStr,
+        FolioTransaction,
+        TransactionCategory,
+        TransactionType,
+        TransactionStatus
+      )
+    ])
 
-    // 7. Incidental Sales - Incidental charges posted on the report date
-    const incidentalSalesData = await this.getIncidentalSalesData(
-      hotelId,
-      reportDateStr,
-      FolioTransaction,
-      TransactionCategory,
-      TransactionType,
-      TransactionStatus
-    )
-    salesData.push(incidentalSalesData)
-    this.addToTotals(totals, incidentalSalesData)
+    const salesData = [
+      roomSalesData,
+      directRoomSalesData,
+      cancellationSalesData,
+      noShowSalesData,
+      dayUseSalesData,
+      lateCheckoutSalesData,
+      incidentalSalesData
+    ]
+
+    salesData.forEach(data => this.addToTotals(totals, data))
 
     return { data: salesData, totals }
   }
 
-  /**
- * Section: Receipt Summary Data
- * Récupère les données agrégées par utilisateur et par méthode de paiement
- */
-private async getReceiptSummaryData(hotelId: number, reportDate: DateTime, currency: string) {
-  const { default: Receipt } = await import('#models/receipt')
-
-  const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
-
-  // Récupérer tous les reçus du jour
-  const receipts = await Receipt.query()
-    .where('hotelId', hotelId)
-    .where('paymentDate', reportDateStr)
-    .where('isVoided', false)
-    .preload('creator')
-    .preload('paymentMethod')
-
-  // Grouper par utilisateur
-  const userMap = new Map()
-  // Grouper par méthode de paiement
-  const payMethodMap = new Map()
-
-  let totalByUser = 0
-  let totalByPayMethod = 0
-
-  receipts.forEach(receipt => {
-    const amount = Number(receipt.totalAmount || 0)
-    const userId = receipt.creator?.id
-    const userName = receipt.creator 
-      ? `${receipt.creator.firstName} ${receipt.creator.lastName}`.trim() 
-      : 'Unknown'
-    const payMethodId = receipt.paymentMethodId
-    const payMethodName = receipt.paymentMethod?.methodName || 'Unknown'
-
-    // Agrégation par utilisateur
-    if (!userMap.has(userId)) {
-      userMap.set(userId, {
-        user: userName,
-        amount: 0
-      })
-    }
-    userMap.get(userId).amount += amount
-
-    // Agrégation par méthode de paiement
-    if (!payMethodMap.has(payMethodId)) {
-      payMethodMap.set(payMethodId, {
-        payMethod: payMethodName,
-        amount: 0
-      })
-    }
-    payMethodMap.get(payMethodId).amount += amount
-
-    totalByUser += amount
-    totalByPayMethod += amount
-  })
-
-  return {
-    byUser: Array.from(userMap.values()),
-    totalByUser,
-    byPayMethod: Array.from(payMethodMap.values()),
-    totalByPayMethod
-  }
-}
-
-/**
- * Section: Receipt Details Data
- * Récupère tous les reçus groupés par méthode de paiement
- */
-private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, currency: string) {
-  const { default: Receipt } = await import('#models/receipt')
-
-  const reportDateStr = reportDate.toFormat('yyyy-MM-dd')
-
-  // Récupérer tous les reçus du jour
-  const receipts = await Receipt.query()
-    .where('hotelId', hotelId)
-    .where('paymentDate', reportDateStr)
-    .where('isVoided', false)
-    .preload('creator')
-    .preload('paymentMethod')
-    .preload('folioTransaction')
-    .orderBy('paymentMethodId', 'asc')
-    .orderBy('createdAt', 'asc')
-
-  // Grouper par méthode de paiement
-  const paymentMethodsMap = new Map()
-  let grandTotal = 0
-  let totalCount = 0
-
-  receipts.forEach(receipt => {
-    const payMethodId = receipt.paymentMethodId
-    const payMethodName = receipt.paymentMethod?.methodName || 'Unknown'
-    const amount = Number(receipt.totalAmount || 0)
-    const userName = receipt.creator 
-      ? `${receipt.creator.firstName} ${receipt.creator.lastName}`.trim() 
-      : 'System'
-
-    if (!paymentMethodsMap.has(payMethodId)) {
-      paymentMethodsMap.set(payMethodId, {
-        method: payMethodName,
-        receipts: [],
-        subtotal: 0
-      })
-    }
-
-    const paymentMethodGroup = paymentMethodsMap.get(payMethodId)
-    
-    paymentMethodGroup.receipts.push({
-      date: reportDate.toFormat('dd/MM/yyyy'),
-      reference: receipt.receiptNumber || 'N/A',
-      amount: amount,
-      user: userName,
-      enteredOn: DateTime.fromJSDate(receipt.createdAt).toFormat('dd/MM/yyyy HH:mm'),
-      remark: receipt.folioTransaction.notes || ''
-    })
-
-    paymentMethodGroup.subtotal += amount
-    grandTotal += amount
-    totalCount++
-  })
-
-  return {
-    paymentMethods: Array.from(paymentMethodsMap.values()),
-    grandTotal,
-    totalCount
-  }
-}
 
   /**
    * Helper method to add sales data to totals
@@ -1980,6 +1745,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('arrived_date', '<=', reportDateStr)
       .where('depart_date', '>', reportDateStr)
       .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('folios', (folioQuery) => {
@@ -2059,6 +1825,9 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
       .whereRaw('DATE(arrived_date) = ?', [reportDateStr])
       .where('status', 'checked_in')
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
 
     const reservationIds = walkInReservations.map((r: any) => r.id)
 
@@ -2125,6 +1894,13 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+          })
+        })
+      })
 
     const extraCharges = transactions.reduce(
       (sum: number, t: any) => sum + Number(t.amount || 0),
@@ -2161,6 +1937,13 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+          })
+        })
+      })
 
     const extraCharges = transactions.reduce(
       (sum: number, t: any) => sum + Number(t.amount || 0),
@@ -2257,6 +2040,11 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
 
     const extraCharges = transactions.reduce(
       (sum: number, t: any) => sum + Number(t.amount || 0),
@@ -2359,7 +2147,13 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     const miscChargesData = []
     let totals = { units: 0, amount: 0 }
 
-    for (const charge of miscCharges) {
+    const chargesWithRoom = miscCharges.filter((t: any) => {
+      const res = t.folio?.reservation
+      const rrs = res?.reservationRooms || []
+      return rrs.some((rr: any) => rr?.room?.id || rr?.roomId)
+    })
+
+    for (const charge of chargesWithRoom) {
       const reservation = charge.folio?.reservation
       const room = reservation?.reservationRooms?.[0]?.room
       const roomType = reservation?.reservationRooms?.[0]?.roomType
@@ -2411,6 +2205,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     const rooms = await Room.query()
       .select(['id', 'status', 'housekeeping_status'])
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
 
     const totalRoomsCount = rooms.length
     const today = reportDate.startOf('day')
@@ -2437,6 +2232,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('status', 'checked_in')
       .where('depart_date', '>=', todayIso)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (rrq) => {
         rrq.select(['room_id', 'check_out_date'])
       })
@@ -2471,6 +2267,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('status', 'confirmed')
       .where('arrived_date', '=', todayIso)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (rrq) => {
         rrq.select(['room_id'])
       })
@@ -2544,6 +2341,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     // Get all rooms for the hotel
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('roomType')
       .orderBy('sort_key', 'asc')
       .orderBy('floor_number', 'asc')
@@ -2555,6 +2353,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('arrived_date', '<=', reportDate.toSQLDate())
       .where('depart_date', '>', reportDate.toSQLDate())
       .whereNotIn('status', ['cancelled', 'voided'])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
       .preload('guest')
 
@@ -2581,6 +2380,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('depart_date', reportDate.toSQLDate())
       .where('status', 'checked_in')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Get reservations arriving today
@@ -2588,6 +2388,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('arrived_date', reportDate.toSQLDate())
       .where('status', 'confirmed')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Get departed rooms (checked out today)
@@ -2595,6 +2396,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('depart_date', reportDate.toSQLDate())
       .where('status', 'checked_out')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Create sets for quick lookup
@@ -2681,6 +2483,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('hotel_id', hotelId)
       .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
       .where('status', 'checked_in')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Stayover guests
@@ -2689,6 +2492,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('arrived_date', '<', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
       .where('status', 'checked_in')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     const calculatePax = (reservations: any[]) => {
@@ -2698,6 +2502,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
 
       reservations.forEach((reservation) => {
         reservation.reservationRooms.forEach((rr: any) => {
+          const assigned = rr?.roomId || rr?.room?.id
+          if (!assigned) return
           rooms += 1
           adults += rr.adults || 1
           children += rr.children || 0
@@ -2737,6 +2543,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
       .whereIn('status', ['checked_in','confirmed'])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('roomRates', (rateQuery) => {
           rateQuery.preload('rateType')
@@ -2747,11 +2554,12 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
 
     reservations.forEach((reservation) => {
       reservation.reservationRooms.forEach((rr: any) => {
+        const assigned = rr?.roomId || rr?.room?.id
+        if (!assigned) return
         const rateTypeName = rr.roomRates?.rateType?.rateTypeName
         if (!rateTypeAnalysis[rateTypeName]) {
           rateTypeAnalysis[rateTypeName] = { adults: 0, children: 0 }
         }
-
         rateTypeAnalysis[rateTypeName].adults += rr.adults || 1
         rateTypeAnalysis[rateTypeName].children += rr.children || 0
       })
@@ -2778,7 +2586,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
   ): string {
     const formattedDate = reportDate.toFormat('dd-MM-yyyy')
     const currentDateTime = DateTime.now().toFormat('dd-MM-yyyy HH:mm:ss')
-
+  
     return `
   <!DOCTYPE html>
   <html lang="en">
@@ -2787,12 +2595,13 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     <style>
       @page {
         size: A4;
+        margin: 15mm 10mm 15mm 10mm;
       }
       
       body {
         font-family: Arial, sans-serif;
         margin: 0;
-        padding: 0;
+        padding: 10px;
         color: #000;
         line-height: 1.3;
         font-size: 9px;
@@ -2820,8 +2629,6 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         color: #800020;
       }
       
-  
-      
       .report-info {
         padding: 3px 0 3px 0;
         margin: 0;
@@ -2839,7 +2646,6 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         margin: 12px 0;
         padding-bottom: 8px;
         border-bottom: 1px dashed #666;
-        page-break-inside: avoid;
       }
       
       .section-title {
@@ -2902,10 +2708,10 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         padding: 4px 3px;
         font-size: 8px;
       }
-
+  
       .totals-row td.border-dashed {
-      border-top: 1.5px dashed #000 !important;
-      border-bottom: 1px dashed #000 !important;
+        border-top: 1.5px dashed #000 !important;
+        border-bottom: 1px dashed #000 !important;
       }
       
       .total-count {
@@ -2915,7 +2721,6 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         text-align: right;
       }
       
-      /* Styles pour les tableaux de statut réduits */
       .data-table.room-status-table {
         width: 70%;
         margin-left: 0;
@@ -2935,10 +2740,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       }
       
       .footer {
-        position: fixed;
-        bottom: 15px;
-        left: 20px;
-        right: 20px;
+        margin-top: 20px;
         padding-top: 8px;
         border-top: 1px solid #000;
         display: flex;
@@ -2946,20 +2748,51 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         align-items: center;
         font-size: 8px;
       }
-        @media print {
+      
+      @media print {
         body { 
           margin: 0;
-          padding: 0;
+          padding: 10px;
         }
+        
         .page-header { 
           page-break-after: avoid;
-        }
-        .section { 
           page-break-inside: avoid;
         }
+        
+        .report-info {
+          page-break-after: avoid;
+          page-break-inside: avoid;
+        }
+        
+        .section { 
+          page-break-inside: auto;
+        }
+        
+        .section-title {
+          page-break-after: avoid;
+        }
+        
+        .data-table {
+          page-break-inside: auto;
+        }
+        
+        .data-table thead {
+          display: table-header-group;
+        }
+        
+        .data-table tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+        
+        .totals-row {
+          page-break-inside: avoid;
+        }
+        
         .footer {
-          position: fixed;
-          bottom: 0;
+          margin-top: 20px;
+          page-break-inside: avoid;
         }
       }
     </style>
@@ -2999,8 +2832,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </thead>
         <tbody>
           ${sectionsData.roomCharges.data
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -3017,10 +2850,10 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
             <td>${row.checkinBy}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
           <tr class="totals-row">
-           <td><strong></strong></td>
+            <td><strong></strong></td>
             <td><strong></strong></td>
             <td><strong></strong></td>
             <td><strong></strong></td>
@@ -3037,70 +2870,9 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </tbody>
       </table>
       <div class="total-count">Total ${sectionsData.roomCharges.data.length}</div>
- <!-- Section 2: Checkout -->
-    <div class="section">
-      <div class="section-title">Checkout</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Room</th>
-            <th>Guest</th>
-            <th>Invoice No.</th>
-            <th>Arrival</th>
-            <th>Departure</th>
-            <th>Nights</th>
-            <th>Room Charges<br/>(${currency})</th>
-            <th>Extra Charges<br/>(${currency})</th>
-            <th>Discount<br/>(${currency})</th>
-            <th>Tax<br/>(${currency})</th>
-            <th>Adjust<br/>(${currency})</th>
-            <th>Payment<br/>(${currency})</th>
-            <th>Balance<br/>(${currency})</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sectionsData.checkout.data
-        .map(
-          (row: any) => `
-          <tr>
-            <td>${row.room}</td>
-            <td>${row.guest}</td>
-            <td class="center">${row.invoiceNo}</td>
-            <td class="center">${row.arrival}</td>
-            <td class="center">${row.departure}</td>
-            <td class="number center">${row.nights}</td>
-            <td class="number">${formatCurrency(row.roomCharges)}</td>
-            <td class="number">${formatCurrency(row.extraCharges)}</td>
-            <td class="number">${formatCurrency(row.discount)}</td>
-            <td class="number">${formatCurrency(row.tax)}</td>
-            <td class="number">${formatCurrency(row.adjust)}</td>
-            <td class="number">${formatCurrency(row.payment)}</td>
-            <td class="number">${formatCurrency(row.balance)}</td>
-          </tr>
-          `
-        )
-        .join('')}
-          <tr class="totals-row">
-            <td><strong></strong></td>
-            <td><strong></strong></td>
-            <td><strong></strong></td>
-            <td><strong></strong></td>
-            <td><strong>Total</strong></td>
-            <td class="number center border-dashed"><strong>${sectionsData.checkout.totals.nights}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.roomCharges)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.extraCharges)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.discount)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.tax)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.adjust)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.payment)}</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.checkout.totals.balance)}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total-count">Total ${sectionsData.checkout.data.length}</div>
     </div>
-    
-    <!-- Section 3: Daily Sales -->
+  
+    <!-- Section 2: Daily Sales -->
     <div class="section">
       <div class="section-title">Daily Sales</div>
       <table class="data-table">
@@ -3118,8 +2890,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </thead>
         <tbody>
           ${sectionsData.dailySales.data
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.salesType}</td>
             <td class="number ">${formatCurrency(row.roomCharges)}</td>
@@ -3131,8 +2903,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
             <td class="number">${formatCurrency(row.totalSales)}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
           <tr class="totals-row">
             <td><strong>Total (${currency})</strong></td>
             <td class="number border-dashed"><strong>${formatCurrency(sectionsData.dailySales.totals.roomCharges)}</strong></td>
@@ -3146,117 +2918,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </tbody>
       </table>
     </div>
-
-     <!-- Section 4: Receipt Details -->
-    <div class="section">
-      <div class="section-title">Receipt Details</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Payment Method</th>
-            <th>Date</th>
-            <th>Receipt Reference</th>
-            <th>Amount<br/>(${currency})</th>
-            <th>User</th>
-            <th>Entered On</th>
-            <th>Remark</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sectionsData.receiptDetails.paymentMethods
-        .map(
-          (paymentMethod: any) => `
-          ${paymentMethod.receipts
-            .map(
-              (receipt: any, index: number) => `
-          <tr>
-            ${index === 0 ? `<td rowspan="${paymentMethod.receipts.length + 1}" style="vertical-align: top; font-weight: bold; background-color: #f5f5f5;">${paymentMethod.method}</td>` : ''}
-            <td class="center">${receipt.date}</td>
-            <td>${receipt.reference}</td>
-            <td class="number">${formatCurrency(receipt.amount)}</td>
-            <td>${receipt.user}</td>
-            <td class="center">${receipt.enteredOn}</td>
-            <td>${receipt.remark ?? ''}</td>
-          </tr>
-              `
-            )
-            .join('')}
-          <tr class="totals-row">
-            <td colspan="2"><strong>Subtotal</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(paymentMethod.subtotal)}</strong></td>
-            <td colspan="3"></td>
-          </tr>
-          `
-        )
-        .join('')}
-          <tr class="totals-row" style="background-color: #e8e8e8;">
-            <td colspan="3"><strong>Grand Total (${currency})</strong></td>
-            <td class="number border-dashed"><strong>${formatCurrency(sectionsData.receiptDetails.grandTotal)}</strong></td>
-            <td colspan="3"></td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total-count">Total ${sectionsData.receiptDetails.totalCount} Receipt(s)</div>
-    </div>
-        <!-- Section 4: Receipt Summary -->
-    <div class="section">
-      <div class="section-title">Receipt Summary</div>
-      <div style="display: flex; gap: 30px;">
-        <!-- Table 1: By User -->
-        <table class="data-table" style="width: 35%;">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Amount<br/>(${currency})</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sectionsData.receiptSummary.byUser
-          .map(
-            (row: any) => `
-            <tr>
-              <td>${row.user}</td>
-              <td class="number">${formatCurrency(row.amount)}</td>
-            </tr>
-            `
-          )
-          .join('')}
-            <tr class="totals-row">
-              <td><strong>Total (${currency})</strong></td>
-              <td class="number border-dashed"><strong>${formatCurrency(sectionsData.receiptSummary.totalByUser)}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Table 2: By Payment Method -->
-        <table class="data-table" style="width: 35%;">
-          <thead>
-            <tr>
-              <th>Pay Method</th>
-              <th>Amount<br/>(${currency})</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sectionsData.receiptSummary.byPayMethod
-          .map(
-            (row: any) => `
-            <tr>
-              <td>${row.payMethod}</td>
-              <td class="number">${formatCurrency(row.amount)}</td>
-            </tr>
-            `
-          )
-          .join('')}
-            <tr class="totals-row">
-              <td><strong>Total (${currency})</strong></td>
-              <td class="number border-dashed"><strong>${formatCurrency(sectionsData.receiptSummary.totalByPayMethod)}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   
-    <!-- Section 4: Misc. Charges -->
+    <!-- Section 3: Misc. Charges -->
     <div class="section">
       <div class="section-title">Misc. Charges</div>
       <table class="data-table">
@@ -3277,8 +2940,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </thead>
         <tbody>
           ${sectionsData.miscCharges.data
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td>${row.room}</td>
             <td class="center">${row.folioNo}</td>
@@ -3293,8 +2956,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
             <td>${row.remark ?? ''}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
           <tr class="totals-row">
             <td><strong></strong></td>
             <td><strong></strong></td>
@@ -3312,7 +2975,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       <div class="total-count">Total ${sectionsData.miscCharges.data.length}</div>
     </div>
   
-    <!-- Section 5: Room Status -->
+    <!-- Section 4: Room Status -->
     <div class="section">
       <div class="section-title">Room Status</div>
       <table class="data-table room-status-table">
@@ -3343,7 +3006,7 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       </table>
     </div>
   
-    <!-- Section 6: Pax Status -->
+    <!-- Section 5: Pax Status -->
     <div class="section">
       <div class="section-title">Pax Status</div>
       <table class="data-table pax-status-table">
@@ -3357,8 +3020,8 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </thead>
         <tbody>
           ${sectionsData.paxStatus
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td class="center">${row.status}</td>
             <td class="number center">${row.rooms}</td>
@@ -3366,13 +3029,13 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
             <td class="number center">${row.children}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
   
-    <!-- Section 7: Pax Analysis -->
+    <!-- Section 6: Pax Analysis -->
     <div class="section">
       <div class="section-title">Pax Analysis</div>
       <table class="data-table pax-analysis-table">
@@ -3385,16 +3048,16 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         </thead>
         <tbody>
           ${sectionsData.paxAnalysis
-        .map(
-          (row: any) => `
+            .map(
+              (row: any) => `
           <tr>
             <td class="center">${row.rateType}</td>
             <td class="number center">${row.adults}</td>
             <td class="number center">${row.children}</td>
           </tr>
           `
-        )
-        .join('')}
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
@@ -3622,99 +3285,109 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     // Calculate YTD (Year To Date) - first day of year to report date
     const ytdStartDate = reportDate.startOf('year')
 
-    // Section 1: Room Charges
-    const roomCharges = await this.getManagementRoomChargesData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
+    const [
+      roomCharges,
+      extraCharges,
+      discounts,
+      adjustments,
+      tax,
+      payments,
+      cityLedger,
+      advanceDepositLedger,
+      guestLedger,
+      roomSummary,
+      posSummary,
+      posPayment,
+      revenueByRateType,
+      revenueByRoomType
+    ] = await Promise.all([
+      // Section 1: Room Charges
+      this.getManagementRoomChargesData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 2: Extra Charges
+      this.getManagementExtraChargesData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 3: Discounts
+      this.getManagementDiscountData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 4: Adjustments
+      this.getManagementAdjustmentsData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 5: Tax
+      this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+      // Section 6: Payments
+      this.getManagementPaymentData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate
+      ),
+      // Section 7: City Ledger
+      this.getManagementCityLedgerData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 8: Advance Deposit Ledger
+      this.getManagementAdvanceDepositLedgerData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 9: Guest Ledger
+      this.getManagementGuestLedgerData(
+        hotelId,
+        reportDate,
+        ptdStartDate,
+        ytdStartDate,
+        currency
+      ),
+      // Section 10: Room Summary
+      this.getManagementRoomSummaryData(hotelId, reportDate),
+      // Section 12: POS Summary
+      this.getManagementPosSummaryData(hotelId, reportDate),
+      // Section 13: POS Payment
+      this.getManagementPosPaymentSummaryData(hotelId, reportDate),
+      // Revenue breakdowns
+      this.getRevenueByRateTypeForDay(hotelId, reportDate),
+      this.getRevenueByRoomTypeForDay(hotelId, reportDate)
+    ])
 
-    // Section 2: Extra Charges
-    const extraCharges = await this.getManagementExtraChargesData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 3: Discounts
-    const discounts = await this.getManagementDiscountData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 4: Adjustments
-    const adjustments = await this.getManagementAdjustmentsData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 5: Tax
-    const tax = await this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate)
-
-    // Section 6: Payments
-    const payments = await this.getManagementPaymentData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate
-    )
-
-    // Section 7: City Ledger
-    const cityLedger = await this.getManagementCityLedgerData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
-
-    // Section 8: Advance Deposit Ledger
-    const advanceDepositLedger = await this.getManagementAdvanceDepositLedgerData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
-
-    // Section 9: Guest Ledger
-    const guestLedger = await this.getManagementGuestLedgerData(
-      hotelId,
-      reportDate,
-      ptdStartDate,
-      ytdStartDate,
-      currency
-    )
-
-    // Section 10: Room Summary
-    const roomSummary = await this.getManagementRoomSummaryData(hotelId, reportDate)
-
-    // Section 11: Statistics
+    // Section 11: Statistics (depends on roomCharges and roomSummary)
     const statistics = await this.getManagementStatisticsData(
       hotelId,
       reportDate,
       roomCharges,
       roomSummary
     )
-    // section 12
-    const posSummary = await this.getManagementPosSummaryData(hotelId, reportDate)
-    // section 13
-    const posPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate)
-    // Section 14: Revenue Summary
+
+    // Section 14: Revenue Summary (depends on roomCharges and extraCharges)
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
-    // section 15 Total revenu
+    
+    // Section 15: Total Revenue (depends on posSummary and revenueSummary)
     const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary)
 
-    // New: Revenue breakdowns for the audit day
-    const revenueByRateType = await this.getRevenueByRateTypeForDay(hotelId, reportDate)
-    const revenueByRoomType = await this.getRevenueByRoomTypeForDay(hotelId, reportDate)
     return {
       roomCharges,
       extraCharges,
@@ -4237,10 +3910,16 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
 
     // Add individual extra charge data
     extraCharges.forEach((extraCharge) => {
-      result.extraCharges[extraCharge.name] = {
-        today: todayData.extraChargeAmounts[extraCharge.name] || 0,
-        ptd: ptdData.extraChargeAmounts[extraCharge.name] || 0,
-        ytd: ytdData.extraChargeAmounts[extraCharge.name] || 0,
+      const today = todayData.extraChargeAmounts[extraCharge.name] || 0
+      const ptd = ptdData.extraChargeAmounts[extraCharge.name] || 0
+      const ytd = ytdData.extraChargeAmounts[extraCharge.name] || 0
+
+      if (today !== 0 || ptd !== 0 || ytd !== 0) {
+        result.extraCharges[extraCharge.name] = {
+          today,
+          ptd,
+          ytd,
+        }
       }
     })
 
@@ -4559,10 +4238,16 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
 
     const paymentsByMethod = {}
     allMethods.forEach((method) => {
-      paymentsByMethod[method] = {
-        today: todayPayments.methods[method] || 0,
-        ptd: ptdPayments.methods[method] || 0,
-        ytd: ytdPayments.methods[method] || 0,
+      const today = todayPayments.methods[method] || 0
+      const ptd = ptdPayments.methods[method] || 0
+      const ytd = ytdPayments.methods[method] || 0
+
+      if (today !== 0 || ptd !== 0 || ytd !== 0) {
+        paymentsByMethod[method] = {
+          today,
+          ptd,
+          ytd,
+        }
       }
     })
 
@@ -5287,374 +4972,276 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     try {
       const { default: Room } = await import('#models/room')
       const { default: Reservation } = await import('#models/reservation')
-      const { default: ReservationRoom } = await import('#models/reservation_room')
       const { default: RoomBlock } = await import('#models/room_block')
 
       // Calculate PTD and YTD start dates
       const ptdStartDate = reportDate.startOf('month')
       const ytdStartDate = reportDate.startOf('year')
 
-      // Get total rooms for the hotel
-      const totalRooms: any = await Database.from('rooms')
-        .where('hotel_id', hotelId)
-        .count('* as total')
-      logger.info('total room ')
-      logger.info(JSON.stringify(totalRooms[0].total))
+      // Helper to format date
+      const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+      
+      const rDate = reportDate.toISODate()
+      const ptdDate = ptdStartDate.toISODate()
+      const ytdDate = ytdStartDate.toISODate()
 
-      // Get blocked rooms for each period
-      const blockedRoomsToday = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .where('block_from_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
-        .where('block_to_date', '>=', reportDate.toFormat('yyyy-MM-dd'))
-        .count('* as total')
+      // Helper for overlap days calculation
+      const getOverlapDays = (start: string, end: string, rangeStart: string, rangeEnd: string) => {
+        if (!start || !end || !rangeStart || !rangeEnd) return 0
+        const s = start > rangeStart ? start : rangeStart
+        const e = end < rangeEnd ? end : rangeEnd
+        if (s > e) return 0
+        const d1 = new Date(s)
+        const d2 = new Date(e)
+        // Add 1 to include the start day, result in days
+        return Math.floor((d2.getTime() - d1.getTime()) / (1000 * 3600 * 24)) + 1
+      }
 
-      const blockedRoomsPTD = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('block_from_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.toFormat('yyyy-MM-dd'),
-        ])
-        .count('* as total')
+      // Execute all database queries in parallel
+      // We fetch raw data and aggregate in memory to avoid "count(*)" queries as requested
+      const [allRooms, allBlocks, allReservations] = await Promise.all([
+        Room.query().where('hotel_id', hotelId),
+        
+        RoomBlock.query()
+          .where('hotel_id', hotelId)
+          .where('block_from_date', '<=', fmt(reportDate))
+          .where('block_to_date', '>=', fmt(ytdStartDate)),
+          
+        Reservation.query()
+          .where('hotel_id', hotelId)
+          .where((q) => {
+            // Fetch reservations that are relevant for any of the metrics (Today, PTD, YTD)
+            // This includes active stays, recent arrivals, and recent cancellations
+            q.where('depart_date', '>=', fmt(ytdStartDate))
+             .orWhereRaw('DATE(updated_at) >= ?', [fmt(ytdStartDate)])
+          })
+          .preload('reservationRooms')
+      ])
 
-      const blockedRoomsYTD = await RoomBlock.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('block_from_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.toFormat('yyyy-MM-dd'),
-        ])
-        .count('* as total')
+      // Initialize counters
+      const stats = {
+        totalRooms: allRooms.length,
+        blocked: { today: 0, ptd: 0, ytd: 0 },
+        guests: { 
+          today: { adults: 0, children: 0 }, 
+          ptd: { adults: 0, children: 0 }, 
+          ytd: { adults: 0, children: 0 } 
+        },
+        sold: { today: 0, ptd: 0, ytd: 0 },
+        dayUse: { today: 0, ptd: 0, ytd: 0 },
+        comp: { today: 0, ptd: 0, ytd: 0 },
+        noShow: { today: 0, ptd: 0, ytd: 0 },
+        confirmed: { today: 0, ptd: 0, ytd: 0 },
+        unconfirmed: { today: 0, ptd: 0, ytd: 0 },
+        walkIn: { today: 0, ptd: 0, ytd: 0 },
+        cancelled: { today: 0, ptd: 0, ytd: 0 }
+      }
 
-      // Get guest counts (adults and children) for each period
-      const guestCountsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('adults as adults')
-        .sum('children as children')
+      // Process Room Blocks
+      allBlocks.forEach(block => {
+        const from = block.blockFromDate ? block.blockFromDate.toISODate() : ''
+        const to = block.blockToDate ? block.blockToDate.toISODate() : ''
+        
+        if (!from || !to || !rDate || !ptdDate || !ytdDate) return
 
-      const guestCountsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('adults as adults')
-        .sum('children as children')
+        // Blocked Today: Active on report date
+        if (from <= rDate && to >= rDate) {
+          stats.blocked.today++
+        }
+        // Blocked PTD/YTD: Room Nights Overlap
+        stats.blocked.ptd += getOverlapDays(from, to, ptdDate, rDate)
+        stats.blocked.ytd += getOverlapDays(from, to, ytdDate, rDate)
+      })
 
-      const guestCountsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .sum('adults as adults')
-        .sum('children as children')
+      // Process Reservations
+      allReservations.forEach(res => {
+        const arrival = res.arrivedDate ? res.arrivedDate.toISODate() : ''
+        const depart = res.departDate ? res.departDate.toISODate() : ''
+        
+        // Day Use: Arrival and Departure dates are the same
+        const isDayUse = arrival && depart && arrival === depart
 
-      // Calculate available room nights for each period
-      const totalRoomsCount = parseInt(totalRooms[0].total)
-      const availableRoomNightsToday = totalRoomsCount - (blockedRoomsToday[0].$extras.total || 0)
-      const availableRoomNightsPTD =
-        totalRoomsCount * Math.abs(ptdStartDate.diff(reportDate, 'days').days) -
-        (blockedRoomsPTD[0].$extras.total || 0)
-      const availableRoomNightsYTD =
-        totalRoomsCount * Math.abs(ytdStartDate.diff(reportDate, 'days').days) -
-        (blockedRoomsYTD[0].$extras.total || 0)
+        // departDate is exclusive in PMS usually, so inclusive stay end is depart - 1 day
+        // For Day Use, stay is same day
+        let stayEnd = ''
+        if (isDayUse) {
+            stayEnd = arrival
+        } else if (res.departDate) {
+            stayEnd = res.departDate.minus({ days: 1 }).toISODate()
+        }
+        
+        const updated = res.updatedAt ? res.updatedAt.toISODate() : ''
+        const assignedRRs: any[] = Array.isArray((res as any).reservationRooms)
+          ? (res as any).reservationRooms.filter((rr: any) => rr?.roomId || rr?.room?.id)
+          : []
+        const roomCount = assignedRRs.length
+        
+        if (!rDate || !ptdDate || !ytdDate) return
 
-      // Get sold rooms (occupied rooms) for each period
-      const soldRoomsToday = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
+        // --- Occupancy Metrics (Sold, Comp, DayUse, Guests) ---
+        // Based on Room Nights / Guest Nights overlap
+        if (['checked_in', 'checked_out', 'completed'].includes(res.status) && arrival && stayEnd) {
+           const daysToday = getOverlapDays(arrival, stayEnd, rDate, rDate)
+           const daysPTD = getOverlapDays(arrival, stayEnd, ptdDate, rDate)
+           const daysYTD = getOverlapDays(arrival, stayEnd, ytdDate, rDate)
+           
+           // Effective room count for TODAY:
+           // Treat split-origin/destination moves as a single room for the day.
+           // Count concurrent non-split rooms separately.
+           let roomCountTodayEff = 0
+           const rrs: any[] = Array.isArray((res as any).reservationRooms) ? (res as any).reservationRooms : []
+           const coversToday = (rr: any) => {
+             const ci = rr.checkInDate ? rr.checkInDate.toISODate() : ''
+             const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : ''
+             return !!ci && !!co && ci <= rDate && co > rDate
+           }
+           const normalCoverCount = rrs.filter(
+             (rr) =>
+               (rr?.roomId || rr?.room?.id) &&
+               !rr.isSplitedOrigin &&
+               !rr.isplitedDestinatination &&
+               coversToday(rr)
+           ).length
+           const hasSplitCover = rrs.some(
+             (rr) =>
+               (rr?.roomId || rr?.room?.id) &&
+               (rr.isSplitedOrigin || rr.isplitedDestinatination) &&
+               coversToday(rr)
+           )
+           roomCountTodayEff = normalCoverCount + (hasSplitCover ? 1 : 0)
+           if (roomCountTodayEff === 0 && daysToday > 0) {
+             // Fallback: if reservation is in-house today but no RR segments loaded, count as 1
+             roomCountTodayEff = 1
+           }
+ 
+           if (isDayUse) {
+              stats.dayUse.today += daysToday * roomCountTodayEff
+              stats.dayUse.ptd += daysPTD * roomCount
+              stats.dayUse.ytd += daysYTD * roomCount
+           } else if (res.complimentaryRoom) {
+              stats.comp.today += daysToday * roomCountTodayEff
+              stats.comp.ptd += daysPTD * roomCount
+              stats.comp.ytd += daysYTD * roomCount
+           } else {
+              stats.sold.today += daysToday * roomCountTodayEff
+              stats.sold.ptd += daysPTD * roomCount
+              stats.sold.ytd += daysYTD * roomCount
+           }
 
-      const soldRoomsPTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
+           // Guest Nights
+           const adults = res.adults || 0
+           const children = res.children || 0
+           
+           if (daysToday > 0) {
+             stats.guests.today.adults += adults
+             stats.guests.today.children += children
+           }
+           stats.guests.ptd.adults += adults * daysPTD
+           stats.guests.ptd.children += children * daysPTD
+           stats.guests.ytd.adults += adults * daysYTD
+           stats.guests.ytd.children += children * daysYTD
+        }
 
-      const soldRoomsYTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-            .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        })
-        .where('status', 'checked_in')
-        .count('* as total')
+        // --- Event Metrics (NoShow, Confirmed, Unconfirmed, WalkIn) ---
+        // Based on Arrival Date (Count of events/arrivals)
+        if (arrival) {
+          const isArrivedToday = arrival === rDate
+          const isArrivedPTD = arrival >= ptdDate && arrival <= rDate
+          const isArrivedYTD = arrival >= ytdDate && arrival <= rDate
+          
+          // 8. No Show Rooms
+          if (res.status === 'no_show') {
+            if (isArrivedToday) stats.noShow.today++
+            if (isArrivedPTD) stats.noShow.ptd++
+            if (isArrivedYTD) stats.noShow.ytd++
+          }
+  
+          // 10. Confirmed
+          if (res.status === 'confirmed') {
+            if (isArrivedToday) stats.confirmed.today++
+            if (isArrivedPTD) stats.confirmed.ptd++
+            if (isArrivedYTD) stats.confirmed.ytd++
+          }
+  
+          // 11. Unconfirmed
+          if (['pending', 'waitlist'].includes(res.status)) {
+            if (isArrivedToday) stats.unconfirmed.today++
+            if (isArrivedPTD) stats.unconfirmed.ptd++
+            if (isArrivedYTD) stats.unconfirmed.ytd++
+          }
+  
+          // 12. Walk-ins
+          if (res.customerType === 'walk_in' && !['cancelled', 'voided'].includes(res.status)) {
+            if (isArrivedToday) stats.walkIn.today++
+            if (isArrivedPTD) stats.walkIn.ptd++
+            if (isArrivedYTD) stats.walkIn.ytd++
+          }
+        }
+        
+        // 13. Cancellations (Based on Update Date)
+        if (res.status === 'cancelled' && updated) {
+          if (updated === rDate) stats.cancelled.today++
+          if (updated >= ptdDate && updated <= rDate) stats.cancelled.ptd++
+          if (updated >= ytdDate && updated <= rDate) stats.cancelled.ytd++
+        }
+      })
 
-      // Get day use rooms for each period
-      const dayUseRoomsToday = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-            .where('customer_type', 'day_use')
-        })
-        .count('* as total')
+      // 4. Total Available Room nights: Total Rooms - Blocked Rooms (OOO)
+      const availableRoomNightsToday = stats.totalRooms - stats.blocked.today
+      const availableRoomNightsPTD = stats.totalRooms * Math.abs(ptdStartDate.diff(reportDate, 'days').days + 1) - stats.blocked.ptd
+      const availableRoomNightsYTD = stats.totalRooms * Math.abs(ytdStartDate.diff(reportDate, 'days').days + 1) - stats.blocked.ytd
 
-      const dayUseRoomsPTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-            .where('customer_type', 'day_use')
-        })
-        .count('* as total')
+      // 9. Average Guest Per Room: Total Guests / (Sold + Comp)
+      const occupiedToday = stats.sold.today + stats.comp.today
+      const occupiedPTD = stats.sold.ptd + stats.comp.ptd
+      const occupiedYTD = stats.sold.ytd + stats.comp.ytd
 
-      const dayUseRoomsYTD = await ReservationRoom.query()
-        .whereHas('reservation', (reservationQuery) => {
-          reservationQuery
-            .where('hotel_id', hotelId)
-            .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-            .where('customer_type', 'day_use')
-        })
-        .count('* as total')
+      const guestsToday = stats.guests.today.adults + stats.guests.today.children
+      const guestsPTD = stats.guests.ptd.adults + stats.guests.ptd.children
+      const guestsYTD = stats.guests.ytd.adults + stats.guests.ytd.children
 
-      // Get complimentary rooms for each period
-      const complimentaryRoomsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('complimentary_room', true)
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const complimentaryRoomsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('complimentary_room', true)
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const complimentaryRoomsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('complimentary_room', true)
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      // Get no show rooms for each period
-      const noShowRoomsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('status', 'no_show')
-        .count('* as total')
-
-      const noShowRoomsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('status', 'no_show')
-        .count('* as total')
-
-      const noShowRoomsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('status', 'no_show')
-        .count('* as total')
-
-      // Calculate average guests per room
-      const totalGuestsToday =
-        (guestCountsToday[0].$extras.adults || 0) + (guestCountsToday[0].$extras.children || 0)
-      const totalGuestsPTD =
-        (guestCountsPTD[0].$extras.adults || 0) + (guestCountsPTD[0].$extras.children || 0)
-      const totalGuestsYTD =
-        (guestCountsYTD[0].$extras.adults || 0) + (guestCountsYTD[0].$extras.children || 0)
-
-      const avgGuestsPerRoomToday =
-        (soldRoomsToday[0].$extras.total || 0) > 0
-          ? totalGuestsToday / (soldRoomsToday[0].$extras.total || 1)
-          : 0
-      const avgGuestsPerRoomPTD =
-        (soldRoomsPTD[0].$extras.total || 0) > 0
-          ? totalGuestsPTD / (soldRoomsPTD[0].$extras.total || 1)
-          : 0
-      const avgGuestsPerRoomYTD =
-        (soldRoomsYTD[0].$extras.total || 0) > 0
-          ? totalGuestsYTD / (soldRoomsYTD[0].$extras.total || 1)
-          : 0
-
-      // Get confirmed reservations for each period
-      const confirmedReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('status', 'confirmed')
-        .count('* as total')
-
-      const confirmedReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('status', 'confirmed')
-        .count('* as total')
-
-      const confirmedReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('status', 'confirmed')
-        .count('* as total')
-
-      // Get unconfirmed reservations for each period
-      const unconfirmedReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .whereIn('status', ['pending', 'waitlist'])
-        .count('* as total')
-
-      const unconfirmedReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .whereIn('status', ['pending', 'waitlist'])
-        .count('* as total')
-
-      const unconfirmedReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .whereIn('status', ['pending', 'waitlist'])
-        .count('* as total')
-
-      // Get walk-in reservations for each period
-      const walkInReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('customer_type', 'walk_in')
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const walkInReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('customer_type', 'walk_in')
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-
-      const walkInReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('customer_type', 'walk_in')
-        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
-        .count('* as total')
-      const cancelReservationsYTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ytdStartDate, reportDate.endOf('day')])
-        .where('status', 'cancelled')
-        .count('* as total')
-
-      const cancelReservationsToday = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [reportDate.startOf('day'), reportDate.endOf('day')])
-        .where('status', 'cancelled')
-        .count('* as total')
-
-      const cancelReservationsPTD = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [ptdStartDate, reportDate.endOf('day')])
-        .where('status', 'cancelled')
-        .count('* as total')
+      const avgGuestsPerRoomToday = occupiedToday > 0 ? guestsToday / occupiedToday : 0
+      const avgGuestsPerRoomPTD = occupiedPTD > 0 ? guestsPTD / occupiedPTD : 0
+      const avgGuestsPerRoomYTD = occupiedYTD > 0 ? guestsYTD / occupiedYTD : 0
 
       return {
         totalRoom: {
-          today: totalRoomsCount,
-          ptd: totalRoomsCount,
-          ytd: totalRoomsCount,
+          today: stats.totalRooms,
+          ptd: stats.totalRooms,
+          ytd: stats.totalRooms,
         },
-        blockRoom: {
-          today: blockedRoomsToday[0].$extras.total || 0,
-          ptd: blockedRoomsPTD[0].$extras.total || 0,
-          ytd: blockedRoomsYTD[0].$extras.total || 0,
-        },
+        blockRoom: stats.blocked,
         noOfGuestAdult: {
-          today: guestCountsToday[0].$extras.adults || 0,
-          ptd: guestCountsPTD[0].$extras.adults || 0,
-          ytd: guestCountsYTD[0].$extras.adults || 0,
+          today: stats.guests.today.adults,
+          ptd: stats.guests.ptd.adults,
+          ytd: stats.guests.ytd.adults,
         },
         noOfGuestChild: {
-          today: guestCountsToday[0].$extras.children || 0,
-          ptd: guestCountsPTD[0].$extras.children || 0,
-          ytd: guestCountsYTD[0].$extras.children || 0,
+          today: stats.guests.today.children,
+          ptd: stats.guests.ptd.children,
+          ytd: stats.guests.ytd.children,
         },
         totalAvailableRoomNights: {
           today: Math.max(0, availableRoomNightsToday),
           ptd: Math.max(0, availableRoomNightsPTD),
           ytd: Math.max(0, availableRoomNightsYTD),
         },
-        soldRoom: {
-          today: soldRoomsToday[0].$extras.total || 0,
-          ptd: soldRoomsPTD[0].$extras.total || 0,
-          ytd: soldRoomsYTD[0].$extras.total || 0,
-        },
-        dayUseRoom: {
-          today: dayUseRoomsToday[0].$extras.total || 0,
-          ptd: dayUseRoomsPTD[0].$extras.total || 0,
-          ytd: dayUseRoomsYTD[0].$extras.total || 0,
-        },
-        complimentaryRoom: {
-          today: complimentaryRoomsToday[0].$extras.total || 0,
-          ptd: complimentaryRoomsPTD[0].$extras.total || 0,
-          ytd: complimentaryRoomsYTD[0].$extras.total || 0,
-        },
-        noShows: {
-          today: noShowRoomsToday[0].$extras.total || 0,
-          ptd: noShowRoomsPTD[0].$extras.total || 0,
-          ytd: noShowRoomsYTD[0].$extras.total || 0,
-        },
+        soldRoom: stats.sold,
+        dayUseRoom: stats.dayUse,
+        complimentaryRoom: stats.comp,
+        noShows: stats.noShow,
         averageGuestPerRoom: {
           today: Math.round(avgGuestsPerRoomToday * 100) / 100,
           ptd: Math.round(avgGuestsPerRoomPTD * 100) / 100,
           ytd: Math.round(avgGuestsPerRoomYTD * 100) / 100,
         },
-        noOfReservationsConfirm: {
-          today: confirmedReservationsToday[0].$extras.total || 0,
-          ptd: confirmedReservationsPTD[0].$extras.total || 0,
-          ytd: confirmedReservationsYTD[0].$extras.total || 0,
-        },
-        noOfReservationsUnconfirm: {
-          today: unconfirmedReservationsToday[0].$extras.total || 0,
-          ptd: unconfirmedReservationsPTD[0].$extras.total || 0,
-          ytd: unconfirmedReservationsYTD[0].$extras.total || 0,
-        },
-        noOfWalkins: {
-          today: walkInReservationsToday[0].$extras.total || 0,
-          ptd: walkInReservationsPTD[0].$extras.total || 0,
-          ytd: walkInReservationsYTD[0].$extras.total || 0,
-        },
-        cancellations: {
-          today: cancelReservationsToday[0].$extras.total || 0,
-          ptd: cancelReservationsPTD[0].$extras.total || 0,
-          ytd: cancelReservationsYTD[0].$extras.total || 0,
-        },
+        noOfReservationsConfirm: stats.confirmed,
+        noOfReservationsUnconfirm: stats.unconfirmed,
+        noOfWalkins: stats.walkIn,
+        cancellations: stats.cancelled,
       }
     } catch (error) {
-      console.error('Error in getManagementStatisticsData:', error)
+      console.error('Error in getManagementRoomSummaryData:', error)
       return {
         totalRoom: { today: 0, ptd: 0, ytd: 0 },
         blockRoom: { today: 0, ptd: 0, ytd: 0 },
@@ -5664,11 +5251,12 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         soldRoom: { today: 0, ptd: 0, ytd: 0 },
         dayUseRoom: { today: 0, ptd: 0, ytd: 0 },
         complimentaryRoom: { today: 0, ptd: 0, ytd: 0 },
-        noShowRooms: { today: 0, ptd: 0, ytd: 0 },
+        noShows: { today: 0, ptd: 0, ytd: 0 },
         averageGuestPerRoom: { today: 0, ptd: 0, ytd: 0 },
         noOfReservationsConfirm: { today: 0, ptd: 0, ytd: 0 },
         noOfReservationsUnconfirm: { today: 0, ptd: 0, ytd: 0 },
         noOfWalkins: { today: 0, ptd: 0, ytd: 0 },
+        cancellations: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
@@ -7833,6 +7421,14 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
           reservationQuery.where('hotel_id', hotelId)
+            .preload('reservationRooms', (rrQuery) => {
+              rrQuery.select([
+                'id',
+                'room_id',
+                'check_in_date',
+                'check_out_date',
+              ])
+            })
         })
       })
       .whereBetween('current_working_date', [
@@ -7842,7 +7438,16 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       .where('category', 'room')
       .where('status', 'posted')
       .preload('folio', (folioQuery) => {
-        folioQuery.preload('reservation')
+        folioQuery.preload('reservation', (reservationQuery) => {
+          reservationQuery.preload('reservationRooms', (rrQuery) => {
+            rrQuery.select([
+              'id',
+              'room_id',
+              'check_in_date',
+              'check_out_date',
+            ])
+          })
+        })
       })
 
     // Group by day and calculate daily revenue
@@ -7858,7 +7463,17 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     transactions.forEach((transaction) => {
       const transactionDate = DateTime.fromISO(transaction.transactionDate)
       const day = transactionDate.day.toString()
-      dailyRevenue[day] += Number(transaction.amount || 0)
+      const reservation = transaction.folio?.reservation
+      if (!reservation) return
+      const currentDateStr = transactionDate.toISODate()
+      if (!currentDateStr) return
+      const hasAssignedOnDate = (reservation.reservationRooms || []).some((rr: any) => {
+        const ci = rr.checkInDate ? rr.checkInDate.toISODate() : null
+        const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : null
+        return rr.roomId && ci && co && ci <= currentDateStr && co > currentDateStr
+      })
+      if (!hasAssignedOnDate) return
+      dailyRevenue[day] += Number(transaction.roomFinalNetAmount || 0)
     })
 
     // Calculate total revenue
@@ -7889,12 +7504,12 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       }
       return `${currency} ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     }
-
+  
     // Prepare chart data
     const chartData = []
     const maxRevenue = Math.max(...(Object.values(revenueData.dailyRevenue) as number[]))
     const chartHeight = 300
-
+  
     for (let day = 1; day <= revenueData.daysInMonth; day++) {
       const revenue = revenueData.dailyRevenue[day.toString()] || 0
       const barHeight = maxRevenue > 0 ? (revenue / maxRevenue) * chartHeight : 0
@@ -7905,194 +7520,253 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
         formattedRevenue: formatCurrency(revenue),
       })
     }
-
+  
     return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Monthly Revenue Report</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 20px;
-                font-size: 12px;
-            }
-            .header {
-                text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 2px solid #333;
-                padding-bottom: 10px;
-            }
-            .hotel-name {
-                font-size: 18px;
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-            .report-title {
-                font-size: 16px;
-                color: #d2691e;
-                margin-bottom: 10px;
-            }
-            .chart-container {
-                margin: 30px 0;
-                text-align: center;
-            }
-            .chart {
-                display: inline-block;
-                border: 1px solid #ccc;
-                padding: 20px;
-                background: #f9f9f9;
-            }
-            .chart-title {
-                margin-bottom: 20px;
-                font-weight: bold;
-                background-color: #4472c4;
-                color: white;
-                padding: 5px 10px;
-                display: inline-block;
-            }
-            .chart-area {
-                position: relative;
-                width: 800px;
-                height: 350px;
-                border: 1px solid #333;
-                background: white;
-                margin: 0 auto;
-            }
-            .y-axis {
-                position: absolute;
-                left: -40px;
-                top: 0;
-                height: 100%;
-                width: 40px;
-            }
-            .y-label {
-                position: absolute;
-                right: 5px;
-                font-size: 10px;
-                transform: translateY(-50%);
-            }
-            .x-axis {
-                position: absolute;
-                bottom: -30px;
-                left: 0;
-                width: 100%;
-                height: 30px;
-            }
-            .x-label {
-                position: absolute;
-                bottom: 5px;
-                font-size: 10px;
-                transform: translateX(-50%);
-            }
-            .bar {
-                position: absolute;
-                bottom: 0;
-                background-color: #4472c4;
-                border: 1px solid #2c5aa0;
-                display: flex;
-                align-items: flex-end;
-                justify-content: center;
-                color: #4472c4;
-                font-size: 8px;
-                font-weight: bold;
-            }
-            .bar-value {
-                position: absolute;
-                top: -15px;
-                font-size: 8px;
-                color: #333;
-                white-space: nowrap;
-            }
-            .footer {
-                margin-top: 50px;
-                border-top: 1px solid #333;
-                padding-top: 10px;
-                display: flex;
-                justify-content: space-between;
-                font-size: 10px;
-            }
-            .grid-line {
-                position: absolute;
-                left: 0;
-                right: 0;
-                height: 1px;
-                background: #e0e0e0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <div class="hotel-name">${hotelName}</div>
-            <div class="report-title">Monthly Revenue - ${reportDate.toFormat('MMMM yyyy')}</div>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart">
-                <div class="chart-title"> Revenue (Room Charges, Extra Charges)</div>
-                <div class="chart-area">
-                    <!-- Y-axis labels -->
-                    <div class="y-axis">
-                        ${[0, 0.2, 0.4, 0.6, 0.8, 1.0]
-        .map(
-          (ratio) => `
-                            <div class="y-label" style="top: ${(1 - ratio) * 100}%">
-                                ${formatCurrency(maxRevenue * ratio).replace(currency + ' ', '')}
-                            </div>
-                        `
-        )
-        .join('')}
-                    </div>
-
-                    <!-- Grid lines -->
-                    ${[0.2, 0.4, 0.6, 0.8]
-        .map(
-          (ratio) => `
-                        <div class="grid-line" style="top: ${(1 - ratio) * 100}%"></div>
-                    `
-        )
-        .join('')}
-
-                    <!-- Bars -->
-                    ${chartData
-        .map(
-          (data) => `
-                        <div class="bar"
-                             style="left: ${((data.day - 1) / revenueData.daysInMonth) * 100}%;
-                                    width: ${(1 / revenueData.daysInMonth) * 100 * 0.8}%;
-                                    height: ${data.barHeight}px;
-                                    margin-left: ${(1 / revenueData.daysInMonth) * 100 * 0.1}%;">
-                            ${data.revenue > 0 ? `<div class="bar-value">${data.formattedRevenue.replace(currency + ' ', '')}</div>` : ''}
-                        </div>
-                    `
-        )
-        .join('')}
-
-                    <!-- X-axis labels -->
-                    <div class="x-axis">
-                        ${chartData
-        .map(
-          (data) => `
-                            <div class="x-label" style="left: ${(data.day / revenueData.daysInMonth) * 100}%">
-                                ${data.day}
-                            </div>
-                        `
-        )
-        .join('')}
-                    </div>
-                </div>
-                <div style="margin-top: 40px; font-weight: bold;">Date</div>
-            </div>
-        </div>
-
-        <div class="footer">
-            <div>Printed On: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</div>
-            <div>Printed By: ${printedBy}</div>
-            <div>Page 1 of 1</div>
-        </div>
-    </body>
-    </html>
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <meta charset="UTF-8">
+      <title>Monthly Revenue Report</title>
+      <style>
+          @page {
+              size: A4 landscape;
+              margin: 15mm;
+          }
+          
+          @media print {
+              body {
+                  width: 297mm;
+                  height: 210mm;
+              }
+          }
+          
+          * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+          }
+          
+          body {
+              font-family: Arial, sans-serif;
+              padding: 15px;
+              font-size: 12px;
+              background: #fff;
+          }
+          
+          .container {
+              max-width: 100%;
+              margin: 0 auto;
+          }
+          
+          /* En-tête avec nom d'hôtel en rouge bordeaux à gauche */
+          .hotel-name {
+              font-size: 16px;
+              font-weight: 700;
+              color: #8B0000;
+              margin-bottom: 10px;
+              text-align: left;
+              border-bottom: 3px solidrgb(11, 10, 10);
+          }
+          
+          /* Ligne horizontale rouge bordeaux */
+          .header-line {
+              width: 100%;
+              height: 3px;
+              background-color: #8B0000;
+              margin-bottom: 15px;
+          }
+          
+          /* Titre du rapport centré en rouge bordeaux */
+          .report-title {
+              text-align: center;
+              font-size: 18px;
+              font-weight: 700;
+              color: #8B0000;
+              margin-bottom: 20px;
+          }
+          
+          .chart-container {
+              margin: 20px 0;
+          }
+          
+          .chart {
+              border: 2px solid #ddd;
+              padding: 20px;
+              background: #fafafa;
+          }
+          
+          .chart-title {
+              margin-bottom: 20px;
+              font-weight: bold;
+              background-color: #4472c4;
+              color: white;
+              padding: 8px 15px;
+              display: inline-block;
+              font-size: 14px;
+          }
+          
+          .chart-area {
+              position: relative;
+              width: 100%;
+              height: 350px;
+              border: 2px solid #333;
+              background: white;
+              margin: 0 auto;
+          }
+          
+          .y-axis {
+              position: absolute;
+              left: -50px;
+              top: 0;
+              height: 100%;
+              width: 50px;
+          }
+          
+          .y-label {
+              position: absolute;
+              right: 5px;
+              font-size: 10px;
+              transform: translateY(-50%);
+              font-weight: 600;
+          }
+          
+          .x-axis {
+              position: absolute;
+              bottom: -35px;
+              left: 0;
+              width: 100%;
+              height: 35px;
+          }
+          
+          .x-label {
+              position: absolute;
+              bottom: 5px;
+              font-size: 11px;
+              font-weight: 600;
+              transform: translateX(-50%);
+          }
+          
+          .bar {
+              position: absolute;
+              bottom: 0;
+              background-color: #4472c4 !important;
+              border: 1px solid #2c5aa0;
+              display: flex;
+              align-items: flex-end;
+              justify-content: center;
+              min-height: 2px;
+          }
+          
+          .bar-value {
+              position: absolute;
+              top: -18px;
+              font-size: 9px;
+              color: #333;
+              white-space: nowrap;
+              font-weight: 700;
+          }
+          
+          .grid-line {
+              position: absolute;
+              left: 0;
+              right: 0;
+              height: 1px;
+              background: #ddd;
+          }
+          
+          .date-label {
+              margin-top: 45px;
+              font-weight: bold;
+              text-align: center;
+              font-size: 13px;
+          }
+          
+          .footer {
+              margin-top: 25px;
+              border-top: 2px solid #ddd;
+              padding-top: 12px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 11px;
+              color: #666;
+          }
+      </style>
+  </head>
+  <body>
+      <div class="container">
+          <!-- En-tête -->
+          <div class="hotel-name">${hotelName}</div>
+          <div class="report-title">Monthly Revenue - ${reportDate.toFormat('MMMM yyyy')}</div>
+  
+          <!-- Graphique -->
+          <div class="chart-container">
+              <div class="chart">
+                  <div class="chart-title">■ Revenue (Room Charges, Extra Charges)</div>
+                  <div class="chart-area">
+                      <!-- Y-axis labels -->
+                      <div class="y-axis">
+                          ${[0, 0.2, 0.4, 0.6, 0.8, 1.0]
+                            .map(
+                              (ratio) => `
+                              <div class="y-label" style="top: ${(1 - ratio) * 100}%">
+                                  ${formatCurrency(maxRevenue * ratio).replace(currency + ' ', '')}
+                              </div>
+                          `
+                            )
+                            .join('')}
+                      </div>
+  
+                      <!-- Grid lines -->
+                      ${[0.2, 0.4, 0.6, 0.8]
+                        .map(
+                          (ratio) => `
+                          <div class="grid-line" style="top: ${(1 - ratio) * 100}%"></div>
+                      `
+                        )
+                        .join('')}
+  
+                      <!-- Bars -->
+                      ${chartData
+                        .map(
+                          (data) => `
+                          <div class="bar"
+                               style="left: ${((data.day - 1) / revenueData.daysInMonth) * 100}%;
+                                      width: ${(1 / revenueData.daysInMonth) * 100 * 0.8}%;
+                                      height: ${data.barHeight}px;
+                                      margin-left: ${(1 / revenueData.daysInMonth) * 100 * 0.1}%;
+                                      background-color: #4472c4;">
+                              ${data.revenue > 0 ? `<div class="bar-value">${data.formattedRevenue.replace(currency + ' ', '')}</div>` : ''}
+                          </div>
+                      `
+                        )
+                        .join('')}
+  
+                      <!-- X-axis labels -->
+                      <div class="x-axis">
+                          ${chartData
+                            .map(
+                              (data) => `
+                              <div class="x-label" style="left: ${(data.day / revenueData.daysInMonth) * 100}%">
+                                  ${data.day}
+                              </div>
+                          `
+                            )
+                            .join('')}
+                      </div>
+                  </div>
+                  <div class="date-label">Date</div>
+              </div>
+          </div>
+  
+          <!-- Footer -->
+          <div class="footer">
+              <span>Printed On: ${DateTime.now().toFormat('MMMM dd, yyyy HH:mm:ss')}</span>
+              <span>Printed By: ${printedBy}</span>
+              <span>Page 1 of 1</span>
+          </div>
+      </div>
+  </body>
+  </html>
     `
   }
 
@@ -8139,6 +7813,10 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     transactions.forEach((transaction) => {
       const reservation = transaction.folio?.reservation
       if (!reservation) return
+      const hasAssigned = (reservation.reservationRooms || []).some(
+        (rr: any) => rr?.roomId || rr?.room?.id
+      )
+      if (!hasAssigned) return
 
       const guest = reservation.guest
       const reservationRoom = reservation.reservationRooms?.[0]
@@ -9664,19 +9342,22 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
       const reservations = await query.exec()
 
       // Format the guest list data
-      const guestList = reservations.map((reservation) => {
-        const primaryRoom =
-          reservation.reservationRooms.find((room) => room.isOwner) ||
-          reservation.reservationRooms[0]
-
-        return {
-          guestName: reservation.guest?.displayName || 'Guest not found',
-          roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
-          checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
-          checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
-          status: reservation.reservationStatus,
-        }
-      })
+      const guestList = reservations
+        .filter((reservation) =>
+          (reservation.reservationRooms || []).some((rr: any) => rr?.roomId || rr?.room?.id)
+        )
+        .map((reservation) => {
+          const primaryRoom =
+            reservation.reservationRooms.find((room) => room.isOwner && (room.room?.id || room.roomId)) ||
+            reservation.reservationRooms.find((room) => room.room?.id || room.roomId)
+          return {
+            guestName: reservation.guest?.displayName || 'Guest not found',
+            roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
+            checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+            checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
+            status: reservation.reservationStatus,
+          }
+        })
 
       return response.ok({
         success: true,
@@ -10614,6 +10295,12 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     try {
       const payload = await this.getPosNightAuditPayload(hotelId, reportDate)
       if (payload && payload.posSummary) {
+        // Filter out outlets with zero categories
+        if (payload.posSummary.outlets && Array.isArray(payload.posSummary.outlets)) {
+          payload.posSummary.outlets = payload.posSummary.outlets.filter(
+            (outlet: any) => outlet.categories && outlet.categories.length > 0
+          )
+        }
         return payload.posSummary
       }
       return {
@@ -10635,6 +10322,12 @@ private async getReceiptDetailsData(hotelId: number, reportDate: DateTime, curre
     try {
       const payload = await this.getPosNightAuditPayload(hotelId, reportDate)
       if (payload && payload.posPayment) {
+        // Filter out outlets with zero payments
+        if (payload.posPayment.outlets && Array.isArray(payload.posPayment.outlets)) {
+          payload.posPayment.outlets = payload.posPayment.outlets.filter(
+            (outlet: any) => outlet.payments && outlet.payments.length > 0
+          )
+        }
         return payload.posPayment
       }
       return {

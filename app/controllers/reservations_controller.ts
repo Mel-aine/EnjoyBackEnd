@@ -361,179 +361,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   }
 
 
-  // public async checkOut(ctx: HttpContext) {
-  //   const { params, response, request, auth } = ctx
-  //   const { reservationRooms, actualCheckOutTime, notes } = request.body()
-  //   console.log('➡️ checkOut called with params:', params, 'body:', request.body())
 
-  //   if (!auth.user) {
-  //     return response.unauthorized({
-  //       success: false,
-  //       message: 'Authentication required',
-  //       errors: ['User is not authenticated'],
-  //     })
-  //   }
-
-  //   const trx = await db.transaction()
-
-  //   try {
-  //     // Validate input parameters
-  //     if (!params.reservationId) {
-  //       console.log('❌ Missing reservationId')
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         success: false,
-  //         message: 'Reservation ID is required',
-  //         errors: ['Missing reservation ID'],
-  //       })
-  //     }
-
-  //     if (!reservationRooms || !Array.isArray(reservationRooms) || reservationRooms.length === 0) {
-  //       console.log('❌ Invalid reservationRooms:', reservationRooms)
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         success: false,
-  //         message: 'Reservation rooms are required',
-  //         errors: ['reservationRooms must be a non-empty array'],
-  //       })
-  //     }
-
-  //     // Fetch reservation with transaction
-  //     const reservation = await Reservation.query({ client: trx })
-  //       .where('id', params.reservationId)
-  //       .preload('folios', (folioQuery) => {
-  //         folioQuery.preload('transactions')
-  //       })
-  //       .first()
-  //     console.log('📦 Reservation fetched:', reservation?.id, reservation?.status)
-
-  //     if (!reservation) {
-  //       await trx.rollback()
-  //       return response.notFound({
-  //         success: false,
-  //         message: 'Reservation not found',
-  //         errors: ['Reservation does not exist'],
-  //       })
-  //     }
-
-  //     // Validate reservation status
-  //     if (reservation.status === ReservationStatus.CHECKED_OUT) {
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         success: false,
-  //         message: 'Reservation is already checked out',
-  //         errors: ['Cannot check out an already checked out reservation'],
-  //       })
-  //     }
-
-  //     if (reservation.status !== ReservationStatus.CHECKED_IN) {
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         success: false,
-  //         message: 'Reservation must be checked in before check out',
-  //         errors: [`Current status: ${reservation.status}`],
-  //       })
-  //     }
-
-  //     const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
-  //     console.log('💰 Balance summary calculated:', balanceSummary)
-
-  //     // Check if there's an outstanding balance
-  //     if (balanceSummary.outstandingBalance > 0) {
-  //       console.log('⚠️ Outstanding balance detected:', balanceSummary.outstandingBalance)
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         success: false,
-  //         message: 'Cannot check out with outstanding balance',
-  //         errors: [
-  //           `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
-  //         ],
-  //         data: {
-  //           balanceSummary,
-  //           outstandingAmount: balanceSummary.outstandingBalance,
-  //         },
-  //       })
-  //     }
-
-  //     // Fetch reservation rooms with transaction
-  //     const reservationRoomRecords = await ReservationRoom.query({ client: trx })
-  //       .whereIn('id', reservationRooms)
-  //       .where('reservationId', params.reservationId)
-  //       .preload('room')
-  //     console.log(
-  //       '🛏️ Reservation rooms fetched:',
-  //       reservationRoomRecords.map((r) => ({ id: r.roomId, status: r.status }))
-  //     )
-
-  //     if (reservationRoomRecords.length === 0) {
-  //       await trx.rollback()
-  //       return response.notFound({
-  //         success: false,
-  //         message: 'No reservation rooms found',
-  //         errors: ['No matching reservation rooms for the provided IDs'],
-  //       })
-  //     }
-
-  //     // Validate room statuses
-  //     const invalidRooms = reservationRoomRecords.filter(
-  //       (room) => room.status === 'checked_out' || room.status === 'cancelled'
-  //     )
-
-  //     if (invalidRooms.length > 0) {
-  //       console.log(
-  //         '⚠️ Invalid rooms for checkout:',
-  //         invalidRooms.map((r) => ({ id: r.id, status: r.status }))
-  //       )
-  //       await trx.rollback()
-  //       return response.badRequest({
-  //         success: false,
-  //         message: 'Some rooms cannot be checked out',
-  //         errors: invalidRooms.map((room) => `Room ${room.id} is already ${room.status}`),
-  //       })
-  //     }
-
-  //     const updatedRooms: any[] = []
-  //     // Use the scheduled departure/check-out date, not the actual time
-  //     // const checkOutDateTime = reservation.checkOutDate ?? reservation.departDate ?? DateTime.now()
-
-  //     let checkOutDateTime: DateTime
-
-  //     if (reservation.checkOutDate) {
-  //       checkOutDateTime = DateTime.isDateTime(reservation.checkOutDate)
-  //         ? reservation.checkOutDate
-  //         : DateTime.fromJSDate(new Date(reservation.checkOutDate))
-  //     } else if (reservation.departDate) {
-  //       checkOutDateTime = DateTime.isDateTime(reservation.departDate)
-  //         ? reservation.departDate
-  //         : DateTime.fromJSDate(new Date(reservation.departDate))
-  //     } else {
-  //       checkOutDateTime = DateTime.now()
-  //     }
-
-  //     // Update reservation rooms
-  //     for (const reservationRoom of reservationRoomRecords) {
-  //       // Update reservation room status
-  //       reservationRoom.status = 'checked_out'
-  //       reservationRoom.checkOutDate = checkOutDateTime
-  //       // Keep actual check-out fields aligned to the scheduled date
-  //       reservationRoom.actualCheckOut = checkOutDateTime
-  //       reservationRoom.actualCheckOutTime = checkOutDateTime
-  //       reservationRoom.checkedOutBy = auth.user!.id
-  //       reservationRoom.lastModifiedBy = auth.user!.id
-
-  //       if (notes) {
-  //         reservationRoom.guestNotes = notes
-  //       }
-
-  //       await reservationRoom.useTransaction(trx).save()
-  //       updatedRooms.push(reservationRoom)
-
-  //       // Update associated room status to dirty
-  //       if (reservationRoom.room) {
-  //         console.log(`🧹 Marking room ${reservationRoom.room.id} as dirty`)
-  //         reservationRoom.room.status = 'available'
-  //         reservationRoom.room.housekeepingStatus = 'dirty'
-  //         await reservationRoom.room.useTransaction(trx).save()
   //         updatedRooms.push(reservationRoom.room.id)
   //       }
   //     }
@@ -669,7 +497,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const { reservationRooms, actualCheckOutTime, notes } = request.body()
 
     if (!auth.user) {
-      console.log('[CHECKOUT] Erreur: Utilisateur non authentifié');
       return response.unauthorized({
         success: false,
         message: 'Authentication required',
@@ -744,6 +571,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
           message: 'Cannot check out with outstanding balance',
           errors: [
             `Outstanding balance of ${balanceSummary.outstandingBalance} must be settled before checkout`,
+          ],
+          data: {
+            balanceSummary,
+            outstandingAmount: balanceSummary.outstandingBalance,
+          },
+        })
+      }
+
+      if (balanceSummary.outstandingBalance < -0.01) {
+        await trx.rollback()
+        return response.badRequest({
+          success: false,
+          message: 'Cannot check out with negative balance (Credit). No refund mechanism available.',
+          errors: [
+            `Negative balance of ${balanceSummary.outstandingBalance} must be refunded before checkout`,
           ],
           data: {
             balanceSummary,
@@ -862,59 +704,52 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       await trx.commit()
 
-    setImmediate(async () => {
-      try {
-        // Email
-        const folios = reservation.folios || []
-        const closedFolioIds = folios
-          .filter((f) => f.status === FolioStatus.CLOSED)
-          .map((f) => f.id)
-        const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
+      setImmediate(async () => {
+        try {
+          // Email
+          const folios = reservation.folios || []
+          const closedFolioIds = folios
+            .filter((f) => f.status === FolioStatus.CLOSED)
+            .map((f) => f.id)
+          const folioIdsForEmail = closedFolioIds.length > 0 ? closedFolioIds : folios.map((f) => f.id)
 
-        await ReservationEmailService.sendCheckoutThanks(
-          reservation.id,
-          folioIdsForEmail,
-          auth.user!.id
-        )
-      } catch (emailErr: any) {
-        logger.warn('Failed to send checkout thank-you email', {
-          reservationId: reservation.id,
-          error: emailErr?.message,
-        })
-      }
+          await ReservationEmailService.sendCheckoutThanks(
+            reservation.id,
+            folioIdsForEmail,
+            auth.user!.id
+          )
+        } catch (emailErr: any) {
+          logger.warn('Failed to send checkout thank-you email', {
+            reservationId: reservation.id,
+            error: emailErr?.message,
+          })
+        }
 
-      try {
-        // Notifications
-        const CheckinCheckoutNotificationService = (
-          await import('#services/notification_action_service')
-        ).default
+        try {
+          // Notifications
+          const CheckinCheckoutNotificationService = (
+            await import('#services/notification_action_service')
+          ).default
 
-        await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
-          reservation.id,
-          auth.user!.id,
-          {
-            checkedOutRooms: reservationRoomRecords.map(rr => ({
-              roomNumber: rr.room?.roomNumber || 'N/A',
-              roomId: rr.roomId
-            })),
-            checkOutTime: checkOutDateTime,
-            allRoomsCheckedOut
-          }
-        )
-      } catch (notifError) {
-        logger.error('Error sending check-out notifications', notifError)
-      }
-
-      try {
-        // Recalcul guest summary
-        await GuestSummaryService.recomputeFromReservation(reservation.id)
-      } catch (summaryError) {
-        logger.error('Error recomputing guest summary', summaryError)
-      }
-    })
+          await CheckinCheckoutNotificationService.notifyCheckOutCompleted(
+            reservation.id,
+            auth.user!.id,
+            {
+              checkedOutRooms: reservationRoomRecords.map(rr => ({
+                roomNumber: rr.room?.roomNumber || 'N/A',
+                roomId: rr.roomId
+              })),
+              checkOutTime: checkOutDateTime,
+              allRoomsCheckedOut
+            }
+          )
+        } catch (notifError) {
+          logger.error('Error sending check-out notifications', notifError)
+        }
 
 
-      await GuestSummaryService.recomputeFromReservation(reservation.id)
+      })
+
 
       return response.ok({
         success: true,
@@ -3477,7 +3312,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
    * - Channel notifications are sent only if current date falls within the stay interval.
    *   Past-date actions do not trigger channel updates.
    */
- public async insertTransaction(ctx: HttpContext) {
+  public async insertTransaction(ctx: HttpContext) {
     const { request, auth, response } = ctx
 
     try {
@@ -4266,6 +4101,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         })
         .preload('folios', (query) => {
           query.preload('transactions')
+        }).preload('hotel',(hotelQuery)=>{
+          hotelQuery.select(['current_working_date'])
         })
         .first()
 
@@ -4339,6 +4176,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
+      const workingDate = reservation.hotel?.currentWorkingDate || DateTime.now()
+
       // =============================
       // 🎯 AMENDEMENT DES CHAMBRES
       // =============================
@@ -4356,6 +4195,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
               roomUpdateData.checkInDate = newArrivalDateTime
             }
             if (newDepartureDateTime) {
+              if (reservationRoom.status === 'checked_in') {
+                if (newDepartureDateTime > reservationRoom.checkOutDate) {
+                  roomUpdateData.extendDate = workingDate
+                } else if (newDepartureDateTime < reservationRoom.checkOutDate) {
+                  roomUpdateData.extendDate = null
+                }
+              }
               roomUpdateData.checkOutDate = newDepartureDateTime
             }
             if (newRoomTypeId) {
@@ -4420,6 +4266,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
             roomUpdateData.checkInDate = checkInDate
           }
           if (newDepartureDateTime) {
+            if (reservationRoom.status === 'checked_in') {
+
+              if (newDepartureDateTime > reservationRoom.checkOutDate) {
+                roomUpdateData.extendDate = workingDate
+              } else if (newDepartureDateTime < reservationRoom.checkOutDate) {
+                roomUpdateData.extendDate = null
+              }
+            }
             checkOutDate = newDepartureDateTime
             roomUpdateData.checkOutDate = checkOutDate
           }
@@ -4569,9 +4423,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ? selectedRooms.join(', ')
           : reservation.reservationRooms.map((rr) => rr.room?.roomNumber || rr.roomId).join(', ')
 
-      const logDescription = `Reservation #${reservation.reservationNumber} amended by ${
-        auth.user?.fullName || 'User ' + auth.user?.id
-      }.
+      const logDescription = `Reservation #${reservation.reservationNumber} amended by ${auth.user?.fullName || 'User ' + auth.user?.id
+        }.
         ${selectedRooms && selectedRooms.length > 0 ? `Rooms affected: ${amendedRooms}.` : 'All rooms affected.'}
         ${newArrivalDate ? `New arrival: ${DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd')}.` : ''}
         ${newDepartureDate ? `New departure: ${DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd')}.` : ''}
@@ -4630,64 +4483,64 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Notifications...
       setImmediate(async () => {
-      try {
-        const NotificationService = (await import('#services/notification_service')).default
+        try {
+          const NotificationService = (await import('#services/notification_service')).default
 
-        if (reservation.guestId) {
-          const variables = await NotificationService.buildVariables('STAY_AMENDED', {
+          if (reservation.guestId) {
+            const variables = await NotificationService.buildVariables('STAY_AMENDED', {
+              hotelId: reservation.hotelId,
+              reservationId: reservation.id,
+              guestId: reservation.guestId,
+              extra: {
+                ReservationNumber: reservation.reservationNumber || '',
+                OldArrivalDate: originalData.arrivalDate?.toFormat('yyyy-MM-dd') || '',
+                ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '',
+                OldDepartureDate: originalData.departureDate?.toFormat('yyyy-MM-dd') || '',
+                DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
+                Reason: reason || 'Stay amendment requested',
+                AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
+              },
+            })
+
+            await NotificationService.sendWithTemplate({
+              templateCode: 'STAY_AMENDED',
+              recipientType: 'GUEST',
+              recipientId: reservation.guestId,
+              variables,
+              relatedEntityType: 'Reservation',
+              relatedEntityId: reservation.id,
+              actorId: auth.user?.id,
+              hotelId: reservation.hotelId,
+            })
+          }
+
+          const variables = await NotificationService.buildVariables('STAY_AMENDED_STAFF', {
             hotelId: reservation.hotelId,
             reservationId: reservation.id,
-            guestId: reservation.guestId,
             extra: {
               ReservationNumber: reservation.reservationNumber || '',
-              OldArrivalDate: originalData.arrivalDate?.toFormat('yyyy-MM-dd') || '',
               ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '',
-              OldDepartureDate: originalData.departureDate?.toFormat('yyyy-MM-dd') || '',
               DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
-              Reason: reason || 'Stay amendment requested',
+              GuestName: reservation.guestId ? 'Guest' : 'N/A',
+              AffectedRooms: amendedRooms,
+              Changes: logDescription,
               AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
             },
           })
 
           await NotificationService.sendWithTemplate({
-            templateCode: 'STAY_AMENDED',
-            recipientType: 'GUEST',
-            recipientId: reservation.guestId,
+            templateCode: 'STAY_AMENDED_STAFF',
+            recipientType: 'STAFF',
+            recipientId: auth.user?.id!,
             variables,
             relatedEntityType: 'Reservation',
             relatedEntityId: reservation.id,
             actorId: auth.user?.id,
             hotelId: reservation.hotelId,
           })
+        } catch (err) {
+          console.warn('Notification STAY_AMENDED failed:', (err as any)?.message)
         }
-
-        const variables = await NotificationService.buildVariables('STAY_AMENDED_STAFF', {
-          hotelId: reservation.hotelId,
-          reservationId: reservation.id,
-          extra: {
-            ReservationNumber: reservation.reservationNumber || '',
-            ArrivalDate: newArrivalDate ? DateTime.fromISO(newArrivalDate).toFormat('yyyy-MM-dd') : '',
-            DepartureDate: newDepartureDate ? DateTime.fromISO(newDepartureDate).toFormat('yyyy-MM-dd') : '',
-            GuestName: reservation.guestId ? 'Guest' : 'N/A',
-            AffectedRooms: amendedRooms,
-            Changes: logDescription,
-            AmendedBy: auth.user?.fullName || `User ${auth.user?.id}`,
-          },
-        })
-
-        await NotificationService.sendWithTemplate({
-          templateCode: 'STAY_AMENDED_STAFF',
-          recipientType: 'STAFF',
-          recipientId: auth.user?.id!,
-          variables,
-          relatedEntityType: 'Reservation',
-          relatedEntityId: reservation.id,
-          actorId: auth.user?.id,
-          hotelId: reservation.hotelId,
-        })
-      } catch (err) {
-        console.warn('Notification STAY_AMENDED failed:', (err as any)?.message)
-      }
       })
       await trx.commit()
 
@@ -4736,6 +4589,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Consider only the first element for now
       const firstMove = moves[0] || {}
       const { reservationRoomId, newRoomId } = firstMove
+      const requestedRoomTypeIdRaw =
+        firstMove?.newroomTypeId ??
+        firstMove?.newRoomTypeId ??
+        firstMove?.roomTypeId ??
+        firstMove?.room_type_id ??
+        null
+      const requestedRateTypeIdRaw = firstMove?.rateTypeId ?? firstMove?.rate_type_id ?? null
+      const overwriteRoomRate = Boolean(
+        firstMove?.overwrite_room_rate ?? firstMove?.overwriteRoomRate ?? false
+      )
 
       if (!newRoomId) {
         await trx.rollback()
@@ -4749,9 +4612,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Find the reservation with current room assignments
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
+        .preload('folios')
+        .preload('hotel', (query) => {
+          query.preload('roomChargesTaxRates')
+        })
         .preload('reservationRooms', (query) => {
           query.preload('room', (roomQuery) => {
             roomQuery.preload('roomType')
+          })
+          query.preload('roomRates')
+          query.preload('mealPlan', (mpQuery: any) => {
+            mpQuery.preload('extraCharges', (ecQ: any) => {
+              ecQ.preload('taxRates')
+            })
           })
         })
         .first()
@@ -4798,6 +4671,259 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (!newRoom) {
         await trx.rollback()
         return response.badRequest({ message: 'New room not found or not available in this hotel' })
+      }
+
+      const requestedRoomTypeId = requestedRoomTypeIdRaw ? Number(requestedRoomTypeIdRaw) : null
+      if (requestedRoomTypeId && Number(newRoom.roomTypeId) !== requestedRoomTypeId) {
+        await trx.rollback()
+        return response.badRequest({
+          message: 'Selected room does not match the requested room type',
+        })
+      }
+
+      const effectiveRoomTypeId =
+        requestedRoomTypeId || Number(newRoom.roomTypeId) || Number(currentReservationRoom.roomTypeId)
+
+      const effectiveRateTypeId = (requestedRateTypeIdRaw ?? currentReservationRoom.rateTypeId)
+        ? Number(requestedRateTypeIdRaw ?? currentReservationRoom.rateTypeId)
+        : null
+
+      const round2 = (value: number) => Math.round(value * 100) / 100
+
+      const selectedRoomRate =
+        effectiveRateTypeId && effectiveRoomTypeId
+          ? await RoomRate.query({ client: trx })
+            .where('hotel_id', reservation.hotelId)
+            .where('room_type_id', effectiveRoomTypeId)
+            .where('rate_type_id', effectiveRateTypeId)
+            .orderBy('created_at', 'desc')
+            .first()
+          : null
+
+      if (effectiveRateTypeId && !selectedRoomRate) {
+        await trx.rollback()
+        return response.badRequest({
+          message: 'No room rate found for selected room type and rate type',
+        })
+      }
+
+      const hotel: any = (reservation as any).hotel
+      const hotelTaxes = hotel?.roomChargesTaxRates ?? []
+      let percentageSum = 0
+      let flatSum = 0
+      for (const tax of hotelTaxes as any[]) {
+        if ((tax as any)?.postingType === 'flat_percentage' && (tax as any)?.percentage) {
+          percentageSum += Number((tax as any).percentage) || 0
+        } else if ((tax as any)?.postingType === 'flat_amount' && (tax as any)?.amount) {
+          flatSum += Number((tax as any).amount) || 0
+        }
+      }
+      const percRate = percentageSum > 0 ? percentageSum / 100 : 0
+
+      const computeMealPlanGrossPerDay = async (
+        reservationRoom: ReservationRoom,
+        rate: RoomRate | null
+      ): Promise<{ grossPerDay: number; mealPlan: any | null }> => {
+        const mealPlanIncluded = Boolean(rate ? (rate as any).mealPlanRateInclude : (reservationRoom as any).mealPlanRateInclude)
+        const mealPlanId = rate ? Number((rate as any).mealPlanId ?? 0) || null : Number((reservationRoom as any).mealPlanId ?? 0) || null
+        if (!mealPlanIncluded || !mealPlanId) return { grossPerDay: 0, mealPlan: null }
+
+        const mealPlan = await MealPlan.query({ client: trx })
+          .where('id', mealPlanId)
+          .preload('extraCharges', (ecQ: any) => {
+            ecQ.preload('taxRates')
+          })
+          .first()
+
+        if (!mealPlan || !Array.isArray((mealPlan as any).extraCharges) || (mealPlan as any).extraCharges.length === 0) {
+          return { grossPerDay: 0, mealPlan }
+        }
+
+        const guestCounts = {
+          adults: Number((reservationRoom as any).adults ?? 0),
+          children: Number((reservationRoom as any).children ?? 0),
+          infants: Number((reservationRoom as any).infants ?? 0),
+        }
+
+        const normalizeGuestTarget = (value: unknown) => `${value ?? ''}`.trim().toLowerCase()
+        const getGuestCountForTarget = (
+          targetGuestType: unknown,
+          counts: { adults: number; children: number; infants: number }
+        ) => {
+          const target = normalizeGuestTarget(targetGuestType)
+          if (target === 'adult' || target === 'adults') return counts.adults
+          if (target === 'child' || target === 'children') return counts.children
+          if (target === 'infant' || target === 'infants') return counts.infants
+          return counts.adults + counts.children + counts.infants
+        }
+
+        let grossPerDay = 0
+        for (const extra of (mealPlan as any).extraCharges as any[]) {
+          const qtyPerDay = Number(extra.$extras?.pivot_quantity_per_day ?? 0)
+          const targetGuestType = extra.$extras?.pivot_target_guest_type
+          const baseQty = Math.max(0, qtyPerDay)
+          const guestCount = Math.max(0, getGuestCountForTarget(targetGuestType, guestCounts))
+          const quantity = extra.fixedPrice ? baseQty : baseQty * guestCount
+          const unitPriceGross = Number(extra.rate || 0)
+          const totalGross = unitPriceGross * quantity
+          if (quantity <= 0 || totalGross <= 0) continue
+          grossPerDay += totalGross
+        }
+
+        return { grossPerDay, mealPlan }
+      }
+
+      const computeRoomChargeNumbers = async (
+        reservationRoom: ReservationRoom,
+        rate: RoomRate,
+        roomChargeGrossDailyRate: number
+      ) => {
+        const adjustedGross = Math.max(0, roomChargeGrossDailyRate - flatSum)
+        const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
+        const dailyTaxAmount = Math.max(0, roomChargeGrossDailyRate - netWithoutTax)
+
+        const { grossPerDay: mealPlanGrossPerDay } = await computeMealPlanGrossPerDay(reservationRoom, rate)
+        const mealPlanIncluded = Boolean((rate as any).mealPlanRateInclude)
+        const totalRoomAmount = mealPlanIncluded
+          ? Math.max(0, roomChargeGrossDailyRate - mealPlanGrossPerDay)
+          : roomChargeGrossDailyRate
+        const roomAdjustedGross = Math.max(0, totalRoomAmount - flatSum)
+        const roomNetWithoutTax = percRate > 0 ? roomAdjustedGross / (1 + percRate) : roomAdjustedGross
+        const baseRateAdjustedGross = Math.max(0, roomChargeGrossDailyRate - flatSum)
+        const baseRateNetWithoutTax =
+          percRate > 0 ? baseRateAdjustedGross / (1 + percRate) : baseRateAdjustedGross
+
+        return {
+          amount: round2(netWithoutTax),
+          taxAmount: round2(dailyTaxAmount),
+          totalAmount: round2(netWithoutTax + dailyTaxAmount),
+          roomFinalRate: round2(totalRoomAmount),
+          roomFinalNetAmount: round2(roomNetWithoutTax),
+          roomFinalRateTaxe: round2(totalRoomAmount - roomNetWithoutTax),
+          roomFinalBaseRate: round2(baseRateNetWithoutTax),
+        }
+      }
+
+      const upsertRoomChargeTransactions = async (args: {
+        folioIds: number[]
+        reservationRoom: ReservationRoom
+        roomNumber: string
+        startPostingDate: DateTime
+        endPostingDateExclusive: DateTime
+        rate: RoomRate
+      }) => {
+        const roomChargeGrossDailyRate = Number(args.rate.baseRate || 0)
+        const existing = await FolioTransaction.query({ client: trx })
+          .whereIn('folioId', args.folioIds)
+          .where('postingDate', '>=', args.startPostingDate)
+          .where('postingDate', '<', args.endPostingDateExclusive)
+          .where('reservationRoomId', args.reservationRoom.id)
+          .where('transactionType', TransactionType.CHARGE)
+          .where('category', TransactionCategory.ROOM)
+          .where('isVoided', false)
+
+        const existingDates = new Set<string>(
+          existing
+            .map((tx) => (tx.postingDate ? tx.postingDate.toISODate() : null))
+            .filter((d): d is string => Boolean(d))
+        )
+
+        const roomChargeNumbers = await computeRoomChargeNumbers(
+          args.reservationRoom,
+          args.rate,
+          roomChargeGrossDailyRate
+        )
+
+        for (const tx of existing) {
+          tx.unitPrice = roomChargeNumbers.amount
+          tx.amount = roomChargeNumbers.amount
+          tx.taxAmount = roomChargeNumbers.taxAmount
+          tx.totalAmount = roomChargeNumbers.totalAmount
+          tx.netAmount = roomChargeNumbers.amount
+          tx.grossAmount = roomChargeNumbers.amount
+          tx.roomFinalBaseRate = roomChargeNumbers.roomFinalBaseRate
+          tx.roomFinalNetAmount = roomChargeNumbers.roomFinalNetAmount
+          tx.roomFinalRateTaxe = roomChargeNumbers.roomFinalRateTaxe
+          tx.roomFinalRate = roomChargeNumbers.roomFinalRate
+          tx.lastModifiedBy = auth.user?.id!
+          await tx.save()
+        }
+
+        const startDay = args.startPostingDate.startOf('day')
+        const endDay = args.endPostingDateExclusive.startOf('day')
+        const days = Math.max(0, Math.floor(endDay.diff(startDay, 'days').days))
+        const rawNights = Number((args.reservationRoom as any).nights ?? 0)
+        let iterations = days
+        if (iterations === 0 && rawNights === 0) iterations = 1
+        if (iterations === 0) return
+
+        const targetFolioId =
+          reservation.folios?.find((f: any) => f.reservationRoomId === args.reservationRoom.id)?.id ??
+          reservation.folios?.find((f: any) => f.folioType === 'master')?.id ??
+          args.folioIds[0]
+
+        if (!targetFolioId) return
+
+        const lastTx = await FolioTransaction.query({ client: trx })
+          .where('hotelId', reservation.hotelId)
+          .orderBy('transactionNumber', 'desc')
+          .first()
+        let nextNumber = lastTx?.transactionNumber ? Number(lastTx.transactionNumber) + 1 : 1
+        const nowIsoTime = DateTime.now().toISOTime()
+
+        const batch: Partial<FolioTransaction>[] = []
+        const checkInDay = args.reservationRoom.checkInDate
+          ? args.reservationRoom.checkInDate.startOf('day')
+          : startDay
+        for (let i = 0; i < iterations; i++) {
+          const postingDate = startDay.plus({ days: i })
+          const postingIso = postingDate.toISODate()
+          if (!postingIso || existingDates.has(postingIso)) continue
+
+          const night = rawNights === 0 ? null : Math.max(1, Math.floor(postingDate.diff(checkInDay, 'days').days) + 1)
+          const description =
+            rawNights === 0
+              ? `Room ${args.roomNumber ?? ''} - Day use`
+              : `Room ${args.roomNumber ?? ''} - Night ${night}`
+          const notes = rawNights === 0 ? ` - Day use` : ` - Night ${night}`
+          batch.push({
+            hotelId: reservation.hotelId,
+            folioId: targetFolioId,
+            reservationId: reservation.id,
+            reservationRoomId: args.reservationRoom.id,
+            transactionNumber: nextNumber++,
+            transactionType: TransactionType.CHARGE,
+            category: TransactionCategory.ROOM,
+            particular: 'Room Charge',
+            description,
+            amount: roomChargeNumbers.amount,
+            quantity: 1,
+            unitPrice: roomChargeNumbers.amount,
+            taxAmount: roomChargeNumbers.taxAmount,
+            roomFinalRate: roomChargeNumbers.roomFinalRate,
+            roomFinalRateTaxe: roomChargeNumbers.roomFinalRateTaxe,
+            roomFinalNetAmount: roomChargeNumbers.roomFinalNetAmount,
+            roomFinalBaseRate: roomChargeNumbers.roomFinalBaseRate,
+            serviceChargeAmount: 0,
+            discountAmount: 0,
+            netAmount: roomChargeNumbers.amount,
+            grossAmount: roomChargeNumbers.amount,
+            totalAmount: roomChargeNumbers.totalAmount,
+            notes,
+            transactionCode: generateTransactionCode(),
+            transactionTime: nowIsoTime,
+            postingDate,
+            currentWorkingDate: postingDate,
+            transactionDate: postingDate,
+            status: TransactionStatus.PENDING,
+            createdBy: auth.user?.id!,
+            lastModifiedBy: auth.user?.id!,
+          } as any)
+        }
+
+        if (batch.length > 0) {
+          await FolioTransaction.createMany(batch as any[], { client: trx })
+        }
       }
 
       // Check if new room is available for the reservation dates
@@ -4850,15 +4976,64 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const moveTimeIso = moveDate.toISO()
         const movedBy = auth.user?.fullName || `User ${auth.user?.id}`
 
+        const nextRoomRate = selectedRoomRate ? Number(selectedRoomRate.baseRate || 0) : currentReservationRoom.roomRate
+        const nextNights = Number(currentReservationRoom.nights ?? 0)
+        const nextTotalRoomCharges = nextNights === 0 ? nextRoomRate : nextRoomRate * nextNights
+        const previousTotalRoomCharges =
+          Number(currentReservationRoom.totalRoomCharges ?? 0) ||
+          (Number(currentReservationRoom.nights ?? 0) === 0
+            ? Number(currentReservationRoom.roomRate ?? 0)
+            : Number(currentReservationRoom.roomRate ?? 0) * Number(currentReservationRoom.nights ?? 0))
+        const previousTotalTaxes = Number(currentReservationRoom.totalTaxesAmount ?? currentReservationRoom.taxAmount ?? 0) || 0
+        const taxRatio = previousTotalRoomCharges > 0 ? previousTotalTaxes / previousTotalRoomCharges : 0
+        const nextTotalTaxesAmount = round2(nextTotalRoomCharges * taxRatio)
+        const nextNetAmount = round2(nextTotalRoomCharges + nextTotalTaxesAmount)
+
         await currentReservationRoom
           .merge({
             roomId: newRoomId,
-            roomTypeId: newRoom.roomTypeId,
+            roomTypeId: effectiveRoomTypeId,
+            rateTypeId: effectiveRateTypeId ?? currentReservationRoom.rateTypeId,
+            roomRateId: selectedRoomRate?.id ?? currentReservationRoom.roomRateId,
+            roomRate: nextRoomRate,
+            totalRoomCharges: nextTotalRoomCharges,
+            totalAmount: nextNetAmount,
+            netAmount: nextNetAmount,
+            taxAmount: nextTotalTaxesAmount,
+            totalTaxesAmount: nextTotalTaxesAmount,
+            taxIncludes: selectedRoomRate ? Boolean((selectedRoomRate as any).taxInclude) : currentReservationRoom.taxIncludes,
+            mealPlanRateInclude: selectedRoomRate
+              ? Boolean((selectedRoomRate as any).mealPlanRateInclude)
+              : currentReservationRoom.mealPlanRateInclude,
+            mealPlanId: selectedRoomRate ? (selectedRoomRate as any).mealPlanId ?? null : currentReservationRoom.mealPlanId,
             lastModifiedBy: auth.user?.id!,
             notes: `room change: ${originalRoomInfo.roomNumber} → ${newRoom.roomNumber}. Reason: ${reason || 'Room change'} | Check-in: ${checkInInfo} | Move time: ${moveTimeIso} | Moved by: ${movedBy}`,
           })
           .useTransaction(trx)
           .save()
+
+        if (overwriteRoomRate && selectedRoomRate) {
+          const startPostingDateIso = (effectiveDate ? DateTime.fromISO(effectiveDate) : moveDate).toISODate()
+          const openFolios = await Folio.query({ client: trx }).where('reservationId', reservation.id)
+          const folioIdsToUpdate = openFolios.map((f) => f.id)
+          if (folioIdsToUpdate.length > 0) {
+            const startPostingDate = DateTime.fromISO(startPostingDateIso).startOf('day')
+            const endPostingDateExclusive = (currentReservationRoom.checkOutDate || reservation.departDate || startPostingDate)
+              .startOf('day')
+            await upsertRoomChargeTransactions({
+              folioIds: folioIdsToUpdate,
+              reservationRoom: currentReservationRoom,
+              roomNumber: newRoom.roomNumber,
+              startPostingDate,
+              endPostingDateExclusive,
+              rate: selectedRoomRate,
+            })
+          }
+
+          for (const folioId of folioIdsToUpdate) {
+            await FolioService.updateFolioTotals(folioId, trx)
+          }
+        }
 
         await trx.commit()
 
@@ -4904,14 +5079,27 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Do NOT split reservation: keep same reservation and add a new ReservationRoom
       const targetReservationId = reservation.id
 
+      const nextRoomRate = selectedRoomRate ? Number(selectedRoomRate.baseRate || 0) : currentReservationRoom.roomRate
+      const nextTotalRoomCharges = numberOfNights === 0 ? nextRoomRate : nextRoomRate * numberOfNights
+      const previousTotalRoomCharges =
+        Number(currentReservationRoom.totalRoomCharges ?? 0) ||
+        (Number(currentReservationRoom.nights ?? 0) === 0
+          ? Number(currentReservationRoom.roomRate ?? 0)
+          : Number(currentReservationRoom.roomRate ?? 0) * Number(currentReservationRoom.nights ?? 0))
+      const previousTotalTaxes = Number(currentReservationRoom.totalTaxesAmount ?? currentReservationRoom.taxAmount ?? 0) || 0
+      const taxRatio = previousTotalRoomCharges > 0 ? previousTotalTaxes / previousTotalRoomCharges : 0
+      const nextTotalTaxesAmount = round2(nextTotalRoomCharges * taxRatio)
+      const nextNetAmount = round2(nextTotalRoomCharges + nextTotalTaxesAmount)
+
       // Create new reservation room record for the new room, attached to the target reservation (new or same)
       const newReservationRoom = await ReservationRoom.create(
         {
           reservationId: targetReservationId,
           hotelId: reservation.hotelId,
           roomId: newRoomId,
-          roomTypeId: newRoom.roomTypeId,
+          roomTypeId: effectiveRoomTypeId,
           checkInDate: moveDate,
+          checkedInBy: auth.user?.id!,
           checkOutDate: currentCheckOutDate,
           status: ReservationStatus.CHECKED_IN,
           createdBy: auth.user?.id!,
@@ -4919,23 +5107,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
           guestId: currentReservationRoom.guestId,
           checkInTime: currentReservationRoom.checkInTime,
           checkOutTime: currentReservationRoom.checkOutTime,
-          totalAmount: currentReservationRoom.roomRate * numberOfNights,
+          totalAmount: nextNetAmount,
           nights: numberOfNights,
           adults: currentReservationRoom.adults,
           children: currentReservationRoom.children,
-          roomRate: currentReservationRoom.roomRate,
-          roomRateId: currentReservationRoom.roomRateId,
+          roomRateId: selectedRoomRate?.id ?? currentReservationRoom.roomRateId,
           paymentMethodId: currentReservationRoom.paymentMethodId,
-          totalRoomCharges: numberOfNights === 0 ? currentReservationRoom.roomRate : currentReservationRoom.roomRate * numberOfNights,
-          taxAmount: currentReservationRoom.taxAmount,
-          rateTypeId: currentReservationRoom.rateTypeId,
+          totalRoomCharges: nextTotalRoomCharges,
+          taxAmount: nextTotalTaxesAmount,
+          totalTaxesAmount: nextTotalTaxesAmount,
+          netAmount: nextNetAmount,
+          rateTypeId: effectiveRateTypeId ?? currentReservationRoom.rateTypeId,
+          roomRate: nextRoomRate,
+          taxIncludes: selectedRoomRate ? Boolean((selectedRoomRate as any).taxInclude) : currentReservationRoom.taxIncludes,
+          mealPlanRateInclude: selectedRoomRate
+            ? Boolean((selectedRoomRate as any).mealPlanRateInclude)
+            : currentReservationRoom.mealPlanRateInclude,
+          mealPlanId: selectedRoomRate ? (selectedRoomRate as any).mealPlanId ?? null : currentReservationRoom.mealPlanId,
           reservedByUser: auth.user?.id,
           isplitedDestinatination: true,
           notes: `Moved from room ${currentReservationRoom.room.roomNumber}. Reason: ${reason || 'Room move requested'} | Move time: ${moveDate.toISO()} | Moved by: ${auth.user?.fullName || 'User ' + auth.user?.id}`,
         })
 
       // Reassign ALL open folios on the reservation to the new reservation/room
-      const openFolios = await Folio.query()
+      const openFolios = await Folio.query({ client: trx })
         .where('reservationId', reservation.id)
       if (openFolios.length > 0) {
         const transferNote = `Room move (${originalRoomInfo.roomNumber} -> ${newRoom.roomNumber}) on ${moveDate.toISODate()}${reason ? ' - ' + reason : ''}`
@@ -4969,6 +5164,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
             last_modified_by: auth.user?.id!,
             updated_at: DateTime.now(),
           })
+      }
+
+      if (overwriteRoomRate && selectedRoomRate && folioIdsToUpdate.length > 0) {
+        const startPostingDateIso = (effectiveDate ? DateTime.fromISO(effectiveDate) : moveDate).toISODate()
+        const startPostingDate = DateTime.fromISO(startPostingDateIso).startOf('day')
+        const endPostingDateExclusive = (newReservationRoom.checkOutDate || reservation.departDate || startPostingDate)
+          .startOf('day')
+        await upsertRoomChargeTransactions({
+          folioIds: folioIdsToUpdate,
+          reservationRoom: newReservationRoom,
+          roomNumber: newRoom.roomNumber,
+          startPostingDate,
+          endPostingDateExclusive,
+          rate: selectedRoomRate,
+        })
+
+        for (const folioId of folioIdsToUpdate) {
+          await FolioService.updateFolioTotals(folioId, trx)
+        }
       }
 
 
@@ -6478,7 +6692,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .orderBy('transactionDate', 'asc')
         .preload('reservationRoom', (query) => {
           query.preload('room')
-          .preload('guest')
+            .preload('guest')
         })
       console.log('reservation', roomChargeTransactions)
       // Build room charges breakdown - one row per folio transaction
@@ -6558,7 +6772,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         (sum: any, row: any) => sum + Number(row.netAmount || 0),
         0
       )
-       const allRoomGuests = reservation.reservationRooms
+      const allRoomGuests = reservation.reservationRooms
         .map(rr => rr.guest)
         .filter(Boolean)
         .filter((guest, index, self) =>
@@ -7446,62 +7660,62 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Update reservation rooms
       // -------------------------------
       for (const rr of reservation.reservationRooms) {
-         const shouldUpdateThisRoom = targetReservationRoomIds.has(rr.id)
+        const shouldUpdateThisRoom = targetReservationRoomIds.has(rr.id)
 
         if (!shouldUpdateThisRoom) {
           continue
         }
-         if (payload.rateTypeId !== undefined) {
-            rr.rateTypeId = payload.rateTypeId as number
-            console.log(`   RateTypeId updated to: ${rr.rateTypeId}`)
-          }
+        if (payload.rateTypeId !== undefined) {
+          rr.rateTypeId = payload.rateTypeId as number
+          console.log(`   RateTypeId updated to: ${rr.rateTypeId}`)
+        }
         // Update roomRate (payload.amount has priority)
 
-         if (payload.rateTypeId || payload.amount !== undefined) {
+        if (payload.rateTypeId || payload.amount !== undefined) {
 
-            const roomRate = await RoomRate.query({ client: trx })
-              .where('roomTypeId', rr.roomTypeId)
-              .where('rateTypeId', rr.rateTypeId!)
-              .first()
+          const roomRate = await RoomRate.query({ client: trx })
+            .where('roomTypeId', rr.roomTypeId)
+            .where('rateTypeId', rr.rateTypeId!)
+            .first()
 
-            if (roomRate) {
+          if (roomRate) {
 
-              rr.roomRateId = roomRate.id
-              console.log(`   RoomRateId updated to: ${rr.roomRateId}`)
+            rr.roomRateId = roomRate.id
+            console.log(`   RoomRateId updated to: ${rr.roomRateId}`)
 
-              // Si payload.amount est fourni, il a la priorité, sinon on prend baseRate du nouveau rate
-              if (payload.amount !== undefined) {
-                rr.roomRate = payload.amount
-                console.log(`   Using payload amount: ${rr.roomRate}`)
-              } else {
-                rr.roomRate = roomRate.baseRate
-                console.log(`   Using roomRate baseRate: ${rr.roomRate}`)
-              }
-
-              // Update mealPlanId from the new rate
-              rr.mealPlanId = roomRate.mealPlanId ?? null
-              console.log(`   MealPlanId updated to: ${rr.mealPlanId}`)
-
-              if (payload.taxInclude === undefined) {
-                rr.taxIncludes = roomRate.taxInclude ?? false
-                console.log(`   TaxInclude inherited from rate: ${rr.taxIncludes}`)
-              }
-
-              if (payload.mealPlanRateInclude === undefined && roomRate.mealPlanId) {
-                rr.mealPlanRateInclude = roomRate.mealPlanRateInclude ?? false
-                console.log(`   MealPlanRateInclude inherited from rate: ${rr.mealPlanRateInclude}`)
-              }
+            // Si payload.amount est fourni, il a la priorité, sinon on prend baseRate du nouveau rate
+            if (payload.amount !== undefined) {
+              rr.roomRate = payload.amount
+              console.log(`   Using payload amount: ${rr.roomRate}`)
             } else {
-              console.warn(` No roomRate found for roomTypeId: ${rr.roomTypeId}, rateTypeId: ${rr.rateTypeId}`)
+              rr.roomRate = roomRate.baseRate
+              console.log(`   Using roomRate baseRate: ${rr.roomRate}`)
+            }
 
-              // Si aucun roomRate trouvé mais qu'on a un amount dans le payload, on l'utilise quand même
-              if (payload.amount !== undefined) {
-                rr.roomRate = payload.amount
-                rr.roomRateId = null // Pas de roomRate associé
-                console.log(`   Using payload amount without roomRate: ${rr.roomRate}`)
-              }
+            // Update mealPlanId from the new rate
+            rr.mealPlanId = roomRate.mealPlanId ?? null
+            console.log(`   MealPlanId updated to: ${rr.mealPlanId}`)
+
+            if (payload.taxInclude === undefined) {
+              rr.taxIncludes = roomRate.taxInclude ?? false
+              console.log(`   TaxInclude inherited from rate: ${rr.taxIncludes}`)
+            }
+
+            if (payload.mealPlanRateInclude === undefined && roomRate.mealPlanId) {
+              rr.mealPlanRateInclude = roomRate.mealPlanRateInclude ?? false
+              console.log(`   MealPlanRateInclude inherited from rate: ${rr.mealPlanRateInclude}`)
+            }
+          } else {
+            console.warn(` No roomRate found for roomTypeId: ${rr.roomTypeId}, rateTypeId: ${rr.rateTypeId}`)
+
+            // Si aucun roomRate trouvé mais qu'on a un amount dans le payload, on l'utilise quand même
+            if (payload.amount !== undefined) {
+              rr.roomRate = payload.amount
+              rr.roomRateId = null // Pas de roomRate associé
+              console.log(`   Using payload amount without roomRate: ${rr.roomRate}`)
             }
           }
+        }
 
         if (payload.notes !== undefined) rr.notes = payload.notes
         if (payload.rateTypeId !== undefined) rr.rateTypeId = payload.rateTypeId as number
@@ -7653,10 +7867,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
           for (const extra of mealPlan.extraCharges as any[]) {
             const qtyPerDay = Number(
               extra.$extras?.pivot_quantity_per_day ??
-                extra.$extras?.quantity_per_day ??
-                extra.$extras?.pivot_quantityPerDay ??
-                extra.$extras?.quantityPerDay ??
-                0
+              extra.$extras?.quantity_per_day ??
+              extra.$extras?.pivot_quantityPerDay ??
+              extra.$extras?.quantityPerDay ??
+              0
             )
             const targetGuestType =
               extra.$extras?.pivot_target_guest_type ??
@@ -7954,7 +8168,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           }
         }
       } else {
-         const targetTransactionIds = new Set(payload.transactionIds || [])
+        const targetTransactionIds = new Set(payload.transactionIds || [])
         const targetTransactions = allFolioTransactions.filter(t => targetTransactionIds.has(t.id))
         for (const t of targetTransactions) {
           const rrId = t.reservationRoomId
@@ -8077,34 +8291,34 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await trx.commit()
       // Notifications
       setImmediate(async () => {
-      try {
-        const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
+        try {
+          const CheckinCheckoutNotificationService = (await import('#services/notification_action_service')).default
 
-        // Notification de changement de tarif
-        if (changedRooms.length > 0) {
-          await CheckinCheckoutNotificationService.notifyRateChange(
-            reservation.id,
-            changedRooms,
-            auth.user!.id
-          )
+          // Notification de changement de tarif
+          if (changedRooms.length > 0) {
+            await CheckinCheckoutNotificationService.notifyRateChange(
+              reservation.id,
+              changedRooms,
+              auth.user!.id
+            )
+          }
+
+          // Notification de changement de pax
+          const newAdults = reservation.adults
+          const newChildren = reservation.children
+          if (oldAdults !== newAdults || oldChildren !== newChildren) {
+            await CheckinCheckoutNotificationService.notifyPaxChange(
+              reservation.id,
+              oldAdults + oldChildren,
+              newAdults + newChildren,
+              auth.user!.id
+            )
+          }
+
+
+        } catch (notifError) {
+          console.error(' Erreur lors des notifications:', notifError)
         }
-
-        // Notification de changement de pax
-        const newAdults = reservation.adults
-        const newChildren = reservation.children
-        if (oldAdults !== newAdults || oldChildren !== newChildren) {
-          await CheckinCheckoutNotificationService.notifyPaxChange(
-            reservation.id,
-            oldAdults + oldChildren,
-            newAdults + newChildren,
-            auth.user!.id
-          )
-        }
-
-
-      } catch (notifError) {
-        console.error(' Erreur lors des notifications:', notifError)
-      }
 
       })
 

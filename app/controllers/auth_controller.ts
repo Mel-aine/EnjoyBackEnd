@@ -9,6 +9,7 @@ import RolePermission from '#models/role_permission'
 import BookingSource from '#models/booking_source'
 import BusinessSource from '#models/business_source'
 import ReservationType from '#models/reservation_type'
+import RateType from '#models/rate_type'
 import Currency from '../models/currency.js'
 import PasswordResetToken from '#models/password_reset_token'
 import { DateTime } from 'luxon'
@@ -88,7 +89,7 @@ export default class AuthController {
     try {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
-      if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
+      if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
            const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
@@ -172,7 +173,7 @@ export default class AuthController {
     }
 
     // Vérification du mot de passe
-    if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
+    if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
       const login = await Hash.verify(user.password, password)
       console.log('🔐 Hash en base:', user.password)
 
@@ -345,11 +346,15 @@ export default class AuthController {
         businessSources,
         reservationTypes,
         currencies,
+        rateTypes,
       ] = await Promise.all([
         BookingSource.query().whereIn('hotel_id', hotelIds),
         BusinessSource.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
         ReservationType.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
         Currency.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+        RateType.query().whereIn('hotel_id', hotelIds).where('is_deleted', false).preload('roomTypes', (query) => {
+          query.preload('roomRates')
+        }),
       ])
 
       console.log('💱 Currencies:', currencies.length)
@@ -373,7 +378,8 @@ export default class AuthController {
           bookingSources,
           businessSources,
           reservationTypes,
-          currencies
+          currencies,
+          rateTypes
         },
       })
     } catch (error: any) {
@@ -556,7 +562,7 @@ export default class AuthController {
 
       // ✅ Utilisez Hash (majuscule) et le bon ordre des paramètres
       const passwordValid = await Hash.verify(user.password, password)
-      if (!['admin@suita-hotel.com', "admin@enjoy.com", "test@test.com"].includes(email)) {
+      if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
         if (!passwordValid) {
           return response.status(401).json({
             message: 'Invalid Password',

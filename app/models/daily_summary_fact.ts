@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { afterCreate, BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
+import { afterCreate, BaseModel, column, belongsTo, afterSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import ReportsEmailService from '#services/reports_email_service'
 import User from '#models/user'
@@ -213,7 +213,7 @@ export default class DailySummaryFact extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'modifiedById' })
   declare modifiedBy: BelongsTo<typeof User>
 
-  @afterCreate()
+  @afterSave()
   public static async sendEmail(dailySummaryFact: DailySummaryFact) {
     const emailService = new ReportsEmailService()
     await emailService.sendDailySummaryEmail(dailySummaryFact)
