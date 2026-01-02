@@ -1562,7 +1562,7 @@ public generateMonthlyOccupancyHtml(
               room: `${reservationRoom.room.roomNumber} - ${reservationRoom.roomType?.roomTypeName}`,
               folioNo: reservationRoom.folios?.[0]?.folioNumber || 'N/A',
               guest: reservation.guest
-                ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+                ? `${reservation.guest.displayName}`
                 : '',
               source: reservation.businessSource?.name || '',
               company: reservation.companyName || '',
@@ -1574,7 +1574,7 @@ public generateMonthlyOccupancyHtml(
               totalRent: totalAmount, // Revenu net pour l'hôtel
               variance: variance,
               checkinBy: reservationRoom.checkedInByUser
-                ? `${reservationRoom.checkedInByUser.lastName}`
+                ? `${reservationRoom.checkedInByUser?.fullName}`
                 : 'N/A',
             },
           })
