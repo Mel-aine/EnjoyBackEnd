@@ -46,7 +46,7 @@ export class HotelAnalyticsService {
       .select(['id','room_type_id','status','housekeeping_status','room_number','sort_key','smoking_allowed'])
       .where('hotel_id', hotelId)
       .preload('roomType', (rtQuery) => {
-        rtQuery.select(['id', 'room_type_name', 'sort_order', 'max_adult'])
+        rtQuery.select(['id', 'room_type_name', 'sort_order', 'max_adult','is_paymaster'])
       })
       .orderBy('sort_key', 'asc')
     const blocksPromise = RoomBlock.query()
@@ -63,6 +63,7 @@ export class HotelAnalyticsService {
         'updated_at',
       ])
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .where((query) => {
         query
           .whereBetween('block_from_date', [
@@ -105,6 +106,7 @@ export class HotelAnalyticsService {
         'bookingSourceId'
       ])
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
       .andWhere((query) => {
         query.whereBetween('depart_date', [startDate.toISODate()!, endDate.toISODate()!])
@@ -165,7 +167,7 @@ export class HotelAnalyticsService {
       reservationsPromise,
     ])
 
-    const totalRooms = allRooms.length
+    const totalRooms = allRooms.filter((rm)=>!rm.roomType?.isPaymaster).length
 
     if (totalRooms === 0) {
       return {
@@ -658,6 +660,7 @@ export class HotelAnalyticsService {
     const allConfirmedReservations = await Reservation.query()
       .select(['id', 'status'])
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .where('status', 'confirmed')
       .where('arrived_date', '=', startDate.toISODate()!)
       .preload('reservationRooms', (rrq) => {

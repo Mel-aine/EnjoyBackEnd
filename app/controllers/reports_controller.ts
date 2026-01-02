@@ -1031,6 +1031,7 @@ public async getDailyReservationCounts(hotelId: number, startDate: DateTime, end
   const totalRooms = await Room.query()
     .where('hotel_id', hotelId)
     .where('isDeleted', false)
+    .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
     .count('* as total')
   
   const roomCount = parseInt(totalRooms[0].$extras.total) || 0
@@ -1045,6 +1046,7 @@ public async getDailyReservationCounts(hotelId: number, startDate: DateTime, end
     .whereRaw('DATE(arrived_date) <= ?', [endDate.toSQLDate()])
     .whereRaw('DATE(depart_date) > ?', [startDate.toSQLDate()])
     .whereNotIn('status', ['cancelled', 'voided','no_show'])
+    .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
     .preload('reservationRooms', (rrQuery) => {
       rrQuery
         .preload('room')
@@ -1495,6 +1497,9 @@ public generateMonthlyOccupancyHtml(
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
       .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('roomType')
@@ -1740,6 +1745,7 @@ public generateMonthlyOccupancyHtml(
       .where('arrived_date', '<=', reportDateStr)
       .where('depart_date', '>', reportDateStr)
       .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
         roomQuery.preload('folios', (folioQuery) => {
@@ -1819,6 +1825,9 @@ public generateMonthlyOccupancyHtml(
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
       .whereRaw('DATE(arrived_date) = ?', [reportDateStr])
       .where('status', 'checked_in')
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
 
     const reservationIds = walkInReservations.map((r: any) => r.id)
 
@@ -1885,6 +1894,13 @@ public generateMonthlyOccupancyHtml(
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+          })
+        })
+      })
 
     const extraCharges = transactions.reduce(
       (sum: number, t: any) => sum + Number(t.amount || 0),
@@ -1921,6 +1937,13 @@ public generateMonthlyOccupancyHtml(
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+          })
+        })
+      })
 
     const extraCharges = transactions.reduce(
       (sum: number, t: any) => sum + Number(t.amount || 0),
@@ -2017,6 +2040,11 @@ public generateMonthlyOccupancyHtml(
       .where('transaction_type', TransactionType.CHARGE)
       .where('status', TransactionStatus.POSTED)
       .whereRaw('DATE(created_at) = ?', [reportDateStr])
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservation', (resQuery) => {
+          resQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
 
     const extraCharges = transactions.reduce(
       (sum: number, t: any) => sum + Number(t.amount || 0),
@@ -2177,6 +2205,7 @@ public generateMonthlyOccupancyHtml(
     const rooms = await Room.query()
       .select(['id', 'status', 'housekeeping_status'])
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
 
     const totalRoomsCount = rooms.length
     const today = reportDate.startOf('day')
@@ -2203,6 +2232,7 @@ public generateMonthlyOccupancyHtml(
       .where('hotel_id', hotelId)
       .where('status', 'checked_in')
       .where('depart_date', '>=', todayIso)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (rrq) => {
         rrq.select(['room_id', 'check_out_date'])
       })
@@ -2237,6 +2267,7 @@ public generateMonthlyOccupancyHtml(
       .where('hotel_id', hotelId)
       .where('status', 'confirmed')
       .where('arrived_date', '=', todayIso)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (rrq) => {
         rrq.select(['room_id'])
       })
@@ -2310,6 +2341,7 @@ public generateMonthlyOccupancyHtml(
     // Get all rooms for the hotel
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('roomType')
       .orderBy('sort_key', 'asc')
       .orderBy('floor_number', 'asc')
@@ -2321,6 +2353,7 @@ public generateMonthlyOccupancyHtml(
       .where('arrived_date', '<=', reportDate.toSQLDate())
       .where('depart_date', '>', reportDate.toSQLDate())
       .whereNotIn('status', ['cancelled', 'voided'])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
       .preload('guest')
 
@@ -2347,6 +2380,7 @@ public generateMonthlyOccupancyHtml(
       .where('hotel_id', hotelId)
       .where('depart_date', reportDate.toSQLDate())
       .where('status', 'checked_in')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Get reservations arriving today
@@ -2354,6 +2388,7 @@ public generateMonthlyOccupancyHtml(
       .where('hotel_id', hotelId)
       .where('arrived_date', reportDate.toSQLDate())
       .where('status', 'confirmed')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Get departed rooms (checked out today)
@@ -2361,6 +2396,7 @@ public generateMonthlyOccupancyHtml(
       .where('hotel_id', hotelId)
       .where('depart_date', reportDate.toSQLDate())
       .where('status', 'checked_out')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Create sets for quick lookup
@@ -2447,6 +2483,7 @@ public generateMonthlyOccupancyHtml(
       .where('hotel_id', hotelId)
       .where('depart_date', reportDate.toFormat('yyyy-MM-dd'))
       .where('status', 'checked_in')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     // Stayover guests
@@ -2455,6 +2492,7 @@ public generateMonthlyOccupancyHtml(
       .where('arrived_date', '<', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
       .where('status', 'checked_in')
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms')
 
     const calculatePax = (reservations: any[]) => {
@@ -2505,6 +2543,7 @@ public generateMonthlyOccupancyHtml(
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
       .whereIn('status', ['checked_in','confirmed'])
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('roomRates', (rateQuery) => {
           rateQuery.preload('rateType')

@@ -102,6 +102,7 @@ export default class ReservationRoomService {
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
       .whereIn('room_type_id', roomTypeIds)
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       //.where('status', 'available')
       //.where('housekeeping_status', 'clean')
       .select(['id', 'room_type_id'])

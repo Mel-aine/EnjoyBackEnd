@@ -263,7 +263,15 @@ export class RoomAnalyticsService {
         const start = previousYear.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = previousYear.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('arrivedDate', [start, end]).count('* as count')
+        const countResult = await Reservation.query()
+          .where('hotel_id', serviceId)
+          .whereBetween('arrivedDate', [start, end])
+          .whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
+          .count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -292,6 +300,11 @@ public static async getAverageLengthOfStay(serviceId: number, year?: number): Pr
       .query()
       .where('hotel_id', serviceId)
       .whereBetween('arrived_date', [startOfYear.toSQL()!, endOfYear.toSQL()!])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('room', (r) => {
+          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
       .select('arrived_date', 'depart_date')
 
     let totalNights = 0

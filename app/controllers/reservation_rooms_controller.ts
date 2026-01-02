@@ -21,6 +21,7 @@ export default class ReservationRoomsController {
       const dateTo = request.input('date_to')
 
       const query = ReservationRoom.query()
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
 
       if (reservationId) {
         query.where('reservation_id', reservationId)
@@ -378,6 +379,7 @@ export default class ReservationRoomsController {
         .where('check_in_status', 'checked_in')
         .where('check_out_status', '!=', 'checked_out')
         .where('status', 'confirmed')
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
 
       if (hotelId) {
         query.whereHas('room', (roomQuery) => {
@@ -433,13 +435,16 @@ export default class ReservationRoomsController {
         .where('status', 'confirmed')
 
       if (hotelId) {
-        query.whereHas('room', (roomQuery) => {
-          roomQuery.where('hotel_id', hotelId)
-        })
-      }
+      query.whereHas('room', (roomQuery) => {
+        roomQuery.where('hotel_id', hotelId)
+      })
+    }
 
-      const arrivals = await query
-        .preload('room')
+    // Exclude Paymaster rooms
+    query.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+
+    const departingRooms = await query
+      .preload('room')
         .preload('roomType')
         .orderBy('expected_check_in_time', 'asc')
 
@@ -478,13 +483,16 @@ export default class ReservationRoomsController {
         .where('status', 'confirmed')
 
       if (hotelId) {
-        query.whereHas('room', (roomQuery) => {
-          roomQuery.where('hotel_id', hotelId)
-        })
-      }
+      query.whereHas('room', (roomQuery) => {
+        roomQuery.where('hotel_id', hotelId)
+      })
+    }
 
-      const departures = await query
-        .preload('room')
+    // Exclude Paymaster rooms
+    query.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+
+    const occupiedRooms = await query
+      .preload('room')
         .preload('roomType')
         .orderBy('expected_check_out_time', 'asc')
 
@@ -508,6 +516,7 @@ export default class ReservationRoomsController {
       const { hotelId, period } = request.only(['hotelId', 'period'])
 
       const query = ReservationRoom.query()
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       if (hotelId) {
         query.whereHas('room', (roomQuery) => {
           roomQuery.where('hotel_id', hotelId)
