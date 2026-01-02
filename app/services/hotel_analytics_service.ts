@@ -106,7 +106,6 @@ export class HotelAnalyticsService {
         'bookingSourceId'
       ])
       .where('hotel_id', hotelId)
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
       .andWhere((query) => {
         query.whereBetween('depart_date', [startDate.toISODate()!, endDate.toISODate()!])
@@ -131,6 +130,7 @@ export class HotelAnalyticsService {
             'isSplitedOrigin',
             'isplited_destinatination',
           ])
+          .preload('roomType', (rt) => rt.select(['id', 'is_paymaster']))
           .preload('room', (spQuery: any) => {
             spQuery
               .select(['id', 'room_number', 'room_type_id'])
@@ -242,18 +242,11 @@ export class HotelAnalyticsService {
           }
           const normalCount = reservation.reservationRooms.filter(
             (rr: any) =>
-              !rr.isSplitedOrigin &&
-              !rr.isplitedDestinatination &&
               coversToday(rr) &&
-              rr.roomId
+              rr.roomId &&
+              !rr.roomType?.isPaymaster
           ).length
-          const hasSplit = reservation.reservationRooms.some(
-            (rr: any) =>
-              (rr.isSplitedOrigin || rr.isplitedDestinatination) &&
-              coversToday(rr) &&
-              rr.roomId
-          )
-          occupiedEffCount += normalCount + (hasSplit ? 1 : 0)
+          occupiedEffCount += normalCount
           for (const rsp of reservation.reservationRooms) {
             if (rsp.roomId && coversToday(rsp)) {
               occupiedRoomIds.add(rsp.roomId)
@@ -616,7 +609,8 @@ export class HotelAnalyticsService {
       .where('status', 'checked_in')
       .where('depart_date','>=',today.toISODate()!)
       .preload('reservationRooms', (rrq) => {
-        rrq.select(['room_id', 'check_in_date', 'check_out_date', 'is_splited_origin', 'isplited_destinatination'])
+        rrq.select(['room_id', 'room_type_id', 'check_in_date', 'check_out_date', 'is_splited_origin', 'isplited_destinatination'])
+        .preload('roomType', (rt) => rt.select(['id', 'is_paymaster']))
       })
 
 
@@ -646,12 +640,9 @@ export class HotelAnalyticsService {
         return !!ci && !!co && ci <= todayIso && co > todayIso
       }
       const normalCount = rrs.filter(
-        (rr) => !rr.isSplitedOrigin && !rr.isplitedDestinatination && coversToday(rr)
-      ).length
-      const hasSplit = rrs.some(
-        (rr) => (rr.isSplitedOrigin || rr.isplitedDestinatination) && coversToday(rr)
-      )
-      return sum + normalCount + (hasSplit ? 1 : 0)
+          (rr) => coversToday(rr) && rr.roomId && !rr.roomType?.isPaymaster
+        ).length
+      return sum + normalCount
     }, 0)
 
     globalRoomStatusStats.dueOut = dueOutRoomIds.size
@@ -660,11 +651,11 @@ export class HotelAnalyticsService {
     const allConfirmedReservations = await Reservation.query()
       .select(['id', 'status'])
       .where('hotel_id', hotelId)
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .where('status', 'confirmed')
       .where('arrived_date', '=', startDate.toISODate()!)
       .preload('reservationRooms', (rrq) => {
-        rrq.select(['room_id'])
+        rrq.select(['room_id', 'room_type_id'])
+        .preload('roomType', (rt) => rt.select(['id', 'is_paymaster']))
       })
 
     console.log('Total confirmed reservations:', allConfirmedReservations.length)
@@ -672,7 +663,7 @@ export class HotelAnalyticsService {
     const confirmedRoomIds = new Set<number>()
     allConfirmedReservations.forEach((r) => {
       r.reservationRooms.forEach((rr) => {
-        if (rr.roomId) {
+        if (rr.roomId && !rr.roomType?.isPaymaster) {
           confirmedRoomIds.add(rr.roomId)
         }
       })

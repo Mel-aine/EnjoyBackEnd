@@ -5,6 +5,7 @@ import Hotel from '#models/hotel'
 import Reservation from '#models/reservation' // Modifié: Reservation au lieu de Booking
 import { createDailyReceiptReportValidator } from '#validators/daily_receipt_report'
 import { createDailyRevenueReportValidator } from '#validators/daily_revenue_report'
+import { PaymentMethodType } from '../enums.js'
 
 export default class DailyReceiptReportsController {
   /**
@@ -31,6 +32,9 @@ export default class DailyReceiptReportsController {
         .where('hotelId', hotelId)
         .where('paymentDate', '>=', startDateTime.toSQLDate())
         .where('paymentDate', '<=', endDateTime.toSQLDate())
+        .whereDoesntHave('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+        })
 
       if (receiptByUserId) {
         query = query.where('createdBy', receiptByUserId)
@@ -221,6 +225,9 @@ export default class DailyReceiptReportsController {
         .where('isVoided', false)
         .where('paymentDate', '>=', startDateTime.toSQLDate())
         .where('paymentDate', '<=', endDateTime.toSQLDate())
+        .whereDoesntHave('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+        })
 
       if (receiptByUserId) {
         query = query.where('createdBy', receiptByUserId)
@@ -369,6 +376,11 @@ export default class DailyReceiptReportsController {
         .preload('paymentMethod')
         .preload('folios')
         .where('hotelId', hotelId)
+        .whereDoesntHave('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+        })
+
+
 
       // Apply date type filter
       switch (dateType) {
@@ -628,6 +640,9 @@ export default class DailyReceiptReportsController {
         .preload('paymentMethod')
         .preload('folios')
         .where('hotelId', hotelId)
+        .whereDoesntHave('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+        })
 
       // Apply date type filter (IDENTIQUE)
       switch (dateType) {
@@ -871,7 +886,7 @@ export default class DailyReceiptReportsController {
       // Get authenticated user information
       const user = auth.user
       const printedBy = user 
-        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User' 
+        ? `${user.fullName || ''}`.trim() || user.email || 'Unknown User' 
         : 'System'
   
       // Build query for receipts
@@ -880,6 +895,7 @@ export default class DailyReceiptReportsController {
         .preload('paymentMethod')
         .preload('hotel')
         .where('hotelId', hotelId)
+        .whereDoesntHave('paymentMethod',(paQuery)=>paQuery.where('method_type',PaymentMethodType.CITY_LEDGER))
         .where('paymentDate', '>=', startDateTime.toSQLDate())
         .where('paymentDate', '<=', endDateTime.toSQLDate())
   
@@ -1142,6 +1158,9 @@ export default class DailyReceiptReportsController {
         .where('isVoided', false)
         .where('paymentDate', '>=', startDateTime.toSQLDate())
         .where('paymentDate', '<=', endDateTime.toSQLDate())
+        .whereDoesntHave('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+        })
 
       if (receiptByUserId) {
         query = query.where('createdBy', receiptByUserId)
