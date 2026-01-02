@@ -18,6 +18,7 @@ export const createRoomTypeValidator = vine.compile(
     color: vine.string().trim().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     defaultWebInventory: vine.number().min(0).optional(),
     sortOrder: vine.number().min(0).optional(),
+    isPaymaster: vine.boolean().optional(),
   })
 )
 
@@ -38,6 +39,7 @@ export const updateRoomTypeValidator = vine.compile(
     color: vine.string().trim().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     defaultWebInventory: vine.number().min(0).optional(),
     sortOrder: vine.number().min(0).optional(),
+    isPaymaster: vine.boolean().optional(),
   })
 )
 

@@ -21,11 +21,15 @@ export class RoomAvailabilityService {
       throw new Error('Ce service ne correspond pas à un hôtel')
     }
 
-    const totalResult = await Room.query().where('hotel_id', serviceId).count('* as total')
+    const totalResult = await Room.query()
+      .where('hotel_id', serviceId)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+      .count('* as total')
     const availableResult = await Room
       .query()
       .where('hotel_id', serviceId)
       .where('status', 'available')
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .count('* as available')
 
     const total = Number(totalResult[0].$extras.total || '0')
@@ -43,15 +47,22 @@ export class RoomAvailabilityService {
       .where('hotel_id', serviceId)
       .where('status','confirmed')
       .whereBetween('arrivedDate', [todayStart, tomorrowStart])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('room', (r) => {
+          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
       .count('* as count')
-
-    const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
-    const reservationRateToday = occupied > 0 ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100) : 0
 
     const reservedLastWeekResult = await Reservation
       .query()
       .where('hotel_id', serviceId)
       .whereBetween('bookingDate', [lastWeekStart, lastWeekEnd])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('room', (r) => {
+          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
       .count('* as count')
 
     const reservedLastWeek = Number(reservedLastWeekResult[0].$extras.count || '0')
@@ -64,6 +75,11 @@ export class RoomAvailabilityService {
       .query()
       .where('hotel_id', serviceId)
       .whereBetween('bookingDate', [startOfMonth, endOfMonth])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('room', (r) => {
+          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+      })
       .count('* as count')
 
     const totalReservationsThisMonth = Number(totalReservationsThisMonthResult[0].$extras.count || '0')
@@ -88,6 +104,15 @@ export class RoomAvailabilityService {
       .whereBetween('transactionDate', [startOfLastMonth, endOfLastMonth])
       .where('transactionType', 'payment')
       .where('isVoided', false)
+      .whereDoesntHave('folio', (f) => {
+        f.whereHas('reservation', (res) => {
+          res.whereHas('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
+        })
+      })
       .sum('amount as total')
 
     const lastMonthRevenue = Number(lastMonthRevenueResult[0].$extras.total || '0')
@@ -123,7 +148,10 @@ export class RoomAnalyticsService {
       throw new Error("Ce service n'est pas un hôtel")
     }
 
-    const totalRoomsResult = await Room.query().where('hotel_id', serviceId).count('* as total')
+    const totalRoomsResult = await Room.query()
+      .where('hotel_id', serviceId)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+      .count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
     if (totalRooms === 0) return { current: [], previous: [] }
 
@@ -141,6 +169,11 @@ export class RoomAnalyticsService {
           .query()
           .where('hotel_id', serviceId)
           .whereBetween('arrivedDate', [start, end])
+          .whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
           .count('* as count')
 
         const occupied = Number(countResult[0].$extras.count || '0')
@@ -164,7 +197,15 @@ export class RoomAnalyticsService {
         const start = date.startOf('day').toSQL()
         const end = date.endOf('day').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
+        const countResult = await Reservation.query()
+          .where('hotel_id', serviceId)
+          .whereBetween('bookingDate', [start, end])
+          .whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
+          .count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -180,7 +221,15 @@ export class RoomAnalyticsService {
         const start = date.startOf('day').toSQL()
         const end = date.endOf('day').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('bookingDate', [start, end]).count('* as count')
+        const countResult = await Reservation.query()
+          .where('hotel_id', serviceId)
+          .whereBetween('bookingDate', [start, end])
+          .whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
+          .count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 
@@ -193,7 +242,15 @@ export class RoomAnalyticsService {
         const start = now.set({ month: m, day: 1 }).startOf('month').toSQL()
         const end = now.set({ month: m, day: 1 }).endOf('month').toSQL()
 
-        const countResult = await Reservation.query().where('hotel_id', serviceId).whereBetween('arrivedDate', [start, end]).count('* as count')
+        const countResult = await Reservation.query()
+          .where('hotel_id', serviceId)
+          .whereBetween('arrivedDate', [start, end])
+          .whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
+          .count('* as count')
         const occupied = Number(countResult[0].$extras.count || '0')
         const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
 

@@ -68,6 +68,7 @@ export default class NightAuditService {
     // Find all occupied rooms (rooms with checked-in reservations overlapping the audit date)
     const occupiedRooms = await Room.query()
       .where('hotel_id', hotelId)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .whereHas('reservationRooms', (query) => {
         query.whereHas('reservation', (resQuery) => {
           resQuery.where('status', 'checked_in')
@@ -190,6 +191,11 @@ export default class NightAuditService {
       .whereHas('folio', (folioQuery) => {
         folioQuery.whereHas('reservation', (reservationQuery) => {
           reservationQuery.whereIn('status', allowedReservationStatuses)
+          reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
         })
       })
 
@@ -288,6 +294,9 @@ export default class NightAuditService {
     const occupiedRoomsResult = await ReservationRoom.query()
       .where('check_in_date', '<=', auditDate.toJSDate())
       .where('check_out_date', '>', auditDate.toJSDate())
+      .whereHas('room', (r) => {
+        r.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .whereHas('reservation', (reservationQuery) => {
         reservationQuery
           .where('hotel_id', hotelId)
