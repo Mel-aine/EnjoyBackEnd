@@ -5254,6 +5254,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           roomId: newRoomId,
           roomTypeId: effectiveRoomTypeId,
           checkInDate: moveDate,
+          checkedInBy: auth.user?.id!,
           checkOutDate: currentCheckOutDate,
           status: ReservationStatus.CHECKED_IN,
           createdBy: auth.user?.id!,
