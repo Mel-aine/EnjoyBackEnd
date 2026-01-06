@@ -300,7 +300,13 @@ export class FolioPrintService {
       .preload('guest')
       .preload('roomType')
       .preload('folios', (folioQuery) => {
-        folioQuery.preload('transactions')
+        folioQuery.preload('transactions', (transactionQuery) => {
+          transactionQuery
+            .where('isVoided', false)
+            .whereNull('mealPlanId')
+            .orderBy('transactionDate', 'asc')
+            .orderBy('createdAt', 'asc')
+        })
       })
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room', (roomSubQuery) => {
