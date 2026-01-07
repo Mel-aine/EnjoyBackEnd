@@ -4228,7 +4228,7 @@ export default class ReportsController {
           transaction.taxes
             .filter((tax: any) => tax.taxRateId === taxId)
             .forEach((tax: any) => {
-              taxesAmount += Number(tax.$pivot.taxAmount || 0)
+              taxesAmount += Number((tax?.$pivot?.taxAmount ?? tax?.taxAmount ?? 0))
             })
         }
       })
@@ -4408,8 +4408,7 @@ export default class ReportsController {
     try {
       const { default: FolioTransaction } = await import('#models/folio_transaction')
       const { default: PaymentMethod } = await import('#models/payment_method')
-      const { default: CompanyAccount } = await import('#models/company_account')
-      const { PaymentMethodType, TransactionType } = await import('#app/enums')
+      const { PaymentMethodType, TransactionType, FolioType } = await import('#app/enums')
 
       // Get city ledger payment methods
       const cityLedgerPaymentMethods = await PaymentMethod.query()
@@ -4422,9 +4421,8 @@ export default class ReportsController {
       if (cityLedgerPaymentMethodIds.length === 0) {
         return {
           openingBalance: { today: 0, ptd: 0, ytd: 0 },
+          transferFromGuestLedger: { today: 0, ptd: 0, ytd: 0 },
           paymentReceived: { today: 0, ptd: 0, ytd: 0 },
-          chargesRaised: { today: 0, ptd: 0, ytd: 0 },
-          outstandingCommission: { today: 0, ptd: 0, ytd: 0 },
           closingBalance: { today: 0, ptd: 0, ytd: 0 },
         }
       }
@@ -4455,7 +4453,6 @@ export default class ReportsController {
       // Helper: Get Payments Received (Debt Reduction)
       // Logic: Payments made on Company/City Ledger folios using non-City Ledger methods
       const getPaymentsReceived = async (startDate: DateTime | null, endDate: DateTime) => {
-        const { FolioType } = await import('#app/enums')
         const query = FolioTransaction.query()
           .where('hotel_id', hotelId)
           .whereHas('folio', (folioQuery) => {
@@ -4498,12 +4495,7 @@ export default class ReportsController {
       // 4. Calculate Closing Balances
       // Closing = Opening + Transfers - Payments
       const closingBalanceToday = openingBalanceToday + transfersToday - paymentsReceivedToday
-      const closingBalancePTD = openingBalancePTD + transfersPTD - paymentsReceivedPTD // Note: conceptually Closing Balance is always "As of Report Date", so these should be equal to closingBalanceToday?
-      // Wait, "Closing Balance" in the report columns (Today, PTD, YTD).
-      // Usually:
-      // Today Col: Opening (Yesterday) + Today Transfer - Today Payment = Today Closing.
-      // PTD Col: Opening (Start of Month) + PTD Transfer - PTD Payment = PTD Closing (should equal Today Closing).
-      // YTD Col: Opening (Start of Year) + YTD Transfer - YTD Payment = YTD Closing (should equal Today Closing).
+      const closingBalancePTD = openingBalancePTD + transfersPTD - paymentsReceivedPTD
       const closingBalanceYTD = openingBalanceYTD + transfersYTD - paymentsReceivedYTD
 
       return {
@@ -4512,15 +4504,20 @@ export default class ReportsController {
           ptd: openingBalancePTD,
           ytd: openingBalanceYTD,
         },
-        transferFromGuestLedger: {
-          today: transfersToday,
-          ptd: transfersPTD,
-          ytd: transfersYTD,
-        },
         paymentReceived: {
           today: paymentsReceivedToday,
           ptd: paymentsReceivedPTD,
           ytd: paymentsReceivedYTD,
+        },
+        chargesRaised: {
+          today: transfersToday,
+          ptd: transfersPTD,
+          ytd: transfersYTD,
+        },
+        outstandingCommission: {
+          today: 0,
+          ptd: 0,
+          ytd: 0,
         },
         closingBalance: {
           today: closingBalanceToday,
