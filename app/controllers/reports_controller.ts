@@ -4528,62 +4528,6 @@ export default class ReportsController {
           ytd: closingBalanceYTD,
         },
       }
-        .where('is_commissionable', true)
-        .whereBetween('current_working_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('commission_amount as total')
-
-      // Calculate closing balance
-      const closingBalanceToday =
-        (openingBalanceToday[0]?.$extras?.total || 0) +
-        (chargesToday[0]?.$extras?.total || 0) -
-        Math.abs(paymentsToday[0]?.$extras?.total || 0)
-
-      const closingBalancePTD =
-        (openingBalancePTD[0]?.$extras?.total || 0) +
-        (chargesPTD[0]?.$extras?.total || 0) -
-        Math.abs(paymentsPTD[0]?.$extras?.total || 0)
-
-      const closingBalanceYTD =
-        (openingBalanceYTD[0]?.$extras?.total || 0) +
-        (chargesYTD[0]?.$extras?.total || 0) -
-        Math.abs(paymentsYTD[0]?.$extras?.total || 0)
-
-      return {
-        openingBalance: {
-          today: openingBalanceToday[0]?.$extras?.total || 0,
-          ptd: openingBalancePTD[0]?.$extras?.total || 0,
-          ytd: openingBalanceYTD[0]?.$extras?.total || 0,
-        },
-        paymentReceived: {
-          today: Math.abs(paymentsToday[0]?.$extras?.total || 0),
-          ptd: Math.abs(paymentsPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(paymentsYTD[0]?.$extras?.total || 0),
-        },
-        chargesRaised: {
-          today: chargesToday[0]?.$extras?.total || 0,
-          ptd: chargesPTD[0]?.$extras?.total || 0,
-          ytd: chargesYTD[0]?.$extras?.total || 0,
-        },
-        outstandingCommission: {
-          today: commissionToday[0]?.$extras?.total || 0,
-          ptd: commissionPTD[0]?.$extras?.total || 0,
-          ytd: commissionYTD[0]?.$extras?.total || 0,
-        },
-        closingBalance: {
-          today: closingBalanceToday,
-          ptd: closingBalancePTD,
-          ytd: closingBalanceYTD,
-        },
-      }
     } catch (error) {
       console.error('Error in getManagementCityLedgerData:', error)
       return {
