@@ -99,6 +99,7 @@ export const createFolioTransactionValidator = vine.compile(
     refundedAt: vine.date().optional(),
 
     // Commission Information
+    isCommissionable: vine.boolean().optional(),
     commissionRate: vine.number().min(0).max(100).optional(),
     commissionAmount: vine.number().min(0).optional(),
     commissionCode: vine.string().optional(),
@@ -278,6 +279,7 @@ export const updateFolioTransactionValidator = vine.compile(
     refundedAt: vine.date().optional(),
 
     // Commission Information
+    isCommissionable: vine.boolean().optional(),
     commissionRate: vine.number().min(0).max(100).optional(),
     commissionAmount: vine.number().min(0).optional(),
     commissionCode: vine.string().optional(),

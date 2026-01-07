@@ -417,13 +417,6 @@ export default class NightAuditService {
       .where('current_working_date', auditDateJS)
       .where('transaction_type', TransactionType.PAYMENT)
       .where('is_voided', false)
-      .whereHas('folio', (folioQuery) => {
-        folioQuery.whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
-          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-        })
-      })
-      })
       .sum('amount as total')
       .first()
 
@@ -633,7 +626,7 @@ export default class NightAuditService {
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
       .where('is_deleted', false)
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      //.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('roomType')
       .preload('reservationRooms', (reservationRoomQuery) => {
         reservationRoomQuery
@@ -840,9 +833,6 @@ export default class NightAuditService {
       const occupiedRooms = await Reservation.query()
         .where('hotel_id', hotelId)
         .where('status', 'checked_in')
-        .whereDoesntHave('reservationRooms', (rr) => {
-          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-        })
         .whereRaw('DATE(arrived_date) <= ?', [auditDate])
         .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [auditDate])
         .preload('guest')
@@ -965,9 +955,6 @@ export default class NightAuditService {
           query.where('arrived_date', '=', auditDate).orWhere('depart_date', '=', auditDate)
         })
         .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
-        .whereDoesntHave('reservationRooms', (rr) => {
-          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-        })
         .preload('guest', (guestQuery) => {
           guestQuery.select(['id', 'firstName', "lastName", 'title'])
         })

@@ -344,9 +344,6 @@ export default class FolioTransaction extends BaseModel {
   declare taxExemptReason: string
 
   @column()
-  declare taxBreakdown: object
-
-  @column()
   declare isCommissionable: boolean
 
   @column()
