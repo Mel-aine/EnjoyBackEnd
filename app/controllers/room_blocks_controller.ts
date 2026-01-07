@@ -2,8 +2,9 @@ import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import RoomBlock from '#models/room_block'
 import { DateTime } from 'luxon'
-import { createRoomBlockValidator, updateRoomBlockValidator } from '#validators/room_blocks'
+import { createRoomBlockValidator, updateRoomBlockValidator, unblockRoomBlockValidator } from '#validators/room_blocks'
 import CheckInCheckOutNotificationService from '#services/notification_action_service'
+import ChannexBlockService from '../services/channex_block_service.js'
 
 export default class RoomBlocksController {
   /**
@@ -84,7 +85,6 @@ export default class RoomBlocksController {
       await roomBlock.load('hotel')
       await roomBlock.load('roomType')
 
-      console.log('Room block created successfully:', roomBlock.toJSON())
 
       //Notification
       setImmediate(async () => {
@@ -121,6 +121,128 @@ export default class RoomBlocksController {
         success: false,
         message: 'Erreur lors de la création du bloc de maintenance',
         errorCode: 'INTERNAL_SERVER_ERROR',
+        error: error.message,
+      })
+    }
+  }
+
+
+  public async unblockRangeByRoom({ params, request, response }: HttpContext) {
+    try {
+      const blockId = parseInt(params.roomId)
+      const payload = await unblockRoomBlockValidator.validate(request.all())
+      const roomId = parseInt(payload.room_id)
+      const unblockStart = DateTime.fromJSDate(payload.unblock_from_date)
+      const unblockEnd = DateTime.fromJSDate(payload.unblock_to_date)
+      if (!unblockStart.isValid || !unblockEnd.isValid) {
+        return response.badRequest({ success: false, message: 'Invalid date format' })
+      }
+      if (unblockStart >= unblockEnd) {
+        return response.conflict({ success: false, message: 'Unblock start must be before end' })
+      }
+      const candidate = await RoomBlock.query()
+        .where('room_id', roomId)
+        .where('id',blockId)
+        .preload('hotel')
+        .where('block_from_date', '<', unblockEnd.toJSDate())
+        .where('block_to_date', '>', unblockStart.toJSDate())
+        .first()
+      if (!candidate) {
+        return response.notFound({ success: false, message: 'No intersecting room block found' })
+      }
+      const blockStart = candidate.blockFromDate
+      const blockEnd = candidate.blockToDate
+      const fullClear = unblockStart <= blockStart && unblockEnd >= blockEnd
+      const frontShave = unblockStart <= blockStart && unblockEnd < blockEnd
+      const backShave = unblockEnd >= blockEnd && unblockStart > blockStart
+      const middleHole = unblockStart > blockStart && unblockEnd < blockEnd
+
+      const channexBlockService = new ChannexBlockService()
+      await candidate.load('hotel') // Load hotel for Channex ID
+      const hotelChannexId = candidate.hotel?.channexPropertyId
+
+      // Helper function to sync availability
+      const syncAvailability = async (start: DateTime, end: DateTime) => {
+        if (hotelChannexId) {
+          // Use setImmediate to not block the response
+          setImmediate(async () => {
+             try {
+                // Determine the range to sync. We should sync the intersection of the original block and the unblock range.
+                // Actually, unblockStart and unblockEnd are the user's requested range.
+                // We should sync exactly this range because these dates are being unblocked.
+                // However, if the user asks to unblock a range that extends BEYOND the block, 
+                // we only need to sync the part that WAS blocked.
+                // But simplifying: just sync the intersection is safer.
+                
+                const syncStart = start < blockStart ? blockStart : start
+                const syncEnd = end > blockEnd ? blockEnd : end
+                
+                if (syncStart <= syncEnd) { // Check if valid range
+                    await channexBlockService.syncAvailabilityForRange(candidate, syncStart, syncEnd, hotelChannexId)
+                }
+             } catch (e) {
+                console.error('Failed to sync availability with Channex:', e)
+             }
+          })
+        }
+      }
+
+      if (fullClear) {
+        await candidate.delete()
+        await syncAvailability(unblockStart, unblockEnd)
+        return response.ok({ success: true, message: 'Block fully cleared', data: null })
+      }
+      if (frontShave) {
+        candidate.blockFromDate = unblockEnd.plus({ days: 1 })
+        await candidate.save()
+        await syncAvailability(unblockStart, unblockEnd.plus({ days: 1 })) // Sync the unblocked part (inclusive of end date)
+        return response.ok({ success: true, message: 'Block shaved from start', data: candidate })
+      }
+      if (backShave) {
+        candidate.blockToDate = unblockStart.minus({ days: 1 })
+        await candidate.save()
+        await syncAvailability(unblockStart, unblockEnd)
+        return response.ok({ success: true, message: 'Block shaved from end', data: candidate })
+      }
+      if (middleHole) {
+        const originalEnd = candidate.blockToDate
+        candidate.blockToDate = unblockStart.minus({ days: 1 })
+        await candidate.save()
+        const newBlock = await RoomBlock.create({
+          roomId: candidate.roomId,
+          roomTypeId: candidate.roomTypeId,
+          status: candidate.status,
+          hotelId: candidate.hotelId,
+          blockFromDate: unblockEnd.plus({ days: 1 }),
+          blockToDate: originalEnd,
+          reason: candidate.reason,
+          description: candidate.description,
+          blockedByUserId: candidate.blockedByUserId,
+        })
+        
+        await syncAvailability(unblockStart, unblockEnd.plus({ days: 1 }))
+
+        return response.ok({
+          success: true,
+          message: 'Block split into two',
+          data: { head: candidate, tail: newBlock },
+        })
+      }
+      return response.badRequest({
+        success: false,
+        message: 'Unblock range does not intersect the existing block',
+      })
+    } catch (error) {
+      if (error.code === 'E_VALIDATION_FAILURE') {
+        return response.badRequest({
+          success: false,
+          message: 'Validation error',
+          errors: error.messages,
+        })
+      }
+      return response.internalServerError({
+        success: false,
+        message: 'Error processing unblock range by room',
         error: error.message,
       })
     }
@@ -365,6 +487,10 @@ public async update({ request, response, params }: HttpContext) {
         })
       }
     }
+    // Capture original dates for Channex sync
+    const originalStart = roomBlock.blockFromDate
+    const originalEnd = roomBlock.blockToDate
+
     // Mettre à jour le bloc - handle dates separately to avoid type conflicts
     const { block_from_date, block_to_date, ...otherFields } = payload
 
@@ -388,6 +514,28 @@ public async update({ request, response, params }: HttpContext) {
     await roomBlock.load('blockedBy')
     await roomBlock.load('hotel')
     await roomBlock.load('roomType')
+
+    // Sync Channex (Optimized)
+    if (roomBlock.hotel?.channexPropertyId) {
+      const channexBlockService = new ChannexBlockService()
+      setImmediate(async () => {
+        try {
+          const newStart = roomBlock.blockFromDate
+          const newEnd = roomBlock.blockToDate
+          const minStart = originalStart < newStart ? originalStart : newStart
+          const maxEnd = originalEnd > newEnd ? originalEnd : newEnd
+
+          await channexBlockService.syncAvailabilityForRange(
+            roomBlock,
+            minStart,
+            maxEnd,
+            roomBlock.hotel.channexPropertyId!
+          )
+        } catch (e) {
+          console.error('Failed to sync updated block with Channex:', e)
+        }
+      })
+    }
 
 
 
@@ -451,8 +599,29 @@ public async update({ request, response, params }: HttpContext) {
       const id = params.id
       console.log('Deleting room block:', id)
 
-      const roomBlock = await RoomBlock.findOrFail(id)
+      const roomBlock = await RoomBlock.query()
+        .where('id', id)
+        .preload('hotel')
+        .preload('roomType')
+        .firstOrFail()
+
+      const start = roomBlock.blockFromDate
+      const end = roomBlock.blockToDate
+      const hotelChannexId = roomBlock.hotel?.channexPropertyId
+
       await roomBlock.delete()
+
+      // Sync Channex (Optimized)
+      if (hotelChannexId) {
+        const channexBlockService = new ChannexBlockService()
+        setImmediate(async () => {
+          try {
+            await channexBlockService.syncAvailabilityForRange(roomBlock, start, end, hotelChannexId)
+          } catch (e) {
+            console.error('Failed to sync deleted block with Channex:', e)
+          }
+        })
+      }
 
       console.log('Room block deleted successfully:', id)
 

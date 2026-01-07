@@ -1645,6 +1645,7 @@ router
         router.post('/', roomBlocksController.store.bind(roomBlocksController)) // Create a new room block
         router.put('/:id', roomBlocksController.update.bind(roomBlocksController)) // Update room block information
         router.delete('/:id', roomBlocksController.destroy.bind(roomBlocksController)) // Delete room block
+        router.post('/:roomId/unblock-range', roomBlocksController.unblockRangeByRoom.bind(roomBlocksController))
       })
       .prefix('room-blocks')
 

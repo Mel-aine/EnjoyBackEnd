@@ -25,8 +25,6 @@ export const updateRoomBlockValidator = vine.compile(
     room_type_id: vine.number().positive().optional(),
     hotel_id: vine.number().positive().optional(),
     status: vine.enum(['pending', 'inProgress', 'completed']).optional(),
-    // block_from_date: vine.date().optional(),
-    // block_to_date: vine.date().optional(),
     block_from_date: vine
       .string()
       .optional()
@@ -48,5 +46,23 @@ export const updateRoomBlockValidator = vine.compile(
 
     reason: vine.string().trim().optional(),
     description: vine.string().trim().optional()
+  })
+)
+
+export const unblockRoomBlockValidator = vine.compile(
+  vine.object({
+    room_id: vine.number().positive(),
+    unblock_from_date: vine
+      .string()
+      .transform((value) => {
+        const dateStr = value.includes('T') ? value.split('T')[0] : value
+        return new Date(dateStr)
+      }),
+    unblock_to_date: vine
+      .string()
+      .transform((value) => {
+        const dateStr = value.includes('T') ? value.split('T')[0] : value
+        return new Date(dateStr)
+      })
   })
 )

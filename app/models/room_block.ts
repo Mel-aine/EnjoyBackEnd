@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, afterSave, afterDelete } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, afterSave, afterDelete, afterCreate } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import User from './user.js'
@@ -58,9 +58,9 @@ export default class RoomBlock extends BaseModel {
   declare roomType: BelongsTo<typeof RoomType>
 
 
-  @afterSave()
-  static async syncAfterSave(roomBlock: RoomBlock) {
-    console.log('🔄 ROOM BLOCK AFTER SAVE HOOK TRIGGERED:', {
+  @afterCreate()
+  static async syncAfterCreate(roomBlock: RoomBlock) {
+    console.log('🔄 ROOM BLOCK AFTER CREATE HOOK TRIGGERED:', {
       id: roomBlock.id,
       status: roomBlock.status,
       fromDate: roomBlock.blockFromDate.toISODate(),
@@ -103,25 +103,6 @@ export default class RoomBlock extends BaseModel {
     }
   }
 
-  @afterDelete()
-  static async syncAfterDelete(roomBlock: RoomBlock) {
-    console.log('🔄 ROOM BLOCK AFTER DELETE HOOK TRIGGERED:', roomBlock.id)
-
-    try {
-      // Charger les relations nécessaires avant suppression
-      await roomBlock.load('hotel')
-      
-      const hotel = roomBlock.hotel
-      
-      if (hotel && hotel.channexPropertyId) {
-        await RoomBlock.syncBlockWithChannex(roomBlock, hotel.channexPropertyId, 'unblock')
-      }
-    } catch (error) {
-      console.error('❌ Error in syncAfterDelete hook:', error)
-      // Ne pas throw pour ne pas bloquer l'opération principale
-    }
-  }
-
   private static async syncBlockWithChannex(
     roomBlock: RoomBlock, 
     hotelChannexId: string, 
@@ -132,8 +113,6 @@ export default class RoomBlock extends BaseModel {
       
       if (action === 'block') {
         await channexBlockService.syncAvailabilityAfterRoomBlock(roomBlock, hotelChannexId)
-      } else {
-        await channexBlockService.syncAvailabilityAfterRoomUnblock(roomBlock, hotelChannexId)
       }
       
       console.log(`✅ Successfully synced ${action} with Channex for room block ${roomBlock.id}`)
