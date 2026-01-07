@@ -3371,8 +3371,6 @@ export default class ReportsController {
       this.getManagementGuestLedgerData(
         hotelId,
         reportDate,
-        ptdStartDate,
-        ytdStartDate,
         currency
       ),
       // Section 10: Room Summary
@@ -4406,126 +4404,44 @@ export default class ReportsController {
     currency: string
   ) {
     try {
-      const { default: FolioTransaction } = await import('#models/folio_transaction')
-      const { default: PaymentMethod } = await import('#models/payment_method')
-      const { PaymentMethodType, TransactionType, FolioType } = await import('#app/enums')
-
-      // Get city ledger payment methods
-      const cityLedgerPaymentMethods = await PaymentMethod.query()
-        .where('hotel_id', hotelId)
-        .where('method_type', PaymentMethodType.CITY_LEDGER)
-        .where('is_active', true)
-
-      const cityLedgerPaymentMethodIds = cityLedgerPaymentMethods.map((pm) => pm.id)
-
-      if (cityLedgerPaymentMethodIds.length === 0) {
-        return {
-          openingBalance: { today: 0, ptd: 0, ytd: 0 },
-          transferFromGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-          paymentReceived: { today: 0, ptd: 0, ytd: 0 },
-          closingBalance: { today: 0, ptd: 0, ytd: 0 },
-        }
-      }
-
-      // Helper: Get Transfers From Guest Ledger (New Debt)
-      // Logic: Payments made using "City Ledger" payment method
-      const getTransfers = async (startDate: DateTime | null, endDate: DateTime) => {
-        const query = FolioTransaction.query()
-          .where('hotel_id', hotelId)
-          .whereIn('payment_method_id', cityLedgerPaymentMethodIds)
-          .where('transaction_type', TransactionType.PAYMENT)
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancelled', 'voided'])
-
-        if (startDate) {
-          query.whereBetween('current_working_date', [
-            startDate.toFormat('yyyy-MM-dd'),
-            endDate.toFormat('yyyy-MM-dd'),
-          ])
-        } else {
-          query.where('current_working_date', '<', endDate.toFormat('yyyy-MM-dd'))
-        }
-
-        const result = await query.sum('amount as total').first()
-        return Number(result?.$extras.total || 0)
-      }
-
-      // Helper: Get Payments Received (Debt Reduction)
-      // Logic: Payments made on Company/City Ledger folios using non-City Ledger methods
-      const getPaymentsReceived = async (startDate: DateTime | null, endDate: DateTime) => {
-        const query = FolioTransaction.query()
-          .where('hotel_id', hotelId)
-          .whereHas('folio', (folioQuery) => {
-            folioQuery.whereIn('folio_type', [FolioType.COMPANY, FolioType.CITY_LEDGER])
-          })
-          .where('transaction_type', TransactionType.PAYMENT)
-          .whereNotIn('payment_method_id', cityLedgerPaymentMethodIds)
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancelled', 'voided'])
-
-        if (startDate) {
-          query.whereBetween('current_working_date', [
-            startDate.toFormat('yyyy-MM-dd'),
-            endDate.toFormat('yyyy-MM-dd'),
-          ])
-        } else {
-          query.where('current_working_date', '<', endDate.toFormat('yyyy-MM-dd'))
-        }
-
-        const result = await query.sum('amount as total').first()
-        return Number(result?.$extras.total || 0)
-      }
-
-      // Helper: Get Outstanding Commission (commission amounts deducted)
-      const getOutstandingCommission = async (startDate: DateTime | null, endDate: DateTime) => {
-        const query = FolioTransaction.query()
-          .where('hotel_id', hotelId)
-          .where('is_commissionable', true)
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancelled', 'voided'])
-
-        if (startDate) {
-          query.whereBetween('current_working_date', [
-            startDate.toFormat('yyyy-MM-dd'),
-            endDate.toFormat('yyyy-MM-dd'),
-          ])
-        } else {
-          query.where('current_working_date', '<', endDate.toFormat('yyyy-MM-dd'))
-        }
-
-        const result = await query.sum('commission_amount as total').first()
-        return Number(result?.$extras.total || 0)
-      }
+      const { default: LedgerService } = await import('#services/ledger_service')
 
       // 1. Calculate Opening Balances (Cumulative up to start date)
-      // Opening Balance = Previous closing = (Transfers - Payments - Commission) before the period
-      const openingBalanceToday =
-        (await getTransfers(null, reportDate)) -
-        (await getPaymentsReceived(null, reportDate)) -
-        (await getOutstandingCommission(null, reportDate))
+      // Today's opening balance
+      let openingBalanceToday = await LedgerService.getOpeningBalance(hotelId, reportDate, 'cityLedgerClosingBalance')
+      
+      if (openingBalanceToday === null) {
+        openingBalanceToday =
+          (await LedgerService.getCityLedgerTransfers(hotelId, null, reportDate)) -
+          (await LedgerService.getCityLedgerPayments(hotelId, null, reportDate)) -
+          (await LedgerService.getCityLedgerCommissions(hotelId, null, reportDate))
+      }
+
+      // PTD and YTD opening balances
       const openingBalancePTD =
-        (await getTransfers(null, ptdStartDate)) -
-        (await getPaymentsReceived(null, ptdStartDate)) -
-        (await getOutstandingCommission(null, ptdStartDate))
+        (await LedgerService.getCityLedgerTransfers(hotelId, null, ptdStartDate)) -
+        (await LedgerService.getCityLedgerPayments(hotelId, null, ptdStartDate)) -
+        (await LedgerService.getCityLedgerCommissions(hotelId, null, ptdStartDate))
+        
       const openingBalanceYTD =
-        (await getTransfers(null, ytdStartDate)) -
-        (await getPaymentsReceived(null, ytdStartDate)) -
-        (await getOutstandingCommission(null, ytdStartDate))
+        (await LedgerService.getCityLedgerTransfers(hotelId, null, ytdStartDate)) -
+        (await LedgerService.getCityLedgerPayments(hotelId, null, ytdStartDate)) -
+        (await LedgerService.getCityLedgerCommissions(hotelId, null, ytdStartDate))
 
       // 2. Calculate Transfers From Guest Ledger (New Debt) for the period
-      const transfersToday = await getTransfers(reportDate, reportDate)
-      const transfersPTD = await getTransfers(ptdStartDate, reportDate)
-      const transfersYTD = await getTransfers(ytdStartDate, reportDate)
+      const transfersToday = await LedgerService.getCityLedgerTransfers(hotelId, reportDate, reportDate)
+      const transfersPTD = await LedgerService.getCityLedgerTransfers(hotelId, ptdStartDate, reportDate)
+      const transfersYTD = await LedgerService.getCityLedgerTransfers(hotelId, ytdStartDate, reportDate)
 
       // 3. Calculate Payments Received for the period
-      const paymentsReceivedToday = await getPaymentsReceived(reportDate, reportDate)
-      const paymentsReceivedPTD = await getPaymentsReceived(ptdStartDate, reportDate)
-      const paymentsReceivedYTD = await getPaymentsReceived(ytdStartDate, reportDate)
+      const paymentsReceivedToday = await LedgerService.getCityLedgerPayments(hotelId, reportDate, reportDate)
+      const paymentsReceivedPTD = await LedgerService.getCityLedgerPayments(hotelId, ptdStartDate, reportDate)
+      const paymentsReceivedYTD = await LedgerService.getCityLedgerPayments(hotelId, ytdStartDate, reportDate)
 
       // 3b. Calculate Outstanding Commission for the period
-      const outstandingCommissionToday = await getOutstandingCommission(reportDate, reportDate)
-      const outstandingCommissionPTD = await getOutstandingCommission(ptdStartDate, reportDate)
-      const outstandingCommissionYTD = await getOutstandingCommission(ytdStartDate, reportDate)
+      const outstandingCommissionToday = await LedgerService.getCityLedgerCommissions(hotelId, reportDate, reportDate)
+      const outstandingCommissionPTD = await LedgerService.getCityLedgerCommissions(hotelId, ptdStartDate, reportDate)
+      const outstandingCommissionYTD = await LedgerService.getCityLedgerCommissions(hotelId, ytdStartDate, reportDate)
 
       // 4. Calculate Closing Balances
       // Closing = Opening + Charges Raised - (Payments Received + Outstanding Commission)
@@ -4580,111 +4496,61 @@ export default class ReportsController {
     currency: string
   ) {
     try {
-      const { default: FolioTransaction } = await import('#models/folio_transaction')
-      const { default: PaymentMethod } = await import('#models/payment_method')
-      const { PaymentMethodType, TransactionType } = await import('#app/enums')
+      const { default: LedgerService } = await import('#services/ledger_service')
+      
+      const metrics = await LedgerService.getAdvanceDepositLedgerMetrics(hotelId, reportDate)
 
-      // Get advance deposit payment methods
-      const advanceDepositPaymentMethods = await PaymentMethod.query()
-        .where('hotel_id', hotelId)
-        .where('method_type', PaymentMethodType.CASH)
-
-      const advanceDepositPaymentMethodIds = advanceDepositPaymentMethods.map((pm) => pm.id)
-
-      if (advanceDepositPaymentMethodIds.length === 0) {
-        return {
-          openingBalance: { today: 0, ptd: 0, ytd: 0 },
-          advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
-          balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-          closingBalance: { today: 0, ptd: 0, ytd: 0 },
-        }
+      // PTD Calculations
+      let openingBalancePTD = await LedgerService.getOpeningBalance(hotelId, ptdStartDate, 'advanceDepositLedgerClosingBalance')
+      if (openingBalancePTD === null) {
+        openingBalancePTD = 
+          (await LedgerService.getAdvanceDepositsCollected(hotelId, null, ptdStartDate)) -
+          (await LedgerService.getAdvanceDepositTransfers(hotelId, null, ptdStartDate))
       }
+      const collectedPTD = await LedgerService.getAdvanceDepositsCollected(hotelId, ptdStartDate, reportDate)
+      const transfersPTD = await LedgerService.getAdvanceDepositTransfers(hotelId, ptdStartDate, reportDate)
+      const closingBalancePTD = openingBalancePTD + collectedPTD - transfersPTD
 
-      // Calculate opening balance (advance deposit balance before each period)
-      const openingBalanceToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('current_working_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
-        .where('category', TransactionCategory.DEPOSIT)
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
-
-      // PTD/YTD calculations are intentionally omitted per requirement
-
-      // Calculate advance deposits collected (new deposits received)
-      const depositsToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_type', TransactionType.PAYMENT)
-        .where('is_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
-
-      // PTD/YTD calculations are intentionally omitted per requirement
-
-      // Calculate balance transfers to guest ledger (advance deposits used for charges)
-      const transfersToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_type', TransactionType.TRANSFER)
-        .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
-
-      // PTD/YTD calculations are intentionally omitted per requirement
-
-      // Calculate closing balance
-      const closingBalanceToday =
-        (openingBalanceToday[0]?.$extras?.total || 0) +
-        Math.abs(depositsToday[0]?.$extras?.total || 0) -
-        Math.abs(transfersToday[0]?.$extras?.total || 0)
-
-      // PTD/YTD closing balances omitted per requirement
+      // YTD Calculations
+      let openingBalanceYTD = await LedgerService.getOpeningBalance(hotelId, ytdStartDate, 'advanceDepositLedgerClosingBalance')
+      if (openingBalanceYTD === null) {
+        openingBalanceYTD = 
+          (await LedgerService.getAdvanceDepositsCollected(hotelId, null, ytdStartDate)) -
+          (await LedgerService.getAdvanceDepositTransfers(hotelId, null, ytdStartDate))
+      }
+      const collectedYTD = await LedgerService.getAdvanceDepositsCollected(hotelId, ytdStartDate, reportDate)
+      const transfersYTD = await LedgerService.getAdvanceDepositTransfers(hotelId, ytdStartDate, reportDate)
+      const closingBalanceYTD = openingBalanceYTD + collectedYTD - transfersYTD
 
       return {
         openingBalance: {
-          today: openingBalanceToday[0]?.$extras?.total || 0,
+          today: metrics.openingBalance,
+          ptd: openingBalancePTD,
+          ytd: openingBalanceYTD,
         },
         advanceDepositCollected: {
-          today: Math.abs(depositsToday[0]?.$extras?.total || 0),
+          today: metrics.deposits,
+          ptd: collectedPTD,
+          ytd: collectedYTD,
         },
         balanceTransferToGuestLedger: {
-          today: Math.abs(transfersToday[0]?.$extras?.total || 0),
+          today: metrics.transfers,
+          ptd: transfersPTD,
+          ytd: transfersYTD,
         },
         closingBalance: {
-          today: closingBalanceToday,
+          today: metrics.closingBalance,
+          ptd: closingBalancePTD,
+          ytd: closingBalanceYTD,
         },
       }
     } catch (error) {
       console.error('Error in getManagementAdvanceDepositLedgerData:', error)
       return {
-        openingBalance: { today: 0 },
-        advanceDepositCollected: { today: 0 },
-        balanceTransferToGuestLedger: { today: 0 },
-        closingBalance: { today: 0 },
+        openingBalance: { today: 0, ptd: 0, ytd: 0 },
+        advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
+        balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
+        closingBalance: { today: 0, ptd: 0, ytd: 0 },
       }
     }
   }
@@ -4692,141 +4558,36 @@ export default class ReportsController {
   private async getManagementGuestLedgerData(
     hotelId: number,
     reportDate: DateTime,
-    ptdStartDate: DateTime,
-    ytdStartDate: DateTime,
     currency: string
   ) {
     try {
-      const { default: FolioTransaction } = await import('#models/folio_transaction')
-      const { default: Folio } = await import('#models/folio')
-      const { default: PaymentMethod } = await import('#models/payment_method')
-      const { PaymentMethodType, TransactionType, FolioType } = await import('#app/enums')
+      const { default: LedgerService } = await import('#services/ledger_service')
+      
+      const metrics = await LedgerService.getGuestLedgerMetrics(hotelId, reportDate)
 
-      const guestFolios = await Folio.query()
-        .where('hotel_id', hotelId)
-        .where('folio_type', FolioType.GUEST)
-        .whereHas('reservationRoom', (rrQuery: any) => {
-          rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-        })
-
-      const guestFolioIds = guestFolios.map((f) => f.id)
-
-      if (guestFolioIds.length === 0) {
-        return {
-          openingBalance: { today: 0 },
-          carryForwardedAdvanceDeposit: { today: 0 },
-          chargePostedToGuestLedger: { today: 0 },
-          settlementByGuest: { today: 0 },
-          outstandingPaymentOnCharges: { today: 0 },
-          transferFromAdvanceDeposit: { today: 0 },
-          closingBalance: { today: 0 },
-        }
-      }
-
-      const cityLedgerPaymentMethodIds = (
-        await PaymentMethod.query()
-          .where('hotel_id', hotelId)
-          .where('method_type', PaymentMethodType.CITY_LEDGER)
-          .where('is_active', true)
-      ).map((pm) => pm.id)
-
-      const openingBalanceToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('current_working_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      const advanceDepositTransfersToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.TRANSFER)
-        .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      const chargesBaseToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
-        .whereBetween('current_working_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      const taxesOnChargesToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
-        .whereBetween('current_working_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('tax_amount as total')
-
-      const settlementsToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.PAYMENT)
-        .where('is_advance_deposit', false)
-        .whereBetween('current_working_date', [
-          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereDoesntHave('paymentMethod', (pmQuery: any) => {
-          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
-        })
-        .sum('amount as total')
-
-      // Transfers to City Ledger are excluded from Guest Ledger closing per provided formula
-
-      const totalChargesToday =
-        (chargesBaseToday[0]?.$extras?.total || 0) + (taxesOnChargesToday[0]?.$extras?.total || 0)
-
-      const opening = Number(openingBalanceToday[0]?.$extras?.total ?? 0)
-      const chargesBase = Number(chargesBaseToday[0]?.$extras?.total ?? 0)
-      const taxesBase = Number(taxesOnChargesToday[0]?.$extras?.total ?? 0)
-      const settlementsByGuestToday = Math.abs(Number(settlementsToday[0]?.$extras?.total ?? 0))
-      const carryForwardedAdvanceDepositToday = Math.abs(Number(advanceDepositTransfersToday[0]?.$extras?.total ?? 0))
-      const totalCharges = chargesBase + taxesBase
-
-      const outstandingToday = totalCharges - settlementsByGuestToday
-
-      const closingBalanceToday =
-        opening +
-        totalCharges -
-        settlementsByGuestToday -
-        carryForwardedAdvanceDepositToday
+      const outstandingToday = metrics.charges - metrics.settlements
 
       return {
         openingBalance: {
-          today: opening,
+          today: metrics.openingBalance,
         },
         carryForwardedAdvanceDeposit: {
-          today: carryForwardedAdvanceDepositToday,
+          today: metrics.transfers,
         },
         chargePostedToGuestLedger: {
-          today: totalCharges,
+          today: metrics.charges,
         },
         settlementByGuest: {
-          today: settlementsByGuestToday,
+          today: metrics.settlements,
         },
         outstandingPaymentOnCharges: {
           today: outstandingToday,
         },
         transferFromAdvanceDeposit: {
-          today: carryForwardedAdvanceDepositToday,
+          today: metrics.transfers,
         },
         closingBalance: {
-          today: closingBalanceToday,
+          today: metrics.closingBalance,
         },
       }
     } catch (error) {

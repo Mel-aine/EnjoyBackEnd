@@ -93,6 +93,15 @@ export default class DailySummaryFact extends BaseModel {
   @column()
   declare totalOutstandingFoliosBalance: number
 
+  @column()
+  declare cityLedgerClosingBalance: number
+
+  @column()
+  declare guestLedgerClosingBalance: number
+
+  @column()
+  declare advanceDepositLedgerClosingBalance: number
+
   @column({
     columnName: 'manager_report_data',
     serialize: (value: object | null) => value,

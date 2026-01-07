@@ -6,12 +6,14 @@ import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
 import RoomBlock from '#models/room_block'
 import Folio from '#models/folio'
-import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
+import PaymentMethod from '#models/payment_method'
+import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus, FolioType, PaymentMethodType } from '#app/enums'
 import LoggerService from '#services/logger_service'
 import ReportsController from '#controllers/reports_controller'
 import Hotel from '#models/hotel'
 import PosService from '#services/pos_service'
 import ReportsEmailService from './reports_email_service.js'
+import LedgerService from '#services/ledger_service'
 
 export interface NightAuditFilters {
   auditDate: DateTime
@@ -52,6 +54,11 @@ export interface NightAuditSummary {
   totalAccountsReceivable: number
   totalOutstandingFolios: number
   totalOutstandingFoliosBalance: number
+
+  // Ledger Closing Balances
+  cityLedgerClosingBalance: number
+  guestLedgerClosingBalance: number
+  advanceDepositLedgerClosingBalance: number
 }
 
 export default class NightAuditService {
@@ -411,6 +418,7 @@ export default class NightAuditService {
       ReservationStatus.CONFIRMED,
     ]
 
+    // 1. Existing Metrics (Payments, Outstanding Folios, Accounts Receivable)
     // Total payments received on audit date
     const paymentsResult = await FolioTransaction.query()
       .where('hotel_id', hotelId)
@@ -447,11 +455,19 @@ export default class NightAuditService {
       .sum('balance as total')
       .first()
 
+    // 2. LEDGER CALCULATIONS (Delegated to LedgerService)
+    const guestLedgerMetrics = await LedgerService.getGuestLedgerMetrics(hotelId, auditDate)
+    const cityLedgerMetrics = await LedgerService.getCityLedgerMetrics(hotelId, auditDate)
+    const adLedgerMetrics = await LedgerService.getAdvanceDepositLedgerMetrics(hotelId, auditDate)
+
     return {
       totalPaymentsReceived: Math.abs(Number(paymentsResult?.$extras.total || 0)),
       totalAccountsReceivable: Number(accountsReceivableResult?.$extras.total || 0),
       totalOutstandingFolios: Number(outstandingFoliosResult?.$extras.total_folios || 0),
-      totalOutstandingFoliosBalance: Number(outstandingFoliosResult?.$extras.total_balance || 0)
+      totalOutstandingFoliosBalance: Number(outstandingFoliosResult?.$extras.total_balance || 0),
+      cityLedgerClosingBalance: cityLedgerMetrics.closingBalance,
+      guestLedgerClosingBalance: guestLedgerMetrics.closingBalance,
+      advanceDepositLedgerClosingBalance: adLedgerMetrics.closingBalance
     }
   }
 
@@ -497,6 +513,9 @@ export default class NightAuditService {
       totalAccountsReceivable: summary.totalAccountsReceivable,
       totalOutstandingFolios: summary.totalOutstandingFolios,
       totalOutstandingFoliosBalance: summary.totalOutstandingFoliosBalance,
+      cityLedgerClosingBalance: summary.cityLedgerClosingBalance,
+      guestLedgerClosingBalance: summary.guestLedgerClosingBalance,
+      advanceDepositLedgerClosingBalance: summary.advanceDepositLedgerClosingBalance,
       managerReportData: managerReportData,
       revenueByRateType: managerReportData?.revenueByRateType ?? null,
       revenueByRoomType: managerReportData?.revenueByRoomType ?? null,
