@@ -4476,11 +4476,41 @@ export default class ReportsController {
         return Number(result?.$extras.total || 0)
       }
 
+      // Helper: Get Outstanding Commission (commission amounts deducted)
+      const getOutstandingCommission = async (startDate: DateTime | null, endDate: DateTime) => {
+        const query = FolioTransaction.query()
+          .where('hotel_id', hotelId)
+          .where('is_commissionable', true)
+          .where('is_voided', false)
+          .whereNotIn('status', ['cancelled', 'voided'])
+
+        if (startDate) {
+          query.whereBetween('current_working_date', [
+            startDate.toFormat('yyyy-MM-dd'),
+            endDate.toFormat('yyyy-MM-dd'),
+          ])
+        } else {
+          query.where('current_working_date', '<', endDate.toFormat('yyyy-MM-dd'))
+        }
+
+        const result = await query.sum('commission_amount as total').first()
+        return Number(result?.$extras.total || 0)
+      }
+
       // 1. Calculate Opening Balances (Cumulative up to start date)
-      // Opening Balance = (Total Transfers - Total Payments) before the period
-      const openingBalanceToday = (await getTransfers(null, reportDate)) - (await getPaymentsReceived(null, reportDate))
-      const openingBalancePTD = (await getTransfers(null, ptdStartDate)) - (await getPaymentsReceived(null, ptdStartDate))
-      const openingBalanceYTD = (await getTransfers(null, ytdStartDate)) - (await getPaymentsReceived(null, ytdStartDate))
+      // Opening Balance = Previous closing = (Transfers - Payments - Commission) before the period
+      const openingBalanceToday =
+        (await getTransfers(null, reportDate)) -
+        (await getPaymentsReceived(null, reportDate)) -
+        (await getOutstandingCommission(null, reportDate))
+      const openingBalancePTD =
+        (await getTransfers(null, ptdStartDate)) -
+        (await getPaymentsReceived(null, ptdStartDate)) -
+        (await getOutstandingCommission(null, ptdStartDate))
+      const openingBalanceYTD =
+        (await getTransfers(null, ytdStartDate)) -
+        (await getPaymentsReceived(null, ytdStartDate)) -
+        (await getOutstandingCommission(null, ytdStartDate))
 
       // 2. Calculate Transfers From Guest Ledger (New Debt) for the period
       const transfersToday = await getTransfers(reportDate, reportDate)
@@ -4492,11 +4522,16 @@ export default class ReportsController {
       const paymentsReceivedPTD = await getPaymentsReceived(ptdStartDate, reportDate)
       const paymentsReceivedYTD = await getPaymentsReceived(ytdStartDate, reportDate)
 
+      // 3b. Calculate Outstanding Commission for the period
+      const outstandingCommissionToday = await getOutstandingCommission(reportDate, reportDate)
+      const outstandingCommissionPTD = await getOutstandingCommission(ptdStartDate, reportDate)
+      const outstandingCommissionYTD = await getOutstandingCommission(ytdStartDate, reportDate)
+
       // 4. Calculate Closing Balances
-      // Closing = Opening + Transfers - Payments
-      const closingBalanceToday = openingBalanceToday + transfersToday - paymentsReceivedToday
-      const closingBalancePTD = openingBalancePTD + transfersPTD - paymentsReceivedPTD
-      const closingBalanceYTD = openingBalanceYTD + transfersYTD - paymentsReceivedYTD
+      // Closing = Opening + Charges Raised - (Payments Received + Outstanding Commission)
+      const closingBalanceToday = openingBalanceToday + transfersToday - (paymentsReceivedToday + outstandingCommissionToday)
+      const closingBalancePTD = openingBalancePTD + transfersPTD - (paymentsReceivedPTD + outstandingCommissionPTD)
+      const closingBalanceYTD = openingBalanceYTD + transfersYTD - (paymentsReceivedYTD + outstandingCommissionYTD)
 
       return {
         openingBalance: {
@@ -4515,9 +4550,9 @@ export default class ReportsController {
           ytd: transfersYTD,
         },
         outstandingCommission: {
-          today: 0,
-          ptd: 0,
-          ytd: 0,
+          today: outstandingCommissionToday,
+          ptd: outstandingCommissionPTD,
+          ytd: outstandingCommissionYTD,
         },
         closingBalance: {
           today: closingBalanceToday,
@@ -4579,29 +4614,7 @@ export default class ReportsController {
         })
         .sum('amount as total')
 
-      const openingBalancePTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('current_working_date', '<', ptdStartDate.toFormat('yyyy-MM-dd'))
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
-
-      const openingBalanceYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('current_working_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
+      // PTD/YTD calculations are intentionally omitted per requirement
 
       // Calculate advance deposits collected (new deposits received)
       const depositsToday = await FolioTransaction.query()
@@ -4621,39 +4634,7 @@ export default class ReportsController {
         })
         .sum('amount as total')
 
-      const depositsPTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_type', TransactionType.PAYMENT)
-        .where('is_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
-
-      const depositsYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_type', TransactionType.PAYMENT)
-        .where('is_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
+      // PTD/YTD calculations are intentionally omitted per requirement
 
       // Calculate balance transfers to guest ledger (advance deposits used for charges)
       const transfersToday = await FolioTransaction.query()
@@ -4673,39 +4654,7 @@ export default class ReportsController {
         })
         .sum('amount as total')
 
-      const transfersPTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_type', TransactionType.TRANSFER)
-        .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
-
-      const transfersYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('payment_method_id', advanceDepositPaymentMethodIds)
-        .where('transaction_type', TransactionType.TRANSFER)
-        .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .whereHas('folio', (folioQuery: any) => {
-          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
-          })
-        })
-        .sum('amount as total')
+      // PTD/YTD calculations are intentionally omitted per requirement
 
       // Calculate closing balance
       const closingBalanceToday =
@@ -4713,45 +4662,29 @@ export default class ReportsController {
         Math.abs(depositsToday[0]?.$extras?.total || 0) -
         Math.abs(transfersToday[0]?.$extras?.total || 0)
 
-      const closingBalancePTD =
-        (openingBalancePTD[0]?.$extras?.total || 0) +
-        Math.abs(depositsPTD[0]?.$extras?.total || 0) -
-        Math.abs(transfersPTD[0]?.$extras?.total || 0)
-
-      const closingBalanceYTD =
-        (openingBalanceYTD[0]?.$extras?.total || 0) +
-        Math.abs(depositsYTD[0]?.$extras?.total || 0) -
-        Math.abs(transfersYTD[0]?.$extras?.total || 0)
+      // PTD/YTD closing balances omitted per requirement
 
       return {
         openingBalance: {
           today: openingBalanceToday[0]?.$extras?.total || 0,
-          ptd: openingBalancePTD[0]?.$extras?.total || 0,
-          ytd: openingBalanceYTD[0]?.$extras?.total || 0,
         },
         advanceDepositCollected: {
           today: Math.abs(depositsToday[0]?.$extras?.total || 0),
-          ptd: Math.abs(depositsPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(depositsYTD[0]?.$extras?.total || 0),
         },
         balanceTransferToGuestLedger: {
           today: Math.abs(transfersToday[0]?.$extras?.total || 0),
-          ptd: Math.abs(transfersPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(transfersYTD[0]?.$extras?.total || 0),
         },
         closingBalance: {
           today: closingBalanceToday,
-          ptd: closingBalancePTD,
-          ytd: closingBalanceYTD,
         },
       }
     } catch (error) {
       console.error('Error in getManagementAdvanceDepositLedgerData:', error)
       return {
-        openingBalance: { today: 0, ptd: 0, ytd: 0 },
-        advanceDepositCollected: { today: 0, ptd: 0, ytd: 0 },
-        balanceTransferToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-        closingBalance: { today: 0, ptd: 0, ytd: 0 },
+        openingBalance: { today: 0 },
+        advanceDepositCollected: { today: 0 },
+        balanceTransferToGuestLedger: { today: 0 },
+        closingBalance: { today: 0 },
       }
     }
   }
@@ -4769,7 +4702,6 @@ export default class ReportsController {
       const { default: PaymentMethod } = await import('#models/payment_method')
       const { PaymentMethodType, TransactionType, FolioType } = await import('#app/enums')
 
-      // Get guest ledger folios (excluding city ledger and advance deposit folios)
       const guestFolios = await Folio.query()
         .where('hotel_id', hotelId)
         .where('folio_type', FolioType.GUEST)
@@ -4781,39 +4713,30 @@ export default class ReportsController {
 
       if (guestFolioIds.length === 0) {
         return {
-          openingBalance: { today: 0, ptd: 0, ytd: 0 },
-          carryForwardedAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
-          chargePostedToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-          settlementByGuest: { today: 0, ptd: 0, ytd: 0 },
-          outstandingPaymentOnCharges: { today: 0, ptd: 0, ytd: 0 },
-          transferFromAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
-          closingBalance: { today: 0, ptd: 0, ytd: 0 },
+          openingBalance: { today: 0 },
+          carryForwardedAdvanceDeposit: { today: 0 },
+          chargePostedToGuestLedger: { today: 0 },
+          settlementByGuest: { today: 0 },
+          outstandingPaymentOnCharges: { today: 0 },
+          transferFromAdvanceDeposit: { today: 0 },
+          closingBalance: { today: 0 },
         }
       }
 
-      // Calculate opening balance (guest ledger balance before each period)
+      const cityLedgerPaymentMethodIds = (
+        await PaymentMethod.query()
+          .where('hotel_id', hotelId)
+          .where('method_type', PaymentMethodType.CITY_LEDGER)
+          .where('is_active', true)
+      ).map((pm) => pm.id)
+
       const openingBalanceToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('current_working_date', '<', reportDate.startOf('day'))
+        .where('current_working_date', '<', reportDate.startOf('day').toFormat('yyyy-MM-dd'))
         .where('is_voided', false)
         .sum('amount as total')
 
-      const openingBalancePTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('current_working_date', '<', ptdStartDate)
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      const openingBalanceYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('current_working_date', '<', ytdStartDate.toFormat('yyyy-MM-dd'))
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      // Calculate carry forwarded advance deposits (transfers from advance deposit to guest ledger)
       const advanceDepositTransfersToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
@@ -4826,35 +4749,10 @@ export default class ReportsController {
         .where('is_voided', false)
         .sum('amount as total')
 
-      const advanceDepositTransfersPTD = await FolioTransaction.query()
+      const chargesBaseToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.TRANSFER)
-        .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      const advanceDepositTransfersYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.TRANSFER)
-        .where('is_transfer_from_advance_deposit', true)
-        .whereBetween('current_working_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      // Calculate charges posted to guest ledger
-      const chargesToday = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.CHARGE)
+        .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
         .whereBetween('current_working_date', [
           reportDate.startOf('day').toFormat('yyyy-MM-dd'),
           reportDate.endOf('day').toFormat('yyyy-MM-dd'),
@@ -4862,29 +4760,17 @@ export default class ReportsController {
         .where('is_voided', false)
         .sum('amount as total')
 
-      const chargesPTD = await FolioTransaction.query()
+      const taxesOnChargesToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.CHARGE)
+        .whereIn('transaction_type', [TransactionType.CHARGE, TransactionType.ROOM_POSTING])
         .whereBetween('current_working_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
+          reportDate.startOf('day').toFormat('yyyy-MM-dd'),
           reportDate.endOf('day').toFormat('yyyy-MM-dd'),
         ])
         .where('is_voided', false)
-        .sum('amount as total')
+        .sum('tax_amount as total')
 
-      const chargesYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.CHARGE)
-        .whereBetween('current_working_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
-
-      // Calculate settlements by guest (payments made by guests)
       const settlementsToday = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereIn('folio_id', guestFolioIds)
@@ -4895,114 +4781,64 @@ export default class ReportsController {
           reportDate.endOf('day').toFormat('yyyy-MM-dd'),
         ])
         .where('is_voided', false)
+        .whereDoesntHave('paymentMethod', (pmQuery: any) => {
+          pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+        })
         .sum('amount as total')
 
-      const settlementsPTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.PAYMENT)
-        .where('is_advance_deposit', false)
-        .whereBetween('current_working_date', [
-          ptdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
+      // Transfers to City Ledger are excluded from Guest Ledger closing per provided formula
 
-      const settlementsYTD = await FolioTransaction.query()
-        .where('hotel_id', hotelId)
-        .whereIn('folio_id', guestFolioIds)
-        .where('transaction_type', TransactionType.PAYMENT)
-        .where('is_advance_deposit', false)
-        .whereBetween('current_working_date', [
-          ytdStartDate.toFormat('yyyy-MM-dd'),
-          reportDate.endOf('day').toFormat('yyyy-MM-dd'),
-        ])
-        .where('is_voided', false)
-        .sum('amount as total')
+      const totalChargesToday =
+        (chargesBaseToday[0]?.$extras?.total || 0) + (taxesOnChargesToday[0]?.$extras?.total || 0)
 
-      // Calculate outstanding payments (current balance on guest folios)
-      const outstandingToday = await Folio.query()
-        .whereIn('id', guestFolioIds)
-        .where('updated_at', '<=', reportDate.endOf('day').toFormat('yyyy-MM-dd'))
-        .sum('balance as total')
+      const opening = Number(openingBalanceToday[0]?.$extras?.total ?? 0)
+      const chargesBase = Number(chargesBaseToday[0]?.$extras?.total ?? 0)
+      const taxesBase = Number(taxesOnChargesToday[0]?.$extras?.total ?? 0)
+      const settlementsByGuestToday = Math.abs(Number(settlementsToday[0]?.$extras?.total ?? 0))
+      const carryForwardedAdvanceDepositToday = Math.abs(Number(advanceDepositTransfersToday[0]?.$extras?.total ?? 0))
+      const totalCharges = chargesBase + taxesBase
 
-      const outstandingPTD = await Folio.query()
-        .whereIn('id', guestFolioIds)
-        .where('updated_at', '<=', reportDate.endOf('day').toFormat('yyyy-MM-dd'))
-        .sum('balance as total')
+      const outstandingToday = totalCharges - settlementsByGuestToday
 
-      const outstandingYTD = await Folio.query()
-        .whereIn('id', guestFolioIds)
-        .where('updated_at', '<=', reportDate.endOf('day').toFormat('yyyy-MM-dd'))
-        .sum('balance as total')
-
-      // Calculate closing balance
       const closingBalanceToday =
-        (openingBalanceToday[0]?.$extras?.total || 0) +
-        (chargesToday[0]?.$extras?.total || 0) +
-        Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0) -
-        Math.abs(settlementsToday[0]?.$extras?.total || 0)
-
-      const closingBalancePTD =
-        (openingBalancePTD[0]?.$extras?.total || 0) +
-        (chargesPTD[0]?.$extras?.total || 0) +
-        Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0) -
-        Math.abs(settlementsPTD[0]?.$extras?.total || 0)
-
-      const closingBalanceYTD =
-        (openingBalanceYTD[0]?.$extras?.total || 0) +
-        (chargesYTD[0]?.$extras?.total || 0) +
-        Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0) -
-        Math.abs(settlementsYTD[0]?.$extras?.total || 0)
+        opening +
+        totalCharges -
+        settlementsByGuestToday -
+        carryForwardedAdvanceDepositToday
 
       return {
         openingBalance: {
-          today: openingBalanceToday[0]?.$extras?.total || 0,
-          ptd: openingBalancePTD[0]?.$extras?.total || 0,
-          ytd: openingBalanceYTD[0]?.$extras?.total || 0,
+          today: opening,
         },
         carryForwardedAdvanceDeposit: {
-          today: Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0),
-          ptd: Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0),
+          today: carryForwardedAdvanceDepositToday,
         },
         chargePostedToGuestLedger: {
-          today: chargesToday[0]?.$extras?.total || 0,
-          ptd: chargesPTD[0]?.$extras?.total || 0,
-          ytd: chargesYTD[0]?.$extras?.total || 0,
+          today: totalCharges,
         },
         settlementByGuest: {
-          today: Math.abs(settlementsToday[0]?.$extras?.total || 0),
-          ptd: Math.abs(settlementsPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(settlementsYTD[0]?.$extras?.total || 0),
+          today: settlementsByGuestToday,
         },
         outstandingPaymentOnCharges: {
-          today: outstandingToday[0]?.$extras?.total || 0,
-          ptd: outstandingPTD[0]?.$extras?.total || 0,
-          ytd: outstandingYTD[0]?.$extras?.total || 0,
+          today: outstandingToday,
         },
         transferFromAdvanceDeposit: {
-          today: Math.abs(advanceDepositTransfersToday[0]?.$extras?.total || 0),
-          ptd: Math.abs(advanceDepositTransfersPTD[0]?.$extras?.total || 0),
-          ytd: Math.abs(advanceDepositTransfersYTD[0]?.$extras?.total || 0),
+          today: carryForwardedAdvanceDepositToday,
         },
         closingBalance: {
           today: closingBalanceToday,
-          ptd: closingBalancePTD,
-          ytd: closingBalanceYTD,
         },
       }
     } catch (error) {
       console.error('Error in getManagementGuestLedgerData:', error)
       return {
-        openingBalance: { today: 0, ptd: 0, ytd: 0 },
-        carryForwardedAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
-        chargePostedToGuestLedger: { today: 0, ptd: 0, ytd: 0 },
-        settlementByGuest: { today: 0, ptd: 0, ytd: 0 },
-        outstandingPaymentOnCharges: { today: 0, ptd: 0, ytd: 0 },
-        transferFromAdvanceDeposit: { today: 0, ptd: 0, ytd: 0 },
-        closingBalance: { today: 0, ptd: 0, ytd: 0 },
+        openingBalance: { today: 0 },
+        carryForwardedAdvanceDeposit: { today: 0 },
+        chargePostedToGuestLedger: { today: 0 },
+        settlementByGuest: { today: 0 },
+        outstandingPaymentOnCharges: { today: 0 },
+        transferFromAdvanceDeposit: { today: 0 },
+        closingBalance: { today: 0 },
       }
     }
   }
