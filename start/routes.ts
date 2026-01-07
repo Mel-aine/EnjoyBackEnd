@@ -1733,8 +1733,6 @@ router
 
         // List bookings for a property
         router.get('/properties/:propertyId/bookings', channexController.listBookings.bind(channexController))
-        router.post('/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController)
-        )
 
         // ARI endpoints
         router.get('/properties/:propertyId/availability', channexController.getAvailability.bind(channexController))
@@ -1781,6 +1779,9 @@ router
       guards: ['api'],
     })
   )
+
+router.post('/api/channex/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController))
+  .use(middleware.apiKey())
 
 // Public OTA endpoints (no auth)
 router

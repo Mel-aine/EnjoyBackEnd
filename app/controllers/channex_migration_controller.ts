@@ -1413,8 +1413,20 @@ export default class ChannexMigrationController {
    */
   async syncBookingsFromChannex(ctx: HttpContext) {
     const { params, response, auth } = ctx
-    const { hotelId } = params
-    const userId = auth.user?.id
+    let { hotelId } = params
+    let userId = auth.user?.id
+
+    // Support for API Key authentication (via ApiKeyMiddleware)
+    const apiKeyHotel = (ctx as any).hotel
+    if (apiKeyHotel) {
+      // If API key is used, ensure we're accessing the correct hotel
+      if (hotelId && String(hotelId) !== String(apiKeyHotel.id)) {
+        return response.forbidden({ error: 'API Key does not match the requested hotel ID' })
+      }
+      hotelId = apiKeyHotel.id
+      // Use system user (ID 1) or a specific service user for API key operations if userId is missing
+      userId = userId || 1 
+    }
 
     if (!userId) {
       return response.unauthorized({ error: 'Authentication required' })
