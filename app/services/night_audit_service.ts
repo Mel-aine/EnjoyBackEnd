@@ -19,6 +19,7 @@ export interface NightAuditFilters {
   auditDate: DateTime
   hotelId: number
   userId?: number
+  skipReport?: boolean
 }
 
 export interface NightAuditSummary {
@@ -147,15 +148,17 @@ export default class NightAuditService {
     // Store the calculated data with all report data
     await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
-    const hotel = await Hotel.find(hotelId)
-    if (hotel) {
-      hotel.lastNightAuditDate = DateTime.now();
-      hotel.currentWorkingDate = DateTime.now().startOf('day')
-      await hotel.save()
-      const emailService = new ReportsEmailService()
-      setImmediate(async () => {
-        await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
-      })
+    if (!filters.skipReport) {
+      const hotel = await Hotel.find(hotelId)
+      if (hotel) {
+        hotel.lastNightAuditDate = DateTime.now();
+        hotel.currentWorkingDate = DateTime.now().startOf('day')
+        await hotel.save()
+        const emailService = new ReportsEmailService()
+        setImmediate(async () => {
+          await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+        })
+      }
     }
 
     return summary
