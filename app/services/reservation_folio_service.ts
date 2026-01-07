@@ -285,6 +285,7 @@ export default class ReservationFolioService {
           taxAmount: number
           unitPrice: number
           totalGross: number
+          taxBreakdown: { items: any[]; total: number }
         }> = []
 
         let mealPlanGrossPerDay = 0
@@ -330,6 +331,33 @@ export default class ReservationFolioService {
             const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
             const includedTaxAmount = Math.max(0, totalGross - netWithoutTax)
             const unitPriceNet = quantity > 0 ? netWithoutTax / quantity : netWithoutTax
+            
+            // Build tax breakdown for meal plan component
+            const taxBreakdown: Array<{ taxRateId: number; taxName: string; taxAmount: number; percentage: number | null }> = []
+            
+            for (const t of extraTaxes as any[]) {
+              const postingType = (t as any)?.postingType
+              const percentage = Number((t as any)?.percentage) || 0
+              let taxAmount = 0
+              
+              if (postingType === 'flat_percentage') {
+                // Back-calculate from inclusive amount
+                 taxAmount = (totalGross / (1 + percentageSum / 100)) * (percentage / 100)
+              } else if (postingType === 'flat_amount') {
+                 // For inclusive flat amount, it's just the amount * quantity (if it was deducted from gross)
+                 // But wait, the logic above did: totalGross - flatSum * quantity. 
+                 // So the flat tax part is flatSum * quantity.
+                 // We need to attribute it to the specific tax rate.
+                 taxAmount = (Number((t as any).amount) || 0) * quantity
+              }
+              
+              taxBreakdown.push({
+                taxRateId: (t as any).taxRateId,
+                taxName: (t as any).taxName,
+                taxAmount,
+                percentage: (t as any).percentage,
+              })
+            }
 
             mealPlanComponents.push({
               extra,
@@ -338,6 +366,7 @@ export default class ReservationFolioService {
               taxAmount: includedTaxAmount,
               unitPrice: unitPriceNet,
               totalGross,
+              taxBreakdown: { items: taxBreakdown, total: includedTaxAmount }
             })
           }
         }
@@ -361,6 +390,10 @@ export default class ReservationFolioService {
         const taxes = hotel?.roomChargesTaxRates ?? []
         let percentageSum = 0
         let flatSum = 0
+        
+        // Prepare for tax breakdown
+        const roomTaxBreakdownItems: Array<{ taxRateId: number; taxName: string; taxAmount: number; percentage: number | null }> = []
+
         for (const tax of taxes) {
           if ((tax as any)?.postingType === 'flat_percentage' && (tax as any)?.percentage) {
             percentageSum += Number((tax as any).percentage) || 0
@@ -368,6 +401,7 @@ export default class ReservationFolioService {
             flatSum += Number((tax as any).amount) || 0
           }
         }
+        
         const adjustedGross = Math.max(0, grossDailyRate - flatSum)
         const roomAdjustedGross = Math.max(0, totalRoomAmount - flatSum)
         const percRate = percentageSum > 0 ? percentageSum / 100 : 0
@@ -381,6 +415,25 @@ export default class ReservationFolioService {
         const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax)
         baseAmount = netWithoutTax
         totalDailyAmount = grossDailyRate
+        
+        // Calculate breakdown amounts
+        for (const tax of taxes) {
+            let taxAmount = 0
+            if ((tax as any)?.postingType === 'flat_percentage') {
+                // Back calculate: Tax = (Gross / (1 + Rate)) * Rate
+                // Use roomAdjustedGross because flat amount is already deducted from it
+                taxAmount = (roomAdjustedGross / (1 + percRate)) * (Number((tax as any).percentage) / 100)
+            } else if ((tax as any)?.postingType === 'flat_amount') {
+                taxAmount = Number((tax as any).amount) || 0
+            }
+            
+            roomTaxBreakdownItems.push({
+                taxRateId: (tax as any).taxRateId,
+                taxName: (tax as any).taxName,
+                taxAmount,
+                percentage: (tax as any).percentage
+            })
+        }
 
         for (let night = 1; night <= effectiveNights; night++) {
           const dailyTaxAmount = Math.max(0, totalDailyAmount - baseAmount)
@@ -420,6 +473,7 @@ export default class ReservationFolioService {
             netAmount: amount,
             grossAmount: amount,
             totalAmount,
+            taxBreakdown: { items: roomTaxBreakdownItems, total: dailyTaxAmount },
             //reference: `RES-${reservation.confirmationNumber}`,
             notes: `${rawNights === 0 ? ' - Day use' : ` - Night ${night}`}`,
             transactionCode: generateTransactionCode(),
@@ -478,6 +532,7 @@ export default class ReservationFolioService {
                   netAmount: comp.netAmount,
                   grossAmount: comp.netAmount,
                   totalAmount: comp.netAmount + comp.taxAmount,
+                  taxBreakdown: comp.taxBreakdown,
                   notes: `meal plan extra charge - ${dayType}`,
                   transactionCode: generateTransactionCode(),
                   transactionTime: nowIsoTime,

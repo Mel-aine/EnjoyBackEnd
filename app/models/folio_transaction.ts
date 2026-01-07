@@ -96,6 +96,12 @@ export default class FolioTransaction extends BaseModel {
   @column()
   declare grossAmount: number
 
+  @column({
+    prepare: (value: any[]) => JSON.stringify(value),
+    consume: (value: string) => (typeof value === 'string' ? JSON.parse(value) : value),
+  })
+  declare taxBreakdown: any[] | null
+
   @column.dateTime()
   declare transactionDate: DateTime
 
