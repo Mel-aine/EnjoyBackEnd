@@ -6,17 +6,20 @@ import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
 import RoomBlock from '#models/room_block'
 import Folio from '#models/folio'
-import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
+import PaymentMethod from '#models/payment_method'
+import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus, FolioType, PaymentMethodType } from '#app/enums'
 import LoggerService from '#services/logger_service'
 import ReportsController from '#controllers/reports_controller'
 import Hotel from '#models/hotel'
 import PosService from '#services/pos_service'
 import ReportsEmailService from './reports_email_service.js'
+import LedgerService from '#services/ledger_service'
 
 export interface NightAuditFilters {
   auditDate: DateTime
   hotelId: number
   userId?: number
+  skipReport?: boolean
 }
 
 export interface NightAuditSummary {
@@ -52,6 +55,11 @@ export interface NightAuditSummary {
   totalAccountsReceivable: number
   totalOutstandingFolios: number
   totalOutstandingFoliosBalance: number
+
+  // Ledger Closing Balances
+  cityLedgerClosingBalance: number
+  guestLedgerClosingBalance: number
+  advanceDepositLedgerClosingBalance: number
 }
 
 export default class NightAuditService {
@@ -140,15 +148,17 @@ export default class NightAuditService {
     // Store the calculated data with all report data
     await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
-    const hotel = await Hotel.find(hotelId)
-    if (hotel) {
-      hotel.lastNightAuditDate = DateTime.now();
-      hotel.currentWorkingDate = DateTime.now().startOf('day')
-      await hotel.save()
-      const emailService = new ReportsEmailService()
-      setImmediate(async () => {
-        await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
-      })
+    if (!filters.skipReport) {
+      const hotel = await Hotel.find(hotelId)
+      if (hotel) {
+        hotel.lastNightAuditDate = DateTime.now();
+        hotel.currentWorkingDate = DateTime.now().startOf('day')
+        await hotel.save()
+        const emailService = new ReportsEmailService()
+        setImmediate(async () => {
+          await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+        })
+      }
     }
 
     return summary
@@ -348,6 +358,9 @@ export default class NightAuditService {
       .where('hotel_id', hotelId)
       .where('check_in_date', auditDateJS)
       .where('status', 'checked_in')
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .count('* as total')
       .first()
 
@@ -356,6 +369,9 @@ export default class NightAuditService {
       .where('hotel_id', hotelId)
       .where('check_out_date', auditDateJS)
       .where('status', 'checked_out')
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .count('* as total')
       .first()
 
@@ -379,6 +395,9 @@ export default class NightAuditService {
     const bookingsMadeResult = await Reservation.query()
       .where('hotel_id', hotelId)
       .whereRaw('DATE(created_at) = ?', [auditDate.toFormat('yyyy-MM-dd')])
+      .whereDoesntHave('reservationRooms', (rr) => {
+        rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
       .count('* as total')
       .first()
 
@@ -402,19 +421,13 @@ export default class NightAuditService {
       ReservationStatus.CONFIRMED,
     ]
 
+    // 1. Existing Metrics (Payments, Outstanding Folios, Accounts Receivable)
     // Total payments received on audit date
     const paymentsResult = await FolioTransaction.query()
       .where('hotel_id', hotelId)
       .where('current_working_date', auditDateJS)
       .where('transaction_type', TransactionType.PAYMENT)
       .where('is_voided', false)
-      .whereHas('folio', (folioQuery) => {
-        folioQuery.whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereDoesntHave('reservationRooms', (rr) => {
-          rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-        })
-      })
-      })
       .sum('amount as total')
       .first()
 
@@ -445,11 +458,19 @@ export default class NightAuditService {
       .sum('balance as total')
       .first()
 
+    // 2. LEDGER CALCULATIONS (Delegated to LedgerService)
+    const guestLedgerMetrics = await LedgerService.getGuestLedgerMetrics(hotelId, auditDate)
+    const cityLedgerMetrics = await LedgerService.getCityLedgerMetrics(hotelId, auditDate)
+    const adLedgerMetrics = await LedgerService.getAdvanceDepositLedgerMetrics(hotelId, auditDate)
+
     return {
       totalPaymentsReceived: Math.abs(Number(paymentsResult?.$extras.total || 0)),
       totalAccountsReceivable: Number(accountsReceivableResult?.$extras.total || 0),
       totalOutstandingFolios: Number(outstandingFoliosResult?.$extras.total_folios || 0),
-      totalOutstandingFoliosBalance: Number(outstandingFoliosResult?.$extras.total_balance || 0)
+      totalOutstandingFoliosBalance: Number(outstandingFoliosResult?.$extras.total_balance || 0),
+      cityLedgerClosingBalance: cityLedgerMetrics.closingBalance,
+      guestLedgerClosingBalance: guestLedgerMetrics.closingBalance,
+      advanceDepositLedgerClosingBalance: adLedgerMetrics.closingBalance
     }
   }
 
@@ -495,6 +516,9 @@ export default class NightAuditService {
       totalAccountsReceivable: summary.totalAccountsReceivable,
       totalOutstandingFolios: summary.totalOutstandingFolios,
       totalOutstandingFoliosBalance: summary.totalOutstandingFoliosBalance,
+      cityLedgerClosingBalance: summary.cityLedgerClosingBalance,
+      guestLedgerClosingBalance: summary.guestLedgerClosingBalance,
+      advanceDepositLedgerClosingBalance: summary.advanceDepositLedgerClosingBalance,
       managerReportData: managerReportData,
       revenueByRateType: managerReportData?.revenueByRateType ?? null,
       revenueByRoomType: managerReportData?.revenueByRoomType ?? null,
@@ -624,7 +648,7 @@ export default class NightAuditService {
     const rooms = await Room.query()
       .where('hotel_id', hotelId)
       .where('is_deleted', false)
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      //.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('roomType')
       .preload('reservationRooms', (reservationRoomQuery) => {
         reservationRoomQuery
@@ -953,7 +977,6 @@ export default class NightAuditService {
           query.where('arrived_date', '=', auditDate).orWhere('depart_date', '=', auditDate)
         })
         .whereIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
-        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
         .preload('guest', (guestQuery) => {
           guestQuery.select(['id', 'firstName', "lastName", 'title'])
         })
