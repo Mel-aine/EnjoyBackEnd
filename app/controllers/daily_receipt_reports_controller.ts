@@ -1332,7 +1332,7 @@ export default class DailyReceiptReportsController {
           // Ajouter la transaction à la liste
           userSummary.transactions.push({
             date: transaction.transactionDate.toFormat('yyyy-MM-dd HH:mm:ss'),
-            receipt: transaction.receiptNumber 'N/A',
+            receipt: transaction.receiptNumber || 'N/A',
             reference: transaction.reference || transaction.externalReference || transaction.paymentReference || 'N/A',
             amount: amount,
             user: userName,
