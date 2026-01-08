@@ -153,7 +153,7 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
         reservationRef,
         guestName:
           guest?.displayName || `${guest?.title ? guest?.title + ' ' : ''}${guest?.firstName ?? ''} ${guest?.lastName ?? ''}`.trim(),
-        roomDescription: roomDescription || (defaultRoomType?.roomTypeName || 'Room'),
+        roomDescription: roomDescription,
         roomNumber: room?.roomNumber,
         roomSortKey: typeof room?.sortKey === 'number' ? room.sortKey : null,
         pax,
@@ -184,9 +184,9 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
 function queryBase(hotelId: number) {
   return Reservation.query()
     .where('hotel_id', hotelId)
-    .whereDoesntHave('reservationRooms', (rr) => {
+    /*.whereDoesntHave('reservationRooms', (rr) => {
       rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-    })
+    })*/
     .preload('guest')
     .preload('roomType')
     .preload('bookingSource')
@@ -194,7 +194,7 @@ function queryBase(hotelId: number) {
     .preload('hotel')
     .preload('reservationRooms', (rr) =>
       rr.where('is_splited_origin', false)
-        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+       // .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
         .preload('room')
         .preload('roomType')
         .preload('rateType')
@@ -285,8 +285,8 @@ async function getExtendedToday(hotelId: number, day: DateTime): Promise<Reserva
       const filtered = res.reservationRooms.filter((rr) => {
         return rr.extendDate && toSqlDate(rr.extendDate) === todayStr
       })
-      // Cast to any to bypass strict relation type check
-      ;(res as any).reservationRooms = filtered
+        // Cast to any to bypass strict relation type check
+        ; (res as any).reservationRooms = filtered
     }
   })
 
@@ -298,7 +298,7 @@ async function getStayToday(hotelId: number, day: DateTime): Promise<Reservation
   const todayStr = toSqlDate(day)
   return await q
     .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
-    .whereRaw('DATE(arrived_date) = ?', [todayStr])
+    .whereRaw('DATE(arrived_date) <= ?', [todayStr])
     .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
 }
 
@@ -443,7 +443,6 @@ export default class TodayReportService {
       getTomorrowConfirmCheckIn(hotelId, today),
       getTomorrowCheckOut(hotelId, today),
     ])
-
     const tomorrowSections: SectionBlock[] = [
       toSection('TOMORROW BOOKING CONFIRM', 'tomorrow_booking_confirm', tomorrowBookingConfirm),
       toSection('TOMORROW DEPARTURE', 'tomorrow_departure', tomorrowDeparture),
@@ -462,7 +461,7 @@ export default class TodayReportService {
     }
 
     const greetingLine = `Dear ${hotel.hotelName},`
-    const introLine = `Below is your ${hotel.hotelName} confirmed bookings list that you need to acknowledge:`
+    const introLine = `Below is your ${hotel.hotelName} Daily Report list that you need to acknowledge:`
 
     return {
       hotel: hotelBlock,
