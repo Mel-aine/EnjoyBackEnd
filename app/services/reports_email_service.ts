@@ -436,6 +436,7 @@ export default class ReportsEmailService {
     console.log(defaultAccount);
     let finalTo: AnyRecipient[] = defaultAccount 
        ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }] 
+      //? [{ address: 'styvesdaudet@gmail.com', name: defaultAccount.displayName }] 
        : []
     
     if (finalTo.length === 0) {
@@ -449,7 +450,7 @@ export default class ReportsEmailService {
       return
     }
 
-    const finalCc = [...resolvedTo, ...resolvedCc]
+    const finalCc =[...resolvedTo, ...resolvedCc]
 
     const attachments = [{
       filename: `Daily_Report_${dateStr}.pdf`,
@@ -492,6 +493,7 @@ export default class ReportsEmailService {
       'arrival': '#48ca10',
       'extended': '#b0c957',
       'stay': '#b0c957',
+      'cancelled_booking': '#e22a2a',
       'tomorrow_booking_confirm': '#00aceb',
       'tomorrow_departure': '#e22a2a'
     }
@@ -505,55 +507,51 @@ export default class ReportsEmailService {
           <tbody>
               <tr
                   style="background-color:${color};font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;color: white;">
-                  <td align="left" width="100%" colspan="8" style="padding:0.5em;">${section.title} : ${section.bookingCount} Room${section.bookingCount > 1 ? 's' : ''}</td>
+                  <td align="left" width="100%" colspan="7" style="padding:0.5em;">${section.title} : ${section.bookingCount} Room${section.bookingCount > 1 ? 's' : ''}</td>
               </tr>
               <tr>
-                  <td colspan="8" style="padding:7.5pt 0.75pt 0.75pt">
+                  <td colspan="7" style="padding:7.5pt 0.75pt 0.75pt">
                       <table width="100%" border="0" cellspacing="0" cellpadding="0">
                           <tbody>
                               ${showReservationHeaderRow ? `
                               <tr
                                   style="background-color: #eec294; font-family: Verdana, Arial, Helvetica, sans-serif;font-size:8pt;font-weight: normal;">
-                                  <th align="left" width="8%" style="padding: 3.75pt;">Reservation</th>
-                                  <th align="left" width="8%" style="padding: 3.75pt;">Guest Name</th>
-                                  <th align="left" width="8%" style="padding: 3.75pt;">Rooms</th>
-                                  <th align="left" width="12%" style="padding: 3.75pt;">Pax</th>
-                                  <th align="left" width="9%" style="padding: 3.75pt;">Meal</th>
+                                  <th align="left" width="15%" style="padding: 3.75pt;">Guest Name</th>
+                                  <th align="left" width="20%" style="padding: 3.75pt;">Rooms</th>
+                                  <th align="left" width="5%" style="padding: 3.75pt;">Pax</th>
+                                  <th align="left" width="24%" style="padding: 3.75pt;">Meal</th>
                                   <th align="left" width="12%" style="padding: 3.75pt;">Check In</th>
                                   <th align="left" width="12%" style="padding: 3.75pt;">Check Out</th>
-                                  <th align="left" width="3%" style="padding: 3.75pt;">Outstanding Amt. (${data?.hotel?.currency ?? 'XAF'})</th>
+                                  <th align="left" width="12%" style="padding: 3.75pt;">Outstanding Amt. (${data?.hotel?.currency ?? 'XAF'})</th>
                               </tr>
                               ` : ''}
                               ${(section.groups as Array<{ businessSource: string, rows: any[] }>).map(group => `
                                 <tr style="font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;">
-                                    <td align="left" width="100%" colspan="8"
+                                    <td align="left" width="100%" colspan="7"
                                         style="border-width: 1pt 1pt 3pt;border-style: solid;border-color: rgb(204,204,204) rgb(204,204,204) rgb(221,221,221);padding: 3.75pt;">
                                         <b>Business Source :</b> ${group.businessSource}</td>
                                 </tr>
                                 ${group.rows.map(row => `
                                   <tr style="font-family: Verdana, Arial, Helvetica, sans-serif;font-weight: normal;font-size:8pt;">
-                                      <td align="left" width="8%"
-                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
-                                          ${row.reservationRef}</td>
-                                      <td align="left" width="12%"
+                                      <td align="left" width="15%"
                                           style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
                                           ${row.guestName}</td>
-                                      <td align="left" width="17%"
-                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
-                                          ${row.roomDescription}</td>
-                                      <td align="left" width="3%"
-                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
-                                          ${row.pax}</td>
                                       <td align="left" width="20%"
                                           style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.roomDescription}</td>
+                                      <td align="left" width="5%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
+                                          ${row.pax}</td>
+                                      <td align="left" width="24%"
+                                          style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
                                           ${row.meal}</td>
-                                      <td align="left" width="10%"
+                                      <td align="left" width="12%"
                                           style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
                                           ${row.checkIn}</td>
-                                      <td align="left" width="10%"
+                                      <td align="left" width="12%"
                                           style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
                                           ${row.checkOut}</td>
-                                      <td align="right" width="10%"
+                                      <td align="right" width="12%"
                                           style="border-right: 1pt solid rgb(204,204,204);border-bottom: 1pt solid rgb(204,204,204);border-left: 1pt solid rgb(204,204,204);border-top: none;padding: 3.75pt;">
                                           ${row.outstandingAmount}</td>
                                   </tr>
@@ -619,6 +617,11 @@ export default class ReportsEmailService {
             <!-- Tomorrow Sections -->
             ${data.tomorrowSections.map((section: any) => buildSection(section, false)).join('')}
             
+            <hr>
+             <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:22px;padding-bottom:0.4em;color: #66667a;">
+                <b>IN HOUSE AT DAILY REPORT</b>
+            </p>
+            ${buildSection(data.inHouseSection, false)}
             <hr>
         </div>
     </body>

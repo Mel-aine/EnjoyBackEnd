@@ -39,6 +39,7 @@ type SectionBlock = {
   | 'stay'
   | 'tomorrow_booking_confirm'
   | 'tomorrow_departure'
+  | 'cancelled_booking'
   title: string
   bookingCount: number
   roomsCount: number
@@ -61,6 +62,7 @@ export type TodayHtmlData = {
   introLine: string
   todaySections: SectionBlock[]
   tomorrowSections: SectionBlock[]
+  inHouseSection: SectionBlock
 }
 
 function formatMeal(board?: Reservation['board_basis_type'] | null): string {
@@ -110,7 +112,14 @@ function buildRowsForReservation(res: Reservation): RowItem[] {
   const defaultRoomType = (res as any).roomType as RoomType | undefined
 
   if (reservationRooms && reservationRooms.length > 0) {
-    return reservationRooms.map((rr) => {
+    // Deduplicate reservation rooms by ID to prevent duplicates in report
+    const uniqueRoomsMap = new Map<number, ReservationRoom>()
+    reservationRooms.forEach((rr) => {
+      if (rr.id) uniqueRoomsMap.set(rr.id, rr)
+    })
+    const uniqueRooms = Array.from(uniqueRoomsMap.values())
+
+    return uniqueRooms.map((rr) => {
       const guest = (rr as any).guest as Guest | undefined
       const room = (rr as any).room
       const roomType = (rr as any).roomType as RoomType | undefined
@@ -209,14 +218,6 @@ async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<R
     .where('status', toDbStatus(ReservationStatus.CONFIRMED))
 }
 
-async function getStayingOver(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  const todayStr = toSqlDate(day)
-  // Stayover: checked-in and departure after the audit date
-  return await q
-    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
-    .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
-}
 
 async function getInHouse(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
@@ -228,39 +229,14 @@ async function getInHouse(hotelId: number, day: DateTime): Promise<Reservation[]
     .whereRaw('DATE(depart_date) >= ?', [todayStr])
 }
 
-async function getHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  return await q
-    .where('is_hold', true)
-    .where('hold_release_date', day.toSQL())
-    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
-}
 
-async function getHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
+
+async function getCancelledToday(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const todayStr = toSqlDate(day)
   return await q
-    .where('is_hold', true)
-    .whereRaw('DATE(arrived_date) = ?', [todayStr])
-}
-
-async function getEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  const todayStr = toSqlDate(day)
-  // Treat Pending/Waitlist as enquiry
-  return await q
-    .whereIn('status', [toDbStatus(ReservationStatus.PENDING), 'waitlist'])
-    .whereRaw('DATE(arrived_date) = ?', [todayStr])
-}
-
-async function getYesterdayNoShow(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  const y = day.minus({ days: 1 })
-  return await q
-    .where('status', toDbStatus(ReservationStatus.NOSHOW))
-    .orWhere((qb) => {
-      qb.where('no_show_date', '>=', y.startOf('day').toSQL()).where('no_show_date', '<=', y.endOf('day').toSQL())
-    })
+    .where('status', toDbStatus(ReservationStatus.CANCELLED))
+    .whereRaw('DATE(cancellation_date) = ?', [todayStr])
 }
 
 async function getTomorrowConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
@@ -322,7 +298,7 @@ async function getStayToday(hotelId: number, day: DateTime): Promise<Reservation
   const todayStr = toSqlDate(day)
   return await q
     .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
-    .whereRaw('DATE(arrived_date) < ?', [todayStr])
+    .whereRaw('DATE(arrived_date) = ?', [todayStr])
     .whereRaw('(DATE(depart_date) > ? OR depart_date IS NULL)', [todayStr])
 }
 
@@ -340,38 +316,21 @@ async function getTodayCheckOut(hotelId: number, day: DateTime): Promise<Reserva
   const todayStr = toSqlDate(day)
   return await q
     .whereRaw('DATE(depart_date) = ?', [todayStr])
-    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
+    .whereIn('status', [toDbStatus(ReservationStatus.CHECKED_IN), toDbStatus(ReservationStatus.CHECKED_OUT)])
 }
 
-async function getTomorrowHoldExpiring(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  const t = day.plus({ days: 1 })
-  return await q.where('is_hold', true).where('hold_release_date', t.toSQL())
-}
-
-async function getTomorrowHoldCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  const t = day.plus({ days: 1 })
-  const tomorrowStr = toSqlDate(t)
-  return await q.where('is_hold', true).whereRaw('DATE(arrived_date) = ?', [tomorrowStr])
-    .whereNot('status', toDbStatus(ReservationStatus.VOIDED))
-}
-
-async function getTomorrowEnquiryCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
-  const q = queryBase(hotelId)
-  const t = day.plus({ days: 1 })
-  const tomorrowStr = toSqlDate(t)
-  return await q
-    .whereIn('status', [toDbStatus(ReservationStatus.PENDING), 'waitlist'])
-    .whereRaw('DATE(arrived_date) = ?', [tomorrowStr])
-}
 
 function toSection(title: string, key: SectionBlock['key'], reservations: Reservation[]): SectionBlock {
   // Group rows by business source name
   const groupsMap = new Map<string, RowItem[]>()
   let roomsCount = 0
 
-  for (const res of reservations) {
+  // Deduplicate reservations by ID
+  const uniqueReservationsMap = new Map<number, Reservation>()
+  reservations.forEach((r) => uniqueReservationsMap.set(r.id, r))
+  const uniqueReservations = Array.from(uniqueReservationsMap.values())
+
+  for (const res of uniqueReservations) {
     const sourceName = getBusinessSourceName(res)
     const rows = buildRowsForReservation(res)
     const arr = groupsMap.get(sourceName) || []
@@ -452,6 +411,7 @@ export default class TodayReportService {
       arrival,
       extended,
       stay,
+      cancelled,
     ] = await Promise.all([
       getInHouse(hotelId, today),
       getTodayCheckOut(hotelId, today),
@@ -460,17 +420,20 @@ export default class TodayReportService {
       getArrivalToday(hotelId, today),
       getExtendedToday(hotelId, today),
       getStayToday(hotelId, today),
+      getCancelledToday(hotelId, today),
     ])
 
     const todaySections: SectionBlock[] = [
-      toSection('IN HOUSE AT DAILY REPORT', 'in_house', inHouse),
       toSection('DUE OUT', 'due_out', dueOut),
-      toSection('CONFIRMED DEPARTURE', 'confirmed_departure', confirmedDeparture),
-      toSection('BOOKING CONFIRMED', 'booking_confirmed', bookingConfirmed),
-      toSection('ARRIVAL', 'arrival', arrival),
+      toSection('DEPARTURE', 'confirmed_departure', confirmedDeparture),
       toSection('EXTENDED', 'extended', extended),
-      toSection('STAY', 'stay', stay),
+      toSection('CURRENT STAY', 'stay', stay),
+      toSection('BOOKING', 'booking_confirmed', bookingConfirmed),
+      toSection('CANCELLED BOOKING', 'cancelled_booking', cancelled),
+      toSection('CHECK IN', 'arrival', arrival),
     ]
+
+    const inHouseSection = toSection('IN HOUSE AT DAILY REPORT', 'in_house', inHouse)
 
     // Tomorrow sections
     const [
@@ -507,6 +470,7 @@ export default class TodayReportService {
       introLine,
       todaySections,
       tomorrowSections,
+      inHouseSection,
     }
   }
 }
