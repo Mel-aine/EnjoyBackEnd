@@ -262,9 +262,11 @@ router.group(() => {
 
     // Daily Receipt Reports
     router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])
+    router.post('/daily-receipt-refund-detail', [DailyReceiptReportsController, 'generateDailyRefundDetail'])
     router.post('/daily-receipt-detail', [DailyReceiptReportsController, 'generateDetail'])
     router.post('/daily-receipt-summary-pdf', [DailyReceiptReportsController, 'generateSummaryPdf'])
     router.post('/daily-receipt-detail-pdf', [DailyReceiptReportsController, 'generateDetailPdf'])
+    router.post('/daily-receipt-refund-detail-pdf', [DailyReceiptReportsController, 'generateDailyRefundDetailPdf'])
     router.post('/daily-receipt-revenue', [DailyReceiptReportsController, 'generatedailyRevenueReport'])
     router.post('/daily-receipt-revenue-pdf', [DailyReceiptReportsController, 'generatedailyRevenueReportPdf'])
   }).prefix('/statistics')

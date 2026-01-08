@@ -5,7 +5,8 @@ import Hotel from '#models/hotel'
 import Reservation from '#models/reservation' // Modifié: Reservation au lieu de Booking
 import { createDailyReceiptReportValidator } from '#validators/daily_receipt_report'
 import { createDailyRevenueReportValidator } from '#validators/daily_revenue_report'
-import { PaymentMethodType } from '../enums.js'
+import { PaymentMethodType,TransactionType, TransactionCategory } from '../enums.js'
+import FolioTransaction from '#models/folio_transaction'
 
 export default class DailyReceiptReportsController {
   /**
@@ -203,6 +204,139 @@ export default class DailyReceiptReportsController {
       })
     }
   }
+  async generateDailyRefundDetail({ request, response, auth }: HttpContext) {
+    try {
+      const payload = await request.validateUsing(createDailyReceiptReportValidator)
+      const { fromDate, toDate, hotelId, receiptByUserId, currencyId, paymentMethodId } = payload
+  
+      const startDateTime = DateTime.fromISO(fromDate)
+      const endDateTime = DateTime.fromISO(toDate)
+  
+      // Get hotel details
+      const hotel = await Hotel.findOrFail(hotelId)
+  
+      // Build query for refund transactions
+      let query = FolioTransaction.query()
+        .preload('creator')
+        .preload('paymentMethod')
+        .preload('hotel')
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('reservation')
+        })
+        .where('hotelId', hotelId)
+        .where('transactionType', TransactionType.REFUND)
+        .where('category', TransactionCategory.REFUND)
+        .where('transactionDate', '>=', startDateTime.startOf('day').toISO())
+        .where('transactionDate', '<=', endDateTime.endOf('day').toISO())
+  
+      if (receiptByUserId) {
+        query = query.where('createdBy', receiptByUserId)
+      }
+  
+      if (paymentMethodId) {
+        query = query.where('paymentMethodId', paymentMethodId)
+      }
+  
+      const refundTransactions = await query.orderBy('transactionDate', 'asc')
+  
+      // Group transactions by user
+      const userSummaries = new Map()
+      let grandTotalAmount = 0
+  
+      refundTransactions.forEach(transaction => {
+        const userId = transaction.createdBy
+        const userName = transaction.creator ? `${transaction.creator.fullName}` : 'Unknown User'
+        const paymentMethodName = transaction.paymentMethod?.methodName || 'Unknown Method'
+        const amount = Math.abs(Number(transaction.amount)) // Remboursements sont négatifs, on prend la valeur absolue
+        
+        // User summary
+        if (!userSummaries.has(userId)) {
+          userSummaries.set(userId, {
+            userId,
+            userName,
+            transactions: [], // Liste des transactions détaillées
+            userTotal: 0
+          })
+        }
+  
+        const userSummary = userSummaries.get(userId)
+  
+        // Ajouter la transaction à la liste
+        userSummary.transactions.push({
+          date: transaction.transactionDate.toFormat('yyyy-MM-dd HH:mm:ss'),
+          receipt: transaction.receiptNumber || 'N/A',
+          reference: transaction.reference || transaction.externalReference || transaction.paymentReference || 'N/A',
+          amount: amount,
+          user: userName,
+          enteredOn: transaction.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
+          paymentMethod: paymentMethodName,
+          transactionNumber: transaction.transactionNumber,
+          description: transaction.description,
+          guestName: transaction.guestName,
+          folioNumber: transaction.folio?.folioNumber,
+          reservationNumber: transaction.folio?.reservation?.reservationNumber
+        })
+  
+        // Mettre à jour les totaux
+        userSummary.userTotal += amount
+        grandTotalAmount += amount
+      })
+  
+      // Convert Map to Array for response
+      const userSummaryList = Array.from(userSummaries.values()).map(user => ({
+        ...user,
+        totalTransactions: user.transactions.length
+      }))
+  
+      const responseData = {
+        hotelDetails: {
+          hotelId: hotel.id,
+          hotelName: hotel.hotelName
+        },
+        dateRange: {
+          fromDate: startDateTime.toFormat('yyyy-MM-dd'),
+          toDate: endDateTime.toFormat('yyyy-MM-dd'),
+          fromDateTime: startDateTime.toISO(),
+          toDateTime: endDateTime.toISO()
+        },
+        userSummaries: userSummaryList,
+        grandTotals: {
+          totalTransactions: refundTransactions.length,
+          totalAmount: grandTotalAmount,
+          netTotal: grandTotalAmount
+        },
+        reportType: 'DAILY_REFUND_DETAIL',
+        filters: {
+          fromDate: payload.fromDate,
+          toDate: payload.toDate,
+          hotelId: payload.hotelId,
+          receiptByUserId: payload.receiptByUserId,
+          paymentMethodId: payload.paymentMethodId
+        }
+      }
+  
+      return response.ok({
+        success: true,
+        message: 'Daily refund detail report generated successfully',
+        data: responseData,
+        generatedAt: DateTime.now().toISO(),
+        generatedBy: auth.user?.firstName + ' ' + auth.user?.lastName,
+        metadata: {
+          totalRecords: refundTransactions.length,
+          totalAmount: grandTotalAmount,
+          dateRange: `${startDateTime.toFormat('dd/MM/yyyy')} - ${endDateTime.toFormat('dd/MM/yyyy')}`
+        }
+      })
+  
+    } catch (error) {
+      return response.badRequest({
+        success: false,
+        message: 'Failed to generate daily refund detail report',
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      })
+    }
+  }
 
   async generateDetail({ request, response, auth }: HttpContext) {
     try {
@@ -309,7 +443,7 @@ export default class DailyReceiptReportsController {
 
       return response.ok({
         success: true,
-        message: 'Daily receipt detail report generated successfully',
+        message: 'Daily refund detail report generated successfully',
         data: responseData,
         filters: payload,
         generatedAt: DateTime.now().toISO(),
@@ -319,7 +453,7 @@ export default class DailyReceiptReportsController {
     } catch (error) {
       return response.badRequest({
         success: false,
-        message: 'Failed to generate daily receipt detail report',
+        message: 'Failed to generate daily refund detail report',
         error: error.message
       })
     }
@@ -1128,6 +1262,207 @@ export default class DailyReceiptReportsController {
     }
   }
 
+    /**
+   * Generate PDF for Detailed Daily Refund Report
+   */
+
+    async generateDailyRefundDetailPdf({ request, response, auth }: HttpContext) {
+      try {
+        const payload = await request.validateUsing(createDailyReceiptReportValidator)
+        const { fromDate, toDate, hotelId, receiptByUserId, currencyId, paymentMethodId } = payload
+    
+        const startDateTime = DateTime.fromISO(fromDate)
+        const endDateTime = DateTime.fromISO(toDate)
+    
+        // Get hotel details
+        const hotel = await Hotel.findOrFail(hotelId)
+    
+        // Get authenticated user information
+        const user = auth.user
+        const printedBy = user 
+          ? `${user.fullName || ''}`.trim() || user.email || 'Unknown User' 
+          : 'System'
+    
+        // Build query for refund transactions
+        let query = FolioTransaction.query()
+          .preload('creator')
+          .preload('paymentMethod')
+          .preload('hotel')
+          .preload('folio', (folioQuery) => {
+            folioQuery.preload('reservation')
+          })
+          .where('hotelId', hotelId)
+          .where('transactionType', TransactionType.REFUND)
+          .where('category', TransactionCategory.REFUND)
+          .where('transactionDate', '>=', startDateTime.startOf('day').toISO())
+          .where('transactionDate', '<=', endDateTime.endOf('day').toISO())
+    
+        if (receiptByUserId) {
+          query = query.where('createdBy', receiptByUserId)
+        }
+    
+        if (paymentMethodId) {
+          query = query.where('paymentMethodId', paymentMethodId)
+        }
+    
+        const refundTransactions = await query.orderBy('transactionDate', 'asc')
+    
+        // Group transactions by user
+        const userSummaries = new Map()
+        let grandTotalAmount = 0
+    
+        refundTransactions.forEach(transaction => {
+          const userId = transaction.createdBy
+          const userName = transaction.creator ? `${transaction.creator.fullName}` : 'Unknown User'
+          const paymentMethodName = transaction.paymentMethod?.methodName || 'Unknown Method'
+          const amount = Math.abs(Number(transaction.amount)) // Remboursements sont négatifs, on prend la valeur absolue
+          
+          // User summary
+          if (!userSummaries.has(userId)) {
+            userSummaries.set(userId, {
+              userId,
+              userName,
+              transactions: [], // Liste des transactions détaillées
+              userTotal: 0
+            })
+          }
+    
+          const userSummary = userSummaries.get(userId)
+    
+          // Ajouter la transaction à la liste
+          userSummary.transactions.push({
+            date: transaction.transactionDate.toFormat('yyyy-MM-dd HH:mm:ss'),
+            receipt: transaction.receiptNumber 'N/A',
+            reference: transaction.reference || transaction.externalReference || transaction.paymentReference || 'N/A',
+            amount: amount,
+            user: userName,
+            enteredOn: transaction.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
+            paymentMethod: paymentMethodName,
+            transactionNumber: transaction.transactionNumber,
+            description: transaction.description,
+            guestName: transaction.guestName,
+            folioNumber: transaction.folio?.folioNumber,
+            reservationNumber: transaction.folio?.reservation?.reservationNumber
+          })
+    
+          // Mettre à jour les totaux
+          userSummary.userTotal += amount
+          grandTotalAmount += amount
+        })
+    
+        // Convert Map to Array for response
+        const userSummaryList = Array.from(userSummaries.values()).map(user => ({
+          ...user,
+          totalTransactions: user.transactions.length
+        }))
+    
+        const reportData = {
+          hotelDetails: {
+            hotelId: hotel.id,
+            hotelName: hotel.hotelName
+          },
+          dateRange: {
+            fromDate: startDateTime.toFormat('yyyy-MM-dd'),
+            toDate: endDateTime.toFormat('yyyy-MM-dd'),
+            fromDateTime: startDateTime.toISO(),
+            toDateTime: endDateTime.toISO()
+          },
+          userSummaries: userSummaryList,
+          grandTotals: {
+            totalTransactions: refundTransactions.length,
+            totalAmount: grandTotalAmount,
+            netTotal: grandTotalAmount
+          },
+          reportType: 'DAILY_REFUND_DETAIL',
+          filters: {
+            fromDate: payload.fromDate,
+            toDate: payload.toDate,
+            hotelId: payload.hotelId,
+            receiptByUserId: payload.receiptByUserId,
+            paymentMethodId: payload.paymentMethodId
+          }
+        }
+    
+        // Generate HTML content using Edge template
+        const htmlContent = await this.generateRefundDetailHtml(
+          hotel.hotelName,
+          startDateTime,
+          endDateTime,
+          currencyId || 'XAF',
+          reportData,
+          printedBy
+        )
+    
+        // Import PDF generation service
+        const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+    
+        // Format dates for display
+        const formattedFromDate = startDateTime.toFormat('dd/MM/yyyy')
+        const formattedToDate = endDateTime.toFormat('dd/MM/yyyy')
+        const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    
+        // Create header template
+        const headerTemplate = `
+        <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+          <!-- Hotel name and report title -->
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:3px;">
+            <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+            <div style="font-size:13px; color:#8B0000; font-weight:bold;">Daily Refund - Detail Report</div>
+          </div>
+          
+          <!-- Report Info -->
+          <div style="font-size:8px; margin-bottom:3px;">
+            <span style="margin-right:10px;"><strong>From:</strong> ${formattedFromDate} <strong>To:</strong> ${formattedToDate}</span>
+            <span><strong>Currency:</strong> ${currencyId || 'XAF'}</span>
+          </div>
+          
+          <div style="border-top:1px solid #333; margin:0;"></div>
+        </div>
+        `
+    
+        // Create footer template
+        const footerTemplate = `
+        <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold;">Generated On: <span style="font-weight:normal;">${printedOn}</span></div>
+          <div style="font-weight:bold;">Generated by: <span style="font-weight:normal;">${printedBy}</span></div>
+          <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+        </div>
+        `
+    
+        // Generate PDF with header and footer
+        const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+          format: 'A4',
+          margin: {
+            top: '70px',
+            right: '10px',
+            bottom: '70px',
+            left: '10px'
+          },
+          displayHeaderFooter: true,
+          headerTemplate,
+          footerTemplate,
+          printBackground: true
+        })
+    
+        // Set response headers
+        const fileName = `daily-refund-detail-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
+        response.header('Content-Type', 'application/pdf')
+        response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    
+        return response.send(pdfBuffer)
+    
+      } catch (error) {
+        console.error('Error generating daily refund detail PDF:', error)
+        return response.internalServerError({
+          success: false,
+          message: 'Failed to generate daily refund detail PDF',
+          error: error.message
+        })
+      }
+    }
+    
+
+
   /**
    * Generate PDF for Detailed Receipt Report
    */
@@ -1380,6 +1715,139 @@ export default class DailyReceiptReportsController {
   
     // Render template
     return await edge.render('reports/daily_receipt_summary', templateData)
+  }
+  private async generateRefundDetailHtml(
+    hotelName: string,
+    fromDate: DateTime,
+    toDate: DateTime,
+    currency: string,
+    reportData: any,
+    printedBy: string = 'System'
+  ): Promise<string> {
+    const { default: edge } = await import('edge.js')
+    const path = await import('path')
+  
+    // Configure Edge with views directory
+    edge.mount(path.join(process.cwd(), 'resources/views'))
+  
+    // Format dates
+    const formattedFromDate = fromDate.toFormat('dd/MM/yyyy')
+    const formattedToDate = toDate.toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+  
+    // Helper function for currency formatting
+    const formatCurrency = (amount: number | null | undefined): string => {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return '0.00'
+      }
+      return amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    }
+  
+    // Helper function to format date
+    const formatDate = (dateString: string): string => {
+      if (!dateString) return 'N/A'
+      
+      try {
+        // Essayer différents formats de date
+        let date: DateTime | null = null
+        
+        // Essayer DateTime.fromISO
+        date = DateTime.fromISO(dateString)
+        if (date.isValid) {
+          return date.toFormat('dd/MM/yyyy HH:mm:ss')
+        }
+        
+        // Essayer DateTime.fromSQL (format MySQL)
+        date = DateTime.fromSQL(dateString)
+        if (date.isValid) {
+          return date.toFormat('dd/MM/yyyy HH:mm:ss')
+        }
+        
+        // Essayer de parser comme string
+        const jsDate = new Date(dateString)
+        if (!isNaN(jsDate.getTime())) {
+          return DateTime.fromJSDate(jsDate).toFormat('dd/MM/yyyy HH:mm:ss')
+        }
+        
+        // Retourner la string originale si on ne peut pas la parser
+        return dateString
+      } catch (error) {
+        return dateString
+      }
+    }
+  
+    // S'assurer que reportData a la structure attendue
+    const userSummaries = reportData.userSummaries || []
+    const grandTotals = reportData.grandTotals || {
+      totalTransactions: 0,
+      totalAmount: 0,
+      netTotal: 0
+    }
+  
+    // Préparer les données pour le template
+    const templateData = {
+      hotelName,
+      fromDate: formattedFromDate,
+      toDate: formattedToDate,
+      currency,
+      printedOn,
+      printedBy,
+      currentPage: 1,
+      totalPages: 1,
+      data: {
+        // Structure principale pour le template de détail des remboursements
+        userSummaries: userSummaries.map((userSummary: any) => ({
+          userName: userSummary.userName || 'Unknown User',
+          totalTransactions: userSummary.totalTransactions || (userSummary.transactions ? userSummary.transactions.length : 0),
+          userTotal: userSummary.userTotal || 0,
+          transactions: (userSummary.transactions || []).map((transaction: any) => {
+            // Normaliser les données de transaction
+            const transactionDate = transaction.date || transaction.transactionDate || transaction.createdAt
+            const receiptNumber = transaction.receipt || transaction.receiptNumber || transaction.reference || 'N/A'
+            const reference = transaction.reference || transaction.externalReference || transaction.paymentReference || transaction.description || 'N/A'
+            const amount = Math.abs(transaction.amount || 0) // Remboursements sont négatifs, on prend la valeur absolue
+            const userName = transaction.user || userSummary.userName || 'Unknown User'
+            const enteredOn = transaction.enteredOn || transaction.createdAt || transactionDate
+            const paymentMethod = transaction.paymentMethod || transaction.paymentMethodName || 'Unknown'
+            
+            return {
+              date: formatDate(transactionDate),
+              receipt: receiptNumber,
+              reference: reference,
+              amount: amount,
+              user: userName,
+              enteredOn: formatDate(enteredOn),
+              paymentMethod: paymentMethod
+            }
+          })
+        })),
+        grandTotals: {
+          totalTransactions: grandTotals.totalTransactions || userSummaries.reduce((sum: number, user: any) => sum + (user.totalTransactions || 0), 0),
+          totalAmount: grandTotals.totalAmount || userSummaries.reduce((sum: number, user: any) => sum + (user.userTotal || 0), 0),
+          netTotal: grandTotals.netTotal || grandTotals.totalAmount || userSummaries.reduce((sum: number, user: any) => sum + (user.userTotal || 0), 0)
+        }
+      },
+      formatCurrency,
+      formatDate,
+      // Statistiques
+      totalEntries: grandTotals.totalTransactions || 0,
+      // Header specific data
+      header: {
+        hotelName,
+        reportTitle: 'Daily Refund Detail Report',
+        fromDate: formattedFromDate,
+        toDate: formattedToDate,
+        currency,
+        totalTransactions: grandTotals.totalTransactions || 0,
+        totalAmount: formatCurrency(grandTotals.totalAmount || 0)
+      }
+    }
+  
+    // Utiliser le bon template - daily_refund_detail.edge
+    return await edge.render('reports/daily-refund-detail', templateData)
   }
 
   /**

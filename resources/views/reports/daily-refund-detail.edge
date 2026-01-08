@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ hotelName }} - Daily Refund Detail</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            padding: 0; 
+            margin: 0;  
+            background-color: white;
+        }
+
+        .report-container {
+            padding: 0px 15px 15px 15px;
+            background-color: white;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+        }
+
+        .report-title {
+            border: 2px solid #c00;
+            background: white;
+            color: #c00;
+            padding: 5px 15px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+
+        .date-range {
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+
+        .date-range strong {
+            font-weight: bold;
+        }
+
+        /* User sections */
+        .user-section {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+
+        table th {
+            background-color: #f5f5f5;
+            border-top: none;
+            border-bottom: 1px solid #333;
+            padding: 5px 8px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        table th.text-right,
+        table td.text-right {
+            text-align: right;
+        }
+
+        table th.text-center,
+        table td.text-center {
+            text-align: center;
+        }
+
+        table td {
+            padding: 4px 8px;
+            font-size: 9px;
+            border: none;
+        }
+
+        /* Ligne avec le nom d'utilisateur */
+        .user-name-row td {
+            padding: 6px 8px;
+            font-weight: bold;
+            border: none;
+            background-color: #f0f0f0;
+            border-left: 3px solid #c00;
+        }
+
+        /* Lignes des transactions */
+        .transaction-row td {
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .transaction-row:last-child td {
+            border-bottom: none;
+        }
+
+        /* Ligne User Total */
+        .user-total-row {
+            font-weight: bold;
+            background-color: #f9f9f9;
+        }
+
+        .user-total-row td {
+            border: none;
+            padding: 6px 8px;
+        }
+
+        /* Bordures pointillées uniquement sur la colonne Amount pour User Total */
+        .user-total-row td:nth-child(4) {
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+
+        .separator-line {
+            border-top: 1px solid #999;
+            margin: 10px 0;
+        }
+
+        /* Grand Total */
+        .grand-total-row {
+            font-weight: bold;
+            background-color: #f0f0f0;
+            border-top: 2px solid #333;
+        }
+
+        .grand-total-row td {
+            padding: 8px;
+            border: none;
+        }
+
+        /* Bordures pointillées uniquement sur la colonne Amount pour Grand Total */
+        .grand-total-row td:nth-child(4) {
+            border-top: 1px dotted #333;
+            border-bottom: 1px dotted #333;
+        }
+
+        .amount-column {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+
+        .reference-column {
+            max-width: 200px;
+            word-wrap: break-word;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+            font-size: 12px;
+        }
+
+        /* Page break */
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- User Sections -->
+        @if(!data.userSummaries || data.userSummaries.length === 0)
+            <div class="no-data">
+                No refund transactions found for the selected period.
+            </div>
+        @else
+            @each(userSummary in data.userSummaries)
+                <div class="user-section">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 12%;">Date</th>
+                                <th style="width: 10%;">Receipt</th>
+                                <th style="width: 25%;">Reference</th>
+                                <th style="width: 12%;" class="text-right">Amount ({{ currency }})</th>
+                                <th style="width: 12%;">User</th>
+                                <th style="width: 12%;">Entered On</th>
+                                <th style="width: 17%;">Payment Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="user-name-row">
+                                <td colspan="7">User: {{ userSummary.userName }} | Transactions: {{ userSummary.totalTransactions }}</td>
+                            </tr>
+                            @each(transaction in userSummary.transactions)
+                                <tr class="transaction-row">
+                                    <td>{{ transaction.date }}</td>
+                                    <td>{{ transaction.receipt }}</td>
+                                    <td class="reference-column">{{ transaction.reference }}</td>
+                                    <td class="text-right amount-column">{{ formatCurrency(transaction.amount) }}</td>
+                                    <td>{{ transaction.user }}</td>
+                                    <td>{{ transaction.enteredOn }}</td>
+                                    <td>{{ transaction.paymentMethod || 'N/A' }}</td>
+                                </tr>
+                            @end
+                            <tr class="user-total-row">
+                                <td colspan="3"><strong>User Total</strong></td>
+                                <td class="text-right amount-column"><strong>{{ formatCurrency(userSummary.userTotal) }}</strong></td>
+                                <td colspan="3"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            @end
+
+            <!-- Grand Total -->
+            <table style="margin-top: 15px;">
+                <tbody>
+                    <tr class="grand-total-row">
+                        <td colspan="3" style="width: 47%;"><strong>GRAND TOTAL</strong></td>
+                        <td class="text-right amount-column" style="width: 12%;"><strong>{{ formatCurrency(data.grandTotals.totalAmount) }}</strong></td>
+                        <td colspan="3" style="width: 41%;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" style="text-align: right; padding-top: 5px;"><strong>Total Transactions:</strong></td>
+                        <td class="text-right amount-column" style="padding-top: 5px;"><strong>{{ data.grandTotals.totalTransactions }}</strong></td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tbody>
+            </table>
+        @end
+    </div>
+</body>
+</html>
