@@ -7,6 +7,7 @@ import { createDailyReceiptReportValidator } from '#validators/daily_receipt_rep
 import { createDailyRevenueReportValidator } from '#validators/daily_revenue_report'
 import { PaymentMethodType,TransactionType, TransactionCategory } from '../enums.js'
 import FolioTransaction from '#models/folio_transaction'
+import { formatCurrency } from '../utils/utilities.js'
 
 export default class DailyReceiptReportsController {
   /**
@@ -1674,16 +1675,7 @@ export default class DailyReceiptReportsController {
     const formattedToDate = toDate.toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
   
-    // Helper function for currency formatting
-    const formatCurrency = (amount: number | null | undefined): string => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return '0.00'
-      }
-      return amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
-    }
+   
   
     // Prepare template data
     const templateData = {
@@ -1735,16 +1727,6 @@ export default class DailyReceiptReportsController {
     const formattedToDate = toDate.toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
   
-    // Helper function for currency formatting
-    const formatCurrency = (amount: number | null | undefined): string => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return '0.00'
-      }
-      return amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
-    }
   
     // Helper function to format date
     const formatDate = (dateString: string): string => {
@@ -1872,17 +1854,6 @@ export default class DailyReceiptReportsController {
     const formattedToDate = toDate.toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
 
-    // Helper function for currency formatting
-    const formatCurrency = (amount: number | null | undefined): string => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return '0.00'
-      }
-      return amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
-    }
-
     // Helper function to calculate method total
     const calculateMethodTotal = (receipts: any[]): number => {
       if (!receipts || !Array.isArray(receipts)) return 0
@@ -1971,16 +1942,6 @@ export default class DailyReceiptReportsController {
     const formattedFromDate = fromDate.toFormat('dd/MM/yyyy')
     const formattedToDate = toDate.toFormat('dd/MM/yyyy')
     const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
-
-    const formatCurrency = (amount: number | null | undefined): string => {
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return '0'
-      }
-      return amount.toLocaleString('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      })
-    }
 
     const templateData = {
       hotelName,

@@ -4157,7 +4157,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const finalArrival = newArrivalDateTime || reservation.arrivedDate
       const finalDeparture = newDepartureDateTime || reservation.departDate
 
-      if (finalArrival && finalDeparture && finalArrival >= finalDeparture) {
+      if (
+        finalArrival &&
+        finalDeparture &&
+        finalArrival.startOf('day') > finalDeparture.startOf('day')
+      ) {
         await trx.rollback()
         return response.badRequest({ message: 'Arrival date must be before departure date' })
       }
@@ -4221,9 +4225,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
               roomUpdateData.nights = numberOfNights
 
               // Recalculer les montants basés sur le nouveau nombre de nuits
-              const roomRate = reservationRoom.roomRate || 0
+              const roomRate = Number(reservationRoom.roomRate) || 0
               const taxPerNight = reservationRoom.taxAmount
-                ? reservationRoom.taxAmount / (reservationRoom.nights || 1)
+                ? Number(reservationRoom.taxAmount) / (reservationRoom.nights || 1)
                 : 0
 
               if (numberOfNights === 0) {
@@ -4290,9 +4294,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
             roomUpdateData.nights = numberOfNights
 
-            const roomRate = reservationRoom.roomRate || 0
+            const roomRate = Number(reservationRoom.roomRate) || 0
             const taxPerNight = reservationRoom.taxAmount
-              ? reservationRoom.taxAmount / (reservationRoom.nights || 1)
+              ? Number(reservationRoom.taxAmount) / (reservationRoom.nights || 1)
               : 0
 
             if (numberOfNights === 0) {
@@ -7543,6 +7547,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       if (payload.companyName !== undefined) {
         reservation.companyName = payload.companyName
+      }
+      if (payload.bookingSourceId !== undefined) {
+        reservation.bookingSourceId = payload.bookingSourceId
+      }
+      if (payload.arrivingTo !== undefined) {
+        reservation.arrivingTo = payload.arrivingTo
+      }
+      if (payload.goingTo !== undefined) {
+        reservation.goingTo = payload.goingTo
+      }
+      if (payload.meansOfTransport !== undefined) {
+        reservation.meansOfTransportation = payload.meansOfTransport
       }
 
       reservation.lastModifiedBy = auth?.user?.id!

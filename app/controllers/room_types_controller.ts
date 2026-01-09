@@ -159,12 +159,7 @@ export default class RoomTypesController {
         })
       }
 
-
-      // Soft delete
-      roomType.isDeleted = true
-      roomType.deletedAt = DateTime.now()
-      roomType.updatedByUserId = auth.user?.id!
-      await roomType.save()
+      await roomType.delete()
 
       return response.ok({
         message: 'Room type deleted successfully'
