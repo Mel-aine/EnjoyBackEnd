@@ -250,9 +250,8 @@ export default class GuestsController {
         .preload('hotel')
         .preload('companyAccount')
         .firstOrFail()
-      const oldData = guest.toJSON()
+      const oldData = guest.toJSON();
       const payload = await request.validateUsing(updateGuestValidator)
-
       // Infer the type of the validated payload
       type PayloadType = typeof payload
 
