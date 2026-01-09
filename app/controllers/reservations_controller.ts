@@ -4157,7 +4157,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const finalArrival = newArrivalDateTime || reservation.arrivedDate
       const finalDeparture = newDepartureDateTime || reservation.departDate
 
-      if (finalArrival && finalDeparture && finalArrival >= finalDeparture) {
+      if (
+        finalArrival &&
+        finalDeparture &&
+        finalArrival.startOf('day') > finalDeparture.startOf('day')
+      ) {
         await trx.rollback()
         return response.badRequest({ message: 'Arrival date must be before departure date' })
       }
