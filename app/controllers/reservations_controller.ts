@@ -7548,6 +7548,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (payload.companyName !== undefined) {
         reservation.companyName = payload.companyName
       }
+      if (payload.bookingSourceId !== undefined) {
+        reservation.bookingSourceId = payload.bookingSourceId
+      }
+      if (payload.arrivingTo !== undefined) {
+        reservation.arrivingTo = payload.arrivingTo
+      }
+      if (payload.goingTo !== undefined) {
+        reservation.goingTo = payload.goingTo
+      }
+      if (payload.meansOfTransport !== undefined) {
+        reservation.meansOfTransportation = payload.meansOfTransport
+      }
 
       reservation.lastModifiedBy = auth?.user?.id!
 
