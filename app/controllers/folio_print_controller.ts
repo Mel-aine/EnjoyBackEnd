@@ -114,6 +114,38 @@ export default class FolioPrintController {
       })
     }
   }
+  async printBookingPdfFrench({ request, response }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const currencyId = request.input('currencyId')
+
+      if (!reservationId) {
+        return response.status(400).json({
+          success: false,
+          message: 'reservationId is required'
+        })
+      }
+
+      //  CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
+      const folioPrintData = await FolioPrintService.generateBookingPrintData(reservationId)
+
+      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
+      const bookingPdf = await PdfGenerationService.generateBookingPdfFrench(folioPrintData)
+
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.reservationNumber}.pdf"`)
+      response.header('Content-Length', bookingPdf.length.toString())
+
+      return response.send(bookingPdf)
+    } catch (error) {
+      console.error('Error generating booking PDF:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to generate booking PDF',
+        error: error.message
+      })
+    }
+  }
   async printHotelPdf({ request, response }: HttpContext) {
     try {
       const reservationId = request.input('reservationId')
@@ -136,6 +168,43 @@ export default class FolioPrintController {
       )
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
       const bookingPdf = await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
+
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData}.pdf"`)
+      response.header('Content-Length', bookingPdf.length.toString())
+
+      return response.send(bookingPdf)
+    } catch (error) {
+      console.error('Error generating booking PDF:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to generate booking PDF',
+        error: error.message
+      })
+    }
+  }
+  async printHotelPdfFrench({ request, response }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const folioIdInput = request.input('folioId')
+      const currencyId = request.input('currencyId')
+
+      if (!reservationId) {
+        return response.status(400).json({
+          success: false,
+          message: 'reservationId is required'
+        })
+      }
+
+      // CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
+      const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(
+        Number(reservationId),
+        folioIdInput !== undefined && folioIdInput !== null && folioIdInput !== '' && Number.isFinite(Number(folioIdInput))
+          ? Number(folioIdInput)
+          : null
+      )
+      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
+      const bookingPdf = await PdfGenerationService.generateSuitaHotelPdfFrench(folioPrintData)
 
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData}.pdf"`)
