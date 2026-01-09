@@ -175,57 +175,6 @@ export default class PdfGenerationService {
       throw new Error(`Failed to generate booking PDF: ${message}`)
     }
   }
-    /**
-   * Generate PDF from booking confirmation data
-   */
-    static async generateBookingPdfFrench(
-        folioPrintData: FolioPrintData,
-        options: PdfOptions = {}
-      ): Promise<Buffer> {
-        try {
-          // Default PDF options
-          const defaultOptions = {
-            format: 'A4',
-            orientation: 'portrait',
-            margin: {
-              top: '10mm',
-              right: '10mm',
-              bottom: '10mm',
-              left: '10mm'
-            },
-            displayHeaderFooter: false,
-            printBackground: true,
-            ...options
-          }
-    
-          // Generate HTML content
-          const htmlContent = this.generateBookingHtmlTemplateFrench(folioPrintData)
-    
-          // PDF generation options for html-pdf-node
-          const pdfOptions = {
-            format: defaultOptions.format,
-            orientation: defaultOptions.orientation,
-            border: {
-              top: defaultOptions.margin.top,
-              right: defaultOptions.margin.right,
-              bottom: defaultOptions.margin.bottom,
-              left: defaultOptions.margin.left
-            },
-            type: 'pdf',
-            quality: '75',
-            renderDelay: 500,
-            zoomFactor: 1
-          }
-    
-          const file = { content: htmlContent }
-          const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-    
-          return pdfBuffer
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          throw new Error(`Failed to generate booking PDF: ${message}`)
-        }
-      }
 
   /**
    * Generate HTML template from folio print data
@@ -636,426 +585,25 @@ export default class PdfGenerationService {
     </html>`
   }
 
-    /**
-     * Generate HTML template for booking confirmation
-     */
-    private static generateBookingHtmlTemplate(data: FolioPrintData): string {
-        const {
-        hotel,
-        reservation,
-        totals,
-        currency,
-        billingAddress
-        } = data
+  /**
+   * Generate HTML template for booking confirmation
+   */
+  private static generateBookingHtmlTemplate(data: FolioPrintData): string {
+    const {
+      hotel,
+      reservation,
+      totals,
+      currency,
+      billingAddress
+    } = data
 
-        return `
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Booking Confirmation - ${reservation.confirmationCode}</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            
-            body {
-                font-family: Arial, sans-serif;
-                font-size: 12px;
-                line-height: 1.4;
-                color: #333;
-                background: white;
-                padding: 20px;
-            }
-            
-            .print-page {
-                width: 100%;
-                max-width: 800px;
-                margin: 0 auto;
-            }
-            
-            .border-classic {
-                border: 2px solid #333;
-                padding: 16px;
-            }
-            .border-2{
-            border: 2px solid #333;
-            padding: 3px;
-        margin-bottom: 16px;
-            }
-        .border-1{
-            border: 1px solid #333;
-            padding: 3px;
-        margin-bottom: 16px;
-            }
-        .border-header{
-            border: 1px solid #333;
-            padding: 3px;
-            }
-        .border-1-inside{
-            border: 1px solid #333;
-            padding: 6px;
-            }
-            .flex {
-                display: flex;
-            }
-            
-            .justify-between {
-                justify-content: space-between;
-            }
-            
-            .items-start {
-                align-items: flex-start;
-            }
-            
-            .text-right {
-                text-align: right;
-            }
-            
-            .text-center {
-                text-align: center;
-            }
-            
-            .p-4 {
-                padding: 16px;
-            }
-            
-            .p-3 {
-                padding: 12px;
-            }
-            
-            .mb-4 {
-                margin-bottom: 16px;
-            }
-            
-            .mb-2 {
-                margin-bottom: 8px;
-            }
-            
-            .mt-2 {
-                margin-top: 8px;
-            }
-            
-            .mt-4 {
-                margin-top: 16px;
-            }
-            
-            .mt-6 {
-                margin-top: 24px;
-            }
-            
-            .text-sm {
-                font-size: 14px;
-            }
-            
-            .text-lg {
-                font-size: 18px;
-            }
-            
-            .text-xl {
-                font-size: 20px;
-            }
-            
-            .font-bold {
-                font-weight: bold;
-            }
-            
-            .bg-gray-200 {
-                background-color: #edf2f7;
-            }
-            
-            .data-grid {
-                display: grid;
-                width: 100%;
-                gap: 1px;
-                background-color: #cbd5e0;
-            }
-            
-            .grid-header {
-                display: contents;
-            }
-            
-            .grid-header-cell {
-                padding: 4px 8px;
-                background-color: #edf2f7;
-                font-weight: bold;
-                text-align: left;
-                width: 100%;
-            }
-            
-            .grid-row {
-                display: contents;
-            }
-            
-            .grid-cell {
-                padding: 4px 8px;
-                background-color: white;
-                text-align: left;
-            }
-            
-            .room-details-grid {
-                grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-            }
-            
-            .rates-grid {
-                grid-template-columns: 2fr 1fr;
-            }
-            
-            .rates-grid .grid-header-cell:last-child,
-            .rates-grid .grid-cell:last-child {
-                text-align: right;
-                justify-self: end;
-            }
-            
-            .border-2 {
-                border-width: 2px;
-            }
-            
-            .border-black {
-                border-color: #000;
-            }
-            
-            .border-t {
-            }
-            
-            .list-disc {
-                list-style-type: disc;
-            }
-            
-            .pl-5 {
-                padding-left: 20px;
-            }
-            
-            u {
-                text-decoration: underline;
-            }
-            
-            em {
-                font-style: italic;
-            }
-            
-            .grid {
-                display: grid;
-            }
-            
-            .grid-cols-2 {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .gap-2 {
-                gap: 8px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="print-page p-4">
-            <!-- Main Header Box -->
-            <div class='border-2'>
-            <div class="border-classic">
-                <div class="flex justify-between">
-                    <div>
-                        <h1 class="text-lg font-bold mb-2">BOOKING CONFIRMATION</h1>
-                        <div class="mb-2">
-                            <strong>BOOKING REFERENCE NO</strong><br>
-                            <span class="text-xl font-bold">: ${reservation.reservationNumber}</span>
-                        </div>
-                        <div class="text-sm">
-                            Kindly print this confirmation and have it<br>
-                            ready upon check-in at the Hotel
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <h2 class="text-lg font-bold">${hotel.hotelName}</h2>
-                        <div class="text-sm mt-2">
-                            ${hotel.address}<br>
-                            ${hotel.city}, ${hotel.country}<br>
-                            <u>${hotel.email}</u><br>
-                            Phone : ${hotel.phoneNumber}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            </div>
-
-            <!-- Guest Information -->
-            <div class="mb-4">
-                <p class="text-sm">Dear ${reservation.guest?.displayName},</p>
-                <p class="text-sm mt-2">
-                    Thank you for choosing ${hotel.hotelName} for your stay. We are pleased to inform you that your
-                    reservation request is CONFIRMED and your reservation details are as follows.
-                </p>
-            </div>
-
-            <!-- Booking Details -->
-            <div class="mb-4">
-                <h3 class="font-bold mb-2">Booking Details</h3>
-                <div class="text-sm grid grid-cols-2 gap-2">
-                    <div>Booking Date : ${this.formatDate(data.printInfo.printedDate.toString())}</div>
-                    <div>Check In Date : ${this.formatDate(reservation.arrivedDate!.toString())}</div>
-                    <div>Check Out Date : ${this.formatDate(reservation.departDate!.toString())}</div>
-                    <div>Nights : ${reservation.numberOfNights}</div>
-                    <div>Arrival Time : ${reservation.checkInTime}</div>
-                    <div>Special Request : ${reservation.specialRequests??''}</div>
-                </div>
-            </div>
-
-            <!-- Your Details -->
-            <div class="mb-4">
-                <h3 class="font-bold mb-2">Your Details</h3>
-                <div class="text-sm">
-                    ${reservation.guest?.displayName}<br>
-                    Email ID : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
-                    Phone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
-                </div>
-            </div>
-
-            <!-- Room Details -->
-            <div class="mb-4">
-                <h3 class="font-bold mb-2">Room Details</h3>
-                <div class="border-header mb-2">
-                <div class="data-grid room-details-grid border-1-inside">
-                    <div class="grid-header">
-                        <div class="grid-header-cell">Room Type</div>
-                        <div class="grid-header-cell">Guest(s)</div>
-                        <div class="grid-header-cell">No of rooms</div>
-                        <div class="grid-header-cell">Package if any</div>
-                        <div class="grid-header-cell">Promotion if any</div>
-                    </div>
-                    </div></div>
-                    <div class="data-grid room-details-grid">
-                    ${reservation.reservationRooms?.map(room => `
-                    <div class="grid-row">
-                        <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ??''}</strong></div>
-                        <div class="grid-cell">${room.adults || 1} Adults, ${room.children || 0} Children</div>
-                        <div class="grid-cell">1</div>
-                        <div class="grid-cell">none</div>
-                        <div class="grid-cell">none</div>
-                    </div>`).join('') }
-                </div>
-            </div>
-
-            <!-- Rates Details -->
-            <div class="mb-4">
-                <h3 class="font-bold mb-2">Rates Details</h3>
-                <div class="border-header mb-2">
-                <div class="data-grid rates-grid border-1-inside">
-                    <div class="grid-header">
-                        <div class="grid-header-cell ">Details</div>
-                        <div class="grid-header-cell text-right">Rates (${currency.code})</div>
-                    </div>
-                    </div>
-                    </div>
-                <div class="data-grid rates-grid">
-                    <div class="grid-row">
-                        <div class="grid-cell">Total Room Charges</div>
-                        <div class="grid-cell text-right">${this.formatAmount(totals.totalCharges)}</div>
-                    </div>
-                    <div class="grid-row">
-                        <div class="grid-cell">Room Charges Tax</div>
-                        <div class="grid-cell text-right">${this.formatAmount(totals.totalTaxes)}</div>
-                    </div>
-                    <div class="grid-row">
-                        <div class="grid-cell">Service Charges</div>
-                        <div class="grid-cell text-right">${this.formatAmount(totals.totalServiceCharges)}</div>
-                    </div>
-                    <div class="grid-row">
-                        <div class="grid-cell">Extra Charges Including Discounts and Tax</div>
-                        <div class="grid-cell text-right">${this.formatAmount(totals.totalDiscounts)}</div>
-                    </div>
-                    <div class="grid-row">
-                        <div class="grid-cell">Round off</div>
-                        <div class="grid-cell text-right">${this.formatAmount(totals.totalDiscounts)}</div>
-                    </div>
-                    <div class="grid-row font-bold">
-                        <div class="grid-cell font-bold">Grand Total</div>
-                        <div class="grid-cell text-right font-bold">${this.formatAmount(totals.totalChargesWithTaxes)}</div>
-                    </div>
-                    <div class="grid-row">
-                        <div class="grid-cell">Total Paid</div>
-                        <div class="grid-cell text-right">${this.formatAmount(totals.totalPayments)}</div>
-                    </div>
-                    <div class="grid-row font-bold">
-                        <div class="grid-cell font-bold">Amount due at time of check in</div>
-                        <div class="grid-cell text-right font-bold">${this.formatAmount(totals.outstandingBalance)}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Booking Amount Box -->
-            <div class="flex justify-between items-start mb-4">
-                <div class="border-1">
-                    <div class="text-center font-bold border-1-inside">
-                    <h2>BOOKING AMOUNT</h2>
-                    <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3> 
-                    </div>
-                </div>
-                <div class="text-right text-sm">
-                    <strong>Booked & Payable By</strong><br>
-                    ${reservation.guest?.displayName}
-                </div>
-            </div>
-
-            <!-- Conditions & Policies -->
-            <div class="mb-4">
-            <div class='border-1'>
-            <div class='border-1-inside'>
-                                    <h3 class="font-bold bg-gray-200">Conditions & Policies</h3>
-            </div>
-            </div>
-
-                <div class="text-sm mt-6">
-                    
-                    <div>
-                    <h3 class="font-bold">Cancellation Policy</h3>
-                    <p>${hotel.cancellationPolicy}</>
-                    <div/>
-                    <div>
-                    <h3 class="font-bold">Hotel Policy</h3>
-                    <p>${hotel.hotelPolicy}</p>
-                    <div/>
-                    <p><strong>Hotel Check in Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime??'12:00'}</p>
-                    <p><strong>Hotel Check out Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime??'12:00'}</p>
-                    <div class="mt-4 font-bold text-center">
-                        <em>This email has been sent from an automated system - please do not reply to it.</em>
-                    </div>
-
-                    <div class="mt-6 mb-4 pt-4 border-t">
-                        <strong>**** FOR ANY FURTHER QUERY ****</strong><br>
-                        Contact us by Email Id ${hotel.email}<br>
-                        Phone NO : ${hotel.phoneNumber}<br>
-                        ${hotel.address}, ${hotel.city}, ${hotel.country}
-                    </div>
-                    <div class="border-t"></div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-        `
-    }
-
-    /**
-     * Generate HTML template for booking confirmation
-     */
-    private static generateBookingHtmlTemplateFrench(data: FolioPrintData): string {
-        const {
-            hotel,
-            reservation,
-            totals,
-            currency,
-            billingAddress
-        } = data
-
-        return `
+    return `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirmation de Réservation - ${reservation.confirmationCode}</title>
+    <title>Booking Confirmation - ${reservation.confirmationCode}</title>
     <style>
         * {
             margin: 0;
@@ -1253,19 +801,19 @@ export default class PdfGenerationService {
 </head>
 <body>
     <div class="print-page p-4">
-        <!-- En-tête Principal -->
+        <!-- Main Header Box -->
         <div class='border-2'>
         <div class="border-classic">
             <div class="flex justify-between">
                 <div>
-                    <h1 class="text-lg font-bold mb-2">CONFIRMATION DE RÉSERVATION</h1>
+                    <h1 class="text-lg font-bold mb-2">BOOKING CONFIRMATION</h1>
                     <div class="mb-2">
-                        <strong>NUMÉRO DE RÉFÉRENCE</strong><br>
+                        <strong>BOOKING REFERENCE NO</strong><br>
                         <span class="text-xl font-bold">: ${reservation.reservationNumber}</span>
                     </div>
                     <div class="text-sm">
-                        Veuillez imprimer cette confirmation et l'avoir<br>
-                        à portée de main lors de votre arrivée à l'hôtel
+                        Kindly print this confirmation and have it<br>
+                        ready upon check-in at the Hotel
                     </div>
                 </div>
                 <div class="text-right">
@@ -1274,159 +822,159 @@ export default class PdfGenerationService {
                         ${hotel.address}<br>
                         ${hotel.city}, ${hotel.country}<br>
                         <u>${hotel.email}</u><br>
-                        Téléphone : ${hotel.phoneNumber}
+                        Phone : ${hotel.phoneNumber}
                     </div>
                 </div>
             </div>
         </div>
         </div>
 
-        <!-- Informations Client -->
+        <!-- Guest Information -->
         <div class="mb-4">
-            <p class="text-sm">Cher(e) ${reservation.guest?.displayName},</p>
+            <p class="text-sm">Dear ${reservation.guest?.displayName},</p>
             <p class="text-sm mt-2">
-                Merci d'avoir choisi ${hotel.hotelName} pour votre séjour. Nous avons le plaisir de vous informer que votre
-                demande de réservation est CONFIRMÉE et les détails de votre réservation sont les suivants.
+                Thank you for choosing ${hotel.hotelName} for your stay. We are pleased to inform you that your
+                reservation request is CONFIRMED and your reservation details are as follows.
             </p>
         </div>
 
-        <!-- Détails de la Réservation -->
+        <!-- Booking Details -->
         <div class="mb-4">
-            <h3 class="font-bold mb-2">Détails de la Réservation</h3>
+            <h3 class="font-bold mb-2">Booking Details</h3>
             <div class="text-sm grid grid-cols-2 gap-2">
-                <div>Date de réservation : ${this.formatDate(data.printInfo.printedDate.toString())}</div>
-                <div>Date d'arrivée : ${this.formatDate(reservation.arrivedDate!.toString())}</div>
-                <div>Date de départ : ${this.formatDate(reservation.departDate!.toString())}</div>
-                <div>Nuits : ${reservation.numberOfNights}</div>
-                <div>Heure d'arrivée : ${reservation.checkInTime}</div>
-                <div>Demandes spéciales : ${reservation.specialRequests??''}</div>
+                <div>Booking Date : ${this.formatDate(data.printInfo.printedDate.toString())}</div>
+                <div>Check In Date : ${this.formatDate(reservation.arrivedDate!.toString())}</div>
+                <div>Check Out Date : ${this.formatDate(reservation.departDate!.toString())}</div>
+                <div>Nights : ${reservation.numberOfNights}</div>
+                <div>Arrival Time : ${reservation.checkInTime}</div>
+                <div>Special Request : ${reservation.specialRequests??''}</div>
             </div>
         </div>
 
-        <!-- Vos Coordonnées -->
+        <!-- Your Details -->
         <div class="mb-4">
-            <h3 class="font-bold mb-2">Vos Coordonnées</h3>
+            <h3 class="font-bold mb-2">Your Details</h3>
             <div class="text-sm">
                 ${reservation.guest?.displayName}<br>
-                Email : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
-                Téléphone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
+                Email ID : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
+                Phone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
             </div>
         </div>
 
-        <!-- Détails des Chambres -->
+        <!-- Room Details -->
         <div class="mb-4">
-            <h3 class="font-bold mb-2">Détails des Chambres</h3>
+            <h3 class="font-bold mb-2">Room Details</h3>
             <div class="border-header mb-2">
             <div class="data-grid room-details-grid border-1-inside">
                 <div class="grid-header">
-                    <div class="grid-header-cell">Type de Chambre</div>
-                    <div class="grid-header-cell">Occupant(s)</div>
-                    <div class="grid-header-cell">Nombre de chambres</div>
-                    <div class="grid-header-cell">Forfait le cas échéant</div>
-                    <div class="grid-header-cell">Promotion le cas échéant</div>
+                    <div class="grid-header-cell">Room Type</div>
+                    <div class="grid-header-cell">Guest(s)</div>
+                    <div class="grid-header-cell">No of rooms</div>
+                    <div class="grid-header-cell">Package if any</div>
+                    <div class="grid-header-cell">Promotion if any</div>
                 </div>
                 </div></div>
                   <div class="data-grid room-details-grid">
                 ${reservation.reservationRooms?.map(room => `
                 <div class="grid-row">
                     <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ??''}</strong></div>
-                    <div class="grid-cell">${room.adults || 1} Adultes, ${room.children || 0} Enfants</div>
+                    <div class="grid-cell">${room.adults || 1} Adults, ${room.children || 0} Children</div>
                     <div class="grid-cell">1</div>
-                    <div class="grid-cell">aucun</div>
-                    <div class="grid-cell">aucune</div>
+                    <div class="grid-cell">none</div>
+                    <div class="grid-cell">none</div>
                 </div>`).join('') }
             </div>
         </div>
 
-        <!-- Détails des Tarifs -->
+        <!-- Rates Details -->
         <div class="mb-4">
-            <h3 class="font-bold mb-2">Détails des Tarifs</h3>
+            <h3 class="font-bold mb-2">Rates Details</h3>
             <div class="border-header mb-2">
             <div class="data-grid rates-grid border-1-inside">
                 <div class="grid-header">
-                    <div class="grid-header-cell ">Détails</div>
-                    <div class="grid-header-cell text-right">Tarifs (${currency.code})</div>
+                    <div class="grid-header-cell ">Details</div>
+                    <div class="grid-header-cell text-right">Rates (${currency.code})</div>
                 </div>
                 </div>
                 </div>
             <div class="data-grid rates-grid">
                 <div class="grid-row">
-                    <div class="grid-cell">Total des charges de chambre</div>
+                    <div class="grid-cell">Total Room Charges</div>
                     <div class="grid-cell text-right">${this.formatAmount(totals.totalCharges)}</div>
                 </div>
                 <div class="grid-row">
-                    <div class="grid-cell">Taxes sur les chambres</div>
+                    <div class="grid-cell">Room Charges Tax</div>
                     <div class="grid-cell text-right">${this.formatAmount(totals.totalTaxes)}</div>
                 </div>
                 <div class="grid-row">
-                    <div class="grid-cell">Frais de service</div>
+                    <div class="grid-cell">Service Charges</div>
                     <div class="grid-cell text-right">${this.formatAmount(totals.totalServiceCharges)}</div>
                 </div>
                 <div class="grid-row">
-                    <div class="grid-cell">Charges supplémentaires incluant remises et taxes</div>
+                    <div class="grid-cell">Extra Charges Including Discounts and Tax</div>
                     <div class="grid-cell text-right">${this.formatAmount(totals.totalDiscounts)}</div>
                 </div>
                 <div class="grid-row">
-                    <div class="grid-cell">Arrondi</div>
+                    <div class="grid-cell">Round off</div>
                     <div class="grid-cell text-right">${this.formatAmount(totals.totalDiscounts)}</div>
                 </div>
                 <div class="grid-row font-bold">
-                    <div class="grid-cell font-bold">Total Général</div>
+                    <div class="grid-cell font-bold">Grand Total</div>
                     <div class="grid-cell text-right font-bold">${this.formatAmount(totals.totalChargesWithTaxes)}</div>
                 </div>
                 <div class="grid-row">
-                    <div class="grid-cell">Total Payé</div>
+                    <div class="grid-cell">Total Paid</div>
                     <div class="grid-cell text-right">${this.formatAmount(totals.totalPayments)}</div>
                 </div>
                 <div class="grid-row font-bold">
-                    <div class="grid-cell font-bold">Montant dû à l'arrivée</div>
+                    <div class="grid-cell font-bold">Amount due at time of check in</div>
                     <div class="grid-cell text-right font-bold">${this.formatAmount(totals.outstandingBalance)}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Boîte Montant de la Réservation -->
+        <!-- Booking Amount Box -->
         <div class="flex justify-between items-start mb-4">
             <div class="border-1">
                 <div class="text-center font-bold border-1-inside">
-                  <h2>MONTANT DE LA RÉSERVATION</h2>
+                  <h2>BOOKING AMOUNT</h2>
                    <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3> 
                 </div>
             </div>
             <div class="text-right text-sm">
-                <strong>Réservé & Payable Par</strong><br>
+                <strong>Booked & Payable By</strong><br>
                 ${reservation.guest?.displayName}
             </div>
         </div>
 
-        <!-- Conditions & Politiques -->
+        <!-- Conditions & Policies -->
         <div class="mb-4">
         <div class='border-1'>
         <div class='border-1-inside'>
-                                <h3 class="font-bold bg-gray-200">Conditions & Politiques</h3>
+                                <h3 class="font-bold bg-gray-200">Conditions & Policies</h3>
         </div>
         </div>
 
             <div class="text-sm mt-6">
                 
                 <div>
-                <h3 class="font-bold">Politique d'Annulation</h3>
+                <h3 class="font-bold">Cancellation Policy</h3>
                 <p>${hotel.cancellationPolicy}</>
                 <div/>
                 <div>
-                <h3 class="font-bold">Politique de l'Hôtel</h3>
+                <h3 class="font-bold">Hotel Policy</h3>
                 <p>${hotel.hotelPolicy}</p>
                 <div/>
-                <p><strong>Heure d'arrivée à l'hôtel:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime??'12:00'}</p>
-                 <p><strong>Heure de départ de l'hôtel:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime??'12:00'}</p>
+                <p><strong>Hotel Check in Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime??'12:00'}</p>
+                 <p><strong>Hotel Check out Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime??'12:00'}</p>
                 <div class="mt-4 font-bold text-center">
-                    <em>Cet email a été envoyé depuis un système automatisé - merci de ne pas y répondre.</em>
+                    <em>This email has been sent from an automated system - please do not reply to it.</em>
                 </div>
 
                 <div class="mt-6 mb-4 pt-4 border-t">
-                    <strong>**** POUR TOUTE DEMANDE SUPPLÉMENTAIRE ****</strong><br>
-                    Contactez-nous par Email : ${hotel.email}<br>
-                    Téléphone : ${hotel.phoneNumber}<br>
+                    <strong>**** FOR ANY FURTHER QUERY ****</strong><br>
+                    Contact us by Email Id ${hotel.email}<br>
+                    Phone NO : ${hotel.phoneNumber}<br>
                     ${hotel.address}, ${hotel.city}, ${hotel.country}
                 </div>
                 <div class="border-t"></div>
@@ -1435,8 +983,8 @@ export default class PdfGenerationService {
     </div>
 </body>
 </html>
-        `
-    }
+    `
+  }
 /**
  * Generate PDF using the Suita Hotel template
  */
@@ -1490,56 +1038,7 @@ static async generateSuitaHotelPdf(
     throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
   }
 }
-static async generateSuitaHotelPdfFrench(
-    folioPrintData: FolioPrintData,
-    options: PdfOptions = {}
-  ): Promise<Buffer> {
-    try {
-      // Default PDF options
-      const defaultOptions = {
-        format: 'A4',
-        orientation: 'portrait',
-        margin: {
-          top: '10mm',
-          right: '10mm',
-          bottom: '10mm',
-          left: '10mm'
-        },
-        displayHeaderFooter: false,
-        printBackground: true,
-        ...options
-      }
-  
-      // Generate HTML content
-      const htmlContent = this.generateHotelHtmlTemplateFrench(folioPrintData)
-  
-      // PDF generation options for html-pdf-node (puppeteer-style)
-      const pdfOptions = {
-        format: defaultOptions.format,
-        orientation: defaultOptions.orientation,
-        margin: {
-          top: defaultOptions.margin.top,
-          right: defaultOptions.margin.right,
-          bottom: defaultOptions.margin.bottom,
-          left: defaultOptions.margin.left
-        },
-        displayHeaderFooter: defaultOptions.displayHeaderFooter,
-        headerTemplate: options.headerTemplate,
-        footerTemplate: options.footerTemplate,
-        type: 'pdf',
-        quality: '75',
-        renderDelay: 500,
-        zoomFactor: 1
-      }
-  
-      const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-      
-      return pdfBuffer
-    } catch (error) {
-      throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
-    }
-  }
+
 /**
  * Generate HTML template for Suita Hotel
  */
@@ -2046,500 +1545,6 @@ static async generateSuitaHotelPdfFrench(
             ${allPages}
         </body>
         </html>`
-    }
-    private static generateHotelHtmlTemplateFrench(data: FolioPrintData): string {
-        const {
-            hotel,
-            reservation,
-            folio,
-            transactions,
-            totals,
-            total,
-            currency,
-        } = data;
-        
-        // Convertir le montant en lettres
-        const amountInWords = this.numberToWords(totals.totalChargesWithTaxes);
-        
-        // Pagination : diviser les transactions en groupes de 10
-        const TRANSACTIONS_PER_PAGE = 10;
-        const transactionPages: any[][] = [];
-        
-        if (transactions && transactions.length > 0) {
-            for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
-                transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
-            }
-        } else {
-            transactionPages.push([]);
-        }
-        
-        const totalPages = transactionPages.length;
-        
-        // Fonction pour générer les lignes de transactions d'une page
-        const generateTransactionRows = (pageTransactions: any[]) => {
-            if (pageTransactions.length === 0) {
-                return '<tr><td colspan="6" class="text-center">Aucune transaction trouvée</td></tr>';
-            }
-            
-            return pageTransactions.map((transaction, index) => `
-                <tr>
-                    <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
-                    <td>${(transaction.amount || 0) < 0 ? transaction.transactionNumber || '' : ''}</td>
-                    <td>${transaction.description}</td>
-                    <td class="text-right">${(transaction.amount || 0) > 0 ? this.formatCurrency(transaction.amount) : this.formatCurrency(0)}</td>
-                    <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatCurrency(Math.abs(transaction.amount)) : this.formatCurrency(0)}</td>
-                    <td class="text-right">${this.formatCurrency(transaction.balance)}</td>
-                </tr>
-            `).join('');
-        };
-        
-        // Fonction pour générer une page complète
-        const generatePage = (pageTransactions: any[], pageNumber: number) => `
-            <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
-                <!-- En-tête -->
-                <div class="header">
-                    <div class="registration-info">
-                        <p>M${hotel.registrationNumber || 'N/A'}</p>
-                        <p>RC${hotel.rcNumber || 'N/A'}</p>
-                    </div>
-                    <div class="hotel-info">
-                        <h1>${hotel.name}</h1>
-                        <div class="hotel-details">
-                            <p>${hotel.address}</p>
-                            <p>Téléphone: ${hotel.phone}; Email: ${hotel.email}</p>
-                            <p>Site web: ${hotel.website || 'N/A'}</p>
-                        </div>
-                        <div class="tax-invoice">Facture Fiscale</div>
-                    </div>
-                </div>
-        
-                <!-- Détails de la facture -->
-                <div class="invoice-details">
-                    <table class="details-table">
-                        <tr>
-                            <td style="width: 50%;">
-                                <div><span class="font-bold">N° Folio / N° Réservation</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
-                                <div><span class="font-bold">Nom du Client</span> : ${reservation.guest?.displayName || 'N/A'}</div>
-                                <div><span class="font-bold">Nom de l'Entreprise</span> : ${reservation.company || 'N/A'}</div>
-                            </td>
-                            <td style="width: 25%;">
-                            </td>
-                            <td style="width: 25%;">
-                                <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-        
-                <!-- Détails du Client & Détails du Séjour - Tableau combiné -->
-                <table class="header-table">
-                    <colgroup>
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 24%;">
-                        <col style="width: 18%;">
-                        <col style="width: 18%;">
-                    </colgroup>
-                    <tr>
-                        <th colspan="2">Nationalité</th>
-                        <th>Nombre de Personnes</th>
-                        <th colspan="2">Adultes / Enfants</th>
-                        <th>N° Carte G.R.</th>
-                        <th colspan="2" style="border:none; border-bottom: none; border-top: none">N° Chambre</th>
-                    </tr>
-                    <tr>
-                        <td colspan="2"></td>
-                        <td style="border:none;">${reservation.adults + reservation.children || 1}</td>
-                        <td colspan="2">${reservation.adults || 1} / ${reservation.children || 0}</td>
-                        <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                        <td colspan="2" style="border:none; border-bottom: none; text-align:center;">${reservation.roomNumber || 'N/A'}</td>
-                    </tr>
-                    <tr>
-                        <th colspan="2">Date d'Arrivée</th>
-                        <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
-                        <th colspan="2">Date de Départ</th>
-                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td> 
-                        <th>Tarif</th>
-                        <td>${this.formatCurrency(reservation.tariff || 0)}</td>
-                    </tr>
-                    <tr>
-                        <th colspan="2">Heure d'Arrivée</th>
-                        <td>${reservation.checkInTime}</td>
-                        <th colspan="2">Heure de Départ</th>
-                        <td>${reservation.checkOutTime}</td>
-                        <th>Type de Tarif</th>
-                        <td>${reservation.rateType}</td>
-                    </tr>
-                </table>
-        
-                <!-- Tableau des Charges -->
-                <div class="charges-table">
-                    <table class="header-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Réf. N°</th>
-                                <th>Détails</th>
-                                <th>Charges</th>
-                                <th>Paiements</th>
-                                <th>Solde</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${generateTransactionRows(pageTransactions)}
-                        </tbody>
-                    </table>
-                </div>
-        
-                <!-- Section Totaux -->
-                <div class="totals-section">
-                    <div class="total-line">
-                        <span class="font-bold">Total Général</span>
-                        <span style="margin-left: 30px;">${this.formatCurrency(totals.totalChargesWithTaxes || 0)}</span>
-                        <span style="margin-left: 30px;">-${this.formatCurrency(totals.totalPayments || 0)}</span>
-                    </div>
-                    <div>
-                        <span class="font-bold">Taxes</span>
-                        <span style="margin-left: 60px;">${this.formatCurrency(totals.totalTaxes || 0)}</span>
-                    </div>
-                </div>
-    
-                <!-- Montant en Lettres -->
-                <div class="amount-words">
-                    <table class="amount-table">
-                        <tr>
-                            <td class="font-bold" style="width: 25%;">Ce Folio est en ${currency.code}</td>
-                            <td style="width: 35%;">${amountInWords}</td>
-                            <td class="font-bold" style="width: 20%;">Total Payé</td>
-                            <td class="text-right" style="width: 20%;">${this.formatCurrency(totals.totalPayments || 0)}</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td class="font-bold">Solde</td>
-                            <td class="text-right">${this.formatCurrency(totals.outstandingBalance)}</td>
-                        </tr>
-                    </table>
-                </div>
-        
-                <!-- Section Facturer À -->
-                <div class="bill-to">
-                    <div style="margin-bottom: 8px;">
-                        <span class="font-bold">Facturer À</span>
-                        <span style="margin-left: 40px;">: ${reservation.guest?.displayName || 'N/A'}</span>
-                    </div>
-                    <div>
-                        <span class="font-bold">Adresse</span>
-                        <span style="margin-left: 35px;">: ${reservation.guest?.address || reservation.guest?.country || 'N/A'}</span>
-                    </div>
-                    <div>
-                        <span class="font-bold">Remarques</span>
-                    </div>
-                </div>
-        
-                <!-- Pied de page -->
-                <div class="footer">
-                    <p>Merci pour votre séjour parmi nous. Au plaisir de vous revoir.</p>
-                </div>
-        
-                <!-- Avis Folio -->
-                <div class="folio-notice">
-                    <p>AVIS FOLIO</p>
-                    <p>Ceci est un document de facturation officiel</p>
-                </div>
-        
-                <!-- Informations de Suivi Utilisateur -->
-                <div class="user-tracking">
-                    <div>
-                        <span class="font-bold">Réservé Par:</span> ${reservation.reservedBy || 'N/A'}
-                    </div>
-                    <div>
-                        <span class="font-bold">Check-in Par:</span> ${reservation.checkedInBy || 'N/A'}
-                    </div>
-                    <div>
-                        <span class="font-bold">Check-out Par:</span> ${reservation.checkedOutBy || 'N/A'}
-                    </div>
-                </div>
-    
-                <!-- Information de Page -->
-                <div class="page-info">
-                    Page ${pageNumber} sur ${totalPages}
-                </div>
-            </div>
-        `;
-        
-        // Générer toutes les pages
-        const allPages = transactionPages.map((pageTransactions, index) => 
-            generatePage(pageTransactions, index + 1)
-        ).join('');
-    
-        return `<!DOCTYPE html>
-        <html lang="fr">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Facture Fiscale - ${hotel.name}</title>
-            <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                
-                @page {
-                    size: A4;
-                    margin: 10mm;
-                }
-                
-                body {
-                    font-family: 'Times New Roman', serif;
-                    font-size: 12px;
-                    line-height: 1.4;
-                    color: #000;
-                    background: white;
-                    margin: 0;
-                    padding: 0;
-                }
-                
-                .container {
-                    width: 100%;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    border: 1px solid #000;
-                }
-                
-                .header {
-                    text-align: center;
-                    padding: 15px;
-                    border-bottom: 1px solid #000;
-                    position: relative;
-                }
-                
-                .hotel-info h1 {
-                    font-size: 16px;
-                    font-weight: bold;
-                    margin-bottom: 8px;
-                }
-                
-                .hotel-details {
-                    font-size: 11px;
-                    margin-bottom: 15px;
-                }
-                
-                .tax-invoice {
-                    font-size: 12px;
-                    font-weight: bold;
-                }
-                
-                .registration-info {
-                    position: absolute;
-                    top: 15px;
-                    right: 15px;
-                    font-size: 10px;
-                    text-align: right;
-                }
-                
-                .invoice-details {
-                    padding: 8px;
-                    border-bottom: 1px solid #000;
-                }
-                
-                .details-table {
-                    width: 100%;
-                    font-size: 10px;
-                    border-collapse: collapse;
-                }
-                
-                .details-table td {
-                    padding: 2px 5px;
-                    vertical-align: top;
-                }
-                
-                .guest-details, .stay-details {
-                    border-bottom: 1px solid #000;
-                }
-                
-                .data-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 10px;
-                }
-                
-                .data-table th, .data-table td {
-                    border: 1px solid #000;
-                    padding: 4px 6px;
-                    text-align: left;
-                }
-                
-                .data-table th {
-                    font-weight: bold;
-                    background-color: #d3d3d3;
-                }
-                
-                .charges-table {
-                    border-bottom: 1px solid #000;
-                }
-                
-                .charges-table .amount {
-                    text-align: right;
-                }
-                
-                .totals-section {
-                    padding: 8px;
-                    border-bottom: 1px solid #000;
-                    text-align: center;
-                    font-size: 10px;
-                }
-                
-                .totals-section .total-line {
-                    margin-bottom: 5px;
-                }
-                
-                .amount-words {
-                    border-bottom: 1px solid #000;
-                }
-                
-                .amount-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 10px;
-                }
-                
-                .amount-table td {
-                    border: 1px solid #000;
-                    padding: 6px;
-                    vertical-align: top;
-                }
-                
-                .bill-to {
-                    padding: 8px;
-                    font-size: 10px;
-                    border-bottom: 1px solid #000;
-                }
-                
-                .signature {
-                    text-align: right;
-                    margin-top: 15px;
-                }
-                
-                .footer {
-                    text-align: center;
-                    padding: 15px;
-                    font-size: 10px;
-                }
-                
-                .user-tracking {
-                    padding: 8px;
-                    font-size: 10px;
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
-                    border-bottom: 1px solid #000;
-                }
-                
-                .folio-notice {
-                    padding: 8px;
-                    font-size: 10px;
-                    font-weight: bold;
-                }
-                
-                .page-info {
-                    text-align: right;
-                    padding: 5px;
-                    font-size: 10px;
-                }
-                
-                .url {
-                    padding: 5px;
-                    font-size: 10px;
-                    text-align: center;
-                    color: #666;
-                    border-top: 1px solid #000;
-                }
-                
-                .font-bold { font-weight: bold; }
-                .text-right { text-align: right; }
-                .text-center { text-align: center; }
-                
-                .header-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 10px;
-                }
-                
-                .header-table th,
-                .header-table td {
-                    border: 1px solid #000;
-                    padding: 6px 8px;
-                    text-align: left;
-                }
-                
-                .header-table th {
-                    font-weight: bold;
-                    background-color: #d3d3d3;
-                    text-align: center;
-                }
-                
-                .header-table td {
-                    text-align: center;
-                }
-                
-                .charges-table .header-table tbody tr td {
-                    border-left: none;
-                    border-right: none;
-                    border-bottom: none;
-                }
-                
-                .charges-table .header-table tbody tr:last-child td {
-                    border-bottom: 1px solid #000;
-                }
-                
-                .charges-table .header-table tbody tr td:first-child {
-                    border-left: 1px solid #000;
-                }
-                
-                .charges-table .header-table tbody tr td:last-child {
-                    border-right: 1px solid #000;
-                }
-                
-                /* Gestion de la pagination automatique */
-                .charges-table .header-table tbody tr {
-                    page-break-inside: avoid;
-                }
-                
-                .charges-table .header-table thead {
-                    display: table-header-group;
-                }
-                
-                .charges-table .header-table tfoot {
-                    display: table-footer-group;
-                }
-                
-                @media print {
-                    body {
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
-                    
-                    .container {
-                        page-break-after: always;
-                        margin: 0 auto !important;
-                        max-width: 100% !important;
-                        width: 100% !important;
-                    }
-                    
-                    .container:last-child {
-                        page-break-after: auto;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            ${allPages}
-        </body>
-        </html>`;
     }
   /**
    * Convert number to words (simplifie

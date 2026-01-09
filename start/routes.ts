@@ -1061,9 +1061,7 @@ router
         router.post('/print-data', folioPrintController.printFolio.bind(folioPrintController)) // Generate folio print data
         router.post('/print-pdf', folioPrintController.printFolioPdf.bind(folioPrintController)) // Generate folio PDF (future implementation)
         router.post('/print_confirm_booking-pdf', folioPrintController.printBookingPdf.bind(folioPrintController)) // Generate invoice PDF
-        router.post('/print_confirm_booking-pdf_french', folioPrintController.printBookingPdfFrench.bind(folioPrintController)) // Generate invoice PDF
         router.post('/print_hotel-pdf', folioPrintController.printHotelPdf.bind(folioPrintController))
-        router.post('/print_hotel-pdf_french', folioPrintController.printHotelPdfFrench.bind(folioPrintController)) // Generate invoice PDF
       })
       .prefix('folio-print')
 
