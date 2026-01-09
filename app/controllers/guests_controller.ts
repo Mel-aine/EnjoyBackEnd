@@ -243,8 +243,6 @@ export default class GuestsController {
 
   async update(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
-
-    console.log("auth", auth.user)
     try {
 
       const guest = await Guest.query()
