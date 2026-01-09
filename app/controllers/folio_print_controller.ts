@@ -86,6 +86,7 @@ export default class FolioPrintController {
     try {
       const reservationId = request.input('reservationId')
       const currencyId = request.input('currencyId')
+      const language = request.input('language', 'en') // Par défaut à 'en'
 
       if (!reservationId) {
         return response.status(400).json({
@@ -94,46 +95,30 @@ export default class FolioPrintController {
         })
       }
 
-      //  CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
-      const folioPrintData = await FolioPrintService.generateBookingPrintData(reservationId)
-
-      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      const bookingPdf = await PdfGenerationService.generateBookingPdf(folioPrintData)
-
-      response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.reservationNumber}.pdf"`)
-      response.header('Content-Length', bookingPdf.length.toString())
-
-      return response.send(bookingPdf)
-    } catch (error) {
-      console.error('Error generating booking PDF:', error)
-      return response.status(500).json({
-        success: false,
-        message: 'Failed to generate booking PDF',
-        error: error.message
-      })
-    }
-  }
-  async printBookingPdfFrench({ request, response }: HttpContext) {
-    try {
-      const reservationId = request.input('reservationId')
-      const currencyId = request.input('currencyId')
-
-      if (!reservationId) {
+      // Validation de la langue
+      const validLanguages = ['en', 'fr']
+      if (!validLanguages.includes(language)) {
         return response.status(400).json({
           success: false,
-          message: 'reservationId is required'
+          message: `Invalid language. Supported languages: ${validLanguages.join(', ')}`
         })
       }
 
-      //  CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
+      // CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
       const folioPrintData = await FolioPrintService.generateBookingPrintData(reservationId)
 
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      const bookingPdf = await PdfGenerationService.generateBookingPdfFrench(folioPrintData)
+      
+      // Choix de la méthode en fonction de la langue
+      let bookingPdf: Buffer
+      if (language === 'fr') {
+        bookingPdf = await PdfGenerationService.generateBookingPdfFrench(folioPrintData)
+      } else {
+        bookingPdf = await PdfGenerationService.generateBookingPdf(folioPrintData)
+      }
 
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.reservationNumber}.pdf"`)
+      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData.reservation.reservationNumber}-${language}.pdf"`)
       response.header('Content-Length', bookingPdf.length.toString())
 
       return response.send(bookingPdf)
@@ -151,11 +136,21 @@ export default class FolioPrintController {
       const reservationId = request.input('reservationId')
       const folioIdInput = request.input('folioId')
       const currencyId = request.input('currencyId')
+      const language = request.input('language', 'en') // Par défaut à 'en'
 
       if (!reservationId) {
         return response.status(400).json({
           success: false,
           message: 'reservationId is required'
+        })
+      }
+
+      // Validation de la langue
+      const validLanguages = ['en', 'fr']
+      if (!validLanguages.includes(language)) {
+        return response.status(400).json({
+          success: false,
+          message: `Invalid language. Supported languages: ${validLanguages.join(', ')}`
         })
       }
 
@@ -166,56 +161,27 @@ export default class FolioPrintController {
           ? Number(folioIdInput)
           : null
       )
+      
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      const bookingPdf = await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
-
-      response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData}.pdf"`)
-      response.header('Content-Length', bookingPdf.length.toString())
-
-      return response.send(bookingPdf)
-    } catch (error) {
-      console.error('Error generating booking PDF:', error)
-      return response.status(500).json({
-        success: false,
-        message: 'Failed to generate booking PDF',
-        error: error.message
-      })
-    }
-  }
-  async printHotelPdfFrench({ request, response }: HttpContext) {
-    try {
-      const reservationId = request.input('reservationId')
-      const folioIdInput = request.input('folioId')
-      const currencyId = request.input('currencyId')
-
-      if (!reservationId) {
-        return response.status(400).json({
-          success: false,
-          message: 'reservationId is required'
-        })
+      
+      // Choix de la méthode en fonction de la langue
+      let bookingPdf: Buffer
+      if (language === 'fr') {
+        bookingPdf = await PdfGenerationService.generateSuitaHotelPdfFrench(folioPrintData)
+      } else {
+        bookingPdf = await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
       }
 
-      // CORRECTION: Utilisez un folioId factice (0) puisque non utilisé
-      const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(
-        Number(reservationId),
-        folioIdInput !== undefined && folioIdInput !== null && folioIdInput !== '' && Number.isFinite(Number(folioIdInput))
-          ? Number(folioIdInput)
-          : null
-      )
-      const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      const bookingPdf = await PdfGenerationService.generateSuitaHotelPdfFrench(folioPrintData)
-
       response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="booking-${folioPrintData}.pdf"`)
+      response.header('Content-Disposition', `attachment; filename="hotel-folio-${folioPrintData.reservation?.reservationNumber || 'unknown'}-${language}.pdf"`)
       response.header('Content-Length', bookingPdf.length.toString())
 
       return response.send(bookingPdf)
     } catch (error) {
-      console.error('Error generating booking PDF:', error)
+      console.error('Error generating hotel PDF:', error)
       return response.status(500).json({
         success: false,
-        message: 'Failed to generate booking PDF',
+        message: 'Failed to generate hotel PDF',
         error: error.message
       })
     }
