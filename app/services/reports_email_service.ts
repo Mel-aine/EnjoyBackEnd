@@ -435,8 +435,8 @@ export default class ReportsEmailService {
       .first()
     console.log(defaultAccount);
     let finalTo: AnyRecipient[] = defaultAccount 
-       ? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }] 
-      //? [{ address: 'styvesdaudet@gmail.com', name: defaultAccount.displayName }] 
+       //? [{ address: defaultAccount.emailAddress, name: defaultAccount.displayName }] 
+      ? [{ address: 'styvesdaudet@gmail.com', name: defaultAccount.displayName }] 
        : []
     
     if (finalTo.length === 0) {
@@ -450,7 +450,7 @@ export default class ReportsEmailService {
       return
     }
 
-    const finalCc =[...resolvedTo, ...resolvedCc]
+    const finalCc =[]//[...resolvedTo, ...resolvedCc]
 
     const attachments = [{
       filename: `Daily_Report_${dateStr}.pdf`,

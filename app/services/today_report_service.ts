@@ -210,12 +210,12 @@ function toDbStatus(status: ReservationStatus): string {
   return (status as string).replace(/-/g, '_')
 }
 
-async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<Reservation[]> {
+async function getTodayConfirmBooking(hotelId: number, day: DateTime): Promise<Reservation[]> {
   const q = queryBase(hotelId)
   const todayStr = toSqlDate(day)
   return await q
-    .whereRaw('DATE(arrived_date) = ?', [todayStr])
-    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
+    .whereRaw('DATE(created_at) = ?', [todayStr])
+    .where('status', toDbStatus(ReservationStatus.CONFIRMED))
 }
 
 
@@ -416,7 +416,7 @@ export default class TodayReportService {
       getInHouse(hotelId, today),
       getTodayCheckOut(hotelId, today),
       getConfirmedDepartureToday(hotelId, today),
-      getTodayConfirmCheckIn(hotelId, today),
+      getTodayConfirmBooking(hotelId, today),
       getArrivalToday(hotelId, today),
       getExtendedToday(hotelId, today),
       getStayToday(hotelId, today),
