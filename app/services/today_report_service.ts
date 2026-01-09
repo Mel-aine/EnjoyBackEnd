@@ -215,7 +215,7 @@ async function getTodayConfirmCheckIn(hotelId: number, day: DateTime): Promise<R
   const todayStr = toSqlDate(day)
   return await q
     .whereRaw('DATE(arrived_date) = ?', [todayStr])
-    .where('status', toDbStatus(ReservationStatus.CONFIRMED))
+    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
 }
 
 
