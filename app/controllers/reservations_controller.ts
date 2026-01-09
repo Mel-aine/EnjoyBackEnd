@@ -4225,9 +4225,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
               roomUpdateData.nights = numberOfNights
 
               // Recalculer les montants basés sur le nouveau nombre de nuits
-              const roomRate = reservationRoom.roomRate || 0
+              const roomRate = Number(reservationRoom.roomRate) || 0
               const taxPerNight = reservationRoom.taxAmount
-                ? reservationRoom.taxAmount / (reservationRoom.nights || 1)
+                ? Number(reservationRoom.taxAmount) / (reservationRoom.nights || 1)
                 : 0
 
               if (numberOfNights === 0) {
@@ -4294,9 +4294,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
             roomUpdateData.nights = numberOfNights
 
-            const roomRate = reservationRoom.roomRate || 0
+            const roomRate = Number(reservationRoom.roomRate) || 0
             const taxPerNight = reservationRoom.taxAmount
-              ? reservationRoom.taxAmount / (reservationRoom.nights || 1)
+              ? Number(reservationRoom.taxAmount) / (reservationRoom.nights || 1)
               : 0
 
             if (numberOfNights === 0) {
