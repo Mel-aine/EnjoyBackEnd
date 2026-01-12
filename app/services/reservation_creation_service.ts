@@ -854,9 +854,9 @@ export default class ReservationCreationService {
       errors.push('Either guest_id or guest data must be provided')
     }
 
-    if (data.guest && (!data.guest.firstName || !data.guest.lastName || !data.guest.email)) {
+    /*if (data.guest && (!data.guest.firstName || !data.guest.lastName || !data.guest.email)) {
       errors.push('Guest firstName, lastName, and email are required')
-    }
+    }*/
 
     return errors
   }

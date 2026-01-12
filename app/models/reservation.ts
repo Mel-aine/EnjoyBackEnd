@@ -124,6 +124,12 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'no_show_fees' })
   declare noShowFees: number | null
 
+  @column({ columnName: 'currency_code' })
+  declare currencyCode: string | null
+
+  @column({ columnName: 'exchange_rate' })
+  declare exchangeRate: number | null
+
   @column({ columnName: 'mark_no_show_by' })
   declare markNoShowBy: number | null
 
