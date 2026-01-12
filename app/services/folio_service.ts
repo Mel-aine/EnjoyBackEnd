@@ -1833,6 +1833,8 @@ export default class FolioService {
       for (const transaction of transactions) {
         if (transaction.transactionType === TransactionType.CHARGE) {
           totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+        } else if (transaction.transactionType === TransactionType.ROOM_POSTING) {
+          totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
         } else if (transaction.transactionType === TransactionType.PAYMENT) {
           totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
         } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
