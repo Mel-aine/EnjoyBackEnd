@@ -18,6 +18,7 @@ import ReservationHook from '../hooks/reservation_hooks.js'
 import type { ReservationData } from '../types/reservationData.js'
 import { FolioStatus, ReservationProductStatus, ReservationStatus, TransactionStatus, WorkflowStatus } from '../enums.js'
 import Room from '../models/room.js'
+import ReservationRoomService from '#services/reservation_room_service'
 
 /**
  * Interface pour les données d'une chambre de réservation
@@ -185,6 +186,8 @@ interface ReservationCreationResult {
  */
 export default class ReservationCreationService {
   private static channexService: ChannexService = new ChannexService()
+  private static reservationRoomService: ReservationRoomService = new ReservationRoomService()
+
 
 
   /**
@@ -541,8 +544,44 @@ export default class ReservationCreationService {
 
       // === CRÉATION DES RESERVATION ROOMS ===
       if (rooms.length > 0) {
+        // Track assigned rooms in this transaction to prevent double booking
+        const assignedRoomIds = new Set<number>()
+        // Pre-populate with manually assigned rooms
+        rooms.forEach((r) => {
+          if (r.room_id) assignedRoomIds.add(r.room_id)
+        })
+
         for (let index = 0; index < rooms.length; index++) {
           const room = rooms[index]
+
+          // Auto-assign room if not provided
+          if (!room.room_id) {
+            try {
+              const availableRooms = await this.reservationRoomService.findAvailableRooms(
+                data.hotel_id,
+                arrivedDate.toJSDate(),
+                departDate.toJSDate(),
+                room.room_type_id
+              )
+
+              // Find first available room that is not already assigned in this batch
+              const freeRoom = availableRooms.find((r) => !assignedRoomIds.has(r.id))
+
+              if (freeRoom) {
+                console.log(
+                  `✅ [AUTO-ASSIGN] Auto-assigned room ${freeRoom.roomNumber} (ID: ${freeRoom.id}) to reservation`
+                )
+                room.room_id = freeRoom.id
+                assignedRoomIds.add(freeRoom.id)
+              } else {
+                console.log(
+                  `⚠️ [AUTO-ASSIGN] No available room found for room type ${room.room_type_id}`
+                )
+              }
+            } catch (err) {
+              console.error('❌ [AUTO-ASSIGN] Error finding available room:', err)
+            }
+          }
 
           await ReservationRoom.create(
             {
