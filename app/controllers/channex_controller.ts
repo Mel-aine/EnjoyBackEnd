@@ -129,7 +129,6 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
       this.service.getRoomType(propertyId),
       this.service.getRatePlan(propertyId)
     ])
-    console.log('ratePlansData', ratePlansData)
     // Helper to safely extract 'data' array
     const getArrayData = (data: unknown) => {
       if (
