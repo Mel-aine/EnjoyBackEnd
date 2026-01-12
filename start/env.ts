@@ -88,4 +88,7 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // TTL for cached default currency in seconds (optional)
   CURRENCY_CACHE_TTL_SECONDS: Env.schema.number.optional(),
+  
+  // Auto Process User ID
+  AUTOPROCESS_USER_ID: Env.schema.number.optional(),
 })

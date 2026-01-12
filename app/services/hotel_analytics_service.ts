@@ -105,6 +105,7 @@ export class HotelAnalyticsService {
         "guestId",
         "bookingSourceId",
         "businessSourceId",
+        "otaName"
       ])
       .where('hotel_id', hotelId)
       .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
@@ -593,6 +594,7 @@ export class HotelAnalyticsService {
                 isWomen: this.isWomanTitle(reservation.guest.title),
                 isSplitedOrigin:reservationRoom.isSplitedOrigin,
                 isSplitedDestination:reservationRoom.isplitedDestinatination,
+                otaName:reservation.otaName
               })
             }
           }

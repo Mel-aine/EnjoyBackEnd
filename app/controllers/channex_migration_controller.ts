@@ -1424,8 +1424,17 @@ export default class ChannexMigrationController {
         return response.forbidden({ error: 'API Key does not match the requested hotel ID' })
       }
       hotelId = apiKeyHotel.id
-      // Use system user (ID 1) or a specific service user for API key operations if userId is missing
-      userId = userId || 1 
+    }
+    
+    // Use system user (ID 1) or a specific service user for API key operations if userId is missing
+    // Try to get user ID from environment variable if not authenticated
+    if (!userId) {
+       const envUserId = env.get('AUTOPROCESS_USER_ID')
+       if (envUserId) {
+         userId = envUserId
+       } else {
+         userId = 2 // Fallback to ID 1 if not configured
+       }
     }
 
     if (!userId) {
