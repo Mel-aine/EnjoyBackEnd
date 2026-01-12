@@ -957,8 +957,10 @@ export class FrontOfficeReportsService {
       .preload('roomType')
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
+        roomQuery.preload('roomType')
       })
       .preload('bookingSource')
+      .preload('businessSource')
       .preload('ratePlan')
       .preload('creator')
       //.where('reservation_status', 'Checked_in')
@@ -1049,28 +1051,29 @@ export class FrontOfficeReportsService {
     const reservations = await query
     const totalRecords = reservations.length
 
+    const formatCurrency = (amount: number) => {
+      const roundedAmount = Math.round(amount); // Arrondit à l'entier le plus proche
+      return roundedAmount
+    }
+
     // Préparer les données pour le rapport
     const data = reservations.map((reservation) => {
-      const roomInfo = reservation.reservationRooms?.[0]?.room
-      const roomType = reservation.roomType
-
       return {
         // Données de base pour les colonnes principales
         hotelName: reservation.hotel?.hotelName || 'N/A',
         resNo: reservation.reservationNumber || 'N/A',
         guest: reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'N/A',
-        room: roomInfo ? `${roomInfo.roomNumber} - ${roomType?.roomTypeName || 'N/A'}` : 'N/A',
-        rate: reservation.roomRate ? Number(reservation.roomRate).toFixed(2) : '0.00',
-        arrival: reservation.actualArrivalDatetime?.toFormat('dd/MM/yyyy HH:mm') || 'N/A',
-        departure: reservation.scheduledDepartureDate?.toFormat('dd/MM/yyyy') || 'N/A',
-        pax: `${reservation.numAdultsTotal || 0}/${reservation.numChildrenTotal || 0}`,
-        BusiSour: reservation.bookingSource?.sourceName || 'N/A',
-        restyp: reservation.reservationType || 'N/A',
-        user: reservation.creator ? `${reservation.creator.firstName} ${reservation.creator.lastName}` : 'System',
-
+        room: `${reservation.reservationRooms?.[0]?.room?.roomNumber} - ${reservation.reservationRooms?.[0]?.roomType?.roomTypeName}`,
+        rate: formatCurrency(reservation.reservationRooms?.[0]?.roomRate || 0),
+        arrival: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
+        departure: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
+        pax: `${reservation.adults || 0}/${reservation.children || 0}`,
+        BusiSour: reservation.businessSource?.name || 'N/A',
+        restyp: reservation.reservationType?.name || 'N/A',
+        user: reservation.creator ? `${reservation.creator.fullName}` : 'N/A',
         // Données supplémentaires pour les colonnes optionnelles
-        pickUp: reservation.pickupInformation || '',
-        dropOff: reservation.dropoffInformation || '',
+        //pickUp: reservation.pickupInformation || '',
+        //dropOff: reservation.dropoffInformation || '',
         company: reservation.companyName || '',
         deposit: reservation.depositPaid || 0,
         balanceDue: reservation.balanceDue || 0,
@@ -1093,12 +1096,13 @@ export class FrontOfficeReportsService {
     }, 0)
 
     const totalRevenue = data.reduce((sum, item) => sum + (parseFloat(item.rate) || 0), 0)
+    const averageRates = totalRecords > 0 ? totalRevenue / totalRecords : 0
 
     const summary = {
       totalReservations: totalRecords,
       totalPax: totalPax,
       totalRevenue: totalRevenue,
-      averageRate: totalRecords > 0 ? totalRevenue / totalRecords : 0
+      averageRate: formatCurrency(averageRates)
     }
 
     // Générer le rapport HTML

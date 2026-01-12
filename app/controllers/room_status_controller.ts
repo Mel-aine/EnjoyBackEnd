@@ -281,7 +281,6 @@ export default class RoomStatusReportsController {
         logo: hotel.logo || ''
       },
       reportDate: reportDate.toFormat('yyyy-MM-dd'),
-      dateFormatted: reportDate.toFormat('dd MMMM yyyy', { locale: 'fr' }),
       roomsByType,
       statistics: {
         totalRoomTypes: roomsByType.length,
@@ -353,7 +352,7 @@ export default class RoomStatusReportsController {
         </div>
 
         <div style="font-size:10px; margin-bottom:3px; border-bottom:1px solid #333;">
-          <span style="margin-right:10px;"><strong>Report of the </strong> ${templateData.dateFormatted}</span>
+          <span style="margin-right:10px;"><strong>Report of the </strong> ${templateData.reportDate}</span>
         </div>
       `
       // Create footer template

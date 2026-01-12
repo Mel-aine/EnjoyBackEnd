@@ -88,6 +88,7 @@ router.group(() => {
   router.group(() => {
     router.post('/arrival-list', [ReportsController, 'export']).where('reportType', 'arrivalList')
     router.post('/departure-list', [ReportsController, 'export']).where('reportType', 'departureList')
+    router.post('/guest-checked-in', [ReportsController, 'export']).where('reportType', 'guestCheckedIn')
     router.post('/confirmed', [ReportsController, 'export']).where('reportType', 'confirmedReservations')
     router.post('/cancelled', [ReportsController, 'export']).where('reportType', 'cancelledReservations')
     router.post('/no-show', [ReportsController, 'export']).where('reportType', 'noShowReservations')

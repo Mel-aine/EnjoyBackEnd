@@ -9070,9 +9070,9 @@ export default class ReportsController {
 
       // Apply status filter if provided
       if (status && status !== 'null') {
-        if (status === 'check_in') {
+        if (status === 'checked_in') {
           query = query.where('reservationStatus', 'Checked-In')
-        } else if (status === 'check_out') {
+        } else if (status === 'checked_out') {
           query = query.where('reservationStatus', 'Checked-Out')
         }
       }
@@ -9093,7 +9093,7 @@ export default class ReportsController {
             roomNumber: primaryRoom?.room?.roomNumber || 'N/A',
             checkInDate: reservation.arrivedDate?.toFormat('dd/MM/yyyy') || 'N/A',
             checkOutDate: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
-            status: reservation.reservationStatus,
+            status: reservation.status,
           }
         })
 

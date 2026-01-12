@@ -33,29 +33,35 @@ export default class GuestCheckoutReportsController {
         .preload('reservation', (reservationQuery) => {
           reservationQuery.preload('checkedOutByUser')
             .preload('bookingSource')
+            .preload('businessSource')
         })
         .preload('roomRates', (roomRatesQuery) => {
           roomRatesQuery.preload('rateType')
         })
         .preload('room')
         .where('hotelId', hotelId)
-        .where('actualCheckOut', '>=', startDateTime.toSQLDate())
-        .where('actualCheckOut', '<=', endDateTime.toSQLDate())
-        .where('status', ReservationStatus.CHECKED_OUT)
-        .orderBy('actualCheckOut', 'asc')
+        .where('check_out_date', '>=', startDateTime.toSQLDate())
+        .where('check_out_date', '<=', endDateTime.toSQLDate())
+        .where('status', 'checked_out')
+        .orderBy('check_out_date', 'asc')
 
       // Process checkout data
+
+      const formatCurrency = (amount: number) => {
+        const roundedAmount = Math.round(amount);
+        return roundedAmount
+      }
 
       const checkoutList = reservations.map(rs => ({
         resNo: rs.reservation.reservationNumber,
         guest: rs.guest ? `${rs.guest.displayName}` : rs.reservation.guest.displayName,
         room: rs.room?.roomNumber,
-        rate: rs.roomRate,
+        rate: formatCurrency(rs.roomRate),
         arrivalDate: rs.checkInDate.toFormat('yyyy-MM-dd'),
         departureDate: rs.checkOutDate.toFormat('yyyy-MM-dd'),
-        pax: rs.adults + (rs.children || 0),
-        businessSource: rs.reservation.bookingSource?.sourceName || 'Direct',
-        resType: rs.roomRates.rateType.rateTypeName,
+        pax: rs.adults + '/' + (rs.children || 0),
+        businessSource: rs.reservation.businessSource?.name || 'None',
+        resType: rs.roomRates?.rateType?.rateTypeName,
         checkoutUser: rs.reservation.checkedOutByUser ?
           `${rs.reservation.checkedOutByUser.fullName}` :
           'System'
