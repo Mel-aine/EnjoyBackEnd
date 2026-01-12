@@ -633,7 +633,6 @@ export default class RoomsController {
       // **1. Get All Room Types (to get IDs)**
       const roomTypesResult = await RoomType.query()
         .where('hotel_id', hotelId)
-        .where('is_deleted',false)
         .select(['id'])
 
       const roomTypeIds = roomTypesResult.map((e) => e.id)
