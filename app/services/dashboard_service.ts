@@ -54,6 +54,11 @@ export class RoomAvailabilityService {
       })
       .count('* as count')
 
+      const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
+      const reservationRateToday = occupied > 0 
+        ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100) 
+        : 0
+
     const reservedLastWeekResult = await Reservation
       .query()
       .where('hotel_id', serviceId)
