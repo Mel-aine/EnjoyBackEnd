@@ -11,9 +11,8 @@ export interface HtmlReport {
 
 export class HtmlReportGenerator {
 
-// Génère un rapport HTML pour la liste d'arrivée
-// Génère un rapport HTML pour la liste d'arrivée
-static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+  // Génère un rapport HTML pour la liste d'arrivée
+  static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     // Mapping des colonnes disponibles
     const availableColumns = {
         'pickUp': { key: 'pickUp', label: 'Pick Up' },
@@ -96,7 +95,7 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
             `<td>${formatValue(item.guestName, 'guestName')}</td>`,
             `<td>${roomInfo}</td>`,
             `<td class="rate-cell">${formatValue(displayRate, 'displayAmount')}</td>`,
-            `<td>${item.arrivalDate}${item.arrivalTime ? `<br><span class="time">${item.arrivalTime}</span>` : ''}</td>`,
+            `<td>${item.arrivalDate}</td>`,
             `<td>${item.departureDate || ''}</td>`,
             `<td>${paxInfo}</td>`
         ]
@@ -133,7 +132,7 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${data[0]?.hotelName || 'Hotel'} - Arrival List</title>
     <style>
-         {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -162,10 +161,17 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color:rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .arrival-btn {
@@ -285,8 +291,8 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
-            <button class="arrival-btn">Arrival List</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">Arrival List</div>
         </div>
 
         <div class="filters">
@@ -327,10 +333,10 @@ static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters
 </body>
 </html>
     `
-}
+  }
 
-// Génère un rapport HTML pour la liste de départ
-static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+  // Génère un rapport HTML pour la liste de départ
+  static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     const columns = [
         { key: 'resNo', label: 'Res. No' },
         { key: 'guest', label: 'Guest' },
@@ -373,7 +379,7 @@ static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilte
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${data[0]?.hotelName || 'Hotel'} - Departure List</title>
     <style>
-         {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -402,10 +408,17 @@ static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilte
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color: rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .departure-btn {
@@ -520,8 +533,8 @@ static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilte
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
-            <button class="departure-btn">Departure List</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">Departure List</div>
         </div>
 
         <div class="filters">
@@ -562,10 +575,10 @@ static generateDepartureListHtml(data: any[], summary: any, filters: ReportFilte
 </body>
 </html>
     `
-}
+  }
 
-// Génère un rapport HTML pour les réservations annulées
-static generateCancelledReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+  // Génère un rapport HTML pour les réservations annulées
+  static generateCancelledReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     const columns = [
         { key: 'resNo', label: 'Res. No' },
         { key: 'bookingDate', label: 'Booking Date' },
@@ -618,7 +631,7 @@ static generateCancelledReservationsHtml(data: any[], summary: any, filters: Rep
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${filters.hotelId || 'Hotel'} - Cancelled Reservations</title>
     <style>
-        {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -647,10 +660,17 @@ static generateCancelledReservationsHtml(data: any[], summary: any, filters: Rep
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color: rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .cancelled-btn {
@@ -759,8 +779,8 @@ static generateCancelledReservationsHtml(data: any[], summary: any, filters: Rep
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
-            <button class="cancelled-btn">Cancelled Reservations</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">Cancelled Reservations</div>
         </div>
 
         <div class="filters">
@@ -806,10 +826,10 @@ static generateCancelledReservationsHtml(data: any[], summary: any, filters: Rep
 </body>
 </html>
     `
-}
+  }
 
-// Génère un rapport HTML pour les réservations Void
-static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+  // Génère un rapport HTML pour les réservations Void
+  static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     const columns = [
         { key: 'resNo', label: 'Res. No' },
         { key: 'bookingDate', label: 'Booking Date' },
@@ -862,7 +882,7 @@ static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFi
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${filters.hotelId || 'Hotel'} - Void Reservations</title>
     <style>
-         {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -891,10 +911,17 @@ static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFi
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color: rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .void-btn {
@@ -1003,8 +1030,8 @@ static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFi
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
-            <button class="void-btn">Void Reservations</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">Void Reservations</div>
         </div>
 
         <div class="filters">
@@ -1050,56 +1077,44 @@ static generateVoidReservationsHtml(data: any[], summary: any, filters: ReportFi
 </body>
 </html>
     `
-}
+  }
 
-// Génère un rapport HTML pour les clients sortis (Checked Out)
-static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
-    const dataFormat = filters.status || 'booking'
-    const isFolioFormat = dataFormat === 'folio'
-
-    const columns = isFolioFormat ? [
-        { key: 'folioNumber', label: 'Folio No' },
-        { key: 'reservationNumber', label: 'Res. No' },
-        { key: 'guestName', label: 'Guest' },
-        { key: 'roomNumbers', label: 'Room' },
-        { key: 'checkoutDate', label: 'Check-out' },
-        { key: 'totalCharges', label: 'Charges' },
-        { key: 'totalPayments', label: 'Payments' },
-        { key: 'balance', label: 'Balance' },
-        { key: 'paymentStatus', label: 'Status' },
-        { key: 'folioType', label: 'Folio Type' }
-    ] : [
-        { key: 'reservationNumber', label: 'Res. No' },
-        { key: 'guestName', label: 'Guest' },
-        { key: 'roomNumbers', label: 'Room' },
-        { key: 'roomType', label: 'Room Type' },
-        { key: 'checkinDate', label: 'Check-in' },
-        { key: 'checkoutDate', label: 'Check-out' },
-        { key: 'actualNights', label: 'Nights' },
-        { key: 'totalCharges', label: 'Charges' },
-        { key: 'totalPayments', label: 'Payments' },
-        { key: 'balance', label: 'Balance' },
-        { key: 'paymentStatus', label: 'Status' }
+  // Génère un rapport HTML pour les clients sortis (Checked Out)
+  static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+    const columns = [
+        { key: 'resNo', label: 'Res. No' },
+        { key: 'guest', label: 'Guest' },
+        { key: 'room', label: 'Room' },
+        { key: 'rate', label: 'Rate<br>(Rs)' },
+        { key: 'arrival', label: 'Arrival' },
+        { key: 'departure', label: 'Departure' },
+        { key: 'pax', label: 'Pax' },
+        { key: 'BusiSour', label: 'Business Source' },
+        { key: 'restyp', label: 'Res.Type' },
+        { key: 'user', label: 'User' }
     ]
+
+    if (filters.selectedColumns && filters.selectedColumns.length > 0) {
+        filters.selectedColumns.forEach(column => {
+            columns.push({ 
+                key: column.toLowerCase().replace(/\s+/g, '').replace('.', ''), 
+                label: column 
+            })
+        })
+    }
 
     const tableHeaders = columns.map(column => `<th>${column.label}</th>`).join('')
 
-    const tableRows = data.map((item, index) => {
+    let tableRows = ''
+    data.forEach((item, index) => {
         const cells = columns.map(column => {
-            let value = item[column.key] || '-'
-            
-            if (['totalCharges', 'totalPayments', 'balance', 'roomRate', 'actualNights'].includes(column.key)) {
-                if (column.key === 'actualNights') {
-                    value = Math.round(value)
-                } else {
-                    value = Number(value).toFixed(2)
-                }
-            }
-            
-            return `<td>${value}</td>`
+            const value = item[column.key] || '-'
+            const cellClass = column.key === 'user' ? ' class="user-cell"' : ''
+            const alignClass = column.key === 'rate' ? ' class="rate-cell"' : ''
+            return `<td${cellClass}${alignClass}>${value}</td>`
         })
-        return `<tr>${cells.join('')}</tr>`
-    }).join('')
+        tableRows += `<tr>${cells.join('')}</tr>`
+    })
 
     const formatDate = (dateString: string) => {
         if (!dateString) return 'N/A'
@@ -1147,10 +1162,17 @@ static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFil
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color: rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .checkout-btn {
@@ -1217,6 +1239,16 @@ static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFil
             font-size: 13px;
         }
 
+        .user-cell {
+            color: #000;
+            text-decoration: none;
+            cursor: default;
+        }
+
+        .rate-cell {
+            text-align: right;
+        }
+
         .footer-row {
             background-color: #fff;
             font-weight: bold;
@@ -1249,21 +1281,15 @@ static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFil
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
-            <button class="checkout-btn">Guest Checked Out</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">Guest Checked Out</div>
         </div>
 
         <div class="filters">
-            <label>Data Format</label>
-            <select disabled>
-                <option>${isFolioFormat ? 'By Folio' : 'By Booking'}</option>
-            </select>
-            <label>Hotel</label>
-            <input type="text" value="${data[0]?.hotelName || 'All Hotels'}" readonly>
-            <label>Check-out From</label>
-            <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
+            <label>From</label>
+            <input type="text" value="${filters.startDate}" readonly>
             <label>To</label>
-            <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
+            <input type="text" value="${filters.endDate}"readonly>
         </div>
 
         ${data.length > 0 ? `
@@ -1274,10 +1300,11 @@ static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFil
             <tbody>
                 ${tableRows}
                 <tr class="footer-row">
-                    <td colspan="3"><strong>${isFolioFormat ? `Total Folios: ${summary.totalFolios}` : `Total Checked Out: ${summary.totalCheckedOut}`}</strong></td>
-                    <td colspan="3"><strong>Total Revenue: ${summary.totalRevenue ? Number(summary.totalRevenue).toFixed(2) : '0.00'}</strong></td>
-                    <td colspan="2"><strong>Payments: ${summary.totalPayments ? Number(summary.totalPayments).toFixed(2) : '0.00'}</strong></td>
-                    <td colspan="${columns.length - 8}"><strong>Outstanding: ${summary.totalBalance ? Number(summary.totalBalance).toFixed(2) : '0.00'}</strong></td>
+                    <td colspan="2"><strong>Total Reservations</strong></td>
+                    <td><strong>#(${summary.totalReservations || 0})</strong></td>
+                    <td colspan="2"><strong>Total Pax: ${summary.totalPax || 0}</strong></td>
+                    <td colspan="2"><strong>Revenue: ${summary.totalRevenue ? Number(summary.totalRevenue).toFixed(2) : '0.00'}</strong></td>
+                    <td colspan="${columns.length - 7}"><strong>Avg. Rate: ${summary.averageRate ? Number(summary.averageRate).toFixed(2) : '0.00'}</strong></td>
                 </tr>
             </tbody>
         </table>
@@ -1290,10 +1317,10 @@ static generateGuestCheckedOutHtml(data: any[], summary: any, filters: ReportFil
 </body>
 </html>
     `
-}
+  }
 
-// Génère un rapport HTML pour les clients enregistrés (Checked In)
-static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+  // Génère un rapport HTML pour les clients enregistrés (Checked In)
+  static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     const columns = [
         { key: 'resNo', label: 'Res. No' },
         { key: 'guest', label: 'Guest' },
@@ -1329,14 +1356,6 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
         tableRows += `<tr>${cells.join('')}</tr>`
     })
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return 'N/A'
-        try {
-            return DateTime.fromFormat(dateString, 'dd/MM/yyyy').toFormat('dd/MM/yyyy')
-        } catch {
-            return dateString
-        }
-    }
 
     return `
 <!DOCTYPE html>
@@ -1346,7 +1365,7 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${data[0]?.hotelName || 'Hotel'} - Guest Checked In</title>
     <style>
-         {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -1375,10 +1394,17 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color: rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .checkin-btn {
@@ -1487,29 +1513,17 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel`'}</h1>
-            <button class="checkin-btn">Guest Checked In</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">Guest Checked In</div>
         </div>
 
         <div class="filters">
             <label>Hotel</label>
             <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
             <label>Checked-in From</label>
-            <input type="text" value="${filters.arrivalFrom ? formatDate(filters.arrivalFrom) : 'N/A'}" readonly>
+            <input type="text" value="${filters.arrivalFrom || 'N/A'}" readonly>
             <label>To</label>
-            <input type="text" value="${filters.arrivalTo ? formatDate(filters.arrivalTo) : 'N/A'}" readonly>
-            <label>Order By</label>
-            <select disabled>
-                <option>Room</option>
-            </select>
-            <label>Tax Inclusive</label>
-            <select disabled>
-                <option>${filters.taxInclusive ? 'Yes' : 'No'}</option>
-            </select>
-            <label>Direct Check-in</label>
-            <select disabled>
-                <option>${filters.checkin ? 'Yes' : 'No'}</option>
-            </select>
+            <input type="text" value="${filters.arrivalTo || 'N/A'}" readonly>
         </div>
 
         ${data.length > 0 ? `
@@ -1537,9 +1551,9 @@ static generateGuestCheckedInHtml(data: any[], summary: any, filters: ReportFilt
 </body>
 </html>
     `
-}
+  }
 
-static generateNoShowReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
+  static generateNoShowReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     const columns = [
         { key: 'reservationNumber', label: 'Res. No' },
         { key: 'guestName', label: 'Guest' },
@@ -1633,10 +1647,17 @@ static generateNoShowReservationsHtml(data: any[], summary: any, filters: Report
             border-bottom: 1px solid #999;
         }
 
-        .header h1 {
+        .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: #000;
+            color: rgb(10, 5, 144); /* BLEU */
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #800000; /* ROUGE BORDEAU */
+            text-align: right;
         }
 
         .noshow-btn {
@@ -1755,8 +1776,8 @@ static generateNoShowReservationsHtml(data: any[], summary: any, filters: Report
 <body>
     <div class="container">
         <div class="header">
-            <h1>${data[0]?.hotelName || 'Hotel'}</h1>
-            <button class="noshow-btn">No-Show Reservations</button>
+            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+            <div class="report-title">No-Show Reservations</div>
         </div>
 
         <div class="filters">
@@ -1797,5 +1818,5 @@ static generateNoShowReservationsHtml(data: any[], summary: any, filters: Report
 </body>
 </html>
     `
-}
+  }
 }

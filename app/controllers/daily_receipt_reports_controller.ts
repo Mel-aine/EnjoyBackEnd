@@ -215,6 +215,14 @@ export default class DailyReceiptReportsController {
   
       // Get hotel details
       const hotel = await Hotel.findOrFail(hotelId)
+
+      const Receipts = await Receipt.query()
+        .preload('folioTransaction', (folioTransactionQuery) => {
+          folioTransactionQuery.where('transactionType', TransactionType.REFUND)
+          folioTransactionQuery.where('category', TransactionCategory.REFUND)
+          folioTransactionQuery.where('transaction_date', '>=', startDateTime.startOf('day').toISO())
+          folioTransactionQuery.where('transaction_date', '<=', endDateTime.endOf('day').toISO())
+        })
   
       // Build query for refund transactions
       let query = FolioTransaction.query()
@@ -227,8 +235,8 @@ export default class DailyReceiptReportsController {
         .where('hotelId', hotelId)
         .where('transactionType', TransactionType.REFUND)
         .where('category', TransactionCategory.REFUND)
-        .where('transactionDate', '>=', startDateTime.startOf('day').toISO())
-        .where('transactionDate', '<=', endDateTime.endOf('day').toISO())
+        .where('transaction_date', '>=', startDateTime.startOf('day').toISO())
+        .where('transaction_date', '<=', endDateTime.endOf('day').toISO())
   
       if (receiptByUserId) {
         query = query.where('createdBy', receiptByUserId)
@@ -265,8 +273,8 @@ export default class DailyReceiptReportsController {
         // Ajouter la transaction à la liste
         userSummary.transactions.push({
           date: transaction.transactionDate.toFormat('yyyy-MM-dd HH:mm:ss'),
-          receipt: transaction.receiptNumber || 'N/A',
-          reference: transaction.reference || transaction.externalReference || transaction.paymentReference || 'N/A',
+          receipt: Receipts.find(receipt => receipt.folioTransactionId === transaction.id)?.receiptNumber || '-',
+          reference: Receipts.find(receipt => receipt.folioTransactionId === transaction.id)?.description || '-',
           amount: amount,
           user: userName,
           enteredOn: transaction.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
@@ -1283,7 +1291,16 @@ export default class DailyReceiptReportsController {
         const printedBy = user 
           ? `${user.fullName || ''}`.trim() || user.email || 'Unknown User' 
           : 'System'
-    
+        
+        
+          const Receipts = await Receipt.query()
+          .preload('folioTransaction', (folioTransactionQuery) => {
+            folioTransactionQuery.where('transactionType', TransactionType.REFUND)
+            folioTransactionQuery.where('category', TransactionCategory.REFUND)
+            folioTransactionQuery.where('transaction_date', '>=', startDateTime.startOf('day').toISO())
+            folioTransactionQuery.where('transaction_date', '<=', endDateTime.endOf('day').toISO())
+          })
+
         // Build query for refund transactions
         let query = FolioTransaction.query()
           .preload('creator')
@@ -1333,8 +1350,8 @@ export default class DailyReceiptReportsController {
           // Ajouter la transaction à la liste
           userSummary.transactions.push({
             date: transaction.transactionDate.toFormat('yyyy-MM-dd HH:mm:ss'),
-            receipt: transaction.receiptNumber || 'N/A',
-            reference: transaction.reference || transaction.externalReference || transaction.paymentReference || 'N/A',
+            receipt: Receipts.find(receipt => receipt.folioTransactionId === transaction.id)?.receiptNumber || '-',
+            reference: Receipts.find(receipt => receipt.folioTransactionId === transaction.id)?.description || '-',
             amount: amount,
             user: userName,
             enteredOn: transaction.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),

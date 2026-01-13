@@ -89,6 +89,7 @@ router.group(() => {
     router.post('/arrival-list', [ReportsController, 'export']).where('reportType', 'arrivalList')
     router.post('/departure-list', [ReportsController, 'export']).where('reportType', 'departureList')
     router.post('/guest-checked-in', [ReportsController, 'export']).where('reportType', 'guestCheckedIn')
+    router.post('/guest-checked-out', [ReportsController, 'export']).where('reportType', 'guestCheckedOut')
     router.post('/confirmed', [ReportsController, 'export']).where('reportType', 'confirmedReservations')
     router.post('/cancelled', [ReportsController, 'export']).where('reportType', 'cancelledReservations')
     router.post('/no-show', [ReportsController, 'export']).where('reportType', 'noShowReservations')
@@ -260,6 +261,7 @@ router.group(() => {
 
     // Guest Checkout Report
     router.post('/guest-checkout', [GuestCheckoutReportsController, 'generate'])
+    //router.post('/guest-checkout-pdf', [GuestCheckoutReportsController, 'generateGuestCheckoutReportPdf'])
 
     // Daily Receipt Reports
     router.post('/daily-receipt-summary', [DailyReceiptReportsController, 'generateSummary'])

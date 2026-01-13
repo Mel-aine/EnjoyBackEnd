@@ -34,6 +34,7 @@ export default class GuestCheckoutReportsController {
           reservationQuery.preload('checkedOutByUser')
             .preload('bookingSource')
             .preload('businessSource')
+            .preload('reservationType')
         })
         .preload('roomRates', (roomRatesQuery) => {
           roomRatesQuery.preload('rateType')
@@ -61,7 +62,7 @@ export default class GuestCheckoutReportsController {
         departureDate: rs.checkOutDate.toFormat('yyyy-MM-dd'),
         pax: rs.adults + '/' + (rs.children || 0),
         businessSource: rs.reservation.businessSource?.name || 'None',
-        resType: rs.roomRates?.rateType?.rateTypeName,
+        resType: rs.reservation.reservationType?.name,
         checkoutUser: rs.reservation.checkedOutByUser ?
           `${rs.reservation.checkedOutByUser.fullName}` :
           'System'
@@ -116,4 +117,5 @@ export default class GuestCheckoutReportsController {
       })
     }
   }
+  
 }
