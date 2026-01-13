@@ -129,7 +129,6 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
       this.service.getRoomType(propertyId),
       this.service.getRatePlan(propertyId)
     ])
-
     // Helper to safely extract 'data' array
     const getArrayData = (data: unknown) => {
       if (
@@ -203,7 +202,9 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
         propertyId,
         roomTypes: result,
         totalRoomTypes: result.length,
-        totalRatePlans: ratePlansArray.length
+        totalRatePlans: ratePlansArray.length,
+        roomTypesData,
+        ratePlansData
       }
     })
   } catch (error: any) {

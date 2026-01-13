@@ -1506,6 +1506,7 @@ export default class DailyReceiptReportsController {
         .preload('creator')
         .preload('paymentMethod')
         .preload('hotel')
+        .preload('folioTransaction')
         .preload('tenant')
         .where('hotelId', hotelId)
         .where('isVoided', false)
@@ -1530,6 +1531,7 @@ export default class DailyReceiptReportsController {
         date: receipt.paymentDate.toFormat('yyyy-MM-dd HH:mm:ss'),
         receiptNumber: receipt.receiptNumber,
         summary: receipt.description,
+        notes: receipt.folioTransaction?.notes||'',
         amount: receipt.totalAmount,
         user: receipt.creator.fullName,
         enteredOn: receipt.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
@@ -1567,6 +1569,7 @@ export default class DailyReceiptReportsController {
           receiptNumber: receipt.receiptNumber,
           summary: receipt.description,
           amount: receipt.totalAmount,
+          notes: receipt.folioTransaction?.notes||'',
           user: receipt.creator.fullName,
           enteredOn: receipt.createdAt.toFormat('yyyy-MM-dd HH:mm:ss'),
           isVoided: receipt.isVoided,

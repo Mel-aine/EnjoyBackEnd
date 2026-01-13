@@ -144,20 +144,22 @@ export default class NightAuditService {
       ...(nightAuditData || {}),
       posNightAudit: posNightAuditData || null,
     }
-
+    const hotel = await Hotel.find(hotelId)
+    if (!filters.skipReport && hotel ) {
+      const emailService = new ReportsEmailService()
+      setImmediate(async () => {
+        await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+      })
+    }
     // Store the calculated data with all report data
     await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
     if (!filters.skipReport) {
-      const hotel = await Hotel.find(hotelId)
       if (hotel) {
         hotel.lastNightAuditDate = DateTime.now();
         hotel.currentWorkingDate = DateTime.now().startOf('day')
         await hotel.save()
-        const emailService = new ReportsEmailService()
-        setImmediate(async () => {
-          await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
-        })
+
       }
     }
 

@@ -102,7 +102,7 @@ export default class PosController {
         const folio = reservationRoom.reservation.folios?.[0]
 
         return {
-          guestName: guest ? `${guest.fullName}`.trim() : 'Unknown Guest',
+          guestName: guest ? `${guest.displayName}`.trim() : 'Unknown Guest',
           roomId: room?.id || null,
           reservationRoomId: reservationRoom.id,
           checkinDate: reservationRoom.checkInDate ? reservationRoom.checkInDate.toISODate() : null,

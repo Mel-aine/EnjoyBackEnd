@@ -105,6 +105,7 @@
                     <th class="text-left">Date</th>
                     <th class="text-left">Receipt</th>
                     <th class="text-left">Reference</th>
+                    <th class="text-left">Comment</th>
                     <th class="text-right">Amount</th>
                     <th class="text-left">User</th>
                     <th class="text-left">Entered On</th>
@@ -123,6 +124,7 @@
                             <td class="text-left" style="white-space: nowrap;">{{ formatDate(receipt.date) }}</td>
                             <td class="text-left" style="white-space: nowrap;">{{ receipt.receiptNumber }}</td>
                             <td class="text-left">{{ receipt.summary || receipt.description }}</td>
+                             <td class="text-left">{{ receipt.notes }}</td>
                             <td class="text-right" style="white-space: nowrap;">{{ formatCurrency(receipt.amount) }}</td>
                             <td class="text-left" style="white-space: nowrap;">{{ receipt.user }}</td>
                             <td class="text-left" style="white-space: nowrap;">{{ formatDate(receipt.enteredOn) }}</td>
