@@ -110,8 +110,10 @@ export class HotelAnalyticsService {
       .where('hotel_id', hotelId)
       .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
       .andWhere((query) => {
-        query.whereBetween('depart_date', [startDate.toISODate()!, endDate.toISODate()!])
-        query.orWhereBetween('arrived_date', [startDate.toISODate()!, endDate.toISODate()!])
+        // Find overlapping reservations:
+        // (StartA <= EndB) and (EndA >= StartB)
+        query.where('arrived_date', '<=', endDate.toISODate()!)
+             .andWhere('depart_date', '>=', startDate.toISODate()!)
       })
       .preload('reservationRooms', (rspQuery) => {
         rspQuery
