@@ -1036,10 +1036,10 @@ export default class DashboardController {
       .where('balance', '>', 0)
       .where('status', 'open')
       .whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereNotIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
+        reservationQuery.whereIn('status', [ReservationStatus.CHECKED_OUT])
 
-        if (startDate) reservationQuery.where('scheduled_arrival_date', '>=', startDate)
-        if (endDate) reservationQuery.where('scheduled_departure_date', '<=', endDate)
+        if (startDate) reservationQuery.where('arrival_date', '>=', startDate)
+        if (endDate) reservationQuery.where('departure_date', '<=', endDate)
 
         if (status) {
           switch (status.toLowerCase()) {

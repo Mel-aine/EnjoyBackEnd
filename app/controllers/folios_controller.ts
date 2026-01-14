@@ -931,7 +931,7 @@ export default class FoliosController {
 
       // Exclude reservations that are confirmed or pending
       query.whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereNotIn('status', [ReservationStatus.CONFIRMED, ReservationStatus.PENDING])
+        reservationQuery.whereIn('status', [ReservationStatus.CHECKED_IN])
       })
 
       // Filter by date range (arrival/departure dates)
