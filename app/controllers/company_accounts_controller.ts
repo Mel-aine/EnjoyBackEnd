@@ -332,6 +332,7 @@ export default class CompanyAccountsController {
       const page = parseInt(request.input('page', '1'))
       const limit = parseInt(request.input('limit', '10'))
       const searchText = request.input('searchText', '').trim()
+      console.log('searchText', searchText)
 
       const cityLedgerAccounts = await this.service.getCityLedgerAccounts(
         Number(hotelId),

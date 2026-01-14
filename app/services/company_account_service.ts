@@ -374,7 +374,7 @@ export default class CompanyAccountService {
     }
 
     if (searchText) {
-      query.andWhere('company_name', 'like', `%${searchText}%`)
+      query.andWhere('company_name', 'ILIKE', `%${searchText}%`)
     }
 
     const results = await query.orderBy('company_name', 'asc').paginate(page, perPage)

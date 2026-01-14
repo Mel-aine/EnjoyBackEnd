@@ -7517,6 +7517,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Get reservation
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
+        .preload('reservationRooms')
         .first()
 
       if (!reservation) {
@@ -7561,10 +7562,38 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservation.meansOfTransportation = payload.meansOfTransport
       }
 
+      if (payload.timeType === 'arrival' && payload.time !== undefined) {
+        reservation.checkInTime = payload.time
+
+        // Une seule requête SQL pour toutes les chambres
+        await ReservationRoom.query({ client: trx })
+          .where('reservationId', reservationId)
+          .update({
+            checkInTime: payload.time,
+            lastModifiedBy: auth?.user?.id!,
+            updatedAt: new Date(),
+          })
+          console.log(`Updated check-in time for reservation rooms of reservation ID ${reservationId} to ${payload.time}`);
+          console.log('reservationRooms updated successfully', reservation.reservationRooms.map(rr => rr.id));
+
+      } else if (payload.timeType === 'departure' && payload.time !== undefined) {
+        reservation.checkOutTime = payload.time
+
+        await ReservationRoom.query({ client: trx })
+          .where('reservationId', reservationId)
+          .update({
+            checkOutTime: payload.time,
+            lastModifiedBy: auth?.user?.id!,
+            updatedAt: new Date(),
+          })
+      }
+
       reservation.lastModifiedBy = auth?.user?.id!
 
       // Sauvegarder les changements
       await reservation.useTransaction(trx).save()
+
+
 
       // Log après sauvegarde
       console.log('Reservation updated:', reservation.$attributes)

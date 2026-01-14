@@ -633,7 +633,7 @@ export class HotelAnalyticsService {
     const dueOutReservations = allCheckedInReservations.filter((reservation) =>
       reservation.reservationRooms.some((rr) => {
         if (!rr.checkOutDate) return false
-        return rr.checkOutDate <= today
+        return rr.checkOutDate.hasSame(startDate, 'day')
       })
     )
 
@@ -641,7 +641,7 @@ export class HotelAnalyticsService {
 
     dueOutReservations.forEach((reservation) => {
       reservation.reservationRooms.forEach((rr) => {
-        if (rr.checkOutDate && rr.roomId && rr.checkOutDate <= today) {
+        if (rr.checkOutDate && rr.roomId && rr.checkOutDate <= today && !rr.roomType?.isPaymaster) {
           dueOutRoomIds.add(rr.roomId)
         }
       })
@@ -696,6 +696,11 @@ export class HotelAnalyticsService {
       .select(['id', 'room_id', 'status'])
       .where('hotel_id', hotelId)
       .whereNot('status', 'completed')
+      .whereHas('room', (roomQuery) => {
+        roomQuery.whereHas('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', false)
+        })
+      })
       .where((query) => {
         query
           .whereBetween('block_from_date', [
@@ -713,7 +718,8 @@ export class HotelAnalyticsService {
           })
       })
       .preload('room', (rq) => {
-        rq.select(['id'])
+        rq.select(['id', 'room_type_id'])
+          .preload('roomType', (rtq) => rtq.select(['id', 'room_type_name', 'is_paymaster']))
       })
 
 
@@ -722,6 +728,7 @@ export class HotelAnalyticsService {
         allBlockedRoomIds.add(block.room.id)
       }
     })
+    console.log('Total blocked rooms (all blocks):', allBlockedRoomIds.size)
 
     globalRoomStatusStats.blocked = allBlockedRoomIds.size
     globalRoomStatusStats.dirty = staticDirtyOrCleaning.size
