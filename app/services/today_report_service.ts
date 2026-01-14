@@ -62,6 +62,7 @@ export type TodayHtmlData = {
   introLine: string
   todaySections: SectionBlock[]
   tomorrowSections: SectionBlock[]
+  yesterdaySections: SectionBlock[]
   inHouseSection: SectionBlock
 }
 
@@ -224,7 +225,7 @@ async function getInHouse(hotelId: number, day: DateTime): Promise<Reservation[]
   const todayStr = toSqlDate(day)
   const yesterdayStr = toSqlDate(day.minus({ days: 1 }))
   return await q
-    .where('status', toDbStatus(ReservationStatus.CHECKED_IN))
+    .whereIn('status',[ toDbStatus(ReservationStatus.CHECKED_IN), toDbStatus(ReservationStatus.CHECKED_OUT)])
     .whereRaw('DATE(arrived_date) <= ?', [yesterdayStr])
     .whereRaw('DATE(depart_date) >= ?', [todayStr])
 }
@@ -424,13 +425,14 @@ export default class TodayReportService {
     ])
 
     const todaySections: SectionBlock[] = [
+      toSection('IN HOUSE AT DAILY REPORT', 'in_house', inHouse),
       toSection('DUE OUT', 'due_out', dueOut),
-      toSection('DEPARTURE', 'confirmed_departure', confirmedDeparture),
-      toSection('EXTENDED', 'extended', extended),
+    //  toSection('DEPARTURE', 'confirmed_departure', confirmedDeparture),
+    //  toSection('EXTENDED', 'extended', extended),
       toSection('CURRENT STAY', 'stay', stay),
-      toSection('BOOKING', 'booking_confirmed', bookingConfirmed),
-      toSection('CANCELLED BOOKING', 'cancelled_booking', cancelled),
-      toSection('CHECK IN', 'arrival', arrival),
+    //  toSection('BOOKING', 'booking_confirmed', bookingConfirmed),
+    //  toSection('CANCELLED BOOKING', 'cancelled_booking', cancelled),
+      toSection('Arrival', 'arrival', arrival),
     ]
 
     const inHouseSection = toSection('IN HOUSE AT DAILY REPORT', 'in_house', inHouse)
@@ -446,6 +448,31 @@ export default class TodayReportService {
     const tomorrowSections: SectionBlock[] = [
       toSection('TOMORROW BOOKING CONFIRM', 'tomorrow_booking_confirm', tomorrowBookingConfirm),
       toSection('TOMORROW DEPARTURE', 'tomorrow_departure', tomorrowDeparture),
+    ]
+
+    const yesterday = today.minus({ days: 1 })
+    const [
+      yDueOut,
+      yConfirmedDeparture,
+      yBookingConfirmed,
+      yArrival,
+      yExtended,
+      yCancelled,
+    ] = await Promise.all([
+      getTodayCheckOut(hotelId, yesterday),
+      getConfirmedDepartureToday(hotelId, yesterday),
+      getTodayConfirmBooking(hotelId, yesterday),
+      getArrivalToday(hotelId, yesterday),
+      getExtendedToday(hotelId, yesterday),
+      getCancelledToday(hotelId, yesterday),
+    ])
+    const yesterdaySections: SectionBlock[] = [
+      toSection('YESTERDAY DUE OUT', 'due_out', yDueOut),
+      toSection('YESTERDAY DEPARTURE', 'confirmed_departure', yConfirmedDeparture),
+      toSection('YESTERDAY EXTENDED', 'extended', yExtended),
+      //toSection('YESTERDAY BOOKING', 'booking_confirmed', yBookingConfirmed),
+      toSection('YESTERDAY CANCELLED BOOKING', 'cancelled_booking', yCancelled),
+      toSection('YESTERDAY CHECK IN', 'arrival', yArrival),
     ]
 
     const hotelBlock = {
@@ -469,6 +496,7 @@ export default class TodayReportService {
       introLine,
       todaySections,
       tomorrowSections,
+      yesterdaySections,
       inHouseSection,
     }
   }

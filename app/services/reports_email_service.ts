@@ -618,11 +618,10 @@ export default class ReportsEmailService {
             ${data.tomorrowSections.map((section: any) => buildSection(section, false)).join('')}
             
             <hr>
-             <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:22px;padding-bottom:0.4em;color: #66667a;">
-                <b>IN HOUSE AT DAILY REPORT</b>
+            <p style="font-family: Verdana, Arial, Helvetica, sans-serif;font-size:22px;padding-bottom:0.4em;color: #66667a;">
+                <b>YESTERDAY SUMMARY</b>
             </p>
-            ${buildSection(data.inHouseSection, false)}
-            <hr>
+            ${data.yesterdaySections.map((section: any) => buildSection(section, false)).join('')}
         </div>
     </body>
     </html>
