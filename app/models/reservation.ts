@@ -85,8 +85,8 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'special_notes' })
   declare specialNotes: string | null
 
-  @column({ columnName: 'custom_type' })
-  declare customType: string | null
+  @column({ columnName: 'customer_type' })
+  declare customerType: string | null
 
   @column({ columnName: 'bill_to' })
   declare billTo: string | null
