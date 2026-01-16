@@ -298,27 +298,41 @@ export class HotelAnalyticsDashboardService {
       variationPercentage
     }
   }
-  public static async getNationalityStats(serviceId: number): Promise<{ nationality: string, count: number }[]> {
-    // Récupérer les réservations du service avec les utilisateurs associés
+  public static async getNationalityStats(serviceId: number): Promise<{
+    nationalities: { nationality: string, count: number }[],
+    customerTypes: { type: string, count: number }[]
+  }> {
+    // Récupérer les réservations du service avec les guests associés
     const reservations = await Reservation
       .query()
       .where('hotel_id', serviceId)
-      .preload('guest') // Assure-toi que la relation 'guest' est bien définie dans le modèle Reservation
+      .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+      .preload('guest')
 
     const nationalityMap: Record<string, number> = {}
+    const customerTypeMap: Record<string, number> = {}
 
     for (const reservation of reservations) {
-      const nationality = reservation.guest?.country || 'Inconnue'
-
+      // Compter les nationalités
+      const nationality = reservation.guest?.country || 'Unknown'
       nationalityMap[nationality] = (nationalityMap[nationality] || 0) + 1
+
+      // Compter les types de clients
+      const customerType = reservation.customerType || 'Inconnu'
+      customerTypeMap[customerType] = (customerTypeMap[customerType] || 0) + 1
     }
 
-    return Object.entries(nationalityMap).map(([nationality, count]) => ({
-      nationality,
-      count
-    }))
+    return {
+      nationalities: Object.entries(nationalityMap).map(([nationality, count]) => ({
+        nationality,
+        count
+      })),
+      customerTypes: Object.entries(customerTypeMap).map(([type, count]) => ({
+        type,
+        count
+      }))
+    }
   }
-
   public static async getStayDurationDistribution(serviceId: number) {
     const reservations = await Reservation
       .query()
