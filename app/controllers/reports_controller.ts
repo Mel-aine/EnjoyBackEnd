@@ -88,7 +88,8 @@ export default class ReportsController {
 
         // Type et options d'affichage
         reservationType: filters.reservationType,
-        showAmount: filters.showAmount, // 'rent_per_night' ou 'total_amount'formatCurrency
+        showAmount: filters.showAmount, // 'rent_per_night' ou 'total_amount'
+        taxInclusive: filters.taxInclusive === true || filters.taxInclusive === 'true',
 
         // Colonnes sélectionnées
         selectedColumns: Array.isArray(filters.selectedColumns)
@@ -8574,7 +8575,6 @@ export default class ReportsController {
         .preload('guest')
         .preload('reservation', (reservationQuery) => {
           reservationQuery.preload('bookingSource')
-          reservationQuery.preload('reservationRooms')
         })
         .preload('transactions')
 
@@ -8665,7 +8665,7 @@ export default class ReportsController {
           folioNo: folio.folioNumber,
           invoiceNo: folio.invoiceNumber || '',
           date: folio.createdAt.toFormat('dd/MM/yyyy'),
-          pax: folio.reservation?.reservationRooms.reduce((sum, rr) => sum + (rr.adults || 0), 0)+ '/' + folio.reservation?.reservationRooms.reduce((sum, rr) => sum + (rr.children || 0), 0),
+          pax: folio.reservation?.adults || 1,
           name: folio.guest ? `${folio.guest.firstName} ${folio.guest.lastName}` : folio.folioName,
           status: folio.status,
           chargeAmount: chargeAmount,
@@ -8726,7 +8726,7 @@ export default class ReportsController {
 
       // Apply hotel filter
       if (hotelId) {
-          query = query.where('hotel_id', hotelId)
+        //   query = query.where('hotel_id', hotelId)
       }
 
       // Apply user filter
@@ -8811,7 +8811,6 @@ export default class ReportsController {
       // Import models
       const FolioTransaction = (await import('#models/folio_transaction')).default
 
-      
       // Build query for void charges
       let query = FolioTransaction.query()
         .preload('folio', (folioQuery) => {
@@ -8844,7 +8843,7 @@ export default class ReportsController {
           : transaction.folio.folioName,
         resNo: transaction.folio.reservation?.reservationNumber || '',
         chargeDescription: transaction.description,
-        amount: formatCurrency(transaction.amount),
+        amount: transaction.amount,
         voidedBy: transaction.voidedByUser
           ? `${transaction.voidedByUser.firstName} ${transaction.voidedByUser.lastName}`
           : '',
