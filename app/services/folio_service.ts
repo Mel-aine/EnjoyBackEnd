@@ -479,6 +479,7 @@ export default class FolioService {
         {
           userId: updatedBy,
           action: 'TRANSACTION_UPDATED',
+          hotelId: folio.hotelId,
           resourceType: 'FolioTransaction',
           resourceId: transaction.id,
           details: {

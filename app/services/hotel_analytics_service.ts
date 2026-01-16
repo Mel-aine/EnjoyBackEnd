@@ -63,7 +63,7 @@ export class HotelAnalyticsService {
         'updated_at',
       ])
       .where('hotel_id', hotelId)
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      // .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .where((query) => {
         query
           .whereBetween('block_from_date', [

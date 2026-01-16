@@ -12,6 +12,7 @@ interface AuditTrailQueryOptions {
   perPage?: number
   sortBy?: string
   order?: 'asc' | 'desc'
+  includeRelated?: boolean
 }
 
 export default class AuditTrailService {
@@ -25,31 +26,98 @@ export default class AuditTrailService {
     this.validateOptions(options)
 
     // Build the query
-    let query = ActivityLog.query()
-      //.where('hotel_id', options.hotelId)
+    let query = ActivityLog.query().where('hotel_id', options.hotelId)
 
-    // Apply entity ID filter if provided
-    if (options.entityIds && options.entityIds.length > 0) {
-      query = query.whereIn('entity_id', options.entityIds)
+    // Si on recherche par Reservation et qu'on veut inclure les entités liées
+    if (options.entityIds && options.entityIds.length > 0 && options.includeRelated !== false) {
+      const ReservationId = options.entityIds[0]
+
+      // Construire une requête qui inclut tous les logs liés
+      query = query.where((builder) => {
+        //  Logs de la réservation elle-même
+        builder
+          .where((subBuilder) => {
+            subBuilder.where('entity_type', 'Reservation')
+            subBuilder.whereIn('entity_id', options.entityIds!)
+          })
+
+          //  Logs des folios liés à cette réservation
+          .orWhere((subBuilder) => {
+            subBuilder
+              .whereIn('entity_type', ['folio', 'Folio'])
+              .whereIn('entity_id', (subQuery) => {
+                subQuery
+                  .from('folios')
+                  .select('id')
+                  .where('reservation_id', ReservationId)
+              })
+          })
+
+
+          //  Logs des transactions liées à cette réservation
+          .orWhere((subBuilder) => {
+            subBuilder.where('entity_type', 'CityLedgerChildTransaction')
+            subBuilder.whereIn('entity_id', (subQuery) => {
+              subQuery
+                .from('folio_transactions')
+                .select('id')
+                .where('reservation_id', ReservationId)
+            })
+          })
+
+          //  Logs des paiements liés à cette réservation
+          .orWhere((subBuilder) => {
+            subBuilder.where('entity_type', 'folio_transaction')
+            subBuilder.whereIn('entity_id', (subQuery) => {
+              subQuery.from('folios').select('id').where('reservation_id', ReservationId)
+            })
+          })
+
+          .orWhere((subBuilder) => {
+            subBuilder.where('entity_type', 'Receipt')
+            subBuilder.whereIn('entity_id', (subQuery) => {
+              subQuery
+                .from('folio_transactions')
+                .select('id')
+                .where('reservation_id', ReservationId)
+            })
+          })
+
+          // Logs des guests liés à cette réservation
+          .orWhere((subBuilder) => {
+            subBuilder.where('entity_type', 'Guest')
+            subBuilder.whereIn('entity_id', (subQuery) => {
+              subQuery
+                .from('reservation_guests')
+                .select('guest_id')
+                .where('reservation_id', ReservationId)
+            })
+          })
+
+      })
     }
+    // Pour les autres cas, utiliser le filtrage normal
+    else if (options.entityIds && options.entityIds.length > 0) {
+      query = query.whereIn('entity_id', options.entityIds)
 
-    // Apply entity type filter if provided
-    if (options.entityType) {
-      query = query.where('entityType', options.entityType)
+      // Apply entity type filter if provided
+      if (options.entityType) {
+        query = query.where('entity_type', options.entityType)
+      }
     }
 
     // Apply date range filters if provided
     if (options.startDate && options.endDate) {
-      query = query.whereBetween('createdAt', [options.startDate, options.endDate])
+      query = query.whereBetween('created_at', [options.startDate, options.endDate])
     } else if (options.startDate) {
-      query = query.where('createdAt', '>=', options.startDate)
+      query = query.where('created_at', '>=', options.startDate)
     } else if (options.endDate) {
-      query = query.where('createdAt', '<=', options.endDate)
+      query = query.where('created_at', '<=', options.endDate)
     }
 
     // Apply user filter if provided
     if (options.userId) {
-      query = query.where('userId', options.userId)
+      query = query.where('user_id', options.userId)
     }
 
     // Apply action filter if provided
@@ -63,7 +131,7 @@ export default class AuditTrailService {
     query = query.preload('hotel')
 
     // Apply sorting
-    const sortBy = options.sortBy || 'createdAt'
+    const sortBy = options.sortBy || 'created_at'
     const order = options.order || 'desc'
     query = query.orderBy(sortBy, order)
 
@@ -96,7 +164,7 @@ export default class AuditTrailService {
       if (!Array.isArray(options.entityIds)) {
         throw new Error('Entity IDs must be an array')
       }
-      
+
       // Check that all entityIds are valid numbers
       for (const entityId of options.entityIds) {
         if (typeof entityId !== 'number' || entityId <= 0) {
