@@ -46,7 +46,7 @@ export class RoomAvailabilityService {
       .query()
       .where('hotel_id', serviceId)
       .where('status','confirmed')
-      .whereBetween('arrivedDate', [todayStart, tomorrowStart])
+      .whereBetween('arrived_date', [todayStart, tomorrowStart])
       .whereDoesntHave('reservationRooms', (rr) => {
         rr.whereHas('room', (r) => {
           r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))

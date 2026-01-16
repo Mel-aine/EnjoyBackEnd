@@ -9,6 +9,7 @@ import FolioTransaction from '#models/folio_transaction'
 import { TransactionStatus, TransactionType } from '#app/enums'
 import Database from '@adonisjs/lucid/services/db'
 import { HtmlReportGenerator } from './htmlReports_service.ts'
+  import { formatCurrency } from '../utils/utilities.js'
 
 export interface ReportFilters {
   hotelId?: number
@@ -233,8 +234,8 @@ export class ReservationReportsService {
         // Tarifs - Selon showAmount
         ratePerNight: reservation.reservationRooms?.[0]?.roomRates?.baseRate || 0,
         totalAmount: reservation.totalEstimatedRevenue || 0,
-        taxAmount: reservation.taxAmount || 0,
-        discountAmount: reservation.discountAmount || 0,
+        taxAmount: formatCurrency(reservation.taxAmount || 0),
+        discountAmount: formatCurrency(reservation.discountAmount || 0),
         finalAmount: reservation.finalAmount || 0,
         
         // Affichage selon le filtre showAmount
@@ -251,7 +252,7 @@ export class ReservationReportsService {
                   (reservation.infants || 0),
         
         // Statut
-        status: reservation.reservationStatus || 'N/A',
+        status: reservation.status || 'N/A',
         
         // Nuits
         nights: reservation.numberOfNights || 0,
@@ -327,7 +328,7 @@ export class ReservationReportsService {
   
     const totalRevenue = data.reduce((sum, item) => {
       const amount = Number(item.finalAmount) || Number(item.totalAmount) || 0
-      return sum + amount
+      return  sum + amount
     }, 0)
     
     const totalNights = data.reduce((sum, item) => sum + (item.nights || 0), 0)
@@ -491,7 +492,7 @@ export class ReservationReportsService {
         resNo: reservation.reservationNumber || 'N/A',
         guest: reservation.guest? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'N/A',
         room: roomInfo ? `${roomInfo.roomNumber} - ${roomType?.roomTypeName || 'N/A'}` : 'N/A',
-        rate: reservation.roomRate ? Number(reservation.roomRate).toFixed(2) : '0.00',
+        rate: formatCurrency(reservation.roomRate ? reservation.roomRate : 0),
         arrival: reservation.arrivedDate?.toFormat('dd/MM/yyyy HH:mm') || 'N/A',
         departure: reservation.departDate?.toFormat('dd/MM/yyyy') || 'N/A',
         pax: `${reservation.numAdultsTotal || 0}/${reservation.numChildrenTotal || 0}`,
