@@ -792,7 +792,7 @@ router
         router.get('/', hotelsController.index.bind(hotelsController)) // Get all hotels with pagination and search
         //router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
         router.get('/:id', hotelsController.show.bind(hotelsController)) // Get specific hotel details
-        router.put('/:id', hotelsController.update.bind(hotelsController)) 
+        router.put('/:id', hotelsController.update.bind(hotelsController))
         router.get('/:id/details', hotelsController.details.bind(hotelsController))// Update hotel information
         router.put('/:id/information', hotelsController.updateHotelInformation.bind(hotelsController)) // Update complete hotel information
         router.put('/:id/notices', hotelsController.updateNotices.bind(hotelsController)) // Update hotel notices
@@ -828,6 +828,7 @@ router
         router.get('/:id', guestsController.show.bind(guestsController)) // Get specific guest details with reservation history
         router.put('/:id', guestsController.update.bind(guestsController)) // Update guest information
         router.delete('/:id', guestsController.destroy.bind(guestsController)) // Delete guest profile
+
 
         // Guest analytics and history
         router.get('/:id/profile', guestsController.profile.bind(guestsController)) // Get guest profile with stay history
@@ -1101,7 +1102,10 @@ router
         // Room assignment operations
         router.post('/:id/check-in', reservationRoomsController.checkIn.bind(reservationRoomsController)) // Check in guest to room
         router.post('/:id/check-out', reservationRoomsController.checkOut.bind(reservationRoomsController)) // Check out guest from room
+        router.patch('/:id/assign-guest',reservationRoomsController.assignGuestToReservationRoom.bind(reservationRoomsController))
 
+        // Retirer un client d'une chambre
+        router.put('/:id/remove-guest',reservationRoomsController.removeGuestFromReservationRoom.bind(reservationRoomsController))
         // Room analytics
         router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
       })
@@ -1623,6 +1627,9 @@ router
     router.get(
       '/reservations/:reservationId/details',
       reservationsController.getReservationDetails.bind(reservationsController)
+    )
+    router.get(
+      '/reservation/:reservationId/details-for-update', reservationsController.getReservationDetailsForUpdate.bind(reservationsController)
     )
 
     router.get('/reservations/:id', reservationsController.getReservationById.bind(reservationsController))

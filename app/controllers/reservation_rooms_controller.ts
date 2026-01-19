@@ -2,6 +2,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import ReservationRoom from '#models/reservation_room'
 import { createReservationRoomValidator, updateReservationRoomValidator } from '#validators/reservation_room'
+import Guest from '#models/guest'
+import LoggerService from '#app/services/logger_service'
 
 export default class ReservationRoomsController {
   /**
@@ -583,4 +585,175 @@ export default class ReservationRoomsController {
   }
 
 
+  //
+
+/**
+ * Remove a guest from a specific reservation room
+ * PUT/PATCH /api/reservation-rooms/:id/remove-guest
+ */
+async removeGuestFromReservationRoom(ctx: HttpContext) {
+  const { params, response, auth } = ctx
+
+  try {
+    // Trouver la ReservationRoom
+    const reservationRoom = await ReservationRoom.query()
+      .where('id', params.id)
+      .preload('guest')
+      .preload('room')
+      .preload('reservation', (query) => {
+        query.preload('hotel')
+      })
+      .firstOrFail()
+
+    // Vérifier qu'il y a bien un client assigné
+    if (!reservationRoom.guestId) {
+      return response.badRequest({
+        message: 'No guest assigned to this room',
+      })
+    }
+
+    // Sauvegarder les informations du client pour le log
+    const guestName = reservationRoom.guest
+      ? reservationRoom.guest.fullName
+      : `Guest ID ${reservationRoom.guestId}`
+    const roomNumber = reservationRoom.room?.roomNumber || 'Unknown'
+    const oldGuestId = reservationRoom.guestId
+
+    // Retirer le client de la chambre
+    reservationRoom.guestId = null
+    await reservationRoom.save()
+
+    // Logger l'action
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'UPDATE',
+      entityType: 'ReservationRoom',
+      entityId: reservationRoom.id,
+      hotelId: reservationRoom.reservation?.hotelId || 0,
+      description: `Guest "${guestName}" removed from room ${roomNumber}`,
+      changes: {
+        guestId: { old: oldGuestId, new: null }
+      },
+      meta: {
+        reservationId: reservationRoom.reservationId,
+        roomId: reservationRoom.roomId,
+        previousGuestId: oldGuestId,
+      },
+      ctx
+    })
+
+    // Recharger avec les relations pour la réponse
+    await reservationRoom.refresh()
+    await reservationRoom.load('room')
+    await reservationRoom.load('roomType')
+
+    return response.ok({
+      message: `Guest removed from room ${roomNumber} successfully`,
+      data: reservationRoom.serialize(),
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({
+        message: 'Reservation room not found'
+      })
+    }
+
+    console.error('Error removing guest from room:', error)
+    return response.internalServerError({
+      message: 'Failed to remove guest from room',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Assign a guest to a specific reservation room
+ * PUT/PATCH /api/reservation-rooms/:id/assign-guest
+ */
+async assignGuestToReservationRoom(ctx: HttpContext) {
+  const { params, request, response, auth } = ctx
+
+  try {
+    const { guestId } = request.only(['guestId'])
+
+    if (!guestId) {
+      return response.badRequest({
+        message: 'Guest ID is required',
+      })
+    }
+
+    // Vérifier que le client existe
+    const guest = await Guest.findOrFail(guestId)
+
+    // Trouver la ReservationRoom
+    const reservationRoom = await ReservationRoom.query()
+      .where('id', params.id)
+      .preload('room')
+      .preload('reservation', (query) => {
+        query.preload('hotel')
+      })
+      .firstOrFail()
+
+    // Vérifier que la chambre est disponible (pas déjà occupée)
+    if (reservationRoom.guestId) {
+      const currentGuest = await Guest.find(reservationRoom.guestId)
+      return response.conflict({
+        message: `Room is already assigned to ${currentGuest?.fullName || 'another guest'}`,
+        currentGuestId: reservationRoom.guestId,
+      })
+    }
+
+    // Sauvegarder l'ancien état pour le log
+    const oldGuestId = reservationRoom.guestId
+    const roomNumber = reservationRoom.room?.roomNumber || 'Unknown'
+
+    // Assigner le client à la chambre
+    reservationRoom.guestId = guestId
+    await reservationRoom.save()
+
+    // Logger l'action
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'UPDATE',
+      entityType: 'ReservationRoom',
+      entityId: reservationRoom.id,
+      hotelId: reservationRoom.reservation?.hotelId || 0,
+      description: `Guest "${guest.fullName}" assigned to room ${roomNumber}`,
+      changes: {
+        guestId: { old: oldGuestId, new: guestId }
+      },
+      meta: {
+        reservationId: reservationRoom.reservationId,
+        roomId: reservationRoom.roomId,
+        guestId: guestId,
+      },
+      ctx
+    })
+
+    // Recharger avec les relations pour la réponse
+    await reservationRoom.refresh()
+    await reservationRoom.load('guest')
+    await reservationRoom.load('room')
+    await reservationRoom.load('roomType')
+
+    return response.ok({
+      message: `Guest assigned to room ${roomNumber} successfully`,
+      data: reservationRoom.serialize(),
+    })
+  } catch (error) {
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({
+        message: error.message.includes('Guest')
+          ? 'Guest not found'
+          : 'Reservation room not found'
+      })
+    }
+
+    console.error('Error assigning guest to room:', error)
+    return response.internalServerError({
+      message: 'Failed to assign guest to room',
+      error: error.message,
+    })
+  }
+}
 }

@@ -4095,7 +4095,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (query) => {
-          query.whereIn('status', ['confirmed',  'checked-in', 'checked_in'])
+          query.whereNotIn('status', ['cancelled', 'no_show'])
           query.preload('room', (roomQuery) => {
             roomQuery.preload('roomType')
           })
@@ -4252,6 +4252,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       // 🔹 Cas 2 : Amendement chambre par chambre
       else {
+
         const targetRooms = reservation.reservationRooms.filter((rr) =>
           selectedRooms.includes(rr.roomId) && !rr.isSplitedOrigin
         )
@@ -8632,6 +8633,87 @@ export default class ReservationsController extends CrudController<typeof Reserv
         success: false,
         message: 'Failed to filter reservations',
         error: error.message,
+      })
+    }
+  }
+
+  //function pour update room charge update
+  public async getReservationDetailsForUpdate(ctx: HttpContext) {
+    const { params } = ctx
+    const reservationId = params.reservationId
+
+    try {
+      // Charger la réservation avec les relations
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('reservationRooms', (roomQuery) => {
+          roomQuery.preload('roomType')
+        })
+        .preload('guest')
+        .firstOrFail()
+
+      const reservationRoom = reservation.reservationRooms[0]
+
+      if (!reservationRoom) {
+        return ctx.response.badRequest({ message: 'No room found in reservation' })
+      }
+
+      //  Récupérer les room_rates pour ce roomTypeId avec toutes les relations
+      const roomRates = await RoomRate.query()
+        .where('hotel_id', reservation.hotelId)
+        .where('room_type_id', reservationRoom.roomTypeId)
+        .where('status', 'active')
+        .preload('rateType')
+        .preload('mealPlan', (mealQuery) => {
+          mealQuery.preload('extraCharges')
+        })
+
+      // Formater la réponse
+      const response = {
+        reservation: {
+          id: reservation.id,
+          reservationNumber: reservation.reservationNumber,
+          status: reservation.status,
+          hotelId: reservation.hotelId,
+        },
+        currentDetails: {
+          rateTypeId: reservationRoom.rateTypeId,
+          roomTypeId: reservationRoom.roomTypeId,
+          adults: reservationRoom.adults,
+          children: reservationRoom.children,
+          isComplementary: reservationRoom.isComplementary,
+          taxIncludes: reservationRoom.taxIncludes,
+          mealPlanRateInclude: reservationRoom.mealPlanRateInclude,
+          roomRate: reservationRoom.roomRate,
+          taxAmount: reservationRoom.taxAmount,
+        },
+        // Rate types disponibles pour ce room type
+        availableRateTypes: roomRates.map(rr => ({
+          roomRateId: rr.id,
+          rateTypeId: rr.rateTypeId,
+          rateTypeName: rr.rateType.rateTypeName,
+          baseRate: rr.baseRate,
+          taxInclude: rr.taxInclude,
+          mealPlanId: rr.mealPlanId,
+          mealPlanRateInclude: rr.mealPlanRateInclude,
+          // Meal plan details
+          mealPlan: rr.mealPlan ? {
+            id: rr.mealPlan.id,
+            name: rr.mealPlan.name,
+            extraCharges: rr.mealPlan.extraCharges?.map(ec => ({
+              id: ec.id,
+              name: ec.name,
+              rate: ec.rate,
+            })) || []
+          } : null
+        }))
+      }
+
+      return ctx.response.ok(response)
+    } catch (error) {
+      logger.error('Error fetching reservation details for update:', error)
+      return ctx.response.badRequest({
+        message: 'Failed to fetch reservation details'
       })
     }
   }

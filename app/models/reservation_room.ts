@@ -32,7 +32,7 @@ export default class ReservationRoom extends BaseModel {
   declare roomTypeId: number
 
   @column()
-  declare guestId: number
+  declare guestId: number | null
 
   @column()
   declare paymentMethodId: number | null
