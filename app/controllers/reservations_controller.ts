@@ -7487,7 +7487,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             <div class="note-section">
                 <div class="section-title">Please Note</div>
                 <p style="margin-top: 0.5rem; font-size: 0.75rem;">
-                   ${reservation.hotel?.notices}
+                   ${reservation.hotel?.notices?.registrationCard || ''}
                 </p>
             </div>
 
