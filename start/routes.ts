@@ -1164,6 +1164,7 @@ router
         router.post('/:reservationId/undo-checkin', [ReservationsController, 'undoCheckIn'])
         router.post('/:reservationId/undo-check-out', [ReservationsController, 'undoCheckOut'])
         router.post('/print-guest-card', [ReservationsController, 'printGuestCard'])
+        router.post('/print-guest-police', [ReservationsController, 'printGuestPolice'])
 
 
         // Get released reservations by date for a hotel
