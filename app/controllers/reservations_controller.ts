@@ -7488,7 +7488,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             <div class="note-section">
                 <div class="section-title">Please Note</div>
                 <p style="margin-top: 0.5rem; font-size: 0.75rem;">
-                   ${reservation.hotel?.notices?.registrationCard}
+                   ${reservation.hotel?.notices?.registrationCard || ''}
                 </p>
             </div>
 
@@ -8716,5 +8716,559 @@ export default class ReservationsController extends CrudController<typeof Reserv
         message: 'Failed to fetch reservation details'
       })
     }
+  }
+
+  public async printGuestPolice({ request, response }: HttpContext) {
+    try {
+      const { guestId, reservationId } = request.only(['guestId', 'reservationId'])
+
+      if (!guestId || !reservationId) {
+        return response.badRequest({
+          message: 'Guest ID and Reservation ID are required',
+        })
+      }
+
+      // Fetch guest and reservation data
+      const guest = await Guest.find(guestId)
+      const reservation = await Reservation.query()
+        .where('id', reservationId)
+        .preload('hotel')
+        .preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+          })
+        })
+        .preload('reservationRooms', (query) => {
+          query
+            .preload('room', (roomQuery) => {
+              roomQuery.preload('roomType')
+            })
+            .preload('roomRates', (roomRateQuery) => {
+              roomRateQuery.preload('rateType')
+            })
+        })
+        .first()
+
+      if (!guest) {
+        return response.notFound({ message: 'Guest not found' })
+      }
+
+      if (!reservation) {
+        return response.notFound({ message: 'Reservation not found' })
+      }
+      // Generate guest card HTML content
+      const htmlContent = this.generateGuestPoliceHtml(guest, reservation)
+
+      // Generate PDF
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        orientation: 'portrait',
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header(
+        'Content-Disposition',
+        `attachment; filename="guest-card-${guest.firstName}-${guest.lastName}.pdf"`
+      )
+
+      return response.send(pdfBuffer)
+    } catch (error) {
+      logger.error('Error generating guest card PDF:', error)
+      return response.internalServerError({
+        message: 'Failed to generate guest card PDF',
+        error: error.message,
+      })
+    }
+  }
+  private generateGuestPoliceHtml(guest: Guest, reservation: Reservation): string {
+    const room = reservation.reservationRooms?.[0]?.room
+    const reservationRoom = reservation.reservationRooms?.[0]
+    
+    // Helper function for date formatting
+    const formatDate = (dateString: string) => {
+      if (!dateString) return ''
+      return new Date(dateString).toLocaleDateString('fr-FR')
+    }
+    
+    // Calculate number of persons (adults + children)
+    const numberOfPersons = (reservation.adults || 0) + (reservation.children || 0)
+    
+/*     // Helper for getting payment method in French
+    const getPaymentMethodInFrench = (method: string) => {
+      const paymentMethods: { [key: string]: string } = {
+        'CASH': 'Espèces',
+        'CREDIT_CARD': 'Carte de crédit',
+        'DEBIT_CARD': 'Carte de débit',
+        'BANK_TRANSFER': 'Virement bancaire',
+        'CHECK': 'Chèque',
+        'COMPANY_ACCOUNT': 'Compte société',
+        'OTHER': 'Autre'
+      }
+      return paymentMethods[method] || method || ''
+    } */
+    
+    // Get guest's full name in capital letters
+    const fullNameInCaps = `${guest.lastName?.toUpperCase() || ''} ${guest.firstName?.toUpperCase() || ''}`
+    
+    // Format passport/ID information
+    const idType = guest.idType || ''
+    const idNumber = guest.passportNumber || guest.idNumber || ''
+    const idDisplay = idType && idNumber ? `${idType}: ${idNumber}` : idNumber || ''
+  
+    return `
+   <!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fiche d'Enregistrement Client</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    
+    .registration-form {
+      max-width: 210mm;
+      width: 100%;
+      margin: 0 auto;
+      background: white;
+      padding: 20px; /* Marge interne principale */
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border: 2px solid #000000;
+      /* Ajout de marges intérieures supplémentaires */
+      padding-left: 30px;
+      padding-right: 30px;
+      padding-top: 25px;
+      padding-bottom: 25px;
+    }
+    
+    .hotel-header {
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .hotel-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    
+    .hotel-address {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 3px;
+    }
+    
+    .contact-info {
+      font-size: 11px;
+      color: #666;
+    }
+    
+    .form-title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 20px 0;
+      text-transform: uppercase;
+      color: #333;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    
+    .form-section {
+      margin-bottom: 15px;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    
+    .form-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0;
+    }
+    
+    .label-fr {
+      font-weight: bold;
+      font-size: 11px;
+      white-space: nowrap;
+      min-width: 120px;
+    }
+    
+    .label-en {
+      font-size: 9px;
+      color: #666;
+      font-style: italic;
+      display: block;
+    }    
+    .line-dot,
+    .line-empty {
+      flex: 1;
+      border-bottom: 1px dotted #999;
+      height: 20px;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .line-empty {
+      border-bottom: 1px solid #999;
+    }
+    
+    .filled-value {
+      color: #1e40af;
+      font-weight: 500;
+      font-size: 10pt;
+      margin-left: 6px;
+    }
+    
+    /* Section signature alignée à droite */
+    .signature-section {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 50px;
+      padding-top: 20px;
+      padding-right: 10px;
+      padding-left: 10px;
+    }
+    
+    .signature-box {
+      text-align: right;
+      min-width: 150px;
+      width: 50%;
+    }
+    
+    .signature-line {
+      border-bottom: 1px solid #333;
+      margin-bottom: 80px;
+      padding-bottom: 8px;
+      font-size: 11px;
+      width: 70%;
+      min-width: 150px;
+      display: inline-block;
+    }
+    
+    /* Ajout d'une classe pour le conteneur principal si nécessaire */
+    .content-wrapper {
+      /* Pour un contrôle plus fin de l'espacement global */
+      padding: 5px;
+    }
+    
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 15mm; /* Augmenter légèrement les marges d'impression */
+      }
+      
+      body {
+        background: white;
+        padding: 0;
+        display: block;
+      }
+      
+      .registration-form {
+        box-shadow: none;
+        padding: 25px 30px; /* Conserver les marges en impression */
+        border: 2px solid #000000;
+      }
+      
+      .filled-value {
+        color: #0000AA !important;
+      }
+      
+      /* Ajuster l'espacement pour l'impression */
+      .form-section {
+        margin-bottom: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="registration-form">
+    <!-- Conteneur optionnel pour plus de contrôle -->
+    <div class="content-wrapper">
+      <!-- En-tête Hôtel -->
+      <div class="hotel-header">
+        <div class="hotel-name">${reservation.hotel?.hotelName}</div>
+        <div class="hotel-address">${reservation.hotel?.address}</div>
+        <div class="contact-info">
+          B.P.: ${reservation.hotel?.postalCode} / Tel: ${reservation.hotel?.phoneNumber}<br>
+          ${reservation.hotel?.email} / ${reservation.hotel?.website}
+        </div>
+      </div>
+
+
+      <!-- Section Informations -->
+      <div class="form-section">
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              N° de chambre :
+              <span class="label-en">Room number</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${room?.roomNumber || ''} - ${room?.roomType?.roomTypeName || ''}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Nombre de personnes :
+              <span class="label-en">Number of persons</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${numberOfPersons}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Date d'arrivée :
+              <span class="label-en">Arrival date</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${formatDate(reservation.checkInDate)}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Date de départ :
+              <span class="label-en">Departure date</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${formatDate(reservation.checkOutDate)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Venant de :
+              <span class="label-en">Arriving from</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${reservation.arrivingTo || ''}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Se rendant à :
+              <span class="label-en">Going to</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${reservation.arrivingTo || ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Mode de transport :
+              <span class="label-en">Means of transportation:</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${reservation.meansOfTransportation || ''}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Mode de paiement :
+              <span class="label-en">Means of payment:</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${reservation.paymentMethod?.methodName || ''}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-field" style="margin-bottom: 10px;">
+          <span class="label-fr">
+            NOM (en gros characters) :
+            <span class="label-en">GIVEN NAME (in capital letters) :</span>
+          </span>
+          <div class="line-dot">
+            <span class="filled-value">${fullNameInCaps}</span>
+          </div>
+        </div>
+
+        <div class="form-field" style="margin-bottom: 10px;">
+          <span class="label-fr">
+            NOM jeune fille :
+            <span class="label-en">Maiden name</span>
+          </span>
+          <div class="line-dot">
+            <span class="filled-value">${guest.maidenName || ''}</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Date de naissance :
+              <span class="label-en">Date of birth</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${formatDate(guest.dateOfBirth || '')}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Lieu de naissance :
+              <span class="label-en">Place of birth</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.placeOfBirth || ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Nationalité :
+              <span class="label-en">Nationality</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.nationality || ''}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Pays de residence :
+              <span class="label-en">Country of residence</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.country || ''}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Tél :
+              <span class="label-en">Phone</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.phonePrimary || ''}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              Fax :
+              <span class="label-en">Fax</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.fax || ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              E-mail address :
+              <span class="label-en">Email address</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.email || ''}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              B.P :
+              <span class="label-en">P.O. Box</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.postalCode || ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-field" style="margin-top: 10px;">
+          <span class="label-fr">
+            Profession :
+            <span class="label-en">Profession</span>
+          </span>
+          <div class="line-dot">
+            <span class="filled-value">${guest.profession || ''}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-field" style="margin-bottom: 10px;">
+          <span class="label-fr">
+            Passeport / Carte d'identité N° :
+            <span class="label-en">Passport / ID card number</span>
+          </span>
+          <div class="line-dot">
+            <span class="filled-value">${idDisplay}</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <span class="label-fr">
+              Délivré le :
+              <span class="label-en">Issued on</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${formatDate(guest.idExpiryDate || '')}</span>
+            </div>
+          </div>
+          <div class="form-field">
+            <span class="label-fr">
+              A :
+              <span class="label-en">At</span>
+            </span>
+            <div class="line-dot">
+              <span class="filled-value">${guest.issuingCountry || ''}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section Signature alignée à droite -->
+      <div class="signature-section">
+        <div class="signature-box">
+        <div class="signature-line">Signature du client</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
   }
 }
