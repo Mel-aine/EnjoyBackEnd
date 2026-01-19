@@ -1532,7 +1532,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     if (
       userPermissions.includes('void_reservation') &&
       ['confirmed', 'guaranteed', 'pending'].includes(status) &&
-      numRooms <= 1
+      numRooms >= 1
     ) {
       actions.push({
         action: 'void_reservation',
@@ -4095,6 +4095,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (query) => {
+          query.whereIn('status', ['confirmed',  'checked-in', 'checked_in'])
           query.preload('room', (roomQuery) => {
             roomQuery.preload('roomType')
           })
@@ -4190,6 +4191,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (!selectedRooms || selectedRooms.length === 0) {
         if (reservation.reservationRooms.length > 0) {
           for (const reservationRoom of reservation.reservationRooms) {
+            // Skip rooms with split origin
+            if (reservationRoom.isSplitedOrigin) continue
+
             const roomUpdateData: any = {
               lastModifiedBy: auth.user?.id!,
             }
@@ -4249,7 +4253,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // 🔹 Cas 2 : Amendement chambre par chambre
       else {
         const targetRooms = reservation.reservationRooms.filter((rr) =>
-          selectedRooms.includes(rr.roomId)
+          selectedRooms.includes(rr.roomId) && !rr.isSplitedOrigin
         )
 
         if (targetRooms.length === 0) {
