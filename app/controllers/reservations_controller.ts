@@ -4095,7 +4095,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query({ client: trx })
         .where('id', reservationId)
         .preload('reservationRooms', (query) => {
-          query.whereIn('status', ['confirmed',  'checked-in', 'checked_in'])
+          //query.whereIn('status', ['confirmed',  'checked-in', 'checked_in'])
           query.preload('room', (roomQuery) => {
             roomQuery.preload('roomType')
           })
@@ -4252,8 +4252,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       // 🔹 Cas 2 : Amendement chambre par chambre
       else {
+                  console.log(reservation.reservationRooms.map((e)=>{
+                    console.log(e.roomId)
+                  }));
         const targetRooms = reservation.reservationRooms.filter((rr) =>
-          selectedRooms.includes(rr.roomId) && !rr.isSplitedOrigin
+          selectedRooms.includes(rr.roomId)// && !rr.isSplitedOrigin
         )
 
         if (targetRooms.length === 0) {
