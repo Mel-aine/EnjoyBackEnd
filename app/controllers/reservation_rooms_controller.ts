@@ -4,6 +4,11 @@ import ReservationRoom from '#models/reservation_room'
 import { createReservationRoomValidator, updateReservationRoomValidator } from '#validators/reservation_room'
 import Guest from '#models/guest'
 import LoggerService from '#app/services/logger_service'
+import ReservationGuest from '#models/reservation_guest'
+import Folio from '#models/folio'
+import { createGuestValidator } from '#validators/guest'
+import { generateGuestCode } from '../utils/generate_guest_code.js'
+import Reservation from '#models/reservation'
 
 export default class ReservationRoomsController {
   /**
@@ -595,7 +600,7 @@ async removeGuestFromReservationRoom(ctx: HttpContext) {
   const { params, response, auth } = ctx
 
   try {
-    // Trouver la ReservationRoom
+     // Trouver la ReservationRoom
     const reservationRoom = await ReservationRoom.query()
       .where('id', params.id)
       .preload('guest')
@@ -622,6 +627,50 @@ async removeGuestFromReservationRoom(ctx: HttpContext) {
     // Retirer le client de la chambre
     reservationRoom.guestId = null
     await reservationRoom.save()
+
+    const reservation = await Reservation.findOrFail(reservationRoom.reservationId)
+
+    if (reservation.guestId === oldGuestId) {
+      const otherRoomWithGuest = await ReservationRoom.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .where('id', '!=', params.id)
+        .whereNotNull('guest_id')
+        .first()
+
+      if (otherRoomWithGuest && otherRoomWithGuest.guestId) {
+        reservation.guestId = otherRoomWithGuest.guestId
+      } else {
+        reservation.guestId = null
+      }
+
+      reservation.lastModifiedBy = auth.user?.id || null
+      await reservation.save()
+    }
+
+
+     const reservationGuest = await ReservationGuest.query()
+      .where('reservation_id', reservationRoom.reservationId)
+      .where('guest_id', oldGuestId)
+      .first()
+
+    if (reservationGuest) {
+      reservationGuest.guestId = null
+      reservationGuest.lastModifiedBy = auth.user?.id || null
+      await reservationGuest.save()
+    }
+
+     const folios = await Folio.query()
+      .where('reservation_id', reservationRoom.reservationId)
+      .where('guest_id', oldGuestId)
+
+    if (folios && folios.length > 0) {
+      for (const folio of folios) {
+        folio.guestId = null
+        folio.folioName = ''
+        folio.lastModifiedBy = auth.user?.id!
+        await folio.save()
+      }
+    }
 
     // Logger l'action
     await LoggerService.log({
@@ -666,94 +715,185 @@ async removeGuestFromReservationRoom(ctx: HttpContext) {
   }
 }
 
-/**
- * Assign a guest to a specific reservation room
- * PUT/PATCH /api/reservation-rooms/:id/assign-guest
- */
-async assignGuestToReservationRoom(ctx: HttpContext) {
+async createAndAssignGuest(ctx: HttpContext) {
   const { params, request, response, auth } = ctx
 
   try {
-    const { guestId } = request.only(['guestId'])
+    // Valider les données du guest + l'ID de la chambre
+    const payload = await request.validateUsing(createGuestValidator)
+    const reservationRoomId = params.id
 
-    if (!guestId) {
-      return response.badRequest({
-        message: 'Guest ID is required',
-      })
+    // CRÉER LE GUEST
+    const guestData: any = {
+      ...payload,
+      createdBy: auth.user?.id || 0,
+      guestCode: generateGuestCode(),
     }
 
-    // Vérifier que le client existe
-    const guest = await Guest.findOrFail(guestId)
+    // Convertir les dates
+    if (payload.dateOfBirth) {
+        guestData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
+        console.log('Converted dateOfBirth:', guestData.dateOfBirth.toISO())
+      }
+      if (payload.passportExpiry) {
+        guestData.passportExpiry = DateTime.fromJSDate(payload.passportExpiry)
+        console.log('Converted passportExpiry:', guestData.passportExpiry.toISO())
+      }
+      if (payload.visaExpiry) {
+        guestData.visaExpiry = DateTime.fromJSDate(payload.visaExpiry)
+        console.log('Converted visaExpiry:', guestData.visaExpiry.toISO())
+      }
+      if (payload.idExpiryDate) {
+        guestData.idExpiryDate = DateTime.fromJSDate(payload.idExpiryDate)
+        console.log('Converted idExpiryDate:', guestData.idExpiryDate.toISO())
+      }
+      if (payload.blacklistedAt) {
+        guestData.blacklistedAt = DateTime.fromJSDate(payload.blacklistedAt)
+        console.log('Converted blacklistedAt:', guestData.blacklistedAt.toISO())
+      }
+      if (payload.lastLoginAt) {
+        guestData.lastLoginAt = DateTime.fromJSDate(payload.lastLoginAt)
+        console.log('Converted lastLoginAt:', guestData.lastLoginAt.toISO())
+      }
+      if (payload.lastActivityAt) {
+        guestData.lastActivityAt = DateTime.fromJSDate(payload.lastActivityAt)
+        console.log('Converted lastActivityAt:', guestData.lastActivityAt.toISO())
+      }
+      if (payload.lastStayDate) {
+        guestData.lastStayDate = DateTime.fromJSDate(payload.lastStayDate)
+        console.log('Converted lastStayDate:', guestData.lastStayDate.toISO())
+      }
+      if (payload.nextStayDate) {
+        guestData.nextStayDate = DateTime.fromJSDate(payload.nextStayDate)
+        console.log('Converted nextStayDate:', guestData.nextStayDate.toISO())
+      }
 
-    // Trouver la ReservationRoom
+
+    const guest = await Guest.create(guestData)
+
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'CREATE',
+      entityType: 'Guest',
+      entityId: guest.id,
+      hotelId: guest.hotelId,
+      description: `Guest "${guest.fullName}" created successfully`,
+      changes: LoggerService.extractChanges({}, guest.toJSON()),
+      ctx
+    })
+
+    //ASSIGNER LE GUEST À LA CHAMBRE
     const reservationRoom = await ReservationRoom.query()
-      .where('id', params.id)
+      .where('id', reservationRoomId)
       .preload('room')
       .preload('reservation', (query) => {
         query.preload('hotel')
       })
       .firstOrFail()
 
-    // Vérifier que la chambre est disponible (pas déjà occupée)
+    // Vérifier si la chambre a déjà un guest
     if (reservationRoom.guestId) {
-      const currentGuest = await Guest.find(reservationRoom.guestId)
-      return response.conflict({
-        message: `Room is already assigned to ${currentGuest?.fullName || 'another guest'}`,
-        currentGuestId: reservationRoom.guestId,
+      // Supprimer le guest créé car on ne peut pas l'assigner
+      await guest.delete()
+
+      return response.badRequest({
+        message: 'This room already has a guest assigned. Please remove the current guest first.',
       })
     }
 
-    // Sauvegarder l'ancien état pour le log
+    // Assigner le guest
     const oldGuestId = reservationRoom.guestId
-    const roomNumber = reservationRoom.room?.roomNumber || 'Unknown'
-
-    // Assigner le client à la chambre
-    reservationRoom.guestId = guestId
+    reservationRoom.guestId = guest.id
+    reservationRoom.lastModifiedBy = auth.user?.id!
     await reservationRoom.save()
 
-    // Logger l'action
+    const reservation = await Reservation.findOrFail(reservationRoom.reservationId)
+
+    if (!reservation.guestId) {
+      reservation.guestId = guest.id
+      reservation.lastModifiedBy = auth.user?.id || null
+      await reservation.save()
+    }
+
+   const existingReservationGuest = await ReservationGuest.query()
+    .where('reservation_id', reservationRoom.reservationId)
+    .whereNull('guest_id')
+    .first()
+
+  if (existingReservationGuest) {
+    existingReservationGuest.guestId = guest.id
+    existingReservationGuest.lastModifiedBy = auth.user?.id || null
+    await existingReservationGuest.save()
+  } else {
+    await ReservationGuest.create({
+      reservationId: reservationRoom.reservationId,
+      guestId: guest.id,
+      createdBy: auth.user?.id!,
+      lastModifiedBy: auth.user?.id || null,
+    })
+  }
+
+
+    // Mettre à jour les folios
+    const folios = await Folio.query()
+      .where('reservation_id', reservationRoom.reservationId)
+      .whereNull('guest_id')
+
+    for (const folio of folios) {
+      folio.guestId = guest.id
+      folio.folioName = guest.fullName + '-' + 'Guest'
+      folio.lastModifiedBy = auth.user?.id!
+      await folio.save()
+    }
+
+    // Logger l'assignation
     await LoggerService.log({
       actorId: auth.user?.id || 0,
       action: 'UPDATE',
       entityType: 'ReservationRoom',
       entityId: reservationRoom.id,
       hotelId: reservationRoom.reservation?.hotelId || 0,
-      description: `Guest "${guest.fullName}" assigned to room ${roomNumber}`,
+      description: `Guest "${guest.fullName}" created and assigned to room ${reservationRoom.room?.roomNumber}`,
       changes: {
-        guestId: { old: oldGuestId, new: guestId }
+        guestId: { old: oldGuestId, new: guest.id }
       },
       meta: {
         reservationId: reservationRoom.reservationId,
         roomId: reservationRoom.roomId,
-        guestId: guestId,
+        guestId: guest.id,
       },
       ctx
     })
 
-    // Recharger avec les relations pour la réponse
+    // Recharger avec toutes les relations
     await reservationRoom.refresh()
-    await reservationRoom.load('guest')
     await reservationRoom.load('room')
     await reservationRoom.load('roomType')
+    await reservationRoom.load('guest')
 
-    return response.ok({
-      message: `Guest assigned to room ${roomNumber} successfully`,
-      data: reservationRoom.serialize(),
+    return response.created({
+      message: `Guest created and assigned to room ${reservationRoom.room?.roomNumber} successfully`,
+      data: {
+        guest: guest.serialize(),
+        reservationRoom: reservationRoom.serialize()
+      }
     })
+
   } catch (error) {
+    console.error('Error creating and assigning guest:', error)
+
     if (error.code === 'E_ROW_NOT_FOUND') {
       return response.notFound({
-        message: error.message.includes('Guest')
-          ? 'Guest not found'
-          : 'Reservation room not found'
+        message: 'Reservation room not found'
       })
     }
 
-    console.error('Error assigning guest to room:', error)
     return response.internalServerError({
-      message: 'Failed to assign guest to room',
+      message: 'Failed to create and assign guest',
       error: error.message,
     })
   }
 }
+
+
 }

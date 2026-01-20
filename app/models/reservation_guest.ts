@@ -12,7 +12,7 @@ export default class ReservationGuest extends BaseModel {
   declare reservationId: number
 
   @column()
-  declare guestId: number
+  declare guestId: number | null
 
   @column()
   declare isPrimary: boolean

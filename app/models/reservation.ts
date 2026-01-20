@@ -41,7 +41,7 @@ export default class Reservation extends BaseModel {
   declare complimentaryRoom: boolean
 
   @column({ columnName: 'guest_id' })
-  declare guestId: number
+  declare guestId: number | null
 
   @column({ columnName: 'primary_room_type_id' })
   declare primaryRoomTypeId: number
@@ -190,9 +190,6 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'reservation_time' })
   declare reservationTime?: string
 
-  @column({ columnName: 'customer_type' })
-  declare customerType: string | null
-
   @column({ columnName: 'company_name' })
   declare companyName: string | null
 
@@ -313,12 +310,6 @@ export default class Reservation extends BaseModel {
 
   @column()
   declare balanceDue: number
-
-  @column()
-  declare currencyCode: string
-
-  @column()
-  declare exchangeRate: number
 
   @column()
   declare guaranteeType: string
