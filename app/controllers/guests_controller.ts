@@ -278,6 +278,27 @@ export default class GuestsController {
 
       guest.merge(updateData)
       await guest.save()
+
+      const nameChanged =
+      oldData.firstName !== guest.firstName ||
+      oldData.lastName !== guest.lastName ||
+      oldData.maidenName !== guest.maidenName
+
+      if (nameChanged) {
+        console.log('Guest name changed, updating guest folios...')
+
+        const updatedCount = await Folio.query()
+          .where('guest_id', guest.id)
+          .andWhere('folio_type', 'guest')
+          .update({
+            folio_name: guest.fullName + '-GUEST',
+            last_modified_by: auth.user?.id || null,
+            updated_at: DateTime.now()
+          })
+
+        console.log(`Updated ${updatedCount} guest folio(s) for guest ID: ${guest.id}`)
+      }
+
       const changes = this.generateChangeLog(oldData, payload)
       if (Object.keys(changes).length > 0) {
         await LoggerService.log({
