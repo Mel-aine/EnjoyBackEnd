@@ -10,6 +10,7 @@ import { createGuestValidator } from '#validators/guest'
 import { generateGuestCode } from '../utils/generate_guest_code.js'
 import Reservation from '#models/reservation'
 
+
 export default class ReservationRoomsController {
   /**
    * Display a list of reservation rooms
@@ -600,67 +601,33 @@ async removeGuestFromReservationRoom(ctx: HttpContext) {
   const { params, response, auth } = ctx
 
   try {
-     // Trouver la ReservationRoom
-    const reservationRoom = await ReservationRoom.query()
+
+    const reservationGuest = await ReservationGuest.query()
       .where('id', params.id)
       .preload('guest')
-      .preload('room')
-      .preload('reservation', (query) => {
-        query.preload('hotel')
-      })
       .firstOrFail()
 
-    // Vérifier qu'il y a bien un client assigné
-    if (!reservationRoom.guestId) {
-      return response.badRequest({
-        message: 'No guest assigned to this room',
+    if (reservationGuest.isPrimary) {
+      return response.forbidden({
+        message: 'Cannot remove the principal guest from reservation',
       })
     }
 
-    // Sauvegarder les informations du client pour le log
-    const guestName = reservationRoom.guest
-      ? reservationRoom.guest.fullName
-      : `Guest ID ${reservationRoom.guestId}`
-    const roomNumber = reservationRoom.room?.roomNumber || 'Unknown'
-    const oldGuestId = reservationRoom.guestId
+    const guestName = reservationGuest.guest?.fullName || `Guest ID ${reservationGuest.guestId}`
+    const oldGuestId = reservationGuest.guestId!
 
-    // Retirer le client de la chambre
-    reservationRoom.guestId = null
-    await reservationRoom.save()
+    // Charger la réservation pour obtenir le hotelId
+    const reservation = await Reservation.query()
+      .where('id', reservationGuest.reservationId)
+      .preload('hotel')
+      .firstOrFail()
 
-    const reservation = await Reservation.findOrFail(reservationRoom.reservationId)
+    // Supprimer l'entrée ReservationGuest
+    await reservationGuest.delete()
 
-    if (reservation.guestId === oldGuestId) {
-      const otherRoomWithGuest = await ReservationRoom.query()
-        .where('reservation_id', reservationRoom.reservationId)
-        .where('id', '!=', params.id)
-        .whereNotNull('guest_id')
-        .first()
-
-      if (otherRoomWithGuest && otherRoomWithGuest.guestId) {
-        reservation.guestId = otherRoomWithGuest.guestId
-      } else {
-        reservation.guestId = null
-      }
-
-      reservation.lastModifiedBy = auth.user?.id || null
-      await reservation.save()
-    }
-
-
-     const reservationGuest = await ReservationGuest.query()
-      .where('reservation_id', reservationRoom.reservationId)
-      .where('guest_id', oldGuestId)
-      .first()
-
-    if (reservationGuest) {
-      reservationGuest.guestId = null
-      reservationGuest.lastModifiedBy = auth.user?.id || null
-      await reservationGuest.save()
-    }
-
-     const folios = await Folio.query()
-      .where('reservation_id', reservationRoom.reservationId)
+    // Retirer le guest des folios associés
+    const folios = await Folio.query()
+      .where('reservation_id', reservationGuest.reservationId)
       .where('guest_id', oldGuestId)
 
     if (folios && folios.length > 0) {
@@ -675,41 +642,40 @@ async removeGuestFromReservationRoom(ctx: HttpContext) {
     // Logger l'action
     await LoggerService.log({
       actorId: auth.user?.id || 0,
-      action: 'UPDATE',
-      entityType: 'ReservationRoom',
-      entityId: reservationRoom.id,
-      hotelId: reservationRoom.reservation?.hotelId || 0,
-      description: `Guest "${guestName}" removed from room ${roomNumber}`,
+      action: 'DELETE',
+      entityType: 'ReservationGuest',
+      entityId: reservationGuest.id,
+      hotelId: reservation.hotelId,
+      description: `Additional guest "${guestName}" removed from reservation`,
       changes: {
         guestId: { old: oldGuestId, new: null }
       },
       meta: {
-        reservationId: reservationRoom.reservationId,
-        roomId: reservationRoom.roomId,
+        reservationId: reservationGuest.reservationId,
+        roomAssignment: reservationGuest.roomAssignment,
         previousGuestId: oldGuestId,
       },
       ctx
     })
 
-    // Recharger avec les relations pour la réponse
-    await reservationRoom.refresh()
-    await reservationRoom.load('room')
-    await reservationRoom.load('roomType')
-
     return response.ok({
-      message: `Guest removed from room ${roomNumber} successfully`,
-      data: reservationRoom.serialize(),
+      message: `Guest "${guestName}" removed successfully`,
+      data: {
+        id: reservationGuest.id,
+        removed: true
+      },
     })
+
   } catch (error) {
     if (error.code === 'E_ROW_NOT_FOUND') {
       return response.notFound({
-        message: 'Reservation room not found'
+        message: 'Guest assignment not found'
       })
     }
 
-    console.error('Error removing guest from room:', error)
+    console.error('Error removing guest:', error)
     return response.internalServerError({
-      message: 'Failed to remove guest from room',
+      message: 'Failed to remove guest',
       error: error.message,
     })
   }
@@ -802,20 +768,22 @@ private async removeGuestFromRoom(
 
 
 /**
- * Créer un nouveau guest et l'assigner à une chambre (remplace l'ancien si existant)
+ * Créer un nouveau guest et l'assigner à une chambre
+ * @param replaceMode - Si true, remplace tous les guests existants. Si false, ajoute le guest.
  */
 async createAndAssignGuest(ctx: HttpContext) {
   const { params, request, response, auth } = ctx
 
   try {
-
     // Valider les données du nouveau guest
     const payload = await request.validateUsing(createGuestValidator)
 
+    // Récupérer le mode de remplacement
+    const { replaceMode = true } = request.only(['replaceMode'])
+
     const reservationRoomId = params.id
 
-    //  RÉCUPÉRER LA RESERVATION ROOM
-
+    // RÉCUPÉRER LA RESERVATION ROOM
     const reservationRoom = await ReservationRoom.query()
       .where('id', reservationRoomId)
       .preload('guest')
@@ -824,12 +792,13 @@ async createAndAssignGuest(ctx: HttpContext) {
         query.preload('hotel')
       })
       .firstOrFail()
+
     const roomNumber = reservationRoom.room?.roomNumber || 'Unknown'
     let oldGuestName = null
     let oldGuestId = null
 
-    // RETIRER L'ANCIEN GUEST S'IL EXISTE
-    if (reservationRoom.guestId) {
+    // RETIRER L'ANCIEN GUEST SEULEMENT SI replaceMode === true
+    if (replaceMode && reservationRoom.guestId) {
       const removeResult = await this.removeGuestFromRoom(reservationRoom, auth, ctx)
       oldGuestId = removeResult.oldGuestId
       oldGuestName = removeResult.oldGuestName
@@ -843,14 +812,11 @@ async createAndAssignGuest(ctx: HttpContext) {
     }
 
     // Convertir les dates
-
     if (payload.dateOfBirth) {
       guestData.dateOfBirth = DateTime.fromJSDate(payload.dateOfBirth)
-
     }
     if (payload.passportExpiry) {
       guestData.passportExpiry = DateTime.fromJSDate(payload.passportExpiry)
-
     }
     if (payload.visaExpiry) {
       guestData.visaExpiry = DateTime.fromJSDate(payload.visaExpiry)
@@ -887,13 +853,15 @@ async createAndAssignGuest(ctx: HttpContext) {
       ctx,
     })
 
+    // ASSIGNER LE NOUVEAU GUEST À LA CHAMBRE
 
-    //  ASSIGNER LE NOUVEAU GUEST À LA CHAMBRE
-    reservationRoom.guestId = newGuest.id
-    reservationRoom.lastModifiedBy = auth.user?.id!
-    await reservationRoom.save()
+    if (replaceMode) {
+      // Mode remplacement: assigner directement
+      reservationRoom.guestId = newGuest.id
+      reservationRoom.lastModifiedBy = auth.user?.id!
+      await reservationRoom.save()
 
-    // Mettre à jour la réservation
+       // Mettre à jour la réservation
     const reservation = await Reservation.findOrFail(reservationRoom.reservationId)
     if (!reservation.guestId) {
       reservation.guestId = newGuest.id
@@ -901,53 +869,80 @@ async createAndAssignGuest(ctx: HttpContext) {
       await reservation.save()
     }
 
-    // Gérer ReservationGuest
-    const existingReservationGuest = await ReservationGuest.query()
-      .where('reservation_id', reservationRoom.reservationId)
-      .whereNull('guest_id')
-      .first()
-
-    if (existingReservationGuest) {
-      existingReservationGuest.guestId = newGuest.id
-      existingReservationGuest.lastModifiedBy = auth.user?.id || null
-      await existingReservationGuest.save()
-    } else {
-      await ReservationGuest.create({
-        reservationId: reservationRoom.reservationId,
-        guestId: newGuest.id,
-        createdBy: auth.user?.id!,
-        lastModifiedBy: auth.user?.id || null,
-      })
     }
 
-    // Mettre à jour les folios
-    const folios = await Folio.query()
-      .where('reservation_id', reservationRoom.reservationId)
-      .whereNull('guest_id')
+    // GÉRER ReservationGuest
+    if (replaceMode) {
+      const existingReservationGuest = await ReservationGuest.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .where('guest_id', newGuest.id)
+        .first()
 
-    for (const folio of folios) {
-      folio.guestId = newGuest.id
-      folio.folioName = newGuest.fullName + '-GUEST'
-      folio.lastModifiedBy = auth.user?.id!
-      await folio.save()
+      if (!existingReservationGuest) {
+        await ReservationGuest.create({
+          reservationId: reservationRoom.reservationId,
+          guestId: newGuest.id,
+          createdBy: auth.user?.id!,
+          lastModifiedBy: auth.user?.id || null,
+        })
+      }
+    }else {
+      const existingReservationGuest = await ReservationGuest.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .where('guest_id', newGuest.id)
+        .first()
+
+      if (!existingReservationGuest) {
+        await ReservationGuest.create({
+          reservationId: reservationRoom.reservationId,
+          guestId: newGuest.id,
+          createdBy: auth.user?.id!,
+          lastModifiedBy: auth.user?.id || null,
+          roomAssignment: reservationRoom.id,
+        })
+      }
+
+
+    }
+
+
+
+
+    // Mettre à jour les folios (uniquement si replaceMode ou aucun guest assigné)
+    if (replaceMode) {
+      const folios = await Folio.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .whereNull('guest_id')
+
+      for (const folio of folios) {
+        folio.guestId = newGuest.id
+        folio.folioName = newGuest.fullName + '-GUEST'
+        folio.lastModifiedBy = auth.user?.id!
+        await folio.save()
+      }
     }
 
     // Logger l'assignation
+    const actionDescription = replaceMode
+      ? `Guest "${newGuest.fullName}" assigned to room ${roomNumber}${
+          oldGuestName ? ` (replaced "${oldGuestName}")` : ''
+        }`
+      : `Guest "${newGuest.fullName}" added to room ${roomNumber}`
+
     await LoggerService.log({
       actorId: auth.user?.id || 0,
       action: 'UPDATE',
       entityType: 'ReservationRoom',
       entityId: reservationRoom.id,
       hotelId: reservationRoom.reservation?.hotelId || 0,
-      description: `Guest "${newGuest.fullName}" assigned to room ${roomNumber}${
-        oldGuestName ? ` (replaced "${oldGuestName}")` : ''
-      }`,
+      description: actionDescription,
       changes: { guestId: { old: oldGuestId, new: newGuest.id } },
       meta: {
         reservationId: reservationRoom.reservationId,
         roomId: reservationRoom.roomId,
         guestId: newGuest.id,
         previousGuestId: oldGuestId,
+        replaceMode,
       },
       ctx,
     })
@@ -958,14 +953,19 @@ async createAndAssignGuest(ctx: HttpContext) {
     await reservationRoom.load('roomType')
     await reservationRoom.load('guest')
 
-    return response.ok({
-      message: oldGuestName
+    const successMessage = replaceMode
+      ? oldGuestName
         ? `Guest "${oldGuestName}" removed and "${newGuest.fullName}" assigned to room ${roomNumber} successfully`
-        : `Guest "${newGuest.fullName}" assigned to room ${roomNumber} successfully`,
+        : `Guest "${newGuest.fullName}" assigned to room ${roomNumber} successfully`
+      : `Guest "${newGuest.fullName}" added to room ${roomNumber} successfully`
+
+    return response.ok({
+      message: successMessage,
       data: {
         guest: newGuest.serialize(),
         reservationRoom: reservationRoom.serialize(),
         previousGuest: oldGuestId ? { id: oldGuestId, name: oldGuestName } : null,
+        replaceMode,
       },
     })
   } catch (error) {
@@ -982,5 +982,173 @@ async createAndAssignGuest(ctx: HttpContext) {
   }
 }
 
+/**
+ * Assigner un guest existant à une chambre
+ * @param replaceMode - Si true, remplace tous les guests existants. Si false, ajoute le guest.
+ */
+async assignExistingGuestToRoom(ctx: HttpContext) {
+  const { params, request, response, auth } = ctx
+
+  try {
+    const reservationRoomId = params.id
+    const { guestId, replaceMode  } = request.only(['guestId', 'replaceMode'])
+
+    if (!guestId || typeof guestId !== 'number') {
+      return response.badRequest({ message: 'Valid Guest ID is required' })
+    }
+
+    // Vérifier que le guest existe
+    const guest = await Guest.find(guestId)
+    if (!guest) {
+      return response.notFound({ message: 'Guest not found' })
+    }
+
+    // Récupérer la chambre de réservation
+    const reservationRoom = await ReservationRoom.query()
+      .where('id', reservationRoomId)
+      .preload('guest')
+      .preload('room')
+      .preload('reservation', (query) => {
+        query.preload('hotel')
+      })
+      .firstOrFail()
+
+    const roomNumber = reservationRoom.room?.roomNumber || 'Unknown'
+    let oldGuestName = null
+    let oldGuestId = null
+
+    // Retirer l'ancien guest SEULEMENT SI replaceMode === true
+    if (replaceMode && reservationRoom.guestId) {
+      const removeResult = await this.removeGuestFromRoom(reservationRoom, auth, ctx)
+      oldGuestId = removeResult.oldGuestId
+      oldGuestName = removeResult.oldGuestName
+    }
+
+    // Assigner le guest à la chambre
+    if (replaceMode) {
+      reservationRoom.guestId = guest.id
+      reservationRoom.lastModifiedBy = auth.user?.id!
+      await reservationRoom.save()
+
+      // Sinon, logique pour ajouter un guest supplémentaire
+
+
+      // Mettre à jour la réservation
+      const reservation = await Reservation.findOrFail(reservationRoom.reservationId)
+      if (!reservation.guestId) {
+        reservation.guestId = guest.id
+        reservation.lastModifiedBy = auth.user?.id || null
+        await reservation.save()
+      }
+
+
+
+     }
+
+    // Gérer ReservationGuest
+    if (replaceMode) {
+      const existingReservationGuest = await ReservationGuest.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .where('guest_id', guest.id)
+        .first()
+
+      if (!existingReservationGuest) {
+        await ReservationGuest.create({
+          reservationId: reservationRoom.reservationId,
+          guestId: guest.id,
+          createdBy: auth.user?.id!,
+          lastModifiedBy: auth.user?.id || null,
+        })
+      }
+    }else {
+      const existingReservationGuest = await ReservationGuest.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .where('guest_id', guest.id)
+        .first()
+
+      if (!existingReservationGuest) {
+        await ReservationGuest.create({
+          reservationId: reservationRoom.reservationId,
+          guestId: guest.id,
+          createdBy: auth.user?.id!,
+          lastModifiedBy: auth.user?.id || null,
+          roomAssignment: reservationRoom.id,
+        })
+      }
+    }
+
+    // Mettre à jour les folios (uniquement si replaceMode)
+    if (replaceMode) {
+      const folios = await Folio.query()
+        .where('reservation_id', reservationRoom.reservationId)
+        .whereNull('guest_id')
+
+      for (const folio of folios) {
+        folio.guestId = guest.id
+        folio.folioName = guest.fullName + '-GUEST'
+        folio.lastModifiedBy = auth.user?.id!
+        await folio.save()
+      }
+    }
+
+    // Logger l'assignation
+    const actionDescription = replaceMode
+      ? `Guest "${guest.fullName}" assigned to room ${roomNumber}${
+          oldGuestName ? ` (replaced "${oldGuestName}")` : ''
+        }`
+      : `Guest "${guest.fullName}" added to room ${roomNumber}`
+
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'UPDATE',
+      entityType: 'ReservationRoom',
+      entityId: reservationRoom.id,
+      hotelId: reservationRoom.reservation?.hotelId || 0,
+      description: actionDescription,
+      changes: { guestId: { old: oldGuestId, new: guest.id } },
+      meta: {
+        reservationId: reservationRoom.reservationId,
+        roomId: reservationRoom.roomId,
+        guestId: guest.id,
+        previousGuestId: oldGuestId,
+        replaceMode,
+      },
+      ctx,
+    })
+
+    // Recharger avec toutes les relations
+    await reservationRoom.refresh()
+    await reservationRoom.load('room')
+    await reservationRoom.load('roomType')
+    await reservationRoom.load('guest')
+
+    const successMessage = replaceMode
+      ? oldGuestName
+        ? `Guest "${oldGuestName}" removed and "${guest.fullName}" assigned to room ${roomNumber} successfully`
+        : `Guest "${guest.fullName}" assigned to room ${roomNumber} successfully`
+      : `Guest "${guest.fullName}" added to room ${roomNumber} successfully`
+
+    return response.ok({
+      message: successMessage,
+      data: {
+        guest: guest.serialize(),
+        reservationRoom: reservationRoom.serialize(),
+        previousGuest: oldGuestId ? { id: oldGuestId, name: oldGuestName } : null,
+        replaceMode,
+      },
+    })
+  } catch (error) {
+    console.error('Full error:', error)
+
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.notFound({ message: 'Reservation room or guest not found' })
+    }
+
+    return response.internalServerError({
+      message: 'Failed to assign guest to room',
+      error: error.message,
+    })
+  }
+}
 
 }

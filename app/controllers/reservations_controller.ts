@@ -1129,6 +1129,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .preload('reservationRooms', (query) => {
           query.preload('roomType')
           query.preload('guest')
+          query.preload('guests')
           query
             .preload('room')
             .preload('paymentMethod')
@@ -8784,16 +8785,16 @@ export default class ReservationsController extends CrudController<typeof Reserv
   private generateGuestPoliceHtml(guest: Guest, reservation: Reservation): string {
     const room = reservation.reservationRooms?.[0]?.room
     const reservationRoom = reservation.reservationRooms?.[0]
-    
+
     // Helper function for date formatting
     const formatDate = (dateString: string) => {
       if (!dateString) return ''
       return new Date(dateString).toLocaleDateString('fr-FR')
     }
-    
+
     // Calculate number of persons (adults + children)
     const numberOfPersons = (reservation.adults || 0) + (reservation.children || 0)
-    
+
 /*     // Helper for getting payment method in French
     const getPaymentMethodInFrench = (method: string) => {
       const paymentMethods: { [key: string]: string } = {
@@ -8807,15 +8808,15 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       return paymentMethods[method] || method || ''
     } */
-    
+
     // Get guest's full name in capital letters
     const fullNameInCaps = `${guest.lastName?.toUpperCase() || ''} ${guest.firstName?.toUpperCase() || ''}`
-    
+
     // Format passport/ID information
     const idType = guest.idType || ''
     const idNumber = guest.passportNumber || guest.idNumber || ''
     const idDisplay = idType && idNumber ? `${idType}: ${idNumber}` : idNumber || ''
-  
+
     return `
    <!DOCTYPE html>
 <html lang="fr">
@@ -8829,7 +8830,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       font-family: 'Arial', sans-serif;
       background: #f5f5f5;
@@ -8839,7 +8840,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       align-items: center;
       min-height: 100vh;
     }
-    
+
     .registration-form {
       max-width: 210mm;
       width: 100%;
@@ -8854,32 +8855,32 @@ export default class ReservationsController extends CrudController<typeof Reserv
       padding-top: 25px;
       padding-bottom: 25px;
     }
-    
+
     .hotel-header {
       text-align: center;
       border-bottom: 1px solid #ddd;
       padding-bottom: 15px;
       margin-bottom: 20px;
     }
-    
+
     .hotel-name {
       font-size: 24px;
       font-weight: bold;
       color: #333;
       margin-bottom: 5px;
     }
-    
+
     .hotel-address {
       font-size: 12px;
       color: #666;
       margin-bottom: 3px;
     }
-    
+
     .contact-info {
       font-size: 11px;
       color: #666;
     }
-    
+
     .form-title {
       text-align: center;
       font-size: 18px;
@@ -8890,40 +8891,40 @@ export default class ReservationsController extends CrudController<typeof Reserv
       padding-left: 10px;
       padding-right: 10px;
     }
-    
+
     .form-section {
       margin-bottom: 15px;
       padding-left: 10px;
       padding-right: 10px;
     }
-    
+
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 15px;
       margin-bottom: 10px;
     }
-    
+
     .form-field {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 2px 0;
     }
-    
+
     .label-fr {
       font-weight: bold;
       font-size: 11px;
       white-space: nowrap;
       min-width: 120px;
     }
-    
+
     .label-en {
       font-size: 9px;
       color: #666;
       font-style: italic;
       display: block;
-    }    
+    }
     .line-dot,
     .line-empty {
       flex: 1;
@@ -8933,18 +8934,18 @@ export default class ReservationsController extends CrudController<typeof Reserv
       display: flex;
       align-items: center;
     }
-    
+
     .line-empty {
       border-bottom: 1px solid #999;
     }
-    
+
     .filled-value {
       color: #1e40af;
       font-weight: 500;
       font-size: 10pt;
       margin-left: 6px;
     }
-    
+
     /* Section signature alignée à droite */
     .signature-section {
       display: flex;
@@ -8954,13 +8955,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       padding-right: 10px;
       padding-left: 10px;
     }
-    
+
     .signature-box {
       text-align: right;
       min-width: 150px;
       width: 50%;
     }
-    
+
     .signature-line {
       border-bottom: 1px solid #333;
       margin-bottom: 80px;
@@ -8970,35 +8971,35 @@ export default class ReservationsController extends CrudController<typeof Reserv
       min-width: 150px;
       display: inline-block;
     }
-    
+
     /* Ajout d'une classe pour le conteneur principal si nécessaire */
     .content-wrapper {
       /* Pour un contrôle plus fin de l'espacement global */
       padding: 5px;
     }
-    
+
     @media print {
       @page {
         size: A4 portrait;
         margin: 15mm; /* Augmenter légèrement les marges d'impression */
       }
-      
+
       body {
         background: white;
         padding: 0;
         display: block;
       }
-      
+
       .registration-form {
         box-shadow: none;
         padding: 25px 30px; /* Conserver les marges en impression */
         border: 2px solid #000000;
       }
-      
+
       .filled-value {
         color: #0000AA !important;
       }
-      
+
       /* Ajuster l'espacement pour l'impression */
       .form-section {
         margin-bottom: 12px;

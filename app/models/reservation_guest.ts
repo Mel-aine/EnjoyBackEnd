@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Reservation from './reservation.js'
 import Guest from './guest.js'
+import ReservationRoom from './reservation_room.js'
 
 export default class ReservationGuest extends BaseModel {
   @column({ isPrimary: true })
@@ -59,4 +60,9 @@ export default class ReservationGuest extends BaseModel {
 
   @belongsTo(() => Guest)
   declare guest: BelongsTo<typeof Guest>
+
+  @belongsTo(() => ReservationRoom, {
+    foreignKey: 'roomAssignment'
+  })
+  declare reservationRoom: BelongsTo<typeof ReservationRoom>
 }

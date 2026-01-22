@@ -1103,6 +1103,7 @@ router
         router.post('/:id/check-in', reservationRoomsController.checkIn.bind(reservationRoomsController)) // Check in guest to room
         router.post('/:id/check-out', reservationRoomsController.checkOut.bind(reservationRoomsController)) // Check out guest from room
         router.post('/:id/create-and-assign-guest',reservationRoomsController.createAndAssignGuest.bind(reservationRoomsController))
+        router.put('/:id/assign-existing-guest',reservationRoomsController.assignExistingGuestToRoom.bind(reservationRoomsController))
 
         // Retirer un client d'une chambre
         router.put('/:id/remove-guest',reservationRoomsController.removeGuestFromReservationRoom.bind(reservationRoomsController))

@@ -13,6 +13,7 @@ import Hotel from './hotel.js'
 import RateType from './rate_type.js'
 import MealPlan from './meal_plan.js'
 import ReservationRoomService from '../services/reservation_room_service.js'
+import ReservationGuest from './reservation_guest.js'
 import { ChannexService } from '../services/channex_service.js'
 
 export default class ReservationRoom extends BaseModel {
@@ -737,6 +738,11 @@ export default class ReservationRoom extends BaseModel {
 
   @belongsTo(() => MealPlan, { foreignKey: 'mealPlanId' })
   declare mealPlan: BelongsTo<typeof MealPlan>
+
+  @hasMany(() => ReservationGuest, {
+    foreignKey: 'roomAssignment'
+  })
+  declare guests: HasMany<typeof ReservationGuest>
 
   // Computed properties
   get isCheckedIn() {

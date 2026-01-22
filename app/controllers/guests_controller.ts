@@ -38,73 +38,87 @@ export default class GuestsController {
   /**
    * Display a list of guests
    */
+
   async index({ request, response }: HttpContext) {
-    try {
-      const page = request.input('page', 1)
-      const limit = request.input('limit', 10)
-      const search = request.input('search')
-      const status = request.input('status')
-      const vipStatus = request.input('vip_status')
-      const nationality = request.input('nationality')
-      const blacklisted = request.input('blacklisted')
-      const guestType = request.input('guest_type')
-      const hotelId = request.input('hotel_id')
+  try {
+    const page = request.input('page', 1)
+    const limit = request.input('limit', 10)
+    const search = request.input('search')
+    const status = request.input('status')
+    const vipStatus = request.input('vip_status')
+    const nationality = request.input('nationality')
+    const blacklisted = request.input('blacklisted')
+    const guestType = request.input('guest_type')
+    const hotelId = request.input('hotel_id')
 
-      const query = Guest.query()
-        .preload('vipStatuses')
+    const query = Guest.query()
+      .preload('vipStatuses')
 
-      if (hotelId) {
-        query.where('hotelId', hotelId);
-      } else {
-        return response.badRequest({ message: 'hotelId is required' });
-      }
+    if (hotelId) {
+      query.where('hotelId', hotelId);
+    } else {
+      return response.badRequest({ message: 'hotelId is required' });
+    }
 
-      if (search) {
-        query.where((builder) => {
-          builder
-            .where('first_name', 'ILIKE', `%${search}%`)
-            .orWhere('last_name', 'ILIKE', `%${search}%`)
-            .orWhere('email', 'ILIKE', `%${search}%`)
-            .orWhere('phone_primary', 'ILIKE', `%${search}%`)
-            .orWhere('guest_code', 'ILIKE', `%${search}%`)
-          // .orWhere('loyalty_number', 'ILIKE', `%${search}%`)
-
-        })
-      }
-
-      if (status) {
-        query.where('status', status)
-      }
-
-      if (vipStatus !== undefined) {
-        query.where('vipStatusId', vipStatus)
-      }
-
-      if (nationality) {
-        query.where('nationality', nationality)
-      }
-
-      if (blacklisted !== undefined) {
-        query.where('blacklisted', blacklisted)
-      }
-
-      if (guestType) {
-        query.where('guest_type', guestType)
-      }
-
-      const guests = await query.orderBy('created_at', 'desc').paginate(page, limit)
-
-      return response.ok({
-        message: 'Guests retrieved successfully',
-        data: guests,
-      })
-    } catch (error) {
-      return response.internalServerError({
-        message: 'Failed to retrieve guests',
-        error: error.message,
+    if (search) {
+      query.where((builder) => {
+        builder
+          .where('first_name', 'ILIKE', `%${search}%`)
+          .orWhere('last_name', 'ILIKE', `%${search}%`)
+          .orWhere('email', 'ILIKE', `%${search}%`)
+          .orWhere('phone_primary', 'ILIKE', `%${search}%`)
+          .orWhere('guest_code', 'ILIKE', `%${search}%`)
       })
     }
+
+    if (status) {
+      query.where('status', status)
+    }
+
+    if (vipStatus !== undefined) {
+      query.where('vipStatusId', vipStatus)
+    }
+
+    if (nationality) {
+      query.where('nationality', nationality)
+    }
+
+    if (blacklisted !== undefined) {
+      query.where('blacklisted', blacklisted)
+    }
+
+    if (guestType) {
+      query.where('guest_type', guestType)
+    }
+
+    // Si limit est 'all' ou -1, récupérer tous les résultats
+    let guests
+    if (limit === 'all' || limit === -1 || limit === '-1') {
+      const allGuests = await query.orderBy('created_at', 'desc')
+      guests = {
+        data: allGuests,
+        meta: {
+          total: allGuests.length,
+          per_page: allGuests.length,
+          current_page: 1,
+          last_page: 1,
+        }
+      }
+    } else {
+      guests = await query.orderBy('created_at', 'desc').paginate(page, limit)
+    }
+
+    return response.ok({
+      message: 'Guests retrieved successfully',
+      data: guests,
+    })
+  } catch (error) {
+    return response.internalServerError({
+      message: 'Failed to retrieve guests',
+      error: error.message,
+    })
   }
+}
 
   /**
    * Create a new guest
