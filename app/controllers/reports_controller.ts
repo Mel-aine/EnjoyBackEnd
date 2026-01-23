@@ -1422,13 +1422,13 @@ export default class ReportsController {
 
       // Generate all sections data
       const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
-      
+
       let sectionsData: any = {}
-      if(auditDetails && auditDetails.nightAuditReportData) {
+      if (auditDetails && auditDetails.nightAuditReportData) {
         sectionsData = auditDetails?.nightAuditReportData;
-      } else{
+      } else {
         sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
-      } 
+      }
       // Generate HTML content
       const htmlContent = this.generateNightAuditReportHtml(
         hotel.hotelName,
@@ -1500,7 +1500,7 @@ export default class ReportsController {
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDate.toFormat('yyyy-MM-dd'))
       .where('depart_date', '>', reportDate.toFormat('yyyy-MM-dd'))
-      .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .whereIn('status', ['checked_out', 'checked_in', ReservationStatus.CONFIRMED])
       .whereDoesntHave('reservationRooms', (rr) => {
         rr.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
       })
@@ -4414,7 +4414,7 @@ export default class ReportsController {
       // 1. Calculate Opening Balances (Cumulative up to start date)
       // Today's opening balance
       let openingBalanceToday = await LedgerService.getOpeningBalance(hotelId, reportDate, 'cityLedgerClosingBalance')
-      
+
       if (openingBalanceToday === null) {
         openingBalanceToday =
           (await LedgerService.getCityLedgerTransfers(hotelId, null, reportDate)) -
@@ -4427,7 +4427,7 @@ export default class ReportsController {
         (await LedgerService.getCityLedgerTransfers(hotelId, null, ptdStartDate)) -
         (await LedgerService.getCityLedgerPayments(hotelId, null, ptdStartDate)) -
         (await LedgerService.getCityLedgerCommissions(hotelId, null, ptdStartDate))
-        
+
       const openingBalanceYTD =
         (await LedgerService.getCityLedgerTransfers(hotelId, null, ytdStartDate)) -
         (await LedgerService.getCityLedgerPayments(hotelId, null, ytdStartDate)) -
@@ -4502,13 +4502,13 @@ export default class ReportsController {
   ) {
     try {
       const { default: LedgerService } = await import('#services/ledger_service')
-      
+
       const metrics = await LedgerService.getAdvanceDepositLedgerMetrics(hotelId, reportDate)
 
       // PTD Calculations
       let openingBalancePTD = await LedgerService.getOpeningBalance(hotelId, ptdStartDate, 'advanceDepositLedgerClosingBalance')
       if (openingBalancePTD === null) {
-        openingBalancePTD = 
+        openingBalancePTD =
           (await LedgerService.getAdvanceDepositsCollected(hotelId, null, ptdStartDate)) -
           (await LedgerService.getAdvanceDepositTransfers(hotelId, null, ptdStartDate))
       }
@@ -4519,7 +4519,7 @@ export default class ReportsController {
       // YTD Calculations
       let openingBalanceYTD = await LedgerService.getOpeningBalance(hotelId, ytdStartDate, 'advanceDepositLedgerClosingBalance')
       if (openingBalanceYTD === null) {
-        openingBalanceYTD = 
+        openingBalanceYTD =
           (await LedgerService.getAdvanceDepositsCollected(hotelId, null, ytdStartDate)) -
           (await LedgerService.getAdvanceDepositTransfers(hotelId, null, ytdStartDate))
       }
@@ -4567,7 +4567,7 @@ export default class ReportsController {
   ) {
     try {
       const { default: LedgerService } = await import('#services/ledger_service')
-      
+
       const metrics = await LedgerService.getGuestLedgerMetrics(hotelId, reportDate)
 
       const outstandingToday = metrics.charges - metrics.settlements
