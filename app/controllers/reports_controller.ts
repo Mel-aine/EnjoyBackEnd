@@ -1748,7 +1748,8 @@ export default class ReportsController {
       .where('hotel_id', hotelId)
       .where('arrived_date', '<=', reportDateStr)
       .where('depart_date', '>', reportDateStr)
-      .whereIn('status', ['checked_in', ReservationStatus.CONFIRMED])
+      .whereRaw('DATE(created_at) != ?', [reportDateStr])
+      .whereIn('status', ['checked_out', 'checked_in', ReservationStatus.CONFIRMED])
       .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (roomQuery) => {
         roomQuery.preload('room')
