@@ -1422,8 +1422,13 @@ export default class ReportsController {
 
       // Generate all sections data
       const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
-      const sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
-      //const sectionsData = auditDetails?.nightAuditReportData;
+      
+      let sectionsData: any = {}
+      if(auditDetails && auditDetails.nightAuditReportData) {
+        sectionsData = auditDetails?.nightAuditReportData;
+      } else{
+        sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
+      } 
       // Generate HTML content
       const htmlContent = this.generateNightAuditReportHtml(
         hotel.hotelName,
