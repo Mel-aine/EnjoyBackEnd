@@ -625,6 +625,7 @@ export class FolioPrintService {
 
           switch (transaction.transactionType) {
             case 'charge':
+            case 'room_posting':
               totalCharges += amount
               break
             case 'payment':
