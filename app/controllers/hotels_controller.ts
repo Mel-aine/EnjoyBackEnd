@@ -393,7 +393,9 @@ export default class HotelsController {
         'registrationNo2',
         'registrationNo3',
         'cancellationPolicy',
-        'hotelPolicy'
+        'hotelPolicy',
+        'nightAuditStartTime',
+        'nightAuditEndTime',
       ])
 
       // Create update data with proper typing

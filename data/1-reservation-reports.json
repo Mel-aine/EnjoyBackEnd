@@ -167,6 +167,10 @@
       {
         "id": "meal_plan",
         "name": "Meal Plan"
+      },
+      {
+        "id": "work_order_list",
+        "name": "Work Order List"
       }
     ]
   },
