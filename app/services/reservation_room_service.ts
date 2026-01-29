@@ -1,5 +1,6 @@
 import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
+import RoomBlock from '#models/room_block'
 import { DateTime } from 'luxon'
 import { ReservationStatus } from '../enums.js'
 
@@ -32,7 +33,27 @@ export default class ReservationRoomService {
     }
 
     const conflictingReservations = await query
-    return conflictingReservations.length === 0
+    if (conflictingReservations.length > 0) {
+      return false
+    }
+
+    // Check for room blocks
+    const conflictingBlocks = await RoomBlock.query()
+      .where('room_id', roomId)
+      .whereIn('status', ['pending', 'inProgress'])
+      .where(function (subQuery) {
+        subQuery
+          .whereBetween('block_from_date', [checkInDate, checkOutDate])
+          .orWhereBetween('block_to_date', [checkInDate, checkOutDate])
+          .orWhere(function (dateQuery) {
+            dateQuery
+              .where('block_from_date', '<=', checkInDate)
+              .where('block_to_date', '>=', checkOutDate)
+          })
+      })
+      .first()
+
+    return !conflictingBlocks
   }
 
   /**
@@ -72,18 +93,54 @@ export default class ReservationRoomService {
       .orderBy('sort_key', 'asc')
       .preload('roomType')
 
-    // Filter out rooms that are already booked for the given dates
-    const availableRooms: Room[] = []
-    for (const room of allRooms) {
-      const isAvailable = await this.checkRoomAvailability(
-        room.id,
-        checkInDate,
-        checkOutDate
-      )
-      if (isAvailable) {
-        availableRooms.push(room)
-      }
+    // Batch check for conflicting reservations
+    const roomIds = allRooms.map((r) => r.id)
+    if (roomIds.length === 0) {
+      return []
     }
+
+    const conflictingReservations = await ReservationRoom.query()
+      .whereIn('room_id', roomIds)
+      .where('status', '!=', 'cancelled')
+      .where(function (subQuery) {
+        subQuery
+          .whereBetween('check_in_date', [checkInDate, checkOutDate])
+          .orWhereBetween('check_out_date', [checkInDate, checkOutDate])
+          .orWhere(function (dateQuery) {
+            dateQuery
+              .where('check_in_date', '<=', checkInDate)
+              .where('check_out_date', '>=', checkOutDate)
+          })
+      })
+      .select('room_id')
+
+    // Batch check for conflicting blocks
+    const conflictingBlocks = await RoomBlock.query()
+      .whereIn('room_id', roomIds)
+      .whereIn('status', ['pending', 'inProgress'])
+      .where(function (subQuery) {
+        subQuery
+          .whereBetween('block_from_date', [checkInDate, checkOutDate])
+          .orWhereBetween('block_to_date', [checkInDate, checkOutDate])
+          .orWhere(function (dateQuery) {
+            dateQuery
+              .where('block_from_date', '<=', checkInDate)
+              .where('block_to_date', '>=', checkOutDate)
+          })
+      })
+      .select('room_id')
+
+    // Create a set of unavailable room IDs
+    const unavailableRoomIds = new Set<number>()
+    conflictingReservations.forEach((r) => {
+      if (r.roomId) unavailableRoomIds.add(r.roomId)
+    })
+    conflictingBlocks.forEach((b) => {
+      if (b.roomId) unavailableRoomIds.add(b.roomId)
+    })
+
+    // Filter available rooms
+    const availableRooms = allRooms.filter((room) => !unavailableRoomIds.has(room.id))
 
     return availableRooms
   }

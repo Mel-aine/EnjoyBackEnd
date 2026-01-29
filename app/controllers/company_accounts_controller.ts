@@ -23,7 +23,7 @@ export default class CompanyAccountsController {
       }
       const all = request.input('all', false)
       const page = request.input('page', 1)
-      const perPage = request.input('perPage', 10)
+      const perPage = request.input('perPage', 10000)
       const sortBy = request.input('sortBy', 'id')
       const order = request.input('order', 'asc')
 
