@@ -4185,6 +4185,87 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const workingDate = reservation.hotel?.currentWorkingDate || DateTime.now()
 
       // =============================
+      //  VÉRIFICATION DES CONFLITS DE DATES
+      // =============================
+
+        const roomsToCheck = selectedRooms && selectedRooms.length > 0
+          ? reservation.reservationRooms.filter((rr) => selectedRooms.includes(rr.roomId))
+          : reservation.reservationRooms.filter((rr) => !rr.isSplitedOrigin)
+
+
+        // Pour chaque chambre à modifier, vérifier les conflits
+        for (const reservationRoom of roomsToCheck) {
+          if (!reservationRoom.roomId) {
+            continue
+          }
+
+          const checkInDate = newArrivalDateTime || reservationRoom.checkInDate
+          const checkOutDate = newDepartureDateTime || reservationRoom.checkOutDate
+
+
+          // Liste complète des statuts actifs (qui occupent réellement la chambre)
+          const activeStatuses = [
+            'confirmed',
+            'guaranteed',
+            'pending',
+            'checked_in',
+            'checked-in',
+            'reserved',
+            'inhouse',
+            'due_out',
+            'departure'
+          ]
+
+          // Rechercher les réservations conflictuelles sur la même chambre
+          const conflictingReservations = await db
+            .from('reservation_rooms')
+            .where('room_id', reservationRoom.roomId)
+            .where('reservation_id', '!=', reservationId)
+            .whereIn('status', activeStatuses)
+            .where('check_in_date', '<', checkOutDate.toSQLDate()!)
+            .where('check_out_date', '>', checkInDate.toSQLDate()!)
+
+
+
+          if (conflictingReservations.length > 0) {
+            await trx.rollback()
+
+            const room = await db
+              .from('rooms')
+              .where('id', reservationRoom.roomId)
+              .first()
+
+            const roomNumber = room?.room_number || reservationRoom.roomId
+
+            const conflictDetails = await Promise.all(
+              conflictingReservations.map(async (cr) => {
+                const res = await db
+                  .from('reservations')
+                  .where('id', cr.reservation_id)
+                  .first()
+
+                return {
+                  reservationRoomId: cr.id,
+                  reservationId: cr.reservation_id,
+                  reservationNumber: res?.reservation_number || cr.reservation_id,
+                  checkIn: cr.check_in_date,
+                  checkOut: cr.check_out_date,
+                  roomId: cr.room_id,
+                  roomNumber: roomNumber,
+                  status: cr.status
+                }
+              })
+            )
+
+            return response.conflict({
+              message: `Cannot amend stay: Room ${roomNumber} is already reserved during the selected dates`,
+              details: `Conflicting reservation: ${conflictDetails[0].reservationNumber} (${conflictDetails[0].checkIn} to ${conflictDetails[0].checkOut})`,
+              conflicts: conflictDetails
+            })
+          }
+        }
+
+      // =============================
       // 🎯 AMENDEMENT DES CHAMBRES
       // =============================
 
