@@ -1600,6 +1600,12 @@ export default class ChannexMigrationController {
               await existingReservation.save()
               // Notify Front Office users and default hotel email for cancellation
               try {
+                await ReservationCreationService.sendAcknowledgeToChannex(
+                existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
+                existingReservation.id,
+                userId,
+                ctx
+              )
                 await this.notifyFrontOfficeAndDefaultEmail('RESERVATION_CANCELLED', existingReservation.hotelId, existingReservation.id, userId, ctx)
               } catch (notifyErr) {
                 console.warn('Reservation cancellation notification failed:', (notifyErr as any)?.message)
