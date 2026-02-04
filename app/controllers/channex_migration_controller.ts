@@ -1508,7 +1508,7 @@ export default class ChannexMigrationController {
       const existingReservations = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereIn('reservation_number', uniqueIds)
-        .whereIn('channex_booking_id', channexIds)
+        //.whereIn('channex_booking_id', channexIds)
         .preload('reservationRooms')
         .preload('folios', (q) => q.preload('transactions'))
 
@@ -1963,6 +1963,7 @@ export default class ChannexMigrationController {
           totalUpdated: syncResults.totalUpdated,
           totalErrors: syncResults.totalErrors,
           errors: syncResults.errors,
+
           duration: syncResults.endTime.getTime() - syncResults.startTime.getTime(),
         },
         hotelId: parseInt(hotelId),
