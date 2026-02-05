@@ -15,6 +15,7 @@ import MealPlan from './meal_plan.js'
 import ReservationRoomService from '../services/reservation_room_service.js'
 import ReservationGuest from './reservation_guest.js'
 import { ChannexService } from '../services/channex_service.js'
+import Door from './door.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -687,6 +688,29 @@ export default class ReservationRoom extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
+   @column()
+  declare doorId: number | null  // ID du terminal ZKTeco
+
+  @column()
+  declare userIdOnDevice: string | null  // ID sur le terminal (ex: "00123456")
+
+  @column()
+  declare cardUid: string | null  // UID du badge RFID (optionnel)
+
+  @column.dateTime()
+  declare accessGrantedAt: DateTime | null  // Quand l'accès a été accordé
+
+  @column.dateTime()
+  declare accessRevokedAt: DateTime | null  // Quand l'accès a été révoqué
+
+  @column()
+  declare accessStatus: 'none' | 'granted' | 'expired' | 'revoked' | null
+
+
+  @belongsTo(() => Door)
+  declare door: BelongsTo<typeof Door>
+
+
   // Relationships
   @belongsTo(() => Hotel)
   declare hotel: BelongsTo<typeof Hotel>
@@ -743,6 +767,7 @@ export default class ReservationRoom extends BaseModel {
     foreignKey: 'roomAssignment'
   })
   declare guests: HasMany<typeof ReservationGuest>
+
 
   // Computed properties
   get isCheckedIn() {

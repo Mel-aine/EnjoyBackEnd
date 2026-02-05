@@ -65,3 +65,5 @@ export const middleware = router.named({
 })
 
 
+// import { startScheduledTasks } from '#start/cron'
+// startScheduledTasks()

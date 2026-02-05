@@ -65,6 +65,9 @@ import HouseKeepersController from '#controllers/house_keepers_controller'
 import OtaController from '#controllers/ota_controller'
 import ChannexRestrictionsController from '#controllers/channex_restrictions_controller'
 import NotificationsController from '#controllers/notifications_controller'
+import AccessControlController from '#controllers/access_controls_controller'
+import StaffAccessCardsController from '#controllers/staff_access_cards_controller'
+import AccessControlQueueWorker from '#controllers/access_control_queue_workers_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 // Root route that presents Enjoys API documentation and test examples
@@ -177,6 +180,9 @@ const workOrdersController = new WorkOrdersController()
 const houseKeepersController = new HouseKeepersController()
 const otaController = new OtaController()
 const channexRestrictionsController = new ChannexRestrictionsController()
+const accessControlController = new AccessControlController()
+const staffAccessCardsController = new StaffAccessCardsController()
+const accessControlQueueWorker = new AccessControlQueueWorker()
 
 
 router.get('/swagger', async () => {
@@ -1762,6 +1768,55 @@ router
         // Import reports routes
         router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
       }).prefix('audit-trail')
+
+    // Access Control Management Routes
+    // Door and access log management for access control systems
+    router
+      .group(() => {
+        // Doors CRUD operations
+        router.get('/doors', accessControlController.index.bind(accessControlController)) // List all doors for a hotel
+        router.post('/doors', accessControlController.store.bind(accessControlController)) // Create a new door
+        router.get('/doors/:id', accessControlController.show.bind(accessControlController)) // Show a specific door
+        router.put('/doors/:id', accessControlController.update.bind(accessControlController)) // Update a door
+        router.delete('/doors/:id', accessControlController.destroy.bind(accessControlController)) // Delete a door
+
+      })
+      .prefix('configuration/hotels/:hotelId/access_control');
+
+    router
+      .group(() => {
+        // Door connection and management operations
+        router.post('/doors/:id/test-connection', accessControlController.testConnection.bind(accessControlController)) // Test connection to a specific door
+        router.post('/doors/:id/unlock', accessControlController.unlock.bind(accessControlController)) // Unlock a specific door
+        router.post('/doors/:id/sync-logs', accessControlController.syncLogs.bind(accessControlController)) // Sync logs from a specific door
+        router.post('/doors/:id/sync-time', accessControlController.syncTime.bind(accessControlController)) // Sync time with a specific door
+        router.get('/doors/:id/info', accessControlController.getInfo.bind(accessControlController)) // Get device info for a specific door
+        router.get('/doors/:id/logs', accessControlController.getLogs.bind(accessControlController)) // Get access logs for a specific door
+      })
+      .prefix('access_control');
+
+
+      router
+      .group(()=>{
+       router.post('/:id/retry-queue', accessControlQueueWorker.retryTerminalQueue.bind(accessControlQueueWorker)) // retry  for a specific door
+      })
+      .prefix('terminal')
+
+      /**
+       * Staff
+       */
+
+    router
+    .group(()=>{
+      router.post('/master',staffAccessCardsController.createMasterCard.bind(staffAccessCardsController))
+      router.post('/',staffAccessCardsController.store.bind(staffAccessCardsController))
+      router.post('/:id/revoke',staffAccessCardsController.revoke.bind(staffAccessCardsController))
+      router.get('/', staffAccessCardsController.index.bind(staffAccessCardsController) )
+      router.get('/:id', staffAccessCardsController.show.bind(staffAccessCardsController))
+      router.patch('/:id/deactivate', staffAccessCardsController.deactivate.bind(staffAccessCardsController))
+      router.post('/:id/sync',staffAccessCardsController.sync.bind(staffAccessCardsController))
+    })
+    .prefix('staff-access-cards')
 
     // Work Orders Management Routes
     // Work order creation, assignment, status tracking, and maintenance management

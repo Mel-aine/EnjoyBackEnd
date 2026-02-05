@@ -122,45 +122,49 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
    * including their role and department for that assignment.
    */
   public async getEmployeesForService({ params, request, response }: HttpContext) {
-    try {
-      const hotelId = Number.parseInt(params.hotelId, 10)
-      if (Number.isNaN(hotelId)) {
-        return response.badRequest({ message: 'Invalid hotelId' })
-      }
+  try {
+    const hotelId = Number.parseInt(params.hotelId, 10)
+    const all = request.input('all', false)
 
-      const { roleId, departmentId, search } = request.qs()
-      const page = request.input('page', 1)
-      const perPage = request.input('perPage', 15)
+    if (Number.isNaN(hotelId)) {
+      return response.badRequest({ message: 'Invalid hotelId' })
+    }
 
-      const query = ServiceUserAssignment.query().where('hotel_id', hotelId)
+    const { roleId, departmentId, search } = request.qs()
+    const page = request.input('page', 1)
+    const perPage = request.input('perPage', 15)
 
-      if (departmentId) {
-        query.where('department_id', departmentId)
-      }
+    const query = ServiceUserAssignment.query().where('hotel_id', hotelId)
 
-      if (roleId) {
-        query.whereHas('user', (userQuery) => {
-          userQuery.where('role_id', roleId)
-        })
-      }
+    if (departmentId) {
+      query.where('department_id', departmentId)
+    }
 
-      if (search) {
-        query.whereHas('user', (userQuery) => {
-          userQuery.whereILike('first_name', `%${search}%`).orWhereILike('last_name', `%${search}%`)
-        })
-      }
+    if (roleId) {
+      query.whereHas('user', (userQuery) => {
+        userQuery.where('role_id', roleId)
+      })
+    }
 
-      const assignmentsPaginator = await query
-        .preload('user', (userQuery) => {
-          userQuery.preload('role')
-        })
-        .preload('department')
-        .preload('role')
-        .paginate(page, perPage)
+    if (search) {
+      query.whereHas('user', (userQuery) => {
+        userQuery.whereILike('first_name', `%${search}%`).orWhereILike('last_name', `%${search}%`)
+      })
+    }
 
-      // Transform paginated data to include role and department with user details
-      const result = assignmentsPaginator.toJSON()
-      result.data = result.data
+    // Précharger les relations
+    query
+      .preload('user', (userQuery) => {
+        userQuery.preload('role')
+      })
+      .preload('department')
+      .preload('role')
+
+    if (all === true || all === 'true') {
+      const assignments = await query.exec()
+
+      // Transformer les données
+      const data = assignments
         .map((assignment) => {
           if (!assignment.user) return null
 
@@ -171,17 +175,43 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
             department: assignment.department,
           }
         })
-        .filter(Boolean) // Remove any null entries if a user was not found
+        .filter(Boolean)
 
-      return response.ok(result)
-    } catch (error) {
-      console.error('Error fetching employees for service:', error)
-      return response.internalServerError({
-        message: 'Error fetching employees for the service',
-        error: error.message,
+      return response.ok({
+        success: true,
+        data: data,
+        meta: {
+          total: data.length,
+          all: true
+        }
       })
     }
+
+    const assignmentsPaginator = await query.paginate(page, perPage)
+
+    const result = assignmentsPaginator.toJSON()
+    result.data = result.data
+      .map((assignment) => {
+        if (!assignment.user) return null
+
+        return {
+          ...assignment.$attributes,
+          ...assignment.user.$attributes,
+          role: assignment.role,
+          department: assignment.department,
+        }
+      })
+      .filter(Boolean) // Remove any null entries if a user was not found
+
+    return response.ok(result)
+  } catch (error) {
+    console.error('Error fetching employees for service:', error)
+    return response.internalServerError({
+      message: 'Error fetching employees for the service',
+      error: error.message,
+    })
   }
+}
 
   /**
    * Update User
