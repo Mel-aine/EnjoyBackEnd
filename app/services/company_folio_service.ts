@@ -678,12 +678,13 @@ export default class CompanyFolioService {
    */
   private async generateCompanyFolioNumber(hotelId: number): Promise<string> {
     const lastFolio = await Folio.query()
-      .where('hotelId', hotelId)
+      //.where('hotelId', hotelId)
       .where('folioType', FolioType.COMPANY)
       .orderBy('id', 'desc')
       .first()
 
-    const nextNumber = lastFolio ? parseInt(lastFolio.folioNumber.replace(/\D/g, '')) + 1 : 1
+    const nextNumber = lastFolio ? parseInt(lastFolio.folioNumber.replace(/\D/g, '')) + 1 : 1;
+    console.log(nextNumber)
     return `CF${nextNumber.toString().padStart(6, '0')}`
   }
 

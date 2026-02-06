@@ -305,7 +305,7 @@ export default class FolioTransactionsController {
           // If payment method is City Ledger, create a child transaction on company folio
           try {
             const pm = await PaymentMethod.find(payload.paymentMethodId)
-            if (pm && pm.methodType === PaymentMethodType.CITY_LEDGER) {
+            if (pm && pm.methodType == PaymentMethodType.CITY_LEDGER) {
               // Ensure folio has guest and reservationRoom->room preloaded before creating CL child
               await transaction.load('folio', (folioQuery: any) => {
                 folioQuery.preload('guest')
