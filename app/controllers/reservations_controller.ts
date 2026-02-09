@@ -1247,7 +1247,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               }
               break
             case 'payment':
-              totalPayments += amount
+              totalPayments +=Math.abs(amount) 
               break
             case 'adjustment':
               totalAdjustments += amount
@@ -1276,11 +1276,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
     })
 
     const outstandingBalance =
-      totalCharges +
-      totalTaxes +
-      totalServiceCharges -
-      totalPayments +
-      totalAdjustments
+      parseFloat(totalCharges.toFixed(2)) +
+      parseFloat(totalTaxes.toFixed(2)) +
+      parseFloat(totalServiceCharges.toFixed(2)) -
+      parseFloat(totalPayments.toFixed(2)) +
+      parseFloat(totalAdjustments.toFixed(2))
 
     return {
       totalCharges: parseFloat(totalCharges.toFixed(2)),
@@ -1289,7 +1289,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalTaxes: parseFloat(totalTaxes.toFixed(2)),
       totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
-      outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
+      outstandingBalance: parseFloat(outstandingBalance.toFixed(0)),
       totalChargesWithTaxes: parseFloat(
         (totalCharges + totalTaxes + totalServiceCharges).toFixed(2)
       ),
