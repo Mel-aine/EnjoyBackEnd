@@ -1282,10 +1282,13 @@ export default class FoliosController {
   /**
    * Create folio for reservation
    */
-  async createForReservation({ request, response }: HttpContext) {
+  async createForReservation({ request, response, auth }: HttpContext) {
     try {
       const payload = await request.validateUsing(createReservationFolioValidator)
-      const folio = await ReservationFolioService.createFolioForReservation(payload)
+      const folio = await ReservationFolioService.createFolioForReservation({
+        ...payload,
+        createdBy: auth.user!.id
+      })
 
       return response.created({
         message: 'Folio created successfully for reservation',

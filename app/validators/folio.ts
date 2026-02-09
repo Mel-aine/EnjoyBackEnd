@@ -160,7 +160,6 @@ export const createReservationFolioValidator = vine.compile(
     folioType: vine.enum([FolioType.GUEST, FolioType.MASTER, FolioType.GROUP]).optional(),
     creditLimit: vine.number().min(0).optional(),
     notes: vine.string().maxLength(500).optional(),
-    createdBy: vine.number().positive()
   })
 )
 

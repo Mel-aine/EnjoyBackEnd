@@ -2,6 +2,7 @@ import Folio from '#models/folio'
 import Reservation from '#models/reservation'
 import Guest from '#models/guest'
 import FolioService, { CreateFolioData } from '#services/folio_service'
+import LoggerService from '#services/logger_service'
 import { FolioType, TransactionCategory, TransactionStatus, TransactionType } from '#app/enums'
 import db from '@adonisjs/lucid/services/db'
 import FolioTransaction from '#models/folio_transaction'
@@ -51,6 +52,7 @@ export default class ReservationFolioService {
       const reservation = await Reservation.query({ client: trx })
         .where('id', data.reservationId)
         //.preload('hotel')
+        .preload('reservationRooms')
         .preload('guests', (query) => {
           query.pivotColumns(['is_primary'])
         })
@@ -89,23 +91,27 @@ export default class ReservationFolioService {
         hotelId: reservation.hotelId,
         guestId: primaryGuest.id,
         reservationId: data.reservationId,
-        reservationRoomId: data.reservationRoomId,
+        reservationRoomId: data.reservationRoomId ?? reservation.reservationRooms[0].id,
         groupId: reservation.groupId ?? undefined,
         // companyId: reservation.companyId,
         folioType,
         creditLimit: data.creditLimit || 0,
-        notes: data.notes || `Auto-created for reservation ${reservation.confirmationNumber}`,
+        notes: data.notes,
         createdBy: data.createdBy,
       }
 
       const folio = await FolioService.createFolio(folioData)
 
-      // Update reservation with folio reference
-      /* await reservation.useTransaction(trx).merge({
-         folioId: folio.id,
-         lastModifiedBy: data.createdBy
-       }).save()
-       */
+      await LoggerService.logActivity({
+        actorId: data.createdBy,
+        action: 'CREATE',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio created for reservation ${reservation.confirmationNumber}`,
+        changes: LoggerService.extractChanges({}, folio.toJSON())
+      })
+
       return folio
     })
   }
@@ -331,26 +337,26 @@ export default class ReservationFolioService {
             const netWithoutTax = percRate > 0 ? adjustedGross / (1 + percRate) : adjustedGross
             const includedTaxAmount = Math.max(0, totalGross - netWithoutTax)
             const unitPriceNet = quantity > 0 ? netWithoutTax / quantity : netWithoutTax
-            
+
             // Build tax breakdown for meal plan component
             const taxBreakdown: Array<{ taxRateId: number; taxName: string; taxAmount: number; percentage: number | null }> = []
-            
+
             for (const t of extraTaxes as any[]) {
               const postingType = (t as any)?.postingType
               const percentage = Number((t as any)?.percentage) || 0
               let taxAmount = 0
-              
+
               if (postingType === 'flat_percentage') {
                 // Back-calculate from inclusive amount
-                 taxAmount = (totalGross / (1 + percentageSum / 100)) * (percentage / 100)
+                taxAmount = (totalGross / (1 + percentageSum / 100)) * (percentage / 100)
               } else if (postingType === 'flat_amount') {
-                 // For inclusive flat amount, it's just the amount * quantity (if it was deducted from gross)
-                 // But wait, the logic above did: totalGross - flatSum * quantity. 
-                 // So the flat tax part is flatSum * quantity.
-                 // We need to attribute it to the specific tax rate.
-                 taxAmount = (Number((t as any).amount) || 0) * quantity
+                // For inclusive flat amount, it's just the amount * quantity (if it was deducted from gross)
+                // But wait, the logic above did: totalGross - flatSum * quantity. 
+                // So the flat tax part is flatSum * quantity.
+                // We need to attribute it to the specific tax rate.
+                taxAmount = (Number((t as any).amount) || 0) * quantity
               }
-              
+
               taxBreakdown.push({
                 taxRateId: (t as any).taxRateId,
                 taxName: (t as any).taxName,
@@ -390,7 +396,7 @@ export default class ReservationFolioService {
         const taxes = hotel?.roomChargesTaxRates ?? []
         let percentageSum = 0
         let flatSum = 0
-        
+
         // Prepare for tax breakdown
         const roomTaxBreakdownItems: Array<{ taxRateId: number; taxName: string; taxAmount: number; percentage: number | null }> = []
 
@@ -401,7 +407,7 @@ export default class ReservationFolioService {
             flatSum += Number((tax as any).amount) || 0
           }
         }
-        
+
         const adjustedGross = Math.max(0, grossDailyRate - flatSum)
         const roomAdjustedGross = Math.max(0, totalRoomAmount - flatSum)
         const percRate = percentageSum > 0 ? percentageSum / 100 : 0
@@ -415,24 +421,24 @@ export default class ReservationFolioService {
         const roomFinalBaseRate = Math.max(0, baseRateNetWithoutTax)
         baseAmount = netWithoutTax
         totalDailyAmount = grossDailyRate
-        
+
         // Calculate breakdown amounts
         for (const tax of taxes) {
-            let taxAmount = 0
-            if ((tax as any)?.postingType === 'flat_percentage') {
-                // Back calculate: Tax = (Gross / (1 + Rate)) * Rate
-                // Use roomAdjustedGross because flat amount is already deducted from it
-                taxAmount = (roomAdjustedGross / (1 + percRate)) * (Number((tax as any).percentage) / 100)
-            } else if ((tax as any)?.postingType === 'flat_amount') {
-                taxAmount = Number((tax as any).amount) || 0
-            }
-            
-            roomTaxBreakdownItems.push({
-                taxRateId: (tax as any).taxRateId,
-                taxName: (tax as any).taxName,
-                taxAmount,
-                percentage: (tax as any).percentage
-            })
+          let taxAmount = 0
+          if ((tax as any)?.postingType === 'flat_percentage') {
+            // Back calculate: Tax = (Gross / (1 + Rate)) * Rate
+            // Use roomAdjustedGross because flat amount is already deducted from it
+            taxAmount = (roomAdjustedGross / (1 + percRate)) * (Number((tax as any).percentage) / 100)
+          } else if ((tax as any)?.postingType === 'flat_amount') {
+            taxAmount = Number((tax as any).amount) || 0
+          }
+
+          roomTaxBreakdownItems.push({
+            taxRateId: (tax as any).taxRateId,
+            taxName: (tax as any).taxName,
+            taxAmount,
+            percentage: (tax as any).percentage
+          })
         }
 
         for (let night = 1; night <= effectiveNights; night++) {
