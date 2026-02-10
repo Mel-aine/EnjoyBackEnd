@@ -3460,7 +3460,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           paymentMethodId: data.payment_mod,
           billTo: data.bill_to,
           marketCodeId: data.market_code_id,
-          customType: data.customType,
+          customerType: data.customType,
           paymentType: data.payment_type,
           taxExempt: data.tax_exempt,
           isHold: data.isHold,
@@ -7051,86 +7051,102 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * assign rooom to reservation
    */
-  public async assignRoom(ctx: HttpContext) {
-    const trx = await db.transaction()
-    const { params, request, response, auth } = ctx
-    try {
-      const { reservationId } = params
-      const { reservationRooms } = request.body()
-      const resRoomIds = reservationRooms?.map((e: any) => e.reservationRoomId)
+ public async assignRoom(ctx: HttpContext) {
+  const trx = await db.transaction()
+  const { params, request, response, auth } = ctx
 
-      // Validate required fields
-      if (!reservationRooms) {
-        await trx.rollback()
-        return response.badRequest({ message: 'Room ID is required' })
-      }
+  try {
+    const { reservationId } = params
+    const { reservationRooms } = request.body()
 
-      // Get reservation with related data
-      const reservation = await Reservation.query({ client: trx })
-        .where('id', reservationId)
-        .preload('reservationRooms', (query) => {
-          query.whereIn('id', resRoomIds)
-        })
-        .first()
-
-      if (!reservation) {
-        await trx.rollback()
-        return response.notFound({ message: 'Reservation not found' })
-      }
-      const assignedRooms: string[] = []
-      for (const reservationRoom of reservation.reservationRooms) {
-        if (reservationRoom.roomId && reservationRoom.roomId !== 0) {
-          await trx.rollback()
-          return response.badRequest({
-            message: `Cannot assign room from reservation with room`,
-          })
-        } else {
-          const newRoomId = reservationRooms.filter(
-            (e: any) => e.reservationRoomId === reservationRoom.id
-          )[0].roomId
-          reservationRoom.roomId = newRoomId
-          reservationRoom.lastModifiedBy = auth?.user?.id!
-          await reservationRoom.useTransaction(trx).save()
-
-          // Get room number and update folio transaction descriptions
-          const room = await Room.query({ client: trx }).where('id', newRoomId).first()
-
-          if (room) {
-            assignedRooms.push(room.roomNumber)
-            await ReservationFolioService.updateRoomChargeDescriptions(
-              reservationRoom.id,
-              room.roomNumber,
-              auth?.user?.id!
-            )
-          }
-        }
-      }
-      // Create audit log
-      await LoggerService.log({
-        actorId: auth.user?.id!,
-        action: 'ASSIGNED',
-        entityType: 'ReservationRoom',
-        entityId: reservationId,
-        hotelId: reservation.hotelId,
-        description: `Assigned Rooms [${assignedRooms.join(', ')}] to reservation #${reservation.reservationNumber}`,
-        ctx: ctx,
-      })
-
-      await trx.commit()
-
-      return response.ok({
-        message: 'Assign Room successfully',
-        reservationId,
-      })
-    } catch (error) {
+    // Validation
+    if (!reservationRooms || !Array.isArray(reservationRooms)) {
       await trx.rollback()
-      logger.error('Error assigning room:', error)
-      return response.badRequest({
-        message: 'Failed to unassign room',
-        error: error.message,
-      })
+      return response.badRequest({ message: 'reservationRooms is required' })
     }
+
+    const resRoomIds = reservationRooms.map((e: any) => e.reservationRoomId)
+
+    // Load reservation + reservationRooms
+    const reservation = await Reservation.query({ client: trx })
+      .where('id', reservationId)
+      .preload('reservationRooms', (query) => {
+        query.whereIn('id', resRoomIds)
+      })
+      .first()
+
+    if (!reservation) {
+      await trx.rollback()
+      return response.notFound({ message: 'Reservation not found' })
+    }
+
+    const assignedRooms: string[] = []
+
+    for (const reservationRoom of reservation.reservationRooms) {
+
+      if (reservationRoom.roomId && reservationRoom.roomId !== 0) {
+        await trx.rollback()
+        return response.badRequest({
+          message: `ReservationRoom ${reservationRoom.id} already has a room`,
+        })
+      }
+
+      const payloadRoom = reservationRooms.find(
+        (e: any) => e.reservationRoomId === reservationRoom.id
+      )
+
+      if (!payloadRoom?.roomId || !payloadRoom?.roomTypeId) {
+        await trx.rollback()
+        return response.badRequest({
+          message: `Invalid payload for reservationRoom ${reservationRoom.id}`,
+        })
+      }
+
+      reservationRoom.roomId = Number(payloadRoom.roomId)
+      reservationRoom.roomTypeId = Number(payloadRoom.roomTypeId)
+      reservationRoom.lastModifiedBy = auth.user!.id
+
+      await reservationRoom.useTransaction(trx).save()
+
+      assignedRooms.push(payloadRoom.roomNumber ?? String(payloadRoom.roomId))
+
+      // Update folio descriptions
+      await ReservationFolioService.updateRoomChargeDescriptions(
+        reservationRoom.id,
+        payloadRoom.roomNumber,
+        auth.user!.id
+      )
+    }
+
+
+    // Audit log
+    await LoggerService.log({
+      actorId: auth.user!.id,
+      action: 'ASSIGNED',
+      entityType: 'ReservationRoom',
+      entityId: reservationId,
+      hotelId: reservation.hotelId,
+      description: `Assigned Rooms [${assignedRooms.join(', ')}] to reservation #${reservation.reservationNumber}`,
+      ctx,
+    })
+
+    await trx.commit()
+
+    return response.ok({
+      message: 'Assign Room successfully',
+      reservationId,
+    })
+  } catch (error) {
+    await trx.rollback()
+    logger.error('Error assigning room:', error)
+
+    return response.badRequest({
+      message: 'Failed to assign room',
+      error: error.message,
+    })
   }
+}
+
 
   /**
    * Update stopMove status for reservation rooms

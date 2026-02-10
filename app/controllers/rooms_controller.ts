@@ -497,10 +497,11 @@ export default class RoomsController {
   async getAvailableRoomsByRoomTypeId({ params, request, response }: HttpContext) {
     try {
       const roomTypeId = params.roomTypeId
+      console.log('Room type found:', roomTypeId)
       const { startDate, endDate } = request.only(['startDate', 'endDate'])
       // Validate room type exists
       const roomType = await RoomType.findOrFail(roomTypeId)
-      console.log('Room type found:', roomType)
+
 
       // Get all rooms of this type
       const rooms = await Room.query()
@@ -509,10 +510,7 @@ export default class RoomsController {
         .preload('roomType')
         .preload('taxRates')
         .orderBy('sort_key', 'asc')
-      console.log(
-        'All rooms of this type:',
-        rooms.map((r) => r.id)
-      )
+
 
       // Si date fournie, créer objet DateTime Luxon pour comparaison
       const date = startDate ? DateTime.fromISO(startDate) : DateTime.now()
