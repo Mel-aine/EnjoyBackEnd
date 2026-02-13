@@ -1247,7 +1247,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               }
               break
             case 'payment':
-              totalPayments +=Math.abs(amount) 
+              totalPayments +=Math.abs(amount)
               break
             case 'adjustment':
               totalAdjustments += amount
@@ -1500,8 +1500,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Cancel Reservation: Available before check-in
     if (
       userPermissions.includes('cancel_reservation') &&
-      ['confirmed', 'guaranteed', 'pending'].includes(status) &&
-      currentDate < arrivalDate
+      ['confirmed', 'guaranteed', 'pending'].includes(status)
+
     ) {
       actions.push({
         action: 'cancel_reservation',
@@ -6243,6 +6243,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * new Void reservation
    */
+
+
   public async voidReservation(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     const trx = await db.transaction()
@@ -6252,25 +6254,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const requestBody = request.body()
       const { reason, selectedReservations } = requestBody
 
-
       // Validate required fields
       if (!reason || reason.trim() === '') {
         await trx.rollback()
         return response.badRequest({ message: 'Void reason is required' })
       }
 
-      // Validate reservationId is a valid number
+      // Validate reservationId
       const numericReservationId = parseInt(reservationId)
       if (isNaN(numericReservationId)) {
         await trx.rollback()
         return response.badRequest({ message: 'Invalid reservation ID' })
       }
 
-      // Get reservation with related data including folios and reservation rooms
+      // Get reservation with related data
       const reservation = await Reservation.query({ client: trx })
         .where('id', numericReservationId)
         .preload('reservationRooms')
         .preload('folios')
+        .preload('guest')
         .first()
 
       if (!reservation) {
@@ -6283,57 +6285,46 @@ export default class ReservationsController extends CrudController<typeof Reserv
       if (!allowedStatuses.includes(reservation.status)) {
         await trx.rollback()
         return response.badRequest({
-          message: `Cannot void reservation with status: ${reservation.status}. Allowed statuses: ${allowedStatuses.join(', ')}`,
+          message: `Cannot void reservation with status: ${reservation.status}`,
         })
       }
 
-      // Store original status for audit
       const originalStatus = reservation.status
 
-      // Determine which rooms to void
-      let roomsToVoid: string[] = []
+      // void Partial ou pas
       const isPartialVoid =
         selectedReservations &&
         Array.isArray(selectedReservations) &&
         selectedReservations.length > 0
 
-      console.log('Is partial void:', isPartialVoid)
+      let roomsToVoid: number[] = []
 
       if (isPartialVoid) {
-        // Partial void - void only selected rooms
-        // Convert to strings for consistency
-        roomsToVoid = selectedReservations.map((id) => id.toString())
+        //  VOID PARTIEL - Chambres spécifiques sélectionnées
+        roomsToVoid = selectedReservations.map((id) => parseInt(id))
 
-        // Validate that selected rooms belong to this reservation
-        const reservationRoomIds = reservation.reservationRooms.map((rr) => rr.roomId!.toString())
-        const invalidRooms = roomsToVoid.filter((roomId) => !reservationRoomIds.includes(roomId))
-
-        console.log('Invalid rooms:', invalidRooms)
+        // Valider que les chambres appartiennent à cette réservation
+        const validRoomIds = reservation.reservationRooms.map((rr) => rr.id)
+        const invalidRooms = roomsToVoid.filter((id) => !validRoomIds.includes(id))
 
         if (invalidRooms.length > 0) {
           await trx.rollback()
           return response.badRequest({
-            message: `Invalid room selections. Rooms ${invalidRooms.join(', ')} do not belong to this reservation. Available rooms: ${reservationRoomIds.join(', ')}`,
+            message: `Invalid room selections: ${invalidRooms.join(', ')}`,
           })
         }
+
       } else {
-        // Full reservation void - void all rooms
-        roomsToVoid = reservation.reservationRooms.map((rr) => rr.roomId!.toString())
-        console.log('Full void - all rooms:', roomsToVoid)
+        // VOID COMPLET - Toutes les chambres
+        roomsToVoid = reservation.reservationRooms.map((rr) => rr.id)
       }
 
       // Handle folio changes
       let foliosVoided = 0
-      if (isPartialVoid) {
-        // For partial void, we need to handle folios more carefully
-        // You might want to void only transactions related to specific rooms
-        // This depends on your business logic - for now, we'll keep folios open for partial voids
-        console.log('Partial void detected - folios kept open for remaining rooms')
-      } else {
-        // Full reservation void - void all related folios
+      if (!isPartialVoid) {
+        // Void tous les folios seulement pour un void complet
         if (reservation.folios && reservation.folios.length > 0) {
           for (const folio of reservation.folios) {
-            // Only void open folios
             if (folio.status === 'open') {
               await folio
                 .useTransaction(trx)
@@ -6344,7 +6335,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 })
                 .save()
 
-              // Void all transactions in the folio
               await FolioTransaction.query({ client: trx })
                 .where('folioId', folio.id)
                 .where('status', '!=', 'voided')
@@ -6362,16 +6352,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
-      let shouldVoidReservation = false
-      if (!isPartialVoid) {
-        shouldVoidReservation = true
-      }
-
       // Update selected reservation rooms to voided status
-      console.log('About to update ReservationRoom IDs:', roomsToVoid)
       const roomsUpdated = await ReservationRoom.query({ client: trx })
-        .whereIn('roomId', roomsToVoid)
-        .where('reservationId', numericReservationId) // Extra security check
+        .whereIn('id', roomsToVoid)
+        .where('reservationId', numericReservationId)
         .update({
           status: 'voided',
           voided_date: DateTime.now(),
@@ -6384,63 +6368,55 @@ export default class ReservationsController extends CrudController<typeof Reserv
       console.log('Rooms updated count:', roomsUpdated)
 
       // Get room details for response
-      const voidedRooms = await ReservationRoom.query({ client: trx }).whereIn('id', roomsToVoid)
+      const voidedRooms = await ReservationRoom.query({ client: trx })
+        .whereIn('id', roomsToVoid)
+        .preload('room')
 
-      const roomNumbers = voidedRooms.map((rr) => rr.roomId).filter(Boolean)
+      const roomNumbers = voidedRooms
+        .map((rr) => rr.room?.roomNumber)
+        .filter(Boolean)
 
-      // Check if all rooms are voided (to update reservation status)
+      // Check if all rooms are now voided
       const remainingActiveRooms = await ReservationRoom.query({ client: trx })
         .where('reservationId', numericReservationId)
         .where('status', '!=', 'voided')
 
-      console.log('Remaining active rooms:', remainingActiveRooms.length)
-
       const allRoomsVoided = remainingActiveRooms.length === 0
 
-      // If all rooms are voided and reservation wasn't already voided, void the reservation
-      if (allRoomsVoided && reservation.status !== ReservationStatus.VOIDED) {
-        shouldVoidReservation = true
+      // Si toutes les chambres sont void après un void partiel, void aussi les folios
+      if (allRoomsVoided && isPartialVoid && reservation.folios && reservation.folios.length > 0) {
+        for (const folio of reservation.folios) {
+          if (folio.status === 'open') {
+            await folio
+              .useTransaction(trx)
+              .merge({
+                status: FolioStatus.VOIDED,
+                workflowStatus: WorkflowStatus.CLOSED,
+                lastModifiedBy: auth.user?.id,
+              })
+              .save()
 
-        // Also void all folios if not already done
-        if (isPartialVoid && reservation.folios && reservation.folios.length > 0) {
-          for (const folio of reservation.folios) {
-            if (folio.status === 'open') {
-              await folio
-                .useTransaction(trx)
-                .merge({
-                  status: FolioStatus.VOIDED,
-                  workflowStatus: WorkflowStatus.CLOSED,
-                  lastModifiedBy: auth.user?.id,
-                })
-                .save()
+            await FolioTransaction.query({ client: trx })
+              .where('folioId', folio.id)
+              .where('status', '!=', 'voided')
+              .update({
+                status: TransactionStatus.VOIDED,
+                voidedDate: DateTime.now(),
+                voidReason: `All rooms voided: ${reason}`,
+                lastModifiedBy: auth.user?.id,
+                updatedAt: DateTime.now(),
+              })
 
-              await FolioTransaction.query({ client: trx })
-                .where('folioId', folio.id)
-                .where('status', '!=', 'voided')
-                .update({
-                  status: TransactionStatus.VOIDED,
-                  voidedDate: DateTime.now(),
-                  voidReason: `All rooms voided: ${reason}`,
-                  lastModifiedBy: auth.user?.id,
-                  updatedAt: DateTime.now(),
-                })
-
-              foliosVoided++
-            }
+            foliosVoided++
           }
         }
       }
 
       // Create audit log
-
       const logMeta = {
         reservationNumber: reservation.reservationNumber,
         originalStatus,
-        newStatus: allRoomsVoided
-          ? ReservationStatus.VOIDED
-          : isPartialVoid
-            ? 'partially_voided'
-            : ReservationStatus.VOIDED,
+        newStatus: allRoomsVoided ? ReservationStatus.VOIDED : 'partially_voided',
         reason,
         voidedDate: DateTime.now().toISO(),
         roomsVoided: roomsToVoid,
@@ -6455,7 +6431,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const logDescription = isPartialVoid
         ? allRoomsVoided
           ? `All rooms in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
-          : `${roomsToVoid.length} room${roomsToVoid.length > 1 ? 's' : ''} in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
+          : `${roomsToVoid.length} room(s) in reservation #${reservation.reservationNumber} have been voided by ${auth.user?.fullName || 'System'}.`
         : `Reservation #${reservation.reservationNumber} was fully voided by ${auth.user?.fullName || 'System'}.`
 
       await LoggerService.log({
@@ -6469,24 +6445,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
         ctx,
       })
 
-      //  log a Guest-related event
       await LoggerService.log({
         actorId: auth.user?.id!,
         action: isPartialVoid ? 'GUEST_ROOMS_VOIDED' : 'GUEST_RESERVATION_VOIDED',
         entityType: 'Guest',
-        entityId: reservation.guestId,
+        entityId: reservation.guestId!,
         hotelId: reservation.hotelId,
         description: isPartialVoid
-          ? `Guest's reservation #${reservation.reservationNumber} had ${roomsToVoid.length} room${roomsToVoid.length > 1 ? 's' : ''} voided.`
+          ? `Guest's reservation #${reservation.reservationNumber} had ${roomsToVoid.length} room(s) voided.`
           : `Guest's reservation #${reservation.reservationNumber} was fully voided.`,
         meta: logMeta,
         ctx,
       })
 
-
       await trx.commit()
 
-      if (shouldVoidReservation) {
+      // Update reservation status si toutes les chambres sont void
+      if (allRoomsVoided) {
         try {
           const freshReservation = await Reservation.find(numericReservationId)
           if (freshReservation) {
@@ -6500,98 +6475,108 @@ export default class ReservationsController extends CrudController<typeof Reserv
               })
               .save()
           }
-        } catch { }
+        } catch (updateError) {
+          console.error('Error updating reservation status:', updateError)
+        }
       }
 
-      try {
-        const NotificationService = (await import('#services/notification_service')).default
-
-        const guestName = reservation.guest
-          ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
-          : 'Guest'
-
-        const voidType = allRoomsVoided ? 'FULL' : 'PARTIAL'
-        const roomsList = roomNumbers.length > 0 ? `[${roomNumbers.join(', ')}]` : '(none)'
-
-        // Notification STAFF
+      // NOTIFICATIONS
+      setImmediate(async () => {
         try {
-          const staffTemplateCode = allRoomsVoided
-            ? 'RESERVATION_VOIDED'
-            : 'RESERVATION_PARTIAL_VOIDED'
+          const NotificationService = (await import('#services/notification_service')).default
 
-          const staffVariables = await NotificationService.buildVariables(staffTemplateCode, {
-            hotelId: reservation.hotelId,
-            reservationId: reservation.id,
-            guestId: reservation.guestId,
-            extra: {
-              ReservationNumber: reservation.reservationNumber || 'N/A',
-              GuestName: guestName,
-              VoidDate: DateTime.now().toISODate(),
-              VoidedRooms: roomsList,
-              VoidReason: reason,
-              StaffMember: auth.user?.fullName || `User ${auth.user?.id}`,
-              VoidType: voidType,
-              TotalRoomsVoided: roomNumbers.length,
-              OriginalStatus: originalStatus,
-              FoliosVoided: foliosVoided,
-            },
-          })
+          const guestName = reservation.guest
+            ? `${reservation.guest.firstName || ''} ${reservation.guest.lastName || ''}`.trim()
+            : 'Guest'
 
-          await NotificationService.sendWithTemplate({
-            templateCode: staffTemplateCode,
-            recipientType: 'STAFF',
-            recipientId: auth.user!.id,
-            variables: staffVariables,
-            relatedEntityType: 'Reservation',
-            relatedEntityId: reservation.id,
-            actorId: auth.user!.id,
-            hotelId: reservation.hotelId,
-          })
-        } catch (staffError) {
-          console.error(' Erreur notification STAFF void:', (staffError as any)?.message)
-        }
+          const roomsList = roomNumbers.length > 0 ? `[${roomNumbers.join(', ')}]` : '(none)'
+          const voidType = allRoomsVoided ? 'FULL' : 'PARTIAL'
 
-        // Notification GUEST (si email disponible)
-        if (reservation.guest && reservation.guest.email) {
+          // Notification STAFF
           try {
-            const guestTemplateCode = allRoomsVoided
-              ? 'RESERVATION_VOIDED_GUEST'
-              : 'RESERVATION_PARTIAL_VOIDED_GUEST'
+            const staffTemplateCode = allRoomsVoided
+              ? 'RESERVATION_VOIDED'
+              : 'RESERVATION_PARTIAL_VOIDED'
 
-            const guestVariables = await NotificationService.buildVariables(guestTemplateCode, {
+            const staffVariables = await NotificationService.buildVariables(staffTemplateCode, {
               hotelId: reservation.hotelId,
               reservationId: reservation.id,
-              guestId: reservation.guestId,
+              guestId: reservation.guestId!,
               extra: {
                 ReservationNumber: reservation.reservationNumber || 'N/A',
                 GuestName: guestName,
                 VoidDate: DateTime.now().toISODate(),
                 VoidedRooms: roomsList,
-                ContactEmail: reservation.guest.email,
-                ContactPhone: reservation.guest.phonePrimary || 'N/A',
+                VoidReason: reason,
+                StaffMember: auth.user?.fullName || `User ${auth.user?.id}`,
+                VoidType: voidType,
+                TotalRoomsVoided: roomNumbers.length,
+                OriginalStatus: originalStatus,
+                FoliosVoided: foliosVoided,
               },
             })
 
             await NotificationService.sendWithTemplate({
-              templateCode: guestTemplateCode,
-              recipientType: 'GUEST',
-              recipientId: reservation.guestId,
-              variables: guestVariables,
+              templateCode: staffTemplateCode,
+              recipientType: 'STAFF',
+              recipientId: auth.user!.id,
+              variables: staffVariables,
               relatedEntityType: 'Reservation',
               relatedEntityId: reservation.id,
               actorId: auth.user!.id,
               hotelId: reservation.hotelId,
             })
-          } catch (guestError) {
-            console.error(' Erreur notification GUEST void:', (guestError as any)?.message)
+          } catch (staffError) {
+            console.error('Error sending staff notification:', staffError)
           }
+
+          // Notification GUEST
+          if (reservation.guest && reservation.guest.email) {
+            try {
+              const guestTemplateCode = allRoomsVoided
+                ? 'RESERVATION_VOIDED_GUEST'
+                : 'RESERVATION_PARTIAL_VOIDED_GUEST'
+
+              const guestVariables = await NotificationService.buildVariables(guestTemplateCode, {
+                hotelId: reservation.hotelId,
+                reservationId: reservation.id,
+                guestId: reservation.guestId!,
+                extra: {
+                  ReservationNumber: reservation.reservationNumber || 'N/A',
+                  GuestName: guestName,
+                  VoidDate: DateTime.now().toISODate(),
+                  VoidedRooms: roomsList,
+                  ContactEmail: reservation.guest.email,
+                  ContactPhone: reservation.guest.phonePrimary || 'N/A',
+                },
+              })
+
+              await NotificationService.sendWithTemplate({
+                templateCode: guestTemplateCode,
+                recipientType: 'GUEST',
+                recipientId: reservation.guestId!,
+                variables: guestVariables,
+                relatedEntityType: 'Reservation',
+                relatedEntityId: reservation.id,
+                actorId: auth.user!.id,
+                hotelId: reservation.hotelId,
+              })
+            } catch (guestError) {
+              console.error(' Error sending guest notification:', guestError)
+            }
+          }
+        } catch (notifError) {
+          console.error(' Error in notification process:', notifError)
         }
-      } catch (notifError) {
-        console.error(' Erreur générale notifications void:', notifError)
-      }
+      })
 
-
-      await GuestSummaryService.recomputeFromReservation(reservation.id)
+      setImmediate(async () => {
+        try {
+          await GuestSummaryService.recomputeFromReservation(reservation.id)
+        } catch (summaryError) {
+          console.error(' Error recomputing guest summary:', summaryError)
+        }
+      })
 
       const message = isPartialVoid
         ? allRoomsVoided
