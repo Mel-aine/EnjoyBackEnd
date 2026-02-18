@@ -136,7 +136,11 @@ export enum PaymentMethodType {
   COMP = 'comp',
   HOUSE_ACCOUNT = 'house_account',
   CITY_LEDGER = 'city_ledger',
-  OTHER = 'other'
+  OTHER = 'other',
+  MASTERCARD = 'master_card',
+  VISA = 'visa',
+  ORANGE_MONEY = 'orange_money',
+  MOBILE_MONEY = 'mobile_money'
 }
 
 export enum ChannexRestrictionType {
