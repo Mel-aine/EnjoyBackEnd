@@ -1591,9 +1591,10 @@ export default class ReportsController {
         )
         .preload('bookingSource')
 
-       const reservationsCreated = await Reservation.query()
+      const validRoomTypeIds = new Set(roomTypes.map((rt: any) => rt.id))
+
+        const reservationsCreated = await Reservation.query()
           .where('hotel_id', hotelId)
-          .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
           .whereRaw("DATE(created_at) BETWEEN ? AND ?", [from, to])
           .preload('reservationRooms')
 
@@ -1603,6 +1604,8 @@ export default class ReportsController {
           for (const rr of res.reservationRooms as any[]) {
             const rtId = rr.roomTypeId ?? rr.roomType?.id
             if (!rtId || rtIds.has(rtId)) continue
+            if (!validRoomTypeIds.has(rtId)) continue
+
             rtIds.add(rtId)
             reservationsCountByRoomType.set(
               rtId,
@@ -1610,6 +1613,7 @@ export default class ReportsController {
             )
           }
         }
+
 
         // Compter les paiements city ledger par room type
         const cityLedgerPayments = await FolioTransaction.query()
@@ -1698,8 +1702,8 @@ export default class ReportsController {
             countedResIds.add(res.id)
 
             const isComplementary = Number(rr.roomRate ?? rr.totalRoomCharges ?? 0) === 0
-            const isWalkIn        = res.bookingSourceId !== null && walkInSourceIds.has(res.bookingSourceId)
-            const isCorporate     = res.customerType === 'company' || res.customerType === 'family'
+            const isCorporate = res.businessSourceId !== null
+            const isWalkIn    = !isCorporate && res.bookingSourceId !== null && walkInSourceIds.has(res.bookingSourceId)
 
 
             if (isComplementary)      perType[rtId].gratuites    += 1
@@ -2056,18 +2060,27 @@ export default class ReportsController {
       let corporateCA = 0
       let walkInCA    = 0
 
+      const resSummary = new Map<number, { isCorporate: boolean; isWalkIn: boolean; amount: number }>()
+
       for (const tx of allRoomTx as any[]) {
         const res = tx.folio?.reservationRoom?.reservation
         if (!res) continue
 
         const amount = Number(tx.roomFinalRate ?? tx.totalAmount ?? 0)
-        const isCorporate = res.customerType === 'company' || res.customerType === 'family'
-        const isWalkIn    = res.bookingSourceId !== null && walkInSourceIds.includes(res.bookingSourceId)
+        const isCorporate = res.businessSourceId !== null
+        const isWalkIn    = !isCorporate && res.bookingSourceId !== null && walkInSourceIds.includes(res.bookingSourceId)
 
-        if (isCorporate) corporateCA += amount
-        else if (isWalkIn) walkInCA    += amount
+        if (resSummary.has(res.id)) {
+          resSummary.get(res.id)!.amount += amount
+        } else {
+          resSummary.set(res.id, { isCorporate, isWalkIn, amount })
+        }
       }
 
+      for (const { isCorporate, isWalkIn, amount } of resSummary.values()) {
+        if (isCorporate) corporateCA += amount
+        else if (isWalkIn) walkInCA  += amount
+      }
     // ── City Ledger = paiements transférés vers city ledger ───
     // On cherche les transactions de paiement dont le payment method est city ledger
     const cityRow = await FolioTransaction.query()
@@ -2237,13 +2250,15 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     return { rows: [], totals: { dayCount: 0, day: 0, monthCount: 0, month: 0, yearCount: 0, year: 0 } }
   }
 
+  console.log()
+
   const rows = posSummary.outlets.map((outlet: any) => ({
-    label:      outlet.name,
-    dayCount:   outlet.count?.today ?? outlet.totalCount?.today ?? 0,
+    label:      outlet.outlet,
+    dayCount:   outlet.nbcommande?.today ?? outlet.totalCount?.today ?? 0,
     day:        outlet.totalWithTax?.today ?? 0,
-    monthCount: outlet.count?.ptd   ?? outlet.totalCount?.ptd   ?? 0,
+    monthCount: outlet.nbcommande?.ptd   ?? outlet.totalCount?.ptd   ?? 0,
     month:      outlet.totalWithTax?.ptd   ?? 0,
-    yearCount:  outlet.count?.ytd   ?? outlet.totalCount?.ytd   ?? 0,
+    yearCount:  outlet.nbcommande?.ytd   ?? outlet.totalCount?.ytd   ?? 0,
     year:       outlet.totalWithTax?.ytd   ?? 0,
   }))
 
@@ -3867,28 +3882,31 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     // ── Formatting helpers ──────────────────────────────────
     const fc = (v: number | null | undefined) =>
       Number(v ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-    const fp = (v: number | null | undefined) => Number(v ?? 0).toFixed(2) + '&nbsp;%'
-    const fd = (v: number | null | undefined) => Number(v ?? 0).toFixed(2)
+    const fp = (v: number | null | undefined) => Math.round(Number(v ?? 0)) + '&nbsp;%'
+    const fd = (v: number | null | undefined) => Math.round(Number(v ?? 0)).toString()
 
     const { roomTypeStats, ratiosCA, encaissements, otherRevenues } = sectionsData
     const ra = ratiosCA ?? { day: {}, month: {}, year: {} }
 
-    // ── LEFT column metrics (12 rows: Available + 11 metrics) ─
+    // ── Other revenues totals ───────────────────────────────
+    const s4Tot = otherRevenues?.totals ?? {}
+
+    // ── LEFT column metrics ─────────────────────────────────
     const LEFT_METRICS = [
-      { label: 'Corporate',       key: 'corporate'    },
-      { label: 'Walk-in', key: 'walkIn' },
-      { label: 'Complimentary', key: 'gratuites' },
+      { label: 'Corporate',      key: 'corporate'    },
+      { label: 'Walk-in',        key: 'walkIn'       },
+      { label: 'Complimentary',  key: 'gratuites'    },
       { label: 'Early Check-in', key: 'earlyCheckIn' },
       { label: 'Late Check-out', key: 'lateCheckOut' },
-      { label: 'No. of Guests', key: 'guests' },
-      { label: 'No. of Nights', key: 'nights' },
-      { label: 'Rooms Occupied', key: 'occupied' },
-      { label: 'Rooms Vacant', key: 'vacant' },
-      { label: 'Reservations', key: 'reservations' },
-      { label: 'City Ledger', key: 'cityLedger' },
-    ] // 11 metric rows + 1 "Available" row = 12 total
+      { label: 'No. of Guests',  key: 'guests'       },
+      { label: 'No. of Nights',  key: 'nights'       },
+      { label: 'Rooms Occupied', key: 'occupied'     },
+      { label: 'Rooms Vacant',   key: 'vacant'       },
+      { label: 'Reservations',   key: 'reservations' },
+      { label: 'City Ledger',    key: 'cityLedger'   },
+    ]
 
-    // ── RIGHT KPI rows (8 rows + 1 filler = 9 rows to match Available) ──
+    // ── RIGHT KPI rows ──────────────────────────────────────
     const RIGHT_KPIS = [
       {
         label: 'AOPN &mdash; Avg. guests / occupied room',
@@ -3899,16 +3917,16 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         fmt: (d: any, m: any, y: any) => [fd(d.dms), fd(m.dms), fd(y.dms)],
       },
       {
-        label: 'O.R &mdash; Occupancy rate',
-        fmt: (d: any, m: any, y: any) => [fp(d.or), fp(m.or), fp(y.or)],
-      },
-      {
         label: 'V.R &mdash; Vacancy rate',
         fmt: (d: any, m: any, y: any) => [fp(d.vr), fp(m.vr), fp(y.vr)],
       },
       {
         label: 'ARP &mdash; Avg. room price',
         fmt: (d: any, m: any, y: any) => [fc(d.arp), fc(m.arp), fc(y.arp)],
+      },
+      {
+        label: 'O.R &mdash; Occupancy rate',
+        fmt: (d: any, m: any, y: any) => [fp(d.or), fp(m.or), fp(y.or)],
       },
       {
         label: 'Total Revenue excl. tax',
@@ -3920,24 +3938,13 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       },
       {
         label: 'City Ledger Revenue',
-        fmt: (d: any, m: any, y: any) => [
-          fc(d.cityLedgerCA),
-          fc(m.cityLedgerCA),
-          fc(y.cityLedgerCA),
-        ],
+        fmt: (d: any, m: any, y: any) => [fc(d.cityLedgerCA), fc(m.cityLedgerCA), fc(y.cityLedgerCA)],
       },
-    ] // 8 KPI rows
-
-    // Left has 12 rows (1 Available + 11 metrics)
-    // const FILLER_COUNT = 1 + LEFT_METRICS.length - (1 + RIGHT_KPIS.length) // = 3
-    // const fillerRows = Array(FILLER_COUNT)
-    //   .fill(`<tr class="data-row"><td colspan="4">&nbsp;</td></tr>`)
-    //   .join('\n')
-
+    ]
 
     const rows = roomTypeStats?.rows ?? []
 
-    // ── Build LEFT block per room type ─────────────────────
+    // ── Build LEFT block per room type ──────────────────────
     const buildLeftBlock = (rt: any): string => {
       const d = rt.day ?? {}
       const m = rt.month ?? {}
@@ -3950,19 +3957,17 @@ private buildOtherRevenuesFromPos(posSummary: any): {
           <td class="avail-num">${fc(rt.disponibles.month)}</td>
           <td class="avail-num">${fc(rt.disponibles.year)}</td>
         </tr>
-        ${LEFT_METRICS.map(
-          ({ label, key }) => `
+        ${LEFT_METRICS.map(({ label, key }) => `
         <tr class="data-row">
           <td class="lbl">${label}</td>
           <td class="num">${fc((d as any)[key])}</td>
           <td class="num">${fc((m as any)[key])}</td>
           <td class="num">${fc((y as any)[key])}</td>
-        </tr>`
-        ).join('')}
+        </tr>`).join('')}
         <tr class="rt-spacer"><td colspan="4"></td></tr>`
     }
 
-    // ── Build RIGHT block per room type ────────────────────
+    // ── Build RIGHT block per room type ─────────────────────
     const buildRightBlock = (rt: any): string => {
       const rtRatios = ratiosCA?.byRoomType?.[rt.roomTypeId] ?? {
         day: ra.day, month: ra.month, year: ra.year
@@ -4010,13 +4015,13 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       <tr class="rt-spacer"><td colspan="4"></td></tr>`
     }
 
-    const leftBlocks = rows.map(buildLeftBlock).join('')
+    const leftBlocks  = rows.map(buildLeftBlock).join('')
     const rightBlocks = rows.map(buildRightBlock).join('')
 
     // ── Grand totals ────────────────────────────────────────
-    const td = roomTypeStats?.totals?.day ?? {}
+    const td = roomTypeStats?.totals?.day   ?? {}
     const tm = roomTypeStats?.totals?.month ?? {}
-    const ty = roomTypeStats?.totals?.year ?? {}
+    const ty = roomTypeStats?.totals?.year  ?? {}
 
     const leftTotals = `
       <tr class="rt-head"><td colspan="4">OVERALL TOTAL</td></tr>
@@ -4025,12 +4030,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(td.occupied)}</td>
         <td class="num">${fc(tm.occupied)}</td>
         <td class="num">${fc(ty.occupied)}</td>
-      </tr>
-      <tr class="total-row">
-        <td class="lbl">Occupancy Rate (O.R)</td>
-        <td class="num">${fp(roomTypeStats?.toDay)}</td>
-        <td class="num">${fp(roomTypeStats?.toMonth)}</td>
-        <td class="num">${fp(roomTypeStats?.toYear)}</td>
       </tr>
       <tr class="total-row">
         <td class="lbl">Avg. Room Price (ARP)</td>
@@ -4049,58 +4048,64 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(td.cityLedger)}</td>
         <td class="num">${fc(tm.cityLedger)}</td>
         <td class="num">${fc(ty.cityLedger)}</td>
-      </tr>`
+      </tr>
+
+
+  ${(otherRevenues?.rows ?? []).map((r: any) => `
+  <tr class="data-row">
+    <td class="lbl">${r.label}</td>
+    <td class="num">${r.dayCount}</td>
+    <td class="num">${r.monthCount}</td>
+    <td class="num">${r.yearCount}</td>
+  </tr>`).join('')}`
+
+
 
     const rightTotals = `
-      <tr class="rt-head"><td colspan="4">GLOBAL REVENUE</td></tr>
-      <tr class="total-row">
-        <td class="lbl">Total Revenue excl. tax</td>
-        <td class="num">${fc(ra.day.caHT)}</td>
-        <td class="num">${fc(ra.month.caHT)}</td>
-        <td class="num">${fc(ra.year.caHT)}</td>
-      </tr>
-      <tr class="total-row">
-        <td class="lbl">Total Revenue incl. tax</td>
-        <td class="num">${fc(ra.day.caTTC)}</td>
-        <td class="num">${fc(ra.month.caTTC)}</td>
-        <td class="num">${fc(ra.year.caTTC)}</td>
-      </tr>
-      <tr class="total-row">
-        <td class="lbl">Total City Ledger Revenue</td>
-        <td class="num">${fc(ra.day.cityLedgerCA)}</td>
-        <td class="num">${fc(ra.month.cityLedgerCA)}</td>
-        <td class="num">${fc(ra.year.cityLedgerCA)}</td>
-      </tr>
-      <tr class="total-row"><td colspan="4">&nbsp;</td></tr>
-      <tr class="total-row"><td colspan="4">&nbsp;</td></tr>`
+  <tr class="rt-head"><td colspan="4">GLOBAL REVENUE</td></tr>
+  <tr class="total-row">
+    <td class="lbl">Occupancy Rate (O.R)</td>
+    <td class="num">${fp(roomTypeStats?.toDay)}</td>
+    <td class="num">${fp(roomTypeStats?.toMonth)}</td>
+    <td class="num">${fp(roomTypeStats?.toYear)}</td>
+  </tr>
+  <tr class="total-row">
+    <td class="lbl">Total Revenue excl. tax</td>
+    <td class="num">${fc(ra.day.caHT)}</td>
+    <td class="num">${fc(ra.month.caHT)}</td>
+    <td class="num">${fc(ra.year.caHT)}</td>
+  </tr>
+  <tr class="total-row">
+    <td class="lbl">Total Revenue incl. tax</td>
+    <td class="num">${fc(ra.day.caTTC)}</td>
+    <td class="num">${fc(ra.month.caTTC)}</td>
+    <td class="num">${fc(ra.year.caTTC)}</td>
+  </tr>
+  <tr class="total-row">
+    <td class="lbl">Total City Ledger Revenue</td>
+    <td class="num">${fc(ra.day.cityLedgerCA)}</td>
+    <td class="num">${fc(ra.month.cityLedgerCA)}</td>
+    <td class="num">${fc(ra.year.cityLedgerCA)}</td>
+  </tr>
+
+  ${(otherRevenues?.rows ?? []).map((r: any) => `
+  <tr class="data-row">
+    <td class="lbl">${r.label}</td>
+    <td class="num">${fc(r.day)}</td>
+    <td class="num">${fc(r.month)}</td>
+    <td class="num">${fc(r.year)}</td>
+  </tr>`).join('')}`
 
     // ── Payments ────────────────────────────────────────────
     const s3Rows = (encaissements?.rows ?? [])
-      .map(
-        (r: any) => `
+      .map((r: any) => `
       <tr>
         <td class="lbl">${r.label}</td>
         <td class="num">${fc(r.day)}</td>
         <td class="num">${fc(r.month)}</td>
         <td class="num">${fc(r.year)}</td>
-      </tr>`
-      )
-      .join('')
+      </tr>`).join('')
     const s3Tot = encaissements?.totals ?? {}
-
-    // ── Other revenues ──────────────────────────────────────
-    const s4Rows = (otherRevenues?.rows ?? [])
-      .map(
-        (r: any) => `
-      <tr>
-        <td class="lbl">${r.label}</td>
-        <td class="num">${fc(r.day)}</td>
-        <td class="num">${fc(r.month)}</td>
-        <td class="num">${fc(r.year)}</td>
-      </tr>`
-      )
-      .join('')
-    const s4Tot = otherRevenues?.totals ?? {}
 
     // ════════════════════════════════════════════════════════
     //  HTML
@@ -4165,12 +4170,10 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
     /* ─── SECTION TITLE BAR ───────────────────────── */
     .section {
-        margin: 12px 12px;
-        padding-bottom: 12px;
-        border-bottom: 1px dashed #666;
-
+      margin: 12px 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed #666;
     }
-
 
     .section-title {
       display: flex;
@@ -4216,10 +4219,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     /* ─── TABLES ──────────────────────────────────── */
     table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
 
-    /* All cells centered by default */
     th, td { text-align: center; vertical-align: middle; }
 
-    /* Global header — DAY / MONTH / YEAR shown ONCE at top */
     thead.global-head th {
       background: #C5D3E8;
       border-top: 1.5px solid #000;
@@ -4233,7 +4234,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     thead.global-head th.lbl-col { text-align: left; width: 52%; }
     thead.global-head th.val-col { width: 16%; }
 
-    /* Room-type name row */
     tr.rt-head td {
       background: #EFEFEF;
       border-top: 1px solid #888;
@@ -4244,7 +4244,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       text-align: left;
     }
 
-    /* Data rows */
     tr.data-row td {
       padding: 1.5px 4px;
       border-bottom: 1px dotted #e0e0e0;
@@ -4258,7 +4257,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       border-left: 1px dotted #ccc;
     }
 
-    /* Available row — normal bold, slightly shaded */
     tr.data-row td.avail-lbl {
       text-align: left;
       font-style: normal;
@@ -4275,7 +4273,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       background: #fafafa;
     }
 
-    /* Total rows */
     tr.total-row td {
       background: #EFEFEF;
       border-top: 1.5px solid #555;
@@ -4292,7 +4289,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       border-left: 1px dotted #aaa;
     }
 
-    /* Spacer between room-type groups */
     tr.rt-spacer td { height: 4px; background: #fff; border-bottom: 1px dashed #ccc; }
 
     /* ─── SUB-SECTION TABLES ──────────────────────── */
@@ -4328,24 +4324,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       border-bottom: 1px solid #999;
     }
 
-    /* ─── LEGEND BOX ──────────────────────────────── */
-    .legend-box {
-      margin-top: 8px;
-      border: 1px solid #888;
-      border-radius: 2px;
-      padding: 5px 8px;
-      background: #FAFAFA;
-    }
-    .legend-title {
-      font-size: 7pt;
-      font-weight: bold;
-      text-transform: uppercase;
-      border-bottom: 1px solid #ccc;
-      margin-bottom: 4px;
-      padding-bottom: 2px;
-      color: #07076F;
-      letter-spacing: 0.3px;
-    }
+    /* ─── LEGEND ──────────────────────────────────── */
     .legend-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -4422,7 +4401,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     <div class="side-separator"></div>
 
     <!-- RIGHT : REVENUE & KPI RATIOS -->
-
     <div class="side">
       <table>
         <thead class="global-head">
@@ -4444,100 +4422,53 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
   <!-- PAYMENTS RECEIVED -->
   <div class="section-title-dooble">
-  <div class="section-title" style="margin-top:4px;"><span>PAYMENTS RECEIVED</span></div>
-  <div class="sub-section">
-    <table>
-      <thead>
-        <tr>
-          <th class="lbl">PAYMENT METHOD</th>
-          <th>DAY (${currency})</th>
-          <th>MONTH (${currency})</th>
-          <th>YEAR (${currency})</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${s3Rows}
-        <tr class="total-row">
-          <td class="lbl">TOTAL</td>
-          <td class="num">${fc(s3Tot.day)}</td>
-          <td class="num">${fc(s3Tot.month)}</td>
-          <td class="num">${fc(s3Tot.year)}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  </div>
-
-  <!-- OTHER REVENUES -->
-    <div class="section">
-      <div class="section-title" style="margin-top:6px;">
-        <span>OTHER REVENUES (SPA / POOL / MEETING ROOMS)</span>
-      </div>
-      <div class="sub-section">
-        <table>
-          <thead>
-            <tr>
-              <th class="lbl">OUTLET</th>
-              <th>Nb</th>
-              <th>DAY (${currency})</th>
-              <th>Nb</th>
-              <th>MONTH (${currency})</th>
-              <th>Nb</th>
-              <th>YEAR (${currency})</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${(otherRevenues?.rows ?? []).map((r: any) => `
-            <tr>
-              <td class="lbl">${r.label}</td>
-              <td class="num">${r.dayCount}</td>
-              <td class="num">${fc(r.day)}</td>
-              <td class="num">${r.monthCount}</td>
-              <td class="num">${fc(r.month)}</td>
-              <td class="num">${r.yearCount}</td>
-              <td class="num">${fc(r.year)}</td>
-            </tr>`).join('')}
-            <tr class="total-row">
-              <td class="lbl">TOTAL</td>
-              <td class="num">${s4Tot.dayCount ?? ''}</td>
-              <td class="num">${fc(s4Tot.day)}</td>
-              <td class="num">${s4Tot.monthCount ?? ''}</td>
-              <td class="num">${fc(s4Tot.month)}</td>
-              <td class="num">${s4Tot.yearCount ?? ''}</td>
-              <td class="num">${fc(s4Tot.year)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="section-title" style="margin-top:4px;"><span>PAYMENTS RECEIVED</span></div>
+    <div class="sub-section">
+      <table>
+        <thead>
+          <tr>
+            <th class="lbl">PAYMENT METHOD</th>
+            <th>DAY (${currency})</th>
+            <th>MONTH (${currency})</th>
+            <th>YEAR (${currency})</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${s3Rows}
+          <tr class="total-row">
+            <td class="lbl">TOTAL</td>
+            <td class="num">${fc(s3Tot.day)}</td>
+            <td class="num">${fc(s3Tot.month)}</td>
+            <td class="num">${fc(s3Tot.year)}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-
+  </div>
 
   <!-- LEGEND -->
-
-
-    <div class="legend-grid">
-      <div class="legend-item">
-        <span class="legend-name">O.R &mdash; Occupancy Rate</span>
-        <span class="legend-formula">O.R = (Rooms Occupied / Rooms Available) &times; 100</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-name">V.R &mdash; Vacancy Rate</span>
-        <span class="legend-formula">V.R = (Rooms Vacant / Rooms Available) &times; 100</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-name">AOPN &mdash; Avg. Occupants per Room</span>
-        <span class="legend-formula">AOPN = No. of Guests / Rooms Occupied</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-name">ALS &mdash; Avg. Length of Stay</span>
-        <span class="legend-formula">ALS = Total Nights / Total Arrivals</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-name">ARP &mdash; Avg. Room Price</span>
-        <span class="legend-formula">ARP = Revenue excl. tax / Rooms Occupied</span>
-      </div>
+  <div class="legend-grid">
+    <div class="legend-item">
+      <span class="legend-name">O.R &mdash; Occupancy Rate</span>
+      <span class="legend-formula">O.R = (Rooms Occupied / Rooms Available) &times; 100</span>
     </div>
-
+    <div class="legend-item">
+      <span class="legend-name">V.R &mdash; Vacancy Rate</span>
+      <span class="legend-formula">V.R = (Rooms Vacant / Rooms Available) &times; 100</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-name">AOPN &mdash; Avg. Occupants per Room</span>
+      <span class="legend-formula">AOPN = No. of Guests / Rooms Occupied</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-name">ALS &mdash; Avg. Length of Stay</span>
+      <span class="legend-formula">ALS = Total Nights / Total Arrivals</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-name">ARP &mdash; Avg. Room Price</span>
+      <span class="legend-formula">ARP = Revenue excl. tax / Rooms Occupied</span>
+    </div>
+  </div>
 
   <!-- FOOTER -->
   <div class="footer">
