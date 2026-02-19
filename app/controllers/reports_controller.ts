@@ -4366,7 +4366,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   <!-- HEADER -->
   <div class="page-header">
     <div class="hotel-name">${hotelName}</div>
-    <div class="report-title">NIGHT AUDIT REPORT</div>
+    <div class="report-title">ACCOMMODATION NIGHT AUDIT REPORT</div>
   </div>
   <div class="report-meta">As of: ${formattedDate} &nbsp;&nbsp;&nbsp; Currency: ${currency}</div>
 
