@@ -464,6 +464,19 @@ export default class FolioTransactionsController {
       updated.lastModifiedBy = auth.user?.id || 0
       await updated.save()
 
+      if (updated.transactionType === TransactionType.PAYMENT) {
+        try {
+          await ReceiptService.updateReceiptByTransactionId({
+            transactionId: updated.id,
+            totalAmount: updated.amount,
+            description: updated.description,
+            paymentMethodId: updated.paymentMethodId ?? undefined,
+          })
+        } catch (receiptError) {
+          console.error('Failed to update receipt:', receiptError.message)
+        }
+      }
+
       // Update folio totals (service does this, but keeping consistent here)
       await this.updateFolioTotals(updated.folioId)
 
