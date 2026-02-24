@@ -2811,47 +2811,47 @@ export default class ReservationsController extends CrudController<typeof Reserv
           0
         )
 
-        // Validate room availability only if rooms are assigned
-        /*if (rooms.length > 0) {
+        //
+        if (rooms.length > 0) {
           const roomIds = rooms.map((r) => r.room_id).filter((id): id is any => Boolean(id))
 
           if (roomIds.length > 0) {
             let existingReservationsQuery = ReservationRoom.query({ client: trx })
-              .whereIn('roomId', roomIds)
-              .where('status', 'reserved')
+              .whereIn('room_id', roomIds)
+              .whereIn('status', ['reserved', 'checked_in', 'day_use'])
 
             if (arrivedDate.toISODate() === departDate.toISODate()) {
-              // Cas same-day (day use) → check overlap par heures
+
               const arrivalDateTime = DateTime.fromISO(`${data.arrived_date}T${data.check_in_time}`)
               const departureDateTime = DateTime.fromISO(
                 `${data.depart_date}T${data.check_out_time}`
               )
 
               existingReservationsQuery = existingReservationsQuery
-                .where('checkInDate', arrivedDate.toISODate())
-                .where('checkOutDate', departDate.toISODate())
+                .where('check_in_date', arrivedDate.toISODate())
+                .where('check_out_date', departDate.toISODate())
                 .where((query) => {
                   query
-                    .whereBetween('checkInTime', [
+                    .whereBetween('check_in_time', [
                       arrivalDateTime.toFormat('HH:mm'),
                       departureDateTime.toFormat('HH:mm'),
                     ])
-                    .orWhereBetween('checkOutTime', [
+                    .orWhereBetween('check_out_time', [
                       arrivalDateTime.toFormat('HH:mm'),
                       departureDateTime.toFormat('HH:mm'),
                     ])
                     .orWhere((overlapQuery) => {
                       overlapQuery
-                        .where('checkInTime', '<=', arrivalDateTime.toFormat('HH:mm'))
-                        .where('checkOutTime', '>=', departureDateTime.toFormat('HH:mm'))
+                        .where('check_in_time', '<=', arrivalDateTime.toFormat('HH:mm'))
+                        .where('check_out_time', '>=', departureDateTime.toFormat('HH:mm'))
                     })
                 })
             } else {
-              // Cas multi-jours → check overlap par dates
+              // Cas multi-jours
               existingReservationsQuery = existingReservationsQuery.where((query) => {
-                query.where('checkInDate', '<', departDate.toISODate())
-                  .where('checkOutDate', '>', arrivedDate.toISODate())
-
+                query
+                  .where('check_in_date', '<', departDate.toISODate())
+                  .where('check_out_date', '>', arrivedDate.toISODate())
               })
             }
 
@@ -2872,8 +2872,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               })
             }
           }
-        }*/
-
+        }
         // Create reservation
         const reservation = await Reservation.create(
           {
