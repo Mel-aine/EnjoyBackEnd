@@ -1509,6 +1509,8 @@ export default class ReportsController {
     }
    */
   public async generateNightAuditSections(hotelId: number, reportDate: DateTime, currency: string) {
+    // fetch the nightly payload from the POS so we can pull extra values such as
+    // the petit-dejeuner counter that isn't part of the existing report
     const [
       roomTypeStats,
       ratiosCA,
@@ -1516,7 +1518,9 @@ export default class ReportsController {
       roomStatus,
       paxStatus,
       paxAnalysis,
-      posSummary ,
+      posSummary,
+      posPayment,
+      payload,
     ] = await Promise.all([
       this.getRoomTypeStatsData(hotelId, reportDate, currency),
       this.getRatiosCAData(hotelId, reportDate, currency),
@@ -1525,8 +1529,13 @@ export default class ReportsController {
       this.getPaxStatusData(hotelId, reportDate),
       this.getPaxAnalysisData(hotelId, reportDate),
       this.getManagementPosSummaryData(hotelId, reportDate),
+      this.getManagementPosPaymentSummaryData(hotelId, reportDate),
+      this.getPosNightAuditPayload(hotelId, reportDate),
     ])
     const otherRevenues = this.buildOtherRevenuesFromPos(posSummary)
+
+    // extract breakfast counter (fallback to zeros if the POS didn't supply it)
+    const petitDejeuner = payload?.petitDejeuner ?? { today: 0, ptd: 0, ytd: 0 }
 
     return {
       roomTypeStats,
@@ -1536,6 +1545,8 @@ export default class ReportsController {
       paxStatus,
       paxAnalysis,
       posSummary,
+      posPayment,
+      petitDejeuner,
       otherRevenues,
     }
   }
@@ -2250,7 +2261,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     return { rows: [], totals: { dayCount: 0, day: 0, monthCount: 0, month: 0, yearCount: 0, year: 0 } }
   }
 
-  console.log()
+  console.log('POS Summary:', JSON.stringify(posSummary, null, 2))
 
   const rows = posSummary.outlets.map((outlet: any) => ({
     label:      outlet.outlet,
@@ -3885,7 +3896,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     const fp = (v: number | null | undefined) => Math.round(Number(v ?? 0)) + '&nbsp;%'
     const fd = (v: number | null | undefined) => Math.round(Number(v ?? 0)).toString()
 
-    const { roomTypeStats, ratiosCA, encaissements, otherRevenues } = sectionsData
+    const { roomTypeStats, ratiosCA, encaissements, otherRevenues, petitDejeuner } = sectionsData
+    const pd = petitDejeuner ?? { today: 0, ptd: 0, ytd: 0 }
     const ra = ratiosCA ?? { day: {}, month: {}, year: {} }
 
     // ── Other revenues totals ───────────────────────────────
@@ -4193,6 +4205,12 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       border-top: 1px dashed #666;
     }
 
+    .section-titleseparator {
+      margin: 12px 12px;
+      padding-bottom: 12px;
+      border-top: 1px dashed #666;
+    }
+
     .section-title-unique {
       display: flex;
       justify-content: space-between;
@@ -4418,6 +4436,31 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       </table>
     </div>
 
+  </div>
+
+  <!-- BREAKFAST COUNT -->
+  <div class="section-titleseparator">
+    <div class="section-title" style="margin-top:4px;"><span>Breakfasts (POS)</span></div>
+    <div class="sub-section">
+      <table>
+        <thead>
+          <tr>
+            <th class="lbl">DESCRIPTION</th>
+            <th>DAY</th>
+            <th>MONTH</th>
+            <th>YEAR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="data-row">
+            <td class="lbl">Breakfasts</td>
+            <td class="num">${fc(pd.today)}</td>
+            <td class="num">${fc(pd.ptd)}</td>
+            <td class="num">${fc(pd.ytd)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- PAYMENTS RECEIVED -->
