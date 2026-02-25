@@ -158,6 +158,7 @@ export class HotelAnalyticsService {
             'is_voided',
             'service_charge_amount',
             'tax_amount',
+            'total_amount',
           ])
           .whereNull('mealPlanId')
         })
