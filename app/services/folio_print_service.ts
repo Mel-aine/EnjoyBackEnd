@@ -3,7 +3,7 @@ import Folio from '#models/folio'
 import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
 import FolioTransaction from '#models/folio_transaction'
-import Currency from '#models/currency'
+import ReservationsController from '#controllers/reservations_controller'
 
 import { TransactionCategory, TransactionType } from '../enums.js'
 import logger from '@adonisjs/core/services/logger'
@@ -611,66 +611,7 @@ export class FolioPrintService {
    * Calculate balance summary from folio transactions
    */
   private calculateBalanceSummary(folios: any[]) {
-    let totalCharges = 0
-    let totalPayments = 0
-    let totalAdjustments = 0
-    let totalTaxes = 0
-    let totalServiceCharges = 0
-    let totalDiscounts = 0
-
-    folios.forEach(folio => {
-      if (folio.transactions) {
-        folio.transactions.forEach((transaction: any) => {
-          const amount = parseFloat(transaction.amount) || 0
-
-          switch (transaction.transactionType) {
-            case 'charge':
-            case 'room_posting':
-              totalCharges += amount
-              break
-            case 'payment':
-              totalPayments += amount
-              break
-            case 'adjustment':
-              totalAdjustments += amount
-              break
-            case 'tax':
-              totalTaxes += amount
-              totalCharges += amount
-              break
-            case 'discount':
-              totalDiscounts += Math.abs(amount) // Discounts are typically negative
-              totalCharges -= Math.abs(amount)
-              break
-            case 'refund':
-              totalPayments -= amount // Refunds reduce payments
-              break
-          }
-
-          // Add service charges and taxes from transaction details
-          if (transaction.serviceChargeAmount) {
-            totalServiceCharges += parseFloat(transaction.serviceChargeAmount) || 0
-          }
-          if (transaction.taxAmount) {
-            totalTaxes += parseFloat(transaction.taxAmount) || 0
-          }
-        })
-      }
-    })
-
-    const outstandingBalance = totalCharges + totalTaxes + totalServiceCharges - totalPayments + totalAdjustments
-
-    return {
-      totalCharges: parseFloat(totalCharges.toFixed(2)),
-      totalPayments: parseFloat(totalPayments.toFixed(2)),
-      totalAdjustments: parseFloat(totalAdjustments.toFixed(2)),
-      totalTaxes: parseFloat(totalTaxes.toFixed(2)),
-      totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
-      totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
-      outstandingBalance: parseFloat(outstandingBalance.toFixed(2)),
-      totalChargesWithTaxes: parseFloat((totalCharges + totalTaxes + totalServiceCharges).toFixed(2)),
-      balanceStatus: outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled'
-    }
+    return ReservationsController.calculateBalanceSummary(folios)
   }
   /**
    * Calculate estimated totals for booking confirmation

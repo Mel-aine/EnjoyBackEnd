@@ -1228,59 +1228,33 @@ export default class ReservationsController extends CrudController<typeof Reserv
       )
       if (activeTransactions) {
         activeTransactions.forEach((transaction: any) => {
-          const amount = parseFloat(transaction.amount) || 0
-
-          switch (transaction.transactionType) {
-            case 'charge':
-              totalCharges += amount
-              break
-            case TransactionType.ROOM_POSTING:
-              totalCharges += amount
-              break
-            case TransactionType.TRANSFER:
-              if (transaction.category === TransactionCategory.TRANSFER_IN) {
-                // Treat transfer-in as a charge (debit)
-                totalCharges += amount
-              } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
-                // Treat transfer-out as a payment (credit)
-                totalPayments += Math.abs(amount)
-              }
-              break
-            case 'payment':
-              totalPayments +=Math.abs(amount)
-              break
-            case 'adjustment':
-              totalAdjustments += amount
-              break
-            case 'tax':
-              totalTaxes += amount
-              break
-            case 'discount':
-              totalDiscounts += Math.abs(amount) // Discounts are typically negative
-              totalCharges -= Math.abs(amount)
-              break
-            case 'refund':
-              totalPayments -= amount // Refunds reduce payments
-              break
+          if (transaction.transactionType === TransactionType.CHARGE) {
+            totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.ROOM_POSTING) {
+            totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.PAYMENT) {
+            totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+          } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
+            totalAdjustments += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.TRANSFER) {
+            // Treat transfer-in as charge (debit), transfer-out as payment (credit)
+            if (transaction.category === TransactionCategory.TRANSFER_IN) {
+              totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+            } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
+              totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+            }
+          } else if (transaction.transactionType === TransactionType.REFUND) {
+            totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
           }
 
-          // Add service charges and taxes from transaction details
-          if (transaction.serviceChargeAmount) {
-            totalServiceCharges += parseFloat(transaction.serviceChargeAmount) || 0
-          }
-          if (transaction.taxAmount) {
-            totalTaxes += parseFloat(transaction.taxAmount) || 0
-          }
+          totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
+          totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
+          totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
         })
       }
     })
 
-    const outstandingBalance =
-      parseFloat(totalCharges.toFixed(2)) +
-      parseFloat(totalTaxes.toFixed(2)) +
-      parseFloat(totalServiceCharges.toFixed(2)) -
-      parseFloat(totalPayments.toFixed(2)) +
-      parseFloat(totalAdjustments.toFixed(2))
+    const outstandingBalance = totalCharges + totalAdjustments - totalPayments
 
     return {
       totalCharges: parseFloat(totalCharges.toFixed(2)),
@@ -1290,9 +1264,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
       outstandingBalance: parseFloat(outstandingBalance.toFixed(0)),
-      totalChargesWithTaxes: parseFloat(
-        (totalCharges + totalTaxes + totalServiceCharges).toFixed(2)
-      ),
+      totalChargesWithTaxes: parseFloat(totalCharges.toFixed(2)),
       balanceStatus:
         outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled',
     }
