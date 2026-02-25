@@ -770,7 +770,7 @@ router
         '/reservation/:serviceId',
         dashboardController.yearlyReservationTypes.bind(dashboardController)
       )
-    })
+    }).use(middleware.checkSubscription('pms'))
     router
       .group(() => {
         router.get('/service/:serviceId/daily-occupancy', [
@@ -783,6 +783,7 @@ router
         ])
       })
       .prefix('/dashboard')
+      .use(middleware.checkSubscription('pms'))
 
     // Hotel Management Routes
     // Comprehensive hotel management system with CRUD operations and analytics
@@ -967,6 +968,7 @@ router
         router.get('/frontoffice/bookingrooom', roomsController.getFrontOfficeBookingData.bind(roomsController))
       })
       .prefix('configuration/hotels/:hotelId/rooms')
+      .use(middleware.checkSubscription('pms'))
 
     // Room Rate Management Routes
     // Room rate configuration and pricing management
@@ -1053,6 +1055,7 @@ router
         router.get('/unsettled/:id', foliosController.unsettled.bind(foliosController)) // Get unsettled folios
       })
       .prefix('folios')
+      .use(middleware.checkSubscription('pms'))
 
     // Folio Print Management Routes
     // Generate folio print data and PDF invoices
@@ -1111,6 +1114,7 @@ router
         router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
       })
       .prefix('reservation-rooms')
+      .use(middleware.checkSubscription('pms'))
 
     // Lost and Found Management Routes
     // Lost and found items management
@@ -1177,6 +1181,7 @@ router
 
       })
       .prefix('reservation')
+      .use(middleware.checkSubscription('pms'))
     router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
 
     // Configuration routes
@@ -1754,7 +1759,8 @@ router
         router.post('/properties/:propertyId/updateRestrictions', channexRestrictionsController.updateRestrictions.bind(channexRestrictionsController))
         router.post('/properties/:propertyId/ari', channexController.bulkUpdateARI.bind(channexController))
       })
-      .prefix('channex');
+      .prefix('channex')
+      .use(middleware.checkSubscription('channel_manager'));
 
     /// audit trails
     router
@@ -1809,3 +1815,25 @@ import './routes/reports.js'
 // Import POS routes
 import './routes/pos.js'
 
+
+// Console Routes (Admin/Management)
+router.group(() => {
+  // Hotels Management
+  router.resource('hotels', '#controllers/hotels_controller')
+
+  // Modules Management
+  router.resource('modules', '#controllers/Console/modules_controller')
+
+  // Subscriptions Management (nested under hotels)
+  router.get('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.index')
+  router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
+  router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
+  router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
+
+  // Invoices Management
+  router.get('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.index')
+  router.post('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.store')
+  router.get('invoices/:id', '#controllers/Console/invoices_controller.show')
+  router.put('invoices/:id', '#controllers/Console/invoices_controller.update')
+
+}).prefix('api/console').use(middleware.auth({ guards: ['api'] }))

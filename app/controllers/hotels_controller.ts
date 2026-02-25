@@ -3,6 +3,7 @@ import Hotel from '#models/hotel'
 import User from '#models/user'
 import Role from '#models/role'
 import ServiceUserAssignment from '#models/service_user_assignment'
+import ActivityLog from '#models/activity_log'
 import CrudService from '#services/crud_service'
 import LoggerService from '#services/logger_service'
 import PermissionService from '#services/permission_service'
@@ -240,6 +241,24 @@ export default class HotelsController {
 
       // Commit the transaction if everything succeeds
       await trx.commit()
+
+      // Log the activity
+      const user = auth.user
+      if (user) {
+        await ActivityLog.create({
+          userId: user.id,
+          username: user.username || user.email,
+          action: 'hotel.create',
+          entityType: 'hotel',
+          entityId: hotel.id,
+          hotelId: hotel.id,
+          description: `Created new hotel: ${hotel.hotelName}`,
+          changes: hotel.serialize(),
+          ipAddress: request.ip(),
+          userAgent: request.header('user-agent'),
+          createdBy: user.id
+        })
+      }
 
       return response.created({
         message: 'Hotel created successfully',
@@ -756,10 +775,27 @@ export default class HotelsController {
   /**
    * Delete a hotel
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, response, request, auth }: HttpContext) {
     try {
       const hotel = await Hotel.findOrFail(params.id)
+      const hotelName = hotel.hotelName
       await hotel.delete()
+
+      // Log the activity
+      const user = auth.user
+      if (user) {
+        await ActivityLog.create({
+          userId: user.id,
+          username: user.username || user.email,
+          action: 'hotel.delete',
+          entityType: 'hotel',
+          entityId: parseInt(params.id),
+          description: `Deleted hotel: ${hotelName}`,
+          ipAddress: request.ip(),
+          userAgent: request.header('user-agent'),
+          createdBy: user.id
+        })
+      }
 
       return response.ok({
         message: 'Hotel deleted successfully'

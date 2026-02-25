@@ -4,6 +4,7 @@ import Hash from '@adonisjs/core/services/hash'
 import { cuid, Secret } from '@adonisjs/core/helpers'
 import vine from '@vinejs/vine'
 import User from '#models/user'
+import Hotel from '#models/hotel'
 import LoggerService from '#services/logger_service'
 import RolePermission from '#models/role_permission'
 import BookingSource from '#models/booking_source'
@@ -93,6 +94,14 @@ export default class AuthController {
            const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
+
+      if (user.hotelId) {
+        const hotel = await Hotel.find(user.hotelId)
+        if (hotel && !(await hotel.hasAccessTo('pms'))) {
+          return this.responseError('Active PMS subscription required', 403, { code: 'SUBSCRIPTION_REQUIRED' })
+        }
+      }
+
       // Crée un access token (pour les requêtes API) et un refresh token dédié
       const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '24h' })
       const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
@@ -180,6 +189,13 @@ export default class AuthController {
 
       if (!login) {
         return response.unauthorized({ message: 'Invalid credentials' })
+      }
+    }
+
+    if (user.hotelId) {
+      const hotel = await Hotel.find(user.hotelId)
+      if (hotel && !(await hotel.hasAccessTo('pms'))) {
+        return response.forbidden({ message: 'Active PMS subscription required', code: 'SUBSCRIPTION_REQUIRED' })
       }
     }
 

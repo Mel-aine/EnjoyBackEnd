@@ -12,6 +12,8 @@ import Currency from './currency.js'
 import PaymentMethod from './payment_method.js'
 import TaxRate from './tax_rate.js'
 import Amenity from './amenity.js'
+import Subscription from '#models/subscription'
+import Invoice from '#models/invoice'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
@@ -551,4 +553,40 @@ export default class Hotel extends BaseModel {
     }
   }
 
+  @hasMany(() => Subscription)
+  declare subscriptions: HasMany<typeof Subscription>
+
+  @hasMany(() => Invoice)
+  declare invoices: HasMany<typeof Invoice>
+
+  public async hasAccessTo(moduleSlug: string): Promise<boolean> {
+    const now = DateTime.now().toSQL()
+
+    // 1. Direct subscription check
+    const directSub = await this.related('subscriptions')
+      .query()
+      .preload('module')
+      .whereHas('module', (query) => query.where('slug', moduleSlug))
+      .where('status', 'active')
+      .where('ends_at', '>', now)
+      .first()
+
+    if (directSub) return true
+
+    // 2. Bundle subscription check
+    const bundleSubs = await this.related('subscriptions')
+      .query()
+      .preload('module')
+      .whereHas('module', (query) => query.where('is_bundle', true))
+      .where('status', 'active')
+      .where('ends_at', '>', now)
+
+    for (const sub of bundleSubs) {
+      if (sub.module.includedModulesJson && sub.module.includedModulesJson.includes(moduleSlug)) {
+        return true
+      }
+    }
+
+    return false
+  }
 }

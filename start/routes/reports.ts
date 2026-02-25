@@ -298,6 +298,9 @@ router.group(() => {
     router.get('/', [HotelHistoriesController, 'index'])
   }).prefix('/hotel-histories')
 
-}).prefix('/api/reports').use(middleware.auth())
+}).prefix('/api/reports').use([
+  middleware.auth(),
+  middleware.checkSubscription('pms')
+])
 // Temporarily disabled auth for testing
 // .use(middleware.auth())
