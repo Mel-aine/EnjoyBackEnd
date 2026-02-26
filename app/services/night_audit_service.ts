@@ -6,14 +6,15 @@ import ReservationRoom from '#models/reservation_room'
 import Room from '#models/room'
 import RoomBlock from '#models/room_block'
 import Folio from '#models/folio'
-import PaymentMethod from '#models/payment_method'
-import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus, FolioType, PaymentMethodType } from '#app/enums'
+import { TransactionType, TransactionCategory, ReservationStatus, TransactionStatus } from '#app/enums'
 import LoggerService from '#services/logger_service'
 import ReportsController from '#controllers/reports_controller'
 import Hotel from '#models/hotel'
 import PosService from '#services/pos_service'
 import ReportsEmailService from './reports_email_service.js'
 import LedgerService from '#services/ledger_service'
+import NightAuditRequested from '#events/night_audit_requested'
+import Job from '#models/job'
 
 export interface NightAuditFilters {
   auditDate: DateTime
@@ -101,11 +102,46 @@ export default class NightAuditService {
   /**
    * Calculate and store night audit data for a specific date
    */
-  static async calculateNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
+  static async calculateNightAudit(filters: NightAuditFilters): Promise<void> {
     const { auditDate, hotelId, userId } = filters
 
     // Update occupied rooms to dirty status
     await this.updateOccupiedRoomsToDirty(hotelId, auditDate)
+    const hotel = await Hotel.find(hotelId)
+
+    if (!filters.skipReport) {
+      if (hotel) {
+        hotel.lastNightAuditDate = DateTime.now();
+        hotel.currentWorkingDate = DateTime.now().startOf('day')
+        await hotel.save()
+        const emailService = new ReportsEmailService()
+        setImmediate(async () => {
+          await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
+        })
+      }
+    }
+
+    const job = await Job.create({
+      type: 'NIGHT_AUDIT',
+      payload: {
+        auditDate: auditDate.toISODate(),
+        hotelId,
+        userId,
+        skipReport: filters.skipReport
+      },
+      status: 'pending',
+      attempts: 0
+    })
+
+    // Trigger processing via event
+    NightAuditRequested.dispatch(job.id)
+  }
+
+  /**
+   * Process night audit logic (called by listener)
+   */
+  static async processNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
+    const { auditDate, hotelId, userId } = filters
 
     // Calculate all metrics in parallel for better performance
     const [
@@ -144,21 +180,11 @@ export default class NightAuditService {
       ...(nightAuditData || {}),
       posNightAudit: posNightAuditData || null,
     }
-    const hotel = await Hotel.find(hotelId)
     // Store the calculated data with all report data
-    await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
+    const dailySummaryFact = await this.storeDailySummary(summary, userId, sectionsData, nightAuditDataWithPos, dailyRevenueData, roomStatusData)
 
-    if (!filters.skipReport) {
-      if (hotel) {
-        hotel.lastNightAuditDate = DateTime.now();
-        hotel.currentWorkingDate = DateTime.now().startOf('day')
-        await hotel.save()
-        const emailService = new ReportsEmailService()
-        setImmediate(async () => {
-          await emailService.sendDailyEmail(hotelId, hotel.currentWorkingDate?.toISODate()!)
-        })
-      }
-    }
+    const emailService = new ReportsEmailService()
+    await emailService.sendDailySummaryEmail(dailySummaryFact)
 
     return summary
   }
@@ -177,7 +203,8 @@ export default class NightAuditService {
       return await PosService.getNightAudit(hotelId, auditDate, hotel.posApiKey)
     } catch (err: any) {
       console.error('Error fetching POS night audit:', err?.message || err)
-      return null
+      // Throw error to trigger retry in job worker
+      throw new Error(`POS Night Audit fetch failed: ${err?.message || err}`)
     }
   }
 
