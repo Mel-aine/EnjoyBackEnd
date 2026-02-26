@@ -4307,7 +4307,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       else {
 
         const targetRooms = reservation.reservationRooms.filter((rr) =>
-          selectedRooms.includes(rr.roomId)// && !rr.isSplitedOrigin
+          selectedRooms.includes(rr.roomId) && !rr.isSplitedOrigin
         )
 
         if (targetRooms.length === 0) {
@@ -4380,6 +4380,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Recharger les chambres mises à jour pour avoir les bonnes valeurs
       const updatedRooms = await ReservationRoom.query({ client: trx })
         .where('reservationId', reservation.id)
+        .where('isSplitedOrigin', false)
+        .whereNotIn('status', ['checked_out'])
 
       // Construire l'objet de mise à jour
       const reservationUpdateData: any = {
@@ -5038,7 +5040,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const moveTimeIso = moveDate.toISO()
         const movedBy = auth.user?.fullName || `User ${auth.user?.id}`
 
-        const nextRoomRate = selectedRoomRate ? Number(selectedRoomRate.baseRate || 0) : currentReservationRoom.roomRate
+        // const nextRoomRate = selectedRoomRate ? Number(selectedRoomRate.baseRate || 0) : currentReservationRoom.roomRate
+        const nextRoomRate = overwriteRoomRate && selectedRoomRate
+          ? Number(selectedRoomRate.baseRate || 0)
+          : Number(currentReservationRoom.roomRate)
         const nextNights = Number(currentReservationRoom.nights ?? 0)
         const nextTotalRoomCharges = nextNights === 0 ? nextRoomRate : nextRoomRate * nextNights
         const previousTotalRoomCharges =
@@ -5050,6 +5055,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         const taxRatio = previousTotalRoomCharges > 0 ? previousTotalTaxes / previousTotalRoomCharges : 0
         const nextTotalTaxesAmount = round2(nextTotalRoomCharges * taxRatio)
         const nextNetAmount = round2(nextTotalRoomCharges + nextTotalTaxesAmount)
+
 
         await currentReservationRoom
           .merge({
@@ -5074,6 +5080,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           .useTransaction(trx)
           .save()
 
+
         if (overwriteRoomRate && selectedRoomRate) {
           const startPostingDateIso = (effectiveDate ? DateTime.fromISO(effectiveDate) : moveDate).toISODate()
           const openFolios = await Folio.query({ client: trx }).where('reservationId', reservation.id)
@@ -5096,6 +5103,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             await FolioService.updateFolioTotals(folioId, trx)
           }
         }
+
+
+
 
         await trx.commit()
 
@@ -5141,7 +5151,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Do NOT split reservation: keep same reservation and add a new ReservationRoom
       const targetReservationId = reservation.id
 
-      const nextRoomRate = selectedRoomRate ? Number(selectedRoomRate.baseRate || 0) : currentReservationRoom.roomRate
+      //const nextRoomRate = selectedRoomRate ? Number(selectedRoomRate.baseRate || 0) : currentReservationRoom.roomRate
+      const nextRoomRate = overwriteRoomRate && selectedRoomRate
+      ? Number(selectedRoomRate.baseRate || 0)
+      : Number(currentReservationRoom.roomRate)
       const nextTotalRoomCharges = numberOfNights === 0 ? nextRoomRate : nextRoomRate * numberOfNights
       const previousTotalRoomCharges =
         Number(currentReservationRoom.totalRoomCharges ?? 0) ||
@@ -5247,6 +5260,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
+       await trx.from('rooms')
+        .where('id', currentReservationRoom.roomId!)
+        .update({
+          status: 'available',
+          housekeeping_status: 'dirty',
+          updated_at: DateTime.now().toSQL(),
+        })
+
+      // Mettre à jour le statut de la nouvelle chambre
+      await trx.from('rooms')
+        .where('id', newRoomId)
+        .update({
+          status: 'occupied',
+          updated_at: DateTime.now().toSQL(),
+        })
 
 
       // Create audit log
