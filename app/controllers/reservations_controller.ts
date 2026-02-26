@@ -1540,11 +1540,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
   private async updateFoliosAfterAmendment(reservation: any, trx: any, userId: number) {
-    await reservation.load('folios')
+    // 1. Re-fetch reservation with all necessary data for calculation
+    const freshReservation = await Reservation.query({ client: trx })
+      .where('id', reservation.id)
+      .preload('folios')
+      .preload('guests')
+      .preload('hotel', (query) => {
+        query.preload('roomChargesTaxRates')
+      })
+      .preload('reservationRooms', (query) => {
+        query.preload('room', (roomQuery: any) => {
+          roomQuery.preload('roomType')
+        })
+        query.preload('roomRates')
+        query.preload('mealPlan', (mpQuery: any) => {
+          mpQuery.preload('extraCharges', (ecQ: any) => {
+            ecQ.preload('taxRates')
+          })
+        })
+      })
+      .firstOrFail()
 
-    // On utilise le 'trx' passé en paramètre
-    await FolioTransaction.query({ client: trx })
-      .whereIn('folioId', reservation.folios.map((f: any) => f.id))
+    // 2. Get existing transactions
+    const existingTransactions = await FolioTransaction.query({ client: trx })
+      .whereIn('folioId', freshReservation.folios.map((f: any) => f.id))
       .where('transactionType', TransactionType.CHARGE)
       .where('status', '!=', TransactionStatus.VOIDED)
       .andWhere((q) => {
@@ -1552,10 +1571,96 @@ export default class ReservationsController extends CrudController<typeof Reserv
           qq.where('category', TransactionCategory.EXTRACT_CHARGE).whereNotNull('mealPlanId')
         })
       })
-      .delete()
 
+    // 3. Get next transaction number
+    const lastTx = await FolioTransaction.query({ client: trx })
+      .where('hotel_id', freshReservation.hotelId)
+      .orderBy('transaction_number', 'desc')
+      .first()
 
-    await ReservationFolioService.postRoomCharges(reservation.id, userId, trx)
+    let nextNumber = lastTx?.transactionNumber ? Number(lastTx.transactionNumber) + 1 : 1
+
+    // 4. Calculate expected transactions
+    const expectedBatch = ReservationFolioService.calculateRoomCharges(freshReservation, userId, nextNumber)
+
+    const toCreate: any[] = []
+    const toDeleteIds: number[] = []
+    const keptIds: Set<number> = new Set()
+
+    // 5. Sync logic
+    for (const expected of expectedBatch) {
+      // Find match in existing
+      // Criteria: FolioID, Date, Category, Amount, MealPlanId (if applicable)
+
+      const expectedDate = expected.transactionDate instanceof DateTime
+        ? expected.transactionDate.toISODate()
+        : DateTime.fromJSDate(expected.transactionDate as any).toISODate()
+
+      const match = existingTransactions.find((tx) => {
+        if (keptIds.has(tx.id)) return false // already matched
+
+        if (tx.folioId !== expected.folioId) return false
+        if (tx.category !== expected.category) return false
+
+        const txDate = tx.transactionDate instanceof DateTime
+          ? tx.transactionDate.toISODate()
+          : DateTime.fromJSDate(tx.transactionDate as any).toISODate()
+
+        if (txDate !== expectedDate) return false
+
+        // Check Amount (allow small float diff)
+        const diff = Math.abs(Number(tx.amount) - Number(expected.amount))
+        if (diff > 0.01) return false
+
+        // Check MealPlan
+        if (expected.mealPlanId) {
+          if (tx.mealPlanId !== expected.mealPlanId) return false
+          if (expected.extraChargeId && tx.extraChargeId !== expected.extraChargeId) return false
+        }
+
+        return true
+      })
+
+      if (match) {
+        keptIds.add(match.id)
+        // We keep the existing one.
+      } else {
+        // No match, this is a new transaction
+        // Re-assign number to ensure continuity for new items
+        expected.transactionNumber = nextNumber++
+        toCreate.push(expected)
+      }
+    }
+
+    // Identify transactions to delete
+    for (const tx of existingTransactions) {
+      if (!keptIds.has(tx.id)) {
+        toDeleteIds.push(tx.id)
+      }
+    }
+
+    // 6. Execute
+    if (toDeleteIds.length > 0) {
+      await FolioTransaction.query({ client: trx })
+        .whereIn('id', toDeleteIds)
+        .delete()
+    }
+
+    if (toCreate.length > 0) {
+      await FolioTransaction.createMany(toCreate, { client: trx })
+    }
+
+    // Update folio totals
+    const folioIds = [...new Set([
+      ...toCreate.map((tx) => tx.folioId),
+      ...existingTransactions.filter(tx => toDeleteIds.includes(tx.id)).map(tx => tx.folioId)
+    ])]
+
+    for (const folioId of folioIds) {
+      if (folioId) {
+        await FolioService.updateFolioTotals(folioId, trx)
+      }
+    }
   }
 
 

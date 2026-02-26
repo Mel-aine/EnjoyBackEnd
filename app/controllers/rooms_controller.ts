@@ -641,6 +641,7 @@ export default class RoomsController {
       // **2. Identify Blocked Rooms (Standard Overlap Logic)**
       // Conflict if (Block_Start <= Request_End) AND (Block_End >= Request_Start)
       const blockedRoomsResult = await RoomBlock.query()
+      .where('hotel_id', hotelId)
         .whereIn('room_type_id', roomTypeIds)
         .where('block_from_date', '<=', checkOutISO)
         .where('block_to_date', '>=', checkInISO)
@@ -651,7 +652,8 @@ export default class RoomsController {
       // **3. Identify Reserved Rooms (Standard Overlap Logic)**
       // Conflict if (Reservation_Start < Request_End) AND (Reservation_End > Request_Start)
       const reservedRoomsResult = await ReservationRoom.query()
-        .whereIn('status', ['confirmed', 'checked_in', 'reserved'])
+        .where('hotel_id', hotelId)
+        .whereIn('status', ['confirmed', 'checked_in', 'reserved','checked_out','checked-out'])
         .where('check_in_date', '<', checkOutISO)
         .where('check_out_date', '>', checkInISO)
         .whereNotNull('roomId')
