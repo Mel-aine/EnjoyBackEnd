@@ -13,6 +13,7 @@ import Hotel from '#models/hotel'
 import PosService from '#services/pos_service'
 import ReportsEmailService from './reports_email_service.js'
 import LedgerService from '#services/ledger_service'
+import NightAuditRequested from '#events/night_audit_requested'
 import Job from '#models/job'
 
 export interface NightAuditFilters {
@@ -120,7 +121,7 @@ export default class NightAuditService {
       }
     }
 
-    await Job.create({
+    const job = await Job.create({
       type: 'NIGHT_AUDIT',
       payload: {
         auditDate: auditDate.toISODate(),
@@ -131,10 +132,13 @@ export default class NightAuditService {
       status: 'pending',
       attempts: 0
     })
+
+    // Trigger processing via event
+    NightAuditRequested.dispatch(job.id)
   }
 
   /**
-   * Process night audit logic (called by worker)
+   * Process night audit logic (called by listener)
    */
   static async processNightAudit(filters: NightAuditFilters): Promise<NightAuditSummary> {
     const { auditDate, hotelId, userId } = filters

@@ -38,7 +38,10 @@ export default class TestJobDispatch extends BaseCommand {
       attempts: 0
     })
 
+    const NightAuditRequested = (await import('#events/night_audit_requested')).default
+    await NightAuditRequested.dispatch(job.id)
+
     this.logger.success(`Job dispatched successfully! Job ID: ${job.id}`)
-    this.logger.info('Run "node ace work:jobs" in another terminal to process it.')
+    this.logger.info('Event emitted. Check your logs for processing details.')
   }
 }
