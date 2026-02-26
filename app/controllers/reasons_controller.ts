@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Reason from '#models/reason'
 import { createReasonValidator, updateReasonValidator } from '#validators/reason'
 import { DateTime } from 'luxon'
+import LoggerService from '#services/logger_service'
 
 export default class ReasonsController {
   /**
@@ -122,7 +123,7 @@ export default class ReasonsController {
   /**
    * Soft delete a reason
    */
-  async destroy({ params, response, auth }: HttpContext) {
+  async destroy({ params, request, response, auth }: HttpContext) {
     try {
       const reason = await Reason.query()
         .where('id', params.id)
@@ -130,6 +131,8 @@ export default class ReasonsController {
         .firstOrFail()
 
       const user = auth.user!
+      
+      const oldData = reason.serialize()
 
       reason.merge({
         isDeleted: true,
@@ -138,6 +141,17 @@ export default class ReasonsController {
       })
 
       await reason.save()
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'DELETE',
+        entityType: 'Reason',
+        entityId: reason.id,
+        hotelId: reason.hotelId,
+        description: `Soft deleted reason: ${reason.reasonName}`,
+        changes: LoggerService.extractChanges(oldData, reason.serialize()),
+        ctx: { request, response } as any,
+      })
 
       return response.ok({ message: 'Reason deleted successfully' })
     } catch (error) {

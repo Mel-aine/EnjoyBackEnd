@@ -1,4 +1,4 @@
-import type { HttpContext } from '@adonisjs/core/http'
+import type { HttpContext, Response } from '@adonisjs/core/http'
 import ReportsService, { ReportFilters } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
@@ -13,15 +13,16 @@ import PaymentMethod from '#models/payment_method'
 import CompanyAccount from '#models/company_account'
 import PdfService from '#services/pdf_service'
 import Reservation from '#models/reservation'
-import NightAuditService from '../services/night_audit_service.js'
+import NightAuditService from '#services/night_audit_service'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import RoomType from '#models/room_type'
 import Room from '#models/room'
+// @ts-ignore
 import numberToWords from 'number-to-words'
 import PosService from '#services/pos_service'
 import RoomBlock from '#models/room_block'
-import { formatCurrency } from '../utils/utilities.js'
+import { formatCurrency } from '#app/utils/utilities'
 import BookingSource from '#models/booking_source'
 import ExtraCharge from '#models/extra_charge'
 export default class ReportsController {
@@ -290,7 +291,7 @@ export default class ReportsController {
       }
 
       // Get report data using the same logic as generate method
-      let reportData: HtmlReport | ReportData
+      let reportData: any
       switch (reportType) {
         case 'arrivalList':
           reportData = await ReportsService.getArrivalList(reportFilters)
@@ -391,7 +392,7 @@ export default class ReportsController {
   /**
    * Export report to PDF format
    */
-  private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
+  private async exportToPDF(response: Response, reportData: any, filename: string) {
     try {
       // Générer le PDF à partir du HTML du rapport
       const pdfBuffer = await PdfService.generatePdfFromHtml(reportData.html, {
@@ -1044,8 +1045,8 @@ export default class ReportsController {
     // Preload all reservations overlapping the month, including reservation rooms and their assigned rooms
     const allReservations = await Reservation.query()
       .where('hotel_id', hotelId)
-      .whereRaw('DATE(arrived_date) <= ?', [endDate.toSQLDate()])
-      .whereRaw('DATE(depart_date) > ?', [startDate.toSQLDate()])
+      .whereRaw('DATE(arrived_date) <= ?', [endDate.toSQLDate()!])
+      .whereRaw('DATE(depart_date) > ?', [startDate.toSQLDate()!])
       .whereNotIn('status', ['cancelled', 'voided', 'no_show'])
       .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .preload('reservationRooms', (rrQuery) => {
@@ -1552,7 +1553,7 @@ export default class ReportsController {
   }
 
   //  Statistiques d'occupation groupées par type de chambre
-  private async getRoomTypeStatsData(hotelId: number, reportDate: DateTime, currency: string) {
+  private async getRoomTypeStatsData(hotelId: number, reportDate: DateTime, _currency: string) {
     const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr     = fmt(reportDate)
     const monthStart = fmt(reportDate.startOf('month'))
@@ -1852,7 +1853,7 @@ export default class ReportsController {
 
 
   //  Calcule NMPC | DMS | T.O | T.I | PMC | CA HT | CA TTC | Cityledger
- private async getRatiosCAData(hotelId: number, reportDate: DateTime, currency: string) {
+ private async getRatiosCAData(hotelId: number, reportDate: DateTime, _currency: string) {
   const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
   const dayStr     = fmt(reportDate)
   const monthStart = fmt(reportDate.startOf('month'))
@@ -2175,7 +2176,7 @@ export default class ReportsController {
   private async getEncaissementsData(
     hotelId: number,
     reportDate: DateTime,
-    currency: string
+    _currency: string
   ) {
     const fmt        = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr     = fmt(reportDate)
@@ -2289,6 +2290,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   /**
    * Section 1: Room Charges Data
    */
+  // @ts-ignore
   private async getRoomChargesData(hotelId: number, reportDate: DateTime, currency: string) {
     const { default: Reservation } = await import('#models/reservation')
 
@@ -2411,6 +2413,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   /**
    * Section 2: Daily Sales Data
    */
+  // @ts-ignore
   private async getDailySalesData(hotelId: number, reportDate: DateTime, currency: string) {
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: Reservation } = await import('#models/reservation')

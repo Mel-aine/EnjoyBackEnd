@@ -1,6 +1,6 @@
 // app/services/htmlReports_service.ts
 import { DateTime } from 'luxon'
-import { ReportFilters } from './reports_service.js'
+import { ReportFilters } from '#services/reports_service'
 
 export interface HtmlReport {
   title: string
@@ -14,7 +14,7 @@ export class HtmlReportGenerator {
   // Génère un rapport HTML pour la liste d'arrivée
   static generateArrivalListHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     // Mapping des colonnes disponibles
-    const availableColumns = {
+    const availableColumns: Record<string, any> = {
         'pickUp': { key: 'pickUp', label: 'Pick Up' },
         'dropOff': { key: 'dropOff', label: 'Drop Off' },
         'resType': { key: 'resType', label: 'Res.Type' },

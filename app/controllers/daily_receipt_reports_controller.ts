@@ -5,9 +5,9 @@ import Hotel from '#models/hotel'
 import Reservation from '#models/reservation' // Modifié: Reservation au lieu de Booking
 import { createDailyReceiptReportValidator } from '#validators/daily_receipt_report'
 import { createDailyRevenueReportValidator } from '#validators/daily_revenue_report'
-import { PaymentMethodType,TransactionType, TransactionCategory } from '../enums.js'
+import { PaymentMethodType,TransactionType, TransactionCategory } from '#app/enums'
 import FolioTransaction from '#models/folio_transaction'
-import { formatCurrency } from '../utils/utilities.js'
+import { formatCurrency } from '#app/utils/utilities'
 
 export default class DailyReceiptReportsController {
   /**

@@ -8,8 +8,8 @@ import Expense from '#models/expense'
 import FolioTransaction from '#models/folio_transaction'
 import { TransactionStatus, TransactionType } from '#app/enums'
 import Database from '@adonisjs/lucid/services/db'
-import { HtmlReportGenerator } from './htmlReports_service.ts'
-  import { formatCurrency } from '../utils/utilities.js'
+import { HtmlReportGenerator } from '#services/htmlReports_service'
+import { formatCurrency } from '#app/utils/utilities'
 
 export interface ReportFilters {
   hotelId?: number

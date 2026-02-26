@@ -3,6 +3,7 @@ import RoomRate from '#models/room_rate'
 import { createRoomRateValidator, updateRoomRateValidator } from '#validators/room_rate'
 import Database from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
+import LoggerService from '#services/logger_service'
 
 export default class RoomRatesController {
   /**
@@ -133,6 +134,17 @@ export default class RoomRatesController {
 
       await trx.commit()
 
+      await LoggerService.log({
+        actorId: userId!,
+        action: 'CREATE',
+        entityType: 'RoomRate',
+        entityId: roomRate.id,
+        hotelId: roomRate.hotelId,
+        description: 'Room rate created',
+        changes: LoggerService.extractChanges({}, roomRate.serialize()),
+        ctx: { request, response } as any,
+      })
+
       return response.created({
         message: 'Room rate created successfully',
         data: roomRate
@@ -205,12 +217,16 @@ export default class RoomRatesController {
         .forUpdate()
         .firstOrFail()
 
+      const oldData = roomRate.serialize()
+
       roomRate.merge({
         ...payload,
-        lastModifiedBy: userId!
+        lastModifiedBy: userId!,
       })
 
       await roomRate.save()
+
+      const newData = roomRate.serialize()
 
       await roomRate.load('hotel')
       await roomRate.load('roomType')
@@ -220,6 +236,17 @@ export default class RoomRatesController {
       await roomRate.load('modifier')
 
       await trx.commit()
+
+      await LoggerService.log({
+        actorId: userId!,
+        action: 'UPDATE',
+        entityType: 'RoomRate',
+        entityId: roomRate.id,
+        hotelId: roomRate.hotelId,
+        description: 'Room rate updated',
+        changes: LoggerService.extractChanges(oldData, newData),
+        ctx: { request, response } as any,
+      })
 
       return response.ok({
         message: 'Room rate updated successfully',
@@ -240,7 +267,7 @@ export default class RoomRatesController {
   /**
    * Delete a room rate
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, request, response, auth }: HttpContext) {
     try {
       const id = parseInt(params.id)
 
@@ -249,10 +276,23 @@ export default class RoomRatesController {
       }
 
       const roomRate = await RoomRate.findOrFail(id)
+      const oldData = roomRate.serialize()
+
       await roomRate.delete()
 
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'DELETE',
+        entityType: 'RoomRate',
+        entityId: roomRate.id,
+        hotelId: roomRate.hotelId,
+        description: 'Room rate deleted',
+        changes: LoggerService.extractChanges(oldData, {}),
+        ctx: { request, response } as any,
+      })
+
       return response.ok({
-        message: 'Room rate deleted successfully'
+        message: 'Room rate deleted successfully',
       })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {

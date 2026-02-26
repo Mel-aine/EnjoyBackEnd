@@ -568,15 +568,28 @@ export default class GuestsController {
   /**
    * Update guest VIP status
    */
-  async updateVipStatus({ params, request, response, auth }: HttpContext) {
+  async updateVipStatus(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     try {
       const guest = await Guest.findOrFail(params.id)
       const { vipStatus } = request.only(['vipStatus'])
+      const oldVipStatus = guest.vipStatus
 
       guest.vipStatus = vipStatus
       guest.lastModifiedBy = auth.user?.id || 0
 
       await guest.save()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'UPDATE_VIP_STATUS',
+        entityType: 'Guest',
+        entityId: guest.id,
+        hotelId: guest.hotelId,
+        description: `Guest "${guest.fullName}" VIP status updated from ${oldVipStatus} to ${vipStatus}.`,
+        changes: { old: { vipStatus: oldVipStatus }, new: { vipStatus } },
+        ctx
+      })
 
       return response.ok({
         message: 'Guest VIP status updated successfully',

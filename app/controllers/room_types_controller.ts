@@ -4,6 +4,7 @@ import RoomType from '#models/room_type'
 import { createRoomTypeValidator, updateRoomTypeValidator } from '#validators/room_type'
 import logger from '@adonisjs/core/services/logger'
 import Room from '#models/room'
+import LoggerService from '#services/logger_service'
 
 export default class RoomTypesController {
   /**
@@ -75,6 +76,17 @@ export default class RoomTypesController {
 
       await roomType.load('hotel')
 
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'CREATE',
+        entityType: 'RoomType',
+        entityId: roomType.id,
+        hotelId: roomType.hotelId,
+        description: `Created room type: ${roomType.roomTypeName}`,
+        changes: roomType.serialize(),
+        ctx: { request, response } as any
+      })
+
       return response.created({
         message: 'Room type created successfully',
         data: roomType
@@ -129,6 +141,17 @@ export default class RoomTypesController {
       await roomType.save()
       await roomType.load('hotel')
 
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'RoomType',
+        entityId: roomType.id,
+        hotelId: roomType.hotelId,
+        description: `Updated room type: ${roomType.roomTypeName}`,
+        changes: roomType.serialize(),
+        ctx: { request, response } as any
+      })
+
       return response.ok({
         message: 'Room type updated successfully',
         data: roomType
@@ -144,7 +167,7 @@ export default class RoomTypesController {
   /**
    * Delete a room type
    */
-  async destroy({ params, response, auth }: HttpContext) {
+  async destroy({ params, request, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
 
@@ -160,6 +183,15 @@ export default class RoomTypesController {
       }
 
       await roomType.delete()
+
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'DELETE',
+        entityType: 'RoomType',
+        entityId: parseInt(params.id),
+        description: `Deleted room type: ${roomType.roomTypeName}`,
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Room type deleted successfully'
@@ -263,14 +295,26 @@ export default class RoomTypesController {
   /**
    * Toggle room type publish status
    */
-  async toggleStatus({ params, response, auth }: HttpContext) {
+  async toggleStatus({ params, request, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.findOrFail(params.id)
+      const oldStatus = roomType.publishToWebsite
 
       roomType.publishToWebsite = !roomType.publishToWebsite
       roomType.updatedByUserId = auth.user?.id!
 
       await roomType.save()
+
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'RoomType',
+        entityId: roomType.id,
+        hotelId: roomType.hotelId,
+        description: `Toggled publish status for room type: ${roomType.roomTypeName} to ${roomType.publishToWebsite}`,
+        changes: { publishToWebsite: { old: oldStatus, new: roomType.publishToWebsite } },
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: `Room type ${roomType.publishToWebsite ? 'published to website' : 'unpublished from website'} successfully`,
@@ -287,7 +331,7 @@ export default class RoomTypesController {
   /**
    * Restore a soft-deleted room type
    */
-  async restore({ params, response, auth }: HttpContext) {
+  async restore({ params, request, response, auth }: HttpContext) {
     try {
       const roomType = await RoomType.query()
         .where('id', params.id)
@@ -299,6 +343,17 @@ export default class RoomTypesController {
       roomType.updatedByUserId = auth.user?.id!
 
       await roomType.save()
+
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'RoomType',
+        entityId: roomType.id,
+        hotelId: roomType.hotelId,
+        description: `Restored room type: ${roomType.roomTypeName}`,
+        changes: { isDeleted: { old: true, new: false } },
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Room type restored successfully',
@@ -330,9 +385,21 @@ export default class RoomTypesController {
           continue
         }
         const roomType = await RoomType.findOrFail(roomTypeId)
+        const oldSortOrder = roomType.sortOrder
         roomType.sortOrder = sortOrder
         roomType.updatedByUserId = userId!
         await roomType.save()
+
+        await LoggerService.log({
+          actorId: userId!,
+          action: 'UPDATE',
+          entityType: 'RoomType',
+          entityId: roomType.id,
+          hotelId: roomType.hotelId,
+          description: `Updated sort order for room type: ${roomType.roomTypeName} to ${sortOrder}`,
+          changes: { sortOrder: { old: oldSortOrder, new: sortOrder } },
+          ctx: { request, response } as any
+        })
       }
 
       return response.ok({

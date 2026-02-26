@@ -301,6 +301,17 @@ export default class FoliosController {
 
       await folio.save()
 
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'CLOSE_FOLIO',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio "${folio.folioNumber}" closed`,
+        changes: { status: { old: 'open', new: 'closed' }, notes },
+        ctx: { request, response } as any
+      })
+
       return response.ok({
         message: 'Folio closed successfully',
         data: folio
@@ -738,9 +749,11 @@ export default class FoliosController {
   async transfer({ params, request, response, auth }: HttpContext) {
     try {
       const fromFolio = await Folio.findOrFail(params.id)
-      const { toFolioId, amount } = request.only([
+      const input = request.only([
         'toFolioId', 'amount'
       ])
+      const toFolioId = Number(input.toFolioId)
+      const amount = Number(input.amount)
 
       if (!toFolioId || !amount) {
         return response.badRequest({
@@ -772,6 +785,17 @@ export default class FoliosController {
 
       await fromFolio.save()
       await toFolio.save()
+
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'TRANSFER_BALANCE',
+        entityType: 'Folio',
+        entityId: fromFolio.id,
+        hotelId: fromFolio.hotelId,
+        description: `Transferred ${amount} from folio ${fromFolio.folioNumber} to ${toFolio.folioNumber}`,
+        changes: { amount, fromFolioId: fromFolio.id, toFolioId: toFolio.id } as any,
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Transfer completed successfully',
@@ -1131,6 +1155,17 @@ export default class FoliosController {
 
     const transaction = await FolioService.postTransaction(transactionData)
 
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'POST_TRANSACTION',
+      entityType: 'FolioTransaction',
+      entityId: transaction.id,
+      hotelId: transaction.hotelId,
+      description: `Posted transaction "${transaction.description}" to folio`,
+      changes: LoggerService.extractChanges({}, transaction.toJSON()),
+      ctx: { request, response } as any
+    })
+
       return response.created({
         message: 'Transaction posted successfully',
         data: transaction
@@ -1201,6 +1236,17 @@ export default class FoliosController {
         settledBy: auth.user!.id
       })
 
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'SETTLE_FOLIO',
+        entityType: 'Folio',
+        entityId: result.folio.id,
+        hotelId: result.folio.hotelId,
+        description: `Settled folio ${result.folio.folioNumber} with amount ${payload.amount}`,
+        changes: { amount: payload.amount, paymentMethodId: payload.paymentMethodId },
+        ctx: { request, response } as any
+      })
+
       return response.ok({
         message: 'Folio settled successfully',
         data: result
@@ -1220,6 +1266,17 @@ export default class FoliosController {
       const result = await FolioService.transferCharges({
         ...payload,
         transferredBy: auth.user!.id
+      })
+
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'TRANSFER_CHARGES',
+        entityType: 'Folio',
+        entityId: payload.fromFolioId,
+        hotelId: result.fromTransaction.hotelId,
+        description: `Transferred charges from folio ${payload.fromFolioId} to ${payload.toFolioId}`,
+        changes: payload,
+        ctx: { request, response } as any
       })
 
       return response.ok({
@@ -1254,6 +1311,17 @@ export default class FoliosController {
     try {
       const folio = await FolioService.closeFolio(params.id, auth.user!.id)
 
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'CLOSE_FOLIO',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio "${folio.folioNumber}" closed via service`,
+        changes: { status: { old: 'open', new: 'closed' } },
+        ctx: { request, response } as any
+      })
+
       return response.ok({
         message: 'Folio closed successfully',
         data: folio
@@ -1269,6 +1337,17 @@ export default class FoliosController {
   async reopenWithService({ params, response, auth }: HttpContext) {
     try {
       const folio = await FolioService.reopenFolio(params.id, auth.user!.id)
+
+      await LoggerService.log({
+        actorId: auth.user?.id || 0,
+        action: 'REOPEN_FOLIO',
+        entityType: 'Folio',
+        entityId: folio.id,
+        hotelId: folio.hotelId,
+        description: `Folio "${folio.folioNumber}" reopened via service`,
+        changes: { status: { old: 'closed', new: 'open' } },
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Folio reopened successfully',

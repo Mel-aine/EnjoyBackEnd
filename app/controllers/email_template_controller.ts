@@ -7,6 +7,7 @@ import {
   emailTemplateParamsValidator,
 } from '#validators/email_template'
 import { DateTime } from 'luxon'
+import LoggerService from '#services/logger_service'
 
 export default class EmailTemplateController {
   private emailTemplateService = new EmailTemplateService()
@@ -106,6 +107,17 @@ export default class EmailTemplateController {
       cc,
       bcc,
       createdBy: auth.user?.id,
+    })
+
+    await LoggerService.log({
+      actorId: auth.user!.id,
+      action: 'CREATE',
+      entityType: 'EmailTemplate',
+      entityId: emailTemplate.id,
+      hotelId: emailTemplate.hotelId ?? undefined,
+      description: `Email template created: ${emailTemplate.name}`,
+      changes: LoggerService.extractChanges({}, emailTemplate.serialize()),
+      ctx: { request, response } as any,
     })
 
 
@@ -212,6 +224,16 @@ export default class EmailTemplateController {
         auth.user?.id!,
         hotelId
       )
+
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'RESTORE',
+        entityType: 'EmailTemplate',
+        entityId: emailTemplate.id,
+        hotelId: emailTemplate.hotelId ?? undefined,
+        description: `Email template restored: ${emailTemplate.name}`,
+        ctx: { request, response } as any,
+      })
 
       return response.ok({
         success: true,

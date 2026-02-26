@@ -1,3 +1,4 @@
+// @ts-ignore
 import htmlPdf from 'html-pdf-node'
 import { FolioPrintData } from '#services/folio_print_service'
 

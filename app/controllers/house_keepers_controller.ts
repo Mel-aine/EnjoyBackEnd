@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import HouseKeeperService from '#services/house_keeper_service'
+import LoggerService from '#services/logger_service'
 
 const houseKeeperService = new HouseKeeperService()
 
@@ -49,21 +50,37 @@ export default class HouseKeepersController {
 
       // const hk = await houseKeeperService.create({ hotel_id, name, phone, })
       const hk = await houseKeeperService.create({
-      hotel_id,
-      name: name.trim(),
-      phone: phone.trim(),
-      createdByUserId: auth.user?.id
-    } as any)
+        hotel_id,
+        name: name.trim(),
+        phone: phone.trim(),
+        createdByUserId: auth.user?.id
+      } as any)
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'CREATE_HOUSEKEEPER',
+        entityType: 'HouseKeeper',
+        entityId: hk.id,
+        hotelId: hotel_id,
+        description: `HouseKeeper ${hk.name} created`,
+        changes: LoggerService.extractChanges({}, hk.serialize ? hk.serialize() : hk),
+        ctx: { request, response } as any
+      })
+
       return response.created({ message: 'HouseKeeper created successfully', data: hk })
     } catch (error) {
       return response.internalServerError({ message: 'Failed to create HouseKeeper', error: error.message })
     }
   }
 
-  public async update({ params, request, response,auth }: HttpContext) {
+  public async update({ params, request, response, auth }: HttpContext) {
     try {
       const id = Number(params.id)
       if (Number.isNaN(id)) return response.badRequest({ message: 'Invalid id' })
+
+      const oldHk = await houseKeeperService.findById(id)
+      if (!oldHk) return response.notFound({ message: 'HouseKeeper not found' })
+      const oldHkData = oldHk.serialize ? oldHk.serialize() : oldHk
 
       const payload: any = {}
       if (request.input('hotel_id') !== undefined) {
@@ -78,6 +95,18 @@ export default class HouseKeepersController {
       }
 
       const hk = await houseKeeperService.update(id, payload)
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'UPDATE_HOUSEKEEPER',
+        entityType: 'HouseKeeper',
+        entityId: hk.id,
+        hotelId: hk.hotelId,
+        description: `HouseKeeper ${hk.name} updated`,
+        changes: LoggerService.extractChanges(oldHkData, hk.serialize ? hk.serialize() : hk),
+        ctx: { request, response } as any
+      })
+
       return response.ok({ message: 'HouseKeeper updated successfully', data: hk })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
@@ -87,12 +116,27 @@ export default class HouseKeepersController {
     }
   }
 
-  public async destroy({ params, response }: HttpContext) {
+  public async destroy({ params, response, auth, request }: HttpContext) {
     try {
       const id = Number(params.id)
       if (Number.isNaN(id)) return response.badRequest({ message: 'Invalid id' })
 
+      const hk = await houseKeeperService.findById(id)
+      if (!hk) return response.notFound({ message: 'HouseKeeper not found' })
+
       await houseKeeperService.delete(id)
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'DELETE_HOUSEKEEPER',
+        entityType: 'HouseKeeper',
+        entityId: id,
+        hotelId: hk.hotelId,
+        description: `HouseKeeper ${hk.name} deleted`,
+        changes: {},
+        ctx: { request, response } as any
+      })
+
       return response.ok({ message: 'HouseKeeper deleted successfully' })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {

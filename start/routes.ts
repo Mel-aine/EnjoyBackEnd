@@ -465,7 +465,7 @@ router.post('api/notifications/:id/read', [NotificationsController, 'markRead'])
 // Notifications realtime stream (SSE)
 router.get('api/notifications/stream', async ({ request, response, auth }) => {
   // Try existing auth context, then Bearer header, then ?token= fallback
-  let user = auth.user
+  let user: any = auth.user
   if (!user) {
     try {
       user = await auth.authenticate()

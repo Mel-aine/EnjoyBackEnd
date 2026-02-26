@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, hasMany, belongsTo, beforeCreate, manyToMany } from '@adonisjs/lucid/orm'
 import crypto from 'crypto'
 import type { HasMany, BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
+import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 import RoomType from './room_type.js'
 import Room from './room.js'
 import RatePlan from './rate_plan.js'
@@ -14,6 +15,7 @@ import TaxRate from './tax_rate.js'
 import Amenity from './amenity.js'
 import Subscription from '#models/subscription'
 import Invoice from '#models/invoice'
+import Module from '#models/module'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
@@ -563,10 +565,10 @@ export default class Hotel extends BaseModel {
     const now = DateTime.now().toSQL()
 
     // 1. Direct subscription check
-    const directSub = await this.related('subscriptions')
+    const directSub = await this.related('subscriptions' as any)
       .query()
       .preload('module')
-      .whereHas('module', (query) => query.where('slug', moduleSlug))
+      .whereHas('module', (query: ModelQueryBuilderContract<typeof Module>) => query.where('slug', moduleSlug))
       .where('status', 'active')
       .where('ends_at', '>', now)
       .first()
@@ -574,10 +576,10 @@ export default class Hotel extends BaseModel {
     if (directSub) return true
 
     // 2. Bundle subscription check
-    const bundleSubs = await this.related('subscriptions')
+    const bundleSubs = await this.related('subscriptions' as any)
       .query()
       .preload('module')
-      .whereHas('module', (query) => query.where('is_bundle', true))
+      .whereHas('module', (query: ModelQueryBuilderContract<typeof Module>) => query.where('is_bundle', true))
       .where('status', 'active')
       .where('ends_at', '>', now)
 

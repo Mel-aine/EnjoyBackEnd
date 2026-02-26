@@ -46,6 +46,14 @@ import ReservationHook from '../hooks/reservation_hooks.js'
 import ReservationEmailService from '#services/reservation_email_service'
 
 
+function runInBackground(task: () => Promise<void>) {
+  setImmediate(() => {
+    task().catch((error) => {
+      logger.error({ err: error }, 'Background task failed')
+    })
+  })
+}
+
 export default class ReservationsController extends CrudController<typeof Reservation> {
   private userService: CrudService<typeof User>
   private reservationService: CrudService<typeof Reservation>
@@ -315,8 +323,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       console.log('Transaction committed successfully')
 
       // Queue post-commit tasks to run asynchronously
-      setImmediate(() => {
-        (async () => {
+      runInBackground(async () => {
           try {
             const CheckinCheckoutNotificationService = (
               await import('#services/notification_action_service')
@@ -334,7 +341,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
           } catch (summaryError) {
             console.error('Error recomputing guest summary:', summaryError)
           }
-        })()
       })
 
       return response.ok({
@@ -968,7 +974,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ success: false, message: 'Reservation not found' })
       }
 
-      const todayISO = DateTime.now().toJSDate()
       logger.info(reservation.departDate)
       /* const checkedOutTodayAtReservationLevel =
           reservation.checkOutDate && reservation.checkOutDate.toJSDate() === todayISO*/
@@ -1608,7 +1613,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       for (const rsp of reservation.reservationRooms) {
         const product = await Room.find(rsp.roomId)
         const conflictingReservation = await ReservationRoom.query({ client: trx })
-          .where('roomId', rsp.roomId)
+          .where('roomId', rsp.roomId!)
           .where('reservationId', '!=', reservationId)
           .andWhere((query) => {
             query
@@ -1732,7 +1737,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         actorId: auth.user!.id,
         action: 'UPDATE',
         entityType: 'Guest',
-        entityId: reservation.guestId,
+        entityId: reservation.guestId || 0,
         hotelId: reservation.hotelId,
         description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
@@ -1995,9 +2000,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
         actorId: auth.user!.id,
         action: 'CANCEL_RESERVATION',
         entityType: 'Guest',
-        entityId: reservation.guestId,
-        hotelId: reservation.hotelId,
-        description: `Guest #${reservation.guestId}: Reservation #${reservation.reservationNumber} cancelled. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}. Fee: ${cancellationFee || 0}.`,
+        entityId: reservation.guestId || 0,
+      hotelId: reservation.hotelId,
+      description: `Guest #${reservation.guestId}: Reservation #${reservation.reservationNumber} cancelled. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}. Fee: ${cancellationFee || 0}.`,
         meta: {
           reason,
           cancellationFee,
@@ -2046,9 +2051,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
               : 'RESERVATION_PARTIAL_CANCELLED'
 
             const staffVariables = await NotificationService.buildVariables(staffTemplateCode, {
-              hotelId: reservation.hotelId,
+              hotelId: reservation.hotelId!,
               reservationId: reservation.id,
-              guestId: reservation.guestId,
+              guestId: reservation.guestId || 0,
               extra: {
                 ReservationNumber: reservation.reservationNumber || 'N/A',
                 GuestName: guestName,
@@ -2086,7 +2091,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               const guestVariables = await NotificationService.buildVariables(guestTemplateCode, {
                 hotelId: reservation.hotelId,
                 reservationId: reservation.id,
-                guestId: reservation.guestId,
+                guestId: reservation.guestId || undefined,
                 extra: {
                   ReservationNumber: reservation.reservationNumber || 'N/A',
                   GuestName: guestName,
@@ -2104,7 +2109,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               await NotificationService.sendWithTemplate({
                 templateCode: guestTemplateCode,
                 recipientType: 'GUEST',
-                recipientId: reservation.guestId,
+                recipientId: reservation.guestId || 0,
                 variables: guestVariables,
                 relatedEntityType: 'Reservation',
                 relatedEntityId: reservation.id,
@@ -3767,7 +3772,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             actorId: auth.user!.id,
             action: 'CONFIRM_RESERVATION',
             entityType: 'Guest',
-            entityId: reservation.guestId,
+            entityId: reservation.guestId || 0,
             hotelId: reservation.hotelId,
             description: `Reservation #${reservationId} confirmed.`,
             ctx,
@@ -3799,7 +3804,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           const variables = await NotificationService.buildVariables('BOOKING_UPDATE', {
             hotelId: reservation.hotelId,
             reservationId: reservation.id,
-            guestId: reservation.guestId,
+            guestId: reservation.guestId || undefined,
             extra: {
               ReservationNumber: reservation.reservationNumber || '',
               Status: reservation.status,
@@ -3960,7 +3965,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           reference: reference || '',
           paymentMethodId: paymentMethodId,
           paymentReference: reference || '',
-          guestId: reservation.guestId,
+          guestId: reservation.guestId || 0,
           reservationId: reservation.id,
           currencyCode: currencyCode,
           exchangeRate: 1,
@@ -4010,8 +4015,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         actorId: auth.user?.id!,
         action: 'ADD_PAYMENT',
         entityType: 'Guest',
-        entityId: reservation.guestId,
-        hotelId: reservation.hotelId,
+        entityId: reservation.guestId || 0,
+        hotelId: reservation.hotelId!,
         description: `Payment of ${amount} ${currencyCode} added to reservation #${reservation.reservationNumber} via ${paymentMethod.methodName}.`,
         meta: {
           paymentId: transaction.id,
@@ -4876,13 +4881,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }) => {
         const roomChargeGrossDailyRate = Number(args.rate.baseRate || 0)
         const existing = await FolioTransaction.query({ client: trx })
-          .whereIn('folioId', args.folioIds)
-          .where('postingDate', '>=', args.startPostingDate)
-          .where('postingDate', '<', args.endPostingDateExclusive)
-          .where('reservationRoomId', args.reservationRoom.id)
-          .where('transactionType', TransactionType.CHARGE)
-          .where('category', TransactionCategory.ROOM)
-          .where('isVoided', false)
+      .whereIn('folioId', args.folioIds)
+      .where('postingDate', '>=', args.startPostingDate.toISODate()!)
+      .where('postingDate', '<', args.endPostingDateExclusive.toISODate()!)
+      .where('reservationRoomId', args.reservationRoom.id)
+      .where('transactionType', TransactionType.CHARGE)
+      .where('category', TransactionCategory.ROOM)
+      .where('isVoided', false)
 
         const existingDates = new Set<string>(
           existing
@@ -5067,7 +5072,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             mealPlanRateInclude: selectedRoomRate
               ? Boolean((selectedRoomRate as any).mealPlanRateInclude)
               : currentReservationRoom.mealPlanRateInclude,
-            mealPlanId: selectedRoomRate ? (selectedRoomRate as any).mealPlanId ?? null : currentReservationRoom.mealPlanId,
+            mealPlanId: selectedRoomRate ? (selectedRoomRate as any).mealPlanId ?? undefined : currentReservationRoom.mealPlanId,
             lastModifiedBy: auth.user?.id!,
             notes: `room change: ${originalRoomInfo.roomNumber} → ${newRoom.roomNumber}. Reason: ${reason || 'Room change'} | Check-in: ${checkInInfo} | Move time: ${moveTimeIso} | Moved by: ${movedBy}`,
           })
@@ -5079,7 +5084,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           const openFolios = await Folio.query({ client: trx }).where('reservationId', reservation.id)
           const folioIdsToUpdate = openFolios.map((f) => f.id)
           if (folioIdsToUpdate.length > 0) {
-            const startPostingDate = DateTime.fromISO(startPostingDateIso).startOf('day')
+            const startPostingDate = DateTime.fromISO(startPostingDateIso || '').startOf('day')
             const endPostingDateExclusive = (currentReservationRoom.checkOutDate || reservation.departDate || startPostingDate)
               .startOf('day')
             await upsertRoomChargeTransactions({
@@ -5230,7 +5235,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       if (overwriteRoomRate && selectedRoomRate && folioIdsToUpdate.length > 0) {
         const startPostingDateIso = (effectiveDate ? DateTime.fromISO(effectiveDate) : moveDate).toISODate()
-        const startPostingDate = DateTime.fromISO(startPostingDateIso).startOf('day')
+        const startPostingDate = DateTime.fromISO(startPostingDateIso || '').startOf('day')
         const endPostingDateExclusive = (newReservationRoom.checkOutDate || reservation.departDate || startPostingDate)
           .startOf('day')
         await upsertRoomChargeTransactions({
@@ -5274,9 +5279,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
         // Variables communes
         const vars = await NotificationService.buildVariables('ROOM_MOVE', {
-          hotelId: reservation.hotelId,
+          hotelId: reservation.hotelId!,
           reservationId: reservation.id,
-          guestId: reservation.guestId,
+          guestId: reservation.guestId || 0,
           extra: {
             ReservationNumber: reservation.reservationNumber || '',
             OldRoomNumber: originalRoomInfo.roomNumber,
@@ -5875,6 +5880,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'stop_room_move',
           resourceType: 'reservation',
           resourceId: reservationId,
+          hotelId: reservation.hotelId!,
           details: {
             originalRoomId: newRoomId,
             revertedToRoomId: originalRoomId,
@@ -6946,11 +6952,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }))
 
         const totalFolioAmount = reservation.folios.reduce(
-          (sum, folio) => sum + (folio.totalAmount || 0),
+          (sum, folio) => sum + (folio.totalCharges || 0),
           0
         )
         const totalBalance = reservation.folios.reduce(
-          (sum, folio) => sum + (folio.balanceAmount || 0),
+          (sum, folio) => sum + (folio.balance || 0),
           0
         )
 
@@ -7186,6 +7192,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const reservation = await Reservation.query()
         .where('id', reservationId)
         .preload('hotel')
+        .preload('paymentMethod')
         .preload('folios', (folioQuery) => {
           folioQuery.preload('transactions', (tq) => {
             tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
@@ -7457,7 +7464,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 <div class="section-content flex-wrap">
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Arrival Date</span>
-                        <span class="input-line">${new Date(reservation.checkInDate).toLocaleDateString()}</span>
+                        <span class="input-line">${reservation.checkInDate ? reservation.checkInDate.toFormat('dd/MM/yyyy') : ''}</span>
                     </div>
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Arrival Time</span>
@@ -7465,7 +7472,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                     </div>
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Dep. Date</span>
-                        <span class="input-line">${new Date(reservation.checkOutDate).toLocaleDateString()}</span>
+                        <span class="input-line">${reservation.checkOutDate ? reservation.checkOutDate.toFormat('dd/MM/yyyy') : ''}</span>
                     </div>
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Dep. Time</span>
@@ -7530,11 +7537,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 <div class="section-content flex-wrap">
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Payment Type</span>
-                        <span class="input-line">${reservation.paymentMethod || ''}</span>
+                        <span class="input-line">${reservation.paymentMethod?.methodName || reservation.paymentType || ''}</span>
                     </div>
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Direct Billing A/C</span>
-                        <span class="input-line">${reservation.billingAccount || ''}</span>
+                        <span class="input-line">${reservation.billTo || ''}</span>
                     </div>
                 </div>
             </div>
@@ -7542,7 +7549,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             <div class="note-section">
                 <div class="section-title">Please Note</div>
                 <p style="margin-top: 0.5rem; font-size: 0.75rem;">
-                   ${reservation.hotel?.notices?.registrationCard || ''}
+                   ${(reservation.hotel?.notices as any)?.registrationCard || ''}
                 </p>
             </div>
 
@@ -9105,7 +9112,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               <span class="label-en">Arrival date</span>
             </span>
             <div class="line-dot">
-              <span class="filled-value">${formatDate(reservation.checkInDate)}</span>
+              <span class="filled-value">${formatDate(reservation.checkInDate?.toISODate() || '')}</span>
             </div>
           </div>
           <div class="form-field">
@@ -9114,7 +9121,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               <span class="label-en">Departure date</span>
             </span>
             <div class="line-dot">
-              <span class="filled-value">${formatDate(reservation.checkOutDate)}</span>
+              <span class="filled-value">${formatDate(reservation.checkOutDate?.toISODate() || '')}</span>
             </div>
           </div>
         </div>
@@ -9190,7 +9197,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               <span class="label-en">Date of birth</span>
             </span>
             <div class="line-dot">
-              <span class="filled-value">${formatDate(guest.dateOfBirth || '')}</span>
+              <span class="filled-value">${formatDate(guest.dateOfBirth?.toISODate() || '')}</span>
             </div>
           </div>
           <div class="form-field">
@@ -9298,7 +9305,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               <span class="label-en">Issued on</span>
             </span>
             <div class="line-dot">
-              <span class="filled-value">${formatDate(guest.idExpiryDate || '')}</span>
+              <span class="filled-value">${formatDate(guest.idExpiryDate?.toISODate() || '')}</span>
             </div>
           </div>
           <div class="form-field">

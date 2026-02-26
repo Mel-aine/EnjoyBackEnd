@@ -630,11 +630,11 @@ This link expires in 1 hour.`,
 
         await LoggerService.log({
           actorId: user.id,
-          action: 'FORGOT_PASSWORD_CREATE',
+          action: 'FORGOT_PASSWORD_REQUEST',
           entityType: 'User',
           entityId: user.id.toString(),
-          description: 'Password reset token created and email sent',
-          ctx: { request, response } as any,
+          description: `Password reset requested for ${user.email}`,
+          ctx: { request, response } as any
         })
       }
 

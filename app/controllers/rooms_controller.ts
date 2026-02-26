@@ -377,6 +377,17 @@ export default class RoomsController {
 
       await room.save()
 
+      await LoggerService.log({
+        actorId: request.ctx!.auth.user?.id || 0,
+        action: 'UPDATE',
+        entityType: 'Room',
+        entityId: room.id,
+        hotelId: room.hotelId,
+        description: `Maintenance status updated for room "${room.roomNumber}"`,
+        changes: { maintenanceNotes, nextMaintenanceDate },
+        ctx: request.ctx!,
+      })
+
       return response.ok({
         message: 'Maintenance status updated successfully',
         data: room,
@@ -1270,40 +1281,66 @@ async bulkUpdate({ request, response, auth }: HttpContext) {
     const finalNewStatus = updateData.housekeeping_status
     const finalHousekeeperId = housekeeper_id || 0
 
-    setImmediate(async () => {
-      console.log(`⏱️ Background Task: Sending notifications for ${rooms.length} rooms...`)
+    setImmediate(() => {
+      (async () => {
+        console.log(`⏱️ Background Task: Sending notifications for ${rooms.length} rooms...`)
 
-      const HousekeepingNotifService = CheckInCheckOutNotificationService
+        const HousekeepingNotifService = CheckInCheckOutNotificationService
 
-      // On traite toutes les notifications en parallèle pour gagner encore plus de temps
-      const notificationPromises = rooms.map(async (room) => {
         try {
-          const oldStatus: any = room.housekeepingStatus
-          const newStatus = finalNewStatus ?? oldStatus
-
-          // Notifications spécifiques au type de statut
-          if (newStatus === 'clean') {
-            await HousekeepingNotifService.notifyRoomReady(room.id, finalHousekeeperId, actorId)
-          } else if (newStatus === 'dirty') {
-            await HousekeepingNotifService.notifyRoomDirty(room.id, actorId, 'normal')
-          } else if (newStatus === 'inspected') {
-            await HousekeepingNotifService.notifyRoomInspected(room.id, actorId, true)
-          } else if (newStatus === 'out_of_order') {
-            await HousekeepingNotifService.notifyRoomBlocked(room.id, actorId, 'Maintenance requise')
-          }
-
-          // Notification de changement de statut global
-          if (oldStatus !== newStatus) {
-            await HousekeepingNotifService.notifyStatusChange(room.id, oldStatus, newStatus, actorId)
-          }
-        } catch (err) {
-          console.error(` Background Notif Error for Room ${room.id}:`, err.message)
+          const logEntries = rooms.map((room) => ({
+            actorId: actorId,
+            action: 'UPDATE',
+            entityType: 'Room',
+            entityId: room.id,
+            hotelId: room.hotelId,
+            description: `Bulk update: ${operation}`,
+            changes: {
+              housekeepingStatus: {
+                old: room.housekeepingStatus,
+                new: finalNewStatus ?? room.housekeepingStatus,
+              },
+              assignedHousekeeperId: {
+                old: room.assignedHousekeeperId,
+                new: finalHousekeeperId ?? room.assignedHousekeeperId,
+              },
+            },
+            ctx: { request } as any,
+          }))
+          await LoggerService.bulkLog(logEntries)
+        } catch (logErr) {
+          console.error('Failed to log bulk update:', logErr)
         }
-      })
 
-      // On attend que toutes les promesses soient terminées (Settled = succès ou échec)
-      await Promise.allSettled(notificationPromises)
+        // On traite toutes les notifications en parallèle pour gagner encore plus de temps
+        const notificationPromises = rooms.map(async (room) => {
+          try {
+            const oldStatus: any = room.housekeepingStatus
+            const newStatus = finalNewStatus ?? oldStatus
 
+            // Notifications spécifiques au type de statut
+            if (newStatus === 'clean') {
+              await HousekeepingNotifService.notifyRoomReady(room.id, finalHousekeeperId, actorId)
+            } else if (newStatus === 'dirty') {
+              await HousekeepingNotifService.notifyRoomDirty(room.id, actorId, 'normal')
+            } else if (newStatus === 'inspected') {
+              await HousekeepingNotifService.notifyRoomInspected(room.id, actorId, true)
+            } else if (newStatus === 'out_of_order') {
+              await HousekeepingNotifService.notifyRoomBlocked(room.id, actorId, 'Maintenance requise')
+            }
+
+            // Notification de changement de statut global
+            if (oldStatus !== newStatus) {
+              await HousekeepingNotifService.notifyStatusChange(room.id, oldStatus, newStatus, actorId)
+            }
+          } catch (err) {
+            console.error(` Background Notif Error for Room ${room.id}:`, err.message)
+          }
+        })
+
+        // On attend que toutes les promesses soient terminées (Settled = succès ou échec)
+        await Promise.allSettled(notificationPromises)
+      })().catch((err) => console.error('Background task error:', err))
     })
 
     // Réponse immédiate au client
@@ -1326,10 +1363,12 @@ async bulkUpdate({ request, response, auth }: HttpContext) {
   /**
    * Update room status - WITH BUSINESS LOGIC
    */
-  async updateStatus({ params, request, response }: HttpContext) {
+  async updateStatus({ params, request, response, auth }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
       const { status } = request.only(['status'])
+      const oldStatus = room.status
+      const oldHousekeepingStatus = room.housekeepingStatus
 
       room.status = status
 
@@ -1340,6 +1379,20 @@ async bulkUpdate({ request, response, auth }: HttpContext) {
       )
 
       await room.save()
+
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'Room',
+        entityId: room.id,
+        hotelId: room.hotelId,
+        description: `Room status updated to ${room.status}`,
+        changes: {
+          status: { old: oldStatus, new: room.status },
+          housekeepingStatus: { old: oldHousekeepingStatus, new: room.housekeepingStatus },
+        },
+        ctx: { request, response } as any,
+      })
 
       return response.ok({
         message: 'Room status updated successfully',
@@ -1358,9 +1411,11 @@ async bulkUpdate({ request, response, auth }: HttpContext) {
    */
 
 
-  public async updateHousekeepingStatus({ params, request, response,auth }: HttpContext) {
+  public async updateHousekeepingStatus({ params, request, response, auth }: HttpContext) {
     try {
       const room = await Room.findOrFail(params.id)
+      const oldHousekeepingStatus = room.housekeepingStatus
+      const oldRemarks = JSON.parse(JSON.stringify(room.housekeepingRemarks || []))
 
       const body = request.all()
 
@@ -1412,6 +1467,20 @@ async bulkUpdate({ request, response, auth }: HttpContext) {
 
     room.housekeepingRemarks = currentRemarks
     await room.save()
+
+    await LoggerService.log({
+      actorId: auth.user!.id,
+      action: 'UPDATE',
+      entityType: 'Room',
+      entityId: room.id,
+      hotelId: room.hotelId,
+      description: `Room housekeeping status updated to ${room.housekeepingStatus}`,
+      changes: {
+        housekeepingStatus: { old: oldHousekeepingStatus, new: room.housekeepingStatus },
+        housekeepingRemarks: { old: oldRemarks, new: room.housekeepingRemarks },
+      },
+      ctx: { request, response } as any,
+    })
 
 
       //notifications

@@ -6,6 +6,14 @@ import { createRoomBlockValidator, updateRoomBlockValidator, unblockRoomBlockVal
 import CheckInCheckOutNotificationService from '#services/notification_action_service'
 import ChannexBlockService from '../services/channex_block_service.js'
 
+function runInBackground(task: () => Promise<void>) {
+  setImmediate(() => {
+    task().catch((error) => {
+      console.error('Background task failed', error)
+    })
+  })
+}
+
 export default class RoomBlocksController {
   /**
    * Create Room Block
@@ -87,7 +95,7 @@ export default class RoomBlocksController {
 
 
       //Notification
-      setImmediate(async () => {
+      runInBackground(async () => {
 
         try {
           await CheckInCheckOutNotificationService.notifyRoomBlocked(
