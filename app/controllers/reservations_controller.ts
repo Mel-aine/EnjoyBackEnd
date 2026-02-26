@@ -4068,6 +4068,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .where('id', reservationId)
         .preload('reservationRooms', (query) => {
           //query.whereIn('status', ['confirmed',  'checked-in', 'checked_in'])
+          query.whereNot('is_splited_origin',true);
           query.preload('room', (roomQuery) => {
             roomQuery.preload('roomType')
           })
@@ -4253,7 +4254,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
             // Mise à jour des dates si spécifiées
             if (newArrivalDateTime) {
-              roomUpdateData.checkInDate = newArrivalDateTime
+              roomUpdateData.checkInDate = reservationRoom.isplitedDestinatination ? reservationRoom.checkInDate : newArrivalDateTime
             }
             if (newDepartureDateTime) {
               if (reservationRoom.status === 'checked_in') {
@@ -4325,7 +4326,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
           if (newArrivalDateTime) {
             checkInDate = newArrivalDateTime
-            roomUpdateData.checkInDate = checkInDate
+            roomUpdateData.checkInDate = reservationRoom.isplitedDestinatination ? reservationRoom.checkInDate: checkInDate
           }
           if (newDepartureDateTime) {
             if (reservationRoom.status === 'checked_in') {
