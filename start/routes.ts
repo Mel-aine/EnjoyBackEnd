@@ -417,6 +417,7 @@ router
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction())
 router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
+router.post('api/authLoginConsole', [AuthController, 'signinConsole']).use(middleware.ipRestriction())
 // Route pour renvoyer l'email de vérification
 router.post('/api/auth/resend-verification', [AuthController, 'resendVerificationEmail']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
@@ -559,6 +560,7 @@ router
         '/services/:serviceId/clients',
         usersController.getClientsByService.bind(usersController)
       )
+      router.post('/users', usersController.store.bind(usersController))
     })
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
@@ -591,6 +593,7 @@ router
       router.post('/roles', rolesController.store.bind(rolesController))
       router.put('/roles/:id', rolesController.update.bind(rolesController))
       router.delete('/roles/:id', rolesController.destroy.bind(rolesController))
+      router.get('/roles', rolesController.list.bind(rolesController))
     })
 
     router.group(() => {

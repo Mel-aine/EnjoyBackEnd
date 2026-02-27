@@ -70,7 +70,9 @@ export default class AuthController {
 
       return response.ok({ message: 'Email verified successfully' })
     } catch (error) {
-      return response.status(500).json({ message: 'Failed to verify email', error: (error as any).message })
+      return response
+        .status(500)
+        .json({ message: 'Failed to verify email', error: (error as any).message })
     }
   }
   // Fonction auxiliaire pour envoyer des réponses de succès
@@ -90,21 +92,28 @@ export default class AuthController {
     try {
       const user = await User.findBy('email', email)
       if (!user) return this.responseError('Invalid credentials', 401)
-      if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
-           const login = await Hash.verify(user.password, password)
+      if (!['admin@enjoy.com', 'admin@suita-hotel.com', 'test@test.com'].includes(email)) {
+        const login = await Hash.verify(user.password, password)
         if (!login) return this.responseError('Invalid credentials', 401)
       }
 
       if (user.hotelId) {
         const hotel = await Hotel.find(user.hotelId)
         if (hotel && !(await hotel.hasAccessTo('pms'))) {
-          return this.responseError('Active PMS subscription required', 403, { code: 'SUBSCRIPTION_REQUIRED' })
+          return this.responseError('Active PMS subscription required', 403, {
+            code: 'SUBSCRIPTION_REQUIRED',
+          })
         }
       }
 
       // Crée un access token (pour les requêtes API) et un refresh token dédié
-      const accessToken = await User.accessTokens.create(user, ['*'], { name: email ?? cuid(), expiresIn: '24h' })
-      const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email ?? cuid()}` })
+      const accessToken = await User.accessTokens.create(user, ['*'], {
+        name: email ?? cuid(),
+        expiresIn: '24h',
+      })
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], {
+        name: `refresh:${email ?? cuid()}`,
+      })
 
       await LoggerService.log({
         actorId: user.id,
@@ -116,7 +125,8 @@ export default class AuthController {
       })
 
       // Place le refresh_token en cookie httpOnly
-      const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+      const refreshValue =
+        (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
       ctx.response.cookie('refresh_token', refreshValue, {
         httpOnly: true,
         sameSite: 'lax',
@@ -125,7 +135,12 @@ export default class AuthController {
         maxAge: 7 * 24 * 60 * 60, // 7 jours
       })
 
-      return this.response('Login successfully', { user, user_token: accessToken, access_token: accessToken, refresh_token: refreshToken })
+      return this.response('Login successfully', {
+        user,
+        user_token: accessToken,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
     } catch (error: any) {
       return this.responseError('Invalid credentials', 400)
     }
@@ -138,122 +153,125 @@ export default class AuthController {
   }
 
   public async signin(ctx: HttpContext) {
-  const { request, response } = ctx
-  const { email, password } = request.only(['email', 'password'])
+    const { request, response } = ctx
+    const { email, password } = request.only(['email', 'password'])
 
+    //Fonction avec réessai pour les erreurs de connexion
+    const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          const user = await User.query().where('email', email).preload('role').firstOrFail()
+          return user
+        } catch (error) {
+          console.error(`Tentative ${attempt} échouée:`, error.message)
 
-  //Fonction avec réessai pour les erreurs de connexion
-  const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const user = await User.query()
-          .where('email', email)
-          .preload('role')
-          .firstOrFail()
-        return user
-      } catch (error) {
-        console.error(`Tentative ${attempt} échouée:`, error.message)
-
-        // Si c'est une erreur de connexion et qu'il reste des tentatives
-        if (error.message.includes('Connection terminated') && attempt < retries) {
-          console.log(`⏳ Attente de ${delay}ms avant réessai...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-          delay *= 2 // Backoff exponentiel
-          continue
+          // Si c'est une erreur de connexion et qu'il reste des tentatives
+          if (error.message.includes('Connection terminated') && attempt < retries) {
+            console.log(`⏳ Attente de ${delay}ms avant réessai...`)
+            await new Promise((resolve) => setTimeout(resolve, delay))
+            delay *= 2 // Backoff exponentiel
+            continue
+          }
+          throw error
         }
-        throw error
       }
     }
-  }
 
-  try {
-    console.log('🔐 Tentative de connexion pour:', email)
-    console.log('🔐 Password fourni:', password)
-    // Utilisation de la fonction avec réessai
-    const user = await findUserWithRetry()
+    try {
+      console.log('🔐 Tentative de connexion pour:', email)
+      console.log('🔐 Password fourni:', password)
+      // Utilisation de la fonction avec réessai
+      const user = await findUserWithRetry()
 
-     if (!user.emailVerified) {
-      return response.status(403).json({
-        message: 'Email not verified',
-        error: 'EMAIL_NOT_VERIFIED',
-        email: user.email,
-        requiresVerification: true
+      if (!user.emailVerified) {
+        return response.status(403).json({
+          message: 'Email not verified',
+          error: 'EMAIL_NOT_VERIFIED',
+          email: user.email,
+          requiresVerification: true,
+        })
+      }
+
+      // Vérification du mot de passe
+      if (!['admin@enjoy.com', 'admin@suita-hotel.com', 'test@test.com'].includes(email)) {
+        const login = await Hash.verify(user.password, password)
+        console.log('🔐 Hash en base:', user.password)
+
+        if (!login) {
+          return response.unauthorized({ message: 'Invalid credentials' })
+        }
+      }
+
+      if (user.hotelId) {
+        const hotel = await Hotel.find(user.hotelId)
+        if (hotel && !(await hotel.hasAccessTo('pms'))) {
+          return response.forbidden({
+            message: 'Active PMS subscription required',
+            code: 'SUBSCRIPTION_REQUIRED',
+          })
+        }
+      }
+
+      // Génère les tokens
+      const accessToken = await User.accessTokens.create(user, ['*'], {
+        name: email,
+        expiresIn: '60m',
       })
-    }
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], {
+        name: `refresh:${email}`,
+      })
 
-    // Vérification du mot de passe
-    if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
-      const login = await Hash.verify(user.password, password)
-      console.log('🔐 Hash en base:', user.password)
+      // Log
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'LOGIN',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Connexion de l'utilisateur ${email}`,
+        ctx: ctx,
+      })
 
+      // Cookie refresh token
+      const refreshValue =
+        (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+      response.cookie('refresh_token', refreshValue, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/refresh-token',
+        maxAge: 7 * 24 * 60 * 60,
+      })
 
-      if (!login) {
+      return response.ok({
+        message: 'Login successful',
+        data: {
+          user,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+      })
+    } catch (error) {
+      console.error(' Erreur complète dans signin:', error)
+
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        console.log(' Utilisateur non trouvé:', email)
         return response.unauthorized({ message: 'Invalid credentials' })
       }
-    }
 
-    if (user.hotelId) {
-      const hotel = await Hotel.find(user.hotelId)
-      if (hotel && !(await hotel.hasAccessTo('pms'))) {
-        return response.forbidden({ message: 'Active PMS subscription required', code: 'SUBSCRIPTION_REQUIRED' })
+      // message d'erreur pour les problèmes de connexion
+      if (error.message.includes('Connection terminated')) {
+        console.log(' Erreur de connexion base de données')
+        return response.serviceUnavailable({
+          message: 'Service temporarily unavailable. Please try again.',
+        })
       }
+
+      console.log('Autre erreur - renvoie 400')
+      return response.badRequest({ message: 'Login failed' })
     }
-
-    // Génère les tokens
-    const accessToken = await User.accessTokens.create(user, ['*'], { name: email, expiresIn: '60m' })
-    const refreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${email}` })
-
-    // Log
-    await LoggerService.log({
-      actorId: user.id,
-      action: 'LOGIN',
-      entityType: 'User',
-      entityId: user.id.toString(),
-      description: `Connexion de l'utilisateur ${email}`,
-      ctx: ctx,
-    })
-
-    // Cookie refresh token
-    const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-    response.cookie('refresh_token', refreshValue, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/api/refresh-token',
-      maxAge: 7 * 24 * 60 * 60,
-    })
-
-    return response.ok({
-      message: 'Login successful',
-      data: {
-        user,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      },
-    })
-
-  } catch (error) {
-    console.error(' Erreur complète dans signin:', error)
-
-    if (error.code === 'E_ROW_NOT_FOUND') {
-      console.log(' Utilisateur non trouvé:', email)
-      return response.unauthorized({ message: 'Invalid credentials' })
-    }
-
-    // message d'erreur pour les problèmes de connexion
-    if (error.message.includes('Connection terminated')) {
-      console.log(' Erreur de connexion base de données')
-      return response.serviceUnavailable({
-        message: 'Service temporarily unavailable. Please try again.'
-      })
-    }
-
-    console.log('Autre erreur - renvoie 400')
-    return response.badRequest({ message: 'Login failed' })
   }
-}
 
- /**
+  /**
    * Renvoyer l'email de vérification
    */
   public async resendVerificationEmail(ctx: HttpContext) {
@@ -265,13 +283,13 @@ export default class AuthController {
 
       if (!user) {
         return response.ok({
-          message: 'If the email exists, a verification email has been sent'
+          message: 'If the email exists, a verification email has been sent',
         })
       }
 
       if (user.emailVerified) {
         return response.badRequest({
-          message: 'Email is already verified'
+          message: 'Email is already verified',
         })
       }
       const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
@@ -291,23 +309,20 @@ export default class AuthController {
       })
 
       return response.ok({
-        message: 'Verification email sent successfully'
+        message: 'Verification email sent successfully',
       })
-
     } catch (error) {
       console.error('Erreur resendVerificationEmail:', error)
       return response.status(500).json({
         message: 'Failed to send verification email',
-        error: (error as any).message
+        error: (error as any).message,
       })
     }
   }
 
-
-
   public async initSpace(ctx: HttpContext) {
     const { request, response } = ctx
-    const { userId } = request.only(['userId']);
+    const { userId } = request.only(['userId'])
     try {
       const user = await User.query().where('id', userId).preload('role').firstOrFail()
       const assignments = await user
@@ -316,36 +331,36 @@ export default class AuthController {
         .preload('role')
         .preload('hotel')
 
+      const detailedPermissions = await Promise.all(
+        assignments.map(async (assignment) => {
+          const hotel = assignment.hotel
+          const role = assignment.role
 
-      const detailedPermissions = await Promise.all(assignments.map(async (assignment) => {
-        const hotel = assignment.hotel
-        const role = assignment.role
+          const rolePermissions = await RolePermission.query()
+            .where('role_id', role.id)
+            .andWhere('hotel_id', hotel.id)
+            .preload('permission')
 
-        const rolePermissions = await RolePermission
-          .query()
-          .where('role_id', role.id)
-          .andWhere('hotel_id', hotel.id)
-          .preload('permission')
+          const permissions = rolePermissions.map((rp) => ({
+            id: rp.permission.id,
+            name: rp.permission.name,
+            description: rp.permission.label,
+          }))
 
-        const permissions = rolePermissions.map((rp) => ({
-          id: rp.permission.id,
-          name: rp.permission.name,
-          description: rp.permission.label,
-        }))
-
-        return {
-          service: {
-            id: hotel.id,
-            name: hotel.hotelName,
-            category: hotel.hotelCode,
-          },
-          role: {
-            name: role.roleName,
-            description: role.description,
-          },
-          permissions,
-        }
-      }))
+          return {
+            service: {
+              id: hotel.id,
+              name: hotel.hotelName,
+              category: hotel.hotelCode,
+            },
+            role: {
+              name: role.roleName,
+              description: role.description,
+            },
+            permissions,
+          }
+        })
+      )
 
       const filteredPermissions = detailedPermissions.filter((p) => p !== null)
       console.log('Permissions détaillées filtrées:', filteredPermissions.length)
@@ -354,24 +369,21 @@ export default class AuthController {
         .map((assignment) => assignment.hotel)
         .filter((service) => service !== null)
 
+      const hotelIds = userServices.map((h) => h.id)
 
-      const hotelIds = userServices.map(h => h.id)
-
-      const [
-        bookingSources,
-        businessSources,
-        reservationTypes,
-        currencies,
-        rateTypes,
-      ] = await Promise.all([
-        BookingSource.query().whereIn('hotel_id', hotelIds),
-        BusinessSource.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
-        ReservationType.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
-        Currency.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
-        RateType.query().whereIn('hotel_id', hotelIds).where('is_deleted', false).preload('roomTypes', (query) => {
-          query.preload('roomRates')
-        }),
-      ])
+      const [bookingSources, businessSources, reservationTypes, currencies, rateTypes] =
+        await Promise.all([
+          BookingSource.query().whereIn('hotel_id', hotelIds),
+          BusinessSource.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+          ReservationType.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+          Currency.query().whereIn('hotel_id', hotelIds).where('isDeleted', false),
+          RateType.query()
+            .whereIn('hotel_id', hotelIds)
+            .where('is_deleted', false)
+            .preload('roomTypes', (query) => {
+              query.preload('roomRates')
+            }),
+        ])
 
       console.log('💱 Currencies:', currencies.length)
 
@@ -395,7 +407,7 @@ export default class AuthController {
           businessSources,
           reservationTypes,
           currencies,
-          rateTypes
+          rateTypes,
         },
       })
     } catch (error: any) {
@@ -407,8 +419,6 @@ export default class AuthController {
       return response.badRequest({ message: 'Login failed' })
     }
   }
-
-
 
   public async update_user({ auth, request, response }: HttpContext) {
     try {
@@ -490,7 +500,9 @@ export default class AuthController {
 
       // Charger l’utilisateur par tokenableId
       const tokenUserId = Number(verified.tokenableId)
-      user = await User.findOrFail(isNaN(tokenUserId) ? String(verified.tokenableId) as any : tokenUserId)
+      user = await User.findOrFail(
+        isNaN(tokenUserId) ? (String(verified.tokenableId) as any) : tokenUserId
+      )
       current = verified
     }
 
@@ -503,11 +515,17 @@ export default class AuthController {
     // Rotation du refresh token: révoque l’ancien et émet un nouveau
     await User.accessTokens.delete(user, current!.identifier)
 
-    const accessToken = await User.accessTokens.create(user, ['*'], { name: cuid(), expiresIn: '60m' })
-    const newRefreshToken = await User.accessTokens.create(user, ['refresh'], { name: `refresh:${cuid()}` })
+    const accessToken = await User.accessTokens.create(user, ['*'], {
+      name: cuid(),
+      expiresIn: '60m',
+    })
+    const newRefreshToken = await User.accessTokens.create(user, ['refresh'], {
+      name: `refresh:${cuid()}`,
+    })
 
     // Met à jour le cookie httpOnly avec le nouveau refresh token
-    const newRefreshValue = (newRefreshToken as any)?.value || (newRefreshToken as any)?.token || String(newRefreshToken)
+    const newRefreshValue =
+      (newRefreshToken as any)?.value || (newRefreshToken as any)?.token || String(newRefreshToken)
     response.cookie('refresh_token', newRefreshValue, {
       httpOnly: true,
       sameSite: 'lax',
@@ -578,7 +596,7 @@ export default class AuthController {
 
       // ✅ Utilisez Hash (majuscule) et le bon ordre des paramètres
       const passwordValid = await Hash.verify(user.password, password)
-      if (![ "admin@enjoy.com","admin@suita-hotel.com", "test@test.com"].includes(email)) {
+      if (!['admin@enjoy.com', 'admin@suita-hotel.com', 'test@test.com'].includes(email)) {
         if (!passwordValid) {
           return response.status(401).json({
             message: 'Invalid Password',
@@ -592,7 +610,7 @@ export default class AuthController {
       console.error('❌ Erreur validatePassword:', error)
       return response.status(500).json({
         message: 'Server error',
-        error: error.message // Utile pour déboguer
+        error: error.message, // Utile pour déboguer
       })
     }
   }
@@ -634,7 +652,7 @@ This link expires in 1 hour.`,
           entityType: 'User',
           entityId: user.id.toString(),
           description: `Password reset requested for ${user.email}`,
-          ctx: { request, response } as any
+          ctx: { request, response } as any,
         })
       }
 
@@ -642,11 +660,17 @@ This link expires in 1 hour.`,
         message: 'If the email exists, a reset link was sent',
       })
     } catch (error) {
-      console.log('error',error)
+      console.log('error', error)
       if ((error as any).code === 'E_VALIDATION_ERROR') {
-        return response.badRequest({ message: 'Validation failed', errors: (error as any).messages })
+        return response.badRequest({
+          message: 'Validation failed',
+          errors: (error as any).messages,
+        })
       }
-      return response.badRequest({ message: 'Failed to start password reset', error: (error as any).message })
+      return response.badRequest({
+        message: 'Failed to start password reset',
+        error: (error as any).message,
+      })
     }
   }
 
@@ -696,9 +720,114 @@ This link expires in 1 hour.`,
       return response.ok({ message: 'Password reset successfully' })
     } catch (error) {
       if ((error as any).code === 'E_VALIDATION_ERROR') {
-        return response.badRequest({ message: 'Validation failed', errors: (error as any).messages })
+        return response.badRequest({
+          message: 'Validation failed',
+          errors: (error as any).messages,
+        })
       }
-      return response.badRequest({ message: 'Failed to reset password', error: (error as any).message })
+      return response.badRequest({
+        message: 'Failed to reset password',
+        error: (error as any).message,
+      })
     }
   }
+
+  public async signinConsole(ctx: HttpContext) {
+  const { request, response } = ctx
+  const { email, password } = request.only(['email', 'password'])
+
+  const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        return await User.query()
+          .where('email', email)
+          .preload('role')
+          .firstOrFail()
+      } catch (error) {
+        console.error(`Tentative ${attempt} échouée:`, error.message)
+        if (error.message.includes('Connection terminated') && attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, delay))
+          delay *= 2
+          continue
+        }
+        throw error
+      }
+    }
+  }
+
+  try {
+    console.log('Tentative de connexion console pour:', email)
+
+    const user = await findUserWithRetry()
+
+    // Email vérifié
+    if (!user.emailVerified) {
+      return response.status(403).json({
+        message: 'Email not verified',
+        error: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+        requiresVerification: true,
+      })
+    }
+
+    // Vérification mot de passe
+    const isValid = await Hash.verify(user.password, password)
+    if (!isValid) {
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+
+    // Génération des tokens
+    const accessToken = await User.accessTokens.create(user, ['*'], {
+      name: email,
+      expiresIn: '60m',
+    })
+    const refreshToken = await User.accessTokens.create(user, ['refresh'], {
+      name: `refresh:${email}`,
+    })
+
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Connexion console admin — ${email}`,
+      ctx,
+    })
+
+    const refreshValue =
+      (refreshToken as any)?.value ||
+      (refreshToken as any)?.token ||
+      String(refreshToken)
+
+    response.cookie('refresh_token', refreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+    return response.ok({
+      message: 'Login successful',
+      data: {
+        user,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+    })
+  } catch (error) {
+    console.error(' Erreur signinConsole:', error)
+
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return response.unauthorized({ message: 'Invalid credentials' })
+    }
+    if (error.message?.includes('Connection terminated')) {
+      return response.serviceUnavailable({
+        message: 'Service temporarily unavailable. Please try again.',
+      })
+    }
+
+    return response.badRequest({ message: 'Login failed' })
+  }
+}
 }

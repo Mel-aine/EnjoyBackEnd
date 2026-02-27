@@ -78,9 +78,14 @@ export default class RolesController {
 
     // 🔎 Vérifier si un rôle du même nom existe déjà pour cet hôtel
     const existingRole = await Role.query()
-     .whereRaw('LOWER(role_name) = ?', [payload.name.toLowerCase()])
-      .andWhere('hotel_id', payload.hotelId!)
-      .first()
+    .whereRaw('LOWER(role_name) = ?', [payload.name.toLowerCase()])
+    .if(payload.hotelId, (q) => {
+      q.andWhere('hotel_id', payload.hotelId!)
+    })
+    .if(!payload.hotelId, (q) => {
+      q.whereNull('hotel_id')
+    })
+    .first()
 
     if (existingRole) {
       return response.conflict({
@@ -121,6 +126,18 @@ export default class RolesController {
     return response.internalServerError({
       message: 'Erreur lors de la création du rôle'
     })
+  }
+}
+
+/** * Récupère la liste de tous les rôles
+ */
+public async list({ response }: HttpContext) {
+  try {
+    const roles = await Role.query()
+    return response.ok(roles)
+  } catch (error) {
+        console.error(error)
+    return response.internalServerError({ message: 'Erreur lors de la récupération des rôles' })
   }
 }
 
