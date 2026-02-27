@@ -137,15 +137,15 @@ export default class RoomBlocksController {
       if (!unblockStart.isValid || !unblockEnd.isValid) {
         return response.badRequest({ success: false, message: 'Invalid date format' })
       }
-      if (unblockStart >= unblockEnd) {
+      if (unblockStart > unblockEnd) {
         return response.conflict({ success: false, message: 'Unblock start must be before end' })
       }
       const candidate = await RoomBlock.query()
         .where('room_id', roomId)
         .where('id',blockId)
         .preload('hotel')
-        .where('block_from_date', '<', unblockEnd.toJSDate())
-        .where('block_to_date', '>', unblockStart.toJSDate())
+        .where('block_from_date', '<=', unblockEnd.toJSDate())
+        .where('block_to_date', '>=', unblockStart.toJSDate())
         .first()
       if (!candidate) {
         return response.notFound({ success: false, message: 'No intersecting room block found' })
