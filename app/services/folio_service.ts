@@ -794,6 +794,7 @@ export default class FolioService {
       })
       .preload('transactions', (transactionQuery) => {
         transactionQuery
+        .whereNull('mealPlanId')
           .orderBy('transactionDate', 'asc')
           .preload('paymentMethod')
       })

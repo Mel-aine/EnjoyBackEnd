@@ -116,21 +116,21 @@ export default class FolioInquiryService {
           .orderBy('transactionDate', 'desc')
       })
       .firstOrFail()
-    
+
     // Calculate totals
     const charges = folio.transactions.filter(t => t.transactionType === TransactionType.CHARGE)
     const payments = folio.transactions.filter(t => t.transactionType === TransactionType.PAYMENT)
     const adjustments = folio.transactions.filter(t => t.transactionType === TransactionType.ADJUSTMENT)
-    
+
     const totalCharges = charges.reduce((sum, t) => sum + t.amount, 0)
     const totalPayments = payments.reduce((sum, t) => sum + t.amount, 0)
     const totalAdjustments = adjustments.reduce((sum, t) => sum + t.amount, 0)
     const currentBalance = totalCharges - totalPayments + totalAdjustments
-    
-    const lastActivity = folio.transactions.length > 0 
-      ? folio.transactions[0].transactionDate 
+
+    const lastActivity = folio.transactions.length > 0
+      ? folio.transactions[0].transactionDate
       : folio.createdAt
-    
+
     return {
       folio: {
         id: folio.id,
@@ -160,7 +160,7 @@ export default class FolioInquiryService {
       }
     }
   }
-  
+
   /**
    * Get comprehensive folio view for staff
    */
@@ -175,13 +175,13 @@ export default class FolioInquiryService {
       .preload('creator')
       .preload('modifier')
       .firstOrFail()
-    
+
     // Calculate financial summary
     const activeTransactions = folio.transactions.filter(t => !t.isVoided)
     const charges = activeTransactions.filter(t => t.transactionType === TransactionType.CHARGE)
     const payments = activeTransactions.filter(t => t.transactionType === TransactionType.PAYMENT)
     const adjustments = activeTransactions.filter(t => t.transactionType === TransactionType.ADJUSTMENT)
-    
+
     const totalCharges = charges.reduce((sum, t) => sum + t.amount, 0)
     const totalPayments = payments.reduce((sum, t) => sum + t.amount, 0)
     const totalAdjustments = adjustments.reduce((sum, t) => sum + t.amount, 0)
@@ -190,19 +190,19 @@ export default class FolioInquiryService {
     const totalDiscounts = adjustments.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0)
     const currentBalance = totalCharges - totalPayments + totalAdjustments
     const availableCredit = Math.max(0, (folio.creditLimit || 0) - Math.max(0, currentBalance))
-    
+
     // Audit information
     const voidedTransactions = folio.transactions.filter(t => t.isVoided).length
     const refundedTransactions = folio.transactions.filter(t => t.transactionType === 'refund').length
     const lastTransactionDate = folio.transactions.length > 0 ? folio.transactions[0].transactionDate : undefined
-    
+
     return {
       folio,
       transactions: folio.transactions,
       guest: folio.guest,
       audit: {
         createdBy: folio.creator,
-       // lastModifiedBy: folio.lastModifiedBy,
+        // lastModifiedBy: folio.lastModifiedBy,
         transactionCount: activeTransactions.length,
         lastTransactionDate: lastTransactionDate?.toJSDate(),
         voidedTransactions,
@@ -221,7 +221,7 @@ export default class FolioInquiryService {
       }
     }
   }
-  
+
   /**
    * Search folios with filters
    */
@@ -239,69 +239,69 @@ export default class FolioInquiryService {
     }
   }> {
     const query = Folio.query()
-      /*.whereNotNull('guestId')
-      .where('guestId','!==',undefined)
-      .andWhereNotNull('reservationId')
-      .preload('guest', (guestQuery) => {
-        guestQuery.select(['id', 'firstName', 'lastName', 'email'])
-      })
-      .preload('reservation', (resQuery) => {
-        resQuery.select(['id', 'confirmationNumber', 'checkInDate', 'checkOutDate'])
-      })*/
-    
+    /*.whereNotNull('guestId')
+    .where('guestId','!==',undefined)
+    .andWhereNotNull('reservationId')
+    .preload('guest', (guestQuery) => {
+      guestQuery.select(['id', 'firstName', 'lastName', 'email'])
+    })
+    .preload('reservation', (resQuery) => {
+      resQuery.select(['id', 'confirmationNumber', 'checkInDate', 'checkOutDate'])
+    })*/
+
     // Apply filters
     if (filters.hotelId) {
       query.where('hotelId', filters.hotelId)
     }
-    
+
     if (filters.guestId) {
       query.where('guestId', filters.guestId)
     }
-    
+
     if (filters.reservationId) {
       query.where('reservationId', filters.reservationId)
     }
-    
+
     if (filters.folioNumber) {
       query.where('folioNumber', 'like', `%${filters.folioNumber}%`)
     }
-    
+
     if (filters.folioType) {
       query.where('folioType', filters.folioType)
     }
-    
+
     if (filters.status) {
       query.where('status', filters.status)
     }
-    
+
     if (filters.settlementStatus) {
       query.where('settlementStatus', filters.settlementStatus)
     }
-    
+
     if (filters.workflowStatus) {
       query.where('workflowStatus', filters.workflowStatus)
     }
-    
+
     if (filters.dateFrom) {
       query.where('createdAt', '>=', filters.dateFrom)
     }
-    
+
     if (filters.dateTo) {
       query.where('createdAt', '<=', filters.dateTo)
     }
-    
+
     if (filters.balanceMin !== undefined) {
       query.where('balance', '>=', filters.balanceMin)
     }
-    
+
     if (filters.balanceMax !== undefined) {
       query.where('balance', '<=', filters.balanceMax)
     }
-    
+
     if (filters.createdBy) {
       query.where('createdBy', filters.createdBy)
     }
-    
+
     if (filters.hasOutstandingBalance !== undefined) {
       if (filters.hasOutstandingBalance) {
         query.where('balance', '>', 0)
@@ -309,18 +309,18 @@ export default class FolioInquiryService {
         query.where('balance', '<=', 0)
       }
     }
-    
+
     // Get total count
     const totalQuery = query.clone()
     const total = await totalQuery.count('* as total')
     const totalCount = Number(total[0].$extras.total)
-    
+
     // Apply pagination
     const data = await query
       .orderBy('createdAt', 'desc')
       .offset((page - 1) * limit)
       .limit(limit)
-    
+
     return {
       data,
       pagination: {
@@ -342,22 +342,27 @@ export default class FolioInquiryService {
   ): Promise<{
     data: any[]
     pagination: {
-      currentPage:number,
+      currentPage: number,
       lastPage: number,
-      perPage:number,
+      perPage: number,
       limit: number
       total: number
       totalPages: number,
-      hasMorePages:boolean
+      hasMorePages: boolean
     }
   }> {
     const query = Folio.query()
       .preload('guest', (guestQuery) => {
-        guestQuery.select(['id','title' ,'firstName', 'lastName', 'email',])
+        guestQuery.select(['id', 'title', 'firstName', 'lastName', 'email',])
+      })
+      .preload('reservationRoom', (resQuery) => {
+        resQuery.preload('room', (r) => {
+          r.select(['id', 'roomNumber', 'floorNumber'])
+        })
       })
       .preload('reservation', (resQuery) => {
         resQuery
-          .select(['id', 'confirmationNumber', 'checkInDate','arrivedDate','departDate', 'checkOutDate', 'reservationStatus'])
+          .select(['id', 'confirmationNumber', 'checkInDate', 'arrivedDate', 'departDate', 'checkOutDate', 'reservationStatus'])
           .preload('reservationRooms', (roomQuery) => {
             roomQuery.preload('room', (r) => {
               r.select(['id', 'roomNumber', 'floorNumber'])
@@ -388,39 +393,36 @@ export default class FolioInquiryService {
     if (filters.status) {
       query.where('status', filters.status)
     }
-
+    query.whereDoesntHave('reservationRoom', (resQuery) => {
+      resQuery.whereIn('status', ['checked_out', 'cancelled', 'voided'])
+    })
     // Apply inhouse filter (guests currently checked in)
-    if (filters.inhouse === true) {
-      query.whereHas('reservation', (resQuery) => {
-        resQuery.where('reservationStatus', 'Checked-In')
-      })
-    } else if (filters.inhouse === false) {
-      query.whereHas('reservation', (resQuery) => {
-        resQuery.whereNot('reservationStatus', 'Checked-In')
-      })
-    }
+    if (filters.inhouse === true || filters.reservation === true) {
+      query.where((subQuery) => {
+        if (filters.inhouse === true) {
+          subQuery.orWhereHas('reservationRoom', (resQuery) => {
+            resQuery.where('status', 'checked_in')
+          })
+        }
 
-    // Apply reservation filter (confirmed reservations only)
-    if (filters.reservation === true) {
-      query.whereHas('reservation', (resQuery) => {
-        resQuery.where('reservationStatus', 'Confirmed')
-      })
-    } else if (filters.reservation === false) {
-      query.whereHas('reservation', (resQuery) => {
-        resQuery.whereNot('reservationStatus', 'Confirmed')
+        if (filters.reservation === true) {
+          subQuery.orWhereHas('reservationRoom', (resQuery) => {
+            resQuery.where('status', 'confirmed')
+          })
+        }
       })
     }
 
     // Apply comprehensive text search
     if (filters.searchText && filters.searchText.trim()) {
       const searchTerm = filters.searchText.trim()
-      
+
       query.where((builder) => {
         // Search in folio fields
         builder
           .where('folioNumber', 'ILIKE', `%${searchTerm}%`)
           .orWhere('folioName', 'ILIKE', `%${searchTerm}%`)
-          
+
         // Search in guest name
         builder.orWhereHas('guest', (guestQuery) => {
           guestQuery
@@ -429,7 +431,7 @@ export default class FolioInquiryService {
             .orWhere('email', 'ILIKE', `%${searchTerm}%`)
             .orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", [`%${searchTerm}%`])
         })
-        
+
         // Search in room numbers through reservation
         builder.orWhereHas('reservation', (resQuery) => {
           resQuery
@@ -450,18 +452,18 @@ export default class FolioInquiryService {
 
     // Transform data to return only specific fields
     const transformedData = result.all().map(folio => {
-      const reservation = folio.reservation
-      const room = reservation?.reservationRooms?.[0]?.room
+      const reservationRoom = folio.reservationRoom
+      const room = reservationRoom?.room
       const guest = folio.guest
-      
+
       return {
-        id:folio.id,
+        id: folio.id,
         folioNumber: folio.folioNumber,
         roomNumber: room?.roomNumber || null,
         guest: guest ? `${guest.displayName}`.trim() : null,
         billingContact: guest ? `${guest.displayName}`.trim() : null,
-        arrivedDate: reservation?.arrivedDate || reservation?.scheduledArrivalDate || null,
-        departureDate: reservation?.departDate || reservation?.scheduledDepartureDate || null,
+        arrivedDate: reservationRoom?.checkInDate || null,
+        departureDate: reservationRoom?.checkOutDate || null,
         balance: folio.balance || 0
       }
     })
@@ -474,12 +476,12 @@ export default class FolioInquiryService {
         total: result.total,
         lastPage: result.lastPage,
         hasMorePages: result.hasMorePages,
-        limit:limit,
-        totalPages:result.total
+        limit: limit,
+        totalPages: result.total
       }
     }
   }
-  
+
   /**
    * Search transactions with filters
    */
@@ -498,61 +500,61 @@ export default class FolioInquiryService {
   }> {
     const query = FolioTransaction.query()
       .preload('folio')
-      .preload('creator' )
+      .preload('creator')
       .preload('extraCharge')
-    
+
     // Apply filters
     if (filters.folioId) {
       query.where('folioId', filters.folioId)
     }
-    
+
     if (filters.transactionType) {
       query.where('transactionType', filters.transactionType)
     }
-    
+
     if (filters.category) {
       query.where('category', filters.category)
     }
-    
+
     if (filters.dateFrom) {
       query.where('transactionDate', '>=', filters.dateFrom)
     }
-    
+
     if (filters.dateTo) {
       query.where('transactionDate', '<=', filters.dateTo)
     }
-    
+
     if (filters.amountMin !== undefined) {
       query.where('amount', '>=', filters.amountMin)
     }
-    
+
     if (filters.amountMax !== undefined) {
       query.where('amount', '<=', filters.amountMax)
     }
-    
+
     if (filters.postedBy) {
       query.where('postedBy', filters.postedBy)
     }
-    
+
     if (filters.departmentId) {
       query.where('departmentId', filters.departmentId)
     }
-    
+
     if (filters.isVoided !== undefined) {
       query.where('isVoided', filters.isVoided)
     }
-    
+
     // Get total count
     const totalQuery = query.clone()
     const total = await totalQuery.count('* as total')
     const totalCount = Number(total[0].$extras.total)
-    
+
     // Apply pagination
     const data = await query
       .orderBy('transactionDate', 'desc')
       .offset((page - 1) * limit)
       .limit(limit)
-    
+
     return {
       data,
       pagination: {
@@ -563,7 +565,7 @@ export default class FolioInquiryService {
       }
     }
   }
-  
+
   /**
    * Get folio activity timeline
    */
@@ -585,9 +587,9 @@ export default class FolioInquiryService {
       })
       .preload('creator')
       .firstOrFail()
-    
+
     const events: any[] = []
-    
+
     // Folio creation event
     events.push({
       id: `folio-created-${folio.id}`,
@@ -600,7 +602,7 @@ export default class FolioInquiryService {
         guestId: folio.guestId
       }
     })
-    
+
     // Transaction events
     folio.transactions.forEach(transaction => {
       events.push({
@@ -618,7 +620,7 @@ export default class FolioInquiryService {
         }
       })
     })
-    
+
     // Settlement events
     if (folio.settlementDate) {
       events.push({
@@ -631,7 +633,7 @@ export default class FolioInquiryService {
         }
       })
     }
-    
+
     // Closure events
     if (folio.workflowStatus === WorkflowStatus.CLOSED && folio.finalizedDate) {
       events.push({
@@ -644,13 +646,13 @@ export default class FolioInquiryService {
         }
       })
     }
-    
+
     // Sort events by timestamp
     events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-    
+
     return { events }
   }
-  
+
   /**
    * Get folio statistics for reporting
    */
@@ -666,15 +668,15 @@ export default class FolioInquiryService {
     foliosByStatus: Record<string, number>
   }> {
     const query = Folio.query()
-    
+
     // Apply filters (reuse the same logic as searchFolios)
     if (filters.hotelId) query.where('hotelId', filters.hotelId)
     if (filters.dateFrom) query.where('createdAt', '>=', filters.dateFrom)
     if (filters.dateTo) query.where('createdAt', '<=', filters.dateTo)
     // ... other filters
-    
+
     const folios = await query
-    
+
     const totalFolios = folios.length
     const openFolios = folios.filter(f => f.workflowStatus !== 'closed').length
     const closedFolios = folios.filter(f => f.workflowStatus === 'closed').length
@@ -682,16 +684,16 @@ export default class FolioInquiryService {
     const totalPayments = folios.reduce((sum, f) => sum + (f.totalPayments || 0), 0)
     const outstandingBalance = folios.reduce((sum, f) => sum + Math.max(0, f.balance || 0), 0)
     const averageFolioValue = totalFolios > 0 ? totalRevenue / totalFolios : 0
-    
+
     // Group by type and status
     const foliosByType: Record<string, number> = {}
     const foliosByStatus: Record<string, number> = {}
-    
+
     folios.forEach(folio => {
       foliosByType[folio.folioType] = (foliosByType[folio.folioType] || 0) + 1
       foliosByStatus[folio.status] = (foliosByStatus[folio.status] || 0) + 1
     })
-    
+
     return {
       totalFolios,
       openFolios,

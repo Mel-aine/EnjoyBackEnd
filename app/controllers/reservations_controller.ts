@@ -2785,10 +2785,21 @@ export default class ReservationsController extends CrudController<typeof Reserv
    */
   public async saveReservation(ctx: HttpContext) {
     const { request, auth, response } = ctx
-
+    
     try {
       const data = request.body() as ReservationData
-
+       setImmediate(()=>{
+          LoggerService.log({
+            actorId: auth.user?.id!,
+            action: 'CREATE',
+            entityType: 'Reservation',
+            entityId: ctx.auth?.user?.id!,
+            hotelId: data.hotel_id,
+            description: 'Reservation Request',
+            meta: request.body(),
+            ctx,
+          })
+       })
       // Input validation
       if (!data) {
         return response.badRequest({
