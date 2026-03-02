@@ -267,7 +267,7 @@ export default class HotelsController {
     } catch (error) {
       // Rollback the transaction on any error
       await trx.rollback()
-
+      console.error('Error during hotel creation, transaction rolled back:', error)
       // Handle validation failures with detailed field-level errors
       if (error && (error.code === 'E_VALIDATION_ERROR' || error.code === 'E_VALIDATION_FAILURE')) {
         const details = Array.isArray((error as any).errors)
@@ -1384,7 +1384,7 @@ export default class HotelsController {
         isActive: true,
         isDefault: method.isDefault || false,
         shortCode: method.shortCode,
-        type: method.type,
+        // type: method.type,
         cardProcessing: method.cardProcessing,
         surchargeEnabled: false,
       }
