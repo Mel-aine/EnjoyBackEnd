@@ -12418,4 +12418,86 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     // Render template
     return await edge.render('reports/meal_plan_report', templateData)
   }
+
+  async printPosReceipt({ request, response }: HttpContext) {
+    try {
+      const { transactionId } = request.params()
+
+      if (!transactionId) {
+        return response.badRequest({
+          success: false,
+          message: 'Transaction ID is required'
+        })
+      }
+
+      // Get transaction with all related data
+      const transaction = await FolioTransaction.query()
+        .where('id', transactionId)
+        .preload('folio', (folioQuery: any) => {
+          folioQuery.preload('hotel')
+          folioQuery.preload('guest')
+          folioQuery.preload('reservationRoom', (reservationRoomQuery: any) => {
+            reservationRoomQuery.preload('room', (roomQuery: any) => {
+              roomQuery.preload('roomType')
+            })
+          })
+        })
+        .preload('paymentMethod')
+        .first()
+
+      if (!transaction) {
+        return response.notFound({
+          success: false,
+          message: 'Transaction not found'
+        })
+      }
+      console.log('reservation',transaction.itemSummary)
+      // Prepare receipt data for the template
+      const receiptData = {
+        transaction,
+        folio: transaction.folio,
+        hotel: transaction.folio.hotel,
+        guest: transaction.folio.guest,
+        room: transaction.folio.reservationRoom?.room,
+        roomType: transaction.folio.reservationRoom?.room?.roomType,
+        paymentMethod: transaction.paymentMethod,
+        currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
+        formattedAmount: transaction.amount,
+        currency: 'XAF',
+        formatCurrency:formatCurrency
+      }
+      const { default: edge } = await import('edge.js')
+      const path = await import('path')
+      // Configure Edge with views directory
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      // Render the POS receipt template
+      const html = await edge.render('reports/pos-receipt', receiptData)
+
+      const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: {
+          top: '10px',
+          right: '10px',
+          bottom: '10px',
+          left: '10px'
+        }
+      })
+
+      // Set response headers for PDF
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `inline; filename="pos-receipt-${transaction.transactionNumber}.pdf"`)
+
+      return response.send(pdfBuffer)
+
+    } catch (error) {
+      logger.error('Error generating POS receipt PDF:')
+      logger.info(error)
+      return response.internalServerError({
+        success: false,
+        message: 'Error generating POS receipt PDF',
+        error: error.message
+      })
+    }
+  }
 }
