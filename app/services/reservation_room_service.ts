@@ -253,6 +253,22 @@ export default class ReservationRoomService {
       })
       .select(['room_id', 'check_in_date', 'check_out_date'])
 
+    const blocks = await RoomBlock.query()
+      .where('hotel_id', hotelId)
+      .whereIn('status', ['pending', 'inProgress'])
+      .whereIn('room_id', roomIds)
+      .where((subQuery) => {
+        subQuery
+          .whereBetween('block_from_date', [startDate, endDate])
+          .orWhereBetween('block_to_date', [startDate, endDate])
+          .orWhere((dateQuery) => {
+            dateQuery
+              .where('block_from_date', '<=', startDate)
+              .andWhere('block_to_date', '>=', endDate)
+          })
+      })
+      .select(['room_id', 'block_from_date', 'block_to_date'])
+
     const start = DateTime.fromJSDate(startDate).startOf('day')
     const end = DateTime.fromJSDate(endDate).startOf('day')
     const daily: Record<string, Record<number, number>> = {}
@@ -265,13 +281,26 @@ export default class ReservationRoomService {
         counts[rtId] = totalsPerType[rtId] || 0
       }
 
+      const d = cursor.toJSDate()
+
       for (const res of reservations) {
         const ci = res.checkInDate ? (res.checkInDate as any).toJSDate?.() ?? (res as any).checkInDate : undefined
         const co = res.checkOutDate ? (res.checkOutDate as any).toJSDate?.() ?? (res as any).checkOutDate : undefined
         if (!ci || !co) continue
-        const d = cursor.toJSDate()
+        
         if (d >= ci && d < co) {
           const rtId = roomTypeByRoomId[res.roomId!]
+          if (rtId) counts[rtId] = Math.max(0, (counts[rtId] || 0) - 1)
+        }
+      }
+
+      for (const block of blocks) {
+        const bf = block.blockFromDate ? (block.blockFromDate as any).toJSDate?.() ?? (block as any).blockFromDate : undefined
+        const bt = block.blockToDate ? (block.blockToDate as any).toJSDate?.() ?? (block as any).blockToDate : undefined
+        if (!bf || !bt) continue
+
+        if (d >= bf && d < bt) {
+          const rtId = roomTypeByRoomId[block.roomId]
           if (rtId) counts[rtId] = Math.max(0, (counts[rtId] || 0) - 1)
         }
       }
