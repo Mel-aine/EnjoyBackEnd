@@ -11,7 +11,6 @@ import env from '#start/env'
 const defaultOrigins = [
   'https://enjoy-admin-one.vercel.app',
   'http://localhost:5173',
-  'http://localhost:5174',
   'http://localhost:4173',
   'https://e-tikect.vercel.app',
   'http://localhost:5174',
