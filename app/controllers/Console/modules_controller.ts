@@ -3,11 +3,32 @@ import Module from '#models/module'
 import ActivityLog from '#models/activity_log'
 
 export default class ModulesController {
-  public async index({ response }: HttpContext) {
-    const modules = await Module.all()
-    return response.ok(modules)
+  public async index({ request, response }: HttpContext) {
+  const page    = request.input('page', 1)
+  const limit   = request.input('limit', 10)
+  const search  = request.input('search', '')
+  const isActive = request.input('isActive')
+
+  const query = Module.query()
+
+  if (search) {
+    query.where((q) => {
+      q.whereILike('name', `%${search}%`)
+       .orWhereILike('slug', `%${search}%`)
+       .orWhereILike('description', `%${search}%`)
+    })
   }
 
+  if (isActive !== undefined && isActive !== '') {
+    query.where('is_active', isActive === 'true')
+  }
+
+  const modules = await query
+    .orderBy('created_at', 'desc')
+    .paginate(page, limit)
+
+  return response.ok(modules)
+}
   public async store({ request, response, auth }: HttpContext) {
     const data = request.only(['slug', 'name', 'priceMonthly', 'description', 'isActive'])
     const module = await Module.create(data)
@@ -32,10 +53,10 @@ export default class ModulesController {
 
   public async update({ params, request, response, auth }: HttpContext) {
     const module = await Module.findOrFail(params.id)
-    
+
     // Capture old state for logging
     const oldState = module.serialize()
-    
+
     const data = request.only(['slug', 'name', 'priceMonthly', 'description', 'isActive'])
     module.merge(data)
     await module.save()
