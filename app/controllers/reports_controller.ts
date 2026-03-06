@@ -1552,6 +1552,7 @@ export default class ReportsController {
   }
 
   //  Statistiques d'occupation groupées par type de chambre
+
   private async getRoomTypeStatsData(hotelId: number, reportDate: DateTime, currency: string) {
     const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr     = fmt(reportDate)
@@ -1590,17 +1591,24 @@ export default class ReportsController {
 
     // ── helper: stats pour une période ──────────────────────────
     const computePeriodStats = async (from: string, to: string, singleDay = false) => {
-      const reservations = await Reservation.query()
-        .where('hotel_id', hotelId)
-        .whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
-        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
-        .where((q) => {
-          q.where('arrived_date', '<=', to).where('depart_date', '>', from)
-        })
-        .preload('reservationRooms', (rrQ) =>
-          rrQ.preload('roomType').preload('rateType')
-        )
-        .preload('bookingSource')
+     const reservations = await Reservation.query()
+      .where('hotel_id', hotelId)
+      .whereIn('status',  ['checked_in', 'checked_out', 'confirmed']
+      )
+      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      .where((q) => {
+        q.where('arrived_date', '<=', to).where('depart_date', '>', from)
+      })
+      .preload('reservationRooms', (rrQ) =>
+        rrQ.preload('roomType').preload('rateType')
+      )
+      .preload('bookingSource')
+
+      // ── Log: réservations par statut ──────────────────────────
+      const byStatus = reservations.reduce((acc, r) => {
+        acc[r.status] = (acc[r.status] ?? 0) + 1
+        return acc
+      }, {} as Record<string, number>)
 
       const validRoomTypeIds = new Set(roomTypes.map((rt: any) => rt.id))
 
@@ -1678,37 +1686,29 @@ export default class ReportsController {
         for (const rr of res.reservationRooms as any[]) {
           const rtId = rr.roomTypeId ?? rr.roomType?.id
           if (!rtId || !perType[rtId]) continue
+          if (!rr.roomId) continue
 
+          if (rr.checkInDate && rr.checkOutDate) {
+            const ci = rr.checkInDate?.toISODate
+              ? rr.checkInDate.toISODate()
+              : String(rr.checkInDate).substring(0, 10)
+            const co = rr.checkOutDate?.toISODate
+              ? rr.checkOutDate.toISODate()
+              : String(rr.checkOutDate).substring(0, 10)
+            const covers = singleDay
+              ? (ci <= from && co > from)
+              : (ci <= to && co > from)
+            if (!covers) continue
+          }
           perType[rtId].occupied += 1
 
           const guestsInRoom = (rr.adults ?? 1) + (rr.children ?? 0)
           perType[rtId].guests += guestsInRoom
-
-          // ── Nuits = nombre de personnes (guests) ─────────────
-          // Chaque nuit compte autant de fois qu'il y a de personnes
           perType[rtId].nights += guestsInRoom
-          // if (singleDay) {
-          //   perType[rtId].nights += guestsInRoom
-          // } else {
-          //   const periodFrom = new Date(from)
-          //   const periodTo   = new Date(to)
-          //   const ci = rr.checkInDate  ? new Date(rr.checkInDate)  : periodFrom
-          //   const co = rr.checkOutDate ? new Date(rr.checkOutDate) : periodTo
-          //   const ciClamped = new Date(Math.max(ci.getTime(), periodFrom.getTime()))
-          //   const coClamped = new Date(Math.min(co.getTime(), periodTo.getTime()))
-          //   const nightsCount = Math.max(
-          //     0,
-          //     Math.round((coClamped.getTime() - ciClamped.getTime()) / 86_400_000)
-          //   )
-          //   // Nuits × guests
-          //   perType[rtId].nights += (nightsCount || 1) * guestsInRoom
-          // }
 
-          // ── Early / Late ─────────────────────────────────────
           if (earlyCheckInRRIds.has(res.id)) perType[rtId].earlyCheckIn += 1
           if (lateCheckOutRRIds.has(res.id)) perType[rtId].lateCheckOut += 1
 
-          // ── Catégorie ( réservation) ───────
           if (!countedResIds.has(res.id)) {
             countedResIds.add(res.id)
 
@@ -1716,14 +1716,13 @@ export default class ReportsController {
             const isCorporate = res.businessSourceId !== null
             const isWalkIn    = !isCorporate && res.bookingSourceId !== null && walkInSourceIds.has(res.bookingSourceId)
 
-
             if (isComplementary)      perType[rtId].gratuites    += 1
             if (isCorporate)          perType[rtId].corporate    += 1
             if (isWalkIn)             perType[rtId].walkIn       += 1
-
           }
         }
       }
+
       for (const rt of roomTypes) {
         perType[rt.id].reservations = reservationsCountByRoomType.get(rt.id) ?? 0
         perType[rt.id].cityLedger   = cityLedgerCountByRoomType.get(rt.id) ?? 0
@@ -1766,7 +1765,7 @@ export default class ReportsController {
         const blocked = await RoomBlock.query()
           .where('hotel_id', hotelId)
           .where('room_type_id', rt.id)
-          .whereIn('status', ['pending', 'inProgress'])
+          .whereNot('status', 'completed')
           .where('block_from_date', '<=', to)
           .where('block_to_date', '>=', from)
           .countDistinct('room_id as total')
@@ -1783,6 +1782,8 @@ export default class ReportsController {
       blockedRoomsMap[rt.id] = { day: bDay, month: bMonth, year: bYear }
     }
 
+    //
+
     // ── Build rows ───────────────────────────────────────────────
     const rows = roomTypes.map((rt) => {
       const d = dayStats[rt.id]
@@ -1795,6 +1796,8 @@ export default class ReportsController {
       const availMonth = Math.max(0, total.month - blocked.month)
       const availYear  = Math.max(0, total.year  - blocked.year)
 
+
+
       return {
         roomTypeId:   rt.id,
         roomTypeName: rt.roomTypeName,
@@ -1804,6 +1807,7 @@ export default class ReportsController {
         year:  { ...y, vacant: Math.max(0, availYear  - y.occupied) },
       }
     })
+
 
     // ── Grand totals ─────────────────────────────────────────────
     const sumPeriod = (arr: typeof rows, p: 'day' | 'month' | 'year') =>
@@ -1841,6 +1845,7 @@ export default class ReportsController {
     const toRate = (occ: number, avail: number) =>
       avail > 0 ? +((occ / avail) * 100).toFixed(2) : 0
 
+
     return {
       rows,
       totals,
@@ -1849,7 +1854,6 @@ export default class ReportsController {
       toYear:  toRate(totals.year.occupied,  totals.year.disponibles),
     }
   }
-
 
   //  Calcule NMPC | DMS | T.O | T.I | PMC | CA HT | CA TTC | Cityledger
  private async getRatiosCAData(hotelId: number, reportDate: DateTime, currency: string) {
