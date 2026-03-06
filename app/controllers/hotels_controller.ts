@@ -330,6 +330,9 @@ export default class HotelsController {
         .preload('roomChargesTaxRates')
         .preload('cancellationRevenueTaxRates')
         .preload('noShowRevenueTaxRates')
+        .preload('subscriptions', (subQuery) => {
+          subQuery.preload('module')
+        })
         .firstOrFail()
 
       return response.ok({

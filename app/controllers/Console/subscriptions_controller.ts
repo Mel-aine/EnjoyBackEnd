@@ -35,7 +35,7 @@ export default class SubscriptionsController {
     }
 
     // Check for dependencies (e.g., Channel Manager requires PMS)
-    if (module.slug === 'channel_manager') {
+    if (module.slug === 'channel-manager') {
       const hasPMS = await hotel.hasAccessTo('pms')
       if (!hasPMS) {
         return response.badRequest({
@@ -49,7 +49,7 @@ export default class SubscriptionsController {
     if (module.isBundle && module.includedModulesJson) {
       // 1. Check for existing active subscriptions for included modules
       const includedSlugs = module.includedModulesJson
-      
+
       const existingSubs = await hotel.related('subscriptions')
         .query()
         .where('status', 'active')
@@ -122,14 +122,14 @@ export default class SubscriptionsController {
   public async update({ params, request, response, auth }: HttpContext) {
     const subscription = await Subscription.findOrFail(params.id)
     const user = auth.user!
-    
+
     // Capture old state for logging
     const oldState = subscription.serialize()
-    
+
     const data = request.only(['status', 'endsAt', 'limitCount', 'paymentStatus'])
     subscription.merge(data)
     await subscription.save()
-    
+
     // Log the activity
     await ActivityLog.create({
       userId: user.id,
