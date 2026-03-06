@@ -733,101 +733,101 @@ This link expires in 1 hour.`,
   }
 
   public async signinConsole(ctx: HttpContext) {
-  const { request, response } = ctx
-  const { email, password } = request.only(['email', 'password'])
+    const { request, response } = ctx
+    const { email, password } = request.only(['email', 'password'])
 
-  const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        return await User.query()
-          .where('email', email)
-          .preload('role')
-          .firstOrFail()
-      } catch (error) {
-        console.error(`Tentative ${attempt} échouée:`, error.message)
-        if (error.message.includes('Connection terminated') && attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, delay))
-          delay *= 2
-          continue
+    const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          return await User.query()
+            .where('email', email)
+            .preload('role')
+            .firstOrFail()
+        } catch (error) {
+          console.error(`Tentative ${attempt} échouée:`, error.message)
+          if (error.message.includes('Connection terminated') && attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, delay))
+            delay *= 2
+            continue
+          }
+          throw error
         }
-        throw error
       }
     }
-  }
 
-  try {
-    console.log('Tentative de connexion console pour:', email)
+    try {
+      console.log('Tentative de connexion console pour:', email)
 
-    const user = await findUserWithRetry()
+      const user = await findUserWithRetry()
 
-    // Email vérifié
-    if (!user.emailVerified) {
-      return response.status(403).json({
-        message: 'Email not verified',
-        error: 'EMAIL_NOT_VERIFIED',
-        email: user.email,
-        requiresVerification: true,
+      // Email vérifié
+      if (!user.emailVerified) {
+        return response.status(403).json({
+          message: 'Email not verified',
+          error: 'EMAIL_NOT_VERIFIED',
+          email: user.email,
+          requiresVerification: true,
+        })
+      }
+
+      // Vérification mot de passe
+      const isValid = await Hash.verify(user.password, password)
+      if (!isValid) {
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
+
+      // Génération des tokens
+      const accessToken = await User.accessTokens.create(user, ['*'], {
+        name: email,
+        expiresIn: '60m',
       })
-    }
-
-    // Vérification mot de passe
-    const isValid = await Hash.verify(user.password, password)
-    if (!isValid) {
-      return response.unauthorized({ message: 'Invalid credentials' })
-    }
-
-    // Génération des tokens
-    const accessToken = await User.accessTokens.create(user, ['*'], {
-      name: email,
-      expiresIn: '60m',
-    })
-    const refreshToken = await User.accessTokens.create(user, ['refresh'], {
-      name: `refresh:${email}`,
-    })
-
-    await LoggerService.log({
-      actorId: user.id,
-      action: 'LOGIN',
-      entityType: 'User',
-      entityId: user.id.toString(),
-      description: `Connexion console admin — ${email}`,
-      ctx,
-    })
-
-    const refreshValue =
-      (refreshToken as any)?.value ||
-      (refreshToken as any)?.token ||
-      String(refreshToken)
-
-    response.cookie('refresh_token', refreshValue, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/api/refresh-token',
-      maxAge: 7 * 24 * 60 * 60,
-    })
-
-    return response.ok({
-      message: 'Login successful',
-      data: {
-        user,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      },
-    })
-  } catch (error) {
-    console.error(' Erreur signinConsole:', error)
-
-    if (error.code === 'E_ROW_NOT_FOUND') {
-      return response.unauthorized({ message: 'Invalid credentials' })
-    }
-    if (error.message?.includes('Connection terminated')) {
-      return response.serviceUnavailable({
-        message: 'Service temporarily unavailable. Please try again.',
+      const refreshToken = await User.accessTokens.create(user, ['refresh'], {
+        name: `refresh:${email}`,
       })
-    }
 
-    return response.badRequest({ message: 'Login failed' })
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'LOGIN',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Connexion console admin — ${email}`,
+        ctx,
+      })
+
+      const refreshValue =
+        (refreshToken as any)?.value ||
+        (refreshToken as any)?.token ||
+        String(refreshToken)
+
+      response.cookie('refresh_token', refreshValue, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/refresh-token',
+        maxAge: 7 * 24 * 60 * 60,
+      })
+
+      return response.ok({
+        message: 'Login successful',
+        data: {
+          user,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+      })
+    } catch (error) {
+      console.error(' Erreur signinConsole:', error)
+
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.unauthorized({ message: 'Invalid credentials' })
+      }
+      if (error.message?.includes('Connection terminated')) {
+        return response.serviceUnavailable({
+          message: 'Service temporarily unavailable. Please try again.',
+        })
+      }
+
+      return response.badRequest({ message: 'Login failed' })
+    }
   }
-}
 }

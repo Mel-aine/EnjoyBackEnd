@@ -73,6 +73,17 @@ export default class HotelsController {
       }
 
       const hotels = await query
+        .preload('subscriptions', (subQuery) => {
+          subQuery.preload('module')
+        })
+        .preload('users', (userQuery) => {
+          userQuery
+            .whereHas('role', (roleQuery) => {
+              roleQuery.whereILike('role_name', 'admin')
+            })
+            .preload('role')
+        })
+        .preload('invoices')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -81,6 +92,7 @@ export default class HotelsController {
         data: hotels
       })
     } catch (error) {
+      console.error('Error retrieving hotels:', error)
       return response.internalServerError({
         message: 'Failed to retrieve hotels',
         error: error.message
@@ -306,6 +318,13 @@ export default class HotelsController {
         .preload('rooms', (roomQuery) => {
           roomQuery.orderBy('sort_key', 'asc')
         })
+        .preload('users', (userQuery) => {
+          userQuery
+            .whereHas('role', (roleQuery) => {
+              roleQuery.whereILike('role_name', 'admin')
+            })
+            .preload('role')
+        })
         .preload('ratePlans')
         .preload('discounts')
         .preload('roomChargesTaxRates')
@@ -347,27 +366,85 @@ export default class HotelsController {
   /**
    * Update a hotel
    */
-  async update({ params, request, response, auth }: HttpContext) {
+ async update({ params, request, response, auth }: HttpContext) {
     try {
       const hotel = await Hotel.findOrFail(params.id)
       const payload = await request.validateUsing(updateHotelValidator)
 
-      // Create update data with proper typing
-      const updateData: any = {
-        ...payload,
-        lastModifiedBy: auth.user?.id || 0
-      }
-
-      hotel.merge(updateData)
+      hotel.merge({
+        hotelName:          payload.name,
+        description:        payload.description,
+        address:            payload.address,
+        city:               payload.city,
+        stateProvince:      payload.state,
+        country:            payload.country,
+        postalCode:         payload.postalCode,
+        email:              payload.email,
+        website:            payload.website,
+        totalRooms:         payload.totalRooms         || hotel.totalRooms,
+        totalFloors:        payload.totalFloors        || hotel.totalFloors,
+        phoneNumber:        payload.phone,
+        grade:              payload.starRating,
+        checkInTime:        payload.checkInTime,
+        checkOutTime:       payload.checkOutTime,
+        currencyCode:       payload.currency           || hotel.currencyCode,
+        timezone:           payload.timezone           || hotel.timezone,
+        taxRate:            payload.taxRate            ?? hotel.taxRate,
+        status:             payload.isActive !== false ? 'active' : 'inactive',
+        cancellationPolicy: payload.cancellationPolicy,
+        hotelPolicy:        payload.policies,
+        lastModifiedBy:     auth.user?.id              || 0,
+      })
 
       await hotel.save()
+
+      // Mettre à jour l'admin si les infos sont fournies
+      if (payload.adminFirstName || payload.adminLastName || payload.adminEmail || payload.adminPhoneNumber) {
+        const assignment = await ServiceUserAssignment.query()
+          .where('hotel_id', hotel.id)
+          .preload('role', (q) => q.whereILike('name', 'admin'))
+          .first()
+
+        if (assignment) {
+          const adminUser = await User.find(assignment.user_id)
+          if (adminUser) {
+            adminUser.merge({
+              firstName:   payload.adminFirstName   || adminUser.firstName,
+              lastName:    payload.adminLastName    || adminUser.lastName,
+              email:       payload.adminEmail       || adminUser.email,
+              phoneNumber: payload.adminPhoneNumber || adminUser.phoneNumber,
+            })
+            await adminUser.save()
+          }
+        }
+      }
+
+      // Log de l'activité
+      const user = auth.user
+      if (user) {
+        await ActivityLog.create({
+          userId:      user.id,
+          username:    user.username || user.email,
+          action:      'hotel.update',
+          entityType:  'hotel',
+          entityId:    hotel.id,
+          hotelId:     hotel.id,
+          description: `Updated hotel: ${hotel.hotelName}`,
+          changes:     hotel.serialize(),
+          ipAddress:   request.ip(),
+          userAgent:   request.header('user-agent'),
+          createdBy:   user.id
+        })
+      }
 
       return response.ok({
         message: 'Hotel updated successfully',
         data: hotel
       })
+
     } catch (error) {
-      // Handle validation failures with detailed field-level errors
+      console.error('Error updating hotel:', error)
+
       if (error && (error.code === 'E_VALIDATION_ERROR' || error.code === 'E_VALIDATION_FAILURE')) {
         const details = Array.isArray((error as any).errors)
           ? (error as any).errors.map((e: any) => ({ field: e.field, rule: e.rule, message: e.message }))
@@ -375,14 +452,14 @@ export default class HotelsController {
 
         return response.badRequest({
           message: 'Validation failed',
-          errors: (error as any).messages,
+          errors:  (error as any).messages,
           details
         })
       }
 
       return response.badRequest({
         message: 'Failed to update hotel',
-        error: (error as any).message
+        error:   (error as any).message
       })
     }
   }

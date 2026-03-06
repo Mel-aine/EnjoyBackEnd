@@ -516,6 +516,14 @@ export default class Hotel extends BaseModel {
   @hasMany(() => Amenity)
   declare amenity: HasMany<typeof Amenity>
 
+  @manyToMany(() => User, {
+    pivotTable: 'service_user_assignments',
+    pivotForeignKey: 'hotel_id',
+    pivotRelatedForeignKey: 'user_id',
+    pivotColumns: ['role_id', 'department_id', 'hire_date']
+  })
+  declare users: ManyToMany<typeof User>
+
   @beforeCreate()
   static async generateHotelCode(hotel: Hotel) {
     if (!hotel.hotelCode) {
