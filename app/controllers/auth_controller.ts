@@ -140,6 +140,11 @@ export default class AuthController {
         const user = await User.query()
           .where('email', email)
           .preload('role')
+           .preload('serviceAssignments', (query) => {
+            query.preload('hotel', (hotelQuery) => {
+              hotelQuery.select(['id', 'hotel_name'])
+            })
+          })
           .firstOrFail()
         return user
       } catch (error) {
@@ -207,10 +212,16 @@ export default class AuthController {
       maxAge: 7 * 24 * 60 * 60,
     })
 
+     const userData = user.serialize()
+    delete userData.serviceAssignments
+
+    userData.hotels = user.serviceAssignments.map((assignment: any) => assignment.hotel?.serialize()).filter(Boolean)
+
+
     return response.ok({
       message: 'Login successful',
       data: {
-        user,
+        user : userData,
         access_token: accessToken,
         refresh_token: refreshToken,
       },
@@ -236,6 +247,7 @@ export default class AuthController {
     return response.badRequest({ message: 'Login failed' })
   }
 }
+
 
  /**
    * Renvoyer l'email de vérification
