@@ -10,10 +10,10 @@ export default class RoomBlocksController {
   /**
    * Create Room Block
    */
-  public async store({ request, response, auth }: HttpContext) {
+
+public async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await createRoomBlockValidator.validate(request.all())
-      console.log('Creating room block with payload:', payload)
 
       // Convertir les dates en Luxon DateTime
       const fromDate = DateTime.fromISO(payload.block_from_date.toISOString())
@@ -36,16 +36,15 @@ export default class RoomBlocksController {
           errors: { dates: ['block_from_date cannot be after or equal to block_to_date'] },
         })
       }
-
       // Vérifier les réservations existantes
       const overlappingReservations = await db
         .from('reservation_rooms')
         .where('room_id', payload.room_id)
-        .where('check_in_date', '<', toDate.toJSDate())
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .where('check_in_date', '<=', toDate.toJSDate())
         .where('check_out_date', '>=', fromDate.toJSDate())
-
         .count('* as total')
-      console.log('Overlapping reservations:', overlappingReservations)
+
       if (Number(overlappingReservations[0].total) > 0) {
         return response.conflict({
           success: false,
@@ -79,27 +78,26 @@ export default class RoomBlocksController {
         blockedByUserId: auth.user?.id,
       })
 
+
       // Preload les relations pour la réponse
       await roomBlock.load('room')
       await roomBlock.load('blockedBy')
       await roomBlock.load('hotel')
       await roomBlock.load('roomType')
 
-
-      //Notification
+      // Notification
       setImmediate(async () => {
-
         try {
           await CheckInCheckOutNotificationService.notifyRoomBlocked(
             roomBlock.roomId,
             auth.user!.id,
             payload.reason || 'Maintenance requise',
-
           )
         } catch (notificationError) {
           console.error('Error sending room block created notification:', notificationError)
         }
-    })
+      })
+
       return response.created({
         success: true,
         message: 'Bloc de maintenance créé avec succès',
@@ -107,6 +105,7 @@ export default class RoomBlocksController {
       })
     } catch (error) {
       console.error('Error creating room block:', error)
+      console.error('Error details:', { code: error.code, message: error.message, stack: error.stack })
 
       if (error.code === 'E_VALIDATION_FAILURE') {
         return response.badRequest({
