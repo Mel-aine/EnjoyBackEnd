@@ -742,6 +742,7 @@ This link expires in 1 hour.`,
           return await User.query()
             .where('email', email)
             .preload('role')
+            .preload('serviceAssignments')
             .firstOrFail()
         } catch (error) {
           console.error(`Tentative ${attempt} échouée:`, error.message)
