@@ -13,9 +13,14 @@ export default class SubscriptionsController {
   }
 
   public async store({ params, request, response, auth }: HttpContext) {
+
+    try {
+
     const hotel = await Hotel.findOrFail(params.hotel_id)
     const moduleId = request.input('module_id')
     const billingCycle = request.input('billing_cycle', 'monthly')
+    const priceMonthly = request.input('price')
+    const limitCount = request.input('limit_count')
     const module = await Module.findOrFail(moduleId)
     const user = auth.user!
 
@@ -90,8 +95,9 @@ export default class SubscriptionsController {
       endsAt: endsAt,
       status: 'active',
       billingCycle,
-      price: module.priceMonthly,
-      paymentStatus: 'pending'
+      price: priceMonthly,
+      paymentStatus: 'pending',
+      limitCount : limitCount
     })
 
     // Log the activity
@@ -117,6 +123,15 @@ export default class SubscriptionsController {
     })
 
     return response.created(subscription)
+
+     } catch (error) {
+       return response.internalServerError({
+        success: false,
+        message: error.message || 'Erreur serveur',
+        code: 'INTERNAL_SERVER_ERROR'
+      })
+
+    }
   }
 
   public async update({ params, request, response, auth }: HttpContext) {
@@ -175,4 +190,6 @@ export default class SubscriptionsController {
 
     return response.noContent()
   }
+
+
 }
