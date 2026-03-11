@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
+import Subscription from './subscription.js'
 
 export default class Invoice extends BaseModel {
   @column({ isPrimary: true })
@@ -12,6 +13,9 @@ export default class Invoice extends BaseModel {
 
   @column()
   declare amount: number
+
+  @column()
+  declare subscriptionId: number | null
 
   @column()
   declare currency: string
@@ -36,4 +40,7 @@ export default class Invoice extends BaseModel {
 
   @belongsTo(() => Hotel)
   declare hotel: BelongsTo<typeof Hotel>
+
+  @belongsTo(() => Subscription)
+  declare subscription: BelongsTo<typeof Subscription>
 }

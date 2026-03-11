@@ -1842,11 +1842,15 @@ router.group(() => {
   router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
   router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
   router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
+  router.get('dashboard','#controllers/Console/dashboard_consoles_controller.index')
 
   // Invoices Management
   router.get('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.index')
+  router.get('billing', '#controllers/Console/invoices_controller.billing')
   router.post('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.store')
   router.get('invoices/:id', '#controllers/Console/invoices_controller.show')
   router.put('invoices/:id', '#controllers/Console/invoices_controller.update')
+  router.patch('subscriptions/:id/extend', '#controllers/Console/subscriptions_controller.extend')
+  router.get('billing/quotas', '#controllers/Console/invoices_controller.quotas')
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))

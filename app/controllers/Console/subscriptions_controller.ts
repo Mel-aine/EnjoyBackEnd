@@ -100,6 +100,19 @@ export default class SubscriptionsController {
       limitCount : limitCount
     })
 
+    const invoiceNumber = `INV-${DateTime.now().toFormat('yyyy')}-${String(subscription.id).padStart(4, '0')}`
+
+    await hotel.related('invoices').create({
+      subscriptionId: subscription.id,
+      hotelId : subscription.hotelId,
+      amount: priceMonthly,
+      currency: 'FCFA',
+      status: 'pending',
+      invoiceNumber,
+      description: `Abonnement ${module.name} (${billingCycle === 'monthly' ? 'Mensuel' : 'Annuel'})`,
+      billingDate: DateTime.now(),
+    })
+
     // Log the activity
     await ActivityLog.create({
       userId: user.id,
@@ -189,6 +202,35 @@ export default class SubscriptionsController {
     })
 
     return response.noContent()
+  }
+
+  public async extend({ params, response, auth }: HttpContext) {
+    const subscription = await Subscription.findOrFail(params.id)
+    const user = auth.user!
+    const oldEndsAt = subscription.endsAt
+
+    // Étendre de +1 mois
+    subscription.endsAt = (subscription.endsAt ?? DateTime.now()).plus({ months: 1 })
+    await subscription.save()
+
+    await ActivityLog.create({
+      userId: user.id,
+      username: user.username || user.email,
+      action: 'subscription.extend',
+      entityType: 'subscription',
+      entityId: subscription.id,
+      hotelId: subscription.hotelId,
+      description: `Geste commercial : +1 mois sur abonnement ID ${subscription.id}`,
+      changes: {
+        before: { endsAt: oldEndsAt },
+        after: { endsAt: subscription.endsAt },
+      },
+      ipAddress: '',
+      userAgent: '',
+      createdBy: user.id,
+    })
+
+    return response.ok(subscription)
   }
 
 
