@@ -16,6 +16,7 @@ import PasswordResetToken from '#models/password_reset_token'
 import { DateTime } from 'luxon'
 import MailService from '#services/mail_service'
 import UserEmailService from '#services/user_email_service'
+import Subscription from '../models/subscription.js'
 
 export default class AuthController {
   // Fonction auxiliaire pour envoyer des réponses d'erreur
@@ -156,11 +157,20 @@ export default class AuthController {
     const { request, response } = ctx
     const { email, password } = request.only(['email', 'password'])
 
+
     //Fonction avec réessai pour les erreurs de connexion
     const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-          const user = await User.query().where('email', email).preload('role').firstOrFail()
+          const user = await User.query()
+            .where('email', email)
+            .preload('role')
+            .preload('serviceAssignments', (query) => {
+            query.preload('hotel', (hotelQuery) => {
+              hotelQuery.select(['id', 'hotel_name'])
+            })
+          })
+          .firstOrFail()
           return user
         } catch (error) {
           console.error(`Tentative ${attempt} échouée:`, error.message)
@@ -202,14 +212,40 @@ export default class AuthController {
         }
       }
 
-      if (user.hotelId) {
-        const hotel = await Hotel.find(user.hotelId)
-        if (hotel && !(await hotel.hasAccessTo('pms'))) {
-          return response.forbidden({
-            message: 'Active PMS subscription required',
-            code: 'SUBSCRIPTION_REQUIRED',
-          })
+      let hasPmsSubscription = false
+      let pmsSubscription: any = null
+      const assignedHotels = (user.serviceAssignments || [])
+        .map((a: any) => a.hotel)
+        .filter(Boolean)
+      const hotelIds = Array.from(new Set(assignedHotels.map((h: any) => h.id)))
+      const primaryHotelId = user.hotelId || hotelIds[0]
+
+      if (primaryHotelId) {
+        const hotel = await Hotel.find(primaryHotelId)
+        if (hotel) {
+          const now = DateTime.now().toSQL()
+          pmsSubscription = await Subscription.query()
+            .where('hotel_id', primaryHotelId)
+            .preload('module')
+            .whereHas('module', (query: any) => query.where('slug', 'pms'))
+            .where('status', 'active')
+            .where('ends_at', '>', now)
+            .first()
+
+          hasPmsSubscription = await hotel.hasAccessTo('pms')
         }
+      }
+
+      if (!hasPmsSubscription) {
+        return response.forbidden({
+          message: 'Active PMS subscription required',
+          code: 'SUBSCRIPTION_REQUIRED',
+          module: 'pms',
+          hotelId: primaryHotelId,
+          hotelIds,
+          hasPmsSubscription,
+          pmsSubscription,
+        })
       }
 
       // Génère les tokens
@@ -231,21 +267,30 @@ export default class AuthController {
         ctx: ctx,
       })
 
-      // Cookie refresh token
-      const refreshValue =
-        (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-      response.cookie('refresh_token', refreshValue, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/api/refresh-token',
-        maxAge: 7 * 24 * 60 * 60,
-      })
+    // Cookie refresh token
+    const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+    response.cookie('refresh_token', refreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+     const userData = user.serialize()
+    delete userData.serviceAssignments
+
+    userData.hotels = user.serviceAssignments.map((assignment: any) => assignment.hotel?.serialize()).filter(Boolean)
+
 
       return response.ok({
         message: 'Login successful',
         data: {
-          user,
+          user : userData,
+          hotelId: primaryHotelId,
+          hotelIds,
+          hasPmsSubscription,
+          pmsSubscription,
           access_token: accessToken,
           refresh_token: refreshToken,
         },
@@ -266,10 +311,11 @@ export default class AuthController {
         })
       }
 
-      console.log('Autre erreur - renvoie 400')
-      return response.badRequest({ message: 'Login failed' })
-    }
+    console.log('Autre erreur - renvoie 400')
+    return response.badRequest({ message: 'Login failed' })
   }
+}
+
 
   /**
    * Renvoyer l'email de vérification

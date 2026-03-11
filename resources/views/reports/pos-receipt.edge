@@ -260,9 +260,9 @@
         
         <!-- HEADER (Informations de l'hôtel) -->
         <header class="header text-center text-sm">
-            <h1 class="header-title">{{ hotel.name || 'TAMISARL (SUITA HOTEL)' }}</h1>
-            <p>{{ hotel.address || 'Carrefour Bastos, Yaounde, Centre, 2723, Cameroon' }}</p>
-            <p>Phone: {{ hotel.phone || '658858585' }} | Email: {{ hotel.email || 'reservation@suita-hotel.com' }}</p>
+            <h1 class="header-title">{{ hotel.hotelName  }}</h1>
+            <p>{{ hotel.address}}</p>
+            <p>Phone: {{ hotel.phone  }} | Email: {{ hotel.email}}</p>
             @if(hotel.website)
             <p>URL: {{ hotel.website }}</p>
             @endif
@@ -304,6 +304,10 @@
                     <span class="info-label">Time:</span> 
                     <span class="info-value">{{ transaction.createdAt.toFormat('HH:mm:ss') }}</span>
                 </div>
+                 <div class="info-item">
+                    <span class="info-label"> Currency:</span> 
+                    <span class="info-value">{{ currency }}</span>
+                </div>
             </div>
         </section>
         <!-- TABLEAU DES ARTICLES -->
@@ -320,10 +324,10 @@
                 @each(item in transaction.itemSummary)
                 <div class="item-row">
                     <div class="item-name">{{ item.nom }}</div>
-                    <div class="item-category">{{ item.categorie || 'N/A' }}</div>
+                    <div class="item-category">{{ item.categorie || '' }}</div>
                     <div class="item-qty">{{ item.quantite }}</div>
-                    <div class="item-unit">{{ item.prix_unitaire }}</div>
-                    <div class="item-amount">{{ item.prix_unitaire * item.quantite }}</div>
+                    <div class="item-unit">{{ formatCurrency(item.prix_unitaire) }}</div>
+                    <div class="item-amount">{{ formatCurrency(item.prix_unitaire * item.quantite) }}</div>
                 </div>
                 @endeach
             @else
@@ -331,8 +335,8 @@
                     <div class="item-name">{{ transaction.description || 'Transaction' }}</div>
                     <div class="item-category">Service</div>
                     <div class="item-qty">1</div>
-                    <div class="item-unit">{{ transaction.amount }}</div>
-                    <div class="item-amount">{{ transaction.amount }}</div>
+                    <div class="item-unit">{{ formatCurrency(transaction.amount) }}</div>
+                    <div class="item-amount">{{ formatCurrency(transaction.amount) }}</div>
                 </div>
             @endif
         </section>
@@ -341,32 +345,27 @@
         <section class="bill-details text-sm">
             <div class="total-row">
                 <div class="total-label">Bill Amount</div>
-                <div class="total-value">{{ transaction.subtotal || transaction.amount }}</div>
+                <div class="total-value">{{ formatCurrency(transaction.subtotal || transaction.amount) }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Surcharge</div>
-                <div class="total-value">{{ transaction.surcharge || 0 }}</div>
+                <div class="total-value">{{ formatCurrency(transaction.surcharge || 0) }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Tax</div>
-                <div class="total-value">{{ transaction.taxAmount || 0 }}</div>
+                <div class="total-value">{{ formatCurrency(transaction.taxAmount || 0) }}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Discount</div>
-                <div class="total-value">{{ transaction.discount || 0 }}</div>
+                <div class="total-value">{{ formatCurrency(transaction.discount || 0 )}}</div>
             </div>
             <div class="total-row">
                 <div class="total-label">Adjustment</div>
-                <div class="total-value">{{ transaction.adjustment || 0 }}</div>
-            </div>
-            <div class="total-row">
-                <div class="total-label">Tip</div>
-                <div class="total-value">{{ transaction.tip || 0 }}</div>
-            </div>
-            
+                <div class="total-value">{{ formatCurrency(transaction.adjustment || 0) }}</div>
+            </div> 
             <div class="total-row">
                 <div class="total-label">Payable</div>
-                <div class="total-value">{{ transaction.amount }} {{ currency }}</div>
+                <div class="total-value">{{ formatCurrency(transaction.amount )}} </div>
             </div>
         </section>
         
