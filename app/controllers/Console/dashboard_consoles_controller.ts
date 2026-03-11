@@ -170,7 +170,6 @@ export default class DashboardConsolesController {
 
 
     const recentLogs = await ActivityLog.query()
-      .whereIn('action', ['subscription.create', 'hotel.create', 'subscription.update'])
       .orderBy('created_at', 'desc')
       .limit(5)
 
