@@ -3,6 +3,7 @@ import Invoice from '#models/invoice'
 import Hotel from '#models/hotel'
 import ActivityLog from '#models/activity_log'
 import Subscription from '#models/subscription'
+import { DateTime } from 'luxon'
 
 export default class InvoicesController {
 
@@ -121,6 +122,20 @@ export default class InvoicesController {
       'description',
       'billingDate'
     ])
+
+    if (!data.invoiceNumber) {
+      const lastInvoice = await Invoice.query()
+        .whereHas('hotel', q => q.where('id', hotel.id))
+        .orderBy('id', 'desc')
+        .first()
+
+      const nextId = (lastInvoice?.id ?? 0) + 1
+      data.invoiceNumber = `INV-${DateTime.now().toFormat('yyyy')}-${String(nextId).padStart(4, '0')}`
+    }
+
+    if(!data.billingDate){
+      data.billingDate = DateTime.now()
+    }
 
     const invoice = await hotel.related('invoices').create(data)
 
