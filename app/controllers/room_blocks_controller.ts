@@ -18,10 +18,10 @@ export default class RoomBlocksController {
   /**
    * Create Room Block
    */
-  public async store({ request, response, auth }: HttpContext) {
+
+public async store({ request, response, auth }: HttpContext) {
     try {
       const payload = await createRoomBlockValidator.validate(request.all())
-      console.log('Creating room block with payload:', payload)
 
       // Convertir les dates en Luxon DateTime
       const fromDate = DateTime.fromISO(payload.block_from_date.toISOString())
@@ -39,25 +39,24 @@ export default class RoomBlocksController {
       if (fromDate >= toDate) {
         return response.conflict({
           success: false,
-          message: 'La date de début doit être antérieure à la date de fin',
+          message: 'The start date must be before the end date',
           errorCode: 'INVALID_DATE_RANGE',
           errors: { dates: ['block_from_date cannot be after or equal to block_to_date'] },
         })
       }
-
       // Vérifier les réservations existantes
       const overlappingReservations = await db
         .from('reservation_rooms')
         .where('room_id', payload.room_id)
-        .where('check_in_date', '<', fromDate.toJSDate())
-        .where('check_out_date', '>', toDate.toJSDate())
-
+        .whereNotIn('status', ['cancelled', 'no_show', 'voided'])
+        .where('check_in_date', '<=', toDate.toJSDate())
+        .where('check_out_date', '>=', fromDate.toJSDate())
         .count('* as total')
-      console.log('Overlapping reservations:', overlappingReservations)
+
       if (Number(overlappingReservations[0].total) > 0) {
         return response.conflict({
           success: false,
-          message: 'Impossible de bloquer une chambre avec une réservation active pour ces dates.',
+          message: 'It is not possible to block a room with an active booking for these dates.',
           errorCode: 'ROOM_HAS_RESERVATION',
           errors: { reservations: ['Room has active reservations for these dates'] },
         })
@@ -73,7 +72,7 @@ export default class RoomBlocksController {
       if (Number(overlappingBlocks[0].$extras.total) > 0) {
         return response.conflict({
           success: false,
-          message: 'La chambre est déjà bloquée pour les dates sélectionnées.',
+          message: 'The room is already blocked for the selected dates.',
           errorCode: 'ROOM_ALREADY_BLOCKED',
           errors: { blocks: ['Room is already blocked for the selected dates'] },
         })
@@ -87,27 +86,26 @@ export default class RoomBlocksController {
         blockedByUserId: auth.user?.id,
       })
 
+
       // Preload les relations pour la réponse
       await roomBlock.load('room')
       await roomBlock.load('blockedBy')
       await roomBlock.load('hotel')
       await roomBlock.load('roomType')
 
-
-      //Notification
-      runInBackground(async () => {
-
+      // Notification
+      setImmediate(async () => {
         try {
           await CheckInCheckOutNotificationService.notifyRoomBlocked(
             roomBlock.roomId,
             auth.user!.id,
             payload.reason || 'Maintenance requise',
-
           )
         } catch (notificationError) {
           console.error('Error sending room block created notification:', notificationError)
         }
-    })
+      })
+
       return response.created({
         success: true,
         message: 'Bloc de maintenance créé avec succès',
@@ -115,6 +113,7 @@ export default class RoomBlocksController {
       })
     } catch (error) {
       console.error('Error creating room block:', error)
+      console.error('Error details:', { code: error.code, message: error.message, stack: error.stack })
 
       if (error.code === 'E_VALIDATION_FAILURE') {
         return response.badRequest({
@@ -145,15 +144,15 @@ export default class RoomBlocksController {
       if (!unblockStart.isValid || !unblockEnd.isValid) {
         return response.badRequest({ success: false, message: 'Invalid date format' })
       }
-      if (unblockStart >= unblockEnd) {
+      if (unblockStart > unblockEnd) {
         return response.conflict({ success: false, message: 'Unblock start must be before end' })
       }
       const candidate = await RoomBlock.query()
         .where('room_id', roomId)
         .where('id',blockId)
         .preload('hotel')
-        .where('block_from_date', '<', unblockEnd.toJSDate())
-        .where('block_to_date', '>', unblockStart.toJSDate())
+        .where('block_from_date', '<=', unblockEnd.toJSDate())
+        .where('block_to_date', '>=', unblockStart.toJSDate())
         .first()
       if (!candidate) {
         return response.notFound({ success: false, message: 'No intersecting room block found' })
@@ -178,13 +177,13 @@ export default class RoomBlocksController {
                 // Determine the range to sync. We should sync the intersection of the original block and the unblock range.
                 // Actually, unblockStart and unblockEnd are the user's requested range.
                 // We should sync exactly this range because these dates are being unblocked.
-                // However, if the user asks to unblock a range that extends BEYOND the block, 
+                // However, if the user asks to unblock a range that extends BEYOND the block,
                 // we only need to sync the part that WAS blocked.
                 // But simplifying: just sync the intersection is safer.
-                
+
                 const syncStart = start < blockStart ? blockStart : start
                 const syncEnd = end > blockEnd ? blockEnd : end
-                
+
                 if (syncStart <= syncEnd) { // Check if valid range
                     await channexBlockService.syncAvailabilityForRange(candidate, syncStart, syncEnd, hotelChannexId)
                 }
@@ -227,7 +226,7 @@ export default class RoomBlocksController {
           description: candidate.description,
           blockedByUserId: candidate.blockedByUserId,
         })
-        
+
         await syncAvailability(unblockStart, unblockEnd.plus({ days: 1 }))
 
         return response.ok({
@@ -465,7 +464,7 @@ public async update({ request, response, params }: HttpContext) {
         return response.conflict({
           success: false,
           message:
-            'Impossible de modifier le bloc: la chambre a une réservation active pour ces dates.',
+            'Unable to modify the block: the room has an active booking for these dates.',
           errors: { reservations: ['Room has active reservations for these dates'] },
         })
       }
@@ -490,7 +489,7 @@ public async update({ request, response, params }: HttpContext) {
       if (blockCount > 0) {
         return response.conflict({
           success: false,
-          message: 'La chambre est déjà bloquée pour les dates sélectionnées.',
+          message: 'The room is already blocked for the selected dates.',
           errors: { blocks: ['Room is already blocked for the selected dates'] },
         })
       }

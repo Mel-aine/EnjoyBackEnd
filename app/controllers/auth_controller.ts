@@ -157,6 +157,7 @@ export default class AuthController {
     const { request, response } = ctx
     const { email, password } = request.only(['email', 'password'])
 
+
     //Fonction avec réessai pour les erreurs de connexion
     const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
       for (let attempt = 1; attempt <= retries; attempt++) {
@@ -165,9 +166,11 @@ export default class AuthController {
             .where('email', email)
             .preload('role')
             .preload('serviceAssignments', (query) => {
-              query.preload('hotel')
+            query.preload('hotel', (hotelQuery) => {
+              hotelQuery.select(['id', 'hotel_name'])
             })
-            .firstOrFail()
+          })
+          .firstOrFail()
           return user
         } catch (error) {
           console.error(`Tentative ${attempt} échouée:`, error.message)
@@ -264,21 +267,26 @@ export default class AuthController {
         ctx: ctx,
       })
 
-      // Cookie refresh token
-      const refreshValue =
-        (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-      response.cookie('refresh_token', refreshValue, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/api/refresh-token',
-        maxAge: 7 * 24 * 60 * 60,
-      })
+    // Cookie refresh token
+    const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+    response.cookie('refresh_token', refreshValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/refresh-token',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+     const userData = user.serialize()
+    delete userData.serviceAssignments
+
+    userData.hotels = user.serviceAssignments.map((assignment: any) => assignment.hotel?.serialize()).filter(Boolean)
+
 
       return response.ok({
         message: 'Login successful',
         data: {
-          user,
+          user : userData,
           hotelId: primaryHotelId,
           hotelIds,
           hasPmsSubscription,
@@ -303,10 +311,11 @@ export default class AuthController {
         })
       }
 
-      console.log('Autre erreur - renvoie 400')
-      return response.badRequest({ message: 'Login failed' })
-    }
+    console.log('Autre erreur - renvoie 400')
+    return response.badRequest({ message: 'Login failed' })
   }
+}
+
 
   /**
    * Renvoyer l'email de vérification
