@@ -17,6 +17,9 @@ const mailConfig = defineConfig({
         pass: env.get('SMTP_PASSWORD')!,
       },
       secure: false,
+      tls: {
+        rejectUnauthorized: false
+      }
     }),
   },
 })

@@ -183,4 +183,57 @@ export default class ActivityLogsController {
   })
 }
 
+public async indexConsole({ request, response }: HttpContext) {
+  const page   = request.input('page', 1)
+  const limit  = request.input('limit', 20)
+  const action = request.input('action')
+  const search = request.input('search')
+
+  const query = ActivityLog.query()
+    .whereIn('entity_type', ['invoice', 'subscription'])
+
+  if (action) {
+    query.where('action', action)
+  }
+
+  if (search) {
+    query.where((q) => {
+      q.whereILike('action', `%${search}%`)
+       .orWhereILike('description', `%${search}%`)
+    })
+  }
+
+  const logs = await query
+    .preload('hotel', (q) => q.select(['id', 'hotelName']))
+    .preload('user', (q) => q.select(['id', 'firstName', 'lastName']))
+    .orderBy('created_at', 'desc')
+    .paginate(page, limit)
+
+  return response.ok(logs)
+}
+
+public async getByHotel({ params, request, response }: HttpContext) {
+  const page   = request.input('page', 1)
+  const limit  = request.input('limit', 15)
+  const action = request.input('action') as string | undefined
+  const date   = request.input('date') as string | undefined
+
+  const query = ActivityLog.query()
+    .where('hotel_id', params.hotelId)
+    .whereIn('entity_type', ['invoice', 'subscription'])
+    .preload('user', (q) => q.select(['id', 'firstName', 'lastName']))
+    .preload('hotel',(q) => q.select(['id','hotelName']))
+    .orderBy('created_at', 'desc')
+
+  if (action) query.where('action', action)
+  if (date) {
+    const start = DateTime.fromISO(date).startOf('day').toSQL()
+    const end   = DateTime.fromISO(date).endOf('day').toSQL()
+    if (start && end) query.whereBetween('created_at', [start, end])
+  }
+
+  const logs = await query.paginate(page, limit)
+  return response.ok(logs)
+}
+
 }

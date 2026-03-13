@@ -170,6 +170,7 @@ export default class DashboardConsolesController {
 
 
     const recentLogs = await ActivityLog.query()
+      .whereIn('entity_type', ['invoice', 'subscription'])
       .orderBy('created_at', 'desc')
       .limit(5)
 

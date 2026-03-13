@@ -31,6 +31,7 @@ export default class RolesController {
           .orWhere('description', 'ILIKE', `%${search}%`)
       }
 
+
       const roles = await query.paginate(page, limit)
       return response.ok(roles)
     } catch (error) {
@@ -520,9 +521,6 @@ public async getRolesByHotel({ params, response }: HttpContext) {
     try {
       const roles = await Role.query()
         .whereNull('hotel_id')
-        .whereNull('service_id')
-        .whereNull('category_id')
-        .preload('permissions')
 
       return response.ok(roles)
     } catch (error) {

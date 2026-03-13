@@ -432,6 +432,7 @@ router.post('api/authLoginConsole', [AuthController, 'signinConsole']).use(middl
 router.post('/api/auth/resend-verification', [AuthController, 'resendVerificationEmail']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
+router.post('api/refresh_token_console', [AuthController, 'refresh_token_console'])
 router.get('api/confirm-email', [AuthController, 'confirmEmail'])
 router.post('api/confirm-email', [AuthController, 'confirmEmail'])
 router.post('api/initSpace', [AuthController, 'initSpace'])
@@ -1837,12 +1838,16 @@ router.group(() => {
   // Modules Management
   router.resource('modules', '#controllers/Console/modules_controller')
 
+  //users
+   router.resource('users','#controllers/Console/users_consoles_controller')
   // Subscriptions Management (nested under hotels)
   router.get('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.index')
+  router.get('subscriptions', '#controllers/Console/subscriptions_controller.subscription')
   router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
   router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
   router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
   router.get('dashboard','#controllers/Console/dashboard_consoles_controller.index')
+  router.patch('/subscriptions/:id/toggle-status', '#controllers/Console/subscriptions_controller.toggleStatus')
 
   // Invoices Management
   router.get('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.index')
@@ -1852,5 +1857,16 @@ router.group(() => {
   router.put('invoices/:id', '#controllers/Console/invoices_controller.update')
   router.patch('subscriptions/:id/extend', '#controllers/Console/subscriptions_controller.extend')
   router.get('billing/quotas', '#controllers/Console/invoices_controller.quotas')
+  //activity loog
+  router.get('/activity-logs', activityLogsController.indexConsole.bind(activityLogsController))
+  router.get('/hotels/:hotelId/activity-logs', activityLogsController.getByHotel.bind(activityLogsController))
+
+  //roles
+    router.get(
+        '/roles',
+        rolesController.getGlobalRoles.bind(rolesController)
+      )
+
+
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))

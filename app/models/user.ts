@@ -25,7 +25,7 @@ export default class  User extends AuthFinder(BaseModel) {
   declare hotelId: number
 
   @column()
-  declare username: string
+  declare username: string | null
 
   @column({ serializeAs: null, columnName: 'password_hash' })
   declare passwordHash: string
@@ -160,7 +160,7 @@ export default class  User extends AuthFinder(BaseModel) {
   declare companyId: number | null
 
   @column({ columnName: 'role_id' })
-  declare roleId: number
+  declare roleId: number | null
 
   @column({ columnName: 'created_by' })
   declare createdBy: number | null

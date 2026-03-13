@@ -12,6 +12,36 @@ export default class SubscriptionsController {
     return response.ok(hotel.subscriptions)
   }
 
+  public async subscription({ request, response }: HttpContext) {
+    const page    = request.input('page', 1)
+      const limit   = request.input('limit', 10)
+      const search  = request.input('search', '')
+
+      const query = Subscription.query()
+
+      if (search) {
+        query.where((q) => {
+          q.whereILike('status', `%${search}%`)
+        })
+      }
+
+
+      const subscription = await query
+      .preload('hotel',(q)=>{
+        q.select(['id','hotelName'])
+      })
+
+      .preload('module',(q)=>{
+        q.select(['id','slug','name'])
+      })
+        .orderBy('created_at', 'desc')
+        .paginate(page, limit)
+
+      return response.ok(subscription)
+
+
+  }
+
   public async store({ params, request, response, auth }: HttpContext) {
 
     try {
@@ -165,7 +195,7 @@ export default class SubscriptionsController {
       action: 'subscription.update',
       entityType: 'subscription',
       entityId: subscription.id,
-      hotelId: subscription.hotelId, // Assuming Subscription has hotelId
+      hotelId: subscription.hotelId,
       description: `Updated subscription for module ID: ${subscription.moduleId}`,
       changes: {
         before: oldState,
@@ -178,6 +208,8 @@ export default class SubscriptionsController {
 
     return response.ok(subscription)
   }
+
+
 
   public async destroy({ params, response, request, auth }: HttpContext) {
     const subscription = await Subscription.findOrFail(params.id)
@@ -233,5 +265,47 @@ export default class SubscriptionsController {
     return response.ok(subscription)
   }
 
+  public async toggleStatus({ params, response, auth }: HttpContext) {
+    const subscription = await Subscription.findOrFail(params.id)
+    const user = auth.user!
+    const oldStatus = subscription.status
+
+    if (!['active', 'canceled'].includes(oldStatus)) {
+      return response.badRequest({
+        message: `Impossible de changer le statut depuis "${oldStatus}"`,
+        code: 'INVALID_STATUS_TRANSITION'
+      })
+    }
+
+    subscription.status = oldStatus === 'active' ? 'canceled' : 'active'
+
+    // Si on réactive, on remet une date de fin valide
+    if (subscription.status === 'active') {
+      subscription.endsAt = (subscription.endsAt ?? DateTime.now()).plus({ months: 1 })
+    } else {
+      subscription.endsAt = DateTime.now()
+    }
+
+    await subscription.save()
+
+    await ActivityLog.create({
+      userId: user.id,
+      username: user.username || user.email,
+      action: 'subscription.toggleStatus',
+      entityType: 'subscription',
+      entityId: subscription.id,
+      hotelId: subscription.hotelId,
+      description: `Statut changé : ${oldStatus} → ${subscription.status}`,
+      changes: {
+        before: { status: oldStatus },
+        after: { status: subscription.status, endsAt: subscription.endsAt }
+      },
+      ipAddress: '',
+      userAgent: '',
+      createdBy: user.id
+    })
+
+    return response.ok(subscription)
+  }
 
 }
