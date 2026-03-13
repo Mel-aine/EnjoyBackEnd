@@ -178,13 +178,15 @@ export default class SubscriptionsController {
   }
 
   public async update({ params, request, response, auth }: HttpContext) {
+    try{
+
     const subscription = await Subscription.findOrFail(params.id)
     const user = auth.user!
 
     // Capture old state for logging
     const oldState = subscription.serialize()
 
-    const data = request.only(['status', 'endsAt', 'limitCount', 'paymentStatus'])
+    const data = request.only(['status', 'endsAt', 'limitCount', 'paymentStatus','price','endsAt','billingCycle'])
     subscription.merge(data)
     await subscription.save()
 
@@ -207,6 +209,14 @@ export default class SubscriptionsController {
     })
 
     return response.ok(subscription)
+    }catch(error:any){
+      console.error(error)
+      return response.internalServerError({
+        success: false,
+        message: error.message || 'Erreur serveur',
+        code: 'INTERNAL_SERVER_ERROR'
+      })
+    }
   }
 
 

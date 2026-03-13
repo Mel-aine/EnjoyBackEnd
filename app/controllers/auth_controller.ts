@@ -157,7 +157,6 @@ export default class AuthController {
     const { request, response } = ctx
     const { email, password } = request.only(['email', 'password'])
 
-
     //Fonction avec réessai pour les erreurs de connexion
     const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
       for (let attempt = 1; attempt <= retries; attempt++) {
@@ -166,11 +165,11 @@ export default class AuthController {
             .where('email', email)
             .preload('role')
             .preload('serviceAssignments', (query) => {
-            query.preload('hotel', (hotelQuery) => {
-              hotelQuery.select(['id', 'hotel_name'])
+              query.preload('hotel', (hotelQuery) => {
+                hotelQuery.select(['id', 'hotel_name'])
+              })
             })
-          })
-          .firstOrFail()
+            .firstOrFail()
           return user
         } catch (error) {
           console.error(`Tentative ${attempt} échouée:`, error.message)
@@ -267,26 +266,28 @@ export default class AuthController {
         ctx: ctx,
       })
 
-    // Cookie refresh token
-    const refreshValue = (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
-    response.cookie('refresh_token', refreshValue, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/api/refresh-token',
-      maxAge: 7 * 24 * 60 * 60,
-    })
+      // Cookie refresh token
+      const refreshValue =
+        (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+      response.cookie('refresh_token', refreshValue, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/refresh-token',
+        maxAge: 7 * 24 * 60 * 60,
+      })
 
-     const userData = user.serialize()
-    delete userData.serviceAssignments
+      const userData = user.serialize()
+      delete userData.serviceAssignments
 
-    userData.hotels = user.serviceAssignments.map((assignment: any) => assignment.hotel?.serialize()).filter(Boolean)
-
+      userData.hotels = user.serviceAssignments
+        .map((assignment: any) => assignment.hotel?.serialize())
+        .filter(Boolean)
 
       return response.ok({
         message: 'Login successful',
         data: {
-          user : userData,
+          user: userData,
           hotelId: primaryHotelId,
           hotelIds,
           hasPmsSubscription,
@@ -311,11 +312,10 @@ export default class AuthController {
         })
       }
 
-    console.log('Autre erreur - renvoie 400')
-    return response.badRequest({ message: 'Login failed' })
+      console.log('Autre erreur - renvoie 400')
+      return response.badRequest({ message: 'Login failed' })
+    }
   }
-}
-
 
   /**
    * Renvoyer l'email de vérification
@@ -782,41 +782,32 @@ This link expires in 1 hour.`,
     const { request, response } = ctx
     const { email, password } = request.only(['email', 'password'])
 
-   const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const user = await User.query()
-        .where('email', email)
-        .whereDoesntHave('serviceAssignments', (q) => q)
-        .preload('role')
-        .firstOrFail()
-      console.log(`✅ User trouvé: id=${user.id}, email=${user.email}, roleId=${user.roleId}`)
-      return user
-    } catch (error) {
-      console.error(`❌ Tentative ${attempt} échouée:`, error.message)
-
-      // ── Retry seulement sur erreur de connexion DB
-      if (error.message.includes('Connection terminated') && attempt < retries) {
-        console.log(`🔄 Retry dans ${delay}ms...`)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        delay *= 2
-        continue
+    const findUserWithRetry = async (retries = 3, delay = 1000): Promise<any> => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          const user = await User.query()
+            .where('email', email)
+            .whereDoesntHave('serviceAssignments', (q) => q)
+            .preload('role')
+            .firstOrFail()
+          return user
+        } catch (error) {
+          console.error(`Tentative ${attempt} échouée:`, error.message)
+          if (error.message.includes('Connection terminated') && attempt < retries) {
+            await new Promise((resolve) => setTimeout(resolve, delay))
+            delay *= 2
+            continue
+          }
+          throw error
+        }
       }
-
-      // ── Pour tout autre erreur (E_ROW_NOT_FOUND inclus), on throw immédiatement
-      throw error
     }
-  }
-}
 
     try {
-      console.log('🔐 Tentative de connexion console pour:', email)
-
       const user = await findUserWithRetry()
 
-      // Email vérifié
       if (!user.emailVerified) {
-        console.warn(`⚠️ Email non vérifié pour: ${email}`)
+        console.warn(` Email non vérifié pour: ${email}`)
         return response.status(403).json({
           message: 'Email not verified',
           error: 'EMAIL_NOT_VERIFIED',
@@ -825,23 +816,25 @@ This link expires in 1 hour.`,
         })
       }
 
-      // Vérification mot de passe
       const isValid = await Hash.verify(user.password, password)
-      console.log(`🔑 Vérification mot de passe: ${isValid ? '✅ valide' : '❌ invalide'}`)
       if (!isValid) {
         return response.unauthorized({ message: 'Invalid credentials' })
       }
 
-      // Génération des tokens
-      console.log(`🎟️ Génération des tokens pour: ${email}`)
       const accessToken = await User.accessTokens.create(user, ['*'], {
         name: email,
-        expiresIn: '1m',
+        expiresIn: '60m',
       })
+
       const refreshToken = await User.accessTokens.create(user, ['refresh'], {
         name: `refresh:${email}`,
       })
-      console.log(`✅ Tokens générés avec succès`)
+
+      const refreshRawToken =
+        (refreshToken as any).value?.release?.() ||
+        (refreshToken as any).value?.toString?.() ||
+        (refreshToken as any).value ||
+        (refreshToken as any).token
 
       await LoggerService.log({
         actorId: user.id,
@@ -851,23 +844,15 @@ This link expires in 1 hour.`,
         description: `Connexion console admin — ${email}`,
         ctx,
       })
-      console.log(`📝 Log d'activité enregistré pour: ${email}`)
 
-      const refreshValue =
-        (refreshToken as any)?.value ||
-        (refreshToken as any)?.token ||
-        String(refreshToken)
-
-      response.cookie('refresh_token', refreshValue, {
+      response.cookie('refresh_token', refreshRawToken, {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: false,
         path: '/',
         maxAge: 7 * 24 * 60 * 60,
       })
-      console.log(`🍪 Cookie refresh_token posé pour: ${email}`)
 
-      console.log(`🚀 Connexion réussie pour: ${email}`)
       return response.ok({
         message: 'Login successful',
         data: {
@@ -877,14 +862,13 @@ This link expires in 1 hour.`,
         },
       })
     } catch (error) {
-      console.error('💥 Erreur signinConsole:', error.message, '| code:', error.code)
+      console.error('Erreur signinConsole:', error.message, '| code:', error.code)
 
       if (error.code === 'E_ROW_NOT_FOUND') {
-        console.warn(`🚫 Aucun user console trouvé pour: ${email}`)
         return response.unauthorized({ message: 'Invalid credentials' })
       }
       if (error.message?.includes('Connection terminated')) {
-        console.error('🔌 Connexion DB perdue')
+        console.error('Connexion DB perdue')
         return response.serviceUnavailable({
           message: 'Service temporarily unavailable. Please try again.',
         })
@@ -895,73 +879,86 @@ This link expires in 1 hour.`,
   }
 
   async refresh_token_console({ auth, request, response }: HttpContext) {
-  let user: User
-  let current: any
+    let user: User
+    let current: any
 
-  try {
-    user = await auth.authenticate()
-    current = user.currentAccessToken
-    console.log('✅ Auth via Bearer')
-  } catch {
-    console.log('⚠️ Bearer échoué, fallback cookie')
+    try {
+      user = await auth.authenticate()
+      current = user.currentAccessToken
+    } catch {
+      const cookies = request.cookiesList()
+      let cookieVal: any = cookies?.refresh_token as string | undefined
 
-    const cookieVal = request.cookie('refresh_token')  // 👈 corrigé
-    console.log('🍪 Cookie refresh_token:', cookieVal ? 'présent' : 'absent')
+      if (cookieVal?.startsWith('s:')) {
+        cookieVal = cookieVal.slice(2)
+      }
 
-    if (!cookieVal) {
-      return response.unauthorized({ message: 'Missing refresh token' })
+      // Décode le base64 pour extraire le vrai token
+      try {
+        const base64Part = cookieVal.split('.')[0]
+        const decoded = JSON.parse(Buffer.from(base64Part, 'base64').toString('utf-8'))
+        cookieVal = decoded.message
+      } catch (e) {
+        console.error('Erreur décodage cookie:', e)
+        return response.unauthorized({ message: 'Invalid refresh token format' })
+      }
+
+      if (!cookieVal) {
+        return response.unauthorized({ message: 'Missing refresh token' })
+      }
+
+      const verified = await User.accessTokens.verify(new Secret(cookieVal))
+
+      if (!verified) {
+        return response.unauthorized({ message: 'Invalid refresh token' })
+      }
+
+      const tokenUserId = Number(verified.tokenableId)
+      user = await User.findOrFail(
+        isNaN(tokenUserId) ? (String(verified.tokenableId) as any) : tokenUserId
+      )
+      current = verified
     }
 
-    const verified = await User.accessTokens.verify(new Secret(cookieVal))
-    console.log('🔐 Token vérifié:', verified ? 'valide' : 'invalide')
+    const isRefresh = Array.isArray(current?.abilities) && current!.abilities.includes('refresh')
 
-    if (!verified) {
-      return response.unauthorized({ message: 'Invalid refresh token' })
+    if (!isRefresh) {
+      return response.forbidden({ message: 'Invalid token type for refresh' })
     }
 
-    const tokenUserId = Number(verified.tokenableId)
-    user = await User.findOrFail(
-      isNaN(tokenUserId) ? (String(verified.tokenableId) as any) : tokenUserId
-    )
-    current = verified
+    await User.accessTokens.delete(user, current!.identifier)
+
+    const accessToken = await User.accessTokens.create(user, ['*'], {
+      name: cuid(),
+      expiresIn: '60m',
+    })
+
+    const newRefreshToken = await User.accessTokens.create(user, ['refresh'], {
+      name: `refresh:${cuid()}`,
+    })
+
+    const newRefreshRawToken =
+      (newRefreshToken as any).value?.release?.() ||
+      (newRefreshToken as any).value?.toString?.() ||
+      (newRefreshToken as any).value ||
+      (newRefreshToken as any).token
+
+    response.cookie('refresh_token', newRefreshRawToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+
+    return response.ok({
+      message: 'Refresh token successfully',
+      data: {
+        user,
+        user_token: accessToken,
+        access_token: accessToken,
+        refresh_token: newRefreshToken,
+      },
+    })
   }
-
-  const isRefresh = Array.isArray(current?.abilities) && current!.abilities.includes('refresh')
-  console.log('🎟️ isRefresh:', isRefresh, '| abilities:', current?.abilities)
-
-  if (!isRefresh) {
-    return response.forbidden({ message: 'Invalid token type for refresh' })
-  }
-
-  await User.accessTokens.delete(user, current!.identifier)
-
-  const accessToken = await User.accessTokens.create(user, ['*'], {
-    name: cuid(),
-    expiresIn: '60m',
-  })
-  const newRefreshToken = await User.accessTokens.create(user, ['refresh'], {
-    name: `refresh:${cuid()}`,
-  })
-
-  const newRefreshValue =
-    (newRefreshToken as any)?.value || (newRefreshToken as any)?.token || String(newRefreshToken)
-
-  response.cookie('refresh_token', newRefreshValue, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',  // 👈 corrigé
-    maxAge: 7 * 24 * 60 * 60,
-  })
-
-  return response.ok({
-    message: 'Refresh token successfully',
-    data: {
-      user,
-      user_token: accessToken,
-      access_token: accessToken,
-      refresh_token: newRefreshToken,
-    },
-  })
-}
 }
