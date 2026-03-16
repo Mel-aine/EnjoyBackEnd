@@ -111,6 +111,7 @@ export default class RequestDemoService {
     search?: string
     status?: string
     ownerId?: number
+    all?:boolean
   }) {
     const query = RequestDemo.query().preload('owner')
 
@@ -129,6 +130,14 @@ export default class RequestDemoService {
 
     if (filters.ownerId !== undefined) {
       query.where('owner_id', filters.ownerId)
+    }
+
+    if (filters.all === true) {
+      const data = await query.orderBy('created_at', 'desc')
+      return {
+        data,
+        meta: { total: data.length, all: true },
+      }
     }
 
     return query.orderBy('created_at', 'desc').paginate(filters.page, filters.limit)

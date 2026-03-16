@@ -66,6 +66,7 @@ export default class RequestDemosController {
     const search = request.input('search', '')
     const status = request.input('status')
     const ownerId = request.input('ownerId')
+    const all     = request.input('all')
 
     const leads = await this.service.list({
       page,
@@ -73,6 +74,7 @@ export default class RequestDemosController {
       search: search || undefined,
       status: status || undefined,
       ownerId: ownerId !== undefined && ownerId !== null ? Number(ownerId) : undefined,
+      all:     all === 'true' || all === true,
     })
 
     return response.ok(leads)
