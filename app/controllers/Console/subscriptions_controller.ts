@@ -4,6 +4,7 @@ import Hotel from '#models/hotel'
 import Module from '#models/module'
 import ActivityLog from '#models/activity_log'
 import { DateTime } from 'luxon'
+import env from '#start/env'
 
 export default class SubscriptionsController {
   public async index({ params, response }: HttpContext) {
@@ -280,7 +281,7 @@ export default class SubscriptionsController {
     const user = auth.user!
     const oldStatus = subscription.status
 
-    if (!['active', 'canceled'].includes(oldStatus)) {
+    if (!['active', 'canceled', 'ended'].includes(oldStatus)) {
       return response.badRequest({
         message: `Impossible de changer le statut depuis "${oldStatus}"`,
         code: 'INVALID_STATUS_TRANSITION'
@@ -316,6 +317,37 @@ export default class SubscriptionsController {
     })
 
     return response.ok(subscription)
+  }
+
+  public async expireDueSubscriptions({ request, response }: HttpContext) {
+    const secret = env.get('CRON_JOB_SECRET')
+    if (!secret) {
+      return response.internalServerError({ message: 'CRON_JOB_SECRET not configured' })
+    }
+
+    const provided =
+      request.header('x-cron-secret') || request.header('X-Cron-Secret') || request.input('secret')
+
+    if (!provided || String(provided) !== String(secret)) {
+      return response.unauthorized({ message: 'Unauthorized' })
+    }
+
+    const now = DateTime.now()
+
+    const updated = await Subscription.query()
+      .where('status', 'active')
+      .whereNotNull('ends_at')
+      .where('ends_at', '<=', now.toSQL()!)
+      .update({
+        status: 'ended',
+        updated_at: now.toSQL(),
+      } as any)
+
+    return response.ok({
+      success: true,
+      updated,
+      now: now.toISO(),
+    })
   }
 
 }

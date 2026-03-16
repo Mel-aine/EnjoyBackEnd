@@ -101,7 +101,7 @@ export default class DashboardConsolesController {
 
 
     const expiredSubs = await Subscription.query()
-      .where('status', 'canceled')
+      .where('status', 'ended')
       .where('ends_at', '>=', startOfMonth.toSQL())
       .where('ends_at', '<=', now.toSQL())
       .select('hotel_id', 'module_id')

@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import RequestDemoService from '#services/request_demo_service'
+import LoggerService from '#services/logger_service'
 
 const createSchema = vine.compile(
   vine.object({
@@ -82,7 +83,8 @@ export default class RequestDemosController {
     return response.ok(lead)
   }
 
-  public async store({ request, response }: HttpContext) {
+  public async store(ctx: HttpContext) {
+    const { request, response, auth } = ctx
     const payload = await request.validateUsing(createSchema)
 
     try {
@@ -101,6 +103,16 @@ export default class RequestDemosController {
         acceptCondition: payload.acceptCondition,
       })
 
+      await LoggerService.logActivity({
+        userId: auth.user?.id,
+        action: 'request_demo.create',
+        resourceType: 'RequestDemo',
+        resourceId: lead.id,
+        description: 'Request demo created',
+        details: { status: lead.status, emailSend: lead.emailSend },
+        ctx,
+      })
+
       return response.created(lead)
     } catch (error) {
       const statusCode = (error as any)?.statusCode || 500
@@ -108,19 +120,47 @@ export default class RequestDemosController {
     }
   }
 
-  public async update({ params, request, response }: HttpContext) {
+  public async update(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     const payload = await request.validateUsing(updateSchema)
 
+    const before = await this.service.get(Number(params.id))
     const lead = await this.service.update(Number(params.id), payload)
+
+    const changes = LoggerService.extractChanges(before.serialize() as any, lead.serialize() as any)
+    await LoggerService.logActivity({
+      userId: auth.user?.id,
+      action: 'request_demo.update',
+      resourceType: 'RequestDemo',
+      resourceId: lead.id,
+      description: 'Request demo updated',
+      details: changes,
+      ctx,
+    })
+
     return response.ok(lead)
   }
 
-  public async destroy({ params, response }: HttpContext) {
+  public async destroy(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
+    const lead = await this.service.get(Number(params.id))
     await this.service.delete(Number(params.id))
+
+    await LoggerService.logActivity({
+      userId: auth.user?.id,
+      action: 'request_demo.delete',
+      resourceType: 'RequestDemo',
+      resourceId: lead.id,
+      description: 'Request demo deleted',
+      details: { status: lead.status, email: lead.email },
+      ctx,
+    })
+
     return response.noContent()
   }
 
-  public async assign({ params, request, response }: HttpContext) {
+  public async assign(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     const schema = vine.compile(
       vine.object({
         ownerId: vine.number(),
@@ -128,23 +168,62 @@ export default class RequestDemosController {
     )
 
     const payload = await request.validateUsing(schema)
+    const before = await this.service.get(Number(params.id))
     const lead = await this.service.assign(Number(params.id), payload.ownerId)
+
+    await LoggerService.logActivity({
+      userId: auth.user?.id,
+      action: 'request_demo.assign',
+      resourceType: 'RequestDemo',
+      resourceId: lead.id,
+      description: 'Request demo assigned',
+      details: { ownerId: { old: before.ownerId, new: lead.ownerId } },
+      ctx,
+    })
+
     return response.ok(lead)
   }
 
-  public async resendEmail({ params, response }: HttpContext) {
+  public async resendEmail(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     const lead = await this.service.resendConfirmationEmail(Number(params.id))
+
+    await LoggerService.logActivity({
+      userId: auth.user?.id,
+      action: 'request_demo.resend_email',
+      resourceType: 'RequestDemo',
+      resourceId: lead.id,
+      description: 'Request demo confirmation email resent',
+      details: { emailSend: lead.emailSend },
+      ctx,
+    })
+
     return response.ok(lead)
   }
 
-  public async webhookDemoConverted({ request, response }: HttpContext) {
+  public async webhookDemoConverted(ctx: HttpContext) {
+    const { params, request, response, auth } = ctx
     const schema = vine.compile(
       vine.object({
-        id: vine.number(),
+        id: vine.number().optional(),
       })
     )
     const payload = await request.validateUsing(schema)
-    const lead = await this.service.update(payload.id, { status: 'Converted' })
+
+    const id = Number(params?.id ?? payload.id)
+    const before = await this.service.get(id)
+    const lead = await this.service.update(id, { status: 'Converted' })
+
+    await LoggerService.logActivity({
+      userId: auth.user?.id,
+      action: 'request_demo.converted',
+      resourceType: 'RequestDemo',
+      resourceId: lead.id,
+      description: 'Request demo converted',
+      details: { status: { old: before.status, new: lead.status } },
+      ctx,
+    })
+
     return response.ok({ success: true, data: lead })
   }
 }

@@ -21,7 +21,7 @@ export default class Subscription extends BaseModel {
   declare endsAt: DateTime | null
 
   @column()
-  declare status: 'active' | 'past_due' | 'canceled'
+  declare status: 'active' | 'past_due' | 'canceled' | 'ended'
 
   @column()
   declare price: number

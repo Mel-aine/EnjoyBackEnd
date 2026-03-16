@@ -1830,6 +1830,7 @@ import './routes/reports.js'
 import './routes/pos.js'
 
 router.post('api/demo/request', '#controllers/Console/request_demos_controller.store')
+router.post('api/webhooks/subscriptions/expire', '#controllers/Console/subscriptions_controller.expireDueSubscriptions')
 
 // Console Routes (Admin/Management)
 router.group(() => {
