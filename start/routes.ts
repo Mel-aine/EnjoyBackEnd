@@ -1829,6 +1829,7 @@ import './routes/reports.js'
 // Import POS routes
 import './routes/pos.js'
 
+router.post('api/demo/request', '#controllers/Console/request_demos_controller.store')
 
 // Console Routes (Admin/Management)
 router.group(() => {
