@@ -1119,11 +1119,11 @@ router
         // Room assignment operations
         router.post('/:id/check-in', reservationRoomsController.checkIn.bind(reservationRoomsController)) // Check in guest to room
         router.post('/:id/check-out', reservationRoomsController.checkOut.bind(reservationRoomsController)) // Check out guest from room
-        router.post('/:id/create-and-assign-guest',reservationRoomsController.createAndAssignGuest.bind(reservationRoomsController))
-        router.put('/:id/assign-existing-guest',reservationRoomsController.assignExistingGuestToRoom.bind(reservationRoomsController))
+        router.post('/:id/create-and-assign-guest', reservationRoomsController.createAndAssignGuest.bind(reservationRoomsController))
+        router.put('/:id/assign-existing-guest', reservationRoomsController.assignExistingGuestToRoom.bind(reservationRoomsController))
 
         // Retirer un client d'une chambre
-        router.put('/:id/remove-guest',reservationRoomsController.removeGuestFromReservationRoom.bind(reservationRoomsController))
+        router.put('/:id/remove-guest', reservationRoomsController.removeGuestFromReservationRoom.bind(reservationRoomsController))
         // Room analytics
         router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
       })
@@ -1839,14 +1839,23 @@ router.group(() => {
   router.resource('modules', '#controllers/Console/modules_controller')
 
   //users
-   router.resource('users','#controllers/Console/users_consoles_controller')
+  router.resource('users', '#controllers/Console/users_consoles_controller')
+  router.post('demo-requests', '#controllers/Console/request_demos_controller.store')
+  router.get('demo-requests', '#controllers/Console/request_demos_controller.index')
+  router.get('demo-requests/:id', '#controllers/Console/request_demos_controller.show')
+  router.patch('demo-requests/:id', '#controllers/Console/request_demos_controller.update') 
+  router.delete('demo-requests/:id', '#controllers/Console/request_demos_controller.destroy')
+  router.post('demo-requests/:id/assign', '#controllers/Console/request_demos_controller.assign')
+  router.post('demo-requests/:id/resend-email', '#controllers/Console/request_demos_controller.resendEmail')
+
+  router.post('demo-requests/:id/demo-converted', '#controllers/Console/request_demos_controller.webhookDemoConverted')
   // Subscriptions Management (nested under hotels)
   router.get('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.index')
   router.get('subscriptions', '#controllers/Console/subscriptions_controller.subscription')
   router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
   router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
   router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
-  router.get('dashboard','#controllers/Console/dashboard_consoles_controller.index')
+  router.get('dashboard', '#controllers/Console/dashboard_consoles_controller.index')
   router.patch('/subscriptions/:id/toggle-status', '#controllers/Console/subscriptions_controller.toggleStatus')
 
   // Invoices Management
@@ -1862,10 +1871,10 @@ router.group(() => {
   router.get('/hotels/:hotelId/activity-logs', activityLogsController.getByHotel.bind(activityLogsController))
 
   //roles
-    router.get(
-        '/roles',
-        rolesController.getGlobalRoles.bind(rolesController)
-      )
+  router.get(
+    '/roles',
+    rolesController.getGlobalRoles.bind(rolesController)
+  )
 
 
 
