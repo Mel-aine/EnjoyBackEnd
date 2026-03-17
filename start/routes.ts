@@ -1829,6 +1829,7 @@ import './routes/reports.js'
 // Import POS routes
 import './routes/pos.js'
 
+router.get('api/announcements/active', '#controllers/announcements_controller.active')
 router.post('api/demo/request', '#controllers/Console/request_demos_controller.store')
 router.post('api/webhooks/subscriptions/expire', '#controllers/Console/subscriptions_controller.expireDueSubscriptions')
 
@@ -1843,6 +1844,8 @@ router.group(() => {
   router.resource('add-ons', '#controllers/Console/add_ons_controller').apiOnly()
   router.get('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.indexByModule')
   router.post('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.storeForModule')
+
+  router.resource('announcements', '#controllers/Console/announcements_controller').apiOnly()
 
   //users
   router.resource('users', '#controllers/Console/users_consoles_controller')
