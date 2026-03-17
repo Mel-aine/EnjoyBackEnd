@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
 import Module from '#models/module'
+import AddOn from '#models/add_on'
 
 export default class Subscription extends BaseModel {
   @column({ isPrimary: true })
@@ -13,6 +14,9 @@ export default class Subscription extends BaseModel {
 
   @column()
   declare moduleId: number
+
+  @column()
+  declare addOnId: number | null
 
   @column.dateTime()
   declare startsAt: DateTime
@@ -46,4 +50,7 @@ export default class Subscription extends BaseModel {
 
   @belongsTo(() => Module)
   declare module: BelongsTo<typeof Module>
+
+  @belongsTo(() => AddOn)
+  declare addOn: BelongsTo<typeof AddOn>
 }

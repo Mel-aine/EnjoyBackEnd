@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
+import type { HasMany } from '@adonisjs/lucid/types/relations'
+import AddOn from '#models/add_on'
 
 export default class Module extends BaseModel {
   @column({ isPrimary: true })
@@ -34,4 +36,7 @@ export default class Module extends BaseModel {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
+
+  @hasMany(() => AddOn)
+  declare addOns: HasMany<typeof AddOn>
 }

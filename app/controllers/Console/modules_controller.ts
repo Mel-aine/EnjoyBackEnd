@@ -29,6 +29,11 @@ export default class ModulesController {
 
   return response.ok(modules)
 }
+
+  public async show({ params, response }: HttpContext) {
+    const module = await Module.query().where('id', Number(params.id)).preload('addOns').firstOrFail()
+    return response.ok(module)
+  }
   public async store({ request, response, auth }: HttpContext) {
     const data = request.only(['slug', 'name', 'priceMonthly', 'description', 'isActive'])
     const module = await Module.create(data)

@@ -5,11 +5,12 @@ import Module from '#models/module'
 import ActivityLog from '#models/activity_log'
 import { DateTime } from 'luxon'
 import env from '#start/env'
+import AddOn from '#models/add_on'
 
 export default class SubscriptionsController {
   public async index({ params, response }: HttpContext) {
     const hotel = await Hotel.findOrFail(params.hotel_id)
-    await hotel.load('subscriptions', (query) => query.preload('module'))
+    await hotel.load('subscriptions', (query) => query.preload('module').preload('addOn'))
     return response.ok(hotel.subscriptions)
   }
 
@@ -35,6 +36,9 @@ export default class SubscriptionsController {
       .preload('module',(q)=>{
         q.select(['id','slug','name'])
       })
+      .preload('addOn', (q) => {
+        q.select(['id', 'name', 'module_id', 'min', 'max', 'price_month', 'price_year'])
+      })
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -49,6 +53,7 @@ export default class SubscriptionsController {
 
     const hotel = await Hotel.findOrFail(params.hotel_id)
     const moduleId = request.input('module_id')
+    const addOnId = request.input('add_on_id') ?? request.input('addOnId')
     const billingCycle = request.input('billing_cycle', 'monthly')
     const priceMonthly = request.input('price')
     const limitCount = request.input('limit_count')
@@ -120,8 +125,21 @@ export default class SubscriptionsController {
       endsAt = endsAt.plus({ years: 1 })
     }
 
+    let resolvedAddOnId: number | null = null
+    if (addOnId !== undefined && addOnId !== null && addOnId !== '') {
+      const addOn = await AddOn.findOrFail(Number(addOnId))
+      if (addOn.moduleId !== Number(moduleId)) {
+        return response.badRequest({
+          message: 'Add-on does not belong to the selected module',
+          code: 'INVALID_ADD_ON',
+        })
+      }
+      resolvedAddOnId = addOn.id
+    }
+
     const subscription = await hotel.related('subscriptions').create({
       moduleId,
+      addOnId: resolvedAddOnId,
       startsAt: DateTime.now(),
       endsAt: endsAt,
       status: 'active',
@@ -187,7 +205,23 @@ export default class SubscriptionsController {
     // Capture old state for logging
     const oldState = subscription.serialize()
 
-    const data = request.only(['status', 'endsAt', 'limitCount', 'paymentStatus','price','endsAt','billingCycle'])
+    const data = request.only(['status', 'endsAt', 'limitCount', 'paymentStatus', 'price', 'endsAt', 'billingCycle'])
+    const maybeAddOnId = request.input('addOnId') ?? request.input('add_on_id')
+    if (maybeAddOnId !== undefined) {
+      if (maybeAddOnId === null || maybeAddOnId === '') {
+        subscription.addOnId = null
+      } else {
+        const addOn = await AddOn.findOrFail(Number(maybeAddOnId))
+        if (addOn.moduleId !== subscription.moduleId) {
+          return response.badRequest({
+            message: 'Add-on does not belong to the subscription module',
+            code: 'INVALID_ADD_ON',
+          })
+        }
+        subscription.addOnId = addOn.id
+      }
+    }
+
     subscription.merge(data)
     await subscription.save()
 
