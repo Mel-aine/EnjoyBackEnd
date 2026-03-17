@@ -144,7 +144,7 @@ export default class RequestDemosController {
   }
 
   public async destroy(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
+    const { params, response, auth } = ctx
     const lead = await this.service.get(Number(params.id))
     await this.service.delete(Number(params.id))
 
@@ -187,7 +187,7 @@ export default class RequestDemosController {
   }
 
   public async resendEmail(ctx: HttpContext) {
-    const { params, request, response, auth } = ctx
+    const { params, response, auth } = ctx
     const lead = await this.service.resendConfirmationEmail(Number(params.id))
 
     await LoggerService.logActivity({
