@@ -223,7 +223,7 @@ export default class CurrenciesController {
   }
 
   // Method to create default XAF currency for new hotels
-  public static async createDefaultCurrency(hotelId: number, userId?: number) {
+  public static async createDefaultCurrency(hotelId: number, userId?: number,trx?: any) {
     try {
       const defaultCurrency = await Currency.create({
         country: 'Cameroon',
@@ -237,7 +237,7 @@ export default class CurrenciesController {
         hotelId: hotelId,
         createdByUserId: userId,
         updatedByUserId: userId
-      })
+      },{ client: trx })
 
       return defaultCurrency
     } catch (error) {

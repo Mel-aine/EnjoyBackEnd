@@ -177,7 +177,7 @@ export default class HotelsController {
 
       // Create default XAF currency for the new hotel
       try {
-        await CurrenciesController.createDefaultCurrency(hotel.id, createdByUserId)
+        await CurrenciesController.createDefaultCurrency(hotel.id, createdByUserId,trx)
       } catch (currencyError) {
         logger.error('Failed to create default currency for hotel', {
           hotelId: hotel.id,
@@ -255,46 +255,46 @@ export default class HotelsController {
       // Commit the transaction if everything succeeds
       await trx.commit()
 
-      setImmediate(async () => {
-        try {
-          const baseUrl = request.header('origin') ?? ''
-          await UserEmailService.prepareAndSendVerification(adminUser, baseUrl)
-          logger.info('Verification email sent to admin', {
-            hotelId: hotel.id,
-            adminEmail: adminUser.email
-          })
-        } catch (emailError) {
-          logger.error('Failed to send verification email (hotel already created)', {
-            hotelId: hotel.id,
-            adminEmail: adminUser.email,
-            error: emailError.message
-          })
-        }
-      })
+        setImmediate(async () => {
+          // Email
+          try {
+            const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+            const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+            const baseUrl = `${proto}://${request.host()}`
+            await UserEmailService.prepareAndSendVerification(adminUser, baseUrl)
+            logger.info('Verification email sent', { hotelId: hotel.id })
+          } catch (emailError) {
+            logger.error('Failed to send verification email', { error: emailError.message })
+          }
 
-      // Log the activity
-      const user = auth.user
-      if (user) {
-        await ActivityLog.create({
-          userId: user.id,
-          username: user.username || user.email,
-          action: 'hotel.create',
-          entityType: 'hotel',
-          entityId: hotel.id,
-          hotelId: hotel.id,
-          description: `Created new hotel: ${hotel.hotelName}`,
-          changes: hotel.serialize(),
-          ipAddress: request.ip(),
-          userAgent: request.header('user-agent'),
-          createdBy: user.id
+          // Activity log
+          try {
+            const user = auth.user
+            if (user) {
+              await ActivityLog.create({
+                userId: user.id,
+                username: user.username || user.email,
+                action: 'hotel.create',
+                entityType: 'hotel',
+                entityId: hotel.id,
+                hotelId: hotel.id,
+                description: `Created new hotel: ${hotel.hotelName}`,
+                changes: hotel.serialize(),
+                ipAddress: request.ip(),
+                userAgent: request.header('user-agent'),
+                createdBy: user.id
+              })
+            }
+          } catch (logError) {
+            logger.error('Failed to create activity log', { error: logError.message })
+          }
         })
-      }
 
-      return response.created({
-        message: 'Hotel created successfully',
-        data: hotel
-      })
-    } catch (error) {
+        return response.created({
+          message: 'Hotel created successfully',
+          data: hotel
+        })
+      } catch (error) {
       // Rollback the transaction on any error
       await trx.rollback()
       console.error('Error during hotel creation, transaction rolled back:', error)
