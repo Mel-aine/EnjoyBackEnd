@@ -1840,6 +1840,10 @@ router.group(() => {
   // Modules Management
   router.resource('modules', '#controllers/Console/modules_controller')
 
+  router.resource('add-ons', '#controllers/Console/add_ons_controller').apiOnly()
+  router.get('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.indexByModule')
+  router.post('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.storeForModule')
+
   //users
   router.resource('users', '#controllers/Console/users_consoles_controller')
   router.post('demo-requests', '#controllers/Console/request_demos_controller.store')
