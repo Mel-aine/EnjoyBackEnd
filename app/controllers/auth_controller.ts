@@ -98,15 +98,6 @@ export default class AuthController {
         if (!login) return this.responseError('Invalid credentials', 401)
       }
 
-      if (user.hotelId) {
-        const hotel = await Hotel.find(user.hotelId)
-        if (hotel && !(await hotel.hasAccessTo('pms'))) {
-          return this.responseError('Active PMS subscription required', 403, {
-            code: 'SUBSCRIPTION_REQUIRED',
-          })
-        }
-      }
-
       // Crée un access token (pour les requêtes API) et un refresh token dédié
       const accessToken = await User.accessTokens.create(user, ['*'], {
         name: email ?? cuid(),
@@ -236,15 +227,7 @@ export default class AuthController {
       }
 
       if (!hasPmsSubscription) {
-        return response.forbidden({
-          message: 'Active PMS subscription required',
-          code: 'SUBSCRIPTION_REQUIRED',
-          module: 'pms',
-          hotelId: primaryHotelId,
-          hotelIds,
-          hasPmsSubscription,
-          pmsSubscription,
-        })
+        hasPmsSubscription = false
       }
 
       // Génère les tokens
