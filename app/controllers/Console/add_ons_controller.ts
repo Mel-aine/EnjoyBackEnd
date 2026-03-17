@@ -6,6 +6,7 @@ import LoggerService from '#services/logger_service'
 
 const createSchema = vine.compile(
   vine.object({
+    name: vine.string().trim(),
     moduleId: vine.number(),
     min: vine.number(),
     max: vine.number(),
@@ -16,6 +17,7 @@ const createSchema = vine.compile(
 
 const updateSchema = vine.compile(
   vine.object({
+    name: vine.string().trim().optional(),
     moduleId: vine.number().optional(),
     min: vine.number().optional(),
     max: vine.number().optional(),
@@ -72,6 +74,7 @@ export default class AddOnsController {
     await Module.findOrFail(data.moduleId)
 
     const addOn = await AddOn.create({
+      name: data.name,
       moduleId: data.moduleId,
       min: data.min,
       max: data.max,
@@ -99,6 +102,7 @@ export default class AddOnsController {
     const data = await request.validateUsing(
       vine.compile(
         vine.object({
+          name: vine.string().trim(),
           min: vine.number(),
           max: vine.number(),
           priceMonth: vine.number(),
@@ -115,6 +119,7 @@ export default class AddOnsController {
     await Module.findOrFail(moduleId)
 
     const addOn = await AddOn.create({
+      name: data.name,
       moduleId,
       min: data.min,
       max: data.max,
@@ -154,6 +159,7 @@ export default class AddOnsController {
     }
 
     addOn.merge({
+      name: data.name,
       moduleId: data.moduleId,
       min: data.min,
       max: data.max,

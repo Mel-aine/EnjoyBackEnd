@@ -8,6 +8,9 @@ export default class AddOn extends BaseModel {
   declare id: number
 
   @column()
+  declare name: string
+
+  @column()
   declare moduleId: number
 
   @column()
