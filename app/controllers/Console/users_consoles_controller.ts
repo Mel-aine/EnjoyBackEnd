@@ -103,4 +103,34 @@ export default class UsersConsolesController {
 
     return response.ok({ message: 'Utilisateur supprimé avec succès' })
   }
+
+  /**
+   * show
+   */
+
+async show({ params, response }: HttpContext) {
+  try {
+    const user = await User.query()
+      .where('id', params.id)
+      .preload('role',(q) => {
+        q.select(['id','role_name'])
+      })
+      .preload('activityLogs', (logQuery) => {
+        logQuery
+          .orderBy('created_at', 'desc')
+          .limit(20)
+      })
+      .firstOrFail()
+
+    return response.ok({
+      message: 'User retrieved successfully',
+      data: user
+    })
+  } catch (error) {
+    return response.notFound({
+      message: 'User not found',
+      error: error.message
+    })
+  }
+}
 }
