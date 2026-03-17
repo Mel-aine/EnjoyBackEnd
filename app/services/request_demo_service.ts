@@ -144,34 +144,33 @@ export default class RequestDemoService {
   }
 
   public async update(id: number, input: UpdateRequestDemoInput) {
-    const lead = await RequestDemo.findOrFail(id)
+  const lead = await RequestDemo.findOrFail(id)
 
-    if (input.followUpDate !== undefined) {
-      lead.followUpDate = input.followUpDate ? DateTime.fromISO(input.followUpDate) : null
-    }
-
-    lead.merge({
-      contactName: input.contactName,
-      companyName: input.companyName,
-      propertyType: input.propertyType,
-      numberOfRooms: input.numberOfRooms,
-      phoneNumber: input.phoneNumber,
-      country: input.country,
-      email: input.email,
-      preferredLanguage: input.preferredLanguage,
-      leadSource: input.leadSource,
-      notesMessage: input.notesMessage,
-      competition: input.competition,
-      acceptCondition: input.acceptCondition,
-      emailSend: input.emailSend,
-      status: input.status,
-      ownerId: input.ownerId,
-    })
-
-    await lead.save()
-    await lead.load('owner')
-    return lead
+  if (input.followUpDate !== undefined) {
+    lead.followUpDate = input.followUpDate ? DateTime.fromISO(input.followUpDate) : null
   }
+
+  const updatableFields: (keyof UpdateRequestDemoInput)[] = [
+    'contactName', 'companyName', 'propertyType', 'numberOfRooms',
+    'phoneNumber', 'country', 'email', 'preferredLanguage',
+    'leadSource', 'notesMessage', 'competition', 'acceptCondition',
+    'emailSend', 'status', 'ownerId'
+  ]
+
+  for (const field of updatableFields) {
+    if (input[field] !== undefined) {
+      (lead as any)[field] = input[field]
+    }
+  }
+
+  await lead.save()
+
+  if (lead.ownerId !== undefined && lead.ownerId !== null) {
+    await lead.load('owner')
+  }
+
+  return lead
+}
 
   public async delete(id: number) {
     const lead = await RequestDemo.findOrFail(id)

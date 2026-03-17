@@ -27,6 +27,7 @@ import { dirname } from 'path'
 import Discount from '../models/discount.js'
 import { DEFAULT_TEMPLATE_CATEGORIES, DEFAULT_EMAIL_TEMPLATES } from '../data/default_email_templates.js'
 import { PaymentMethodType } from '../enums.js'
+import UserEmailService from '#services/user_email_service'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -254,6 +255,23 @@ export default class HotelsController {
       // Commit the transaction if everything succeeds
       await trx.commit()
 
+      setImmediate(async () => {
+        try {
+          const baseUrl = request.header('origin') ?? ''
+          await UserEmailService.prepareAndSendVerification(adminUser, baseUrl)
+          logger.info('Verification email sent to admin', {
+            hotelId: hotel.id,
+            adminEmail: adminUser.email
+          })
+        } catch (emailError) {
+          logger.error('Failed to send verification email (hotel already created)', {
+            hotelId: hotel.id,
+            adminEmail: adminUser.email,
+            error: emailError.message
+          })
+        }
+      })
+
       // Log the activity
       const user = auth.user
       if (user) {
@@ -405,7 +423,7 @@ export default class HotelsController {
       if (payload.adminFirstName || payload.adminLastName || payload.adminEmail || payload.adminPhoneNumber) {
         const assignment = await ServiceUserAssignment.query()
           .where('hotel_id', hotel.id)
-          .preload('role', (q) => q.whereILike('name', 'admin'))
+          .preload('role', (q) => q.whereILike('roleName', 'admin'))
           .first()
 
         if (assignment) {
@@ -881,6 +899,7 @@ export default class HotelsController {
         message: 'Hotel deleted successfully'
       })
     } catch (error) {
+      console.error(error)
       return response.badRequest({
         message: 'Failed to delete hotel',
         error: error.message

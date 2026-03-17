@@ -123,25 +123,59 @@ export default class RequestDemosController {
   }
 
   public async update(ctx: HttpContext) {
+  try {
     const { params, request, response, auth } = ctx
     const payload = await request.validateUsing(updateSchema)
 
     const before = await this.service.get(Number(params.id))
     const lead = await this.service.update(Number(params.id), payload)
 
-    const changes = LoggerService.extractChanges(before.serialize() as any, lead.serialize() as any)
-    await LoggerService.logActivity({
-      userId: auth.user?.id,
-      action: 'request_demo.update',
-      resourceType: 'RequestDemo',
-      resourceId: lead.id,
-      description: 'Request demo updated',
-      details: changes,
-      ctx,
-    })
+    const beforeSerialized = before.serialize() as any
+    const afterSerialized = lead.serialize() as any
+    const changes = LoggerService.extractChanges(beforeSerialized, afterSerialized)
+
+    // Log spécifique si ownerId a changé
+    if (changes.ownerId) {
+      // Optionnel : charger le nom du commercial pour le message
+      if (lead.ownerId) {
+        await lead.load('owner')
+      }
+      const ownerName = lead.owner
+        ? (lead.owner.fullName || `${lead.owner.firstName} ${lead.owner.lastName}`)
+        : lead.ownerId
+
+      await LoggerService.logActivity({
+        userId: auth.user?.id,
+        action: 'request_demo.assign',
+        resourceType: 'RequestDemo',
+        resourceId: lead.id,
+        description: `Commercial assigné : ${ownerName}`,
+        details: { oldOwnerId: beforeSerialized.ownerId, newOwnerId: afterSerialized.ownerId },
+        ctx,
+      })
+    }
+
+    // Log pour les autres modifications (sans ownerId)
+    const otherChanges = { ...changes }
+    delete otherChanges.ownerId
+    if (Object.keys(otherChanges).length > 0) {
+      await LoggerService.logActivity({
+        userId: auth.user?.id,
+        action: 'request_demo.update',
+        resourceType: 'RequestDemo',
+        resourceId: lead.id,
+        description: 'Request demo updated',
+        details: otherChanges,
+        ctx,
+      })
+    }
 
     return response.ok(lead)
+  } catch (error) {
+    console.error(error)
+    throw error
   }
+}
 
   public async destroy(ctx: HttpContext) {
     const { params, response, auth } = ctx
