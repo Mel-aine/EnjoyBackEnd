@@ -261,7 +261,7 @@ export default class HotelsController {
             const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
             const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
             const baseUrl = `${proto}://${request.host()}`
-            await UserEmailService.prepareAndSendVerification(adminUser, baseUrl)
+            await UserEmailService.prepareAndSendVerification(adminUser, baseUrl,hotel.id)
             logger.info('Verification email sent', { hotelId: hotel.id })
           } catch (emailError) {
             logger.error('Failed to send verification email', { error: emailError.message })
