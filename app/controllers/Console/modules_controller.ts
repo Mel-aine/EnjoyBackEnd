@@ -8,6 +8,7 @@ export default class ModulesController {
   const limit   = request.input('limit', 10)
   const search  = request.input('search', '')
   const isActive = request.input('isActive')
+  const all = request.input('all',false)
 
   const query = Module.query()
 
@@ -21,6 +22,13 @@ export default class ModulesController {
 
   if (isActive !== undefined && isActive !== '') {
     query.where('is_active', isActive === 'true')
+  }
+
+  if(all === true || all === 'true'){
+    const modulesAll = await query.orderBy('created_at','desc')
+
+    return response.ok(modulesAll)
+
   }
 
   const modules = await query

@@ -31,6 +31,7 @@ export default class InvoicesController {
     const page   = request.input('page', 1)
     const search = request.input('search', '')
     const status = request.input('status', '')
+    const limit = request.input('limit',10)
     const query = Invoice.query().preload('hotel')
 
     if (search) {
@@ -43,7 +44,7 @@ export default class InvoicesController {
     if (status) query.where('status', status)
 
     const [invoices, totalRevenueRow, pendingRow, overdueRow] = await Promise.all([
-      query.orderBy('created_at', 'desc').paginate(page, 10),
+      query.orderBy('created_at', 'desc').paginate(page, limit),
       Invoice.query().where('status', 'paid').sum('amount as total').first(),
       Invoice.query().where('status', 'pending').sum('amount as total').count('* as count').first(),
       Invoice.query().where('status', 'failed').sum('amount as total').first(),
