@@ -95,6 +95,25 @@ router.get('/reset-password', async ({ request, response }) => {
   response.type('html')
   return response.send(html)
 })
+
+router.get('/reset-password-console', async ({ request, response }) => {
+  const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+  const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+  const baseUrl = `${proto}://${request.host()}`
+  const token = request.qs().token || ''
+
+  const filePath = join(process.cwd(), 'resources', 'views', 'console_reset_password.html')
+  let html = readFileSync(filePath, 'utf-8')
+  html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
+  html = html.replace(/\{\{TOKEN\}\}/g, token)
+
+  const consoleEndpoint = (env.get('CONSOLE_ENDPOINT') || 'http://localhost:5173').replace(/\/$/, '')
+  const loginUrl = `${consoleEndpoint}/login`
+  html = html.replace(/\{\{LOGIN_URL\}\}/g, loginUrl)
+
+  response.type('html')
+  return response.send(html)
+})
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 import { middleware } from '#start/kernel'
@@ -214,6 +233,7 @@ router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
 router.post('api/auth/forgot-password', [AuthController, 'forgotPassword'])
+router.post('api/auth/forgot-password-console', [AuthController, 'forgotPasswordConsole'])
 router.post('api/auth/reset-password', [AuthController, 'resetPassword'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
@@ -1607,56 +1627,118 @@ router.post('api/webhooks/subscriptions/expire', '#controllers/Console/subscript
 
 // Console Routes (Admin/Management)
 router.group(() => {
-  // Hotels Management
-  router.resource('hotels', '#controllers/hotels_controller')
 
-  // Modules Management
-  router.resource('modules', '#controllers/Console/modules_controller')
-
-  router.resource('add-ons', '#controllers/Console/add_ons_controller').apiOnly()
-  router.get('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.indexByModule')
-  router.post('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.storeForModule')
-
-  router.resource('announcements', '#controllers/Console/announcements_controller').apiOnly()
-
-  //users
-  router.resource('users', '#controllers/Console/users_consoles_controller')
-  router.post('demo-requests', '#controllers/Console/request_demos_controller.store')
-  router.get('demo-requests', '#controllers/Console/request_demos_controller.index')
-  router.get('demo-requests/:id', '#controllers/Console/request_demos_controller.show')
-  router.patch('demo-requests/:id', '#controllers/Console/request_demos_controller.update') 
-  router.delete('demo-requests/:id', '#controllers/Console/request_demos_controller.destroy')
-  router.post('demo-requests/:id/assign', '#controllers/Console/request_demos_controller.assign')
-  router.post('demo-requests/:id/resend-email', '#controllers/Console/request_demos_controller.resendEmail')
-
-  router.post('demo-requests/:id/demo-converted', '#controllers/Console/request_demos_controller.webhookDemoConverted')
-  // Subscriptions Management (nested under hotels)
-  router.get('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.index')
-  router.get('subscriptions', '#controllers/Console/subscriptions_controller.subscription')
-  router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
-  router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
-  router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
+  // ── Dashboard ──
   router.get('dashboard', '#controllers/Console/dashboard_consoles_controller.index')
-  router.patch('/subscriptions/:id/toggle-status', '#controllers/Console/subscriptions_controller.toggleStatus')
+    .use(middleware.permission({ permissions: ['console_dashboard_view'] }))
 
-  // Invoices Management
-  router.get('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.index')
-  router.get('billing', '#controllers/Console/invoices_controller.billing')
-  router.post('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.store')
-  router.get('invoices/:id', '#controllers/Console/invoices_controller.show')
-  router.put('invoices/:id', '#controllers/Console/invoices_controller.update')
+  // ── Hotels ──
+  router.resource('hotels', '#controllers/hotels_controller')
+    .use('*', middleware.permission({ permissions: ['console_clients_view'] }))
+    .use('store', middleware.permission({ permissions: ['console_clients_create'] }))
+    .use('update', middleware.permission({ permissions: ['console_clients_edit'] }))
+    .use('destroy', middleware.permission({ permissions: ['console_clients_delete'] }))
+
+  // ── Modules ──
+  router.resource('modules', '#controllers/Console/modules_controller')
+    .use('*', middleware.permission({ permissions: ['console_products_view'] }))
+    .use('store', middleware.permission({ permissions: ['console_products_create'] }))
+    .use('update', middleware.permission({ permissions: ['console_products_edit'] }))
+    .use('destroy', middleware.permission({ permissions: ['console_products_delete'] }))
+
+  // ── Add-ons ──
+  router.resource('add-ons', '#controllers/Console/add_ons_controller').apiOnly()
+    .use('*', middleware.permission({ permissions: ['console_products_view'] }))
+  router.get('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.indexByModule')
+    .use(middleware.permission({ permissions: ['console_products_view'] }))
+  router.post('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.storeForModule')
+    .use(middleware.permission({ permissions: ['console_products_create'] }))
+
+  // ── Announcements ──
+  router.resource('announcements', '#controllers/Console/announcements_controller').apiOnly()
+    .use(['index', 'show'], middleware.permission({ permissions: ['console_announcements_view'] }))
+    .use('store',      middleware.permission({ permissions: ['console_announcements_create'] }))
+    .use('update',     middleware.permission({ permissions: ['console_announcements_edit'] }))
+    .use('destroy',    middleware.permission({ permissions: ['console_announcements_delete'] }))
+
+  // ── Users ──
+  router.get('/users/commercials', '#controllers/Console/users_consoles_controller.getCommercials')
+  router.resource('users', '#controllers/Console/users_consoles_controller')
+    .use(['index', 'show'], middleware.permission({ permissions: ['console_users_view'] }))
+    .use('store',      middleware.permission({ permissions: ['console_users_create'] }))
+    .use('update',     middleware.permission({ permissions: ['console_users_edit'] }))
+    .use('destroy',    middleware.permission({ permissions: ['console_users_delete'] }))
+
+
+
+
+  // ── Démos ──
+  router.get('demo-requests/:id/history', '#controllers/Console/request_demos_controller.historyDemo')
+  router.post('demo-requests', '#controllers/Console/request_demos_controller.store')
+    .use(middleware.permission({ permissions: ['console_demos_create'] }))
+  router.get('demo-requests', '#controllers/Console/request_demos_controller.index')
+    .use(middleware.permission({ permissions: ['console_demos_view'] }))
+  router.get('demo-requests/:id', '#controllers/Console/request_demos_controller.show')
+    .use(middleware.permission({ permissions: ['console_demos_view'] }))
+  router.patch('demo-requests/:id', '#controllers/Console/request_demos_controller.update')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.delete('demo-requests/:id', '#controllers/Console/request_demos_controller.destroy')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.post('demo-requests/:id/assign', '#controllers/Console/request_demos_controller.assign')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.post('demo-requests/:id/resend-email', '#controllers/Console/request_demos_controller.resendEmail')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.post('demo-requests/:id/demo-converted', '#controllers/Console/request_demos_controller.webhookDemoConverted')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+
+
+  // ── Subscriptions ──
+  router.get('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.index')
+    .use(middleware.permission({ permissions: ['console_clients_view'] }))
+  router.get('subscriptions', '#controllers/Console/subscriptions_controller.subscription')
+    .use(middleware.permission({ permissions: ['console_clients_view'] }))
+  router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
+    .use(middleware.permission({ permissions: ['console_clients_create'] }))
+  router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
+    .use(middleware.permission({ permissions: ['console_clients_edit'] }))
+  router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
+    .use(middleware.permission({ permissions: ['console_clients_delete'] }))
+  router.patch('/subscriptions/:id/toggle-status', '#controllers/Console/subscriptions_controller.toggleStatus')
+    .use(middleware.permission({ permissions: ['console_tenants_manage'] }))
   router.patch('subscriptions/:id/extend', '#controllers/Console/subscriptions_controller.extend')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+
+  // ── Invoices / Billing ──
+  router.get('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.index')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.get('billing', '#controllers/Console/invoices_controller.billing')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
   router.get('billing/quotas', '#controllers/Console/invoices_controller.quotas')
-  //activity loog
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.post('hotels/:hotel_id/invoices', '#controllers/Console/invoices_controller.store')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+  router.get('invoices/:id', '#controllers/Console/invoices_controller.show')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.put('invoices/:id', '#controllers/Console/invoices_controller.update')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+
+  // ── Activity logs ──
   router.get('/activity-logs', activityLogsController.indexConsole.bind(activityLogsController))
   router.get('/hotels/:hotelId/activity-logs', activityLogsController.getByHotel.bind(activityLogsController))
 
-  //roles
-  router.get(
-    '/roles',
-    rolesController.getGlobalRoles.bind(rolesController)
-  )
+  // ── Rôles & Permissions ──
+  router.get('/roles', rolesController.getGlobalRoles.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_view'] }))
+  router.post('/roles', rolesController.store.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_create'] }))
+  router.put('/roles/:id', rolesController.update.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_edit'] }))
+  router.delete('/roles/:id', rolesController.destroy.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_delete'] }))
+  router.post('/roles/:id/permissions/console', rolesController.assignPermissionsConsole.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_permissions_manage'] }))
 
-
+  // ── Permissions utilisateur ──
+  router.get('/permissions/me', permissionsController.getUserPermissions.bind(permissionsController))
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))

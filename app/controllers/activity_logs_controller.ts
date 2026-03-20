@@ -190,7 +190,7 @@ public async indexConsole({ request, response }: HttpContext) {
   const search = request.input('search')
 
   const query = ActivityLog.query()
-    .whereIn('entity_type', ['invoice', 'subscription'])
+    .whereIn('entity_type', ['invoice', 'subscription','RequestDemo'])
 
   if (action) {
     query.where('action', action)

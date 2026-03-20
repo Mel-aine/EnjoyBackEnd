@@ -517,16 +517,76 @@ public async getRolesByHotel({ params, response }: HttpContext) {
   /**
    * Récupère tous les rôles globaux (admin, etc.)
    */
-  public async getGlobalRoles({ response }: HttpContext) {
-    try {
-      const roles = await Role.query()
-        .whereNull('hotel_id')
+ public async getGlobalRoles({ response }: HttpContext) {
+  try {
+    const roles = await Role.query()
+      .whereNull('hotel_id')
+      .preload('permissions')
 
-      return response.ok(roles)
+    return response.ok(roles)
+  } catch (error) {
+    return response.internalServerError({ message: 'Erreur lors de la récupération des rôles globaux' })
+  }
+}
+
+
+  //role-permissions-console
+  public async assignPermissionsConsole({ params, request, response, auth }: HttpContext) {
+    const roleId = Number(params.id)
+
+    if (isNaN(roleId)) {
+      return response.badRequest({ message: 'ID de rôle invalide' })
+    }
+
+    try {
+      const { permissionIds } = request.only(['permissionIds'])
+      const user = auth.getUserOrFail()
+
+      if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
+        return response.badRequest({ message: 'Liste des permissions requise' })
+      }
+
+      await Role.findOrFail(roleId)
+
+      // Vérifier que toutes les permissions existent
+      const permissions = await Permission.query().whereIn('id', permissionIds)
+      if (permissions.length !== permissionIds.length) {
+        return response.badRequest({ message: 'Une ou plusieurs permissions n\'existent pas' })
+      }
+
+      // Supprimer toutes les anciennes permissions globales (hotel_id NULL)
+      await RolePermission.query()
+        .where('role_id', roleId)
+        .whereNull('hotel_id')
+        .delete()
+
+      // Ajouter les nouvelles sans hotel_id
+      await RolePermission.createMany(
+        permissionIds.map((permissionId) => ({
+          role_id: roleId,
+          permission_id: permissionId,
+          hotel_id: null,
+          created_by: user.id,
+        }))
+      )
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'ASSIGN_PERMISSIONS',
+        entityType: 'Role',
+        entityId: roleId,
+        description: `[Console] Assigned ${permissionIds.length} permissions to Role #${roleId}`,
+        changes: { permissions: { old: null, new: { permissionIds } } },
+        ctx: { request, response } as any,
+      })
+
+      return response.ok({ message: 'Permissions console assignées avec succès' })
     } catch (error) {
-      return response.internalServerError({ message: 'Erreur lors de la récupération des rôles globaux' })
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Rôle non trouvé' })
+      }
+      return response.internalServerError({ message: 'Erreur lors de l\'assignation des permissions' })
     }
   }
-
 
 }

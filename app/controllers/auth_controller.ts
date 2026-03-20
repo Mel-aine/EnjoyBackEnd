@@ -771,7 +771,7 @@ This link expires in 1 hour.`,
           const user = await User.query()
             .where('email', email)
             .whereDoesntHave('serviceAssignments', (q) => q)
-            .preload('role')
+             .preload('role', (q) => q.preload('permissions'))
             .firstOrFail()
           return user
         } catch (error) {
@@ -944,4 +944,81 @@ This link expires in 1 hour.`,
       },
     })
   }
+
+  public async forgotPasswordConsole({ request, response }: HttpContext) {
+  const validator = vine.compile(
+    vine.object({
+      email: vine.string().trim().email(),
+    })
+  )
+  try {
+    const { email } = await request.validateUsing(validator)
+    const user = await User.findBy('email', email)
+    const token = cuid()
+    const expiresAt = DateTime.now().plus({ hours: 1 })
+
+    if (user) {
+      await PasswordResetToken.create({ userId: user.id, token, expiresAt, usedAt: null })
+
+      const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+      const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+      const baseUrl = `${proto}://${request.host()}`
+
+      // ✅ Pointe vers la page console
+      const resetUrl = `${baseUrl}/reset-password-console?token=${encodeURIComponent(token)}`
+
+      await MailService.send({
+        to: email,
+        subject: 'Réinitialisez votre mot de passe — Console Admin',
+        text: `Bonjour,
+
+Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte admin.
+
+Cliquez sur ce lien pour définir un nouveau mot de passe :
+${resetUrl}
+
+Ce lien expire dans 1 heure.
+
+Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
+        html: `
+          <p>Bonjour,</p>
+          <p>Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte admin.</p>
+          <p>
+            <a href="${resetUrl}" target="_blank"
+              style="display:inline-block;padding:10px 20px;background-color:#4F46E5;color:#fff;text-decoration:none;border-radius:6px;">
+              Réinitialiser mon mot de passe
+            </a>
+          </p>
+          <p>Ce lien expire dans <strong>1 heure</strong>.</p>
+          <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+        `,
+      })
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'FORGOT_PASSWORD_CONSOLE_REQUEST',
+        entityType: 'User',
+        entityId: user.id.toString(),
+        description: `Password reset requested for console user ${user.email}`,
+        ctx: { request, response } as any,
+      })
+    }
+
+    return response.ok({
+      message: 'If the email exists, a reset link was sent',
+    })
+  } catch (error) {
+    console.log('error', error)
+    if ((error as any).code === 'E_VALIDATION_ERROR') {
+      return response.badRequest({
+        message: 'Validation failed',
+        errors: (error as any).messages,
+      })
+    }
+    return response.badRequest({
+      message: 'Failed to start password reset',
+      error: (error as any).message,
+    })
+  }
+}
 }

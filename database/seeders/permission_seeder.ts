@@ -1,150 +1,209 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Permission from '#models/permission'
 
-export default class PermissionSeeder extends BaseSeeder {
+export default class AdminConsolePermissionSeeder extends BaseSeeder {
   public async run() {
     const permissions = [
-      { name: 'dashboard_view', label: 'Dashboard', icon: 'layout-dashboard', category: 'Général' },
+      // ── Dashboard ──
       {
-        name: 'bookings_view',
-        label: 'Réservations',
-        icon: 'calendar-check',
-        category: 'Réservations',
+        name: 'console_dashboard_view',
+        label: 'Voir le dashboard console',
+        icon: 'layout-dashboard',
+        category: 'Console - Dashboard',
       },
+
+      // ── Clients ──
       {
-        name: 'bookings_read',
-        label: 'Voir toutes les réservations',
-        icon: 'calendar-check',
-        category: 'Réservations',
-      },
-      {
-        name: 'bookings_create',
-        label: 'Ajouter une réservation',
-        icon: 'calendar-check',
-        category: 'Réservations',
-      },
-      { name: 'rooms_view', label: 'Chambres', icon: 'bed-double', category: 'Chambres' },
-      {
-        name: 'rooms_read',
-        label: 'Voir toutes les chambres',
-        icon: 'bed-double',
-        category: 'Chambres',
-      },
-      {
-        name: 'rooms_manage',
-        label: 'Gérer les types de chambres',
-        icon: 'bed-double',
-        category: 'Chambres',
-      },
-      {
-        name: 'rooms_occupancy_view',
-        label: 'Voir l’occupation',
-        icon: 'bed-double',
-        category: 'Chambres',
-      },
-      {
-        name: 'calendar_view',
-        label: 'Voir le calendrier',
-        icon: 'calendar-days',
-        category: 'Général',
-      },
-      {
-        name: 'departments_view',
-        label: 'Voir les départements',
-        icon: 'building',
-        category: 'Services Hôteliers',
-      },
-      {
-        name: 'reports_view',
-        label: 'Voir les rapports',
-        icon: 'clipboard-plus',
-        category: 'Rapports',
-      },
-      {
-        name: 'inventory_view',
-        label: 'Voir la gestion des stocks',
-        icon: 'clipboard-plus',
-        category: 'Inventaire',
-      },
-      {
-        name: 'inventory_read',
-        label: 'Voir les produits',
-        icon: 'clipboard-plus',
-        category: 'Inventaire',
-      },
-      {
-        name: 'inventory_history_view',
-        label: 'Voir les mouvements de stock',
-        icon: 'clipboard-plus',
-        category: 'Inventaire',
-      },
-      {
-        name: 'inventory_category_view',
-        label: 'Voir les catégories de stock',
-        icon: 'clipboard-plus',
-        category: 'Inventaire',
-      },
-      {
-        name: 'suppliers_view',
-        label: 'Voir les fournisseurs',
-        icon: 'clipboard-plus',
-        category: 'Inventaire',
-      },
-      {
-        name: 'expenses_view',
-        label: 'Voir les dépenses',
-        icon: 'clipboard-plus',
-        category: 'Comptabilité',
-      },
-      {
-        name: 'customers_view',
+        name: 'console_clients_view',
         label: 'Voir les clients',
-        icon: 'users-round',
-        category: 'Clients',
+        icon: 'building-2',
+        category: 'Console - Clients',
       },
       {
-        name: 'billing_manage',
+        name: 'console_clients_create',
+        label: 'Créer un client',
+        icon: 'building-2',
+        category: 'Console - Clients',
+      },
+      {
+        name: 'console_clients_edit',
+        label: 'Modifier un client',
+        icon: 'building-2',
+        category: 'Console - Clients',
+      },
+      {
+        name: 'console_clients_delete',
+        label: 'Supprimer un client',
+        icon: 'building-2',
+        category: 'Console - Clients',
+      },
+
+      // ── Produits ──
+      {
+        name: 'console_products_view',
+        label: 'Voir les produits',
+        icon: 'package',
+        category: 'Console - Produits',
+      },
+      {
+        name: 'console_products_create',
+        label: 'Créer un produit',
+        icon: 'package',
+        category: 'Console - Produits',
+      },
+      {
+        name: 'console_products_edit',
+        label: 'Modifier un produit',
+        icon: 'package',
+        category: 'Console - Produits',
+      },
+      {
+        name: 'console_products_delete',
+        label: 'Supprimer un produit',
+        icon: 'package',
+        category: 'Console - Produits',
+      },
+
+      // ── Facturation ──
+      {
+        name: 'console_billing_view',
+        label: 'Voir la facturation',
+        icon: 'receipt',
+        category: 'Console - Facturation',
+      },
+      {
+        name: 'console_billing_manage',
         label: 'Gérer la facturation',
-        icon: 'banknote',
-        category: 'Paiement',
+        icon: 'receipt',
+        category: 'Console - Facturation',
       },
       {
-        name: 'staff_view',
-        label: 'Voir la gestion du personnel',
-        icon: 'user-circle',
-        category: 'RH',
+        name: 'console_billing_export',
+        label: 'Exporter les factures',
+        icon: 'receipt',
+        category: 'Console - Facturation',
+      },
+
+      // ── Démos ──
+      {
+        name: 'console_demos_view',
+        label: 'Voir les démos',
+        icon: 'monitor-play',
+        category: 'Console - Démos',
       },
       {
-        name: 'staff_dashboard_view',
-        label: 'Voir le dashboard du personnel',
-        icon: 'user-circle',
-        category: 'RH',
-      },
-      { name: 'staff_manage', label: 'Gérer le personnel', icon: 'user-circle', category: 'RH' },
-      {
-        name: 'permissions_manage',
-        label: 'Gérer les permissions',
-        icon: 'user-circle',
-        category: 'RH',
-      },
-      { name: 'task_manage', label: 'Gérer les tâches', icon: 'user-circle', category: 'RH' },
-      {
-        name: 'schedule_manage',
-        label: 'Gérer les plannings',
-        icon: 'user-circle',
-        category: 'RH',
+        name: 'console_demos_create',
+        label: 'Créer une démo',
+        icon: 'monitor-play',
+        category: 'Console - Démos',
       },
       {
-        name: 'staff_history_view',
-        label: 'Voir l’historique du personnel',
-        icon: 'user-circle',
-        category: 'RH',
+        name: 'console_demos_manage',
+        label: 'Gérer les démos',
+        icon: 'monitor-play',
+        category: 'Console - Démos',
+      },
+
+      // ── Annonces ──
+      {
+        name: 'console_announcements_view',
+        label: 'Voir les annonces',
+        icon: 'megaphone',
+        category: 'Console - Annonces',
       },
       {
-        name: 'settings_manage',
-        label: 'Gérer les paramètres',
-        icon: 'settings',
-        category: 'Configuration',
+        name: 'console_announcements_create',
+        label: 'Créer une annonce',
+        icon: 'megaphone',
+        category: 'Console - Annonces',
+      },
+      {
+        name: 'console_announcements_edit',
+        label: 'Modifier une annonce',
+        icon: 'megaphone',
+        category: 'Console - Annonces',
+      },
+      {
+        name: 'console_announcements_delete',
+        label: 'Supprimer une annonce',
+        icon: 'megaphone',
+        category: 'Console - Annonces',
+      },
+
+      // ── Sécurité ──
+      {
+        name: 'console_security_view',
+        label: 'Voir la sécurité',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+      {
+        name: 'console_tenants_manage',
+        label: 'Gérer les tenants (suspend/restore)',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+      {
+        name: 'console_roles_view',
+        label: 'Voir les rôles',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+      {
+        name: 'console_roles_create',
+        label: 'Créer un rôle',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+      {
+        name: 'console_roles_edit',
+        label: 'Modifier un rôle',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+      {
+        name: 'console_roles_delete',
+        label: 'Supprimer un rôle',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+      {
+        name: 'console_permissions_manage',
+        label: 'Attribuer des permissions',
+        icon: 'shield',
+        category: 'Console - Sécurité',
+      },
+
+      // ── Utilisateurs ──
+      {
+        name: 'console_users_view',
+        label: 'Voir les utilisateurs',
+        icon: 'users',
+        category: 'Console - Utilisateurs',
+      },
+      {
+        name: 'console_users_create',
+        label: 'Créer un utilisateur',
+        icon: 'users',
+        category: 'Console - Utilisateurs',
+      },
+      {
+        name: 'console_users_edit',
+        label: 'Modifier un utilisateur',
+        icon: 'users',
+        category: 'Console - Utilisateurs',
+      },
+      {
+        name: 'console_users_delete',
+        label: 'Supprimer un utilisateur',
+        icon: 'users',
+        category: 'Console - Utilisateurs',
+      },
+      {
+        name: 'console_users_assign_role',
+        label: 'Assigner un rôle à un utilisateur',
+        icon: 'users',
+        category: 'Console - Utilisateurs',
       },
     ]
 
@@ -158,5 +217,7 @@ export default class PermissionSeeder extends BaseSeeder {
         }
       )
     }
+
+    console.log(`${permissions.length} permissions console seedées avec succès`)
   }
 }

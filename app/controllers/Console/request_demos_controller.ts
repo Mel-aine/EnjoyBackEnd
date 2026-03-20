@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import RequestDemoService from '#services/request_demo_service'
 import LoggerService from '#services/logger_service'
+import ActivityLog from '#models/activity_log'
 
 const createSchema = vine.compile(
   vine.object({
@@ -17,6 +18,7 @@ const createSchema = vine.compile(
     notesMessage: vine.string().trim().optional(),
     competition: vine.string().trim().optional(),
     acceptCondition: vine.boolean(),
+    city : vine.string().optional()
   })
 )
 
@@ -35,21 +37,13 @@ const updateSchema = vine.compile(
     competition: vine.string().trim().nullable().optional(),
     acceptCondition: vine.boolean().optional(),
     emailSend: vine.boolean().optional(),
-    status: vine
-      .enum([
-        'New',
-        'Qualified',
-        'Demo Scheduled',
-        'Demo Completed',
-        'Trial',
-        'Negotiation',
-        'Converted',
-        'Lost',
-        'Junk',
-      ])
-      .optional(),
+    status: vine.enum([
+      'New', 'Qualified', 'Demo Scheduled', 'Demo Completed',
+      'Trial', 'Negotiation', 'Converted', 'Lost', 'Junk',
+    ]).optional(),
     ownerId: vine.number().nullable().optional(),
     followUpDate: vine.string().trim().nullable().optional(),
+    city : vine.string().optional()
   })
 )
 
@@ -60,21 +54,36 @@ export default class RequestDemosController {
     this.service = new RequestDemoService()
   }
 
-  public async index({ request, response }: HttpContext) {
-    const page = request.input('page', 1)
-    const limit = request.input('limit', 20)
+  //  Helper pour vérifier si superadmin
+ private async checkIsCommercial(user: any): Promise<boolean> {
+  await user.load('role', (q: any) => q.preload('permissions'))
+  const permissions = user.role?.permissions?.map((p: any) => p.name) ?? []
+
+  //  Le commercial a cette permission mais PAS les permissions admin
+  return permissions.includes('console_demos_view') &&
+         !permissions.includes('console_users_view') &&
+         !permissions.includes('console_clients_view')
+}
+
+  public async index({ request, response, auth }: HttpContext) {
+    const user = auth.user!
+    const page   = request.input('page', 1)
+    const limit  = request.input('limit', 20)
     const search = request.input('search', '')
     const status = request.input('status')
-    const ownerId = request.input('ownerId')
-    const all     = request.input('all')
+    const all    = request.input('all')
+
+    //  Vérifie le rôle
+    const isCommercial = await this.checkIsCommercial(user)
 
     const leads = await this.service.list({
       page,
       limit,
       search: search || undefined,
       status: status || undefined,
-      ownerId: ownerId !== undefined && ownerId !== null ? Number(ownerId) : undefined,
-      all:     all === 'true' || all === true,
+      all: all === 'true' || all === true,
+      currentUserId: user.id,
+      isCommercial,
     })
 
     return response.ok(leads)
@@ -103,6 +112,8 @@ export default class RequestDemosController {
         notesMessage: payload.notesMessage,
         competition: payload.competition,
         acceptCondition: payload.acceptCondition,
+        createdBy: auth.user?.id ?? null,
+        city: payload.city ?? ''
       })
 
       await LoggerService.logActivity({
@@ -118,64 +129,61 @@ export default class RequestDemosController {
       return response.created(lead)
     } catch (error) {
       const statusCode = (error as any)?.statusCode || 500
-      return response.status(statusCode).send({ message: (error as any)?.message || 'Failed to create demo request' })
+      return response.status(statusCode).send({
+        message: (error as any)?.message || 'Failed to create demo request',
+      })
     }
   }
 
   public async update(ctx: HttpContext) {
-  try {
-    const { params, request, response, auth } = ctx
-    const payload = await request.validateUsing(updateSchema)
+    try {
+      const { params, request, response, auth } = ctx
+      const payload = await request.validateUsing(updateSchema)
 
-    const before = await this.service.get(Number(params.id))
-    const lead = await this.service.update(Number(params.id), payload)
+      const before = await this.service.get(Number(params.id))
+      const lead = await this.service.update(Number(params.id), payload)
 
-    const beforeSerialized = before.serialize() as any
-    const afterSerialized = lead.serialize() as any
-    const changes = LoggerService.extractChanges(beforeSerialized, afterSerialized)
+      const beforeSerialized = before.serialize() as any
+      const afterSerialized = lead.serialize() as any
+      const changes = LoggerService.extractChanges(beforeSerialized, afterSerialized)
 
-    // Log spécifique si ownerId a changé
-    if (changes.ownerId) {
-      // Optionnel : charger le nom du commercial pour le message
-      if (lead.ownerId) {
-        await lead.load('owner')
+      if (changes.ownerId) {
+        if (lead.ownerId) await lead.load('owner')
+        const ownerName = lead.owner
+          ? (lead.owner.fullName || `${lead.owner.firstName} ${lead.owner.lastName}`)
+          : lead.ownerId
+
+        await LoggerService.logActivity({
+          userId: auth.user?.id,
+          action: 'request_demo.assign',
+          resourceType: 'RequestDemo',
+          resourceId: lead.id,
+          description: `Commercial assigné : ${ownerName}`,
+          details: { oldOwnerId: beforeSerialized.ownerId, newOwnerId: afterSerialized.ownerId },
+          ctx,
+        })
       }
-      const ownerName = lead.owner
-        ? (lead.owner.fullName || `${lead.owner.firstName} ${lead.owner.lastName}`)
-        : lead.ownerId
 
-      await LoggerService.logActivity({
-        userId: auth.user?.id,
-        action: 'request_demo.assign',
-        resourceType: 'RequestDemo',
-        resourceId: lead.id,
-        description: `Commercial assigné : ${ownerName}`,
-        details: { oldOwnerId: beforeSerialized.ownerId, newOwnerId: afterSerialized.ownerId },
-        ctx,
-      })
+      const otherChanges = { ...changes }
+      delete otherChanges.ownerId
+      if (Object.keys(otherChanges).length > 0) {
+        await LoggerService.logActivity({
+          userId: auth.user?.id,
+          action: 'request_demo.update',
+          resourceType: 'RequestDemo',
+          resourceId: lead.id,
+          description: 'Request demo updated',
+          details: otherChanges,
+          ctx,
+        })
+      }
+
+      return response.ok(lead)
+    } catch (error) {
+      console.error(error)
+      throw error
     }
-
-    // Log pour les autres modifications (sans ownerId)
-    const otherChanges = { ...changes }
-    delete otherChanges.ownerId
-    if (Object.keys(otherChanges).length > 0) {
-      await LoggerService.logActivity({
-        userId: auth.user?.id,
-        action: 'request_demo.update',
-        resourceType: 'RequestDemo',
-        resourceId: lead.id,
-        description: 'Request demo updated',
-        details: otherChanges,
-        ctx,
-      })
-    }
-
-    return response.ok(lead)
-  } catch (error) {
-    console.error(error)
-    throw error
   }
-}
 
   public async destroy(ctx: HttpContext) {
     const { params, response, auth } = ctx
@@ -197,12 +205,7 @@ export default class RequestDemosController {
 
   public async assign(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
-    const schema = vine.compile(
-      vine.object({
-        ownerId: vine.number(),
-      })
-    )
-
+    const schema = vine.compile(vine.object({ ownerId: vine.number() }))
     const payload = await request.validateUsing(schema)
     const before = await this.service.get(Number(params.id))
     const lead = await this.service.assign(Number(params.id), payload.ownerId)
@@ -239,13 +242,8 @@ export default class RequestDemosController {
 
   public async webhookDemoConverted(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
-    const schema = vine.compile(
-      vine.object({
-        id: vine.number().optional(),
-      })
-    )
+    const schema = vine.compile(vine.object({ id: vine.number().optional() }))
     const payload = await request.validateUsing(schema)
-
     const id = Number(params?.id ?? payload.id)
     const before = await this.service.get(id)
     const lead = await this.service.update(id, { status: 'Converted' })
@@ -261,5 +259,14 @@ export default class RequestDemosController {
     })
 
     return response.ok({ success: true, data: lead })
+  }
+
+  public async historyDemo({ params, response }: HttpContext) {
+    const logs = await ActivityLog.query()
+      .where('entity_type', 'RequestDemo')
+      .where('entity_id', params.id)
+      .preload('user')
+      .orderBy('created_at', 'asc')
+    return response.ok({ data: logs })
   }
 }

@@ -15,6 +15,8 @@ type CreateRequestDemoInput = {
   leadSource?: string
   notesMessage?: string
   competition?: string
+  createdBy?: number | null
+  city?: string
 }
 
 type UpdateRequestDemoInput = Partial<{
@@ -94,6 +96,7 @@ export default class RequestDemoService {
       status: 'New',
       ownerId: null,
       followUpDate: null,
+      createdBy: input.createdBy ?? null,
     })
 
     await this.sendConfirmationEmail(lead)
@@ -102,7 +105,10 @@ export default class RequestDemoService {
   }
 
   public async get(id: number) {
-    return RequestDemo.query().where('id', id).preload('owner').firstOrFail()
+    return RequestDemo.query()
+      .where('id', id)
+      .preload('owner', (q) => q.preload('role'))
+      .firstOrFail()
   }
 
   public async list(filters: {
@@ -111,9 +117,18 @@ export default class RequestDemoService {
     search?: string
     status?: string
     ownerId?: number
-    all?:boolean
+    all?: boolean
+    currentUserId?: number
+    isCommercial?: boolean
   }) {
     const query = RequestDemo.query().preload('owner')
+
+    if (filters.isCommercial && filters.currentUserId) {
+      query.where((q) => {
+        q.where('owner_id', filters.currentUserId!)
+        .orWhere('created_by', filters.currentUserId!)
+      })
+    }
 
     if (filters.search) {
       query.where((q) => {
@@ -128,10 +143,6 @@ export default class RequestDemoService {
       query.where('status', filters.status)
     }
 
-    if (filters.ownerId !== undefined) {
-      query.where('owner_id', filters.ownerId)
-    }
-
     if (filters.all === true) {
       const data = await query.orderBy('created_at', 'desc')
       return {
@@ -144,33 +155,33 @@ export default class RequestDemoService {
   }
 
   public async update(id: number, input: UpdateRequestDemoInput) {
-  const lead = await RequestDemo.findOrFail(id)
+    const lead = await RequestDemo.findOrFail(id)
 
-  if (input.followUpDate !== undefined) {
-    lead.followUpDate = input.followUpDate ? DateTime.fromISO(input.followUpDate) : null
-  }
-
-  const updatableFields: (keyof UpdateRequestDemoInput)[] = [
-    'contactName', 'companyName', 'propertyType', 'numberOfRooms',
-    'phoneNumber', 'country', 'email', 'preferredLanguage',
-    'leadSource', 'notesMessage', 'competition', 'acceptCondition',
-    'emailSend', 'status', 'ownerId'
-  ]
-
-  for (const field of updatableFields) {
-    if (input[field] !== undefined) {
-      (lead as any)[field] = input[field]
+    if (input.followUpDate !== undefined) {
+      lead.followUpDate = input.followUpDate ? DateTime.fromISO(input.followUpDate) : null
     }
+
+    const updatableFields: (keyof UpdateRequestDemoInput)[] = [
+      'contactName', 'companyName', 'propertyType', 'numberOfRooms',
+      'phoneNumber', 'country', 'email', 'preferredLanguage',
+      'leadSource', 'notesMessage', 'competition', 'acceptCondition',
+      'emailSend', 'status', 'ownerId',
+    ]
+
+    for (const field of updatableFields) {
+      if (input[field] !== undefined) {
+        (lead as any)[field] = input[field]
+      }
+    }
+
+    await lead.save()
+
+    if (lead.ownerId !== undefined && lead.ownerId !== null) {
+      await lead.load('owner')
+    }
+
+    return lead
   }
-
-  await lead.save()
-
-  if (lead.ownerId !== undefined && lead.ownerId !== null) {
-    await lead.load('owner')
-  }
-
-  return lead
-}
 
   public async delete(id: number) {
     const lead = await RequestDemo.findOrFail(id)

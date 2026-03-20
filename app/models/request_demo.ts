@@ -28,6 +28,9 @@ export default class RequestDemo extends BaseModel {
   declare propertyType: string | null
 
   @column()
+  declare city: string | null
+
+  @column()
   declare numberOfRooms: number | null
 
   @column()
@@ -61,6 +64,9 @@ export default class RequestDemo extends BaseModel {
   declare status: RequestDemoStatus
 
   @column()
+  declare createdBy: number | null
+
+  @column()
   declare ownerId: number | null
 
   @column.dateTime()
@@ -74,4 +80,7 @@ export default class RequestDemo extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'ownerId' })
   declare owner: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'createdBy' })
+  declare creator: BelongsTo<typeof User>
 }

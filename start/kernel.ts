@@ -28,6 +28,7 @@ server.use([
   () => import('@adonisjs/cors/cors_middleware'),
   () => import('#middleware/check_maintenance_middleware'),
   () => import('@adonisjs/auth/initialize_auth_middleware'),
+
 ])
 
 /**
@@ -63,7 +64,8 @@ export const middleware = router.named({
   checkPermission: () => import('#middleware/check_permission_middleware'),
   apiKey: () => import('#middleware/api_key_middleware'),
   ipRestriction: () => import('#middleware/ip_restriction_middleware'),
-  checkSubscription: () => import('#middleware/check_subscription_middleware')
+  checkSubscription: () => import('#middleware/check_subscription_middleware'),
+  permission: () => import('#middleware/permission_middleware')
 })
 
 
