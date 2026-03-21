@@ -7090,7 +7090,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
         })
         .preload('folios', (folioQuery) => {
-          folioQuery.select(['id', 'folioNumber', 'totalAmount', 'balanceAmount'])
+          folioQuery.select(['id', 'folioNumber', 'balance','totalCharges'])
         })
         .orderBy('check_out_date', 'desc')
         .orderBy('depart_date', 'desc')
@@ -7108,11 +7108,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }))
 
         const totalFolioAmount = reservation.folios.reduce(
-          (sum, folio) => sum + (folio.totalAmount || 0),
+          (sum, folio) => sum + (folio.totalCharges || 0),
           0
         )
         const totalBalance = reservation.folios.reduce(
-          (sum, folio) => sum + (folio.balanceAmount || 0),
+          (sum, folio) => sum + (folio.balance || 0),
           0
         )
 
