@@ -7096,7 +7096,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
         })
         .preload('folios', (folioQuery) => {
-          folioQuery.select(['id', 'folioNumber', 'totalAmount', 'balanceAmount'])
+          folioQuery.select(['id', 'folioNumber', 'balance','totalCharges'])
         })
         .orderBy('check_out_date', 'desc')
         .orderBy('depart_date', 'desc')

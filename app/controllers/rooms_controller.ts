@@ -981,6 +981,7 @@ export default class RoomsController {
         const room = res.room
 
         return {
+          reservationId: res.reservationId,
           guest: guest
             ? guest.displayName
             : 'Inconnu',
