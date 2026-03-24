@@ -39,7 +39,9 @@ export default class extends BaseSchema {
         .index()
 
       table.integer('owner_id').unsigned().nullable().references('id').inTable('users').onDelete('SET NULL')
+      table.integer('created_by').unsigned().nullable().references('id').inTable('users').onDelete('SET NULL')
       table.timestamp('follow_up_date').nullable()
+      table.string('city').nullable()
 
       table.timestamp('created_at')
       table.timestamp('updated_at')
