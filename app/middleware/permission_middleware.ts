@@ -20,6 +20,14 @@ export default class PermissionMiddleware {
       .preload('role', (q) => q.preload('permissions'))
       .firstOrFail()
 
+    const normalizedRoleName = String(fullUser.role?.roleName ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+
+    if (normalizedRoleName === 'superadmin') {
+      return next()
+    }
+
     const userPermissions = new Set<string>(
       (fullUser.role?.permissions ?? []).map((p) => p.name)
     )
