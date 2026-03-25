@@ -59,6 +59,7 @@ export default class SubscriptionsController {
     const limitCount = request.input('limit_count')
     const module = await Module.findOrFail(moduleId)
     const user = auth.user!
+    const batchModuleIds = request.input('batch_module_ids', [])
 
     // General check: Prevent duplicate active subscription for the exact same module
     const existingSameSub = await hotel.related('subscriptions')
@@ -76,9 +77,15 @@ export default class SubscriptionsController {
     }
 
     // Check for dependencies (e.g., Channel Manager requires PMS)
+
     if (module.slug === 'channel-manager') {
       const hasPMS = await hotel.hasAccessTo('pms')
-      if (!hasPMS) {
+
+      // Vérifier aussi si PMS est dans le même batch
+      const pmsModule = await Module.findBy('slug', 'pms')
+      const pmsInBatch = pmsModule && batchModuleIds.includes(pmsModule.id)
+
+      if (!hasPMS && !pmsInBatch) {
         return response.badRequest({
           message: 'You must have an active PMS subscription to purchase Channel Manager.',
           code: 'DEPENDENCY_MISSING'
