@@ -221,7 +221,7 @@ export default class ChannexMigrationController {
 
       // Step 4: Migrate Rate Plans
       migrationResults.steps.ratePlans.status = 'in_progress'
-      const ratePlansResult = await this.migrateRatePlans(hotelId, channexPropertyId, roomTypesResult.data)
+      const ratePlansResult = await this.migrateRatePlans(hotelId, channexPropertyId)
       migrationResults.steps.ratePlans = ratePlansResult
 
       if (ratePlansResult.error) {
@@ -391,12 +391,12 @@ export default class ChannexMigrationController {
         zip_code: hotel.postalCode,
         phone: hotel.phoneNumber!,
         email: hotel.email!,
-        website: hotel.website,
+        website: hotel.website ?? undefined,
         property_type: hotel.propertyType || 'hotel',
         group_id: channexGroup.data.id,
         content: {
-          description: hotel.description,
-          important_information: hotel.hotelPolicy
+          description: hotel.description ?? undefined,
+          important_information: hotel.hotelPolicy ?? undefined
         },
         longitude: hotel.longitude, // decimal number as string
         latitude: hotel.latitude,// decimal number as string
@@ -426,12 +426,12 @@ export default class ChannexMigrationController {
           min_stay_type: "both", // e.g., "both"
           min_price: hotel.minPrice,
           max_price: hotel.maxPrice,
-          state_length: hotel.stateLength,
+          state_length: hotel.stateLength ?? undefined,
           cut_off_time: hotel.cutOffTime || "00:00:00", // e.g., "00:00:00"
-          cut_off_days: hotel.cutOffDays,
-          max_day_advance: hotel.maxDayAdvance,
+          cut_off_days: hotel.cutOffDays ?? undefined,
+          max_day_advance: hotel.maxDayAdvance ?? undefined,
         },
-        logo_url: hotel.logoUrl
+        logo_url: hotel.logoUrl ?? undefined
       }
 
       // Step 3: Create property in Channex
@@ -605,7 +605,7 @@ export default class ChannexMigrationController {
   /**
    * Migrate rate plans to Channex
    */
-  private async migrateRatePlans(hotelId: string, channexPropertyId: string, roomTypes: any[]) {
+  private async migrateRatePlans(hotelId: string, channexPropertyId: string) {
     try {
       // Fetch room rates from local database
       const roomRates = await RoomRate.query()
@@ -1501,10 +1501,6 @@ export default class ChannexMigrationController {
         .map((b: any) => b?.attributes?.unique_id)
         .filter((v: any) => !!v)
 
-      const channexIds: string[] = ourBookings
-        .map((b: any) => b?.id)
-        .filter((v: any) => !!v)
-
       const existingReservations = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereIn('reservation_number', uniqueIds)
@@ -1563,7 +1559,6 @@ export default class ChannexMigrationController {
             // ============================================
             console.log(`🔄 Réservation existante trouvée: ${existingReservation.id}`)
 
-            const customerData = bookingData.customer || {}
             const totalAdults = bookingData.occupancy?.adults || 0
             const totalChildren = bookingData.occupancy?.children || 0
             const totalAmount = parseFloat(bookingData.amount || '0')
@@ -2024,6 +2019,7 @@ export default class ChannexMigrationController {
   ctx?: any
 ) {
   try {
+    void ctx
     const Department = (await import('#models/department')).default
     const ServiceUserAssignment = (await import('#models/service_user_assignment')).default
     const NotificationService = (await import('#services/notification_service')).default

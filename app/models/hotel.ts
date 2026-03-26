@@ -439,6 +439,12 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'channel_enable' })
   declare channelEnable: boolean
 
+  @column({ columnName: 'use_cashering' })
+  declare useCashering: boolean
+
+  @column({ columnName: 'use_channel' })
+  declare useChannel: boolean
+
   @column.dateTime({ columnName: 'last_migration_date' })
   declare lastMigrationDate: DateTime | null
 

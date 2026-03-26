@@ -221,7 +221,7 @@ export default class HotelsController {
 
       // Create default payment methods for the new hotel
       try {
-        await this.createDefaultPaymentMethods(hotel.id, createdByUserId, trx)
+        await this.createDefaultPaymentMethods(hotel.id, trx)
       } catch (paymentMethodError) {
         logger.error('Failed to create default payment methods for hotel', {
           hotelId: hotel.id,
@@ -392,6 +392,11 @@ export default class HotelsController {
       const hotel = await Hotel.findOrFail(params.id)
       const payload = await request.validateUsing(updateHotelValidator)
 
+      const isConsoleRequest = request.url().startsWith('/api/console/')
+      if (!isConsoleRequest && (payload.useCashering !== undefined || payload.useChannel !== undefined)) {
+        return response.forbidden({ message: 'These fields can only be updated from console' })
+      }
+
       hotel.merge({
         hotelName:          payload.name,
         description:        payload.description,
@@ -415,6 +420,12 @@ export default class HotelsController {
         cancellationPolicy: payload.cancellationPolicy,
         hotelPolicy:        payload.policies,
         lastModifiedBy:     auth.user?.id              || 0,
+        ...(isConsoleRequest && payload.useCashering !== undefined
+          ? { useCashering: payload.useCashering }
+          : {}),
+        ...(isConsoleRequest && payload.useChannel !== undefined
+          ? { useChannel: payload.useChannel }
+          : {}),
       })
 
       await hotel.save()
@@ -1411,7 +1422,7 @@ export default class HotelsController {
   /**
    * Create default payment methods for a new hotel
    */
-  private async createDefaultPaymentMethods(hotelId: number, userId?: number, trx?: any) {
+  private async createDefaultPaymentMethods(hotelId: number, trx?: any) {
     const paymentMethods = [
       {
         methodName: 'Master card',
