@@ -747,14 +747,21 @@ export default class ReportsController {
       // Get hotel information
       const hotel = await HotelModel.findOrFail(hotelId)
       // Generate all sections data
-      let auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
-      let roomsByStatus: any = {}
-      if (auditDetails && auditDetails?.roomStatusReportData) {
-        roomsByStatus = auditDetails?.roomStatusReportData
+      const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
+      let roomsByStatus: any
+      if (auditDetails && auditDetails.roomStatusReportData) {
+        roomsByStatus = auditDetails.roomStatusReportData
       } else {
-        roomsByStatus = this.generateNightAuditSections(hotelId, reportDate, 'XAF')
+        roomsByStatus = await this.getRoomStatusReportData(Number(hotelId), reportDate, 'XAF')
       }
-      logger.info(roomsByStatus)
+      const safeRoomsByStatus = {
+        occupied: Array.isArray(roomsByStatus?.occupied) ? roomsByStatus.occupied : [],
+        dueOut: Array.isArray(roomsByStatus?.dueOut) ? roomsByStatus.dueOut : [],
+        vacant: Array.isArray(roomsByStatus?.vacant) ? roomsByStatus.vacant : [],
+        departed: Array.isArray(roomsByStatus?.departed) ? roomsByStatus.departed : [],
+        reserved: Array.isArray(roomsByStatus?.reserved) ? roomsByStatus.reserved : [],
+        blocked: Array.isArray(roomsByStatus?.blocked) ? roomsByStatus.blocked : [],
+      }
       // Get authenticated user information
       const user = auth.user
       const printedBy = user
@@ -765,7 +772,7 @@ export default class ReportsController {
       const htmlContent = this.generateRoomStatusReportHtml(
         hotel.hotelName,
         reportDate,
-        roomsByStatus,
+        safeRoomsByStatus,
         printedBy
       )
 
