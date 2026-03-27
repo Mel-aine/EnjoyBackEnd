@@ -10326,7 +10326,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
       // Apply user filter
       if (by) {
-        query = query.where('voided_by_user_id', by)
+        query = query.where('voided_by', by)
       }
 
       const voidTransactions = await query.orderBy('voidedDate', 'desc').exec()
