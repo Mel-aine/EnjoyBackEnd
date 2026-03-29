@@ -14,69 +14,63 @@ export default class PickupDropoffReportsController {
       const payload = await request.validateUsing(createPickupDropoffReportValidator)
       const { startDate, endDate, type, hotelId } = payload
 
-      const startDateTime = DateTime.fromISO(startDate)
-      const endDateTime = DateTime.fromISO(endDate)
+      const startDateTime = DateTime.fromISO(startDate).startOf('day')
+      const endDateTime = DateTime.fromISO(endDate).endOf('day')
 
-      // Build query based on type
       let query = PickupsDropoffsLog.query()
         .preload('guest')
         .preload('hotel')
         .preload('transportationMode')
-        .preload('reservation',(reserQuery)=>{
-          reserQuery.preload('reservationRooms',(resQuery)=>{
+        .preload('reservation', (reserQuery) => {
+          reserQuery.preload('reservationRooms', (resQuery) => {
             resQuery.preload('room')
           })
         })
-        .where('scheduledDateTime', '>=', startDateTime.toSQLDate())
-        .where('scheduledDateTime', '<=', endDateTime.toSQLDate())
-        
+        .whereRaw(
+          `"scheduled_date_time"::date >= ?::date AND "scheduled_date_time"::date <= ?::date`,
+          [startDateTime.toSQLDate()!, endDateTime.toSQLDate()!]
+        )
 
       if (hotelId) {
         query = query.where('hotelId', hotelId)
       }
 
-      // Filter by pickup/dropoff requirements
-      if (type) {
-        query = query.where('serviceType',type)
-      } 
+      if (type && type !== 'Both') {
+        query = query.where('serviceType', type)
+      }
 
       const pickdata = await query.orderBy('scheduledDateTime', 'asc')
 
-      // Process data for pickup
-      const pickupData = pickdata
-        .filter(res => res.serviceType === 'Pickup')
-        .map(reservation => ({
-          hotelName: reservation.hotel.hotelName,
-          startDate: startDateTime.toFormat('yyyy-MM-dd'),
-          endDate: endDateTime.toFormat('yyyy-MM-dd'),
-          pickDropDateTime: reservation.scheduledDateTime ? 
-            reservation.scheduledDateTime.toFormat('yyyy-MM-dd HH:mm:ss') : 
-            reservation.actualDateTime?.toFormat('yyyy-MM-dd HH:mm:ss'),
-          guestName: `${reservation.guest.fullName}`,
-          roomNo: reservation.reservation?.reservationRooms[0]?.room?.roomNumber,
-          mode: reservation.transportationMode.name || 'Standard',
-          vehicle: reservation.externalVehicleMatriculation || '',
-          description: reservation.pickupPoint
-        }))
+     // Process data for pickup
+    const pickupData = pickdata
+      .filter(res => res.serviceType === 'Pickup')
+      .map(reservation => ({
+        hotelName: reservation.hotel.hotelName,
+        pickDropDateTime: reservation.scheduledDateTime ?
+          reservation.scheduledDateTime.toFormat('yyyy-MM-dd HH:mm:ss') :
+          reservation.actualDateTime?.toFormat('yyyy-MM-dd HH:mm:ss'),
+        guestName: `${reservation.guest.fullName}`,
+        roomNo: reservation.reservation?.reservationRooms[0]?.room?.roomNumber || 'N/A',
+        mode: reservation.transportationMode.name || 'Standard',
+        vehicle: reservation.externalVehicleMatriculation || '',
+        description: reservation.pickupPoint
+      }))
 
-      // Process data for dropoff
-      const dropoffData = pickdata
-        .filter(res => res.serviceType === 'Dropoff')
-        .map(reservation => ({
-          hotelName: reservation.hotel.hotelName,
-          startDate: startDateTime.toFormat('yyyy-MM-dd'),
-          endDate: endDateTime.toFormat('yyyy-MM-dd'),
-          pickDropDateTime: reservation.scheduledDateTime ? 
-            reservation.scheduledDateTime.toFormat('yyyy-MM-dd HH:mm:ss') : 
-            reservation.actualDateTime?.toFormat('yyyy-MM-dd HH:mm:ss'),
-          guestName: `${reservation.guest.displayName}`,
-          roomNo: reservation.reservation?.reservationRooms[0]?.room?.roomNumber || 'N/A',
-          mode: reservation.transportationMode.name,
-          vehicle: reservation.externalVehicleMatriculation,
-          description: reservation.dropoffPoint
-        }))
+    // Process data for dropoff
+    const dropoffData = pickdata
+      .filter(res => res.serviceType === 'Dropoff')
+      .map(reservation => ({
+        hotelName: reservation.hotel.hotelName,
+        pickDropDateTime: reservation.scheduledDateTime ?
+          reservation.scheduledDateTime.toFormat('yyyy-MM-dd HH:mm:ss') :
+          reservation.actualDateTime?.toFormat('yyyy-MM-dd HH:mm:ss'),
+        guestName: `${reservation.guest.displayName}`,
+        roomNo: reservation.reservation?.reservationRooms[0]?.room?.roomNumber || 'N/A',
+        mode: reservation.transportationMode.name,
+        vehicle: reservation.externalVehicleMatriculation || '',
+        description: reservation.dropoffPoint
+      }))
 
-      // Prepare response based on type
       const responseData: any = {}
 
       if (type === 'Pickup' || type === 'Both') {
@@ -92,7 +86,6 @@ export default class PickupDropoffReportsController {
           totalGuests: dropoffData.length
         }
       }
-
 
       return response.ok({
         success: true,

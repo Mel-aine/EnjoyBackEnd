@@ -93,6 +93,7 @@ router.group(() => {
     router.post('/confirmed', [ReportsController, 'export']).where('reportType', 'confirmedReservations')
     router.post('/cancelled', [ReportsController, 'export']).where('reportType', 'cancelledReservations')
     router.post('/no-show', [ReportsController, 'export']).where('reportType', 'noShowReservations')
+    router.post('/pickup-dropoff', [ReportsController, 'export']).where('reportType', 'pickupDropoff')
     router.post('/forecast', [ReportsController, 'generate']).where('reportType', 'reservationForecast')
     router.post('/void', [ReportsController, 'export']).where('reportType', 'voidReservations')
   }).prefix('/exports')
@@ -145,7 +146,7 @@ router.group(() => {
     router.post('/night-audit-report-pdf', [ReportsController, 'generateNightAuditReportPdf'])
     // Management report PDF
     router.post('/management-report-pdf', [ReportsController, 'generateManagementReportPdf'])
-    //Meal Plan Report 
+    //Meal Plan Report
     router.post('/MealPlan-report-pdf', [ReportsController, 'generateMealPlanReportPdf'])
 
     // Revenue By Rate Type reports

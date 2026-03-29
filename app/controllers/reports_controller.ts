@@ -354,6 +354,8 @@ export default class ReportsController {
           break
         case 'voidReservations':
           reportData = await ReportsService.getVoidReservations(reportFilters)
+         case 'pickupDropoff':
+          reportData = await ReportsService.getPickupDropoff(reportFilters)
           break
         default:
           return response.badRequest({
@@ -380,6 +382,7 @@ export default class ReportsController {
           })
       }
     } catch (error) {
+
       return response.internalServerError({
         success: false,
         message: "Erreur lors de l'export du rapport",
@@ -9517,7 +9520,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
    */
   async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
     try {
-      const { hotelId, dateFrom, dateTo, roomTypeId, floor } = request.body()
+      const { hotelId, dateFrom, dateTo, roomTypeId, floor ,roomTypeName } = request.body()
+
 
       // Validation des paramètres requis
       if (!dateFrom || !dateTo) {
@@ -9554,7 +9558,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       // Générer le contenu HTML pour le PDF (version simplifiée)
       const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
         roomAvailabilityData,
-        { dateFrom, dateTo, roomTypeId, floor },
+        { dateFrom, dateTo, roomTypeId, floor,roomTypeName },
         printedBy
       )
 
@@ -9599,11 +9603,12 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       dateFrom: string
       dateTo: string
       roomTypeId?: string
+      roomTypeName?: string
       floor?: string
     },
     printedBy: string = 'System'
   ): string {
-    const { dateFrom, dateTo, roomTypeId, floor } = options
+    const { dateFrom, dateTo, roomTypeId, floor,roomTypeName } = options
 
     // Calculs des statistiques à partir des données filtrées
     const rooms = reportData.data || []
@@ -9618,7 +9623,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
     // Filtres appliqués pour affichage
     const appliedFilters = []
-    if (roomTypeId) appliedFilters.push(`Type: ${this.getRoomTypeName(roomTypeId)}`)
+    if (roomTypeId) appliedFilters.push(`Type: ${roomTypeName}`)
     if (floor) appliedFilters.push(`Étage: ${floor}`)
 
     return `
@@ -10570,11 +10575,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
       // Apply status filter if provided
       if (status && status !== 'null') {
-        if (status === 'checked_in') {
-          query = query.where('reservationStatus', 'Checked-In')
-        } else if (status === 'checked_out') {
-          query = query.where('reservationStatus', 'Checked-Out')
-        }
+        query.where('status',status)
       }
 
       const reservations = await query.exec()

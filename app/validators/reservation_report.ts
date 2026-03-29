@@ -16,19 +16,19 @@ export const createReservationReportValidator = vine.compile(
     ratePlanId: vine.number().positive().optional(),
     company: vine.string().trim().optional(),
     travelAgent: vine.string().trim().optional(),
-    businessSource: vine.string().trim().optional(),
+    businessSource: vine.number().optional(),
     market: vine.string().trim().optional(),
     userId: vine.number().positive().optional(),
-    
+
     // Rate range filters
     rateFrom: vine.number().min(0).optional(),
     rateTo: vine.number().min(0).optional(),
-    
+
     // Reservation type and display options
-    reservationType: vine.string().trim().optional(),
+    reservationType: vine.number().optional(),
     showAmount: vine.enum(['rent_per_night', 'total_amount']).optional(),
     taxInclusive: vine.boolean().optional(),
-    
+
     // Additional columns for customization (max 5)
     selectedColumns: vine.array(
       vine.enum([
