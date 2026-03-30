@@ -569,7 +569,26 @@ export default class ReservationReportsController {
     if (payload.businessSource) query = query.where('businessSourceId', payload.businessSource)
     if (payload.market) query = query.where('market_code_id', payload.market)
     if (payload.user) query = query.where('createdBy', payload.userId)
-    if (payload.rateFrom && payload.rateTo) query = query.whereBetween('roomRate', [payload.rateFrom, payload.rateTo])
+     // Filtre par rate
+     if (payload.rateFrom !== undefined || payload.rateTo !== undefined) {
+      const rateField = 'room_rate'
+
+      if (payload.rateFrom !== undefined && payload.rateTo !== undefined) {
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [payload.rateFrom!, payload.rateTo!])
+        })
+
+      } else if (payload.rateFrom !== undefined) {
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', payload.rateFrom!)
+        })
+      } else if (payload.rateTo !== undefined) {
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', payload.rateTo!)
+        })
+
+      }
+    }
     if (payload.reservationType) query = query.where('reservationTypeId', payload.reservationType)
     if (payload.taxInclusive) query = query.where('taxExempt', true)
 
@@ -677,7 +696,27 @@ export default class ReservationReportsController {
     if (payload.businessSource) query = query.where('businessSourceId', payload.businessSource)
     if (payload.market) query = query.where('market_code_id', payload.market)
     if (payload.user) query = query.where('createdBy', payload.userId)
-    if (payload.rateFrom && payload.rateTo) query = query.whereBetween('roomRate', [payload.rateFrom, payload.rateTo])
+        if (payload.rateFrom !== undefined || payload.rateTo !== undefined) {
+      const rateField = payload.showAmount === 'rent_per_night'
+        ? 'room_rate'
+        : 'total_estimated_revenue'
+
+      if (payload.rateFrom !== undefined && payload.rateTo !== undefined) {
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [payload.rateFrom!, payload.rateTo!])
+        })
+
+      } else if (payload.rateFrom !== undefined) {
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', payload.rateFrom!)
+        })
+      } else if (payload.rateTo !== undefined) {
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', payload.rateTo!)
+        })
+
+      }
+    }
     if (payload.reservationType) query = query.where('reservationTypeId', payload.reservationType)
     if (payload.taxInclusive) query = query.where('taxExempt', true)
 
@@ -777,7 +816,26 @@ export default class ReservationReportsController {
     if (payload.businessSource) query = query.where('businessSourceId', payload.businessSource)
     if (payload.market) query = query.where('market_code_id', payload.market)
     if (payload.user) query = query.where('createdBy', payload.userId)
-    if (payload.rateFrom && payload.rateTo) query = query.whereBetween('roomRate', [payload.rateFrom, payload.rateTo])
+
+     if (payload.rateFrom !== undefined || payload.rateTo !== undefined) {
+      const rateField = 'room_rate'
+
+      if (payload.rateFrom !== undefined && payload.rateTo !== undefined) {
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [payload.rateFrom!, payload.rateTo!])
+        })
+
+      } else if (payload.rateFrom !== undefined) {
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', payload.rateFrom!)
+        })
+      } else if (payload.rateTo !== undefined) {
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', payload.rateTo!)
+        })
+
+      }
+    }
     if (payload.reservationType) query = query.where('reservationTypeId', payload.reservationType)
     if (payload.taxInclusive) query = query.where('taxExempt', true)
 

@@ -159,11 +159,19 @@ export class ReservationReportsService {
         : 'total_estimated_revenue'
 
       if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
-        query.whereBetween(rateField, [filters.rateFrom, filters.rateTo])
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [filters.rateFrom!, filters.rateTo!])
+        })
+
       } else if (filters.rateFrom !== undefined) {
-        query.where(rateField, '>=', filters.rateFrom)
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', filters.rateFrom!)
+        })
       } else if (filters.rateTo !== undefined) {
-        query.where(rateField, '<=', filters.rateTo)
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', filters.rateTo!)
+        })
+
       }
     }
 
@@ -451,17 +459,25 @@ export class ReservationReportsService {
 
 
     // Filtre fourchette de prix
-    if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
+      if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
       const rateField = filters.showAmount === 'rent_per_night'
         ? 'room_rate'
         : 'total_estimated_revenue'
 
       if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
-        query.whereBetween(rateField, [filters.rateFrom, filters.rateTo])
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [filters.rateFrom!, filters.rateTo!])
+        })
+
       } else if (filters.rateFrom !== undefined) {
-        query.where(rateField, '>=', filters.rateFrom)
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', filters.rateFrom!)
+        })
       } else if (filters.rateTo !== undefined) {
-        query.where(rateField, '<=', filters.rateTo)
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', filters.rateTo!)
+        })
+
       }
     }
 
@@ -652,9 +668,25 @@ export class ReservationReportsService {
         q.whereHas('roomRates', (rq) => { rq.where('rateTypeId', filters.ratePlanId!) })
       })
     }
-    // Filtre par compagnie
-    if (filters.rateFrom && filters.rateTo) {
-      query.whereBetween('roomRate', [filters.rateFrom, filters.rateTo])
+    // Filtre par rate
+     if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
+      const rateField = 'room_rate'
+
+      if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [filters.rateFrom!, filters.rateTo!])
+        })
+
+      } else if (filters.rateFrom !== undefined) {
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', filters.rateFrom!)
+        })
+      } else if (filters.rateTo !== undefined) {
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', filters.rateTo!)
+        })
+
+      }
     }
 
 
@@ -790,6 +822,27 @@ export class ReservationReportsService {
 
     if (filters.company) {
       query.where('company_code', filters.company)
+    }
+
+     // Filtre par rate
+     if (filters.rateFrom !== undefined || filters.rateTo !== undefined) {
+      const rateField = 'room_rate'
+
+      if (filters.rateFrom !== undefined && filters.rateTo !== undefined) {
+        query.whereHas('reservationRooms',(q)=>{
+          q.whereBetween(rateField, [filters.rateFrom!, filters.rateTo!])
+        })
+
+      } else if (filters.rateFrom !== undefined) {
+          query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '>=', filters.rateFrom!)
+        })
+      } else if (filters.rateTo !== undefined) {
+         query.whereHas('reservationRooms',(q)=>{
+          q.where(rateField, '<=', filters.rateTo!)
+        })
+
+      }
     }
 
     const reservations = await query
