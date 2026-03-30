@@ -2589,8 +2589,29 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .whereDoesntHave('roomType', (rtQuery) => {
           rtQuery.where('is_paymaster', true)
         })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'folioType', 'reservationRoomId'])
+        })
         .preload('reservation', (resQ) => {
-          resQ.preload('guest').preload('bookingSource')
+          resQ
+            .preload('guest')
+            .preload('bookingSource')
+            .preload('folios', (folioQuery) => {
+              folioQuery.preload('transactions', (tq) => {
+                tq.select([
+                  'id',
+                  'folioId',
+                  'transactionType',
+                  'category',
+                  'status',
+                  'isVoided',
+                  'totalAmount',
+                  'taxAmount',
+                  'serviceChargeAmount',
+                  'discountAmount',
+                ])
+              })
+            })
         })
         .preload('guest')
         .preload('room', (roomQ) => {
@@ -2603,12 +2624,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok({
         success: true,
         count: rows.length,
-        data: rows.map((rr) => {
+        data: (() => {
+          const balanceByReservationId = new Map<number, any>()
+
+          return rows.map((rr) => {
           const res = rr.reservation
           const guest = res?.guest || rr.guest
+          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+          const selectedFolio = masterFolio || rr.folios?.[0]
+          const reservationId = res?.id || rr.reservationId
+          let balanceSummary: any = undefined
+
+          if (reservationId && res?.folios) {
+            if (!balanceByReservationId.has(reservationId)) {
+              balanceByReservationId.set(
+                reservationId,
+                ReservationsController.calculateBalanceSummary(res.folios)
+              )
+            }
+            balanceSummary = balanceByReservationId.get(reservationId)
+          }
+
           return {
             reservationRoomId: rr.id,
-            reservationId: res?.id || rr.reservationId,
+            reservationId,
             reservationNumber: res?.reservationNumber,
             reservationStatus: res?.status,
             guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
@@ -2624,9 +2663,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
             rateTypeId: rr.rateTypeId,
             rateTypeName: rr.rateType?.rateTypeName,
             bookingSource: res?.bookingSource?.sourceName,
+            folioNumber: selectedFolio?.folioNumber,
+            isMaster: selectedFolio?.folioType === FolioType.MASTER,
+            balanceSummary,
             status: rr.status,
           }
-        }),
+        })
+        })(),
         filters: { startDate: start, endDate: end, hotelId },
       })
     } catch (error) {
@@ -2660,8 +2703,29 @@ export default class ReservationsController extends CrudController<typeof Reserv
         .whereDoesntHave('roomType', (rtQuery) => {
           rtQuery.where('is_paymaster', true)
         })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'folioType', 'reservationRoomId'])
+        })
         .preload('reservation', (resQ) => {
-          resQ.preload('guest').preload('bookingSource')
+          resQ
+            .preload('guest')
+            .preload('bookingSource')
+            .preload('folios', (folioQuery) => {
+              folioQuery.preload('transactions', (tq) => {
+                tq.select([
+                  'id',
+                  'folioId',
+                  'transactionType',
+                  'category',
+                  'status',
+                  'isVoided',
+                  'totalAmount',
+                  'taxAmount',
+                  'serviceChargeAmount',
+                  'discountAmount',
+                ])
+              })
+            })
         })
         .preload('guest')
         .preload('room', (roomQ) => {
@@ -2674,12 +2738,30 @@ export default class ReservationsController extends CrudController<typeof Reserv
       return response.ok({
         success: true,
         count: rows.length,
-        data: rows.map((rr) => {
+        data: (() => {
+          const balanceByReservationId = new Map<number, any>()
+
+          return rows.map((rr) => {
           const res = rr.reservation
           const guest = res?.guest || rr.guest
+          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+          const selectedFolio = masterFolio || rr.folios?.[0]
+          const reservationId = res?.id || rr.reservationId
+          let balanceSummary: any = undefined
+
+          if (reservationId && res?.folios) {
+            if (!balanceByReservationId.has(reservationId)) {
+              balanceByReservationId.set(
+                reservationId,
+                ReservationsController.calculateBalanceSummary(res.folios)
+              )
+            }
+            balanceSummary = balanceByReservationId.get(reservationId)
+          }
+
           return {
             reservationRoomId: rr.id,
-            reservationId: res?.id || rr.reservationId,
+            reservationId,
             reservationNumber: res?.reservationNumber,
             reservationStatus: res?.status,
             guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
@@ -2695,9 +2777,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
             rateTypeId: rr.rateTypeId,
             rateTypeName: rr.rateType?.rateTypeName,
             bookingSource: res?.bookingSource?.sourceName,
+            folioNumber: selectedFolio?.folioNumber,
+            isMaster: selectedFolio?.folioType === FolioType.MASTER,
+            balanceSummary,
             status: rr.status,
           }
-        }),
+        })
+        })(),
         filters: { startDate: start, endDate: end, hotelId },
       })
     } catch (error) {
