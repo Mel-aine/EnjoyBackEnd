@@ -544,8 +544,8 @@ export default class ReportsController {
         .where('is_voided', false)
         .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
         .sum('amount as total')
-      const todayPayments = Number((todayPaymentsRow[0] as any).$extras.sum || 0)
-      const yesterdayPayments = Number((yesterdayPaymentsRow[0] as any).$extras.sum || 0)
+      const todayPayments = Number((todayPaymentsRow[0] as any).$extras.total  || 0)
+      const yesterdayPayments = Number((yesterdayPaymentsRow[0] as any).$extras.total  || 0)
 
       const todayChargesRow = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -559,8 +559,8 @@ export default class ReportsController {
         .where('is_voided', false)
         .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
         .sum('total_amount as total')
-      const todayRevenue = Number((todayChargesRow[0] as any).$extras.sum || 0)
-      const yesterdayRevenue = Number((yesterdayChargesRow[0] as any).$extras.sum || 0)
+      const todayRevenue = Number((todayChargesRow[0] as any).$extras.total  || 0)
+      const yesterdayRevenue = Number((yesterdayChargesRow[0] as any).$extras.total  || 0)
 
       // Room revenue for ADR/RevPAR: only ROOM category
       const todayRoomRevenueRow = await FolioTransaction.query()
@@ -577,8 +577,8 @@ export default class ReportsController {
         .where('is_voided', false)
         .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
         .sum('total_amount as total')
-      const todayRoomRevenue = Number((todayRoomRevenueRow[0] as any).$extras.sum || 0)
-      const yesterdayRoomRevenue = Number((yesterdayRoomRevenueRow[0] as any).$extras.sum || 0)
+      const todayRoomRevenue = Number((todayRoomRevenueRow[0] as any).$extras.total  || 0)
+      const yesterdayRoomRevenue = Number((yesterdayRoomRevenueRow[0] as any).$extras.total  || 0)
 
       const adrToday = soldRooms > 0 ? todayRoomRevenue / soldRooms : 0
       const soldRoomsYesterdayRows = await ReservationRoom.query()
@@ -608,7 +608,9 @@ export default class ReportsController {
           const b = r.bookingDate || r.reservationDatetime
           const a = r.arrivedDate
           if (!b || !a) return null
-          return a.diff(DateTime.fromJSDate(new Date(b.toString())), 'days').days
+          const bookingDT = (DateTime.isDateTime(b) ? b : DateTime.fromISO(b.toString())).startOf('day')
+          const arrivedDT = (DateTime.isDateTime(a) ? a : a).startOf('day')
+            return arrivedDT.diff(bookingDT, 'days').days
         })
         .filter((d: number | null) => typeof d === 'number') as number[]
       const avgLeadToday =
@@ -625,7 +627,9 @@ export default class ReportsController {
           const b = r.bookingDate || r.reservationDatetime
           const a = r.arrivedDate
           if (!b || !a) return null
-          return a.diff(DateTime.fromJSDate(new Date(b.toString())), 'days').days
+          const bookingDT = (DateTime.isDateTime(b) ? b : DateTime.fromISO(b.toString())).startOf('day')
+          const arrivedDT = (DateTime.isDateTime(a) ? a : a).startOf('day')
+          return arrivedDT.diff(bookingDT, 'days').days
         })
         .filter((d: number | null) => typeof d === 'number') as number[]
       const avgLeadYesterday =
