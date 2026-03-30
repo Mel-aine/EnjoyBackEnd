@@ -8,6 +8,7 @@ import Subscription from '#models/subscription'
 import Module from '#models/module'
 import AddOn from '#models/add_on'
 import PdfService from '#services/pdf_service'
+import MailService from '#services/mail_service'
 import { formatCurrency } from '#app/utils/utilities'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
@@ -146,14 +147,14 @@ export default class InvoiceSubscriptionsController {
         createdBy: user.id,
       })
 
-      const existingReceiptForPayment = await InvoiceSubscriptionReceipt.query()
+      let receipt = await InvoiceSubscriptionReceipt.query()
         .where('invoice_subscription_payment_id', payment.id)
         .first()
 
-      if (!existingReceiptForPayment) {
+      if (!receipt) {
         const receiptNumber = `RCP-SUB-${DateTime.now().toFormat('yyyyMMdd')}-${DateTime.now().toFormat('HHmmss')}-${payment.id}`
 
-        await InvoiceSubscriptionReceipt.create({
+        receipt = await InvoiceSubscriptionReceipt.create({
           receiptNumber,
           invoiceSubscriptionId: invoice.id,
           invoiceSubscriptionPaymentId: payment.id,
@@ -167,6 +168,8 @@ export default class InvoiceSubscriptionsController {
           createdBy: user.id,
         })
       }
+
+      await this.sendInvoiceAndReceiptByEmail(invoice.id, receipt.id, user)
     }
 
     await ActivityLog.create({
@@ -236,6 +239,8 @@ export default class InvoiceSubscriptionsController {
       notes: payment.notes,
       createdBy: user.id,
     })
+
+    await this.sendInvoiceAndReceiptByEmail(invoice.id, receipt.id, user)
 
     return response.created({ success: true, payment, receipt })
   }
@@ -795,5 +800,279 @@ export default class InvoiceSubscriptionsController {
     response.header('Content-Type', 'application/pdf')
     response.header('Content-Disposition', `inline; filename="receipt-${receipt.receiptNumber}.pdf"`)
     return response.send(pdfBuffer)
+  }
+
+  private async getLogoDataUri() {
+    const path = await import('node:path')
+    const { readFile } = await import('node:fs/promises')
+
+    try {
+      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png'))
+      return `data:image/png;base64,${logoBuffer.toString('base64')}`
+    } catch {
+      return ''
+    }
+  }
+
+  private async getSubscriptionInvoiceLines(invoice: InvoiceSubscription) {
+    const subs = await invoice
+      .related('subscriptions')
+      .query()
+      .pivotColumns(['line_amount', 'description', 'period_start', 'period_end'])
+      .preload('module')
+      .preload('addOn')
+
+    let lines: any[] = subs.map((sub: any) => {
+      const periodStart = sub.$extras?.pivot_period_start
+      const periodEnd = sub.$extras?.pivot_period_end
+      return {
+        moduleName: sub?.module?.name ?? 'Subscription',
+        addOnName: sub?.addOn?.name ?? null,
+        billingCycle: sub?.billingCycle ?? null,
+        lineAmount: Number(sub.$extras?.pivot_line_amount || 0),
+        description: sub.$extras?.pivot_description ?? null,
+        periodStart: periodStart ? DateTime.fromJSDate(periodStart).toISODate() : null,
+        periodEnd: periodEnd ? DateTime.fromJSDate(periodEnd).toISODate() : null,
+      }
+    })
+
+    if (lines.length === 0) {
+      const items = await db
+        .from('invoice_subscription_items')
+        .select(['subscription_id', 'line_amount', 'description', 'period_start', 'period_end'])
+        .where('invoice_subscription_id', invoice.id)
+
+      const subscriptionIds = items.map((r: any) => Number(r.subscription_id)).filter((v) => Number.isFinite(v))
+      const subscriptions = subscriptionIds.length
+        ? await Subscription.query().whereIn('id', subscriptionIds).preload('module').preload('addOn')
+        : []
+
+      const subscriptionById = new Map<number, any>(subscriptions.map((s) => [s.id, s]))
+      lines = items.map((r: any) => {
+        const sub = subscriptionById.get(Number(r.subscription_id))
+        return {
+          moduleName: sub?.module?.name ?? 'Subscription',
+          addOnName: sub?.addOn?.name ?? null,
+          billingCycle: sub?.billingCycle ?? null,
+          lineAmount: Number(r.line_amount || 0),
+          description: r.description ?? null,
+          periodStart: null,
+          periodEnd: null,
+        }
+      })
+    }
+
+    return lines
+  }
+
+  private async buildInvoicePdfBuffer(invoice: InvoiceSubscription, user: any) {
+    const { default: edge } = await import('edge.js')
+    const path = await import('node:path')
+
+    edge.mount(path.join(process.cwd(), 'resources/views'))
+
+    const lines = await this.getSubscriptionInvoiceLines(invoice)
+    const logoDataUri = await this.getLogoDataUri()
+
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const subtotalAmount = lines.reduce((sum, l: any) => sum + Number(l.lineAmount || 0), 0)
+    const totalAmount = Number(invoice.totalAmount || 0)
+    const amountDue = invoice.status === 'paid' ? 0 : totalAmount
+
+    const invoiceData = {
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingDate: invoice.billingDate?.toISODate() ?? '',
+      periodStart: periodStartLabel,
+      periodEnd: periodEndLabel,
+      status: invoice.status,
+      totalAmount: formatCurrency(totalAmount),
+      subtotalAmount: formatCurrency(subtotalAmount),
+      amountDue: formatCurrency(amountDue),
+      currency: invoice.currency,
+      paidAt: invoice.paidAt?.toISODate() ?? '',
+      billingFrom: invoice.billingFrom ?? null,
+    }
+
+    let templateLines = lines.map((l: any) => {
+      const addOnName = l.addOnName ? ` - ${l.addOnName}` : ''
+      const extra = l.description ? ` / ${l.description}` : ''
+      const unitPrice = Number(l.lineAmount || 0)
+      return {
+        description: `${l.moduleName}${addOnName}${extra}`,
+        qty: '1',
+        unitPrice: formatCurrency(unitPrice),
+        amount: formatCurrency(unitPrice),
+      }
+    })
+    if (templateLines.length === 0) {
+      const unitPrice = Number(invoice.totalAmount || 0)
+      templateLines = [
+        { description: 'Subscription', qty: '1', unitPrice: formatCurrency(unitPrice), amount: formatCurrency(unitPrice) },
+      ]
+    }
+
+    const printedAt = DateTime.now().toFormat('yyyy-LL-dd HH:mm:ss')
+    const printedBy = user?.username || user?.email || 'System'
+
+    const html = await edge.render('reports/subscription_invoice', {
+      invoice: invoiceData,
+      hotel: invoice.hotel,
+      lines: templateLines,
+      printedAt,
+      printedBy,
+      logoDataUri,
+    })
+
+    return PdfService.generatePdfFromHtml(html, {
+      format: 'A4',
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+    })
+  }
+
+  private async buildReceiptPdfBuffer(invoice: InvoiceSubscription, receipt: InvoiceSubscriptionReceipt) {
+    const { default: edge } = await import('edge.js')
+    const path = await import('node:path')
+
+    edge.mount(path.join(process.cwd(), 'resources/views'))
+
+    const lines = await this.getSubscriptionInvoiceLines(invoice)
+    const logoDataUri = await this.getLogoDataUri()
+
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const subtotalAmount = lines.reduce((sum, l: any) => sum + Number(l.lineAmount || 0), 0)
+    const totalAmount = Number(invoice.totalAmount || 0)
+    const amountDue = invoice.status === 'paid' ? 0 : totalAmount
+
+    const invoiceData = {
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingDate: invoice.billingDate?.toISODate() ?? '',
+      periodStart: periodStartLabel,
+      periodEnd: periodEndLabel,
+      status: invoice.status,
+      totalAmount: formatCurrency(totalAmount),
+      subtotalAmount: formatCurrency(subtotalAmount),
+      amountDue: formatCurrency(amountDue),
+      currency: invoice.currency,
+      paidAt: invoice.paidAt?.toISODate() ?? '',
+      billingFrom: invoice.billingFrom ?? null,
+    }
+
+    const receiptData = {
+      id: receipt.id,
+      receiptNumber: receipt.receiptNumber,
+      amount: formatCurrency(Number(receipt.amount || 0)),
+      currency: receipt.currency,
+      paymentDate: receipt.paymentDate?.toISODate() ?? '',
+      paymentMethod: receipt.paymentMethod ?? '',
+      transactionReference: receipt.transactionReference ?? '',
+      notes: receipt.notes ?? '',
+    }
+
+    const [payments, receipts] = await Promise.all([
+      InvoiceSubscriptionPayment.query()
+        .where('invoice_subscription_id', invoice.id)
+        .orderBy('payment_date', 'asc'),
+      InvoiceSubscriptionReceipt.query()
+        .where('invoice_subscription_id', invoice.id)
+        .select(['receipt_number', 'invoice_subscription_payment_id']),
+    ])
+
+    const receiptNumberByPaymentId = new Map<number, string>()
+    for (const r of receipts as any[]) {
+      const paymentId = Number(r.invoiceSubscriptionPaymentId ?? r.invoice_subscription_payment_id)
+      if (Number.isFinite(paymentId)) {
+        receiptNumberByPaymentId.set(paymentId, String(r.receiptNumber ?? r.receipt_number ?? ''))
+      }
+    }
+
+    const paymentHistory = (payments as any[])
+      .filter((p) => Number(p.amount || 0) > 0)
+      .map((p) => ({
+        paymentMethod: p.paymentMethod ?? '',
+        paymentDate: p.paymentDate ? p.paymentDate.toFormat('LLLL d, yyyy') : '',
+        amountPaid: formatCurrency(Number(p.amount || 0)),
+        currency: p.currency ?? invoice.currency,
+        receiptNumber: receiptNumberByPaymentId.get(p.id) ?? '',
+      }))
+
+    const showPaymentHistory = Number(receipt.amount || 0) > 0 && paymentHistory.length > 0
+
+    let templateLines = lines.map((l: any) => {
+      const addOnName = l.addOnName ? ` - ${l.addOnName}` : ''
+      const extra = l.description ? ` / ${l.description}` : ''
+      const unitPrice = Number(l.lineAmount || 0)
+      return {
+        description: `${l.moduleName}${addOnName}${extra}`,
+        qty: '1',
+        unitPrice: formatCurrency(unitPrice),
+        amount: formatCurrency(unitPrice),
+      }
+    })
+    if (templateLines.length === 0) {
+      const unitPrice = Number(invoice.totalAmount || 0)
+      templateLines = [
+        { description: 'Subscription', qty: '1', unitPrice: formatCurrency(unitPrice), amount: formatCurrency(unitPrice) },
+      ]
+    }
+
+    const html = await edge.render('reports/subscription_receipt', {
+      receipt: receiptData,
+      invoice: invoiceData,
+      hotel: invoice.hotel,
+      lines: templateLines,
+      paymentHistory,
+      showPaymentHistory,
+      logoDataUri,
+    })
+
+    return PdfService.generatePdfFromHtml(html, {
+      format: 'A4',
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+    })
+  }
+
+  private async sendInvoiceAndReceiptByEmail(invoiceId: number, receiptId: number, user: any) {
+    const invoice = await InvoiceSubscription.query().where('id', invoiceId).preload('hotel').first()
+    if (!invoice) return
+
+    const receipt = await InvoiceSubscriptionReceipt.query().where('id', receiptId).first()
+    if (!receipt) return
+
+    const to = invoice.hotel?.email
+    if (!to) return
+
+    const [invoicePdfBuffer, receiptPdfBuffer] = await Promise.all([
+      this.buildInvoicePdfBuffer(invoice, user),
+      this.buildReceiptPdfBuffer(invoice, receipt),
+    ])
+
+    const subject = `Paiement reçu - Facture ${invoice.invoiceNumber}`
+    const html = `
+      <div style="font-family: Arial, sans-serif; color: #111;">
+        <p>Bonjour,</p>
+        <p>Votre paiement a bien été reçu.</p>
+        <p>Vous trouverez en pièces jointes la facture et le reçu.</p>
+        <p>
+          Facture: <strong>${invoice.invoiceNumber}</strong><br />
+          Reçu: <strong>${receipt.receiptNumber}</strong>
+        </p>
+        <p>Cordialement,</p>
+        <p>Enjoy</p>
+      </div>
+    `
+
+    await MailService.sendWithAttachments({
+      to,
+      subject,
+      html,
+      attachments: [
+        { filename: `invoice-${invoice.invoiceNumber}.pdf`, content: invoicePdfBuffer, contentType: 'application/pdf' },
+        { filename: `receipt-${receipt.receiptNumber}.pdf`, content: receiptPdfBuffer, contentType: 'application/pdf' },
+      ],
+    })
   }
 }
