@@ -2567,6 +2567,118 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+  public async getArrivalsByDateRange({ request, response }: HttpContext) {
+    try {
+      const hotelId = Number(request.param('id'))
+      const { startDate = '', endDate = '' } = request.qs()
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'Invalid hotel id' })
+      }
+
+      const start = DateTime.fromISO(String(startDate)).toISODate()
+      const end = DateTime.fromISO(String(endDate)).toISODate()
+      if (!start || !end) {
+        return response.badRequest({ success: false, message: 'startDate and endDate are required' })
+      }
+
+      const reservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('arrived_date', [start, end])
+        .whereIn('status', ['confirmed', 'checked_in'])
+        .preload('guest')
+        .preload('roomType')
+        .preload('bookingSource')
+        .preload('businessSource')
+        .preload('reservationType', (sQuery: any) => {
+          sQuery.select(['id', 'name'])
+        })
+        .preload('discount')
+        .preload('paymentMethod')
+        .preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false)
+              .whereNot('status', TransactionStatus.VOIDED)
+              .whereNull('mealPlanId')
+          })
+        })
+        .preload('reservationRooms', (rspQuery) => {
+          rspQuery.preload('room').preload('rateType', (sQuery: any) => {
+            sQuery.select(['id', 'rate_type_name'])
+          })
+        })
+        .orderBy('arrived_date', 'asc')
+
+      return response.ok({
+        success: true,
+        data: reservations,
+        filters: { startDate: start, endDate: end, hotelId },
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to fetch arrivals',
+        error: error.message,
+      })
+    }
+  }
+
+  public async getDeparturesByDateRange({ request, response }: HttpContext) {
+    try {
+      const hotelId = Number(request.param('id'))
+      const { startDate = '', endDate = '' } = request.qs()
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'Invalid hotel id' })
+      }
+
+      const start = DateTime.fromISO(String(startDate)).toISODate()
+      const end = DateTime.fromISO(String(endDate)).toISODate()
+      if (!start || !end) {
+        return response.badRequest({ success: false, message: 'startDate and endDate are required' })
+      }
+
+      const reservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('depart_date', [start, end])
+        .whereIn('status', ['checked_in', 'checked_out'])
+        .preload('guest')
+        .preload('roomType')
+        .preload('bookingSource')
+        .preload('businessSource')
+        .preload('reservationType', (sQuery: any) => {
+          sQuery.select(['id', 'name'])
+        })
+        .preload('discount')
+        .preload('paymentMethod')
+        .preload('folios', (folioQuery) => {
+          folioQuery.preload('transactions', (tq) => {
+            tq.where('isVoided', false)
+              .whereNot('status', TransactionStatus.VOIDED)
+              .whereNull('mealPlanId')
+          })
+        })
+        .preload('reservationRooms', (rspQuery) => {
+          rspQuery.preload('room').preload('rateType', (sQuery: any) => {
+            sQuery.select(['id', 'rate_type_name'])
+          })
+        })
+        .orderBy('depart_date', 'asc')
+
+      return response.ok({
+        success: true,
+        data: reservations,
+        filters: { startDate: start, endDate: end, hotelId },
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to fetch departures',
+        error: error.message,
+      })
+    }
+  }
+
   /**
    * List in-house reservations filtered by roomId and roomTypeId
    * Returns ReservationRoom rows with related reservation, guest, room, roomType, rateType
