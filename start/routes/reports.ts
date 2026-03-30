@@ -256,6 +256,9 @@ router.group(() => {
 
   // New Report Endpoints
   router.group(() => {
+    // Property Dashboard (Today vs Yesterday metrics)
+    router.get('/property-dashboard', [ReportsController, 'getPropertyDashboardStats'])
+
     // Pickup/Dropoff Guest Report
     router.post('/pickup-dropoff', [PickupDropoffReportsController, 'generate'])
 
