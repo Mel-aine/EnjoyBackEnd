@@ -2666,7 +2666,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             folioNumber: selectedFolio?.folioNumber,
             isMaster: selectedFolio?.folioType === FolioType.MASTER,
             balanceSummary,
-            status: rr.status,
+            status: res?.status,
           }
         })
         })(),
@@ -2764,7 +2764,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             reservationId,
             reservationNumber: res?.reservationNumber,
             reservationStatus: res?.status,
-            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+            guestName: guest ? `${guest.displayName||''}`.trim() : '—',
             roomId: rr.roomId,
             roomNumber: rr.room?.roomNumber,
             roomTypeId: rr.roomTypeId,
@@ -2780,7 +2780,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             folioNumber: selectedFolio?.folioNumber,
             isMaster: selectedFolio?.folioType === FolioType.MASTER,
             balanceSummary,
-            status: rr.status,
+            status: res.status,
           }
         })
         })(),
@@ -2829,7 +2829,31 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       query
         .preload('reservation', (resQ) => {
-          resQ.preload('guest').preload('bookingSource')
+          resQ
+            .preload('guest')
+            .preload('bookingSource')
+            .preload('folios', (folioQuery) => {
+              folioQuery.preload('transactions', (tq) => {
+                tq.select([
+                  'id',
+                  'folioId',
+                  'transactionType',
+                  'category',
+                  'status',
+                  'isVoided',
+                  'totalAmount',
+                  'taxAmount',
+                  'serviceChargeAmount',
+                  'discountAmount',
+                ])
+              })
+            })
+        })
+        .whereDoesntHave('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'folioType', 'reservationRoomId'])
         })
         .preload('guest')
         .preload('room', (roomQ) => {
@@ -2840,28 +2864,59 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const rows = await query
 
-      const data = rows.map((rr) => {
-        const res = rr.reservation
-        const guest = res?.guest || rr.guest
-        return {
-          reservationRoomId: rr.id,
-          reservationId: res?.id || rr.reservationId,
-          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
-          roomId: rr.roomId,
-          roomNumber: rr.room?.roomNumber,
-          roomTypeId: rr.roomTypeId,
-          roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
-          checkInDate: rr.checkInDate?.toISODate?.() || undefined,
-          checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
-          nights: rr.nights,
-          rateTypeId: rr.rateTypeId,
-          rateTypeName: rr.rateType?.rateTypeName,
-          bookingSource: res?.bookingSource?.sourceName,
-          status: rr.status,
-        }
-      })
+      const data = (() => {
+        const balanceByReservationId = new Map<number, any>()
 
-      return response.ok({ success: true, count: data.length, data })
+        return rows.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+          const selectedFolio = masterFolio || rr.folios?.[0]
+          const reservationId = res?.id || rr.reservationId
+          let balanceSummary: any = undefined
+
+          if (reservationId && res?.folios) {
+            if (!balanceByReservationId.has(reservationId)) {
+              balanceByReservationId.set(
+                reservationId,
+                ReservationsController.calculateBalanceSummary(res.folios)
+              )
+            }
+            balanceSummary = balanceByReservationId.get(reservationId)
+          }
+
+          return {
+            reservationRoomId: rr.id,
+            reservationId,
+            reservationNumber: res?.reservationNumber,
+            reservationStatus: res?.status,
+            guestName: guest ? `${guest.displayName || ''}`.trim() : '—',
+            roomId: rr.roomId,
+            roomNumber: rr.room?.roomNumber,
+            roomTypeId: rr.roomTypeId,
+            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+            nights: rr.nights,
+            adults: rr.adults,
+            children: rr.children,
+            rateTypeId: rr.rateTypeId,
+            rateTypeName: rr.rateType?.rateTypeName,
+            bookingSource: res?.bookingSource?.sourceName,
+            folioNumber: selectedFolio?.folioNumber,
+            isMaster: selectedFolio?.folioType === FolioType.MASTER,
+            balanceSummary,
+            status: res.status,
+          }
+        })
+      })()
+
+      return response.ok({
+        success: true,
+        count: data.length,
+        data,
+        filters: { hotelId, roomId, roomTypeId },
+      })
     } catch (error) {
       logger.error('Error fetching in-house reservations:', error)
       return response
