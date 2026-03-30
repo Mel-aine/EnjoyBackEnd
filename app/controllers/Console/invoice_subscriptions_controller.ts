@@ -527,8 +527,8 @@ export default class InvoiceSubscriptionsController {
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {}
 
-    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
-    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.setLocale('en').toFormat('LLL dd, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.setLocale('en').toFormat('LLL dd, yyyy') : ''
     const subtotalAmount = lines.reduce((sum, l: any) => sum + Number(l.lineAmount || 0), 0)
     const totalAmount = Number(invoice.totalAmount || 0)
     const amountDue = invoice.status === 'paid' ? 0 : totalAmount
@@ -536,7 +536,7 @@ export default class InvoiceSubscriptionsController {
     const invoiceData = {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      billingDate: invoice.billingDate?.toISODate() ?? '',
+      billingDate: invoice.billingDate ? invoice.billingDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
@@ -544,7 +544,7 @@ export default class InvoiceSubscriptionsController {
       subtotalAmount: formatCurrency(subtotalAmount),
       amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
-      paidAt: invoice.paidAt?.toISODate() ?? '',
+      paidAt: invoice.paidAt ? invoice.paidAt.setLocale('en').toFormat('LLL dd, yyyy') : '',
       billingFrom: invoice.billingFrom ?? null,
     }
 
@@ -703,8 +703,8 @@ export default class InvoiceSubscriptionsController {
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {}
 
-    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
-    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.setLocale('en').toFormat('LLL dd, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.setLocale('en').toFormat('LLL dd, yyyy') : ''
     const subtotalAmount = lines.reduce((sum, l: any) => sum + Number(l.lineAmount || 0), 0)
     const totalAmount = Number(invoice.totalAmount || 0)
     const amountDue = invoice.status === 'paid' ? 0 : totalAmount
@@ -712,7 +712,7 @@ export default class InvoiceSubscriptionsController {
     const invoiceData = {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      billingDate: invoice.billingDate?.toISODate() ?? '',
+      billingDate: invoice.billingDate ? invoice.billingDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
@@ -720,7 +720,7 @@ export default class InvoiceSubscriptionsController {
       subtotalAmount: formatCurrency(subtotalAmount),
       amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
-      paidAt: invoice.paidAt?.toISODate() ?? '',
+      paidAt: invoice.paidAt ? invoice.paidAt.setLocale('en').toFormat('LLL dd, yyyy') : '',
       billingFrom: invoice.billingFrom ?? null,
     }
 
@@ -729,7 +729,7 @@ export default class InvoiceSubscriptionsController {
       receiptNumber: receipt.receiptNumber,
       amount: formatCurrency(Number(receipt.amount || 0)),
       currency: receipt.currency,
-      paymentDate: receipt.paymentDate?.toISODate() ?? '',
+      paymentDate: receipt.paymentDate ? receipt.paymentDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       paymentMethod: receipt.paymentMethod ?? '',
       transactionReference: receipt.transactionReference ?? '',
       notes: receipt.notes ?? '',
@@ -756,7 +756,7 @@ export default class InvoiceSubscriptionsController {
       .filter((p) => Number(p.amount || 0) > 0)
       .map((p) => ({
         paymentMethod: p.paymentMethod ?? '',
-        paymentDate: p.paymentDate ? p.paymentDate.toFormat('LLLL d, yyyy') : '',
+        paymentDate: p.paymentDate ? p.paymentDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
         amountPaid: formatCurrency(Number(p.amount || 0)),
         currency: p.currency ?? invoice.currency,
         receiptNumber: receiptNumberByPaymentId.get(p.id) ?? '',
@@ -874,8 +874,8 @@ export default class InvoiceSubscriptionsController {
     const lines = await this.getSubscriptionInvoiceLines(invoice)
     const logoDataUri = await this.getLogoDataUri()
 
-    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
-    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.setLocale('en').toFormat('LLL dd, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.setLocale('en').toFormat('LLL dd, yyyy') : ''
     const subtotalAmount = lines.reduce((sum, l: any) => sum + Number(l.lineAmount || 0), 0)
     const totalAmount = Number(invoice.totalAmount || 0)
     const amountDue = invoice.status === 'paid' ? 0 : totalAmount
@@ -883,7 +883,7 @@ export default class InvoiceSubscriptionsController {
     const invoiceData = {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      billingDate: invoice.billingDate?.toISODate() ?? '',
+      billingDate: invoice.billingDate ? invoice.billingDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
@@ -891,7 +891,7 @@ export default class InvoiceSubscriptionsController {
       subtotalAmount: formatCurrency(subtotalAmount),
       amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
-      paidAt: invoice.paidAt?.toISODate() ?? '',
+      paidAt: invoice.paidAt ? invoice.paidAt.setLocale('en').toFormat('LLL dd, yyyy') : '',
       billingFrom: invoice.billingFrom ?? null,
     }
 
@@ -940,8 +940,8 @@ export default class InvoiceSubscriptionsController {
     const lines = await this.getSubscriptionInvoiceLines(invoice)
     const logoDataUri = await this.getLogoDataUri()
 
-    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
-    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.setLocale('en').toFormat('LLL dd, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.setLocale('en').toFormat('LLL dd, yyyy') : ''
     const subtotalAmount = lines.reduce((sum, l: any) => sum + Number(l.lineAmount || 0), 0)
     const totalAmount = Number(invoice.totalAmount || 0)
     const amountDue = invoice.status === 'paid' ? 0 : totalAmount
@@ -949,7 +949,7 @@ export default class InvoiceSubscriptionsController {
     const invoiceData = {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      billingDate: invoice.billingDate?.toISODate() ?? '',
+      billingDate: invoice.billingDate ? invoice.billingDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
@@ -957,7 +957,7 @@ export default class InvoiceSubscriptionsController {
       subtotalAmount: formatCurrency(subtotalAmount),
       amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
-      paidAt: invoice.paidAt?.toISODate() ?? '',
+      paidAt: invoice.paidAt ? invoice.paidAt.setLocale('en').toFormat('LLL dd, yyyy') : '',
       billingFrom: invoice.billingFrom ?? null,
     }
 
@@ -966,7 +966,7 @@ export default class InvoiceSubscriptionsController {
       receiptNumber: receipt.receiptNumber,
       amount: formatCurrency(Number(receipt.amount || 0)),
       currency: receipt.currency,
-      paymentDate: receipt.paymentDate?.toISODate() ?? '',
+      paymentDate: receipt.paymentDate ? receipt.paymentDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       paymentMethod: receipt.paymentMethod ?? '',
       transactionReference: receipt.transactionReference ?? '',
       notes: receipt.notes ?? '',
@@ -993,7 +993,7 @@ export default class InvoiceSubscriptionsController {
       .filter((p) => Number(p.amount || 0) > 0)
       .map((p) => ({
         paymentMethod: p.paymentMethod ?? '',
-        paymentDate: p.paymentDate ? p.paymentDate.toFormat('LLLL d, yyyy') : '',
+        paymentDate: p.paymentDate ? p.paymentDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
         amountPaid: formatCurrency(Number(p.amount || 0)),
         currency: p.currency ?? invoice.currency,
         receiptNumber: receiptNumberByPaymentId.get(p.id) ?? '',

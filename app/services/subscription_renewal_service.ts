@@ -8,6 +8,15 @@ import { DateTime } from 'luxon'
 import { formatCurrency } from '#app/utils/utilities'
 import env from '#start/env'
 
+type Renewal = {
+  id: number
+  sub?: Subscription
+  oldEnd: DateTime
+  newEnd: DateTime
+  price: number
+  billingCycle: 'monthly' | 'yearly'
+}
+
 export default class SubscriptionRenewalService {
   private async getLogoDataUri() {
     const path = await import('node:path')
@@ -51,13 +60,13 @@ export default class SubscriptionRenewalService {
     const totalAmount = Number(invoice.totalAmount || 0)
     const amountDue = invoice.status === 'paid' ? 0 : totalAmount
 
-    const periodStartLabel = invoice.periodStart ? invoice.periodStart.toFormat('LLL d, yyyy') : ''
-    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.minus({ days: 1 }).toFormat('LLL d, yyyy') : ''
+    const periodStartLabel = invoice.periodStart ? invoice.periodStart.setLocale('en').toFormat('LLL dd, yyyy') : ''
+    const periodEndLabel = invoice.periodEnd ? invoice.periodEnd.setLocale('en').toFormat('LLL dd, yyyy') : ''
 
     const invoiceData = {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      billingDate: invoice.billingDate?.toISODate() ?? '',
+      billingDate: invoice.billingDate ? invoice.billingDate.setLocale('en').toFormat('LLL dd, yyyy') : '',
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
@@ -65,7 +74,7 @@ export default class SubscriptionRenewalService {
       subtotalAmount: formatCurrency(subtotalAmount),
       amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
-      paidAt: invoice.paidAt?.toISODate() ?? '',
+      paidAt: invoice.paidAt ? invoice.paidAt.setLocale('en').toFormat('LLL dd, yyyy') : '',
       billingFrom: invoice.billingFrom ?? null,
     }
 
@@ -160,14 +169,16 @@ export default class SubscriptionRenewalService {
           .forUpdate()
 
         const renewals = lockedRows
-          .map((row: any) => {
-            const endsAt = row.ends_at instanceof Date ? DateTime.fromJSDate(row.ends_at) : DateTime.fromISO(String(row.ends_at))
+          .map((row: any): Renewal | null => {
+            const endsAt =
+              row.ends_at instanceof Date ? DateTime.fromJSDate(row.ends_at) : DateTime.fromISO(String(row.ends_at))
             if (!endsAt.isValid) return null
 
-            const billingCycle = row.billing_cycle === 'yearly' ? 'yearly' : 'monthly'
+            const billingCycle: Renewal['billingCycle'] = row.billing_cycle === 'yearly' ? 'yearly' : 'monthly'
             const oldEnd = endsAt
             const newEnd = billingCycle === 'yearly' ? oldEnd.plus({ years: 1 }) : oldEnd.plus({ months: 1 })
             const sub = preloadedById.get(Number(row.id))
+
             return {
               id: Number(row.id),
               sub,
@@ -177,10 +188,7 @@ export default class SubscriptionRenewalService {
               billingCycle,
             }
           })
-          .filter(
-            (v): v is { id: number; sub?: Subscription; oldEnd: DateTime; newEnd: DateTime; price: number; billingCycle: 'monthly' | 'yearly' } =>
-              Boolean(v)
-          )
+          .filter((v): v is Renewal => v !== null)
 
         if (renewals.length === 0) return null
 
