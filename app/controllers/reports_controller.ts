@@ -354,6 +354,7 @@ export default class ReportsController {
           break
         case 'voidReservations':
           reportData = await ReportsService.getVoidReservations(reportFilters)
+          break
          case 'pickupDropoff':
           reportData = await ReportsService.getPickupDropoff(reportFilters)
           break
@@ -779,10 +780,36 @@ export default class ReportsController {
   /**
    * Export report to PDF format
    */
+  // private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
+  //   try {
+  //     // Générer le PDF à partir du HTML du rapport
+  //     const pdfBuffer = await PdfService.generatePdfFromHtml(reportData.html, {
+  //       format: 'A4',
+  //       orientation: 'landscape',
+  //       margin: {
+  //         top: '1cm',
+  //         right: '1cm',
+  //         bottom: '1cm',
+  //         left: '1cm',
+  //       },
+  //     })
+
+  //     // Définir les en-têtes de réponse pour le téléchargement du PDF
+  //     response.header('Content-Type', 'application/pdf')
+  //     response.header('Content-Disposition', `attachment; filename="${filename}"`)
+  //     response.header('Content-Length', pdfBuffer.length.toString())
+
+  //     // Envoyer le buffer PDF en réponse
+  //     return response.send(pdfBuffer)
+  //   } catch (error) {
+  //     throw new Error(`Erreur lors de la génération du PDF: ${error.message}`)
+  //   }
+  // }
   private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
     try {
-      // Générer le PDF à partir du HTML du rapport
-      const pdfBuffer = await PdfService.generatePdfFromHtml(reportData.html, {
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(reportData.html, {
         format: 'A4',
         orientation: 'landscape',
         margin: {
@@ -793,12 +820,10 @@ export default class ReportsController {
         },
       })
 
-      // Définir les en-têtes de réponse pour le téléchargement du PDF
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${filename}"`)
       response.header('Content-Length', pdfBuffer.length.toString())
 
-      // Envoyer le buffer PDF en réponse
       return response.send(pdfBuffer)
     } catch (error) {
       throw new Error(`Erreur lors de la génération du PDF: ${error.message}`)
