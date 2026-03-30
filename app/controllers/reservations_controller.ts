@@ -2582,36 +2582,51 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.badRequest({ success: false, message: 'startDate and endDate are required' })
       }
 
-      const reservations = await Reservation.query()
+      const rows = await ReservationRoom.query()
         .where('hotel_id', hotelId)
-        .whereBetween('arrived_date', [start, end])
-        .whereIn('status', ['confirmed', 'checked_in'])
+        .whereBetween('check_in_date', [start, end])
+        .whereIn('status', ['reserved', 'checked_in', 'day_use'])
+        .whereDoesntHave('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest').preload('bookingSource')
+        })
         .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
         .preload('roomType')
-        .preload('bookingSource')
-        .preload('businessSource')
-        .preload('reservationType', (sQuery: any) => {
-          sQuery.select(['id', 'name'])
-        })
-        .preload('discount')
-        .preload('paymentMethod')
-        .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions', (tq) => {
-            tq.where('isVoided', false)
-              .whereNot('status', TransactionStatus.VOIDED)
-              .whereNull('mealPlanId')
-          })
-        })
-        .preload('reservationRooms', (rspQuery) => {
-          rspQuery.preload('room').preload('rateType', (sQuery: any) => {
-            sQuery.select(['id', 'rate_type_name'])
-          })
-        })
-        .orderBy('arrived_date', 'asc')
+        .preload('rateType')
+        .orderBy('check_in_date', 'asc')
 
       return response.ok({
         success: true,
-        data: reservations,
+        count: rows.length,
+        data: rows.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          return {
+            reservationRoomId: rr.id,
+            reservationId: res?.id || rr.reservationId,
+            reservationNumber: res?.reservationNumber,
+            reservationStatus: res?.status,
+            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+            roomId: rr.roomId,
+            roomNumber: rr.room?.roomNumber,
+            roomTypeId: rr.roomTypeId,
+            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+            nights: rr.nights,
+            adults: rr.adults,
+            children: rr.children,
+            rateTypeId: rr.rateTypeId,
+            rateTypeName: rr.rateType?.rateTypeName,
+            bookingSource: res?.bookingSource?.sourceName,
+            status: rr.status,
+          }
+        }),
         filters: { startDate: start, endDate: end, hotelId },
       })
     } catch (error) {
@@ -2638,36 +2653,51 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.badRequest({ success: false, message: 'startDate and endDate are required' })
       }
 
-      const reservations = await Reservation.query()
+      const rows = await ReservationRoom.query()
         .where('hotel_id', hotelId)
-        .whereBetween('depart_date', [start, end])
-        .whereIn('status', ['checked_in', 'checked_out'])
+        .whereBetween('check_out_date', [start, end])
+        .whereIn('status', ['checked_in', 'checked_out', 'moved_out', 'day_use'])
+        .whereDoesntHave('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .preload('reservation', (resQ) => {
+          resQ.preload('guest').preload('bookingSource')
+        })
         .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
         .preload('roomType')
-        .preload('bookingSource')
-        .preload('businessSource')
-        .preload('reservationType', (sQuery: any) => {
-          sQuery.select(['id', 'name'])
-        })
-        .preload('discount')
-        .preload('paymentMethod')
-        .preload('folios', (folioQuery) => {
-          folioQuery.preload('transactions', (tq) => {
-            tq.where('isVoided', false)
-              .whereNot('status', TransactionStatus.VOIDED)
-              .whereNull('mealPlanId')
-          })
-        })
-        .preload('reservationRooms', (rspQuery) => {
-          rspQuery.preload('room').preload('rateType', (sQuery: any) => {
-            sQuery.select(['id', 'rate_type_name'])
-          })
-        })
-        .orderBy('depart_date', 'asc')
+        .preload('rateType')
+        .orderBy('check_out_date', 'asc')
 
       return response.ok({
         success: true,
-        data: reservations,
+        count: rows.length,
+        data: rows.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          return {
+            reservationRoomId: rr.id,
+            reservationId: res?.id || rr.reservationId,
+            reservationNumber: res?.reservationNumber,
+            reservationStatus: res?.status,
+            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+            roomId: rr.roomId,
+            roomNumber: rr.room?.roomNumber,
+            roomTypeId: rr.roomTypeId,
+            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+            nights: rr.nights,
+            adults: rr.adults,
+            children: rr.children,
+            rateTypeId: rr.rateTypeId,
+            rateTypeName: rr.rateType?.rateTypeName,
+            bookingSource: res?.bookingSource?.sourceName,
+            status: rr.status,
+          }
+        }),
         filters: { startDate: start, endDate: end, hotelId },
       })
     } catch (error) {
