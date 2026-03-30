@@ -48,7 +48,7 @@ export class HtmlReportGenerator {
     const allColumns = [...baseColumns, ...selectedAdditionalColumns]
 
     // Générer les en-têtes du tableau
-    const tableHeaders = allColumns.map(column => 
+    const tableHeaders = allColumns.map(column =>
         `<th>${column.label}</th>`
     ).join('')
 
@@ -70,12 +70,12 @@ export class HtmlReportGenerator {
     // Fonction pour formater les valeurs
     const formatValue = (value: any, key: string) => {
         if (value === undefined || value === null) return ''
-        
+
         // Formater les montants financiers
         if (['ratePerNight', 'displayAmount', 'depositPaid', 'balanceDue', 'finalAmount', 'totalAmount'].includes(key)) {
-            return Number(value).toFixed(2)
+            return Math.round(Number(value)).toLocaleString('en-US')
         }
-        
+
         return value.toString()
     }
 
@@ -83,9 +83,9 @@ export class HtmlReportGenerator {
     const tableRows = data.map((item, index) => {
         const roomInfo = `${item.roomNumber || 'N/A'}${item.roomType ? ` - ${item.roomType}` : ''}`
         const paxInfo = `${item.adults || 0}/${item.children || 0}`
-        
+
         // Montant à afficher selon le filtre showAmount
-        const displayRate = filters.showAmount === 'total_rent' 
+        const displayRate = filters.showAmount === 'total_rent'
             ? (item.totalAmount || item.finalAmount || 0)
             : (item.ratePerNight || 0)
 
@@ -251,7 +251,7 @@ export class HtmlReportGenerator {
         }
 
         .rate-cell {
-            text-align: right;
+            text-align: left;
         }
 
         .time {
@@ -379,19 +379,13 @@ export class HtmlReportGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${data[0]?.hotelName || 'Hotel'} - Departure List</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
+        .report-wrapper {
             font-family: Arial, sans-serif;
             padding: 20px;
-            background-color: #f5f5f5;
+            background-color: white;
         }
 
-        .container {
+        .report-wrapper .container {
             background-color: white;
             border: 2px solid #666;
             padding: 20px;
@@ -399,7 +393,7 @@ export class HtmlReportGenerator {
             margin: 0 auto;
         }
 
-        .header {
+        .report-wrapper .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -408,50 +402,45 @@ export class HtmlReportGenerator {
             border-bottom: 1px solid #999;
         }
 
-        .hotel-name {
+        .report-wrapper .hotel-name {
             font-size: 24px;
             font-weight: bold;
-            color: rgb(10, 5, 144); /* BLEU */
+            color: rgb(10, 5, 144);
         }
 
-        .report-title {
+        .report-wrapper .report-title {
             font-size: 24px;
             font-weight: bold;
-            color: #800000; /* ROUGE BORDEAU */
+            color: #800000;
             text-align: right;
         }
 
-        .departure-btn {
-            border: 2px solid #c00;
-            background: white;
-            color: #c00;
-            padding: 8px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        .filters {
+        .report-wrapper .filters {
             display: flex;
-            gap: 0px;
+            flex-direction: row;
             align-items: center;
+            flex-wrap: nowrap;
+            gap: 6px;
             margin-bottom: 20px;
             font-size: 13px;
-            padding-left: 0;
+            white-space: nowrap;
         }
 
-        .filters label {
+        .report-wrapper .filters label {
             font-weight: bold;
         }
 
-        .filters input {
+        .report-wrapper .filters input {
             border: none;
-            padding: 4px 8px;
+            border-bottom: 1px solid #ccc;
+            padding: 2px 6px;
             font-size: 13px;
+            background-color: transparent;
+            width: auto;
+            max-width: 120px;
         }
 
-        .filters select {
+        .report-wrapper .filters select {
             border: none;
             padding: 4px 8px;
             font-size: 13px;
@@ -461,13 +450,13 @@ export class HtmlReportGenerator {
             -moz-appearance: none;
         }
 
-        table {
+        .report-wrapper table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
 
-        table th {
+        .report-wrapper table th {
             background-color: transparent;
             border: none;
             border-top: 1px solid #999;
@@ -478,35 +467,37 @@ export class HtmlReportGenerator {
             font-size: 12px;
         }
 
-        table td {
+        .report-wrapper table td {
             border: none;
-            border-bottom: 1px solid #999;
-            padding: 8px;
+            border-bottom: 1px solid #eee;
+            padding: 7px 8px;
             font-size: 13px;
         }
 
-        .res-number {
+        .report-wrapper .res-number {
             color: #000;
             text-decoration: none;
             cursor: default;
         }
 
-        .user-cell {
+        .report-wrapper .user-cell {
             color: #000;
             text-decoration: none;
             cursor: default;
         }
 
-        .rate-cell {
-            text-align: right;
+        .report-wrapper .rate-cell {
+            text-align: left;
         }
 
-        .footer-row {
-            background-color: #fff;
+        .report-wrapper .footer-row td {
+            border-top: 2px solid #999;
+            border-bottom: 2px solid #999;
             font-weight: bold;
+            background-color: #f9f9f9;
         }
 
-        .no-data {
+        .report-wrapper .no-data {
             padding: 40px 20px;
             text-align: center;
             color: #666;
@@ -514,68 +505,64 @@ export class HtmlReportGenerator {
         }
 
         @media print {
-            body {
-                background-color: white;
+            .report-wrapper {
                 padding: 0;
             }
-
-            .container {
+            .report-wrapper .container {
                 border: none;
                 max-width: 100%;
-            }
-
-            .departure-btn {
-                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
-            <div class="report-title">Departure List</div>
-        </div>
+    <div class="report-wrapper">
+        <div class="container">
+            <div class="header">
+                <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+                <div class="report-title">Departure List</div>
+            </div>
 
-        <div class="filters">
-            <label>Departure From</label>
-            <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
-            <label>To</label>
-            <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
-            <label>Order By</label>
-            <select disabled>
-                <option>Room</option>
-            </select>
-            <label>Tax Inclusive</label>
-            <select disabled>
-                <option>${filters.taxInclusive ? 'Yes' : 'No'}</option>
-            </select>
-        </div>
+            <div class="filters">
+                <label>Departure From</label>
+                <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
+                <label>To</label>
+                <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
+                <label>Order By</label>
+                <select disabled>
+                    <option>Room</option>
+                </select>
+                <label>Tax Inclusive</label>
+                <select disabled>
+                    <option>${filters.taxInclusive ? 'Yes' : 'No'}</option>
+                </select>
+            </div>
 
-        ${data.length > 0 ? `
-        <table>
-            <thead>
-                <tr>${tableHeaders}</tr>
-            </thead>
-            <tbody>
-                ${tableRows}
-                <tr class="footer-row">
-                    <td colspan="2"><strong>Total Reservations</strong></td>
-                    <td><strong>#(${summary.totalReservations || 0})</strong></td>
-                    <td colspan="${columns.length - 3}"><strong>Total Pax: ${summary.totalPax || 0}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-        ` : `
-        <div class="no-data">
-            No data matches the selected filters
+            ${data.length > 0 ? `
+            <table>
+                <thead>
+                    <tr>${tableHeaders}</tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                    <tr class="footer-row">
+                        <td colspan="2"><strong>Total Reservations</strong></td>
+                        <td><strong>#(${summary.totalReservations || 0})</strong></td>
+                        <td colspan="${columns.length - 3}"><strong>Total Pax: ${summary.totalPax || 0}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            ` : `
+            <div class="no-data">
+                No data matches the selected filters
+            </div>
+            `}
         </div>
-        `}
     </div>
 </body>
 </html>
     `
-  }
+}
 
   // Génère un rapport HTML pour les réservations annulées
   static generateCancelledReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
@@ -588,7 +575,6 @@ export class HtmlReportGenerator {
         { key: 'departure', label: 'Departure' },
         { key: 'folioNo', label: 'Folio No' },
         { key: 'adr', label: 'ADR' },
-        { key: 'carRevenue', label: 'Car Revenue' },
         { key: 'charges', label: 'Charges' },
         { key: 'paid', label: 'Paid' },
         { key: 'balance', label: 'Balance' },
@@ -606,7 +592,7 @@ export class HtmlReportGenerator {
             return `<td>${value}</td>`
         })
         tableRows += `<tr>${cells.join('')}</tr>`
-        
+
         if (item.remarks) {
             tableRows += `<tr class="remark-row">
                 <td colspan="${columns.length}" class="remark-cell">Remarks: ${item.remarks}</td>
@@ -614,14 +600,7 @@ export class HtmlReportGenerator {
         }
     })
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return 'N/A'
-        try {
-            return DateTime.fromFormat(dateString, 'dd/MM/yyyy').toFormat('dd/MM/yyyy')
-        } catch {
-            return dateString
-        }
-    }
+
 
     return `
 <!DOCTYPE html>
@@ -629,7 +608,7 @@ export class HtmlReportGenerator {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${filters.hotelId || 'Hotel'} - Cancelled Reservations</title>
+    <title>${data[0]?.hotelName || 'Hotel'} - Cancelled Reservations</title>
     <style>
         * {
             margin: 0;
@@ -787,9 +766,9 @@ export class HtmlReportGenerator {
             <label>Hotel</label>
             <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
             <label>Cancellation From</label>
-            <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
+            <input type="text" value="${filters.startDate}" readonly>
             <label>To</label>
-            <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
+            <input type="text" value="${filters.endDate }" readonly>
             <label>Order By</label>
             <select disabled>
                 <option>Room</option>
@@ -809,11 +788,10 @@ export class HtmlReportGenerator {
                 ${tableRows}
                 <tr class="footer-row">
                     <td colspan="7"><strong>Total Cancelled: ${summary.totalCancelled || 0}</strong></td>
-                    <td><strong>${summary.totalADR ? Number(summary.totalADR).toFixed(2) : '0.00'}</strong></td>
-                    <td><strong>${summary.totalCarRevenue ? Number(summary.totalCarRevenue).toFixed(2) : '0.00'}</strong></td>
-                    <td><strong>${summary.totalCharges ? Number(summary.totalCharges).toFixed(2) : '0.00'}</strong></td>
-                    <td><strong>${summary.totalPaid ? Number(summary.totalPaid).toFixed(2) : '0.00'}</strong></td>
-                    <td colspan="4"><strong>${summary.totalBalance ? Number(summary.totalBalance).toFixed(2) : '0.00'}</strong></td>
+                    <td><strong>${summary.totalADR ? summary.totalADR : 0}</strong></td>
+                    <td><strong>${summary.totalCharges ? summary.totalCharges : 0}</strong></td>
+                    <td><strong>${summary.totalPaid ? summary.totalPaid : 0}</strong></td>
+                    <td colspan="4"><strong>${summary.totalBalance ? summary.totalBalance : 0}</strong></td>
                 </tr>
             </tbody>
         </table>
@@ -839,28 +817,28 @@ export class HtmlReportGenerator {
         { key: 'departure', label: 'Departure' },
         { key: 'folioNo', label: 'Folio No' },
         { key: 'adr', label: 'ADR' },
-        { key: 'carRevenue', label: 'Car Revenue' },
         { key: 'charges', label: 'Charges' },
         { key: 'paid', label: 'Paid' },
         { key: 'balance', label: 'Balance' },
         { key: 'source', label: 'Source' },
-        { key: 'voidedBy', label: 'Voided By' },
-        { key: 'voidedDate', label: 'Voided Date' }
+        // FIX #1 : clés alignées avec le frontend (cancelledBy / cancelledDate)
+        { key: 'voidBy', label: 'Voided By' },
+        { key: 'voidDate', label: 'Voided Date' }
     ]
 
-    const tableHeaders = columns.map(column => `<th>${column.label}</th>`).join('')
+    const tableHeaders = columns.map(column => `<th class="vr-th">${column.label}</th>`).join('')
 
     let tableRows = ''
-    data.forEach((item, index) => {
+    data.forEach((item) => {
         const cells = columns.map(column => {
             const value = item[column.key] || '-'
-            return `<td>${value}</td>`
+            return `<td class="vr-td">${value}</td>`
         })
-        tableRows += `<tr>${cells.join('')}</tr>`
-        
+        tableRows += `<tr class="vr-tr">${cells.join('')}</tr>`
+
         if (item.remarks) {
-            tableRows += `<tr class="remark-row">
-                <td colspan="${columns.length}" class="remark-cell">Remarks: ${item.remarks}</td>
+            tableRows += `<tr class="vr-tr vr-remark-row">
+                <td colspan="${columns.length}" class="vr-td vr-remark-cell">Remarks: ${item.remarks}</td>
             </tr>`
         }
     })
@@ -875,207 +853,164 @@ export class HtmlReportGenerator {
     }
 
     return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${filters.hotelId || 'Hotel'} - Void Reservations</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<style>
+  /* ── Void Reservations report styles (scoped avec préfixe vr-) ── */
+  .vr-wrapper {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    width: 100%;
+  }
 
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
+  /* Header : hotel name + titre */
+  .vr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #d1d5db; /* gray-300 */
+  }
 
-        .container {
-            background-color: white;
-            border: 2px solid #666;
-            padding: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+  /* FIX #4 : remplace rgb(10,5,144) par une variable CSS compatible dark mode */
+  .vr-hotel-name {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1e3a8a; /* blue-900, lisible en light */
+  }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #999;
-        }
+  /* FIX #4 : remplace #800000 par une variable CSS */
+  .vr-report-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #991b1b; /* red-800, lisible en light */
+    text-align: right;
+  }
 
-        .hotel-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: rgb(10, 5, 144); /* BLEU */
-        }
+  /* Ligne de filtres */
+  .vr-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: #374151; /* gray-700 */
+  }
 
-        .report-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #800000; /* ROUGE BORDEAU */
-            text-align: right;
-        }
+  .vr-filters label {
+    font-weight: bold;
+    color: #374151;
+  }
 
-        .void-btn {
-            border: 2px solid #c00;
-            background: white;
-            color: #c00;
-            padding: 8px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-        }
+  .vr-filters span {
+    color: #4b5563;
+  }
 
-        .filters {
-            display: flex;
-            gap: 0px;
-            align-items: center;
-            margin-bottom: 20px;
-            font-size: 13px;
-            padding-left: 0;
-        }
+  /* Table */
+  .vr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
 
-        .filters label {
-            font-weight: bold;
-        }
+  .vr-th {
+    background-color: transparent;
+    border-top: 1px solid #d1d5db;
+    border-bottom: 1px solid #d1d5db;
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: bold;
+    font-size: 11px;
+    color: #374151;
+    white-space: nowrap;
+  }
 
-        .filters input {
-            border: none;
-            padding: 4px 8px;
-            font-size: 13px;
-        }
+  .vr-td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 7px 6px;
+    font-size: 12px;
+    color: #111827;
+  }
 
-        .filters select {
-            border: none;
-            padding: 4px 8px;
-            font-size: 13px;
-            background-color: transparent;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-        }
+  .vr-tr:hover .vr-td {
+    background-color: #f9fafb;
+  }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
+  /* FIX #6 : remark row cohérente avec le front */
+  .vr-remark-row .vr-td {
+    background-color: #f9fafb;
+    color: #6b7280;
+    font-style: italic;
+    padding-left: 20px;
+  }
 
-        table th {
-            background-color: transparent;
-            border: none;
-            border-top: 1px solid #999;
-            border-bottom: 1px solid #999;
-            padding: 8px;
-            text-align: left;
-            font-weight: bold;
-            font-size: 12px;
-        }
+  /* Footer totaux */
+  .vr-footer-td {
+    border-top: 2px solid #d1d5db;
+    border-bottom: none;
+    padding: 8px 6px;
+    font-weight: bold;
+    font-size: 12px;
+    color: #111827;
+  }
 
-        table td {
-            border: none;
-            border-bottom: 1px solid #999;
-            padding: 8px;
-            font-size: 13px;
-        }
+  /* FIX #5 : dark mode — les couleurs s'adaptent via media query */
+  @media (prefers-color-scheme: dark) {
+    .vr-hotel-name   { color: #93c5fd; } /* blue-300 */
+    .vr-report-title { color: #fca5a5; } /* red-300 */
+    .vr-filters,
+    .vr-filters label,
+    .vr-filters span { color: #d1d5db; }
+    .vr-th           { color: #d1d5db; border-color: #4b5563; }
+    .vr-td           { color: #f3f4f6; border-color: #374151; }
+    .vr-tr:hover .vr-td   { background-color: #1f2937; }
+    .vr-remark-row .vr-td { background-color: #1f2937; color: #9ca3af; }
+    .vr-footer-td    { color: #f9fafb; border-color: #4b5563; }
+    .vr-header       { border-color: #4b5563; }
+  }
+</style>
 
-        .remark-row {
-            background-color: #f9f9f9;
-        }
+<div class="vr-wrapper">
+  <div class="vr-header">
+    <div class="vr-hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
+    <div class="vr-report-title">Void Reservations</div>
+  </div>
 
-        .remark-cell {
-            color: #666;
-            font-style: italic;
-            padding-left: 24px !important;
-        }
+  <div class="vr-filters">
+    <label>Hotel</label>
+    <span>${data[0]?.hotelName || 'Hotel'}</span>
+    <label>Void From</label>
+    <span>${filters.startDate }</span>
+    <label>To</label>
+    <span>${filters.endDate}</span>
+    <label>Order By</label>
+    <span>Room</span>
+    <label>Tax Inclusive</label>
+    <span>${filters.taxInclusive ? 'Yes' : 'No'}</span>
+  </div>
 
-        .footer-row {
-            background-color: #fff;
-            font-weight: bold;
-        }
-
-        .no-data {
-            padding: 40px 20px;
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-        }
-
-        @media print {
-            body {
-                background-color: white;
-                padding: 0;
-            }
-
-            .container {
-                border: none;
-                max-width: 100%;
-            }
-
-            .void-btn {
-                display: none;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
-            <div class="report-title">Void Reservations</div>
-        </div>
-
-        <div class="filters">
-            <label>Hotel</label>
-            <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
-            <label>Void From</label>
-            <input type="text" value="${filters.startDate ? formatDate(filters.startDate) : 'N/A'}" readonly>
-            <label>To</label>
-            <input type="text" value="${filters.endDate ? formatDate(filters.endDate) : 'N/A'}" readonly>
-            <label>Order By</label>
-            <select disabled>
-                <option>Room</option>
-            </select>
-            <label>Tax Inclusive</label>
-            <select disabled>
-                <option>${filters.taxInclusive ? 'Yes' : 'No'}</option>
-            </select>
-        </div>
-
-        ${data.length > 0 ? `
-        <table>
-            <thead>
-                <tr>${tableHeaders}</tr>
-            </thead>
-            <tbody>
-                ${tableRows}
-                <tr class="footer-row">
-                    <td colspan="7"><strong>Total Void: ${summary.totalCancelled || 0}</strong></td>
-                    <td><strong>${summary.totalADR ? Number(summary.totalADR).toFixed(2) : '0.00'}</strong></td>
-                    <td><strong>${summary.totalCarRevenue ? Number(summary.totalCarRevenue).toFixed(2) : '0.00'}</strong></td>
-                    <td><strong>${summary.totalCharges ? Number(summary.totalCharges).toFixed(2) : '0.00'}</strong></td>
-                    <td><strong>${summary.totalPaid ? Number(summary.totalPaid).toFixed(2) : '0.00'}</strong></td>
-                    <td colspan="4"><strong>${summary.totalBalance ? Number(summary.totalBalance).toFixed(2) : '0.00'}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-        ` : `
-        <div class="no-data">
-            No data matches the selected filters
-        </div>
-        `}
-    </div>
-</body>
-</html>
+  ${data.length > 0 ? `
+  <table class="vr-table">
+    <thead>
+      <tr>${tableHeaders}</tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+      <tr>
+        <td colspan="7" class="vr-footer-td">Total Void: ${summary.totalCancelled || 0}</td>
+        <td class="vr-footer-td">${summary.totalADR ? Number(summary.totalADR) : 0}</td>
+        <td class="vr-footer-td">${summary.totalCharges ? Number(summary.totalCharges) : 0 }</td>
+        <td class="vr-footer-td">${summary.totalPaid ? Number(summary.totalPaid) : 0 }</td>
+        <td colspan="4" class="vr-footer-td">${summary.totalBalance ? Number(summary.totalBalance) : 0 }</td>
+      </tr>
+    </tbody>
+  </table>
+  ` : `
+  <div style="padding: 32px; text-align: center; color: #6b7280; font-size: 14px;">
+    No data matches the selected filters
+  </div>
+  `}
+</div>
     `
   }
 
@@ -1096,9 +1031,9 @@ export class HtmlReportGenerator {
 
     if (filters.selectedColumns && filters.selectedColumns.length > 0) {
         filters.selectedColumns.forEach(column => {
-            columns.push({ 
-                key: column.toLowerCase().replace(/\s+/g, '').replace('.', ''), 
-                label: column 
+            columns.push({
+                key: column.toLowerCase().replace(/\s+/g, '').replace('.', ''),
+                label: column
             })
         })
     }
@@ -1336,9 +1271,9 @@ export class HtmlReportGenerator {
 
     if (filters.selectedColumns && filters.selectedColumns.length > 0) {
         filters.selectedColumns.forEach(column => {
-            columns.push({ 
-                key: column.toLowerCase().replace(/\s+/g, '').replace('.', ''), 
-                label: column 
+            columns.push({
+                key: column.toLowerCase().replace(/\s+/g, '').replace('.', ''),
+                label: column
             })
         })
     }
@@ -1346,212 +1281,188 @@ export class HtmlReportGenerator {
     const tableHeaders = columns.map(column => `<th>${column.label}</th>`).join('')
 
     let tableRows = ''
-    data.forEach((item, index) => {
+    data.forEach((item) => {
         const cells = columns.map(column => {
             const value = item[column.key] || '-'
-            const cellClass = column.key === 'user' ? ' class="user-cell"' : ''
-            const alignClass = column.key === 'rate' ? ' class="rate-cell"' : ''
-            return `<td${cellClass}${alignClass}>${value}</td>`
+            const classes = []
+            if (column.key === 'user') classes.push('user-cell')
+            if (column.key === 'rate') classes.push('rate-cell')
+            const classAttr = classes.length ? ` class="${classes.join(' ')}"` : ''
+            return `<td${classAttr}>${value}</td>`
         })
         tableRows += `<tr>${cells.join('')}</tr>`
     })
 
+    const hotelName = data[0]?.hotelName || 'Hotel'
 
     return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${data[0]?.hotelName || 'Hotel'} - Guest Checked In</title>
-    <style>
-        * {
-            margin: 0;
+<style>
+    .report-container {
+        font-family: Arial, sans-serif;
+        background-color: #ffffff;
+        border: 2px solid #666;
+        padding: 20px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .report-container * {
+        box-sizing: border-box;
+    }
+
+    .report-container .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #999;
+    }
+
+    .report-container .hotel-name {
+        font-size: 24px;
+        font-weight: bold;
+        color: rgb(10, 5, 144);
+    }
+
+    .report-container .report-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #800000;
+        text-align: right;
+    }
+
+    .report-container .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 20px;
+        font-size: 13px;
+    }
+
+    .report-container .filters label {
+        font-weight: bold;
+    }
+
+    .report-container .filters input,
+    .report-container .filters select {
+        border: none;
+        padding: 4px 8px;
+        font-size: 13px;
+        background-color: transparent;
+    }
+
+    .report-container table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .report-container table th {
+        border: none;
+        border-top: 1px solid #999;
+        border-bottom: 1px solid #999;
+        padding: 8px;
+        text-align: left;
+        font-weight: bold;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .report-container table td {
+        border: none;
+        border-bottom: 1px solid #ddd;
+        padding: 8px;
+        font-size: 13px;
+    }
+
+    .report-container table tr:hover td {
+        background-color: #f9f9f9;
+    }
+
+    .report-container .user-cell {
+        color: #000;
+        text-decoration: none;
+        cursor: default;
+    }
+
+    .report-container .rate-cell {
+        text-align: right;
+    }
+
+    .report-container .footer-row td {
+        font-weight: bold;
+        border-top: 2px solid #999;
+        border-bottom: 2px solid #999;
+        padding: 10px 8px;
+    }
+
+    .report-container .no-data {
+        padding: 40px 20px;
+        text-align: center;
+        color: #666;
+        font-size: 14px;
+    }
+
+    .report-container .generated-info {
+        margin-top: 16px;
+        font-size: 11px;
+        color: #999;
+        text-align: right;
+    }
+
+    @media print {
+        .report-container {
+            border: none;
             padding: 0;
-            box-sizing: border-box;
         }
+    }
+</style>
 
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-
-        .container {
-            background-color: white;
-            border: 2px solid #666;
-            padding: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #999;
-        }
-
-        .hotel-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: rgb(10, 5, 144); /* BLEU */
-        }
-
-        .report-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #800000; /* ROUGE BORDEAU */
-            text-align: right;
-        }
-
-        .checkin-btn {
-            border: 2px solid #c00;
-            background: white;
-            color: #c00;
-            padding: 8px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        .filters {
-            display: flex;
-            gap: 0px;
-            align-items: center;
-            margin-bottom: 20px;
-            font-size: 13px;
-            padding-left: 0;
-        }
-
-        .filters label {
-            font-weight: bold;
-        }
-
-        .filters input {
-            border: none;
-            padding: 4px 8px;
-            font-size: 13px;
-        }
-
-        .filters select {
-            border: none;
-            padding: 4px 8px;
-            font-size: 13px;
-            background-color: transparent;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        table th {
-            background-color: transparent;
-            border: none;
-            border-top: 1px solid #999;
-            border-bottom: 1px solid #999;
-            padding: 8px;
-            text-align: left;
-            font-weight: bold;
-            font-size: 12px;
-        }
-
-        table td {
-            border: none;
-            border-bottom: 1px solid #999;
-            padding: 8px;
-            font-size: 13px;
-        }
-
-        .user-cell {
-            color: #000;
-            text-decoration: none;
-            cursor: default;
-        }
-
-        .rate-cell {
-            text-align: right;
-        }
-
-        .footer-row {
-            background-color: #fff;
-            font-weight: bold;
-        }
-
-        .no-data {
-            padding: 40px 20px;
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-        }
-
-        @media print {
-            body {
-                background-color: white;
-                padding: 0;
-            }
-
-            .container {
-                border: none;
-                max-width: 100%;
-            }
-
-            .checkin-btn {
-                display: none;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="hotel-name">${data[0]?.hotelName || 'Hotel'}</div>
-            <div class="report-title">Guest Checked In</div>
-        </div>
-
-        <div class="filters">
-            <label>Hotel</label>
-            <input type="text" value="${data[0]?.hotelName || 'Hotel'}" readonly>
-            <label>Checked-in From</label>
-            <input type="text" value="${filters.arrivalFrom || 'N/A'}" readonly>
-            <label>To</label>
-            <input type="text" value="${filters.arrivalTo || 'N/A'}" readonly>
-        </div>
-
-        ${data.length > 0 ? `
-        <table>
-            <thead>
-                <tr>${tableHeaders}</tr>
-            </thead>
-            <tbody>
-                ${tableRows}
-                <tr class="footer-row">
-                    <td colspan="2"><strong>Total Reservations</strong></td>
-                    <td><strong>#(${summary.totalReservations || 0})</strong></td>
-                    <td colspan="2"><strong>Total Pax: ${summary.totalPax || 0}</strong></td>
-                    <td colspan="2"><strong>Revenue: ${summary.totalRevenue ? Number(summary.totalRevenue).toFixed(2) : '0.00'}</strong></td>
-                    <td colspan="${columns.length - 7}"><strong>Avg. Rate: ${summary.averageRate ? Number(summary.averageRate).toFixed(2) : '0.00'}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-        ` : `
-        <div class="no-data">
-            No data matches the selected filters
-        </div>
-        `}
+<div class="report-container">
+    <div class="header">
+        <div class="hotel-name">${hotelName}</div>
+        <div class="report-title">Guest Checked In</div>
     </div>
-</body>
-</html>
+
+    <div class="filters">
+        <label>Hotel:</label>
+        <input type="text" value="${hotelName}" readonly>
+        <label>Checked-in From:</label>
+        <input type="text" value="${filters.arrivalFrom || 'N/A'}" readonly>
+        <label>To:</label>
+        <input type="text" value="${filters.arrivalTo || 'N/A'}" readonly>
+    </div>
+
+    ${data.length > 0 ? `
+    <table>
+        <thead>
+            <tr>${tableHeaders}</tr>
+        </thead>
+        <tbody>
+            ${tableRows}
+            <tr class="footer-row">
+                <td colspan="2">Total Reservations</td>
+                <td>#(${summary.totalReservations || 0})</td>
+                <td colspan="2">Total Pax: ${summary.totalPax || 0}</td>
+                <td colspan="2">Revenue: ${summary.totalRevenue ? Number(summary.totalRevenue) : 0 }</td>
+                <td colspan="${columns.length - 7}">Avg. Rate: ${summary.averageRate ? Number(summary.averageRate) : 0 }</td>
+            </tr>
+        </tbody>
+    </table>
+    ` : `
+    <div class="no-data">
+        No data matches the selected filters
+    </div>
+    `}
+
+    <div class="generated-info">
+        Generated on ${generatedAt.toFormat('dd/MM/yyyy HH:mm')} | ${summary.totalReservations || 0} records
+    </div>
+</div>
     `
-  }
+}
 
   static generateNoShowReservationsHtml(data: any[], summary: any, filters: ReportFilters, generatedAt: DateTime): string {
     const columns = [
@@ -1577,7 +1488,7 @@ export class HtmlReportGenerator {
     data.forEach((item, index) => {
         const cells = columns.map(column => {
             let value = item[column.key] || '-'
-            
+
             // Formater les valeurs spécifiques
             if (column.key === 'lostRevenue') {
                 value = Number(value || 0).toFixed(2)
@@ -1586,13 +1497,13 @@ export class HtmlReportGenerator {
             } else if (column.key === 'nights') {
                 value = Math.round(value || 0)
             }
-            
+
             const cellClass = column.key === 'createdBy' ? ' class="user-cell"' : ''
             const alignClass = column.key === 'lostRevenue' ? ' class="rate-cell"' : ''
             return `<td${cellClass}${alignClass}>${value}</td>`
         })
         tableRows += `<tr>${cells.join('')}</tr>`
-        
+
         // Ajouter une ligne pour les remarques si présentes
         if (item.noShowReason) {
             tableRows += `<tr class="remark-row">
