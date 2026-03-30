@@ -8,6 +8,7 @@ import Subscription from '#models/subscription'
 import Module from '#models/module'
 import AddOn from '#models/add_on'
 import PdfService from '#services/pdf_service'
+import { formatCurrency } from '#app/utils/utilities'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 
@@ -460,20 +461,36 @@ export default class InvoiceSubscriptionsController {
       return response.notFound({ success: false, message: 'Invoice subscription not found' })
     }
 
-    const items = await db
-      .from('invoice_subscription_items')
-      .select(['subscription_id', 'line_amount', 'description', 'period_start', 'period_end'])
-      .where('invoice_subscription_id', invoice.id)
+    const subs = await invoice
+      .related('subscriptions')
+      .query()
+      .pivotColumns(['line_amount', 'description', 'period_start', 'period_end'])
+      .preload('module')
+      .preload('addOn')
 
-    let lines: any[] = []
+    let lines: any[] = subs.map((sub: any) => {
+      const periodStart = sub.$extras?.pivot_period_start
+      const periodEnd = sub.$extras?.pivot_period_end
+      return {
+        moduleName: sub?.module?.name ?? 'Subscription',
+        addOnName: sub?.addOn?.name ?? null,
+        billingCycle: sub?.billingCycle ?? null,
+        lineAmount: Number(sub.$extras?.pivot_line_amount || 0),
+        description: sub.$extras?.pivot_description ?? null,
+        periodStart: periodStart ? DateTime.fromJSDate(periodStart).toISODate() : null,
+        periodEnd: periodEnd ? DateTime.fromJSDate(periodEnd).toISODate() : null,
+      }
+    })
 
-    if (items.length > 0) {
-      const subscriptionIds = items.map((r: any) => Number(r.subscription_id))
+    if (lines.length === 0) {
+      const items = await db
+        .from('invoice_subscription_items')
+        .select(['subscription_id', 'line_amount', 'description', 'period_start', 'period_end'])
+        .where('invoice_subscription_id', invoice.id)
+
+      const subscriptionIds = items.map((r: any) => Number(r.subscription_id)).filter((v) => Number.isFinite(v))
       const subscriptions = subscriptionIds.length
-        ? await Subscription.query()
-            .whereIn('id', subscriptionIds)
-            .preload('module')
-            .preload('addOn')
+        ? await Subscription.query().whereIn('id', subscriptionIds).preload('module').preload('addOn')
         : []
 
       const subscriptionById = new Map<number, any>(subscriptions.map((s) => [s.id, s]))
@@ -485,29 +502,8 @@ export default class InvoiceSubscriptionsController {
           billingCycle: sub?.billingCycle ?? null,
           lineAmount: Number(r.line_amount || 0),
           description: r.description ?? null,
-          periodStart: r.period_start ? DateTime.fromJSDate(r.period_start).toISODate() : null,
-          periodEnd: r.period_end ? DateTime.fromJSDate(r.period_end).toISODate() : null,
-        }
-      })
-    } else {
-      const subs = await invoice
-        .related('subscriptions')
-        .query()
-        .pivotColumns(['line_amount', 'description', 'period_start', 'period_end'])
-        .preload('module')
-        .preload('addOn')
-
-      lines = subs.map((sub: any) => {
-        const periodStart = sub.$extras?.pivot_period_start
-        const periodEnd = sub.$extras?.pivot_period_end
-        return {
-          moduleName: sub?.module?.name ?? 'Subscription',
-          addOnName: sub?.addOn?.name ?? null,
-          billingCycle: sub?.billingCycle ?? null,
-          lineAmount: Number(sub.$extras?.pivot_line_amount || 0),
-          description: sub.$extras?.pivot_description ?? null,
-          periodStart: periodStart ? DateTime.fromJSDate(periodStart).toISODate() : null,
-          periodEnd: periodEnd ? DateTime.fromJSDate(periodEnd).toISODate() : null,
+          periodStart: null,
+          periodEnd: null,
         }
       })
     }
@@ -521,7 +517,7 @@ export default class InvoiceSubscriptionsController {
     let logoDataUri = ''
     try {
       const logoBuffer = await readFile(
-        path.join(process.cwd(), 'app', 'data', 'Logo Enjoy Fond blanc Centré.png')
+        path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png')
       )
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {}
@@ -539,25 +535,31 @@ export default class InvoiceSubscriptionsController {
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
-      totalAmount: Number(invoice.totalAmount || 0).toFixed(2),
-      subtotalAmount: subtotalAmount.toFixed(2),
-      amountDue: amountDue.toFixed(2),
+      totalAmount: formatCurrency(totalAmount),
+      subtotalAmount: formatCurrency(subtotalAmount),
+      amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
       paidAt: invoice.paidAt?.toISODate() ?? '',
       billingFrom: invoice.billingFrom ?? null,
     }
 
-    const templateLines = lines.map((l: any) => {
+    let templateLines = lines.map((l: any) => {
       const addOnName = l.addOnName ? ` - ${l.addOnName}` : ''
       const extra = l.description ? ` / ${l.description}` : ''
       const unitPrice = Number(l.lineAmount || 0)
       return {
         description: `${l.moduleName}${addOnName}${extra}`,
         qty: '1',
-        unitPrice: unitPrice.toFixed(2),
-        amount: unitPrice.toFixed(2),
+        unitPrice: formatCurrency(unitPrice),
+        amount: formatCurrency(unitPrice),
       }
     })
+    if (templateLines.length === 0) {
+      const unitPrice = Number(invoice.totalAmount || 0)
+      templateLines = [
+        { description: 'Subscription', qty: '1', unitPrice: formatCurrency(unitPrice), amount: formatCurrency(unitPrice) },
+      ]
+    }
 
     const printedAt = DateTime.now().toFormat('yyyy-LL-dd HH:mm:ss')
     const printedBy = auth.user?.username || auth.user?.email || 'System'
@@ -635,20 +637,36 @@ export default class InvoiceSubscriptionsController {
       })
     }
 
-    const items = await db
-      .from('invoice_subscription_items')
-      .select(['subscription_id', 'line_amount', 'description', 'period_start', 'period_end'])
-      .where('invoice_subscription_id', invoice.id)
+    const subs = await invoice
+      .related('subscriptions')
+      .query()
+      .pivotColumns(['line_amount', 'description', 'period_start', 'period_end'])
+      .preload('module')
+      .preload('addOn')
 
-    let lines: any[] = []
+    let lines: any[] = subs.map((sub: any) => {
+      const periodStart = sub.$extras?.pivot_period_start
+      const periodEnd = sub.$extras?.pivot_period_end
+      return {
+        moduleName: sub?.module?.name ?? 'Subscription',
+        addOnName: sub?.addOn?.name ?? null,
+        billingCycle: sub?.billingCycle ?? null,
+        lineAmount: Number(sub.$extras?.pivot_line_amount || 0),
+        description: sub.$extras?.pivot_description ?? null,
+        periodStart: periodStart ? DateTime.fromJSDate(periodStart).toISODate() : null,
+        periodEnd: periodEnd ? DateTime.fromJSDate(periodEnd).toISODate() : null,
+      }
+    })
 
-    if (items.length > 0) {
-      const subscriptionIds = items.map((r: any) => Number(r.subscription_id))
+    if (lines.length === 0) {
+      const items = await db
+        .from('invoice_subscription_items')
+        .select(['subscription_id', 'line_amount', 'description', 'period_start', 'period_end'])
+        .where('invoice_subscription_id', invoice.id)
+
+      const subscriptionIds = items.map((r: any) => Number(r.subscription_id)).filter((v) => Number.isFinite(v))
       const subscriptions = subscriptionIds.length
-        ? await Subscription.query()
-            .whereIn('id', subscriptionIds)
-            .preload('module')
-            .preload('addOn')
+        ? await Subscription.query().whereIn('id', subscriptionIds).preload('module').preload('addOn')
         : []
 
       const subscriptionById = new Map<number, any>(subscriptions.map((s) => [s.id, s]))
@@ -660,29 +678,8 @@ export default class InvoiceSubscriptionsController {
           billingCycle: sub?.billingCycle ?? null,
           lineAmount: Number(r.line_amount || 0),
           description: r.description ?? null,
-          periodStart: r.period_start ? DateTime.fromJSDate(r.period_start).toISODate() : null,
-          periodEnd: r.period_end ? DateTime.fromJSDate(r.period_end).toISODate() : null,
-        }
-      })
-    } else {
-      const subs = await invoice
-        .related('subscriptions')
-        .query()
-        .pivotColumns(['line_amount', 'description', 'period_start', 'period_end'])
-        .preload('module')
-        .preload('addOn')
-
-      lines = subs.map((sub: any) => {
-        const periodStart = sub.$extras?.pivot_period_start
-        const periodEnd = sub.$extras?.pivot_period_end
-        return {
-          moduleName: sub?.module?.name ?? 'Subscription',
-          addOnName: sub?.addOn?.name ?? null,
-          billingCycle: sub?.billingCycle ?? null,
-          lineAmount: Number(sub.$extras?.pivot_line_amount || 0),
-          description: sub.$extras?.pivot_description ?? null,
-          periodStart: periodStart ? DateTime.fromJSDate(periodStart).toISODate() : null,
-          periodEnd: periodEnd ? DateTime.fromJSDate(periodEnd).toISODate() : null,
+          periodStart: null,
+          periodEnd: null,
         }
       })
     }
@@ -696,7 +693,7 @@ export default class InvoiceSubscriptionsController {
     let logoDataUri = ''
     try {
       const logoBuffer = await readFile(
-        path.join(process.cwd(), 'app', 'data', 'Logo Enjoy Fond blanc Centré.png')
+        path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png')
       )
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {}
@@ -714,9 +711,9 @@ export default class InvoiceSubscriptionsController {
       periodStart: periodStartLabel,
       periodEnd: periodEndLabel,
       status: invoice.status,
-      totalAmount: Number(invoice.totalAmount || 0).toFixed(2),
-      subtotalAmount: subtotalAmount.toFixed(2),
-      amountDue: amountDue.toFixed(2),
+      totalAmount: formatCurrency(totalAmount),
+      subtotalAmount: formatCurrency(subtotalAmount),
+      amountDue: formatCurrency(amountDue),
       currency: invoice.currency,
       paidAt: invoice.paidAt?.toISODate() ?? '',
       billingFrom: invoice.billingFrom ?? null,
@@ -725,7 +722,7 @@ export default class InvoiceSubscriptionsController {
     const receiptData = {
       id: receipt.id,
       receiptNumber: receipt.receiptNumber,
-      amount: Number(receipt.amount || 0).toFixed(2),
+      amount: formatCurrency(Number(receipt.amount || 0)),
       currency: receipt.currency,
       paymentDate: receipt.paymentDate?.toISODate() ?? '',
       paymentMethod: receipt.paymentMethod ?? '',
@@ -755,24 +752,30 @@ export default class InvoiceSubscriptionsController {
       .map((p) => ({
         paymentMethod: p.paymentMethod ?? '',
         paymentDate: p.paymentDate ? p.paymentDate.toFormat('LLLL d, yyyy') : '',
-        amountPaid: Number(p.amount || 0).toFixed(2),
+        amountPaid: formatCurrency(Number(p.amount || 0)),
         currency: p.currency ?? invoice.currency,
         receiptNumber: receiptNumberByPaymentId.get(p.id) ?? '',
       }))
 
     const showPaymentHistory = Number(receipt.amount || 0) > 0 && paymentHistory.length > 0
 
-    const templateLines = lines.map((l: any) => {
+    let templateLines = lines.map((l: any) => {
       const addOnName = l.addOnName ? ` - ${l.addOnName}` : ''
       const extra = l.description ? ` / ${l.description}` : ''
       const unitPrice = Number(l.lineAmount || 0)
       return {
         description: `${l.moduleName}${addOnName}${extra}`,
         qty: '1',
-        unitPrice: unitPrice.toFixed(2),
-        amount: unitPrice.toFixed(2),
+        unitPrice: formatCurrency(unitPrice),
+        amount: formatCurrency(unitPrice),
       }
     })
+    if (templateLines.length === 0) {
+      const unitPrice = Number(invoice.totalAmount || 0)
+      templateLines = [
+        { description: 'Subscription', qty: '1', unitPrice: formatCurrency(unitPrice), amount: formatCurrency(unitPrice) },
+      ]
+    }
 
     const html = await edge.render('reports/subscription_receipt', {
       receipt: receiptData,
