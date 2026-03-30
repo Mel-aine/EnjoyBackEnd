@@ -2572,6 +2572,234 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+  public async getArrivalsByDateRange({ request, response }: HttpContext) {
+    try {
+      const hotelId = Number(request.param('id'))
+      const { startDate = '', endDate = '' } = request.qs()
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'Invalid hotel id' })
+      }
+
+      const start = DateTime.fromISO(String(startDate)).toISODate()
+      const end = DateTime.fromISO(String(endDate)).toISODate()
+      if (!start || !end) {
+        return response.badRequest({ success: false, message: 'startDate and endDate are required' })
+      }
+
+      const rows = await ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('check_in_date', [start, end])
+        .whereIn('status', ['reserved', 'checked_in', 'day_use'])
+        .whereDoesntHave('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'folioType', 'reservationRoomId'])
+        })
+        .preload('reservation', (resQ) => {
+          resQ
+            .preload('guest')
+            .preload('bookingSource')
+            .preload('folios', (folioQuery) => {
+              folioQuery.preload('transactions', (tq) => {
+                tq.select([
+                  'id',
+                  'folioId',
+                  'transactionType',
+                  'category',
+                  'status',
+                  'isVoided',
+                  'totalAmount',
+                  'taxAmount',
+                  'serviceChargeAmount',
+                  'discountAmount',
+                ])
+              })
+            })
+        })
+        .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('roomType')
+        .preload('rateType')
+        .orderBy('check_in_date', 'asc')
+
+      return response.ok({
+        success: true,
+        count: rows.length,
+        data: (() => {
+          const balanceByReservationId = new Map<number, any>()
+
+          return rows.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+          const selectedFolio = masterFolio || rr.folios?.[0]
+          const reservationId = res?.id || rr.reservationId
+          let balanceSummary: any = undefined
+
+          if (reservationId && res?.folios) {
+            if (!balanceByReservationId.has(reservationId)) {
+              balanceByReservationId.set(
+                reservationId,
+                ReservationsController.calculateBalanceSummary(res.folios)
+              )
+            }
+            balanceSummary = balanceByReservationId.get(reservationId)
+          }
+
+          return {
+            reservationRoomId: rr.id,
+            reservationId,
+            reservationNumber: res?.reservationNumber,
+            reservationStatus: res?.status,
+            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+            roomId: rr.roomId,
+            roomNumber: rr.room?.roomNumber,
+            roomTypeId: rr.roomTypeId,
+            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+            nights: rr.nights,
+            adults: rr.adults,
+            children: rr.children,
+            rateTypeId: rr.rateTypeId,
+            rateTypeName: rr.rateType?.rateTypeName,
+            bookingSource: res?.bookingSource?.sourceName,
+            folioNumber: selectedFolio?.folioNumber,
+            isMaster: selectedFolio?.folioType === FolioType.MASTER,
+            balanceSummary,
+            status: res?.status,
+          }
+        })
+        })(),
+        filters: { startDate: start, endDate: end, hotelId },
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to fetch arrivals',
+        error: error.message,
+      })
+    }
+  }
+
+  public async getDeparturesByDateRange({ request, response }: HttpContext) {
+    try {
+      const hotelId = Number(request.param('id'))
+      const { startDate = '', endDate = '' } = request.qs()
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'Invalid hotel id' })
+      }
+
+      const start = DateTime.fromISO(String(startDate)).toISODate()
+      const end = DateTime.fromISO(String(endDate)).toISODate()
+      if (!start || !end) {
+        return response.badRequest({ success: false, message: 'startDate and endDate are required' })
+      }
+
+      const rows = await ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('check_out_date', [start, end])
+        .whereIn('status', ['checked_in', 'checked_out', 'moved_out', 'day_use'])
+        .whereDoesntHave('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'folioType', 'reservationRoomId'])
+        })
+        .preload('reservation', (resQ) => {
+          resQ
+            .preload('guest')
+            .preload('bookingSource')
+            .preload('folios', (folioQuery) => {
+              folioQuery.preload('transactions', (tq) => {
+                tq.select([
+                  'id',
+                  'folioId',
+                  'transactionType',
+                  'category',
+                  'status',
+                  'isVoided',
+                  'totalAmount',
+                  'taxAmount',
+                  'serviceChargeAmount',
+                  'discountAmount',
+                ])
+              })
+            })
+        })
+        .preload('guest')
+        .preload('room', (roomQ) => {
+          roomQ.preload('roomType')
+        })
+        .preload('roomType')
+        .preload('rateType')
+        .orderBy('check_out_date', 'asc')
+
+      return response.ok({
+        success: true,
+        count: rows.length,
+        data: (() => {
+          const balanceByReservationId = new Map<number, any>()
+
+          return rows.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+          const selectedFolio = masterFolio || rr.folios?.[0]
+          const reservationId = res?.id || rr.reservationId
+          let balanceSummary: any = undefined
+
+          if (reservationId && res?.folios) {
+            if (!balanceByReservationId.has(reservationId)) {
+              balanceByReservationId.set(
+                reservationId,
+                ReservationsController.calculateBalanceSummary(res.folios)
+              )
+            }
+            balanceSummary = balanceByReservationId.get(reservationId)
+          }
+
+          return {
+            reservationRoomId: rr.id,
+            reservationId,
+            reservationNumber: res?.reservationNumber,
+            reservationStatus: res?.status,
+            guestName: guest ? `${guest.displayName||''}`.trim() : '—',
+            roomId: rr.roomId,
+            roomNumber: rr.room?.roomNumber,
+            roomTypeId: rr.roomTypeId,
+            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+            nights: rr.nights,
+            adults: rr.adults,
+            children: rr.children,
+            rateTypeId: rr.rateTypeId,
+            rateTypeName: rr.rateType?.rateTypeName,
+            bookingSource: res?.bookingSource?.sourceName,
+            folioNumber: selectedFolio?.folioNumber,
+            isMaster: selectedFolio?.folioType === FolioType.MASTER,
+            balanceSummary,
+            status: res.status,
+          }
+        })
+        })(),
+        filters: { startDate: start, endDate: end, hotelId },
+      })
+    } catch (error) {
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to fetch departures',
+        error: error.message,
+      })
+    }
+  }
+
   /**
    * List in-house reservations filtered by roomId and roomTypeId
    * Returns ReservationRoom rows with related reservation, guest, room, roomType, rateType
@@ -2606,7 +2834,31 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       query
         .preload('reservation', (resQ) => {
-          resQ.preload('guest').preload('bookingSource')
+          resQ
+            .preload('guest')
+            .preload('bookingSource')
+            .preload('folios', (folioQuery) => {
+              folioQuery.preload('transactions', (tq) => {
+                tq.select([
+                  'id',
+                  'folioId',
+                  'transactionType',
+                  'category',
+                  'status',
+                  'isVoided',
+                  'totalAmount',
+                  'taxAmount',
+                  'serviceChargeAmount',
+                  'discountAmount',
+                ])
+              })
+            })
+        })
+        .whereDoesntHave('roomType', (rtQuery) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .preload('folios', (folioQuery) => {
+          folioQuery.select(['id', 'folioNumber', 'folioType', 'reservationRoomId'])
         })
         .preload('guest')
         .preload('room', (roomQ) => {
@@ -2617,28 +2869,59 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const rows = await query
 
-      const data = rows.map((rr) => {
-        const res = rr.reservation
-        const guest = res?.guest || rr.guest
-        return {
-          reservationRoomId: rr.id,
-          reservationId: res?.id || rr.reservationId,
-          guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
-          roomId: rr.roomId,
-          roomNumber: rr.room?.roomNumber,
-          roomTypeId: rr.roomTypeId,
-          roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
-          checkInDate: rr.checkInDate?.toISODate?.() || undefined,
-          checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
-          nights: rr.nights,
-          rateTypeId: rr.rateTypeId,
-          rateTypeName: rr.rateType?.rateTypeName,
-          bookingSource: res?.bookingSource?.sourceName,
-          status: rr.status,
-        }
-      })
+      const data = (() => {
+        const balanceByReservationId = new Map<number, any>()
 
-      return response.ok({ success: true, count: data.length, data })
+        return rows.map((rr) => {
+          const res = rr.reservation
+          const guest = res?.guest || rr.guest
+          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+          const selectedFolio = masterFolio || rr.folios?.[0]
+          const reservationId = res?.id || rr.reservationId
+          let balanceSummary: any = undefined
+
+          if (reservationId && res?.folios) {
+            if (!balanceByReservationId.has(reservationId)) {
+              balanceByReservationId.set(
+                reservationId,
+                ReservationsController.calculateBalanceSummary(res.folios)
+              )
+            }
+            balanceSummary = balanceByReservationId.get(reservationId)
+          }
+
+          return {
+            reservationRoomId: rr.id,
+            reservationId,
+            reservationNumber: res?.reservationNumber,
+            reservationStatus: res?.status,
+            guestName: guest ? `${guest.displayName || ''}`.trim() : '—',
+            roomId: rr.roomId,
+            roomNumber: rr.room?.roomNumber,
+            roomTypeId: rr.roomTypeId,
+            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+            nights: rr.nights,
+            adults: rr.adults,
+            children: rr.children,
+            rateTypeId: rr.rateTypeId,
+            rateTypeName: rr.rateType?.rateTypeName,
+            bookingSource: res?.bookingSource?.sourceName,
+            folioNumber: selectedFolio?.folioNumber,
+            isMaster: selectedFolio?.folioType === FolioType.MASTER,
+            balanceSummary,
+            status: res.status,
+          }
+        })
+      })()
+
+      return response.ok({
+        success: true,
+        count: data.length,
+        data,
+        filters: { hotelId, roomId, roomTypeId },
+      })
     } catch (error) {
       logger.error('Error fetching in-house reservations:', error)
       return response

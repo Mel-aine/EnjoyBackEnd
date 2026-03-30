@@ -390,6 +390,387 @@ export default class ReportsController {
   }
 
   /**
+   * Property Dashboard Stats (Today vs Yesterday)
+   * Query params: hotelId (required), date (optional, ISO yyyy-MM-dd; defaults to today)
+   */
+  async getPropertyDashboardStats({ request, response }: HttpContext) {
+    try {
+      const hotelId = Number(request.input('hotelId'))
+      const dateStr = request.input('date')
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'hotelId is required' })
+      }
+      const baseDate = dateStr ? DateTime.fromISO(dateStr) : DateTime.now()
+      if (!baseDate.isValid) {
+        return response.badRequest({ success: false, message: 'Invalid date' })
+      }
+
+      const today = baseDate.startOf('day')
+      const tomorrow = today.plus({ days: 1 })
+      const yesterday = today.minus({ days: 1 })
+
+      const todayISO = today.toISODate()!
+      const yesterdayISO = yesterday.toISODate()!
+
+      const { default: Reservation } = await import('#models/reservation')
+      const { default: ReservationRoom } = await import('#models/reservation_room')
+      const { default: Room } = await import('#models/room')
+      const { default: RoomBlock } = await import('#models/room_block')
+      const { default: BookingSource } = await import('#models/booking_source')
+      const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+      // Total rooms (exclude paymaster)
+      const totalRoomsQuery = Room.query()
+        .where('hotel_id', hotelId)
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      const totalRoomsCountRow = await totalRoomsQuery.count('* as total')
+      const totalRoomsCount = Number(totalRoomsCountRow[0].$extras.total || 0)
+
+      // Blocked rooms today
+      const blockedRoomsToday = await RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .where('block_from_date', '<=', todayISO)
+        .where('block_to_date', '>=', todayISO)
+        .whereNot('status', 'completed')
+        .countDistinct('room_id as total')
+      const blockedRooms = Number(blockedRoomsToday[0].$extras.total || 0)
+
+      // Arrivals (today)
+      const arrivalsTotalRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .whereIn('status', ['confirmed', 'checked_in'])
+        .count('* as total')
+      const arrivalsPendingRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .where('status', 'confirmed')
+        .count('* as total')
+      const arrivalsArrivedRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .where('status', 'checked_in')
+        .count('* as total')
+      const arrivalsTotal = Number(arrivalsTotalRow[0].$extras.total || 0)
+      const arrivalsPending = Number(arrivalsPendingRow[0].$extras.total || 0)
+      const arrivalsArrived = Number(arrivalsArrivedRow[0].$extras.total || 0)
+
+      // Departures (today)
+      const depTotalRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(depart_date) = ?', [todayISO])
+        .whereIn('status', ['checked_in', 'checked_out'])
+        .count('* as total')
+      const depPendingRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(depart_date) = ?', [todayISO])
+        .where('status', 'checked_in')
+        .count('* as total')
+      const depCheckedOutRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(depart_date) = ?', [todayISO])
+        .where('status', 'checked_out')
+        .count('* as total')
+      const departuresTotal = Number(depTotalRow[0].$extras.total || 0)
+      const departuresPending = Number(depPendingRow[0].$extras.total || 0)
+      const departuresCheckedOut = Number(depCheckedOutRow[0].$extras.total || 0)
+
+      // In-house (today)
+      const inHouseRows = await ReservationRoom.query()
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .where('reservations.hotel_id', hotelId)
+        .where('reservation_rooms.check_in_date', '<=', todayISO)
+        .where('reservation_rooms.check_out_date', '>', todayISO)
+        .where('reservation_rooms.status', 'checked_in')
+        .select('reservation_rooms.adults', 'reservation_rooms.children')
+      const inHouseTotal = inHouseRows.length
+      const inHouseAdults = inHouseRows.reduce((sum: number, r: any) => sum + (r.adults || 0), 0)
+      const inHouseChildren = inHouseRows.reduce((sum: number, r: any) => sum + (r.children || 0), 0)
+      // In-house yesterday
+      const inHouseYesterdayRows = await ReservationRoom.query()
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .where('reservations.hotel_id', hotelId)
+        .where('reservation_rooms.check_in_date', '<=', yesterdayISO)
+        .where('reservation_rooms.check_out_date', '>', yesterdayISO)
+        .where('reservation_rooms.status', 'checked_in')
+      const inHouseYesterdayTotal = inHouseYesterdayRows.length
+
+      // Booking status (arrivals today)
+      const voidedRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .where('status', 'voided')
+        .count('* as total')
+      const cancelledRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .where('status', 'cancelled')
+        .count('* as total')
+      const noShowRow = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .whereIn('status', ['no_show', 'no-show'])
+        .count('* as total')
+
+      const voidedCount = Number(voidedRow[0].$extras.total || 0)
+      const cancelledCount = Number(cancelledRow[0].$extras.total || 0)
+      const noShowCount = Number(noShowRow[0].$extras.total || 0)
+
+      // Inventory statistics
+      const soldRooms = inHouseTotal
+      const complimentaryRoomsRow = await ReservationRoom.query()
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .where('reservations.hotel_id', hotelId)
+        .where('reservation_rooms.check_in_date', '<=', todayISO)
+        .where('reservation_rooms.check_out_date', '>', todayISO)
+        .where('reservation_rooms.status', 'checked_in')
+        .where('reservation_rooms.is_complementary', true)
+        .count('* as total')
+      const complimentaryRooms = Number(complimentaryRoomsRow[0].$extras.total || 0)
+      const availableRooms = Math.max(0, totalRoomsCount - soldRooms - blockedRooms)
+
+      // Payments and revenue (today vs yesterday)
+      const todayPaymentsRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereRaw('DATE(current_working_date) = ?', [todayISO])
+        .sum('amount as total')
+      const yesterdayPaymentsRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', 'payment')
+        .where('is_voided', false)
+        .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
+        .sum('amount as total')
+      const todayPayments = Number((todayPaymentsRow[0] as any).$extras.sum || 0)
+      const yesterdayPayments = Number((yesterdayPaymentsRow[0] as any).$extras.sum || 0)
+
+      const todayChargesRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', 'charge')
+        .where('is_voided', false)
+        .whereRaw('DATE(current_working_date) = ?', [todayISO])
+        .sum('total_amount as total')
+      const yesterdayChargesRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', 'charge')
+        .where('is_voided', false)
+        .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
+        .sum('total_amount as total')
+      const todayRevenue = Number((todayChargesRow[0] as any).$extras.sum || 0)
+      const yesterdayRevenue = Number((yesterdayChargesRow[0] as any).$extras.sum || 0)
+
+      // Room revenue for ADR/RevPAR: only ROOM category
+      const todayRoomRevenueRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', 'charge')
+        .where('category', 'room')
+        .where('is_voided', false)
+        .whereRaw('DATE(current_working_date) = ?', [todayISO])
+        .sum('total_amount as total')
+      const yesterdayRoomRevenueRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', 'charge')
+        .where('category', 'room')
+        .where('is_voided', false)
+        .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
+        .sum('total_amount as total')
+      const todayRoomRevenue = Number((todayRoomRevenueRow[0] as any).$extras.sum || 0)
+      const yesterdayRoomRevenue = Number((yesterdayRoomRevenueRow[0] as any).$extras.sum || 0)
+
+      const adrToday = soldRooms > 0 ? todayRoomRevenue / soldRooms : 0
+      const soldRoomsYesterdayRows = await ReservationRoom.query()
+        .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
+        .where('reservations.hotel_id', hotelId)
+        .where('reservation_rooms.check_in_date', '<=', yesterdayISO)
+        .where('reservation_rooms.check_out_date', '>', yesterdayISO)
+        .where('reservation_rooms.status', 'checked_in')
+      const soldRoomsYesterday = soldRoomsYesterdayRows.length
+      const adrYesterday = soldRoomsYesterday > 0 ? yesterdayRoomRevenue / soldRoomsYesterday : 0
+
+      const revparToday =
+        totalRoomsCount > 0 ? todayRoomRevenue / totalRoomsCount : 0
+      const revparYesterday =
+        totalRoomsCount > 0 ? yesterdayRoomRevenue / totalRoomsCount : 0
+
+      const growth = (curr: number, prev: number) =>
+        prev === 0 ? (curr > 0 ? 100 : 0) : ((curr - prev) / prev) * 100
+
+      // Booking lead time (days between bookingDate and arrived_date for today's arrivals)
+      const todayArrivals = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .select('booking_date', 'arrived_date')
+      const leadTimes = todayArrivals
+        .map((r: any) => {
+          const b = r.bookingDate || r.reservationDatetime
+          const a = r.arrivedDate
+          if (!b || !a) return null
+          return a.diff(DateTime.fromJSDate(new Date(b.toString())), 'days').days
+        })
+        .filter((d: number | null) => typeof d === 'number') as number[]
+      const avgLeadToday =
+        leadTimes.length > 0
+          ? leadTimes.reduce((s, v) => s + v, 0) / leadTimes.length
+          : 0
+      // Rough yesterday lead time using yesterday arrivals
+      const yArrivals = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [yesterdayISO])
+        .select('booking_date', 'arrived_date')
+      const yLead = yArrivals
+        .map((r: any) => {
+          const b = r.bookingDate || r.reservationDatetime
+          const a = r.arrivedDate
+          if (!b || !a) return null
+          return a.diff(DateTime.fromJSDate(new Date(b.toString())), 'days').days
+        })
+        .filter((d: number | null) => typeof d === 'number') as number[]
+      const avgLeadYesterday =
+        yLead.length > 0 ? yLead.reduce((s, v) => s + v, 0) / yLead.length : 0
+
+      // Average Length of Stay (use reservations arriving today)
+      const alosTodayRows = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .select('number_of_nights')
+      const todayNights = alosTodayRows
+        .map((r: any) => Number(r.numberOfNights || 0))
+        .filter((n: number) => !Number.isNaN(n))
+      const alosToday = todayNights.length > 0 ? todayNights.reduce((s, v) => s + v, 0) / todayNights.length : 0
+      const alosYesterdayRows = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [yesterdayISO])
+        .select('number_of_nights')
+      const yNights = alosYesterdayRows
+        .map((r: any) => Number(r.numberOfNights || 0))
+        .filter((n: number) => !Number.isNaN(n))
+      const alosYesterday = yNights.length > 0 ? yNights.reduce((s, v) => s + v, 0) / yNights.length : 0
+
+      // Occupancy percentages
+      const netRoomsToday = Math.max(0, totalRoomsCount - blockedRooms)
+      const occTodayPct = netRoomsToday > 0 ? (soldRooms / netRoomsToday) * 100 : 0
+      // Yesterday blocks
+      const blockedRoomsYesterday = await RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .where('block_from_date', '<=', yesterdayISO)
+        .where('block_to_date', '>=', yesterdayISO)
+        .whereNot('status', 'completed')
+        .countDistinct('room_id as total')
+      const blockedY = Number(blockedRoomsYesterday[0].$extras.total || 0)
+      const netRoomsYesterday = Math.max(0, totalRoomsCount - blockedY)
+      const occYesterdayPct = netRoomsYesterday > 0 ? (soldRoomsYesterday / netRoomsYesterday) * 100 : 0
+
+      // Booking by channel (arrivals today)
+      const arrivalsBySource = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(arrived_date) = ?', [todayISO])
+        .preload('bookingSource')
+      const channelCount = new Map<string, number>()
+      arrivalsBySource.forEach((r: any) => {
+        const label = r.bookingSource?.sourceName || r.otaName || 'Web'
+        channelCount.set(label, (channelCount.get(label) || 0) + 1)
+      })
+      const defaultColors = ['#2196F3', '#3F51B5', '#795548', '#FF9800', '#4CAF50', '#9C27B0']
+      let colorIdx = 0
+      const bookingByChannel = Array.from(channelCount.entries()).map(([channel, value]) => {
+        const color = defaultColors[colorIdx % defaultColors.length]
+        colorIdx++
+        return { channel, value, color }
+      })
+
+      // Hotel currency code
+      const hotel = await Hotel.find(hotelId)
+      const currency = hotel?.currencyCode || 'XAF'
+
+      const payload = {
+        header_stats: {
+          arrival: {
+            total: arrivalsTotal,
+            pending: arrivalsPending,
+            arrived: arrivalsArrived,
+          },
+          departure: {
+            total: departuresTotal,
+            pending: departuresPending,
+            checked_out: departuresCheckedOut,
+          },
+          in_house: {
+            total: inHouseTotal,
+            adults: inHouseAdults,
+            children: inHouseChildren,
+            yesterday_total: inHouseYesterdayTotal,
+          },
+          booking_status: {
+            void: voidedCount,
+            cancel: cancelledCount,
+            no_show: noShowCount,
+          },
+        },
+        property_statistics: {
+          total_revenue: {
+            current_value: Number(todayRevenue.toFixed(2)),
+            currency,
+            yesterday_value: Number(yesterdayRevenue.toFixed(2)),
+            growth_percentage: Number(growth(todayRevenue, yesterdayRevenue).toFixed(2)),
+          },
+          avg_daily_rate: {
+            current_value: Number(adrToday.toFixed(2)),
+            yesterday_value: Number(adrYesterday.toFixed(2)),
+            growth_percentage: Number(growth(adrToday, adrYesterday).toFixed(2)),
+          },
+          booking_lead_time: {
+            current_days: Math.round(avgLeadToday),
+            yesterday_days: Math.round(avgLeadYesterday),
+            growth_percentage: Number(growth(avgLeadToday, avgLeadYesterday).toFixed(2)),
+          },
+          avg_length_of_stay: {
+            current_nights: Math.round(alosToday),
+            yesterday_nights: Math.round(alosYesterday),
+            growth_percentage: Number(growth(alosToday, alosYesterday).toFixed(2)),
+          },
+          total_payment: {
+            current_value: Number(todayPayments.toFixed(2)),
+            yesterday_value: Number(yesterdayPayments.toFixed(2)),
+            growth_percentage: Number(growth(todayPayments, yesterdayPayments).toFixed(2)),
+          },
+          rev_par: {
+            current_value: Number(revparToday.toFixed(2)),
+            yesterday_value: Number(revparYesterday.toFixed(2)),
+            growth_percentage: Number(growth(revparToday, revparYesterday).toFixed(2)),
+          },
+        },
+        inventory_statistics: {
+          available_rooms: availableRooms,
+          sold_rooms: soldRooms,
+          blocked_rooms: blockedRooms,
+          complimentary_rooms: complimentaryRooms,
+          total_rooms_count: totalRoomsCount,
+        },
+        occupancy: {
+          today: {
+            percentage: Number(occTodayPct.toFixed(1)),
+            label: 'Today',
+          },
+          yesterday: {
+            percentage: Number(occYesterdayPct.toFixed(1)),
+            label: 'Yesterday',
+          },
+        },
+        booking_by_channel: bookingByChannel,
+      }
+
+      return response.ok(payload)
+    } catch (error) {
+      logger.error('Error generating property dashboard stats', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate property dashboard stats',
+        error: error.message,
+      })
+    }
+  }
+  /**
    * Export report to PDF format
    */
   private async exportToPDF(response: Response, reportData: any, filename: string) {
@@ -748,14 +1129,21 @@ export default class ReportsController {
       // Get hotel information
       const hotel = await HotelModel.findOrFail(hotelId)
       // Generate all sections data
-      let auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
-      let roomsByStatus: any = {}
-      if (auditDetails && auditDetails?.roomStatusReportData) {
-        roomsByStatus = auditDetails?.roomStatusReportData
+      const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
+      let roomsByStatus: any
+      if (auditDetails && auditDetails.roomStatusReportData) {
+        roomsByStatus = auditDetails.roomStatusReportData
       } else {
-        roomsByStatus = this.generateNightAuditSections(hotelId, reportDate, 'XAF')
+        roomsByStatus = await this.getRoomStatusReportData(Number(hotelId), reportDate, 'XAF')
       }
-      logger.info(roomsByStatus)
+      const safeRoomsByStatus = {
+        occupied: Array.isArray(roomsByStatus?.occupied) ? roomsByStatus.occupied : [],
+        dueOut: Array.isArray(roomsByStatus?.dueOut) ? roomsByStatus.dueOut : [],
+        vacant: Array.isArray(roomsByStatus?.vacant) ? roomsByStatus.vacant : [],
+        departed: Array.isArray(roomsByStatus?.departed) ? roomsByStatus.departed : [],
+        reserved: Array.isArray(roomsByStatus?.reserved) ? roomsByStatus.reserved : [],
+        blocked: Array.isArray(roomsByStatus?.blocked) ? roomsByStatus.blocked : [],
+      }
       // Get authenticated user information
       const user = auth.user
       const printedBy = user
@@ -766,7 +1154,7 @@ export default class ReportsController {
       const htmlContent = this.generateRoomStatusReportHtml(
         hotel.hotelName,
         reportDate,
-        roomsByStatus,
+        safeRoomsByStatus,
         printedBy
       )
 
