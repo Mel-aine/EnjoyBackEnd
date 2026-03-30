@@ -91,4 +91,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   
   // Auto Process User ID
   AUTOPROCESS_USER_ID: Env.schema.number.optional(),
+
+  // Secret token for triggering cron HTTP endpoints
+  CRON_JOB_SECRET: Env.schema.string.optional(),
 })

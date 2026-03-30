@@ -68,6 +68,8 @@ import WidgetsController from '#controllers/widgets_controller'
 import NotificationsController from '#controllers/notifications_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { DateTime } from 'luxon'
+import crypto from 'node:crypto'
 // Root route that presents Enjoys API documentation and test examples
 router.get('/', async ({ request, response }) => {
   const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
@@ -114,6 +116,34 @@ router.get('/reset-password-console', async ({ request, response }) => {
 
   response.type('html')
   return response.send(html)
+})
+
+router.get('/cron/subscriptions/renew', async ({ request, response }) => {
+  const secret = env.get('CRON_JOB_SECRET', '')
+  if (!secret) {
+    return response.serviceUnavailable({ success: false, message: 'Cron endpoint is not configured' })
+  }
+
+  const token = String(request.qs().token ?? request.header('x-cron-token') ?? '')
+  const secretBuf = Buffer.from(secret)
+  const tokenBuf = Buffer.from(token)
+
+  const isValid =
+    tokenBuf.length === secretBuf.length && crypto.timingSafeEqual(tokenBuf, secretBuf)
+
+  if (!isValid) {
+    return response.unauthorized({ success: false, message: 'Unauthorized' })
+  }
+
+  const { default: SubscriptionRenewalService } = await import('#services/subscription_renewal_service')
+  const service = new SubscriptionRenewalService()
+  const result = await service.runMonthlyRenewal(DateTime.now())
+
+  return response.ok({
+    success: true,
+    processedHotels: result.processedHotels,
+    createdInvoices: result.createdInvoices.length,
+  })
 })
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
