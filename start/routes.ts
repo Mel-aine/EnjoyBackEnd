@@ -1629,6 +1629,14 @@ router
       reservationsController.searchReservations.bind(reservationsController)
     )
     router.get(
+      '/hotels/:id/reservation/arrivals',
+      reservationsController.getArrivalsByDateRange.bind(reservationsController)
+    )
+    router.get(
+      '/hotels/:id/reservation/departures',
+      reservationsController.getDeparturesByDateRange.bind(reservationsController)
+    )
+    router.get(
       '/reservations/:reservationId/details',
       reservationsController.getReservationDetails.bind(reservationsController)
     )
