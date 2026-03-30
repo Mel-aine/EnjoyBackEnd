@@ -385,7 +385,7 @@ export default class InvoiceSubscriptionsController {
     const totalAmount = subscriptions.reduce((sum, s) => sum + Number(s.price || 0), 0)
     const isPaid = totalAmount <= 0
 
-    const lastInvoice = await InvoiceSubscription.query().where('hotel_id', hotel.id).orderBy('id', 'desc').first()
+    const lastInvoice = await InvoiceSubscription.query().orderBy('id', 'desc').first()
     const nextId = (lastInvoice?.id ?? 0) + 1
     const invoiceNumber = `SUBINV-${DateTime.now().toFormat('yyyy')}-${String(nextId).padStart(4, '0')}`
 
@@ -1050,18 +1050,17 @@ export default class InvoiceSubscriptionsController {
       this.buildReceiptPdfBuffer(invoice, receipt),
     ])
 
-    const subject = `Paiement reçu - Facture ${invoice.invoiceNumber}`
+    const subject = `Payment received - Invoice ${invoice.invoiceNumber}`
     const html = `
       <div style="font-family: Arial, sans-serif; color: #111;">
-        <p>Bonjour,</p>
-        <p>Votre paiement a bien été reçu.</p>
-        <p>Vous trouverez en pièces jointes la facture et le reçu.</p>
+        <p>Hello,</p>
+        <p>Your payment has been received.</p>
+        <p>Please find the invoice and receipt attached.</p>
         <p>
-          Facture: <strong>${invoice.invoiceNumber}</strong><br />
-          Reçu: <strong>${receipt.receiptNumber}</strong>
+          Invoice: <strong>${invoice.invoiceNumber}</strong><br />
+          Receipt: <strong>${receipt.receiptNumber}</strong>
         </p>
-        <p>Cordialement,</p>
-        <p>Enjoy</p>
+        <p>Thank you,<br />Enjoy</p>
       </div>
     `
 
