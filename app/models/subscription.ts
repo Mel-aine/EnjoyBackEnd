@@ -1,9 +1,10 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Hotel from '#models/hotel'
 import Module from '#models/module'
 import AddOn from '#models/add_on'
+import InvoiceSubscription from '#models/invoice_subscription'
 
 export default class Subscription extends BaseModel {
   @column({ isPrimary: true })
@@ -53,4 +54,12 @@ export default class Subscription extends BaseModel {
 
   @belongsTo(() => AddOn)
   declare addOn: BelongsTo<typeof AddOn>
+
+  @manyToMany(() => InvoiceSubscription, {
+    pivotTable: 'invoice_subscription_items',
+    pivotForeignKey: 'subscription_id',
+    pivotRelatedForeignKey: 'invoice_subscription_id',
+    pivotColumns: ['line_amount', 'description', 'period_start', 'period_end'],
+  })
+  declare invoiceSubscriptions: ManyToMany<typeof InvoiceSubscription>
 }
