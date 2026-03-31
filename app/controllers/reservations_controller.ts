@@ -3073,7 +3073,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
    */
   public async saveReservation(ctx: HttpContext) {
     const { request, auth, response } = ctx
-    
+
     try {
       const data = request.body() as ReservationData
        setImmediate(()=>{
@@ -5556,7 +5556,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // Ensure we calculate full days by syncing timezones and rounding
       const checkOutDateLocal = currentCheckOutDate!.setZone(timezone)
       const moveDateLocal = moveDate.setZone(timezone)
-      
+
       const numberOfNights =
         checkOutDateLocal.toISODate() === moveDateLocal.toISODate()
           ? 0
@@ -7682,6 +7682,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       return response.send(pdfBuffer)
     } catch (error) {
+      console.error('Error generating guest card PDF:', error)
       logger.error('Error generating guest card PDF:', error)
       return response.internalServerError({
         message: 'Failed to generate guest card PDF',
@@ -7693,6 +7694,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
   private generateGuestCardHtml(guest: Guest, reservation: Reservation, totalSummary: any): string {
     const room = reservation.reservationRooms?.[0]?.room
     const reservationRoom = reservation.reservationRooms?.[0]
+    const formatDate = (dateValue?: any) => {
+      if (!dateValue) return 'N/A'
+
+      return DateTime.fromJSDate(new Date(dateValue))
+        .setLocale('fr')
+        .toLocaleString(DateTime.DATE_SHORT)
+    }
 
     return `
     <!DOCTYPE html>
@@ -7909,7 +7917,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 <div class="section-content flex-wrap">
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Arrival Date</span>
-                        <span class="input-line">${reservation.checkInDate ? reservation.checkInDate.toFormat('dd/MM/yyyy') : ''}</span>
+                        <span class="input-line">${reservation.checkInDate ? formatDate(reservation.checkInDate): ''}</span>
                     </div>
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Arrival Time</span>
@@ -7917,7 +7925,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                     </div>
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Dep. Date</span>
-                        <span class="input-line">${reservation.checkOutDate ? reservation.checkOutDate.toFormat('dd/MM/yyyy') : ''}</span>
+                        <span class="input-line">${reservation.checkOutDate ? formatDate(reservation.checkOutDate) : ''}</span>
                     </div>
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Dep. Time</span>
@@ -9280,6 +9288,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       return response.send(pdfBuffer)
     } catch (error) {
+      console.error('Error generating guest card PDF:', error)
       logger.error('Error generating guest card PDF:', error)
       return response.internalServerError({
         message: 'Failed to generate guest card PDF',
@@ -9291,11 +9300,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const room = reservation.reservationRooms?.[0]?.room
     const reservationRoom = reservation.reservationRooms?.[0]
 
-    // Helper function for date formatting
-    const formatDate = (dateString: string) => {
-      if (!dateString) return ''
-      return new Date(dateString).toLocaleDateString('fr-FR')
-    }
+
 
     // Calculate number of persons (adults + children)
     const numberOfPersons = (reservation.adults || 0) + (reservation.children || 0)
@@ -9321,6 +9326,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const idType = guest.idType || ''
     const idNumber = guest.passportNumber || guest.idNumber || ''
     const idDisplay = idType && idNumber ? `${idType}: ${idNumber}` : idNumber || ''
+    const formatDate = (dateValue?: any) => {
+      if (!dateValue) return 'N/A'
+
+      return DateTime.fromJSDate(new Date(dateValue))
+        .setLocale('fr')
+        .toLocaleString(DateTime.DATE_SHORT)
+    }
 
     return `
    <!DOCTYPE html>
@@ -9557,7 +9569,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               <span class="label-en">Arrival date</span>
             </span>
             <div class="line-dot">
-              <span class="filled-value">${formatDate(reservation.checkInDate?.toISODate() || '')}</span>
+              <span class="filled-value">${formatDate(reservation.checkInDate || '')}</span>
             </div>
           </div>
           <div class="form-field">
@@ -9566,7 +9578,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               <span class="label-en">Departure date</span>
             </span>
             <div class="line-dot">
-              <span class="filled-value">${formatDate(reservation.checkOutDate?.toISODate() || '')}</span>
+              <span class="filled-value">${formatDate(reservation.checkOutDate || '')}</span>
             </div>
           </div>
         </div>
