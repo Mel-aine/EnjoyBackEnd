@@ -1766,6 +1766,8 @@ router.group(() => {
     .use(middleware.permission({ permissions: ['console_billing_manage'] }))
   router.post('invoices-subscriptions/:id/payments', '#controllers/Console/invoice_subscriptions_controller.createPayment')
     .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+  router.post('invoices-subscriptions/:id/resend-email', '#controllers/Console/invoice_subscriptions_controller.resendEmail')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
   router.get('invoices-subscriptions/:id/pdf', '#controllers/Console/invoice_subscriptions_controller.printPdf')
     .use(middleware.permission({ permissions: ['console_billing_view'] }))
   router.get('invoices-subscriptions/:id/receipt-pdf', '#controllers/Console/invoice_subscriptions_controller.printReceiptPdf')

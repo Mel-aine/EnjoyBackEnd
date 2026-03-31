@@ -1,6 +1,7 @@
 import InvoiceSubscription from '#models/invoice_subscription'
 import Subscription from '#models/subscription'
 import Hotel from '#models/hotel'
+import EmailAccount from '#models/email_account'
 import PdfService from '#services/pdf_service'
 import MailService from '#services/mail_service'
 import db from '@adonisjs/lucid/services/db'
@@ -18,6 +19,21 @@ type Renewal = {
 }
 
 export default class SubscriptionRenewalService {
+  private async resolveSubscriptionEmailRecipient(hotelId: number, fallbackEmail?: string | null) {
+    const defaultAccount = await EmailAccount.query()
+      .where('hotel_id', hotelId)
+      .orderBy('is_default', 'desc')
+      .orderBy('is_active', 'desc')
+      .first()
+
+    if (defaultAccount?.emailAddress) {
+      return { address: defaultAccount.emailAddress, name: defaultAccount.displayName || undefined }
+    }
+
+    if (fallbackEmail) return fallbackEmail
+    return null
+  }
+
   private async getLogoDataUri() {
     const path = await import('node:path')
     const { readFile } = await import('node:fs/promises')
@@ -100,7 +116,7 @@ export default class SubscriptionRenewalService {
   private async sendInvoiceEmail(invoice: InvoiceSubscription) {
     await invoice.load('hotel')
 
-    const to = invoice.hotel?.email
+    const to = await this.resolveSubscriptionEmailRecipient(invoice.hotelId, invoice.hotel?.email)
     if (!to) return
 
     const invoicePdfBuffer = await this.buildInvoicePdfBuffer(invoice, 'System')
@@ -123,6 +139,9 @@ export default class SubscriptionRenewalService {
         { filename: `invoice-${invoice.invoiceNumber}.pdf`, content: invoicePdfBuffer, contentType: 'application/pdf' },
       ],
     })
+
+    invoice.isSent = true
+    await invoice.save()
   }
 
   public async runMonthlyRenewal(runAt: DateTime = DateTime.now()) {

@@ -7,6 +7,7 @@ import InvoiceSubscriptionPayment from '#models/invoice_subscription_payment'
 import Subscription from '#models/subscription'
 import Module from '#models/module'
 import AddOn from '#models/add_on'
+import EmailAccount from '#models/email_account'
 import PdfService from '#services/pdf_service'
 import MailService from '#services/mail_service'
 import { formatCurrency } from '#app/utils/utilities'
@@ -79,6 +80,7 @@ export default class InvoiceSubscriptionsController {
           amount: inv.totalAmount,
           currency: inv.currency,
           status: inv.status,
+          isSent: inv.isSent,
           billingDate: inv.billingDate?.toISODate() ?? null,
           periodStart: inv.periodStart?.toISODate() ?? null,
           periodEnd: inv.periodEnd?.toISODate() ?? null,
@@ -262,7 +264,7 @@ export default class InvoiceSubscriptionsController {
     if (!periodStart.isValid || !periodEnd.isValid) {
       return response.badRequest({ success: false, message: 'periodStart and periodEnd are required (YYYY-MM-DD)' })
     }
-    if (periodStart >= periodEnd) {
+    if (periodStart > periodEnd) {
       return response.badRequest({ success: false, message: 'periodStart must be before periodEnd' })
     }
     if (subscriptionsToCreate.length === 0) {
@@ -798,6 +800,110 @@ export default class InvoiceSubscriptionsController {
     return response.send(pdfBuffer)
   }
 
+  public async resendEmail({ params, response, auth, request }: HttpContext) {
+    const user = auth.user!
+
+    const invoice = await InvoiceSubscription.query().where('id', params.id).preload('hotel').first()
+    if (!invoice) {
+      return response.notFound({ success: false, message: 'Invoice subscription not found' })
+    }
+
+    const defaultAccount = await EmailAccount.query()
+      .where('hotel_id', invoice.hotelId)
+      .orderBy('is_default', 'desc')
+      .orderBy('is_active', 'desc')
+      .first()
+
+    const to = defaultAccount?.emailAddress
+      ? { address: defaultAccount.emailAddress, name: defaultAccount.displayName || undefined }
+      : invoice.hotel?.email
+
+    if (!to) {
+      return response.badRequest({ success: false, message: 'No recipient email configured for this hotel' })
+    }
+
+    const receipt = await InvoiceSubscriptionReceipt.query()
+      .where('invoice_subscription_id', invoice.id)
+      .orderBy('created_at', 'desc')
+      .first()
+
+    const invoicePdfBuffer = await this.buildInvoicePdfBuffer(invoice, user)
+
+    const attachments: { filename: string; content: Buffer; contentType?: string }[] = [
+      { filename: `invoice-${invoice.invoiceNumber}.pdf`, content: invoicePdfBuffer, contentType: 'application/pdf' },
+    ]
+
+    if (receipt) {
+      const receiptPdfBuffer = await this.buildReceiptPdfBuffer(invoice, receipt)
+      attachments.push({
+        filename: `receipt-${receipt.receiptNumber}.pdf`,
+        content: receiptPdfBuffer,
+        contentType: 'application/pdf',
+      })
+    }
+
+    const subject = receipt
+      ? `Payment received - Invoice ${invoice.invoiceNumber}`
+      : `Your subscription invoice is ready (${invoice.invoiceNumber})`
+
+    const html = receipt
+      ? `
+      <div style="font-family: Arial, sans-serif; color: #111;">
+        <p>Hello,</p>
+        <p>Your payment has been received.</p>
+        <p>Please find the invoice and receipt attached.</p>
+        <p>
+          Invoice: <strong>${invoice.invoiceNumber}</strong><br />
+          Receipt: <strong>${receipt.receiptNumber}</strong>
+        </p>
+        <p>Thank you,<br />Enjoy</p>
+      </div>
+    `
+      : `
+      <div style="font-family: Arial, sans-serif; color: #111;">
+        <p>Hello,</p>
+        <p>Your subscription invoice is ready.</p>
+        <p>Please find the invoice attached.</p>
+        <p>Invoice: <strong>${invoice.invoiceNumber}</strong></p>
+        <p>Thank you,<br />Enjoy</p>
+      </div>
+    `
+
+    await MailService.sendWithAttachments({
+      to,
+      subject,
+      html,
+      attachments,
+    })
+
+    invoice.isSent = true
+    await invoice.save()
+
+    await ActivityLog.create({
+      userId: user.id,
+      username: user.username || user.email,
+      action: 'invoice_subscription.resend_email',
+      entityType: 'invoice_subscription',
+      entityId: invoice.id,
+      hotelId: invoice.hotelId,
+      description: `Resent subscription invoice email: ${invoice.invoiceNumber}`,
+      changes: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        receiptId: receipt?.id ?? null,
+      },
+      ipAddress: request.ip(),
+      userAgent: request.header('user-agent'),
+      createdBy: user.id,
+    })
+
+    return response.ok({
+      success: true,
+      invoiceId: invoice.id,
+      receiptId: receipt?.id ?? null,
+    })
+  }
+
   private async getLogoDataUri() {
     const path = await import('node:path')
     const { readFile } = await import('node:fs/promises')
@@ -1038,7 +1144,15 @@ export default class InvoiceSubscriptionsController {
     const receipt = await InvoiceSubscriptionReceipt.query().where('id', receiptId).first()
     if (!receipt) return
 
-    const to = invoice.hotel?.email
+    const defaultAccount = await EmailAccount.query()
+      .where('hotel_id', invoice.hotelId)
+      .orderBy('is_default', 'desc')
+      .orderBy('is_active', 'desc')
+      .first()
+
+    const to = defaultAccount?.emailAddress
+      ? { address: defaultAccount.emailAddress, name: defaultAccount.displayName || undefined }
+      : invoice.hotel?.email
     if (!to) return
 
     const [invoicePdfBuffer, receiptPdfBuffer] = await Promise.all([
@@ -1069,5 +1183,8 @@ export default class InvoiceSubscriptionsController {
         { filename: `receipt-${receipt.receiptNumber}.pdf`, content: receiptPdfBuffer, contentType: 'application/pdf' },
       ],
     })
+
+    invoice.isSent = true
+    await invoice.save()
   }
 }

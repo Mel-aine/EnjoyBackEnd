@@ -26,6 +26,9 @@ export default class InvoiceSubscription extends BaseModel {
   @column()
   declare status: 'pending' | 'paid' | 'failed' | 'cancelled'
 
+  @column({ columnName: 'is_sent' })
+  declare isSent: boolean
+
   @column()
   declare billingFrom: any | null
 
