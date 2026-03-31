@@ -64,7 +64,7 @@ export default class PdfGenerationService {
 
       const file = { content: htmlContent }
       const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-      
+
       return pdfBuffer
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -107,6 +107,7 @@ export default class PdfGenerationService {
         },
         displayHeaderFooter: defaultOptions.displayHeaderFooter,
         headerTemplate: options.headerTemplate,
+        printBackground: true,
         footerTemplate: options.footerTemplate,
         type: 'pdf',
         quality: '75',
@@ -116,7 +117,7 @@ export default class PdfGenerationService {
 
       const file = { content: htmlContent }
       const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-      
+
       return pdfBuffer
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -197,10 +198,10 @@ export default class PdfGenerationService {
             printBackground: true,
             ...options
           }
-    
+
           // Generate HTML content
           const htmlContent = this.generateBookingHtmlTemplateFrench(folioPrintData)
-    
+
           // PDF generation options for html-pdf-node
           const pdfOptions = {
             format: defaultOptions.format,
@@ -216,10 +217,10 @@ export default class PdfGenerationService {
             renderDelay: 500,
             zoomFactor: 1
           }
-    
+
           const file = { content: htmlContent }
           const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-    
+
           return pdfBuffer
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
@@ -257,13 +258,13 @@ export default class PdfGenerationService {
                 box-sizing: border-box;
                 font-family: Arial, sans-serif;
             }
-    
+
             body {
                 background-color: #f5f5f5;
                 padding: 10px;
                 font-size: 12px;
             }
-    
+
             .invoice-container {
                 max-width: 800px;
                 margin: 0 auto;
@@ -271,29 +272,29 @@ export default class PdfGenerationService {
                 border: 2px solid #000;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }
-    
+
             .header {
                 text-align: center;
                 padding: 10px;
                 border-bottom: 2px solid #000;
             }
-    
+
             .hotel-name {
                 font-size: 18px;
                 font-weight: bold;
                 margin-bottom: 5px;
             }
-    
+
             .hotel-info {
                 font-size: 11px;
                 line-height: 1.3;
             }
-    
+
             .registration-info {
                 font-size: 11px;
                 margin-top: 5px;
             }
-    
+
             .tax-invoice-title {
                 text-align: center;
                 padding: 10px 0;
@@ -301,13 +302,13 @@ export default class PdfGenerationService {
                 font-weight: bold;
                 text-decoration: underline;
             }
-    
+
             table {
                 width: 100%;
                 border-collapse: collapse;
                 font-size: 11px;
             }
-    
+
             th, td {
                 padding: 5px;
                 border-top: 2px solid #000;
@@ -315,128 +316,128 @@ export default class PdfGenerationService {
                 border-left: none;
                 border-right: none;
             }
-    
+
             th {
                 background-color: #f0f0f0;
                 font-weight: bold;
             }
-    
+
             .invoice-details {
                 padding: 5px;
             }
-    
+
             .invoice-details table {
                 border: none;
             }
-    
+
             .invoice-details td {
                 border: none;
                 padding: 1px 5px;
                 vertical-align: top;
             }
-    
+
             .label {
                 font-weight: bold;
             }
-    
+
             .guest-table, .stay-table {
                 margin-bottom: 5px;
             }
-    
+
             .charges-table {
                 margin-bottom: 5px;
             }
-    
+
             .charges-table td {
                 padding: 3px 5px;
             }
-    
+
             .text-right {
                 text-align: right;
             }
-    
+
             .text-center {
                 text-align: center;
             }
-    
+
             .totals-section {
                 padding: 5px;
                 margin-bottom: 5px;
             }
-    
+
             .totals-section table {
                 border: none;
             }
-    
+
             .totals-section td {
                 border: none;
                 padding: 2px 5px;
             }
-    
+
             .amount-in-words {
                 padding: 5px;
                 margin-bottom: 5px;
             }
-    
+
             .amount-in-words table {
                 border-top: 2px solid #000;
                 border-bottom: 2px solid #000;
                 border-left: none;
                 border-right: none;
             }
-    
+
             .amount-in-words td {
                 border: none;
             }
-    
+
             .bill-to-section {
                 padding: 5px;
                 margin-bottom: 5px;
             }
-    
+
             .bill-to-section table {
                 border: none;
             }
-    
+
             .bill-to-section td {
                 border: none;
                 padding: 2px 5px;
                 vertical-align: top;
             }
-    
+
             .footer {
                 text-align: center;
                 padding: 10px;
                 font-size: 11px;
                 border-top: 2px solid #000;
             }
-    
+
             .folio-notice {
                 padding: 5px;
                 font-size: 11px;
                 font-weight: bold;
             }
-    
+
             .verification-info {
                 padding: 5px;
                 font-size: 11px;
             }
-    
+
             .verification-info table {
                 border: none;
             }
-    
+
             .verification-info td {
                 border: none;
                 padding: 2px 5px;
             }
-    
+
             .page-info {
                 text-align: right;
                 padding: 5px;
                 font-size: 11px;
             }
-    
+
             .url {
                 padding: 5px;
                 font-size: 10px;
@@ -461,7 +462,7 @@ export default class PdfGenerationService {
                 </div>
                 <div class="tax-invoice-title">Tax Invoice</div>
             </div>
-    
+
             <!-- Invoice Details -->
             <div class="invoice-details">
                 <table>
@@ -480,7 +481,7 @@ export default class PdfGenerationService {
                     </tr>
                 </table>
             </div>
-    
+
             <!-- Guest Details Table -->
             <table class="guest-table">
                 <tr>
@@ -498,7 +499,7 @@ export default class PdfGenerationService {
                     <td>${reservation.roomNumber || 'N/A'}</td>
                 </tr>
             </table>
-    
+
             <!-- Stay Details Table -->
             <table class="stay-table">
                 <tr>
@@ -518,7 +519,7 @@ export default class PdfGenerationService {
                     <td>${reservation.rateType || 'N/A'}</td>
                 </tr>
             </table>
-    
+
             <!-- Charges Table -->
             <table class="charges-table">
                 <thead>
@@ -544,7 +545,7 @@ export default class PdfGenerationService {
                     `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
                 </tbody>
             </table>
-    
+
             <!-- Totals Section -->
             <div class="totals-section">
                 <table>
@@ -562,7 +563,7 @@ export default class PdfGenerationService {
                     </tr>
                 </table>
             </div>
-    
+
             <!-- Amount in words section -->
             <div class="amount-in-words">
                 <table>
@@ -580,7 +581,7 @@ export default class PdfGenerationService {
                     </tr>
                 </table>
             </div>
-    
+
             <!-- Bill To Section -->
             <div class="bill-to-section">
                 <table>
@@ -601,18 +602,18 @@ export default class PdfGenerationService {
                     </tr>
                 </table>
             </div>
-    
+
             <!-- Footer -->
             <div class="footer">
                 <p>Thank you for your stay with us. Please visit us again.</p>
             </div>
-    
+
             <!-- Folio Notice -->
             <div class="folio-notice">
                 <p>Folio NOTICE</p>
                 <p>Folio NOTICE</p>
             </div>
-    
+
             <!-- Verification Info -->
             <div class="verification-info">
                 <table>
@@ -625,7 +626,7 @@ export default class PdfGenerationService {
                     </tr>
                 </table>
             </div>
-    
+
             <!-- Page Info -->
             <div class="page-info">
                 Page 1 of 1
@@ -661,7 +662,7 @@ export default class PdfGenerationService {
                 padding: 0;
                 box-sizing: border-box;
             }
-            
+
             body {
                 font-family: Arial, sans-serif;
                 font-size: 12px;
@@ -670,13 +671,13 @@ export default class PdfGenerationService {
                 background: white;
                 padding: 20px;
             }
-            
+
             .print-page {
                 width: 100%;
                 max-width: 800px;
                 margin: 0 auto;
             }
-            
+
             .border-classic {
                 border: 2px solid #333;
                 padding: 16px;
@@ -702,82 +703,82 @@ export default class PdfGenerationService {
             .flex {
                 display: flex;
             }
-            
+
             .justify-between {
                 justify-content: space-between;
             }
-            
+
             .items-start {
                 align-items: flex-start;
             }
-            
+
             .text-right {
                 text-align: right;
             }
-            
+
             .text-center {
                 text-align: center;
             }
-            
+
             .p-4 {
                 padding: 16px;
             }
-            
+
             .p-3 {
                 padding: 12px;
             }
-            
+
             .mb-4 {
                 margin-bottom: 16px;
             }
-            
+
             .mb-2 {
                 margin-bottom: 8px;
             }
-            
+
             .mt-2 {
                 margin-top: 8px;
             }
-            
+
             .mt-4 {
                 margin-top: 16px;
             }
-            
+
             .mt-6 {
                 margin-top: 24px;
             }
-            
+
             .text-sm {
                 font-size: 14px;
             }
-            
+
             .text-lg {
                 font-size: 18px;
             }
-            
+
             .text-xl {
                 font-size: 20px;
             }
-            
+
             .font-bold {
                 font-weight: bold;
             }
-            
+
             .bg-gray-200 {
                 background-color: #edf2f7;
             }
-            
+
             .data-grid {
                 display: grid;
                 width: 100%;
                 gap: 1px;
                 background-color: #cbd5e0;
             }
-            
+
             .grid-header {
                 display: contents;
             }
-            
+
             .grid-header-cell {
                 padding: 4px 8px;
                 background-color: #edf2f7;
@@ -785,66 +786,66 @@ export default class PdfGenerationService {
                 text-align: left;
                 width: 100%;
             }
-            
+
             .grid-row {
                 display: contents;
             }
-            
+
             .grid-cell {
                 padding: 4px 8px;
                 background-color: white;
                 text-align: left;
             }
-            
+
             .room-details-grid {
                 grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
             }
-            
+
             .rates-grid {
                 grid-template-columns: 2fr 1fr;
             }
-            
+
             .rates-grid .grid-header-cell:last-child,
             .rates-grid .grid-cell:last-child {
                 text-align: right;
                 justify-self: end;
             }
-            
+
             .border-2 {
                 border-width: 2px;
             }
-            
+
             .border-black {
                 border-color: #000;
             }
-            
+
             .border-t {
             }
-            
+
             .list-disc {
                 list-style-type: disc;
             }
-            
+
             .pl-5 {
                 padding-left: 20px;
             }
-            
+
             u {
                 text-decoration: underline;
             }
-            
+
             em {
                 font-style: italic;
             }
-            
+
             .grid {
                 display: grid;
             }
-            
+
             .grid-cols-2 {
                 grid-template-columns: repeat(2, 1fr);
             }
-            
+
             .gap-2 {
                 gap: 8px;
             }
@@ -989,7 +990,7 @@ export default class PdfGenerationService {
                 <div class="border-1">
                     <div class="text-center font-bold border-1-inside">
                     <h2>BOOKING AMOUNT</h2>
-                    <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3> 
+                    <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3>
                     </div>
                 </div>
                 <div class="text-right text-sm">
@@ -1007,7 +1008,7 @@ export default class PdfGenerationService {
             </div>
 
                 <div class="text-sm mt-6">
-                    
+
                     <div>
                     <h3 class="font-bold">Cancellation Policy</h3>
                     <p>${hotel.cancellationPolicy}</>
@@ -1062,7 +1063,7 @@ export default class PdfGenerationService {
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: Arial, sans-serif;
             font-size: 12px;
@@ -1071,13 +1072,13 @@ export default class PdfGenerationService {
             background: white;
             padding: 20px;
         }
-        
+
         .print-page {
             width: 100%;
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         .border-classic {
             border: 2px solid #333;
             padding: 16px;
@@ -1103,82 +1104,82 @@ export default class PdfGenerationService {
         .flex {
             display: flex;
         }
-        
+
         .justify-between {
             justify-content: space-between;
         }
-        
+
         .items-start {
             align-items: flex-start;
         }
-        
+
         .text-right {
             text-align: right;
         }
-        
+
         .text-center {
             text-align: center;
         }
-        
+
         .p-4 {
             padding: 16px;
         }
-        
+
         .p-3 {
             padding: 12px;
         }
-        
+
         .mb-4 {
             margin-bottom: 16px;
         }
-        
+
         .mb-2 {
             margin-bottom: 8px;
         }
-        
+
         .mt-2 {
             margin-top: 8px;
         }
-        
+
         .mt-4 {
             margin-top: 16px;
         }
-        
+
         .mt-6 {
             margin-top: 24px;
         }
-        
+
         .text-sm {
             font-size: 14px;
         }
-        
+
         .text-lg {
             font-size: 18px;
         }
-        
+
         .text-xl {
             font-size: 20px;
         }
-        
+
         .font-bold {
             font-weight: bold;
         }
-        
+
         .bg-gray-200 {
             background-color: #edf2f7;
         }
-        
+
         .data-grid {
             display: grid;
             width: 100%;
             gap: 1px;
             background-color: #cbd5e0;
         }
-        
+
         .grid-header {
             display: contents;
         }
-        
+
         .grid-header-cell {
             padding: 4px 8px;
             background-color: #edf2f7;
@@ -1186,66 +1187,66 @@ export default class PdfGenerationService {
             text-align: left;
             width: 100%;
         }
-        
+
         .grid-row {
             display: contents;
         }
-        
+
         .grid-cell {
             padding: 4px 8px;
             background-color: white;
             text-align: left;
         }
-        
+
         .room-details-grid {
             grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
         }
-        
+
         .rates-grid {
             grid-template-columns: 2fr 1fr;
         }
-        
+
         .rates-grid .grid-header-cell:last-child,
         .rates-grid .grid-cell:last-child {
             text-align: right;
             justify-self: end;
         }
-        
+
         .border-2 {
             border-width: 2px;
         }
-        
+
         .border-black {
             border-color: #000;
         }
-        
+
         .border-t {
         }
-        
+
         .list-disc {
             list-style-type: disc;
         }
-        
+
         .pl-5 {
             padding-left: 20px;
         }
-        
+
         u {
             text-decoration: underline;
         }
-        
+
         em {
             font-style: italic;
         }
-        
+
         .grid {
             display: grid;
         }
-        
+
         .grid-cols-2 {
             grid-template-columns: repeat(2, 1fr);
         }
-        
+
         .gap-2 {
             gap: 8px;
         }
@@ -1390,7 +1391,7 @@ export default class PdfGenerationService {
             <div class="border-1">
                 <div class="text-center font-bold border-1-inside">
                   <h2>MONTANT DE LA RÉSERVATION</h2>
-                   <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3> 
+                   <h3> ${this.formatAmount(totals.totalChargesWithTaxes)} ${currency.code}</h3>
                 </div>
             </div>
             <div class="text-right text-sm">
@@ -1408,7 +1409,7 @@ export default class PdfGenerationService {
         </div>
 
             <div class="text-sm mt-6">
-                
+
                 <div>
                 <h3 class="font-bold">Politique d'Annulation</h3>
                 <p>${hotel.cancellationPolicy}</>
@@ -1484,7 +1485,7 @@ static async generateSuitaHotelPdf(
 
     const file = { content: htmlContent }
     const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-    
+
     return pdfBuffer
   } catch (error) {
     throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
@@ -1509,10 +1510,10 @@ static async generateSuitaHotelPdfFrench(
         printBackground: true,
         ...options
       }
-  
+
       // Generate HTML content
       const htmlContent = this.generateHotelHtmlTemplateFrench(folioPrintData)
-  
+
       // PDF generation options for html-pdf-node (puppeteer-style)
       const pdfOptions = {
         format: defaultOptions.format,
@@ -1531,10 +1532,10 @@ static async generateSuitaHotelPdfFrench(
         renderDelay: 500,
         zoomFactor: 1
       }
-  
+
       const file = { content: htmlContent }
       const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-      
+
       return pdfBuffer
     } catch (error) {
       throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
@@ -1547,9 +1548,9 @@ static async generateSuitaHotelPdfFrench(
         if (amount === null || amount === undefined || isNaN(amount)) {
             return '0'
         }
-        return `${Math.round(Number(amount)).toLocaleString('fr-FR', { 
-            minimumFractionDigits: 0, 
-            maximumFractionDigits: 0 
+        return `${Math.round(Number(amount)).toLocaleString('fr-FR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         })}`
     }
 
@@ -1563,14 +1564,14 @@ static async generateSuitaHotelPdfFrench(
             total,
             currency,
         } = data
-        
+
         // Convert amount to words
         const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
-        
+
         // Pagination: diviser les transactions en groupes de 10
         const TRANSACTIONS_PER_PAGE = 10;
         const transactionPages: any[][] = [];
-        
+
         if (transactions && transactions.length > 0) {
             for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
                 transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
@@ -1578,15 +1579,15 @@ static async generateSuitaHotelPdfFrench(
         } else {
             transactionPages.push([]);
         }
-        
+
         const totalPages = transactionPages.length;
-        
+
         // Fonction pour générer les lignes de transactions d'une page
         const generateTransactionRows = (pageTransactions: any[]) => {
             if (pageTransactions.length === 0) {
                 return '<tr><td colspan="6" class="text-center">No transactions found</td></tr>';
             }
-            
+
             return pageTransactions.map((transaction, index) => `
                 <tr>
                     <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
@@ -1598,7 +1599,7 @@ static async generateSuitaHotelPdfFrench(
                 </tr>
             `).join('');
         };
-        
+
         // Fonction pour générer une page complète
         const generatePage = (pageTransactions: any[], pageNumber: number) => `
             <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
@@ -1618,7 +1619,7 @@ static async generateSuitaHotelPdfFrench(
                         <div class="tax-invoice">Tax Invoice</div>
                     </div>
                 </div>
-        
+
                 <!-- Invoice Details -->
                 <div class="invoice-details">
                     <table class="details-table">
@@ -1636,7 +1637,7 @@ static async generateSuitaHotelPdfFrench(
                         </tr>
                     </table>
                 </div>
-        
+
                 <!-- Guest Details & Stay Details - Combined Table -->
                 <table class="header-table">
                     <colgroup>
@@ -1666,7 +1667,7 @@ static async generateSuitaHotelPdfFrench(
                         <th colspan="2">Date of Arrival</th>
                         <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
                         <th colspan="2">Date of Departure</th>
-                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td> 
+                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td>
                         <th>Tariff</th>
                         <td>${this.formatCurrency(reservation.tariff || 0)}</td>
                     </tr>
@@ -1679,7 +1680,7 @@ static async generateSuitaHotelPdfFrench(
                         <td>${reservation.rateType}</td>
                     </tr>
                 </table>
-        
+
                 <!-- Charges Table -->
                 <div class="charges-table">
                     <table class="header-table">
@@ -1698,7 +1699,7 @@ static async generateSuitaHotelPdfFrench(
                         </tbody>
                     </table>
                 </div>
-        
+
                 <!-- Totals Section -->
                 <div class="totals-section">
                     <div class="total-line">
@@ -1711,7 +1712,7 @@ static async generateSuitaHotelPdfFrench(
                         <span style="margin-left: 60px;">${this.formatCurrency(totals.totalTaxes || 0)}</span>
                     </div>
                 </div>
-    
+
                 <!-- Amount in Words -->
                 <div class="amount-words">
                     <table class="amount-table">
@@ -1729,7 +1730,7 @@ static async generateSuitaHotelPdfFrench(
                         </tr>
                     </table>
                 </div>
-        
+
                 <!-- Bill To Section -->
                 <div class="bill-to">
                     <div style="margin-bottom: 8px;">
@@ -1744,18 +1745,18 @@ static async generateSuitaHotelPdfFrench(
                         <span class="font-bold">Remark</span>
                     </div>
                 </div>
-        
+
                 <!-- Footer -->
                 <div class="footer">
                     <p>Thank you for your stay with us. Please visit us again.</p>
                 </div>
-        
+
                 <!-- Folio Notice -->
                 <div class="folio-notice">
                     <p>Folio NOTICE</p>
                     <p>Folio NOTICE</p>
                 </div>
-        
+
                 <!-- User Tracking Information -->
                 <div class="user-tracking">
                     <div>
@@ -1768,19 +1769,19 @@ static async generateSuitaHotelPdfFrench(
                         <span class="font-bold">Checked Out By:</span> ${reservation.checkedOutBy || 'N/A'}
                     </div>
                 </div>
-    
+
                 <!-- Page Info -->
                 <div class="page-info">
                     Page ${pageNumber} of ${totalPages}
                 </div>
             </div>
         `;
-        
+
         // Générer toutes les pages
-        const allPages = transactionPages.map((pageTransactions, index) => 
+        const allPages = transactionPages.map((pageTransactions, index) =>
             generatePage(pageTransactions, index + 1)
         ).join('');
-    
+
         return `<!DOCTYPE html>
         <html lang="fr">
         <head>
@@ -1793,12 +1794,12 @@ static async generateSuitaHotelPdfFrench(
                     padding: 0;
                     box-sizing: border-box;
                 }
-                
+
                 @page {
                     size: A4;
                     margin: 10mm;
                 }
-                
+
                 body {
                     font-family: 'Times New Roman', serif;
                     font-size: 12px;
@@ -1808,37 +1809,37 @@ static async generateSuitaHotelPdfFrench(
                     margin: 0;
                     padding: 0;
                 }
-                
+
                 .container {
                     width: 100%;
                     max-width: 800px;
                     margin: 0 auto;
                     border: 1px solid #000;
                 }
-                
+
                 .header {
                     text-align: center;
                     padding: 15px;
                     border-bottom: 1px solid #000;
                     position: relative;
                 }
-                
+
                 .hotel-info h1 {
                     font-size: 16px;
                     font-weight: bold;
                     margin-bottom: 8px;
                 }
-                
+
                 .hotel-details {
                     font-size: 11px;
                     margin-bottom: 15px;
                 }
-                
+
                 .tax-invoice {
                     font-size: 12px;
                     font-weight: bold;
                 }
-                
+
                 .registration-info {
                     position: absolute;
                     top: 15px;
@@ -1846,96 +1847,96 @@ static async generateSuitaHotelPdfFrench(
                     font-size: 10px;
                     text-align: right;
                 }
-                
+
                 .invoice-details {
                     padding: 8px;
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .details-table {
                     width: 100%;
                     font-size: 10px;
                     border-collapse: collapse;
                 }
-                
+
                 .details-table td {
                     padding: 2px 5px;
                     vertical-align: top;
                 }
-                
+
                 .guest-details, .stay-details {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .data-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10px;
                 }
-                
+
                 .data-table th, .data-table td {
                     border: 1px solid #000;
                     padding: 4px 6px;
                     text-align: left;
                 }
-                
+
                 .data-table th {
                     font-weight: bold;
                     background-color: #d3d3d3;
                 }
-                
+
                 .charges-table {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .charges-table .amount {
                     text-align: right;
                 }
-                
+
                 .totals-section {
                     padding: 8px;
                     border-bottom: 1px solid #000;
                     text-align: center;
                     font-size: 10px;
                 }
-                
+
                 .totals-section .total-line {
                     margin-bottom: 5px;
                 }
-                
+
                 .amount-words {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .amount-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10px;
                 }
-                
+
                 .amount-table td {
                     border: 1px solid #000;
                     padding: 6px;
                     vertical-align: top;
                 }
-                
+
                 .bill-to {
                     padding: 8px;
                     font-size: 10px;
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .signature {
                     text-align: right;
                     margin-top: 15px;
                 }
-                
+
                 .footer {
                     text-align: center;
                     padding: 15px;
                     font-size: 10px;
                 }
-                
+
                 .user-tracking {
                     padding: 8px;
                     font-size: 10px;
@@ -1944,19 +1945,19 @@ static async generateSuitaHotelPdfFrench(
                     gap: 10px;
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .folio-notice {
                     padding: 8px;
                     font-size: 10px;
                     font-weight: bold;
                 }
-                
+
                 .page-info {
                     text-align: right;
                     padding: 5px;
                     font-size: 10px;
                 }
-                
+
                 .url {
                     padding: 5px;
                     font-size: 10px;
@@ -1964,78 +1965,78 @@ static async generateSuitaHotelPdfFrench(
                     color: #666;
                     border-top: 1px solid #000;
                 }
-                
+
                 .font-bold { font-weight: bold; }
                 .text-right { text-align: right; }
                 .text-center { text-align: center; }
-                
+
                 .header-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10px;
                 }
-                
+
                 .header-table th,
                 .header-table td {
                     border: 1px solid #000;
                     padding: 6px 8px;
                     text-align: left;
                 }
-                
+
                 .header-table th {
                     font-weight: bold;
                     background-color: #d3d3d3;
                     text-align: center;
                 }
-                
+
                 .header-table td {
                     text-align: center;
                 }
-                
+
                 .charges-table .header-table tbody tr td {
                     border-left: none;
                     border-right: none;
                     border-bottom: none;
                 }
-                
+
                 .charges-table .header-table tbody tr:last-child td {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .charges-table .header-table tbody tr td:first-child {
                     border-left: 1px solid #000;
                 }
-                
+
                 .charges-table .header-table tbody tr td:last-child {
                     border-right: 1px solid #000;
                 }
-                
+
                 /* Gestion de la pagination automatique */
                 .charges-table .header-table tbody tr {
                     page-break-inside: avoid;
                 }
-                
+
                 .charges-table .header-table thead {
                     display: table-header-group;
                 }
-                
+
                 .charges-table .header-table tfoot {
                     display: table-footer-group;
                 }
-                
+
                 @media print {
                     body {
                         margin: 0 !important;
                         padding: 0 !important;
                     }
-                    
+
                     .container {
                         page-break-after: always;
                         margin: 0 auto !important;
                         max-width: 100% !important;
                         width: 100% !important;
                     }
-                    
+
                     .container:last-child {
                         page-break-after: auto;
                     }
@@ -2057,14 +2058,14 @@ static async generateSuitaHotelPdfFrench(
             total,
             currency,
         } = data;
-        
+
         // Convertir le montant en lettres
         const amountInWords = this.numberToWords(totals.totalChargesWithTaxes);
-        
+
         // Pagination : diviser les transactions en groupes de 10
         const TRANSACTIONS_PER_PAGE = 10;
         const transactionPages: any[][] = [];
-        
+
         if (transactions && transactions.length > 0) {
             for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
                 transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
@@ -2072,15 +2073,15 @@ static async generateSuitaHotelPdfFrench(
         } else {
             transactionPages.push([]);
         }
-        
+
         const totalPages = transactionPages.length;
-        
+
         // Fonction pour générer les lignes de transactions d'une page
         const generateTransactionRows = (pageTransactions: any[]) => {
             if (pageTransactions.length === 0) {
                 return '<tr><td colspan="6" class="text-center">Aucune transaction trouvée</td></tr>';
             }
-            
+
             return pageTransactions.map((transaction, index) => `
                 <tr>
                     <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
@@ -2092,7 +2093,7 @@ static async generateSuitaHotelPdfFrench(
                 </tr>
             `).join('');
         };
-        
+
         // Fonction pour générer une page complète
         const generatePage = (pageTransactions: any[], pageNumber: number) => `
             <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
@@ -2112,7 +2113,7 @@ static async generateSuitaHotelPdfFrench(
                         <div class="tax-invoice">Facture Fiscale</div>
                     </div>
                 </div>
-        
+
                 <!-- Détails de la facture -->
                 <div class="invoice-details">
                     <table class="details-table">
@@ -2130,7 +2131,7 @@ static async generateSuitaHotelPdfFrench(
                         </tr>
                     </table>
                 </div>
-        
+
                 <!-- Détails du Client & Détails du Séjour - Tableau combiné -->
                 <table class="header-table">
                     <colgroup>
@@ -2160,7 +2161,7 @@ static async generateSuitaHotelPdfFrench(
                         <th colspan="2">Date d'Arrivée</th>
                         <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
                         <th colspan="2">Date de Départ</th>
-                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td> 
+                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td>
                         <th>Tarif</th>
                         <td>${this.formatCurrency(reservation.tariff || 0)}</td>
                     </tr>
@@ -2173,7 +2174,7 @@ static async generateSuitaHotelPdfFrench(
                         <td>${reservation.rateType}</td>
                     </tr>
                 </table>
-        
+
                 <!-- Tableau des Charges -->
                 <div class="charges-table">
                     <table class="header-table">
@@ -2192,7 +2193,7 @@ static async generateSuitaHotelPdfFrench(
                         </tbody>
                     </table>
                 </div>
-        
+
                 <!-- Section Totaux -->
                 <div class="totals-section">
                     <div class="total-line">
@@ -2205,7 +2206,7 @@ static async generateSuitaHotelPdfFrench(
                         <span style="margin-left: 60px;">${this.formatCurrency(totals.totalTaxes || 0)}</span>
                     </div>
                 </div>
-    
+
                 <!-- Montant en Lettres -->
                 <div class="amount-words">
                     <table class="amount-table">
@@ -2223,7 +2224,7 @@ static async generateSuitaHotelPdfFrench(
                         </tr>
                     </table>
                 </div>
-        
+
                 <!-- Section Facturer À -->
                 <div class="bill-to">
                     <div style="margin-bottom: 8px;">
@@ -2238,18 +2239,18 @@ static async generateSuitaHotelPdfFrench(
                         <span class="font-bold">Remarques</span>
                     </div>
                 </div>
-        
+
                 <!-- Pied de page -->
                 <div class="footer">
                     <p>Merci pour votre séjour parmi nous. Au plaisir de vous revoir.</p>
                 </div>
-        
+
                 <!-- Avis Folio -->
                 <div class="folio-notice">
                     <p>AVIS FOLIO</p>
                     <p>Ceci est un document de facturation officiel</p>
                 </div>
-        
+
                 <!-- Informations de Suivi Utilisateur -->
                 <div class="user-tracking">
                     <div>
@@ -2262,19 +2263,19 @@ static async generateSuitaHotelPdfFrench(
                         <span class="font-bold">Check-out Par:</span> ${reservation.checkedOutBy || 'N/A'}
                     </div>
                 </div>
-    
+
                 <!-- Information de Page -->
                 <div class="page-info">
                     Page ${pageNumber} sur ${totalPages}
                 </div>
             </div>
         `;
-        
+
         // Générer toutes les pages
-        const allPages = transactionPages.map((pageTransactions, index) => 
+        const allPages = transactionPages.map((pageTransactions, index) =>
             generatePage(pageTransactions, index + 1)
         ).join('');
-    
+
         return `<!DOCTYPE html>
         <html lang="fr">
         <head>
@@ -2287,12 +2288,12 @@ static async generateSuitaHotelPdfFrench(
                     padding: 0;
                     box-sizing: border-box;
                 }
-                
+
                 @page {
                     size: A4;
                     margin: 10mm;
                 }
-                
+
                 body {
                     font-family: 'Times New Roman', serif;
                     font-size: 12px;
@@ -2302,37 +2303,37 @@ static async generateSuitaHotelPdfFrench(
                     margin: 0;
                     padding: 0;
                 }
-                
+
                 .container {
                     width: 100%;
                     max-width: 800px;
                     margin: 0 auto;
                     border: 1px solid #000;
                 }
-                
+
                 .header {
                     text-align: center;
                     padding: 15px;
                     border-bottom: 1px solid #000;
                     position: relative;
                 }
-                
+
                 .hotel-info h1 {
                     font-size: 16px;
                     font-weight: bold;
                     margin-bottom: 8px;
                 }
-                
+
                 .hotel-details {
                     font-size: 11px;
                     margin-bottom: 15px;
                 }
-                
+
                 .tax-invoice {
                     font-size: 12px;
                     font-weight: bold;
                 }
-                
+
                 .registration-info {
                     position: absolute;
                     top: 15px;
@@ -2340,96 +2341,96 @@ static async generateSuitaHotelPdfFrench(
                     font-size: 10px;
                     text-align: right;
                 }
-                
+
                 .invoice-details {
                     padding: 8px;
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .details-table {
                     width: 100%;
                     font-size: 10px;
                     border-collapse: collapse;
                 }
-                
+
                 .details-table td {
                     padding: 2px 5px;
                     vertical-align: top;
                 }
-                
+
                 .guest-details, .stay-details {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .data-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10px;
                 }
-                
+
                 .data-table th, .data-table td {
                     border: 1px solid #000;
                     padding: 4px 6px;
                     text-align: left;
                 }
-                
+
                 .data-table th {
                     font-weight: bold;
                     background-color: #d3d3d3;
                 }
-                
+
                 .charges-table {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .charges-table .amount {
                     text-align: right;
                 }
-                
+
                 .totals-section {
                     padding: 8px;
                     border-bottom: 1px solid #000;
                     text-align: center;
                     font-size: 10px;
                 }
-                
+
                 .totals-section .total-line {
                     margin-bottom: 5px;
                 }
-                
+
                 .amount-words {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .amount-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10px;
                 }
-                
+
                 .amount-table td {
                     border: 1px solid #000;
                     padding: 6px;
                     vertical-align: top;
                 }
-                
+
                 .bill-to {
                     padding: 8px;
                     font-size: 10px;
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .signature {
                     text-align: right;
                     margin-top: 15px;
                 }
-                
+
                 .footer {
                     text-align: center;
                     padding: 15px;
                     font-size: 10px;
                 }
-                
+
                 .user-tracking {
                     padding: 8px;
                     font-size: 10px;
@@ -2438,19 +2439,19 @@ static async generateSuitaHotelPdfFrench(
                     gap: 10px;
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .folio-notice {
                     padding: 8px;
                     font-size: 10px;
                     font-weight: bold;
                 }
-                
+
                 .page-info {
                     text-align: right;
                     padding: 5px;
                     font-size: 10px;
                 }
-                
+
                 .url {
                     padding: 5px;
                     font-size: 10px;
@@ -2458,78 +2459,78 @@ static async generateSuitaHotelPdfFrench(
                     color: #666;
                     border-top: 1px solid #000;
                 }
-                
+
                 .font-bold { font-weight: bold; }
                 .text-right { text-align: right; }
                 .text-center { text-align: center; }
-                
+
                 .header-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 10px;
                 }
-                
+
                 .header-table th,
                 .header-table td {
                     border: 1px solid #000;
                     padding: 6px 8px;
                     text-align: left;
                 }
-                
+
                 .header-table th {
                     font-weight: bold;
                     background-color: #d3d3d3;
                     text-align: center;
                 }
-                
+
                 .header-table td {
                     text-align: center;
                 }
-                
+
                 .charges-table .header-table tbody tr td {
                     border-left: none;
                     border-right: none;
                     border-bottom: none;
                 }
-                
+
                 .charges-table .header-table tbody tr:last-child td {
                     border-bottom: 1px solid #000;
                 }
-                
+
                 .charges-table .header-table tbody tr td:first-child {
                     border-left: 1px solid #000;
                 }
-                
+
                 .charges-table .header-table tbody tr td:last-child {
                     border-right: 1px solid #000;
                 }
-                
+
                 /* Gestion de la pagination automatique */
                 .charges-table .header-table tbody tr {
                     page-break-inside: avoid;
                 }
-                
+
                 .charges-table .header-table thead {
                     display: table-header-group;
                 }
-                
+
                 .charges-table .header-table tfoot {
                     display: table-footer-group;
                 }
-                
+
                 @media print {
                     body {
                         margin: 0 !important;
                         padding: 0 !important;
                     }
-                    
+
                     .container {
                         page-break-after: always;
                         margin: 0 auto !important;
                         max-width: 100% !important;
                         width: 100% !important;
                     }
-                    
+
                     .container:last-child {
                         page-break-after: auto;
                     }
@@ -2545,10 +2546,10 @@ static async generateSuitaHotelPdfFrench(
    * Convert number to words (simplifie
    * d implementation)
    */
-  private static numberToWords(amount: number): string {  
+  private static numberToWords(amount: number): string {
     const n = Number(amount)
     if (!Number.isFinite(n) || n === 0) return 'Zero'
-    
+
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
     const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
@@ -2556,12 +2557,12 @@ static async generateSuitaHotelPdfFrench(
 
     function convertHundreds(num: number): string {
       let result = ''
-      
+
       if (num >= 100) {
         result += ones[Math.floor(num / 100)] + ' Hundred '
         num %= 100
       }
-      
+
       if (num >= 20) {
         result += tens[Math.floor(num / 10)] + ' '
         num %= 10
@@ -2569,18 +2570,18 @@ static async generateSuitaHotelPdfFrench(
         result += teens[num - 10] + ' '
         return result
       }
-      
+
       if (num > 0) {
         result += ones[num] + ' '
       }
-      
+
       return result
     }
 
     let result = ''
     let thousandIndex = 0
     let remaining = Math.floor(Math.abs(n))
-    
+
     while (remaining > 0) {
       if (remaining % 1000 !== 0) {
         result =
@@ -2589,7 +2590,7 @@ static async generateSuitaHotelPdfFrench(
       remaining = Math.floor(remaining / 1000)
       thousandIndex++
     }
-    
+
     return result.trim()
   }
 
@@ -2621,7 +2622,7 @@ static async generateSuitaHotelPdfFrench(
       maximumFractionDigits: 0,
     })
   }
-  /** 
+  /**
    * Format time to HH'h'mm
    */
     private static formatTimeShort(dateValue: any): string {

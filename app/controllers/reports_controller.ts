@@ -1,5 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import ReportsService, { ReportFilters } from '#services/reports_service'
+import ReportsService, { ReportFilters,HtmlReport, ReportData  } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import {
@@ -780,32 +780,7 @@ export default class ReportsController {
   /**
    * Export report to PDF format
    */
-  // private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
-  //   try {
-  //     // Générer le PDF à partir du HTML du rapport
-  //     const pdfBuffer = await PdfService.generatePdfFromHtml(reportData.html, {
-  //       format: 'A4',
-  //       orientation: 'landscape',
-  //       margin: {
-  //         top: '1cm',
-  //         right: '1cm',
-  //         bottom: '1cm',
-  //         left: '1cm',
-  //       },
-  //     })
-
-  //     // Définir les en-têtes de réponse pour le téléchargement du PDF
-  //     response.header('Content-Type', 'application/pdf')
-  //     response.header('Content-Disposition', `attachment; filename="${filename}"`)
-  //     response.header('Content-Length', pdfBuffer.length.toString())
-
-  //     // Envoyer le buffer PDF en réponse
-  //     return response.send(pdfBuffer)
-  //   } catch (error) {
-  //     throw new Error(`Erreur lors de la génération du PDF: ${error.message}`)
-  //   }
-  // }
-  private async exportToPDF(response: Response, reportData: HtmlReport, filename: string) {
+  private async exportToPDF(response: HttpContext['response'], reportData: HtmlReport, filename: string) {
     try {
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
@@ -9928,81 +9903,150 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   /**
    * Génère un PDF du rapport de disponibilité des chambres
    */
+  // async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
+  //   try {
+  //     const { hotelId, dateFrom, dateTo, roomTypeId, floor ,roomTypeName } = request.body()
+
+
+  //     // Validation des paramètres requis
+  //     if (!dateFrom || !dateTo) {
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Date range is required (dateFrom and dateTo)',
+  //       })
+  //     }
+
+  //     if (!hotelId) {
+  //       return response.badRequest({
+  //         success: false,
+  //         message: 'Hotel ID is required',
+  //       })
+  //     }
+
+  //     // Créer les filtres pour le rapport
+  //     const reportFilters: ReportFilters = {
+  //       hotelId: parseInt(hotelId),
+  //       startDate: dateFrom,
+  //       endDate: dateTo,
+  //       roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
+  //     }
+
+  //     // Récupérer les données de disponibilité des chambres
+  //     const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
+
+  //     // Obtenir les informations de l'utilisateur authentifié
+  //     const user = auth.user
+  //     const printedBy = user
+  //       ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+  //       : 'System'
+
+  //     // Générer le contenu HTML pour le PDF (version simplifiée)
+  //     const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
+  //       roomAvailabilityData,
+  //       { dateFrom, dateTo, roomTypeId, floor,roomTypeName },
+  //       printedBy
+  //     )
+
+  //     // Générer le PDF
+  //     const pdfBuffer = await PdfService.generatePdfFromHtml(htmlContent, {
+  //       format: 'A4',
+  //       orientation: 'landscape',
+  //       margin: {
+  //         top: '1cm',
+  //         right: '1cm',
+  //         bottom: '1cm',
+  //         left: '1cm',
+  //       },
+  //     })
+
+  //     // Générer le nom de fichier
+  //     const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
+  //     const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
+
+  //     // Définir les en-têtes de réponse
+  //     response.header('Content-Type', 'application/pdf')
+  //     response.header('Content-Disposition', `attachment; filename="${filename}"`)
+  //     response.header('Content-Length', pdfBuffer.length.toString())
+
+  //     return response.send(pdfBuffer)
+  //   } catch (error) {
+  //     console.error('Error generating room availability PDF:', error)
+  //     return response.internalServerError({
+  //       success: false,
+  //       message: 'Failed to generate room availability PDF',
+  //       error: error.message,
+  //     })
+  //   }
+  // }
+
   async generateRoomAvailabilityPdf({ request, response, auth }: HttpContext) {
-    try {
-      const { hotelId, dateFrom, dateTo, roomTypeId, floor ,roomTypeName } = request.body()
+  try {
+    const { hotelId, dateFrom, dateTo, roomTypeId, floor, roomTypeName } = request.body()
 
-
-      // Validation des paramètres requis
-      if (!dateFrom || !dateTo) {
-        return response.badRequest({
-          success: false,
-          message: 'Date range is required (dateFrom and dateTo)',
-        })
-      }
-
-      if (!hotelId) {
-        return response.badRequest({
-          success: false,
-          message: 'Hotel ID is required',
-        })
-      }
-
-      // Créer les filtres pour le rapport
-      const reportFilters: ReportFilters = {
-        hotelId: parseInt(hotelId),
-        startDate: dateFrom,
-        endDate: dateTo,
-        roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
-      }
-
-      // Récupérer les données de disponibilité des chambres
-      const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
-
-      // Obtenir les informations de l'utilisateur authentifié
-      const user = auth.user
-      const printedBy = user
-        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
-        : 'System'
-
-      // Générer le contenu HTML pour le PDF (version simplifiée)
-      const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
-        roomAvailabilityData,
-        { dateFrom, dateTo, roomTypeId, floor,roomTypeName },
-        printedBy
-      )
-
-      // Générer le PDF
-      const pdfBuffer = await PdfService.generatePdfFromHtml(htmlContent, {
-        format: 'A4',
-        orientation: 'landscape',
-        margin: {
-          top: '1cm',
-          right: '1cm',
-          bottom: '1cm',
-          left: '1cm',
-        },
-      })
-
-      // Générer le nom de fichier
-      const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
-      const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
-
-      // Définir les en-têtes de réponse
-      response.header('Content-Type', 'application/pdf')
-      response.header('Content-Disposition', `attachment; filename="${filename}"`)
-      response.header('Content-Length', pdfBuffer.length.toString())
-
-      return response.send(pdfBuffer)
-    } catch (error) {
-      console.error('Error generating room availability PDF:', error)
-      return response.internalServerError({
+    if (!dateFrom || !dateTo) {
+      return response.badRequest({
         success: false,
-        message: 'Failed to generate room availability PDF',
-        error: error.message,
+        message: 'Date range is required (dateFrom and dateTo)',
       })
     }
+
+    if (!hotelId) {
+      return response.badRequest({
+        success: false,
+        message: 'Hotel ID is required',
+      })
+    }
+
+    const reportFilters: ReportFilters = {
+      hotelId: parseInt(hotelId),
+      startDate: dateFrom,
+      endDate: dateTo,
+      roomTypeId: roomTypeId ? parseInt(roomTypeId) : undefined,
+    }
+
+    const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
+
+    const user = auth.user
+    const printedBy = user
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+      : 'System'
+
+    const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
+      roomAvailabilityData,
+      { dateFrom, dateTo, roomTypeId, floor, roomTypeName },
+      printedBy
+    )
+
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      orientation: 'landscape',
+      margin: {
+        top: '1cm',
+        right: '1cm',
+        bottom: '1cm',
+        left: '1cm',
+      },
+    })
+
+    const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
+    const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
+
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${filename}"`)
+    response.header('Content-Length', pdfBuffer.length.toString())
+
+    return response.send(pdfBuffer)
+  } catch (error) {
+    console.error('Error generating room availability PDF:', error)
+    return response.internalServerError({
+      success: false,
+      message: 'Failed to generate room availability PDF',
+      error: error.message,
+    })
   }
+}
 
   /**
    * Génère le contenu HTML simplifié pour le PDF
@@ -10018,9 +10062,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     },
     printedBy: string = 'System'
   ): string {
-    const { dateFrom, dateTo, roomTypeId, floor,roomTypeName } = options
+    const { dateFrom, dateTo, roomTypeId, floor, roomTypeName } = options
 
-    // Calculs des statistiques à partir des données filtrées
     const rooms = reportData.data || []
     const totalRooms = rooms.length
     const availableRooms = rooms.filter((room: any) => room.status === 'available').length
@@ -10028,392 +10071,206 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     const maintenanceRooms = rooms.filter((room: any) => room.status === 'maintenance').length
     const occupancyRate = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(1) : '0.0'
 
-    // Générer les données pour les graphiques
-    const weeklyData = this.generateWeeklyData(reportData)
-
-    // Filtres appliqués pour affichage
     const appliedFilters = []
     if (roomTypeId) appliedFilters.push(`Type: ${roomTypeName}`)
     if (floor) appliedFilters.push(`Étage: ${floor}`)
 
+    // Graphique en barres statique
+    const weeklyData = this.generateWeeklyData(reportData)
+    const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+    const maxValue = Math.max(...weeklyData, 1)
+    const barsHtml = days.map((day, index) => {
+      const value = weeklyData[index]
+      const height = Math.round((value / maxValue) * 80)
+      return `
+        <td style="text-align:center; vertical-align:bottom; padding: 0 4px; width: 30px;">
+          <div style="font-size:9px; font-weight:bold; color:#2c3e50; margin-bottom:2px;">${value}%</div>
+          <div style="height:${height}px; background-color:#3498db; width:20px; margin:0 auto; border-radius:2px 2px 0 0; min-height:4px;"></div>
+          <div style="font-size:9px; color:#666; font-weight:bold; margin-top:3px;">${day}</div>
+        </td>
+      `
+    }).join('')
+
+    // Grille des chambres statique
+    const roomsHtml = rooms.map((room: any) => {
+      const roomNumber = room.roomNumber || room.number || 'N/A'
+      const status = room.status || 'available'
+      const bgColor =
+        status === 'available'    ? '#2ecc71' :
+        status === 'occupied'     ? '#e74c3c' :
+        status === 'maintenance'  ? '#f39c12' :
+                                    '#95a5a6'
+      return `
+        <td style="
+          background-color: ${bgColor};
+          color: white;
+          font-weight: bold;
+          font-size: 9px;
+          text-align: center;
+          padding: 6px 2px;
+          border-radius: 4px;
+          width: 35px;
+          height: 35px;
+        ">${roomNumber}</td>
+      `
+    }).join('')
+
+    // Découper les chambres en rangées de 15
+    const COLS = 15
+    const roomRows: any[][] = []
+    for (let i = 0; i < rooms.length; i += COLS) {
+      roomRows.push(rooms.slice(i, i + COLS))
+    }
+
+    const roomsTableHtml = roomRows.map((rowRooms) => {
+      const cells = rowRooms.map((room: any) => {
+        const roomNumber = room.roomNumber || room.number || 'N/A'
+        const status = room.status || 'available'
+        const bgColor =
+          status === 'available'    ? '#2ecc71' :
+          status === 'occupied'     ? '#e74c3c' :
+          status === 'maintenance'  ? '#f39c12' :
+                                      '#95a5a6'
+        return `
+          <td style="
+            background-color: ${bgColor};
+            color: white;
+            font-weight: bold;
+            font-size: 9px;
+            text-align: center;
+            padding: 5px 2px;
+            border-radius: 3px;
+            width: 35px;
+            height: 30px;
+          ">${roomNumber}</td>
+        `
+      }).join('')
+      // Remplir les cellules vides si la dernière ligne est incomplète
+      const emptyCells = COLS - rowRooms.length
+      const emptyHtml = Array(emptyCells).fill('<td style="width:35px;"></td>').join('')
+      return `<tr>${cells}${emptyHtml}</tr>`
+    }).join('')
+
     return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rapport de Disponibilité des Chambres</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+      <meta charset="UTF-8">
+      <title>Rapport de Disponibilité des Chambres</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; font-size: 12px; color: #333; background: white; padding: 15px; margin: 0;">
 
-        @page {
-            size: A4;
-            margin: 15mm;
-        }
+      <!-- Header -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 15px;">
+          <tr>
+              <td style="background-color: #2c3e50; color: white; padding: 15px; text-align: center; border-radius: 6px;">
+                  <div style="font-size: 20px; font-weight: bold; margin-bottom: 5px;">Rapport de Disponibilité des Chambres</div>
+                  <div style="font-size: 13px; opacity: 0.9;">Période : ${dateFrom} au ${dateTo}</div>
+                  ${appliedFilters.length > 0 ? `<div style="font-size:11px; margin-top:4px;">Filtres : ${appliedFilters.join(' | ')}</div>` : ''}
+              </td>
+          </tr>
+      </table>
 
-        body {
-            font-family: 'Arial', sans-serif;
-            font-size: 12px;
-            line-height: 1.3;
-            color: #333;
-            background: white;
-        }
+      <!-- Stats + Graphique -->
+      <table width="100%" cellpadding="0" cellspacing="10" style="margin-bottom: 15px;">
+          <tr valign="top">
 
-        .page-container {
-            max-width: 100%;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+              <!-- Statistiques -->
+              <td width="48%" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px;">
+                  <div style="font-size:14px; font-weight:bold; color:#2c3e50; text-align:center; margin-bottom:12px;">Statistiques</div>
+                  <table width="100%" cellpadding="6" cellspacing="4">
+                      <tr>
+                          <td style="background-color:white; border-left: 4px solid #3498db; border-radius:4px; text-align:center; padding:10px;">
+                              <div style="font-size:24px; font-weight:bold; color:#3498db;">${totalRooms}</div>
+                              <div style="font-size:10px; color:#666; text-transform:uppercase;">Total</div>
+                          </td>
+                          <td style="background-color:white; border-left: 4px solid #2ecc71; border-radius:4px; text-align:center; padding:10px;">
+                              <div style="font-size:24px; font-weight:bold; color:#2ecc71;">${availableRooms}</div>
+                              <div style="font-size:10px; color:#666; text-transform:uppercase;">Disponibles</div>
+                          </td>
+                      </tr>
+                      <tr>
+                          <td style="background-color:white; border-left: 4px solid #e74c3c; border-radius:4px; text-align:center; padding:10px;">
+                              <div style="font-size:24px; font-weight:bold; color:#e74c3c;">${occupiedRooms}</div>
+                              <div style="font-size:10px; color:#666; text-transform:uppercase;">Occupées</div>
+                          </td>
+                          <td style="background-color:white; border-left: 4px solid #9b59b6; border-radius:4px; text-align:center; padding:10px;">
+                              <div style="font-size:24px; font-weight:bold; color:#9b59b6;">${occupancyRate}%</div>
+                              <div style="font-size:10px; color:#666; text-transform:uppercase;">Taux</div>
+                          </td>
+                      </tr>
+                  </table>
+              </td>
 
-        .header {
-            background: linear-gradient(135deg, #2c3e50, #34495e);
-            color: white;
-            padding: 15px;
-            text-align: center;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
+              <!-- Graphique barres -->
+              <td width="48%" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px;">
+                  <div style="font-size:14px; font-weight:bold; color:#2c3e50; text-align:center; margin-bottom:12px;">Évolution 7 jours</div>
+                  <table width="100%" cellpadding="0" cellspacing="0" style="height: 100px;">
+                      <tr valign="bottom">
+                          ${barsHtml}
+                      </tr>
+                  </table>
+              </td>
 
-        .header h1 {
-            font-size: 20px;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
+          </tr>
+      </table>
 
-        .date-range {
-            font-size: 14px;
-            opacity: 0.9;
-        }
+      <!-- Vue des chambres -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:white; border: 1px solid #e9ecef; border-radius:6px; padding:15px; margin-bottom:15px;">
+          <tr>
+              <td>
+                  <div style="font-size:14px; font-weight:bold; color:#2c3e50; text-align:center; margin-bottom:10px;">Vue des Chambres</div>
 
-        .filters-info {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
+                  <!-- Légende -->
+                  <table cellpadding="0" cellspacing="0" style="margin: 0 auto 12px auto;">
+                      <tr>
+                          <td style="padding: 0 10px;">
+                              <table cellpadding="0" cellspacing="0"><tr>
+                                  <td style="width:12px; height:12px; background-color:#2ecc71; border-radius:2px;"></td>
+                                  <td style="padding-left:4px; font-size:11px;">Disponible</td>
+                              </tr></table>
+                          </td>
+                          <td style="padding: 0 10px;">
+                              <table cellpadding="0" cellspacing="0"><tr>
+                                  <td style="width:12px; height:12px; background-color:#e74c3c; border-radius:2px;"></td>
+                                  <td style="padding-left:4px; font-size:11px;">Occupée</td>
+                              </tr></table>
+                          </td>
+                          <td style="padding: 0 10px;">
+                              <table cellpadding="0" cellspacing="0"><tr>
+                                  <td style="width:12px; height:12px; background-color:#f39c12; border-radius:2px;"></td>
+                                  <td style="padding-left:4px; font-size:11px;">Maintenance</td>
+                              </tr></table>
+                          </td>
+                          <td style="padding: 0 10px;">
+                              <table cellpadding="0" cellspacing="0"><tr>
+                                  <td style="width:12px; height:12px; background-color:#95a5a6; border-radius:2px;"></td>
+                                  <td style="padding-left:4px; font-size:11px;">Hors service</td>
+                              </tr></table>
+                          </td>
+                      </tr>
+                  </table>
 
-        .main-content {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
+                  <!-- Grille des chambres -->
+                  <table cellpadding="2" cellspacing="2" style="margin: 0 auto;">
+                      ${roomsTableHtml}
+                  </table>
+              </td>
+          </tr>
+      </table>
 
-        .left-panel, .right-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+      <!-- Footer -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e9ecef; padding-top: 10px;">
+          <tr>
+              <td style="font-size:10px; color:#666;">Généré le ${new Date().toLocaleDateString('fr-FR')} par ${printedBy}</td>
+              <td style="font-size:10px; color:#666; text-align:right;">Hôtel Management System</td>
+          </tr>
+      </table>
 
-        .stats-section {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            border: 1px solid #e9ecef;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .stat-card {
-            text-align: center;
-            padding: 12px;
-            border-radius: 6px;
-            border-left: 4px solid var(--accent-color);
-            background: white;
-        }
-
-        .stat-card.total { --accent-color: #3498db; }
-        .stat-card.available { --accent-color: #2ecc71; }
-        .stat-card.occupied { --accent-color: #e74c3c; }
-        .stat-card.rate { --accent-color: #9b59b6; }
-
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--accent-color);
-            display: block;
-            margin-bottom: 3px;
-        }
-
-        .stat-label {
-            font-size: 10px;
-            color: #666;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-
-        .chart-section {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            border: 1px solid #e9ecef;
-            height: fit-content;
-        }
-
-        .chart-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 12px;
-            text-align: center;
-        }
-
-        /* Graphique en barres */
-        .bar-chart {
-            display: flex;
-            align-items: end;
-            justify-content: space-around;
-            height: 120px;
-            margin-bottom: 10px;
-            padding: 0 10px;
-        }
-
-        .bar {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-            max-width: 25px;
-        }
-
-        .bar-value {
-            font-size: 9px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 3px;
-        }
-
-        .bar-fill {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            width: 100%;
-            border-radius: 2px 2px 0 0;
-            min-height: 5px;
-            margin-bottom: 5px;
-        }
-
-        .bar-label {
-            font-size: 9px;
-            color: #666;
-            font-weight: bold;
-        }
-
-        /* Grille des chambres simplifiée */
-        .rooms-section {
-            grid-column: 1 / -1;
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            border: 1px solid #e9ecef;
-        }
-
-        .rooms-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
-            gap: 3px;
-            margin-top: 10px;
-        }
-
-        .room-card {
-            aspect-ratio: 1;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 9px;
-            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
-        }
-
-        .room-card.available { background: #2ecc71; }
-        .room-card.occupied { background: #e74c3c; }
-        .room-card.maintenance { background: #f39c12; }
-        .room-card.out-of-order { background: #95a5a6; }
-
-        .legend-simple {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11px;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
-
-        .legend-color.available { background: #2ecc71; }
-        .legend-color.occupied { background: #e74c3c; }
-        .legend-color.maintenance { background: #f39c12; }
-
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-top: 1px solid #e9ecef;
-            font-size: 10px;
-            color: #666;
-        }
-
-        @media print {
-            body { font-size: 11px; }
-            .page-container { height: auto; }
-            .rooms-grid {
-                grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
-                gap: 2px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="page-container">
-        <div class="header">
-            <h1>📊 Rapport de Disponibilité des Chambres</h1>
-            <div class="date-range">Période: ${dateFrom} au ${dateTo}</div>
-            ${appliedFilters.length > 0 ? `<div class="filters-info">Filtres: ${appliedFilters.join(' | ')}</div>` : ''}
-        </div>
-
-        <div class="main-content">
-            <div class="left-panel">
-                <div class="stats-section">
-                    <h3 class="chart-title">Statistiques</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card total">
-                            <span class="stat-number">${totalRooms}</span>
-                            <div class="stat-label">Total</div>
-                        </div>
-                        <div class="stat-card available">
-                            <span class="stat-number">${availableRooms}</span>
-                            <div class="stat-label">Disponibles</div>
-                        </div>
-                        <div class="stat-card occupied">
-                            <span class="stat-number">${occupiedRooms}</span>
-                            <div class="stat-label">Occupées</div>
-                        </div>
-                        <div class="stat-card rate">
-                            <span class="stat-number">${occupancyRate}%</span>
-                            <div class="stat-label">Taux</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="right-panel">
-                <div class="chart-section">
-                    <h3 class="chart-title">Évolution 7 jours</h3>
-                    <div class="bar-chart" id="barChart">
-                        <!-- Les barres seront générées par JavaScript -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="rooms-section">
-            <h3 class="chart-title">Vue des Chambres</h3>
-            <div class="legend-simple">
-                <div class="legend-item">
-                    <div class="legend-color available"></div>
-                    <span>Disponible</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color occupied"></div>
-                    <span>Occupée</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color maintenance"></div>
-                    <span>Maintenance</span>
-                </div>
-            </div>
-            <div id="roomsGrid" class="rooms-grid">
-                <!-- Les chambres seront générées par JavaScript -->
-            </div>
-        </div>
-
-        <div class="footer">
-            <div>Généré le ${new Date().toLocaleDateString('fr-FR')} par ${printedBy}</div>
-            <div>Hôtel Management System</div>
-        </div>
-    </div>
-
-    <script>
-        // Données du rapport
-        const reportData = {
-            totalRooms: ${totalRooms},
-            availableRooms: ${availableRooms},
-            occupiedRooms: ${occupiedRooms},
-            maintenanceRooms: ${maintenanceRooms},
-            occupancyRate: ${occupancyRate},
-            weeklyData: ${JSON.stringify(weeklyData)},
-            rooms: ${JSON.stringify(rooms)}
-        };
-
-        function initializeReport() {
-            createBarChart();
-            createRoomsGrid();
-        }
-
-        function createBarChart() {
-            const container = document.getElementById('barChart');
-            if (!container) return;
-
-            const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-            const maxValue = Math.max(...reportData.weeklyData);
-
-            container.innerHTML = '';
-
-            days.forEach((day, index) => {
-                const value = reportData.weeklyData[index];
-                const height = (value / maxValue) * 80;
-
-                const bar = document.createElement('div');
-                bar.className = 'bar';
-                bar.innerHTML = \`
-                    <div class="bar-value">\${value}%</div>
-                    <div class="bar-fill" style="height: \${height}px;"></div>
-                    <div class="bar-label">\${day}</div>
-                \`;
-                container.appendChild(bar);
-            });
-        }
-
-        function createRoomsGrid() {
-            const container = document.getElementById('roomsGrid');
-            if (!container) return;
-
-            reportData.rooms.forEach(room => {
-                const roomElement = document.createElement('div');
-                roomElement.className = \`room-card \${room.status}\`;
-                roomElement.textContent = room.number || room.roomNumber || 'N/A';
-                roomElement.title = \`Chambre \${room.number || room.roomNumber}: \${room.status}\`;
-                container.appendChild(roomElement);
-            });
-        }
-
-        // Initialiser le rapport
-        document.addEventListener('DOMContentLoaded', initializeReport);
-    </script>
-</body>
-</html>
-  `
-  }
+  </body>
+  </html>
+    `
+}
 
   // Méthode auxiliaire pour générer les données hebdomadaires
   private generateWeeklyData(reportData: any): number[] {
