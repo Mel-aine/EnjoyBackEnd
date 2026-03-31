@@ -521,9 +521,7 @@ export default class InvoiceSubscriptionsController {
 
     let logoDataUri = ''
     try {
-      const logoBuffer = await readFile(
-        path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png')
-      )
+      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'aron_logo.png'))
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {}
 
@@ -697,9 +695,7 @@ export default class InvoiceSubscriptionsController {
 
     let logoDataUri = ''
     try {
-      const logoBuffer = await readFile(
-        path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png')
-      )
+      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'aron_logo.png'))
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {}
 
@@ -807,7 +803,7 @@ export default class InvoiceSubscriptionsController {
     const { readFile } = await import('node:fs/promises')
 
     try {
-      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png'))
+      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'aron_logo.png'))
       return `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {
       return ''

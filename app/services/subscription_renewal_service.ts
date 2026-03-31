@@ -23,7 +23,7 @@ export default class SubscriptionRenewalService {
     const { readFile } = await import('node:fs/promises')
 
     try {
-      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'LogoEnjoy.png'))
+      const logoBuffer = await readFile(path.join(process.cwd(), 'app', 'data', 'aron_logo.png'))
       return `data:image/png;base64,${logoBuffer.toString('base64')}`
     } catch {
       return ''
