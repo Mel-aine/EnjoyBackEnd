@@ -26,6 +26,4 @@ router.group(() => {
   router.post('/hotels/:hotelId/roomposting', [PosController, 'postRoomTransaction'])
   
 }).prefix('/pos').use([
-  middleware.apiKey(),
-  middleware.checkSubscription('pos')
-])
+  middleware.apiKey()])
