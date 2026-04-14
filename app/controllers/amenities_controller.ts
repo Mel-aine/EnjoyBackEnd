@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import LoggerService from '#services/logger_service'
 import Amenity from '#models/amenity'
 import { createAmenityValidator, updateAmenityValidator } from '#validators/amenity'
 
@@ -98,6 +99,17 @@ export default class AmenitiesController {
       await amenity.load('hotel')
       await amenity.load('createdByUser')
 
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'CREATE',
+        entityType: 'Amenity',
+        entityId: amenity.id,
+        hotelId: amenity.hotelId,
+        description: `Created amenity: ${amenity.amenityName}`,
+        changes: amenity.serialize(),
+        ctx: { request, response } as any
+      })
+
       return response.created({
         success: true,
         data: amenity,
@@ -121,6 +133,7 @@ export default class AmenitiesController {
       const user = auth.user!
 
       const amenity = await Amenity.findOrFail(params.id)
+      const oldData = amenity.serialize()
       
       amenity.merge({
         ...payload,
@@ -130,6 +143,17 @@ export default class AmenitiesController {
       await amenity.save()
       await amenity.load('hotel')
       await amenity.load('updatedByUser')
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'UPDATE',
+        entityType: 'Amenity',
+        entityId: amenity.id,
+        hotelId: amenity.hotelId,
+        description: `Updated amenity: ${amenity.amenityName}`,
+        changes: LoggerService.extractChanges(oldData, amenity.serialize()),
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         success: true,
@@ -171,7 +195,7 @@ export default class AmenitiesController {
   /**
    * Restore a soft-deleted amenity
    */
-  async restore({ params, response, auth }: HttpContext) {
+  async restore({ params, request, response, auth }: HttpContext) {
     try {
       const user = auth.user!
       const amenity = await Amenity.scopeOnlyDeleted().where('id', params.id).firstOrFail()
@@ -179,6 +203,16 @@ export default class AmenitiesController {
       await amenity.restore(user.id)
       await amenity.load('hotel')
       await amenity.load('updatedByUser')
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'RESTORE',
+        entityType: 'Amenity',
+        entityId: amenity.id,
+        hotelId: amenity.hotelId,
+        description: `Restored amenity: ${amenity.amenityName}`,
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         success: true,
@@ -261,11 +295,25 @@ export default class AmenitiesController {
       const user = auth.user!
 
       // amenities should be an array of { id, sort_key }
+      let hotelId = 0
       for (const amenityData of amenities) {
         const amenity = await Amenity.findOrFail(amenityData.id)
+        if (hotelId === 0) hotelId = amenity.hotelId
         amenity.sortKey = amenityData.sort_key
         amenity.updatedByUserId = user.id
         await amenity.save()
+      }
+
+      if (hotelId !== 0) {
+        await LoggerService.log({
+          actorId: user.id,
+          action: 'UPDATE_SORT_ORDER',
+          entityType: 'Amenity',
+          entityId: 0,
+          hotelId: hotelId,
+          description: `Updated sort order for amenities`,
+          ctx: { request, response } as any
+        })
       }
 
       return response.ok({

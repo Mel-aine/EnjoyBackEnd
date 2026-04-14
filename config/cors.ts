@@ -16,7 +16,8 @@ const defaultOrigins = [
   'http://localhost:5174',
   'https://enjoy-chi.vercel.app',
   'https://enjoybackend-4udk.onrender.com',
-  "https://live.enjoy-stay.com/"
+  "https://live.enjoy-stay.com/",
+  "https://enjoy-stay.com"
 ]
 
 const envOrigins = env.get('CORS_ORIGINS') as string | undefined

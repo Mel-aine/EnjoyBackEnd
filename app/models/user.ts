@@ -11,6 +11,7 @@ import Permission from '#models/permission'
 import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
 import CompanyAccount from '#models/company_account'
+import ActivityLog from './activity_log.js'
 
 const AuthFinder = withAuthFinder(() => hash.use('argon'), {
   uids: ['email'],
@@ -25,7 +26,7 @@ export default class  User extends AuthFinder(BaseModel) {
   declare hotelId: number
 
   @column()
-  declare username: string
+  declare username: string | null
 
   @column({ serializeAs: null, columnName: 'password_hash' })
   declare passwordHash: string
@@ -160,7 +161,7 @@ export default class  User extends AuthFinder(BaseModel) {
   declare companyId: number | null
 
   @column({ columnName: 'role_id' })
-  declare roleId: number
+  declare roleId: number | null
 
   @column({ columnName: 'created_by' })
   declare createdBy: number | null
@@ -182,6 +183,11 @@ export default class  User extends AuthFinder(BaseModel) {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true, columnName: 'updated_at' })
   declare updatedAt: DateTime
+
+  @hasMany(() => ActivityLog, {
+    foreignKey: 'userId',
+  })
+  declare activityLogs: HasMany<typeof ActivityLog>
 
   // Define accessTokens before the beforeSave hook
   static accessTokens = DbAccessTokensProvider.forModel(User, {

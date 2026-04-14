@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import MaintenanceRequest from '#models/maintenance_request'
 import { createMaintenanceRequestValidator, updateMaintenanceRequestValidator } from '#validators/maintenance_request'
+import LoggerService from '#services/logger_service'
 
 export default class MaintenanceRequestsController {
   /**
@@ -117,12 +118,20 @@ export default class MaintenanceRequestsController {
       const maintenanceRequest = await MaintenanceRequest.create(requestData)
 
       await maintenanceRequest.load('hotel')
-      await maintenanceRequest.load('room')
+    await maintenanceRequest.load('room')
 
-      return response.created({
-        message: 'Maintenance request created successfully',
-        data: maintenanceRequest
-      })
+    await LoggerService.log({
+      actorId: auth.user?.id!,
+      action: 'CREATE_MAINTENANCE_REQUEST',
+      entityType: 'MaintenanceRequest',
+      entityId: maintenanceRequest.id,
+      hotelId: maintenanceRequest.hotelId,
+      description: `Maintenance request #${maintenanceRequest.requestNumber} created for ${maintenanceRequest.room?.roomNumber || 'Unknown Room'}`,
+      changes: LoggerService.extractChanges({}, maintenanceRequest.serialize()),
+      ctx: { request, response } as any
+    })
+
+    return response.created({ message: 'Maintenance request created successfully', data: maintenanceRequest })
     } catch (error) {
       return response.badRequest({
         message: 'Failed to create maintenance request',
@@ -161,6 +170,7 @@ export default class MaintenanceRequestsController {
     try {
       const maintenanceRequest = await MaintenanceRequest.findOrFail(params.id)
       const payload = await request.validateUsing(updateMaintenanceRequestValidator)
+      const oldRequest = maintenanceRequest.serialize()
 
       // Handle DateTime fields and null values
       const updateData = {
@@ -183,6 +193,17 @@ export default class MaintenanceRequestsController {
       await maintenanceRequest.load('hotel')
       await maintenanceRequest.load('room')
 
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'UPDATE_MAINTENANCE_REQUEST',
+        entityType: 'MaintenanceRequest',
+        entityId: maintenanceRequest.id,
+        hotelId: maintenanceRequest.hotelId,
+        description: `Maintenance request #${maintenanceRequest.requestNumber} updated`,
+        changes: LoggerService.extractChanges(oldRequest, maintenanceRequest.serialize()),
+        ctx: { request, response } as any
+      })
+
       return response.ok({
         message: 'Maintenance request updated successfully',
         data: maintenanceRequest
@@ -198,7 +219,7 @@ export default class MaintenanceRequestsController {
   /**
    * Delete a maintenance request
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, response, auth, request }: HttpContext) {
     try {
       const maintenanceRequest = await MaintenanceRequest.findOrFail(params.id)
       
@@ -210,6 +231,17 @@ export default class MaintenanceRequestsController {
       }
 
       await maintenanceRequest.delete()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'DELETE_MAINTENANCE_REQUEST',
+        entityType: 'MaintenanceRequest',
+        entityId: maintenanceRequest.id,
+        hotelId: maintenanceRequest.hotelId,
+        description: `Maintenance request #${maintenanceRequest.requestNumber} deleted`,
+        changes: {},
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Maintenance request deleted successfully'
@@ -228,6 +260,7 @@ export default class MaintenanceRequestsController {
   async assign({ params, request, response, auth }: HttpContext) {
     try {
       const maintenanceRequest = await MaintenanceRequest.findOrFail(params.id)
+      const oldRequest = maintenanceRequest.serialize()
       const { assignedTo, scheduledDate, notes } = request.only(['assignedTo', 'scheduledDate', 'notes'])
       
       if (!assignedTo) {
@@ -245,6 +278,17 @@ export default class MaintenanceRequestsController {
       maintenanceRequest.lastModifiedBy = auth.user?.id || 0
       
       await maintenanceRequest.save()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'ASSIGN_MAINTENANCE_REQUEST',
+        entityType: 'MaintenanceRequest',
+        entityId: maintenanceRequest.id,
+        hotelId: maintenanceRequest.hotelId,
+        description: `Maintenance request #${maintenanceRequest.requestNumber} assigned to user #${assignedTo}`,
+        changes: LoggerService.extractChanges(oldRequest, maintenanceRequest.serialize()),
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Maintenance request assigned successfully',
@@ -264,6 +308,7 @@ export default class MaintenanceRequestsController {
   async startWork({ params, request, response, auth }: HttpContext) {
     try {
       const maintenanceRequest = await MaintenanceRequest.findOrFail(params.id)
+      const oldRequest = maintenanceRequest.serialize()
       const { notes } = request.only(['notes'])
       
       if (maintenanceRequest.status !== 'assigned') {
@@ -277,6 +322,17 @@ export default class MaintenanceRequestsController {
       maintenanceRequest.lastModifiedBy = auth.user?.id || 0
       
       await maintenanceRequest.save()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'START_WORK_MAINTENANCE_REQUEST',
+        entityType: 'MaintenanceRequest',
+        entityId: maintenanceRequest.id,
+        hotelId: maintenanceRequest.hotelId,
+        description: `Work started on maintenance request #${maintenanceRequest.requestNumber}`,
+        changes: LoggerService.extractChanges(oldRequest, maintenanceRequest.serialize()),
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Work started on maintenance request',
@@ -296,6 +352,7 @@ export default class MaintenanceRequestsController {
   async complete({ params, request, response, auth }: HttpContext) {
     try {
       const maintenanceRequest = await MaintenanceRequest.findOrFail(params.id)
+      const oldRequest = maintenanceRequest.serialize()
       const { workPerformed, actualCost, resolutionNotes, qualityRating } = request.only([
         'workPerformed', 'actualCost', 'resolutionNotes', 'qualityRating'
       ])
@@ -316,6 +373,17 @@ export default class MaintenanceRequestsController {
       
       await maintenanceRequest.save()
 
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'COMPLETE_MAINTENANCE_REQUEST',
+        entityType: 'MaintenanceRequest',
+        entityId: maintenanceRequest.id,
+        hotelId: maintenanceRequest.hotelId,
+        description: `Maintenance request #${maintenanceRequest.requestNumber} completed`,
+        changes: LoggerService.extractChanges(oldRequest, maintenanceRequest.serialize()),
+        ctx: { request, response } as any
+      })
+
       return response.ok({
         message: 'Maintenance request completed successfully',
         data: maintenanceRequest
@@ -334,6 +402,7 @@ export default class MaintenanceRequestsController {
   async cancel({ params, request, response, auth }: HttpContext) {
     try {
       const maintenanceRequest = await MaintenanceRequest.findOrFail(params.id)
+      const oldRequest = maintenanceRequest.serialize()
       const { reason } = request.only(['reason'])
       
       if (maintenanceRequest.status === 'completed') {
@@ -347,6 +416,17 @@ export default class MaintenanceRequestsController {
       maintenanceRequest.lastModifiedBy = auth.user?.id || 0
       
       await maintenanceRequest.save()
+
+      await LoggerService.log({
+        actorId: auth.user?.id!,
+        action: 'CANCEL_MAINTENANCE_REQUEST',
+        entityType: 'MaintenanceRequest',
+        entityId: maintenanceRequest.id,
+        hotelId: maintenanceRequest.hotelId,
+        description: `Maintenance request #${maintenanceRequest.requestNumber} cancelled. Reason: ${reason}`,
+        changes: LoggerService.extractChanges(oldRequest, maintenanceRequest.serialize()),
+        ctx: { request, response } as any
+      })
 
       return response.ok({
         message: 'Maintenance request cancelled successfully',

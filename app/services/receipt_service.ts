@@ -46,6 +46,14 @@ export interface ReceiptSummary {
   receipts: Receipt[]
 }
 
+export interface UpdateReceiptData {
+  transactionId: number
+  totalAmount?: number
+  description?: string
+  paymentMethodId?: number
+  paymentDate?: DateTime
+}
+
 export default class ReceiptService {
   /**
    * Create a new receipt
@@ -139,7 +147,7 @@ export default class ReceiptService {
         receipt.isVoided = true
         receipt.voidedBy = data.voidedBy
         receipt.voidedAt = DateTime.now()
-        
+
         await receipt.useTransaction(trx).save()
 
         // Log successful void operation
@@ -284,11 +292,11 @@ export default class ReceiptService {
 
     const totalReceipts = receipts.length
     const totalAmount = receipts.reduce((sum, receipt) => sum + receipt.totalAmount, 0)
-    
+
     const voidedReceipts = receipts.filter(r => r.isVoided)
     const totalVoided = voidedReceipts.length
     const voidedAmount = voidedReceipts.reduce((sum, receipt) => sum + receipt.totalAmount, 0)
-    
+
     const netAmount = totalAmount - voidedAmount
 
     return {
@@ -329,5 +337,29 @@ export default class ReceiptService {
       .preload('voider')
       .preload('folioTransaction')
       .first()
+  }
+
+  /**
+   * update
+   */
+
+  static async updateReceiptByTransactionId(data: UpdateReceiptData): Promise<Receipt | null> {
+    return await db.transaction(async (trx) => {
+      const receipt = await Receipt.query({ client: trx })
+        .where('folioTransactionId', data.transactionId)
+        .where('isVoided', false)
+        .first()
+
+      if (!receipt) return null
+
+      if (data.totalAmount !== undefined) receipt.totalAmount = data.totalAmount
+      if (data.description !== undefined) receipt.description = data.description
+      if (data.paymentMethodId !== undefined) receipt.paymentMethodId = data.paymentMethodId
+      if (data.paymentDate !== undefined) receipt.paymentDate = data.paymentDate
+
+      await receipt.useTransaction(trx).save()
+
+      return receipt
+    })
   }
 }

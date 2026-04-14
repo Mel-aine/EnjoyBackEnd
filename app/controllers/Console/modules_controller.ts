@@ -1,0 +1,119 @@
+import type { HttpContext } from '@adonisjs/core/http'
+import Module from '#models/module'
+import ActivityLog from '#models/activity_log'
+
+export default class ModulesController {
+  public async index({ request, response }: HttpContext) {
+  const page    = request.input('page', 1)
+  const limit   = request.input('limit', 10)
+  const search  = request.input('search', '')
+  const isActive = request.input('isActive')
+  const all = request.input('all',false)
+
+  const query = Module.query()
+
+  if (search) {
+    query.where((q) => {
+      q.whereILike('name', `%${search}%`)
+       .orWhereILike('slug', `%${search}%`)
+       .orWhereILike('description', `%${search}%`)
+    })
+  }
+
+  if (isActive !== undefined && isActive !== '') {
+    query.where('is_active', isActive === 'true')
+  }
+
+  if(all === true || all === 'true'){
+    const modulesAll = await query.orderBy('created_at','desc')
+
+    return response.ok(modulesAll)
+
+  }
+
+  const modules = await query
+    .orderBy('created_at', 'desc')
+    .paginate(page, limit)
+
+  return response.ok(modules)
+}
+
+  public async show({ params, response }: HttpContext) {
+    const module = await Module.query().where('id', Number(params.id)).preload('addOns').firstOrFail()
+    return response.ok(module)
+  }
+  public async store({ request, response, auth }: HttpContext) {
+    const data = request.only(['slug', 'name', 'priceMonthly', 'description', 'isActive'])
+    const module = await Module.create(data)
+
+    // Log the activity
+    const user = auth.user!
+    await ActivityLog.create({
+      userId: user.id,
+      username: user.username || user.email,
+      action: 'module.create',
+      entityType: 'module',
+      entityId: module.id,
+      description: `Created module: ${module.name} (${module.slug})`,
+      changes: module.serialize(),
+      ipAddress: request.ip(),
+      userAgent: request.header('user-agent'),
+      createdBy: user.id
+    })
+
+    return response.created(module)
+  }
+
+  public async update({ params, request, response, auth }: HttpContext) {
+    const module = await Module.findOrFail(params.id)
+
+    // Capture old state for logging
+    const oldState = module.serialize()
+
+    const data = request.only(['slug', 'name', 'priceMonthly', 'description', 'isActive'])
+    module.merge(data)
+    await module.save()
+
+    // Log the activity
+    const user = auth.user!
+    await ActivityLog.create({
+      userId: user.id,
+      username: user.username || user.email,
+      action: 'module.update',
+      entityType: 'module',
+      entityId: module.id,
+      description: `Updated module: ${module.name}`,
+      changes: {
+        before: oldState,
+        after: module.serialize()
+      },
+      ipAddress: request.ip(),
+      userAgent: request.header('user-agent'),
+      createdBy: user.id
+    })
+
+    return response.ok(module)
+  }
+
+  public async destroy({ params, response, request, auth }: HttpContext) {
+    const module = await Module.findOrFail(params.id)
+    const moduleName = module.name
+    await module.delete()
+
+    // Log the activity
+    const user = auth.user!
+    await ActivityLog.create({
+      userId: user.id,
+      username: user.username || user.email,
+      action: 'module.delete',
+      entityType: 'module',
+      entityId: parseInt(params.id),
+      description: `Deleted module: ${moduleName}`,
+      ipAddress: request.ip(),
+      userAgent: request.header('user-agent'),
+      createdBy: user.id
+    })
+
+    return response.noContent()
+  }
+}

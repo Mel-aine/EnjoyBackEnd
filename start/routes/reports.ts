@@ -54,7 +54,7 @@ router.group(() => {
   router.get('/company-voucher/:companyId', [ReportsController, 'printCompanyVoucher'])
 
   // POS Receipt printing route
-  //router.get('/pos-receipt/:transactionId', [ReportsController, 'printPosReceipt'])
+  router.get('/pos-receipt/:transactionId', [ReportsController, 'printPosReceipt'])
   router.post('/incidental-invoice', [ReportsController, 'printIncidentalInvoice'])
 
 
@@ -93,6 +93,7 @@ router.group(() => {
     router.post('/confirmed', [ReportsController, 'export']).where('reportType', 'confirmedReservations')
     router.post('/cancelled', [ReportsController, 'export']).where('reportType', 'cancelledReservations')
     router.post('/no-show', [ReportsController, 'export']).where('reportType', 'noShowReservations')
+    router.post('/pickup-dropoff', [ReportsController, 'export']).where('reportType', 'pickupDropoff')
     router.post('/forecast', [ReportsController, 'generate']).where('reportType', 'reservationForecast')
     router.post('/void', [ReportsController, 'export']).where('reportType', 'voidReservations')
   }).prefix('/exports')
@@ -145,7 +146,7 @@ router.group(() => {
     router.post('/night-audit-report-pdf', [ReportsController, 'generateNightAuditReportPdf'])
     // Management report PDF
     router.post('/management-report-pdf', [ReportsController, 'generateManagementReportPdf'])
-    //Meal Plan Report 
+    //Meal Plan Report
     router.post('/MealPlan-report-pdf', [ReportsController, 'generateMealPlanReportPdf'])
 
     // Revenue By Rate Type reports
@@ -256,6 +257,9 @@ router.group(() => {
 
   // New Report Endpoints
   router.group(() => {
+    // Property Dashboard (Today vs Yesterday metrics)
+    router.get('/property-dashboard', [ReportsController, 'getPropertyDashboardStats'])
+
     // Pickup/Dropoff Guest Report
     router.post('/pickup-dropoff', [PickupDropoffReportsController, 'generate'])
 
@@ -298,6 +302,9 @@ router.group(() => {
     router.get('/', [HotelHistoriesController, 'index'])
   }).prefix('/hotel-histories')
 
-}).prefix('/api/reports').use(middleware.auth())
+}).prefix('/api/reports').use([
+  middleware.auth(),
+  middleware.checkSubscription('pms')
+])
 // Temporarily disabled auth for testing
 // .use(middleware.auth())

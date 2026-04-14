@@ -64,12 +64,15 @@ import WorkOrdersController from '#controllers/work_orders_controller'
 import HouseKeepersController from '#controllers/house_keepers_controller'
 import OtaController from '#controllers/ota_controller'
 import ChannexRestrictionsController from '#controllers/channex_restrictions_controller'
+import WidgetsController from '#controllers/widgets_controller'
 import NotificationsController from '#controllers/notifications_controller'
 import AccessControlController from '#controllers/access_controls_controller'
 import StaffAccessCardsController from '#controllers/staff_access_cards_controller'
 import AccessControlQueueWorker from '#controllers/access_control_queue_workers_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { DateTime } from 'luxon'
+import crypto from 'node:crypto'
 // Root route that presents Enjoys API documentation and test examples
 router.get('/', async ({ request, response }) => {
   const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
@@ -97,6 +100,53 @@ router.get('/reset-password', async ({ request, response }) => {
   html = html.replace(/\{\{LOGIN_URL\}\}/g, loginUrl)
   response.type('html')
   return response.send(html)
+})
+
+router.get('/reset-password-console', async ({ request, response }) => {
+  const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+  const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+  const baseUrl = `${proto}://${request.host()}`
+  const token = request.qs().token || ''
+
+  const filePath = join(process.cwd(), 'resources', 'views', 'console_reset_password.html')
+  let html = readFileSync(filePath, 'utf-8')
+  html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
+  html = html.replace(/\{\{TOKEN\}\}/g, token)
+
+  const consoleEndpoint = (env.get('CONSOLE_ENDPOINT') || 'http://localhost:5173').replace(/\/$/, '')
+  const loginUrl = `${consoleEndpoint}/login`
+  html = html.replace(/\{\{LOGIN_URL\}\}/g, loginUrl)
+
+  response.type('html')
+  return response.send(html)
+})
+
+router.get('/cron/subscriptions/renew', async ({ request, response }) => {
+  const secret = env.get('CRON_JOB_SECRET', '')
+  if (!secret) {
+    return response.serviceUnavailable({ success: false, message: 'Cron endpoint is not configured' })
+  }
+
+  const token = String(request.qs().token ?? request.header('x-cron-token') ?? '')
+  const secretBuf = Buffer.from(secret)
+  const tokenBuf = Buffer.from(token)
+
+  const isValid =
+    tokenBuf.length === secretBuf.length && crypto.timingSafeEqual(tokenBuf, secretBuf)
+
+  if (!isValid) {
+    return response.unauthorized({ success: false, message: 'Unauthorized' })
+  }
+
+  const { default: SubscriptionRenewalService } = await import('#services/subscription_renewal_service')
+  const service = new SubscriptionRenewalService()
+  const result = await service.runMonthlyRenewal(DateTime.now())
+
+  return response.ok({
+    success: true,
+    processedHotels: result.processedHotels,
+    createdInvoices: result.createdInvoices.length,
+  })
 })
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
@@ -183,237 +233,20 @@ const channexRestrictionsController = new ChannexRestrictionsController()
 const accessControlController = new AccessControlController()
 const staffAccessCardsController = new StaffAccessCardsController()
 const accessControlQueueWorker = new AccessControlQueueWorker()
+const widgetsController = new WidgetsController()
+
 
 
 router.get('/swagger', async () => {
   return AutoSwagger.default.ui('/swagger/json', swagger)
 })
-router.get('/swagger/json', async ({ response }) => {
-  const basicSpec = {
-    swagger: '2.0',
-    info: swagger.info,
-    host: 'enjoybackend-4udk.onrender.com',
-    basePath: '/',
-    schemes: ['http', 'https'],
-    securityDefinitions: {
-      Bearer: {
-        type: 'apiKey',
-        name: 'Authorization',
-        in: 'header',
-        description: 'Token JWT - Format: Bearer {token}',
-      },
-    },
-    paths: {
-      '/ping': {
-        get: {
-          summary: 'Test de connectivité',
-          responses: {
-            200: {
-              description: 'Serveur actif',
-            },
-          },
-        },
-      },
-      '/api/authLogin': {
-        post: {
-          summary: 'Connexion utilisateur',
-          consumes: ['application/json'],
-          parameters: [
-            {
-              in: 'body',
-              name: 'credentials',
-              schema: {
-                type: 'object',
-                properties: {
-                  email: { type: 'string' },
-                  password: { type: 'string' },
-                },
-              },
-            },
-          ],
-          responses: {
-            200: { description: 'Connexion réussie' },
-            401: { description: 'Identifiants invalides' }
-          }
-        }
-      },
-      '/api/users': {
-        post: {
-          summary: 'Créer un nouvel utilisateur (nécessite authentification)',
-          security: [{ Bearer: [] }],
-          consumes: ['application/json'],
-          parameters: [{
-            in: 'body',
-            name: 'user',
-            schema: {
-              type: 'object',
-              required: ['name', 'email', 'password'],
-              properties: {
-                name: { type: 'string', example: 'Jean Dupont' },
-                email: { type: 'string', example: 'jean.dupont@example.com' },
-                password: { type: 'string', example: 'Password123' },
-                phone: { type: 'string', example: '+33123456789' },
-                address: { type: 'string', example: '123 Rue de la Paix' },
-                role_id: { type: 'integer', example: 1 }
-              }
-            }
-          }],
-          responses: {
-            201: { description: 'Utilisateur créé avec succès' },
-            400: { description: 'Données invalides' },
-            401: { description: 'Non autorisé' },
-            422: { description: 'Email déjà utilisé' }
-          }
-        },
-        get: {
-          summary: 'Lister tous les utilisateurs (nécessite authentification)',
-          security: [{ Bearer: [] }],
-          responses: {
-            200: { description: 'Liste des utilisateurs' },
-            401: { description: 'Non autorisé' }
-          }
-        }
-      },
-      '/api/servicesWithUser': {
-        post: {
-          summary: 'Créer un service avec un utilisateur (inscription publique)',
-          consumes: ['application/json'],
-          parameters: [{
-            in: 'body',
-            name: 'serviceWithUser',
-            schema: {
-              type: 'object',
-              required: ['user', 'service'],
-              properties: {
-                user: {
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string', example: 'Jean Dupont' },
-                    email: { type: 'string', example: 'read@gmail.com' },
-                    password: { type: 'string', example: 'Password123' },
-                    phone: { type: 'string', example: '+33123456789' }
-                  }
-                },
-                service: {
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string', example: 'Mon Hôtel' },
-                    description: { type: 'string', example: 'Un bel hôtel' },
-                    category_id: { type: 'integer', example: 1 }
-                  }
-                }
-              }
-            }
-          }],
-          responses: {
-            201: { description: 'Service et utilisateur créés avec succès' },
-            400: { description: 'Données invalides' },
-            422: { description: 'Email déjà utilisé' }
-          }
-        }
-      },
-      '/api/hotels': {
-        post: {
-          summary: 'Créer un nouvel hôtel avec utilisateur admin (nécessite authentification)',
-          security: [{ Bearer: [] }],
-          consumes: ['application/json'],
-          parameters: [{
-            in: 'body',
-            name: 'hotelWithAdmin',
-            schema: {
-              type: 'object',
-              required: ['hotel', 'admin'],
-              properties: {
-                hotel: {
-                  type: 'object',
-                  required: ['name', 'address', 'city', 'country'],
-                  properties: {
-                    name: { type: 'string', example: 'Grand Hôtel Paris' },
-                    description: { type: 'string', example: 'Un magnifique hôtel au cœur de Paris' },
-                    address: { type: 'string', example: '123 Avenue des Champs-Élysées' },
-                    city: { type: 'string', example: 'Paris' },
-                    state: { type: 'string', example: 'Île-de-France' },
-                    country: { type: 'string', example: 'France' },
-                    postalCode: { type: 'string', example: '75008' },
-                    phone: { type: 'string', example: '+33142563789' },
-                    email: { type: 'string', example: 'contact@grandhotel.com' },
-                    website: { type: 'string', example: 'https://www.grandhotel.com' },
-                    starRating: { type: 'integer', minimum: 1, maximum: 5, example: 5 },
-                    checkInTime: { type: 'string', example: '15:00' },
-                    checkOutTime: { type: 'string', example: '11:00' },
-                    currency: { type: 'string', example: 'EUR' },
-                    timezone: { type: 'string', example: 'Europe/Paris' },
-                    taxRate: { type: 'number', example: 10.5 },
-                    serviceFeeRate: { type: 'number', example: 5.0 },
-                    cancellationPolicy: { type: 'string', example: 'Annulation gratuite jusqu\'à 24h avant l\'arrivée' },
-                    policies: { type: 'string', example: 'Politique de l\'hôtel concernant les animaux, fumeurs, etc.' },
-                    amenities: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      example: ['WiFi gratuit', 'Piscine', 'Spa', 'Restaurant', 'Bar']
-                    },
-                    facilities: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      example: ['Parking', 'Salle de sport', 'Centre d\'affaires']
-                    },
-                    languages: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      example: ['Français', 'Anglais', 'Espagnol']
-                    },
-                    coordinates: {
-                      type: 'object',
-                      properties: {
-                        latitude: { type: 'number', example: 48.8566 },
-                        longitude: { type: 'number', example: 2.3522 }
-                      }
-                    },
-                    socialMedia: {
-                      type: 'object',
-                      properties: {
-                        facebook: { type: 'string', example: 'https://facebook.com/grandhotel' },
-                        instagram: { type: 'string', example: 'https://instagram.com/grandhotel' },
-                        twitter: { type: 'string', example: 'https://twitter.com/grandhotel' }
-                      }
-                    }
-                  }
-                },
-                admin: {
-                  type: 'object',
-                  required: ['name', 'email', 'password'],
-                  properties: {
-                    name: { type: 'string', example: 'Marie Dubois' },
-                    email: { type: 'string', example: 'marie.dubois@grandhotel.com' },
-                    password: { type: 'string', example: 'AdminPassword123' },
-                    phone: { type: 'string', example: '+33123456789' },
-                    address: { type: 'string', example: '456 Rue de Rivoli' },
-                    title: { type: 'string', example: 'Directrice Générale' }
-                  }
-                }
-              }
-            }
-          }],
-          responses: {
-            201: { description: 'Hôtel et administrateur créés avec succès' },
-            400: { description: 'Données invalides' },
-            401: { description: 'Non autorisé' },
-            422: { description: 'Email déjà utilisé ou données en conflit' }
-          }
-        },
-        get: {
-          summary: 'Lister tous les hôtels (nécessite authentification)',
-          security: [{ Bearer: [] }],
-          responses: {
-            200: { description: 'Liste des hôtels' },
-            401: { description: 'Non autorisé' }
-          }
-        }
-      }
-    },
-  }
-  return response.json(basicSpec)
+
+router.get('/swagger/json', async () => {
+  const routes = router.toJSON()
+  return AutoSwagger.default.json(routes, swagger)
 })
+
+
 router
   .group(() => {
     // Basic CRUD operations for hotels
@@ -423,10 +256,12 @@ router
   .prefix('api/hotels')
 router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction())
 router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
+router.post('api/authLoginConsole', [AuthController, 'signinConsole']).use(middleware.ipRestriction())
 // Route pour renvoyer l'email de vérification
 router.post('/api/auth/resend-verification', [AuthController, 'resendVerificationEmail']).use(middleware.ipRestriction())
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
+router.post('api/refresh_token_console', [AuthController, 'refresh_token_console'])
 router.get('api/confirm-email', [AuthController, 'confirmEmail'])
 router.post('api/confirm-email', [AuthController, 'confirmEmail'])
 router.post('api/initSpace', [AuthController, 'initSpace'])
@@ -436,6 +271,7 @@ router.put('api/auth/:id', [AuthController, 'update_user'])
 router.post('api/validateEmail', [AuthController, 'validateEmail'])
 router.post('api/validatePassword', [AuthController, 'validatePassword'])
 router.post('api/auth/forgot-password', [AuthController, 'forgotPassword'])
+router.post('api/auth/forgot-password-console', [AuthController, 'forgotPasswordConsole'])
 router.post('api/auth/reset-password', [AuthController, 'resetPassword'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
@@ -471,7 +307,7 @@ router.post('api/notifications/:id/read', [NotificationsController, 'markRead'])
 // Notifications realtime stream (SSE)
 router.get('api/notifications/stream', async ({ request, response, auth }) => {
   // Try existing auth context, then Bearer header, then ?token= fallback
-  let user = auth.user
+  let user: any = auth.user
   if (!user) {
     try {
       user = await auth.authenticate()
@@ -565,6 +401,7 @@ router
         '/services/:serviceId/clients',
         usersController.getClientsByService.bind(usersController)
       )
+      router.post('/users', usersController.store.bind(usersController))
     })
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
@@ -597,6 +434,7 @@ router
       router.post('/roles', rolesController.store.bind(rolesController))
       router.put('/roles/:id', rolesController.update.bind(rolesController))
       router.delete('/roles/:id', rolesController.destroy.bind(rolesController))
+      router.get('/roles', rolesController.list.bind(rolesController))
     })
 
     router.group(() => {
@@ -776,7 +614,7 @@ router
         '/reservation/:serviceId',
         dashboardController.yearlyReservationTypes.bind(dashboardController)
       )
-    })
+    }).use(middleware.checkSubscription('pms'))
     router
       .group(() => {
         router.get('/service/:serviceId/daily-occupancy', [
@@ -789,6 +627,7 @@ router
         ])
       })
       .prefix('/dashboard')
+      .use(middleware.checkSubscription('pms'))
 
     // Hotel Management Routes
     // Comprehensive hotel management system with CRUD operations and analytics
@@ -973,6 +812,7 @@ router
         router.get('/frontoffice/bookingrooom', roomsController.getFrontOfficeBookingData.bind(roomsController))
       })
       .prefix('configuration/hotels/:hotelId/rooms')
+      .use(middleware.checkSubscription('pms'))
 
     // Room Rate Management Routes
     // Room rate configuration and pricing management
@@ -1059,6 +899,7 @@ router
         router.get('/unsettled/:id', foliosController.unsettled.bind(foliosController)) // Get unsettled folios
       })
       .prefix('folios')
+      .use(middleware.checkSubscription('pms'))
 
     // Folio Print Management Routes
     // Generate folio print data and PDF invoices
@@ -1108,15 +949,16 @@ router
         // Room assignment operations
         router.post('/:id/check-in', reservationRoomsController.checkIn.bind(reservationRoomsController)) // Check in guest to room
         router.post('/:id/check-out', reservationRoomsController.checkOut.bind(reservationRoomsController)) // Check out guest from room
-        router.post('/:id/create-and-assign-guest',reservationRoomsController.createAndAssignGuest.bind(reservationRoomsController))
-        router.put('/:id/assign-existing-guest',reservationRoomsController.assignExistingGuestToRoom.bind(reservationRoomsController))
+        router.post('/:id/create-and-assign-guest', reservationRoomsController.createAndAssignGuest.bind(reservationRoomsController))
+        router.put('/:id/assign-existing-guest', reservationRoomsController.assignExistingGuestToRoom.bind(reservationRoomsController))
 
         // Retirer un client d'une chambre
-        router.put('/:id/remove-guest',reservationRoomsController.removeGuestFromReservationRoom.bind(reservationRoomsController))
+        router.put('/:id/remove-guest', reservationRoomsController.removeGuestFromReservationRoom.bind(reservationRoomsController))
         // Room analytics
         router.get('/statistics', reservationRoomsController.stats.bind(reservationRoomsController)) // Get reservation room statistics
       })
       .prefix('reservation-rooms')
+      .use(middleware.checkSubscription('pms'))
 
     // Lost and Found Management Routes
     // Lost and found items management
@@ -1183,6 +1025,7 @@ router
 
       })
       .prefix('reservation')
+      .use(middleware.checkSubscription('pms'))
     router.get('configuration/hotels/:hotelId/reservation/filter_reservations', reservationsController.filterReservations.bind(reservationsController))
 
     // Configuration routes
@@ -1633,6 +1476,14 @@ router
       reservationsController.searchReservations.bind(reservationsController)
     )
     router.get(
+      '/hotels/:id/reservation/arrivals',
+      reservationsController.getArrivalsByDateRange.bind(reservationsController)
+    )
+    router.get(
+      '/hotels/:id/reservation/departures',
+      reservationsController.getDeparturesByDateRange.bind(reservationsController)
+    )
+    router.get(
       '/reservations/:reservationId/details',
       reservationsController.getReservationDetails.bind(reservationsController)
     )
@@ -1760,7 +1611,8 @@ router
         router.post('/properties/:propertyId/updateRestrictions', channexRestrictionsController.updateRestrictions.bind(channexRestrictionsController))
         router.post('/properties/:propertyId/ari', channexController.bulkUpdateARI.bind(channexController))
       })
-      .prefix('channex');
+      .prefix('channex')
+      .use(middleware.checkSubscription('channel_manager'));
 
     /// audit trails
     router
@@ -1768,6 +1620,9 @@ router
         // Import reports routes
         router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
       }).prefix('audit-trail')
+
+    // Widget Dashboard
+    router.get('/widget/dashboard', widgetsController.dashboard.bind(widgetsController))
 
     // Access Control Management Routes
     // Door and access log management for access control systems
@@ -1864,3 +1719,132 @@ import './routes/reports.js'
 // Import POS routes
 import './routes/pos.js'
 
+router.get('api/announcements/active', '#controllers/announcements_controller.active')
+router.post('api/demo/request', '#controllers/Console/request_demos_controller.store')
+router.post('api/webhooks/subscriptions/expire', '#controllers/Console/subscriptions_controller.expireDueSubscriptions')
+
+// Console Routes (Admin/Management)
+router.group(() => {
+
+  // ── Dashboard ──
+  router.get('dashboard', '#controllers/Console/dashboard_consoles_controller.index')
+    .use(middleware.permission({ permissions: ['console_dashboard_view'] }))
+
+  // ── Hotels ──
+  router.resource('hotels', '#controllers/hotels_controller')
+    .use('*', middleware.permission({ permissions: ['console_clients_view'] }))
+    .use('store', middleware.permission({ permissions: ['console_clients_create'] }))
+    .use('update', middleware.permission({ permissions: ['console_clients_edit'] }))
+    .use('destroy', middleware.permission({ permissions: ['console_clients_delete'] }))
+
+  // ── Modules ──
+  router.resource('modules', '#controllers/Console/modules_controller')
+    .use('*', middleware.permission({ permissions: ['console_products_view'] }))
+    .use('store', middleware.permission({ permissions: ['console_products_create'] }))
+    .use('update', middleware.permission({ permissions: ['console_products_edit'] }))
+    .use('destroy', middleware.permission({ permissions: ['console_products_delete'] }))
+
+  // ── Add-ons ──
+  router.resource('add-ons', '#controllers/Console/add_ons_controller').apiOnly()
+    .use('*', middleware.permission({ permissions: ['console_products_view'] }))
+  router.get('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.indexByModule')
+    .use(middleware.permission({ permissions: ['console_products_view'] }))
+  router.post('modules/:module_id/add-ons', '#controllers/Console/add_ons_controller.storeForModule')
+    .use(middleware.permission({ permissions: ['console_products_create'] }))
+
+  // ── Announcements ──
+  router.resource('announcements', '#controllers/Console/announcements_controller').apiOnly()
+    .use(['index', 'show'], middleware.permission({ permissions: ['console_announcements_view'] }))
+    .use('store',      middleware.permission({ permissions: ['console_announcements_create'] }))
+    .use('update',     middleware.permission({ permissions: ['console_announcements_edit'] }))
+    .use('destroy',    middleware.permission({ permissions: ['console_announcements_delete'] }))
+
+  // ── Users ──
+  router.get('/users/commercials', '#controllers/Console/users_consoles_controller.getCommercials')
+  router.resource('users', '#controllers/Console/users_consoles_controller')
+    .use(['index', 'show'], middleware.permission({ permissions: ['console_users_view'] }))
+    .use('store',      middleware.permission({ permissions: ['console_users_create'] }))
+    .use('update',     middleware.permission({ permissions: ['console_users_edit'] }))
+    .use('destroy',    middleware.permission({ permissions: ['console_users_delete'] }))
+
+
+
+
+  // ── Démos ──
+  router.get('demo-requests/:id/history', '#controllers/Console/request_demos_controller.historyDemo')
+  router.post('demo-requests', '#controllers/Console/request_demos_controller.store')
+    .use(middleware.permission({ permissions: ['console_demos_create'] }))
+  router.get('demo-requests', '#controllers/Console/request_demos_controller.index')
+    .use(middleware.permission({ permissions: ['console_demos_view'] }))
+  router.get('demo-requests/:id', '#controllers/Console/request_demos_controller.show')
+    .use(middleware.permission({ permissions: ['console_demos_view'] }))
+  router.patch('demo-requests/:id', '#controllers/Console/request_demos_controller.update')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.delete('demo-requests/:id', '#controllers/Console/request_demos_controller.destroy')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.post('demo-requests/:id/assign', '#controllers/Console/request_demos_controller.assign')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.post('demo-requests/:id/resend-email', '#controllers/Console/request_demos_controller.resendEmail')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+  router.post('demo-requests/:id/demo-converted', '#controllers/Console/request_demos_controller.webhookDemoConverted')
+    .use(middleware.permission({ permissions: ['console_demos_manage'] }))
+
+
+  // ── Subscriptions ──
+  router.get('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.index')
+    .use(middleware.permission({ permissions: ['console_clients_view'] }))
+  router.get('subscriptions', '#controllers/Console/subscriptions_controller.subscription')
+    .use(middleware.permission({ permissions: ['console_clients_view'] }))
+  router.post('hotels/:hotel_id/subscriptions', '#controllers/Console/subscriptions_controller.store')
+    .use(middleware.permission({ permissions: ['console_clients_create'] }))
+  router.put('subscriptions/:id', '#controllers/Console/subscriptions_controller.update')
+    .use(middleware.permission({ permissions: ['console_clients_edit'] }))
+  router.delete('subscriptions/:id', '#controllers/Console/subscriptions_controller.destroy')
+    .use(middleware.permission({ permissions: ['console_clients_delete'] }))
+  router.patch('/subscriptions/:id/toggle-status', '#controllers/Console/subscriptions_controller.toggleStatus')
+    .use(middleware.permission({ permissions: ['console_tenants_manage'] }))
+  router.patch('subscriptions/:id/extend', '#controllers/Console/subscriptions_controller.extend')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+
+  // ── Invoices / Billing ──
+  router.get('hotels/:hotel_id/invoices-subscriptions', '#controllers/Console/invoice_subscriptions_controller.index')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.get('billing', '#controllers/Console/invoice_subscriptions_controller.billing')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.get('billing/quotas', '#controllers/Console/invoices_controller.quotas')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.post('hotels/:hotel_id/invoices-subscriptions', '#controllers/Console/invoice_subscriptions_controller.store')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+  router.get('invoices-subscriptions/:id', '#controllers/Console/invoice_subscriptions_controller.show')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.put('invoices-subscriptions/:id', '#controllers/Console/invoice_subscriptions_controller.update')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+  router.post('invoices-subscriptions/:id/payments', '#controllers/Console/invoice_subscriptions_controller.createPayment')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+  router.post('invoices-subscriptions/:id/resend-email', '#controllers/Console/invoice_subscriptions_controller.resendEmail')
+    .use(middleware.permission({ permissions: ['console_billing_manage'] }))
+  router.get('invoices-subscriptions/:id/pdf', '#controllers/Console/invoice_subscriptions_controller.printPdf')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+  router.get('invoices-subscriptions/:id/receipt-pdf', '#controllers/Console/invoice_subscriptions_controller.printReceiptPdf')
+    .use(middleware.permission({ permissions: ['console_billing_view'] }))
+
+  // ── Activity logs ──
+  router.get('/activity-logs', activityLogsController.indexConsole.bind(activityLogsController))
+  router.get('/hotels/:hotelId/activity-logs', activityLogsController.getByHotel.bind(activityLogsController))
+
+  // ── Rôles & Permissions ──
+  router.get('/roles', rolesController.getGlobalRoles.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_view'] }))
+  router.post('/roles', rolesController.store.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_create'] }))
+  router.put('/roles/:id', rolesController.update.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_edit'] }))
+  router.delete('/roles/:id', rolesController.destroy.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_roles_delete'] }))
+  router.post('/roles/:id/permissions/console', rolesController.assignPermissionsConsole.bind(rolesController))
+    .use(middleware.permission({ permissions: ['console_permissions_manage'] }))
+
+  // ── Permissions utilisateur ──
+  router.get('/permissions/me', permissionsController.getUserPermissions.bind(permissionsController))
+
+}).prefix('api/console').use(middleware.auth({ guards: ['api'] }))

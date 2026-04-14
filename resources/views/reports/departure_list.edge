@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ hotelName }} - Departure List</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background-color: white;
+      border: 2px solid #666;
+      padding: 20px;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #999;
+    }
+
+    .hotel-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: rgb(10, 5, 144);
+    }
+
+    .report-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #800000;
+      text-align: right;
+    }
+
+    .filters {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .filters label {
+      font-weight: bold;
+      margin-right: 4px;
+    }
+
+    .filters input {
+      border: none;
+      border-bottom: 1px solid #ccc;
+      padding: 2px 6px;
+      font-size: 13px;
+      background-color: transparent;
+      width: auto;
+      max-width: 150px;
+    }
+
+    .filters select {
+      border: none;
+      padding: 4px 8px;
+      font-size: 13px;
+      background-color: transparent;
+      margin-right: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    table th {
+      background-color: transparent;
+      border-top: 1px solid #999;
+      border-bottom: 1px solid #999;
+      padding: 8px;
+      text-align: left;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    table td {
+      border-bottom: 1px solid #eee;
+      padding: 7px 8px;
+      font-size: 12px;
+    }
+
+    .res-number { color: #000; }
+
+    .rate-cell { text-align: left; }
+
+    .footer-row td {
+      border-top: 2px solid #999;
+      border-bottom: 2px solid #999;
+      font-weight: bold;
+      background-color: #f9f9f9;
+    }
+
+    .no-data {
+      padding: 40px 20px;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+
+    @media print {
+      body { background-color: white; padding: 0; }
+      .container { border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    {{-- HEADER --}}
+    <div class="header">
+      <div class="hotel-name">{{ hotelName }}</div>
+      <div class="report-title">Departure List</div>
+    </div>
+
+    {{-- FILTERS --}}
+    <div class="filters">
+      <label>Date From</label>
+      <input type="text" value="{{ fromDate }}" readonly>
+      <label>To</label>
+      <input type="text" value="{{ toDate }}" readonly>
+      <label>Tax Inclusive</label>
+      <input type="text" value="{{ data.filters.taxInclusive ? 'Yes' : 'No' }}" readonly>
+      <label>Printed by</label>
+      <input type="text" value="{{ printedBy }}" readonly>
+      <label>Printed on</label>
+      <input type="text" value="{{ printedOn }}" readonly>
+    </div>
+
+    {{-- TABLE --}}
+    @if(data.data && data.data.length > 0)
+      <table>
+        <thead>
+          <tr>
+            <th>Res. No</th>
+            <th>Guest</th>
+            <th>Room</th>
+            <th>Room Type</th>
+            <th>Rate (Rs)</th>
+            <th>Arrival</th>
+            <th>Departure</th>
+            <th>Nights</th>
+            <th>Pax</th>
+            <th>Rate Plan</th>
+            <th>Business Source</th>
+            <th>Market</th>
+            <th>Status</th>
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('company'))
+              <th>Company</th>
+            @end
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('deposit'))
+              <th class="rate-cell">Deposit</th>
+            @end
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('balanceDue'))
+              <th class="rate-cell">Balance Due</th>
+            @end
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('pickUp'))
+              <th>Pick Up</th>
+            @end
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('dropOff'))
+              <th>Drop Off</th>
+            @end
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('resType'))
+              <th>Res. Type</th>
+            @end
+            @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('user'))
+              <th>User</th>
+            @end
+          </tr>
+        </thead>
+        <tbody>
+          @each(row in data.data)
+            <tr>
+              <td class="res-number">{{ row.reservationNumber }}</td>
+              <td>{{ row.guestName }}</td>
+              <td>{{ row.roomNumber }}</td>
+              <td>{{ row.roomType || '—' }}</td>
+              <td class="rate-cell">{{ formatCurrency(row.ratePerNight) }}</td>
+              <td>{{ row.arrivalDate }}</td>
+              <td>{{ row.departureDate }}</td>
+              <td>{{ row.numberOfNights }}</td>
+              <td>{{ row.totalPax }}</td>
+              <td>{{ row.ratePlan }}</td>
+              <td>{{ row.businessSource }}</td>
+              <td>{{ row.marketCode || '—' }}</td>
+              <td>{{ row.status }}</td>
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('company'))
+                <td>{{ row.company || '—' }}</td>
+              @end
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('deposit'))
+                <td class="rate-cell">{{ formatCurrency(row.depositPaid) }}</td>
+              @end
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('balanceDue'))
+                <td class="rate-cell">{{ formatCurrency(row.balanceDue) }}</td>
+              @end
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('pickUp'))
+                <td>{{ row.pickUp || '—' }}</td>
+              @end
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('dropOff'))
+                <td>{{ row.dropOff || '—' }}</td>
+              @end
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('resType'))
+                <td>{{ row.reservationType || '—' }}</td>
+              @end
+              @if(data.filters.selectedColumns && data.filters.selectedColumns.includes('user'))
+                <td>{{ row.createdBy || '—' }}</td>
+              @end
+            </tr>
+          @end
+
+          {{-- FOOTER ROW --}}
+          <tr class="footer-row">
+            <td colspan="2">Total Reservations</td>
+            <td>#({{ data.summary.totalDepartures }})</td>
+            <td></td>
+            <td class="rate-cell">{{ formatCurrency(data.summary.totalRevenue) }}</td>
+            <td></td>
+            <td></td>
+            <td>{{ data.summary.totalNights }}</td>
+            <td>{{ data.summary.totalAdults }}/{{ data.summary.totalChildren }}</td>
+            <td colspan="4"></td>
+          </tr>
+        </tbody>
+      </table>
+
+    @else
+      <div class="no-data">No data matches the selected filters</div>
+    @end
+
+  </div>
+</body>
+</html>

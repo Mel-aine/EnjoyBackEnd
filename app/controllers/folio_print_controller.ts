@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import FolioPrintService from '#services/folio_print_service'
-import BookingPrintService from '#services/booking_print_service'
 import vine from '@vinejs/vine'
 
 export default class FolioPrintController {
@@ -112,9 +111,9 @@ export default class FolioPrintController {
       // Choix de la méthode en fonction de la langue
       let bookingPdf: Buffer
       if (language === 'fr') {
-        bookingPdf = await PdfGenerationService.generateBookingPdfFrench(folioPrintData)
+        bookingPdf = await PdfGenerationService.generateBookingPdfFrench(folioPrintData as any)
       } else {
-        bookingPdf = await PdfGenerationService.generateBookingPdf(folioPrintData)
+        bookingPdf = await PdfGenerationService.generateBookingPdf(folioPrintData as any)
       }
 
       response.header('Content-Type', 'application/pdf')

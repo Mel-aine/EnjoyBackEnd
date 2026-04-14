@@ -2,10 +2,10 @@
 import path from 'node:path'
 import url from 'node:url'
 // ---
-
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 export default {
   // path: __dirname + "/../", for AdonisJS v5
-  path: path.dirname(url.fileURLToPath(import.meta.url)) + '/../', // for AdonisJS v6
+   path: __dirname + '/../',
   title: 'EnjoyBackEnd API',
   version: '1.0.0',
   description: 'API complete pour la gestion des hotels et reservations',

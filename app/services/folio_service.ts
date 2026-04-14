@@ -794,6 +794,7 @@ export default class FolioService {
       })
       .preload('transactions', (transactionQuery) => {
         transactionQuery
+        .whereNull('mealPlanId')
           .orderBy('transactionDate', 'asc')
           .preload('paymentMethod')
       })
@@ -972,6 +973,8 @@ export default class FolioService {
             hotelId: data.hotelId,
             guestId: originalFolio.guestId!,
             reservationId: originalFolio.reservationId!,
+            reservationRoomId: originalFolio.reservationRoomId!,
+            groupId: originalFolio.groupId!,
             folioType: originalFolio.folioType,
             folioName: `${originalFolio.folioName || 'Split'} - Room Charges`,
             notes: data.notes || 'Split from original folio - Room charges',
@@ -1029,7 +1032,7 @@ export default class FolioService {
         const extractChargeTransactions = await FolioTransaction.query({ client: trx })
           .where('folioId', data.folioId)
           .where('status', '!=', TransactionStatus.VOIDED)
-          .whereIn('category', [TransactionCategory.FOOD_BEVERAGE, TransactionCategory.SPA, TransactionCategory.LAUNDRY, TransactionCategory.MINIBAR, TransactionCategory.MISCELLANEOUS])
+          .whereIn('category', [TransactionCategory.FOOD_BEVERAGE, TransactionCategory.POSTING, TransactionCategory.SPA, TransactionCategory.LAUNDRY, TransactionCategory.MINIBAR, TransactionCategory.MISCELLANEOUS])
 
         if (extractChargeTransactions.length > 0) {
           const newFolio = await this.createFolio({
@@ -1125,8 +1128,8 @@ export default class FolioService {
             applied = true
           }
           if (data.extractCharges) {
-            if (applied) q.orWhere('category', TransactionCategory.EXTRACT_CHARGE)
-            else q.where('category', TransactionCategory.EXTRACT_CHARGE)
+            if (applied) q.orWhereIn('category',[TransactionCategory.EXTRACT_CHARGE, TransactionCategory.POSTING])
+            else q.whereNotIn('category', [TransactionCategory.EXTRACT_CHARGE, TransactionCategory.POSTING])
           }
         })
 
@@ -1144,6 +1147,8 @@ export default class FolioService {
       const newFolio = await this.createFolio({
         hotelId: data.hotelId,
         guestId: originalFolio.guestId!,
+        reservationRoomId: originalFolio.reservationRoomId!,
+        groupId: originalFolio.groupId!,
         reservationId: originalFolio.reservationId!,
         folioType: originalFolio.folioType,
         folioName: `${originalFolio.folioName}`,
@@ -1342,10 +1347,10 @@ export default class FolioService {
         discountRate: data.discountId && discountAmount > 0 ? (discountAmount / (baseAmount + discountAmount)) : 0,
         netAmount: data.complementary ? 0 : netAmount,
         grossAmount: data.complementary ? 0 : grossAmount,
-        transactionDate: DateTime.fromJSDate(data.date.toJSDate()),
+        transactionDate: data.date instanceof DateTime ? data.date : DateTime.fromJSDate(data.date as any),
         transactionTime: '00:00:00',
         postingDate: DateTime.now(),
-        serviceDate: DateTime.fromJSDate(data.date.toJSDate()),
+        serviceDate: data.date instanceof DateTime ? data.date : DateTime.fromJSDate(data.date as any),
         complementary: data.complementary,
         compReason: data.complementary ? 'Complimentary room charge' : '',
         discountId: data.discountId,

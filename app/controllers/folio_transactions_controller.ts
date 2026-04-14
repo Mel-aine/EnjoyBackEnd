@@ -305,7 +305,7 @@ export default class FolioTransactionsController {
           // If payment method is City Ledger, create a child transaction on company folio
           try {
             const pm = await PaymentMethod.find(payload.paymentMethodId)
-            if (pm && pm.methodType === PaymentMethodType.CITY_LEDGER) {
+            if (pm && pm.methodType == PaymentMethodType.CITY_LEDGER) {
               // Ensure folio has guest and reservationRoom->room preloaded before creating CL child
               await transaction.load('folio', (folioQuery: any) => {
                 folioQuery.preload('guest')
@@ -464,6 +464,19 @@ export default class FolioTransactionsController {
       updated.lastModifiedBy = auth.user?.id || 0
       await updated.save()
 
+      if (updated.transactionType === TransactionType.PAYMENT) {
+        try {
+          await ReceiptService.updateReceiptByTransactionId({
+            transactionId: updated.id,
+            totalAmount: updated.amount,
+            description: updated.description,
+            paymentMethodId: updated.paymentMethodId ?? undefined,
+          })
+        } catch (receiptError) {
+          console.error('Failed to update receipt:', receiptError.message)
+        }
+      }
+
       // Update folio totals (service does this, but keeping consistent here)
       await this.updateFolioTotals(updated.folioId)
 
@@ -603,7 +616,7 @@ export default class FolioTransactionsController {
               voidedBy: auth.user?.id
             },
             hotelId: transaction.hotelId,
-            ctx: { request, response }
+            ctx: { request, response } as any
           })
         } catch (receiptError) {
           // Log error but don't fail the transaction voiding
@@ -697,7 +710,7 @@ export default class FolioTransactionsController {
               voidReason: child.voidReason,
             },
             hotelId: child.hotelId,
-            ctx: { request, response }
+            ctx: { request, response } as any
           })
         }
       } catch (cascadeError) {
@@ -712,7 +725,7 @@ export default class FolioTransactionsController {
             parentTransactionId: transaction.id,
           },
           hotelId: transaction.hotelId,
-          ctx: { request, response }
+          ctx: { request, response } as any
         })
       }
 
@@ -817,11 +830,22 @@ export default class FolioTransactionsController {
           particular = 'Miscellaneous Refund'
       }
 
+      // Generate transaction number
+      const lastTransaction = await FolioTransaction.query()
+        .where('hotelId', transaction.hotelId)
+        .select(['id', 'transactionNumber'])
+        .orderBy('transactionNumber', 'desc')
+        .first()
+      const transactionNumber = (Number(lastTransaction?.transactionNumber) || 0) + 1
+      const transactionCode = generateTransactionCode()
+
       // Create refund transaction
       const refundTransaction = await FolioTransaction.create({
         hotelId: transaction.hotelId,
         folioId: transaction.folioId,
-        transactionNumber: `REF-${transaction.transactionNumber}`,
+        transactionNumber,
+        transactionCode,
+        reference: `REF-${transaction.transactionNumber}`,
         transactionType: TransactionType.REFUND,
         category: transaction.category,
         particular: particular,
@@ -936,11 +960,21 @@ export default class FolioTransactionsController {
           transferInParticular = 'Miscellaneous Transfer In'
       }
 
+      // Generate transaction number
+      const lastTransaction = await FolioTransaction.query()
+        .where('hotelId', transaction.hotelId)
+        .select(['id', 'transactionNumber'])
+        .orderBy('transactionNumber', 'desc')
+        .first()
+      let nextTransactionNumber = (Number(lastTransaction?.transactionNumber) || 0) + 1
+
       // Create transfer-out transaction in original folio
       await FolioTransaction.create({
         hotelId: transaction.hotelId,
         folioId: originalFolioId,
-        transactionNumber: `TRF-OUT-${transaction.transactionNumber}`,
+        transactionNumber: nextTransactionNumber++,
+        transactionCode: generateTransactionCode(),
+        reference: `TRF-OUT-${transaction.transactionNumber}`,
         transactionType: TransactionType.TRANSFER,
         category: transaction.category,
         particular: transferOutParticular,
@@ -957,7 +991,9 @@ export default class FolioTransactionsController {
       await FolioTransaction.create({
         hotelId: transaction.hotelId,
         folioId: targetFolioId,
-        transactionNumber: `TRF-IN-${transaction.transactionNumber}`,
+        transactionNumber: nextTransactionNumber,
+        transactionCode: generateTransactionCode(),
+        reference: `TRF-IN-${transaction.transactionNumber}`,
         transactionType: TransactionType.TRANSFER,
         category: transaction.category,
         particular: transferInParticular,

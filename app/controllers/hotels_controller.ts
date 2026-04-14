@@ -3,6 +3,7 @@ import Hotel from '#models/hotel'
 import User from '#models/user'
 import Role from '#models/role'
 import ServiceUserAssignment from '#models/service_user_assignment'
+import ActivityLog from '#models/activity_log'
 import CrudService from '#services/crud_service'
 import LoggerService from '#services/logger_service'
 import PermissionService from '#services/permission_service'
@@ -26,6 +27,7 @@ import { dirname } from 'path'
 import Discount from '../models/discount.js'
 import { DEFAULT_TEMPLATE_CATEGORIES, DEFAULT_EMAIL_TEMPLATES } from '../data/default_email_templates.js'
 import { PaymentMethodType } from '../enums.js'
+import UserEmailService from '#services/user_email_service'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -72,6 +74,17 @@ export default class HotelsController {
       }
 
       const hotels = await query
+        .preload('subscriptions', (subQuery) => {
+          subQuery.preload('module')
+        })
+        .preload('users', (userQuery) => {
+          userQuery
+            .whereHas('role', (roleQuery) => {
+              roleQuery.whereILike('role_name', 'admin')
+            })
+            .preload('role')
+        })
+        .preload('invoices')
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
@@ -80,6 +93,7 @@ export default class HotelsController {
         data: hotels
       })
     } catch (error) {
+      console.error('Error retrieving hotels:', error)
       return response.internalServerError({
         message: 'Failed to retrieve hotels',
         error: error.message
@@ -163,7 +177,7 @@ export default class HotelsController {
 
       // Create default XAF currency for the new hotel
       try {
-        await CurrenciesController.createDefaultCurrency(hotel.id, createdByUserId)
+        await CurrenciesController.createDefaultCurrency(hotel.id, createdByUserId,trx)
       } catch (currencyError) {
         logger.error('Failed to create default currency for hotel', {
           hotelId: hotel.id,
@@ -207,7 +221,7 @@ export default class HotelsController {
 
       // Create default payment methods for the new hotel
       try {
-        await this.createDefaultPaymentMethods(hotel.id, createdByUserId, trx)
+        await this.createDefaultPaymentMethods(hotel.id, trx)
       } catch (paymentMethodError) {
         logger.error('Failed to create default payment methods for hotel', {
           hotelId: hotel.id,
@@ -241,14 +255,49 @@ export default class HotelsController {
       // Commit the transaction if everything succeeds
       await trx.commit()
 
-      return response.created({
-        message: 'Hotel created successfully',
-        data: hotel
-      })
-    } catch (error) {
+        setImmediate(async () => {
+          // Email
+          try {
+            const forwardedProto = (request.header('x-forwarded-proto') || '').split(',')[0]
+            const proto = forwardedProto || (request.secure() ? 'https' : request.protocol())
+            const baseUrl = `${proto}://${request.host()}`
+            await UserEmailService.prepareAndSendVerification(adminUser, baseUrl,hotel.id)
+            logger.info('Verification email sent', { hotelId: hotel.id })
+          } catch (emailError) {
+            logger.error('Failed to send verification email', { error: emailError.message })
+          }
+
+          // Activity log
+          try {
+            const user = auth.user
+            if (user) {
+              await ActivityLog.create({
+                userId: user.id,
+                username: user.username || user.email,
+                action: 'hotel.create',
+                entityType: 'hotel',
+                entityId: hotel.id,
+                hotelId: hotel.id,
+                description: `Created new hotel: ${hotel.hotelName}`,
+                changes: hotel.serialize(),
+                ipAddress: request.ip(),
+                userAgent: request.header('user-agent'),
+                createdBy: user.id
+              })
+            }
+          } catch (logError) {
+            logger.error('Failed to create activity log', { error: logError.message })
+          }
+        })
+
+        return response.created({
+          message: 'Hotel created successfully',
+          data: hotel
+        })
+      } catch (error) {
       // Rollback the transaction on any error
       await trx.rollback()
-
+      console.error('Error during hotel creation, transaction rolled back:', error)
       // Handle validation failures with detailed field-level errors
       if (error && (error.code === 'E_VALIDATION_ERROR' || error.code === 'E_VALIDATION_FAILURE')) {
         const details = Array.isArray((error as any).errors)
@@ -287,11 +336,21 @@ export default class HotelsController {
         .preload('rooms', (roomQuery) => {
           roomQuery.orderBy('sort_key', 'asc')
         })
+        .preload('users', (userQuery) => {
+          userQuery
+            .whereHas('role', (roleQuery) => {
+              roleQuery.whereILike('role_name', 'admin')
+            })
+            .preload('role')
+        })
         .preload('ratePlans')
         .preload('discounts')
         .preload('roomChargesTaxRates')
         .preload('cancellationRevenueTaxRates')
         .preload('noShowRevenueTaxRates')
+        .preload('subscriptions', (subQuery) => {
+          subQuery.preload('module')
+        })
         .firstOrFail()
 
       return response.ok({
@@ -328,27 +387,96 @@ export default class HotelsController {
   /**
    * Update a hotel
    */
-  async update({ params, request, response, auth }: HttpContext) {
+ async update({ params, request, response, auth }: HttpContext) {
     try {
       const hotel = await Hotel.findOrFail(params.id)
       const payload = await request.validateUsing(updateHotelValidator)
 
-      // Create update data with proper typing
-      const updateData: any = {
-        ...payload,
-        lastModifiedBy: auth.user?.id || 0
+      const isConsoleRequest = request.url().startsWith('/api/console/')
+      if (!isConsoleRequest && (payload.useCashering !== undefined || payload.useChannel !== undefined)) {
+        return response.forbidden({ message: 'These fields can only be updated from console' })
       }
 
-      hotel.merge(updateData)
+      hotel.merge({
+        hotelName:          payload.name,
+        description:        payload.description,
+        address:            payload.address,
+        city:               payload.city,
+        stateProvince:      payload.state,
+        country:            payload.country,
+        postalCode:         payload.postalCode,
+        email:              payload.email,
+        website:            payload.website,
+        totalRooms:         payload.totalRooms         || hotel.totalRooms,
+        totalFloors:        payload.totalFloors        || hotel.totalFloors,
+        phoneNumber:        payload.phone,
+        grade:              payload.starRating,
+        checkInTime:        payload.checkInTime,
+        checkOutTime:       payload.checkOutTime,
+        currencyCode:       payload.currency           || hotel.currencyCode,
+        timezone:           payload.timezone           || hotel.timezone,
+        taxRate:            payload.taxRate            ?? hotel.taxRate,
+        status:             payload.isActive !== false ? 'active' : 'inactive',
+        cancellationPolicy: payload.cancellationPolicy,
+        hotelPolicy:        payload.policies,
+        lastModifiedBy:     auth.user?.id              || 0,
+        ...(isConsoleRequest && payload.useCashering !== undefined
+          ? { useCashering: payload.useCashering }
+          : {}),
+        ...(isConsoleRequest && payload.useChannel !== undefined
+          ? { useChannel: payload.useChannel }
+          : {}),
+      })
 
       await hotel.save()
+
+      // Mettre à jour l'admin si les infos sont fournies
+      if (payload.adminFirstName || payload.adminLastName || payload.adminEmail || payload.adminPhoneNumber) {
+        const assignment = await ServiceUserAssignment.query()
+          .where('hotel_id', hotel.id)
+          .preload('role', (q) => q.whereILike('roleName', 'admin'))
+          .first()
+
+        if (assignment) {
+          const adminUser = await User.find(assignment.user_id)
+          if (adminUser) {
+            adminUser.merge({
+              firstName:   payload.adminFirstName   || adminUser.firstName,
+              lastName:    payload.adminLastName    || adminUser.lastName,
+              email:       payload.adminEmail       || adminUser.email,
+              phoneNumber: payload.adminPhoneNumber || adminUser.phoneNumber,
+            })
+            await adminUser.save()
+          }
+        }
+      }
+
+      // Log de l'activité
+      const user = auth.user
+      if (user) {
+        await ActivityLog.create({
+          userId:      user.id,
+          username:    user.username || user.email,
+          action:      'hotel.update',
+          entityType:  'hotel',
+          entityId:    hotel.id,
+          hotelId:     hotel.id,
+          description: `Updated hotel: ${hotel.hotelName}`,
+          changes:     hotel.serialize(),
+          ipAddress:   request.ip(),
+          userAgent:   request.header('user-agent'),
+          createdBy:   user.id
+        })
+      }
 
       return response.ok({
         message: 'Hotel updated successfully',
         data: hotel
       })
+
     } catch (error) {
-      // Handle validation failures with detailed field-level errors
+      console.error('Error updating hotel:', error)
+
       if (error && (error.code === 'E_VALIDATION_ERROR' || error.code === 'E_VALIDATION_FAILURE')) {
         const details = Array.isArray((error as any).errors)
           ? (error as any).errors.map((e: any) => ({ field: e.field, rule: e.rule, message: e.message }))
@@ -356,14 +484,14 @@ export default class HotelsController {
 
         return response.badRequest({
           message: 'Validation failed',
-          errors: (error as any).messages,
+          errors:  (error as any).messages,
           details
         })
       }
 
       return response.badRequest({
         message: 'Failed to update hotel',
-        error: (error as any).message
+        error:   (error as any).message
       })
     }
   }
@@ -756,15 +884,33 @@ export default class HotelsController {
   /**
    * Delete a hotel
    */
-  async destroy({ params, response }: HttpContext) {
+  async destroy({ params, response, request, auth }: HttpContext) {
     try {
       const hotel = await Hotel.findOrFail(params.id)
+      const hotelName = hotel.hotelName
       await hotel.delete()
+
+      // Log the activity
+      const user = auth.user
+      if (user) {
+        await ActivityLog.create({
+          userId: user.id,
+          username: user.username || user.email,
+          action: 'hotel.delete',
+          entityType: 'hotel',
+          entityId: parseInt(params.id),
+          description: `Deleted hotel: ${hotelName}`,
+          ipAddress: request.ip(),
+          userAgent: request.header('user-agent'),
+          createdBy: user.id
+        })
+      }
 
       return response.ok({
         message: 'Hotel deleted successfully'
       })
     } catch (error) {
+      console.error(error)
       return response.badRequest({
         message: 'Failed to delete hotel',
         error: error.message
@@ -1276,7 +1422,7 @@ export default class HotelsController {
   /**
    * Create default payment methods for a new hotel
    */
-  private async createDefaultPaymentMethods(hotelId: number, userId?: number, trx?: any) {
+  private async createDefaultPaymentMethods(hotelId: number, trx?: any) {
     const paymentMethods = [
       {
         methodName: 'Master card',
@@ -1348,7 +1494,7 @@ export default class HotelsController {
         isActive: true,
         isDefault: method.isDefault || false,
         shortCode: method.shortCode,
-        type: method.type,
+        // type: method.type,
         cardProcessing: method.cardProcessing,
         surchargeEnabled: false,
       }

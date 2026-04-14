@@ -381,6 +381,12 @@ export const updateHotelValidator = vine.compile(
     checkinReservationSettings: vine.object({}).optional(),
     displaySettings: vine.object({}).optional(),
     registrationSettings: vine.object({}).optional(),
-    housekeepingStatusColors: vine.object({}).optional()
+    housekeepingStatusColors: vine.object({}).optional(),
+    adminFirstName:   vine.string().optional(),
+    adminLastName:    vine.string().optional(),
+    adminEmail:       vine.string().email().optional(),
+    adminPhoneNumber: vine.string().optional(),
+    useCashering: vine.boolean().optional(),
+    useChannel: vine.boolean().optional(),
   })
 )

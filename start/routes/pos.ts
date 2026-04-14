@@ -25,4 +25,7 @@ router.group(() => {
   // Post room transaction to folio
   router.post('/hotels/:hotelId/roomposting', [PosController, 'postRoomTransaction'])
   
-}).prefix('/pos').use(middleware.apiKey())
+}).prefix('/pos').use([
+  middleware.apiKey(),
+  middleware.checkSubscription('pos')
+])

@@ -82,6 +82,17 @@ export default class UsersController extends CrudController<typeof User> {
       user.lastModifiedBy = auth.user?.id!
       user.hireDate = data.hire_date ? DateTime.fromISO(data.hire_date) : null
       user.dateOfBirth = data.date_of_birth ? DateTime.fromISO(data.date_of_birth) : null
+
+      const oldDataFull = user.toJSON()
+      user.firstName = data.first_name
+      user.lastName = data.last_name
+      user.email = data.email
+      user.phoneNumber = data.phone_number
+      user.roleId = data.role_id
+      user.address = data.address
+      user.nationality = data.nationality
+      user.profession = data.profession || null
+      user.companyId = data.company_id || null
       user.placeOfBirth = data.place_of_birth
       user.gender = data.gender
       user.city = data.city
@@ -127,47 +138,14 @@ export default class UsersController extends CrudController<typeof User> {
         })
       }
 
-      await user.load('role')
-      const newRoleName = user.role?.roleName || 'Rôle inconnu'
-
-      const newData = {
-        first_name: user.firstName,
-        last_name: user.lastName,
-        email: user.email,
-        phone_number: user.phoneNumber,
-        role_name: newRoleName,
-        address: user.address,
-        nationality: user.nationality,
-        service_id: data.service_id,
-        profession: user.profession,
-        company_id: user.companyId,
-        date_of_birth: user.dateOfBirth,
-        place_of_birth: user.placeOfBirth,
-        gender: user.gender,
-        city: user.city,
-        country: user.country,
-        emergency_phone: user.emergencyPhone,
-        personal_email: user.personalEmail,
-        social_security_number: user.socialSecurityNumber,
-        national_id_number: user.nationalIdNumber,
-        hire_date: user.hireDate,
-        contract_type: user.contractType,
-        contract_end_date: user.contractEndDate,
-        data_processing_consent: user.dataProcessingConsent,
-        consent_date: user.consentDate,
-        permis_discounts: data.permis_discounts || [],
-        permis_privileges: data.permis_privileges || [],
-        permis_reports: data.permis_reports || [],
-      }
-
-      const changes = LoggerService.extractChanges(oldData, newData)
+      const changes = LoggerService.extractChanges(oldDataFull, user.toJSON())
 
       await LoggerService.log({
         actorId: auth.user!.id,
         action: 'UPDATE',
         entityType: 'User',
         entityId: user.id.toString(),
-        description: `Mise à jour du profil utilisateur ${user.firstName} ${user.lastName}`,
+        description: `Updated user profile for ${user.firstName} ${user.lastName}`,
         changes,
         ctx,
       })
@@ -508,6 +486,17 @@ public async storeClient({ request, auth, response }: HttpContext) {
       permisDiscounts: data.permis_discounts ? JSON.stringify(data.permis_discounts) : null,
       permisPrivileges: data.permis_privileges ? JSON.stringify(data.permis_privileges) : null,
       permisReports: data.permis_reports ? JSON.stringify(data.permis_reports) : null,
+    })
+
+    await LoggerService.log({
+      actorId: currentUser.id,
+      action: 'CREATE',
+      entityType: 'User',
+      entityId: newUser.id.toString(),
+      hotelId: Number(service_id) || undefined,
+      description: `Client ${newUser.firstName} ${newUser.lastName} created by ${currentUser.fullName}`,
+      changes: LoggerService.extractChanges({}, newUser.serialize()),
+      ctx: { request, response } as any
     })
 
     return response.created(newUser)

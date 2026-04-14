@@ -13,60 +13,60 @@
       padding: 0px 20px 0px 20px;
       background: #fff;
     }
-    
+
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 9px;
     }
-    
+
     th {
       background-color: #fff;
       color: #000;
       padding: 6px 4px;
-      text-align: center;
+      text-align: left;
       font-weight: bold;
       border-bottom: 1px solid #000;
       font-size: 8px;
     }
-    
+
     th:first-child {
       text-align: left;
     }
-    
+
     td {
       padding: 5px 4px;
-      text-align: right;
+      text-align: left;
       border: none;
       font-size: 9px;
     }
-    
+
     td:first-child {
       text-align: left;
       font-weight: normal;
     }
-    
+
     tbody tr {
       border-bottom: 1px solid #e0e0e0;
     }
-    
+
     .total-row {
       font-weight: bold;
       border-top: 2px solid #000;
       border-bottom: 2px solid #000;
     }
-    
+
     .total-row td {
       padding: 8px 4px;
     }
-    
-    
+
+
     .number {
-      text-align: right;
+      text-align: left;
     }
-    
+
     .percentage {
-      text-align: center;
+      text-align: left;
     }
   </style>
 </head>
@@ -115,7 +115,7 @@
           <td class="number">{{ formatCurrency(rateType.ytdAdr) }}</td>
         </tr>
       @endeach
-      
+
       <!-- Total Row -->
       <tr class="total-row">
         <td>Total</td>
@@ -135,9 +135,9 @@
         <td class="percentage">100</td>
         <td class="number">{{ formatCurrency(revenueData.totals.ytd.adr) }}</td>
       </tr>
-      
+
     </tbody>
   </table>
-  
+
 </body>
 </html>

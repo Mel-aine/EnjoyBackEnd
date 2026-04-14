@@ -6,6 +6,7 @@ import Permission from '#models/permission'
 import RolePermission from '#models/role_permission'
 import type { HttpContext } from '@adonisjs/core/http'
 import { createRoleValidator, updateRoleValidator } from '#validators/role'
+import LoggerService from '#services/logger_service'
 
 export default class RolesController {
   protected model = Role
@@ -29,6 +30,7 @@ export default class RolesController {
         query.where('role_name', 'ILIKE', `%${search}%`)
           .orWhere('description', 'ILIKE', `%${search}%`)
       }
+
 
       const roles = await query.paginate(page, limit)
       return response.ok(roles)
@@ -77,9 +79,14 @@ export default class RolesController {
 
     // 🔎 Vérifier si un rôle du même nom existe déjà pour cet hôtel
     const existingRole = await Role.query()
-     .whereRaw('LOWER(role_name) = ?', [payload.name.toLowerCase()])
-      .andWhere('hotel_id', payload.hotelId!)
-      .first()
+    .whereRaw('LOWER(role_name) = ?', [payload.name.toLowerCase()])
+    .if(payload.hotelId, (q) => {
+      q.andWhere('hotel_id', payload.hotelId!)
+    })
+    .if(!payload.hotelId, (q) => {
+      q.whereNull('hotel_id')
+    })
+    .first()
 
     if (existingRole) {
       return response.conflict({
@@ -96,6 +103,19 @@ export default class RolesController {
       createdBy: payload.createdBy,
     })
 
+    if (payload.createdBy) {
+      await LoggerService.log({
+        actorId: payload.createdBy,
+        action: 'CREATE',
+        entityType: 'Role',
+        entityId: role.id,
+        hotelId: role.hotelId ?? undefined,
+        description: `Role "${role.roleName}" created`,
+        changes: LoggerService.extractChanges({}, role.serialize()),
+        ctx: { request, response } as any
+      })
+    }
+
     return response.created(role)
   } catch (error) {
     console.error('[STORE] Erreur attrapée :', error)
@@ -107,6 +127,18 @@ export default class RolesController {
     return response.internalServerError({
       message: 'Erreur lors de la création du rôle'
     })
+  }
+}
+
+/** * Récupère la liste de tous les rôles
+ */
+public async list({ response }: HttpContext) {
+  try {
+    const roles = await Role.query()
+    return response.ok(roles)
+  } catch (error) {
+        console.error(error)
+    return response.internalServerError({ message: 'Erreur lors de la récupération des rôles' })
   }
 }
 
@@ -125,6 +157,7 @@ public async update({ params, request, response }: HttpContext) {
     const payload = await request.validateUsing(updateRoleValidator)
 
     const role = await Role.findOrFail(roleId)
+    const oldRole = role.serialize()
 
     // Vérifier si l'hôtel existe si hotel_id est fourni
     if (payload.hotelId) {
@@ -154,6 +187,19 @@ public async update({ params, request, response }: HttpContext) {
 
     await role.save()
 
+    if (payload.lastModifiedBy) {
+      await LoggerService.log({
+        actorId: payload.lastModifiedBy,
+        action: 'UPDATE',
+        entityType: 'Role',
+        entityId: role.id,
+        hotelId: role.hotelId || 0,
+        description: `Role "${role.roleName}" updated`,
+        changes: LoggerService.extractChanges(oldRole, role.serialize()),
+        ctx: { request, response } as any
+      })
+    }
+
     return response.ok(role)
   } catch (error) {
     if (error.code === 'E_VALIDATION_FAILURE') {
@@ -169,38 +215,52 @@ public async update({ params, request, response }: HttpContext) {
   /**
    * Supprime un rôle
    */
-public async destroy({ params, response }: HttpContext) {
-  const roleId = Number(params.id)
-  console.log('[DESTROY] roleId reçu :', params.id, '→ converti en nombre :', roleId)
+public async destroy({ params, request, response, auth }: HttpContext) {
+    const roleId = Number(params.id)
+    console.log('[DESTROY] roleId reçu :', params.id, '→ converti en nombre :', roleId)
 
-  if (isNaN(roleId)) {
-    console.log('[DESTROY] ID invalide')
-    return response.badRequest({ message: 'ID de rôle invalide' })
-  }
-
-  try {
-    console.log('[DESTROY] Recherche du rôle dans la DB...')
-    const role = await Role.findOrFail(roleId)
-    console.log('[DESTROY] Rôle trouvé :', role)
-
-    // Vérifier si le rôle est utilisé par des utilisateurs
-    console.log('[DESTROY] Chargement des utilisateurs liés au rôle...')
-    await role.load('users')
-    console.log('[DESTROY] Utilisateurs liés :', role.users)
-
-    if (role.users.length > 0) {
-      console.log('[DESTROY] Rôle utilisé par', role.users.length, 'utilisateur(s)')
-      return response.conflict({
-        message: 'Impossible de supprimer ce rôle car il est assigné à des utilisateurs'
-      })
+    if (isNaN(roleId)) {
+      console.log('[DESTROY] ID invalide')
+      return response.badRequest({ message: 'ID de rôle invalide' })
     }
 
-    console.log('[DESTROY] Suppression du rôle...')
-    await role.delete()
-    console.log('[DESTROY] Rôle supprimé avec succès')
+    try {
+      console.log('[DESTROY] Recherche du rôle dans la DB...')
+      // const role = await Role.findOrFail(roleId)
+      const role = await Role.findOrFail(roleId)
+      console.log('[DESTROY] Rôle trouvé :', role)
 
-    return response.ok({ message: 'Rôle supprimé avec succès' })
-  } catch (error) {
+      // Vérifier si le rôle est utilisé par des utilisateurs
+      console.log('[DESTROY] Chargement des utilisateurs liés au rôle...')
+      await role.load('users')
+      console.log('[DESTROY] Utilisateurs liés :', role.users)
+
+      if (role.users.length > 0) {
+        console.log('[DESTROY] Rôle utilisé par', role.users.length, 'utilisateur(s)')
+        return response.conflict({
+          message: 'Impossible de supprimer ce rôle car il est assigné à des utilisateurs'
+        })
+      }
+
+      console.log('[DESTROY] Suppression du rôle...')
+      await role.delete()
+      console.log('[DESTROY] Rôle supprimé avec succès')
+
+      if (auth.user) {
+        await LoggerService.log({
+          actorId: auth.user.id,
+          action: 'DELETE',
+          entityType: 'Role',
+          entityId: role.id,
+          hotelId: role.hotelId,
+          description: `Role "${role.roleName}" deleted`,
+          changes: {},
+          ctx: { request, response } as any
+        })
+      }
+
+      return response.ok({ message: 'Rôle supprimé avec succès' })
+    } catch (error) {
     console.error('[DESTROY] Erreur attrapée :', error)
 
     if (error.code === 'E_ROW_NOT_FOUND') {
@@ -267,7 +327,7 @@ public async getRolesByHotel({ params, response }: HttpContext) {
     }
 
     try {
-      const service = await Hotel.findOrFail(serviceId)
+      await Hotel.findOrFail(serviceId)
 
       const roles = await Role.query()
         .where((query) => {
@@ -349,7 +409,8 @@ public async getRolesByHotel({ params, response }: HttpContext) {
         return response.badRequest({ message: 'Liste des permissions requise' })
       }
 
-      const role = await Role.findOrFail(roleId)
+      // const role = await Role.findOrFail(roleId)
+      await Role.findOrFail(roleId)
 
       // Vérifier que toutes les permissions existent
       const permissions = await Permission.query().whereIn('id', permissionIds)
@@ -372,13 +433,24 @@ public async getRolesByHotel({ params, response }: HttpContext) {
 
       // Ajouter les nouvelles permissions
       const rolePermissions = permissionIds.map(permissionId => ({
-        roleId: roleId,
-        permissionId: permissionId,
-        serviceId: serviceId || null,
-        createdBy: user.id,
+        role_id: roleId,
+        permission_id: permissionId,
+        hotel_id: serviceId || null,
+        created_by: user.id,
       }))
 
-      // await RolePermission.createMany(rolePermissions)
+      await RolePermission.createMany(rolePermissions)
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'ASSIGN_PERMISSIONS',
+        entityType: 'Role',
+        entityId: roleId,
+        hotelId: serviceId || undefined,
+        description: `Assigned ${permissionIds.length} permissions to Role #${roleId}`,
+        changes: { permissions: { old: null, new: { permissionIds, serviceId } } },
+        ctx: { request, response } as any
+      })
 
       return response.ok({ message: 'Permissions assignées avec succès' })
     } catch (error) {
@@ -392,7 +464,7 @@ public async getRolesByHotel({ params, response }: HttpContext) {
   /**
    * Retire des permissions d'un rôle
    */
-  public async removePermissions({ params, request, response }: HttpContext) {
+  public async removePermissions({ params, request, response, auth }: HttpContext) {
     const roleId = Number(params.id)
 
     if (isNaN(roleId)) {
@@ -420,6 +492,19 @@ public async getRolesByHotel({ params, response }: HttpContext) {
 
       await query.delete()
 
+      if (auth.user) {
+        await LoggerService.log({
+          actorId: auth.user.id,
+          action: 'REMOVE_PERMISSIONS',
+          entityType: 'Role',
+          entityId: roleId,
+          hotelId: serviceId || undefined,
+          description: `Removed ${permissionIds.length} permissions from Role #${roleId}`,
+          changes: { permissions: { old: { permissionIds, serviceId }, new: null } },
+          ctx: { request, response } as any
+        })
+      }
+
       return response.ok({ message: 'Permissions supprimées avec succès' })
     } catch (error) {
       if (error.code === 'E_ROW_NOT_FOUND') {
@@ -432,19 +517,76 @@ public async getRolesByHotel({ params, response }: HttpContext) {
   /**
    * Récupère tous les rôles globaux (admin, etc.)
    */
-  public async getGlobalRoles({ response }: HttpContext) {
-    try {
-      const roles = await Role.query()
-        .whereNull('hotel_id')
-        .whereNull('service_id')
-        .whereNull('category_id')
-        .preload('permissions')
+ public async getGlobalRoles({ response }: HttpContext) {
+  try {
+    const roles = await Role.query()
+      .whereNull('hotel_id')
+      .preload('permissions')
 
-      return response.ok(roles)
+    return response.ok(roles)
+  } catch (error) {
+    return response.internalServerError({ message: 'Erreur lors de la récupération des rôles globaux' })
+  }
+}
+
+
+  //role-permissions-console
+  public async assignPermissionsConsole({ params, request, response, auth }: HttpContext) {
+    const roleId = Number(params.id)
+
+    if (isNaN(roleId)) {
+      return response.badRequest({ message: 'ID de rôle invalide' })
+    }
+
+    try {
+      const { permissionIds } = request.only(['permissionIds'])
+      const user = auth.getUserOrFail()
+
+      if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
+        return response.badRequest({ message: 'Liste des permissions requise' })
+      }
+
+      await Role.findOrFail(roleId)
+
+      // Vérifier que toutes les permissions existent
+      const permissions = await Permission.query().whereIn('id', permissionIds)
+      if (permissions.length !== permissionIds.length) {
+        return response.badRequest({ message: 'Une ou plusieurs permissions n\'existent pas' })
+      }
+
+      // Supprimer toutes les anciennes permissions globales (hotel_id NULL)
+      await RolePermission.query()
+        .where('role_id', roleId)
+        .whereNull('hotel_id')
+        .delete()
+
+      // Ajouter les nouvelles sans hotel_id
+      await RolePermission.createMany(
+        permissionIds.map((permissionId) => ({
+          role_id: roleId,
+          permission_id: permissionId,
+          hotel_id: null,
+          created_by: user.id,
+        }))
+      )
+
+      await LoggerService.log({
+        actorId: user.id,
+        action: 'ASSIGN_PERMISSIONS',
+        entityType: 'Role',
+        entityId: roleId,
+        description: `[Console] Assigned ${permissionIds.length} permissions to Role #${roleId}`,
+        changes: { permissions: { old: null, new: { permissionIds } } },
+        ctx: { request, response } as any,
+      })
+
+      return response.ok({ message: 'Permissions console assignées avec succès' })
     } catch (error) {
-      return response.internalServerError({ message: 'Erreur lors de la récupération des rôles globaux' })
+      if (error.code === 'E_ROW_NOT_FOUND') {
+        return response.notFound({ message: 'Rôle non trouvé' })
+      }
+      return response.internalServerError({ message: 'Erreur lors de l\'assignation des permissions' })
     }
   }
-
 
 }

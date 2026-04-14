@@ -32,7 +32,7 @@ export default class NightAuditController {
       }
 
       // Calculate night audit
-      const auditSummary = await NightAuditService.calculateNightAudit({
+      await NightAuditService.calculateNightAudit({
         auditDate: parsedAuditDate,
         hotelId: Number(hotelId),
         userId: Number(auth.user?.id)
@@ -40,8 +40,8 @@ export default class NightAuditController {
 
       return response.ok({
         success: true,
-        message: 'Night audit calculated and stored successfully',
-        data: auditSummary
+        message: 'Night audit job has been queued successfully. The process will run in the background.',
+        data: null
       })
     } catch (error) {
       // Handle validation errors

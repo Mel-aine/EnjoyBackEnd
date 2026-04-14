@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ hotelName }} - Cancellation List</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background-color: white;
+      border: 2px solid #666;
+      padding: 20px;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #999;
+    }
+
+    .hotel-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: rgb(10, 5, 144);
+    }
+
+    .report-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #800000;
+      text-align: right;
+    }
+
+    .filters {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .filters label {
+      font-weight: bold;
+      margin-right: 4px;
+    }
+
+    .filters input {
+      border: none;
+      border-bottom: 1px solid #ccc;
+      padding: 2px 6px;
+      font-size: 13px;
+      background-color: transparent;
+      width: auto;
+      max-width: 150px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    table th {
+      background-color: transparent;
+      border-top: 1px solid #999;
+      border-bottom: 1px solid #999;
+      padding: 8px;
+      text-align: left;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    table td {
+      border-bottom: 1px solid #eee;
+      padding: 7px 8px;
+      font-size: 12px;
+    }
+
+    .res-number { color: #000; }
+
+    .rate-cell { text-align: right; }
+
+    .footer-row td {
+      border-top: 2px solid #999;
+      border-bottom: 2px solid #999;
+      font-weight: bold;
+      background-color: #f9f9f9;
+    }
+
+    .no-data {
+      padding: 40px 20px;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+
+    @media print {
+      body { background-color: white; padding: 0; }
+      .container { border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    {{-- HEADER --}}
+    <div class="header">
+      <div class="hotel-name">{{ hotelName }}</div>
+      <div class="report-title">Cancellation List</div>
+    </div>
+
+    {{-- FILTERS --}}
+    <div class="filters">
+      <label>Date From</label>
+      <input type="text" value="{{ fromDate }}" readonly>
+      <label>To</label>
+      <input type="text" value="{{ toDate }}" readonly>
+      <label>Printed by</label>
+      <input type="text" value="{{ printedBy }}" readonly>
+      <label>Printed on</label>
+      <input type="text" value="{{ printedOn }}" readonly>
+    </div>
+
+    {{-- TABLE --}}
+    @if(data.data && data.data.length > 0)
+      <table>
+        <thead>
+          <tr>
+            <th>Res. No</th>
+            <th>Booking Date</th>
+            <th>Guest</th>
+            <th>Rate Type</th>
+            <th>Arrival</th>
+            <th>Departure</th>
+            <th>Folio No</th>
+            <th class="rate-cell">ADR</th>
+            <th class="rate-cell">Charges</th>
+            <th class="rate-cell">Paid</th>
+            <th class="rate-cell">Balance</th>
+            <th>Source</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          @each(row in data.data)
+            <tr>
+              <td class="res-number">{{ row.resNo }}</td>
+              <td>{{ row.bookingDate }}</td>
+              <td>{{ row.guest }}</td>
+              <td>{{ row.rateType || '—' }}</td>
+              <td>{{ row.arrival }}</td>
+              <td>{{ row.departure }}</td>
+              <td>{{ row.folioNo || '—' }}</td>
+              <td class="rate-cell">{{ row.adr }}</td>
+              <td class="rate-cell">{{ row.charges }}</td>
+              <td class="rate-cell">{{ row.paid }}</td>
+              <td class="rate-cell">{{ row.balance }}</td>
+              <td>{{ row.source || '—' }}</td>
+              <td>{{ row.remarks || '—' }}</td>
+            </tr>
+          @end
+
+          {{-- FOOTER ROW --}}
+          <tr class="footer-row">
+            <td colspan="7">Total Cancellations #({{ data.summary.totalCancelled }})</td>
+            <td class="rate-cell">{{ data.summary.totalADR.toFixed(2) }}</td>
+            <td class="rate-cell">{{ data.summary.totalCharges.toFixed(2) }}</td>
+            <td class="rate-cell">{{ data.summary.totalPaid.toFixed(2) }}</td>
+            <td class="rate-cell">{{ data.summary.totalBalance.toFixed(2) }}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>
+
+    @else
+      <div class="no-data">No data matches the selected filters</div>
+    @end
+
+  </div>
+</body>
+</html>

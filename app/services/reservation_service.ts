@@ -175,12 +175,12 @@ export default class ReservationService {
     }
 
     // 2) Try email matching
-    if (!guest && normalizedEmail) {
+ /*   if (!guest && normalizedEmail) {
       guest = await Guest.query({ client: trx })
         .where('email', normalizedEmail)
         .first()
     }
-
+*/
     // Helper to normalize display names (remove dots, collapse spaces, lowercase)
     const normalizeName = (value: string) =>
       value
@@ -197,7 +197,7 @@ export default class ReservationService {
     ].filter(Boolean).join(' '))
 
     // If email lookup did not find the guest, try LIKE matching on first/last within hotel
-    if (!guest && data.hotel_id) {
+ /*   if (!guest && data.hotel_id) {
       const first = (data.first_name || '').trim()
       const last = (data.last_name || '-').trim()
 
@@ -232,7 +232,7 @@ export default class ReservationService {
         }) || null
       }
     }
-
+*/
 
     if (guest) {
       guest.merge({

@@ -128,7 +128,7 @@ export default class AuditTrailService {
     // Apply relationships
     query = query.preload('user')
     query = query.preload('creator')
-    query = query.preload('hotel')
+    //query = query.preload('hotel')
 
     // Apply sorting
     const sortBy = options.sortBy || 'created_at'

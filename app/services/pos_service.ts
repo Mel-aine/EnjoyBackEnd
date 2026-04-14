@@ -44,7 +44,7 @@ export default class PosService {
       return res.data ?? null
     } catch (err: any) {
       console.error('POSService.getNightAudit error:', err?.message || err)
-      return null
+      throw err
     }
   }
 }

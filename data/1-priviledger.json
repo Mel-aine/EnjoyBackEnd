@@ -244,6 +244,10 @@
             {
                 "id": "cancel_ota_booking",
                 "name": "Cancel OTA Booking"
+            },
+            {
+                "id": "update_reservation_after_checkout",
+                "name": "Update Reservation After Checkout"
             }
         ]
     },
