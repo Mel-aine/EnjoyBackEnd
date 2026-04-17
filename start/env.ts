@@ -94,4 +94,7 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Secret token for triggering cron HTTP endpoints
   CRON_JOB_SECRET: Env.schema.string.optional(),
+
+  // Enjoy Rental integration API key
+  ENJOY_RENTAL_API_KEY: Env.schema.string.optional(),
 })

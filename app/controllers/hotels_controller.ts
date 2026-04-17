@@ -10,7 +10,7 @@ import PermissionService from '#services/permission_service'
 import db from '@adonisjs/lucid/services/db'
 import Database from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
-import { createHotelValidator, updateHotelValidator } from '#validators/hotel'
+import { createExternalHotelValidator, createHotelValidator, updateHotelValidator } from '#validators/hotel'
 import { updateHotelTaxRatesValidator } from '#validators/hotel_tax_rates'
 import CurrenciesController from '#controllers/currencies_controller'
 import ReservationType from '#models/reservation_type'
@@ -20,6 +20,9 @@ import PaymentMethod from '#models/payment_method'
 import TemplateCategory from '#models/template_category'
 import EmailTemplate from '#models/email_template'
 import EmailAccount from '#models/email_account'
+import Subscription from '#models/subscription'
+import InvoiceSubscription from '#models/invoice_subscription'
+import Module from '#models/module'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -323,6 +326,154 @@ export default class HotelsController {
         error: (error as any).message
       })
     }
+  }
+
+  async storeExternal({ request, response, auth }: HttpContext) {
+    const trx = await Database.beginGlobalTransaction()
+
+    try {
+      const payload = await request.validateUsing(createExternalHotelValidator)
+
+      const hotel = await Hotel.create(
+        {
+          hotelName: payload.name,
+          description: payload.description,
+          address: payload.address ?? null,
+          city: payload.city ?? null,
+          stateProvince: payload.state ?? null,
+          country: payload.country ?? null,
+          postalCode: payload.postalCode ?? null,
+          email: payload.email ?? null,
+          website: payload.website ?? null,
+          phoneNumber: payload.phone ?? null,
+          currencyCode: payload.currency || 'USD',
+          timezone: payload.timezone || 'UTC',
+          taxRate: payload.taxRate || 0,
+          status: payload.isActive !== false ? 'active' : 'inactive',
+          propertyType: 'external',
+          createdBy: auth.user?.id ?? null,
+          lastModifiedBy: auth.user?.id ?? null,
+        },
+        { client: trx }
+      )
+
+      await trx.commit()
+      return response.created({ success: true, hotel })
+    } catch (error) {
+      await trx.rollback()
+      return response.badRequest({
+        success: false,
+        message: 'Error creating external hotel',
+        error: error.message,
+      })
+    }
+  }
+
+  async externalSubscriptions({ params, request, response }: HttpContext) {
+    const hotelId = Number(params.hotelId)
+    if (!Number.isFinite(hotelId)) {
+      return response.badRequest({ success: false, message: 'Invalid hotelId' })
+    }
+
+    const page = Number(request.input('page', 1))
+    const limit = Number(request.input('limit', 50))
+
+    const subscriptions = await Subscription.query()
+      .where('hotel_id', hotelId)
+      .preload('module')
+      .preload('addOn')
+      .orderBy('created_at', 'desc')
+      .paginate(page, limit)
+
+    return response.ok({
+      success: true,
+      meta: subscriptions.getMeta(),
+      data: subscriptions.all().map((s) => ({
+        id: s.id,
+        hotelId: s.hotelId,
+        moduleId: s.moduleId,
+        module: s.module ? { id: s.module.id, name: s.module.name, slug: s.module.slug } : null,
+        addOnId: s.addOnId,
+        addOn: s.addOn ? { id: s.addOn.id, name: s.addOn.name } : null,
+        status: s.status,
+        billingCycle: s.billingCycle,
+        paymentStatus: s.paymentStatus,
+        price: s.price,
+        startsAt: s.startsAt?.toISO(),
+        endsAt: s.endsAt?.toISO(),
+        limitCount: s.limitCount,
+        createdAt: s.createdAt?.toISO(),
+        updatedAt: s.updatedAt?.toISO(),
+      })),
+    })
+  }
+
+  async externalBilling({ params, request, response }: HttpContext) {
+    const hotelId = Number(params.hotelId)
+    if (!Number.isFinite(hotelId)) {
+      return response.badRequest({ success: false, message: 'Invalid hotelId' })
+    }
+
+    const page = Number(request.input('page', 1))
+    const limit = Number(request.input('limit', 50))
+
+    const invoices = await InvoiceSubscription.query()
+      .where('hotel_id', hotelId)
+      .orderBy('created_at', 'desc')
+      .paginate(page, limit)
+
+    return response.ok({
+      success: true,
+      meta: invoices.getMeta(),
+      data: invoices.all().map((i) => ({
+        id: i.id,
+        hotelId: i.hotelId,
+        invoiceNumber: i.invoiceNumber,
+        status: i.status,
+        totalAmount: i.totalAmount,
+        currency: i.currency,
+        billingDate: i.billingDate?.toISO(),
+        periodStart: i.periodStart?.toISO(),
+        periodEnd: i.periodEnd?.toISO(),
+        paidAt: i.paidAt?.toISO(),
+        isSent: i.isSent,
+        createdAt: i.createdAt?.toISO(),
+        updatedAt: i.updatedAt?.toISO(),
+      })),
+    })
+  }
+
+  async externalProductBySlug({ params, response }: HttpContext) {
+    const slug = String(params.slug || '').trim()
+    if (!slug) {
+      return response.badRequest({ success: false, message: 'Product slug is required' })
+    }
+
+    const product = await Module.query().where('slug', slug).preload('addOns').first()
+    if (!product) {
+      return response.notFound({ success: false, message: 'Product not found' })
+    }
+
+    return response.ok({
+      success: true,
+      data: {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        priceMonthly: product.priceMonthly,
+        description: product.description,
+        isActive: product.isActive,
+        addOns: product.addOns.map((addOn) => ({
+          id: addOn.id,
+          name: addOn.name,
+          moduleId: addOn.moduleId,
+          min: addOn.min,
+          max: addOn.max,
+          priceMonth: addOn.priceMonth,
+          priceYear: addOn.priceYear,
+        })),
+      },
+    })
   }
 
   /**

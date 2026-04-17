@@ -1664,6 +1664,17 @@ import './routes/reports.js'
 // Import POS routes
 import './routes/pos.js'
 
+// Enjoy Rental integration (API key protected)
+router
+  .group(() => {
+    router.post('hotels', '#controllers/hotels_controller.storeExternal')
+    router.get('products/:slug', '#controllers/hotels_controller.externalProductBySlug')
+    router.get('hotels/:hotelId/subscriptions', '#controllers/hotels_controller.externalSubscriptions')
+    router.get('hotels/:hotelId/billing', '#controllers/hotels_controller.externalBilling')
+  })
+  .prefix('api/enjoy-rental')
+  .use(middleware.apiKey())
+
 router.get('api/announcements/active', '#controllers/announcements_controller.active')
 router.post('api/demo/request', '#controllers/Console/request_demos_controller.store')
 router.post('api/webhooks/subscriptions/expire', '#controllers/Console/subscriptions_controller.expireDueSubscriptions')
