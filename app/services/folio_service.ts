@@ -1822,64 +1822,76 @@ export default class FolioService {
   /**
    * Update folio totals based on transactions
    */
-  static async updateFolioTotals(folioId: number, trx?: TransactionClientContract): Promise<void> {
-    const performUpdate = async (client: TransactionClientContract) => {
-      const transactions = await FolioTransaction.query({ client })
-        .where('folioId', folioId)
-        .where('status', '!=', TransactionStatus.VOIDED)
-        .whereNull('mealPlanId')
+static async updateFolioTotals(folioId: number, trx?: TransactionClientContract): Promise<void> {
+  const performUpdate = async (client: TransactionClientContract) => {
+    const transactions = await FolioTransaction.query({ client })
+      .where('folioId', folioId)
+      .where('status', '!=', TransactionStatus.VOIDED)
+      .where('isVoided', false)
+      .whereNull('mealPlanId')
 
-      let totalCharges = 0
-      let totalPayments = 0
-      let totalAdjustments = 0
-      let totalTaxes = 0
-      let totalServiceCharges = 0
-      let totalDiscounts = 0
+    let totalCharges = 0
+    let totalPayments = 0
+    let totalAdjustments = 0
+    let totalTaxes = 0
+    let totalServiceCharges = 0
+    let totalDiscounts = 0
 
-      for (const transaction of transactions) {
-        if (transaction.transactionType === TransactionType.CHARGE) {
-          totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
-        } else if (transaction.transactionType === TransactionType.ROOM_POSTING) {
-          totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
-        } else if (transaction.transactionType === TransactionType.PAYMENT) {
-          totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
-        } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
-          totalAdjustments += parseFloat(`${transaction.totalAmount}`) || 0
-        } else if (transaction.transactionType === TransactionType.TRANSFER) {
-          // Treat transfer-in as charge (debit), transfer-out as payment (credit)
-          if (transaction.category === TransactionCategory.TRANSFER_IN) {
-            totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
-          } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
-            totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
-          }
-        } else if (transaction.transactionType === TransactionType.REFUND) {
-          totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+    for (const transaction of transactions) {
+      const amount = parseFloat(`${transaction.totalAmount}`) || 0
+
+      if (transaction.transactionType === TransactionType.CHARGE) {
+        totalCharges += amount
+      } else if (transaction.transactionType === TransactionType.ROOM_POSTING) {
+        totalCharges += amount
+      } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
+        totalAdjustments += amount
+      } else if (transaction.transactionType === TransactionType.TRANSFER) {
+        if (transaction.category === TransactionCategory.TRANSFER_IN) {
+          totalCharges += amount
+        } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
+          totalPayments += Math.abs(amount)
         }
-
-        totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
-        totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
-        totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
+      } else if (transaction.transactionType === TransactionType.REFUND) {
+        totalPayments -= Math.abs(amount)
+      } else if (transaction.transactionType === TransactionType.PAYMENT) {
+        if (transaction.category !== TransactionCategory.CREDIT_LEDGER) {
+          totalPayments += Math.abs(amount)
+        } else {
+          totalPayments += Math.abs(amount)
+        }
+      }  else if (transaction.transactionType === TransactionType.CREDIT_LEDGER_TRANSFER) {
+         totalPayments -= Math.abs(amount)
+      } else if (transaction.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+        totalPayments += Math.abs(amount)
+      } else {
+        console.log(`TYPE NON GÉRÉ: ${transaction.transactionType}`)
       }
 
-      const balance = totalCharges + totalAdjustments - totalPayments
-
-      await Folio.query({ client })
-        .where('id', folioId)
-        .update({
-          totalCharges,
-          totalPayments,
-          totalAdjustments,
-          totalTaxes,
-          totalServiceCharges,
-          totalDiscounts,
-          balance
-        })
+      totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
+      totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
+      totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
     }
 
-    if (trx) {
-      await performUpdate(trx)
-    } else {
-      await db.transaction(performUpdate)
-    }
+    const balance = totalCharges + totalAdjustments - totalPayments
+
+    await Folio.query({ client })
+      .where('id', folioId)
+      .update({
+        totalCharges,
+        totalPayments,
+        totalAdjustments,
+        totalTaxes,
+        totalServiceCharges,
+        totalDiscounts,
+        balance
+      })
   }
+
+  if (trx) {
+    await performUpdate(trx)
+  } else {
+    await db.transaction(performUpdate)
+  }
+}
 }

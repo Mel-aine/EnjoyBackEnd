@@ -1917,6 +1917,7 @@ export default class ReportsController {
       posSummary,
       posPayment,
       payload,
+      creditLedger
     ] = await Promise.all([
       this.getRoomTypeStatsData(hotelId, reportDate, currency),
       this.getRatiosCAData(hotelId, reportDate, currency),
@@ -1927,6 +1928,7 @@ export default class ReportsController {
       this.getManagementPosSummaryData(hotelId, reportDate),
       this.getManagementPosPaymentSummaryData(hotelId, reportDate),
       this.getPosNightAuditPayload(hotelId, reportDate),
+      this.getCreditLedgerNightAuditData(hotelId, reportDate),
     ])
     const otherRevenues = this.buildOtherRevenuesFromPos(posSummary)
 
@@ -1944,6 +1946,7 @@ export default class ReportsController {
       posPayment,
       petitDejeuner,
       otherRevenues,
+      creditLedger
     }
   }
 
@@ -2050,6 +2053,40 @@ export default class ReportsController {
           cityLedgerCountByRoomType.set(rtId, (cityLedgerCountByRoomType.get(rtId) ?? 0) + 1)
         }
 
+        // Compter les transactions credit ledger par room type
+        const creditLedgerPayments = await FolioTransaction.query()
+          .where('hotel_id', hotelId)
+          .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
+          .where('transaction_type', TransactionType.PAYMENT)
+          .where('is_voided', false)
+          .where('is_credit_ledger', true)
+          .preload('folio', (folioQuery) => {
+            folioQuery.preload('reservationRoom')
+          })
+
+        const creditLedgerPaymentCountByRoomType = new Map<number, number>()
+        for (const tx of creditLedgerPayments as any[]) {
+          const rtId = tx.folio?.reservationRoom?.roomTypeId
+          if (!rtId) continue
+          creditLedgerPaymentCountByRoomType.set(rtId, (creditLedgerPaymentCountByRoomType.get(rtId) ?? 0) + 1)
+        }
+
+        const creditLedgerTransfers = await FolioTransaction.query()
+          .where('hotel_id', hotelId)
+          .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
+          .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
+          .where('is_voided', false)
+          .preload('folio', (folioQuery) => {
+            folioQuery.preload('reservationRoom')
+          })
+
+        const creditLedgerTransferCountByRoomType = new Map<number, number>()
+        for (const tx of creditLedgerTransfers as any[]) {
+          const rtId = tx.folio?.reservationRoom?.roomTypeId
+          if (!rtId) continue
+          creditLedgerTransferCountByRoomType.set(rtId, (creditLedgerTransferCountByRoomType.get(rtId) ?? 0) + 1)
+        }
+
 
       // ── Initialisation perType ────────────────────────────────
       const perType: Record<number, {
@@ -2064,6 +2101,8 @@ export default class ReportsController {
         vacant: number
         reservations: number
         cityLedger: number
+        creditLedgerPayment: number
+        creditLedgerTransfer: number
       }> = {}
 
       for (const rt of roomTypes) {
@@ -2071,6 +2110,7 @@ export default class ReportsController {
           walkIn: 0, corporate: 0, gratuites: 0, earlyCheckIn: 0,
           lateCheckOut: 0, guests: 0, nights: 0,
           occupied: 0, vacant: 0, reservations: 0, cityLedger: 0,
+          creditLedgerPayment: 0, creditLedgerTransfer: 0,
         }
       }
 
@@ -2122,6 +2162,8 @@ export default class ReportsController {
       for (const rt of roomTypes) {
         perType[rt.id].reservations = reservationsCountByRoomType.get(rt.id) ?? 0
         perType[rt.id].cityLedger   = cityLedgerCountByRoomType.get(rt.id) ?? 0
+        perType[rt.id].creditLedgerPayment = creditLedgerPaymentCountByRoomType.get(rt.id) ?? 0
+        perType[rt.id].creditLedgerTransfer = creditLedgerTransferCountByRoomType.get(rt.id) ?? 0
       }
 
       return perType
@@ -2222,6 +2264,8 @@ export default class ReportsController {
           acc.vacant       += s.vacant
           acc.reservations += s.reservations
           acc.cityLedger   += s.cityLedger
+          acc.creditLedgerPayment += s.creditLedgerPayment
+          acc.creditLedgerTransfer += s.creditLedgerTransfer
           return acc
         },
         {
@@ -2229,6 +2273,7 @@ export default class ReportsController {
           earlyCheckIn: 0, lateCheckOut: 0, guests: 0,
           nights: 0, occupied: 0, vacant: 0,
           reservations: 0, cityLedger: 0,
+          creditLedgerPayment: 0, creditLedgerTransfer: 0,
         }
       )
 
@@ -2511,11 +2556,43 @@ export default class ReportsController {
       .sum('total_amount as total')
       .first()
 
+    // ── Credit Ledger = paiements par credit ledger ou transferts vers credit ledger ───
+    const creditLedgerPaymentsRow = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
+      .where('transaction_type', TransactionType.PAYMENT)
+      .where('is_voided', false)
+      .where('is_credit_ledger', true)
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservationRoom', (rrQuery) => {
+          rrQuery.where('hotel_id', hotelId)
+          if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+        })
+      })
+      .sum('total_amount as total')
+      .first()
+
+    const creditLedgerTransfersRow = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
+      .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
+      .where('is_voided', false)
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereHas('reservationRoom', (rrQuery) => {
+          rrQuery.where('hotel_id', hotelId)
+          if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+        })
+      })
+      .sum('total_amount as total')
+      .first()
+
     const caHT        = Number(caRow?.$extras.caHT      ?? 0)
     const extraHT     = Number(extraRow?.$extras.extraHT ?? 0)
     const totalHT     = caHT + extraHT
     const caTTC       = totalHT + taxTotal
     const cityLedgerCA = Number(cityRow?.$extras.total  ?? 0)
+    const creditLedgerPayment = Math.abs(Number(creditLedgerPaymentsRow?.$extras.total ?? 0))
+    const creditLedgerTransfer = Math.abs(Number(creditLedgerTransfersRow?.$extras.total ?? 0))
 
     const nbDays = singleDay
       ? 1
@@ -2541,6 +2618,8 @@ export default class ReportsController {
       totalHT:      +totalHT.toFixed(0),
       caTTC:        +caTTC.toFixed(0),
       cityLedgerCA: +cityLedgerCA.toFixed(0),
+      creditLedgerPayment: +creditLedgerPayment.toFixed(0),
+      creditLedgerTransfer: +creditLedgerTransfer.toFixed(0),
       corporateCA: +corporateCA.toFixed(0),
       walkInCA:    +walkInCA.toFixed(0),
       earlyCA:     +earlyCA.toFixed(0),
@@ -2569,7 +2648,46 @@ export default class ReportsController {
   return { day: globalDay, month: globalMonth, year: globalYear, byRoomType }
 }
 
+private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTime) {
+  const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+  const dayStr     = fmt(reportDate)
+  const monthStart = fmt(reportDate.startOf('month'))
+  const yearStart  = fmt(reportDate.startOf('year'))
 
+  const getPeriodData = async (from: string, to: string) => {
+    const payments = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('transaction_type', [
+        TransactionType.CREDIT_LEDGER_PAYMENT,
+        TransactionType.CREDIT_LEDGER_TRANSFER,
+      ])
+      .where('is_voided', false)
+      .whereBetween('current_working_date', [from, to])
+      .select('transaction_type', 'total_amount', 'amount')
+
+    const totals = { creditLedgerPayment: 0, creditLedgerTransfer: 0, total: 0 }
+
+    for (const tx of payments) {
+      const amt = Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0))
+      if (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+        totals.creditLedgerPayment += amt
+      } else {
+        totals.creditLedgerTransfer  += amt
+      }
+      totals.total += amt
+    }
+
+    return totals
+  }
+
+  const [day, month, year] = await Promise.all([
+    getPeriodData(dayStr, dayStr),
+    getPeriodData(monthStart, dayStr),
+    getPeriodData(yearStart, dayStr),
+  ])
+
+  return { day, month, year }
+}
 
   //Encaissement
   private async getEncaissementsData(
@@ -4298,9 +4416,10 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     const fp = (v: number | null | undefined) => Math.round(Number(v ?? 0)) + '&nbsp;%'
     const fd = (v: number | null | undefined) => Math.round(Number(v ?? 0)).toString()
 
-    const { roomTypeStats, ratiosCA, encaissements, otherRevenues, petitDejeuner } = sectionsData
+    const { roomTypeStats, ratiosCA, encaissements, otherRevenues, petitDejeuner,creditLedger } = sectionsData
     const pd = petitDejeuner ?? { today: 0, ptd: 0, ytd: 0 }
     const ra = ratiosCA ?? { day: {}, month: {}, year: {} }
+    const cl = creditLedger ?? { day: {}, month: {}, year: {} };
 
     // ── Other revenues totals ───────────────────────────────
     const s4Tot = otherRevenues?.totals ?? {}
@@ -4318,6 +4437,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       { label: 'Rooms Vacant',   key: 'vacant'       },
       { label: 'Reservations',   key: 'reservations' },
       { label: 'City Ledger',    key: 'cityLedger'   },
+      { label: 'Credit Ledger (OUT)',  key: 'creditLedgerPayment' },
+      { label: 'Credit Ledger (IN)', key: 'creditLedgerTransfer' },
     ]
 
     // ── RIGHT KPI rows ──────────────────────────────────────
@@ -4353,6 +4474,14 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       {
         label: 'City Ledger Revenue',
         fmt: (d: any, m: any, y: any) => [fc(d.cityLedgerCA), fc(m.cityLedgerCA), fc(y.cityLedgerCA)],
+      },
+      {
+        label: 'Credit Ledger (OUT)',
+        fmt: (d: any, m: any, y: any) => [fc(d.creditLedgerPayment), fc(m.creditLedgerPayment), fc(y.creditLedgerPayment)],
+      },
+      {
+        label: 'Credit Ledger (IN)',
+        fmt: (d: any, m: any, y: any) => [fc(d.creditLedgerTransfer), fc(m.creditLedgerTransfer), fc(y.creditLedgerTransfer)],
       },
     ]
 
@@ -4416,6 +4545,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(rm.lateCA)}</td>
         <td class="num">${fc(ry.lateCA)}</td>
       </tr>
+   
       ${RIGHT_KPIS.map((kpi) => {
         const [dv, mv, yv] = kpi.fmt(rd, rm, ry)
         return `
@@ -4426,7 +4556,9 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${yv}</td>
       </tr>`
       }).join('')}
+    
       <tr class="rt-spacer"><td colspan="4"></td></tr>`
+      
     }
 
     const leftBlocks  = rows.map(buildLeftBlock).join('')
@@ -4463,7 +4595,18 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(tm.cityLedger)}</td>
         <td class="num">${fc(ty.cityLedger)}</td>
       </tr>
-
+      <tr class="total-row">
+        <td class="lbl">Total Credit Ledger (OUT)</td>
+        <td class="num">${fc(td.creditLedgerPayment)}</td>
+        <td class="num">${fc(tm.creditLedgerPayment)}</td>
+        <td class="num">${fc(ty.creditLedgerPayment)}</td>
+      </tr>
+      <tr class="total-row">
+        <td class="lbl">Total Credit Ledger (IN)</td>
+        <td class="num">${fc(td.creditLedgerTransfer)}</td>
+        <td class="num">${fc(tm.creditLedgerTransfer)}</td>
+        <td class="num">${fc(ty.creditLedgerTransfer)}</td>
+      </tr>
 
   ${(otherRevenues?.rows ?? []).map((r: any) => `
   <tr class="data-row">
@@ -4500,6 +4643,18 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     <td class="num">${fc(ra.day.cityLedgerCA)}</td>
     <td class="num">${fc(ra.month.cityLedgerCA)}</td>
     <td class="num">${fc(ra.year.cityLedgerCA)}</td>
+  </tr>
+  <tr class="total-row">
+        <td class="lbl" style="color: #800020;">Credit Ledger (OUT)</td>
+        <td class="num">${fc(cl.day.creditLedgerPayment)}</td>
+        <td class="num">${fc(cl.month.creditLedgerPayment)}</td>
+        <td class="num">${fc(cl.year.creditLedgerPayment)}</td>
+  </tr>
+  <tr class="total-row">
+        <td class="lbl" style="color: #800020;">Credit Ledger (IN)</td>
+        <td class="num">${fc(cl.day.creditLedgerTransfer)}</td>
+        <td class="num">${fc(cl.month.creditLedgerTransfer)}</td>
+        <td class="num">${fc(cl.year.creditLedgerTransfer)}</td>
   </tr>
 
   ${(otherRevenues?.rows ?? []).map((r: any) => `
@@ -12782,4 +12937,169 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       })
     }
   }
+
+  /**
+ * Get Credit Ledger Payments Report Data
+ */
+public async getCreditLedgerPaymentsData(hotelId: number, startDate: DateTime, endDate: DateTime) {
+  const transactions = await FolioTransaction.query()
+    .where('hotel_id', hotelId)
+    .whereIn('transaction_type', [
+      TransactionType.CREDIT_LEDGER_PAYMENT,
+      TransactionType.CREDIT_LEDGER_TRANSFER
+    ])
+    .where('is_voided', false)
+    .whereBetween('current_working_date', [
+      startDate.toFormat('yyyy-MM-dd'),
+      endDate.toFormat('yyyy-MM-dd'),
+    ])
+    .preload('folio', (folioQuery) => {
+      folioQuery.preload('guest')
+      folioQuery.preload('reservation')
+    })
+    .orderBy('current_working_date', 'asc')
+
+  const rows = transactions.map((tx) => ({
+    date: tx.transactionDate?.toFormat('dd/MM/yyyy') ?? tx.currentWorkingDate?.toFormat('dd/MM/yyyy') ?? 'N/A',
+    transactionNumber: tx.transactionNumber,
+    type: tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT ? 'PAY' : 'TRF',
+    guestName: tx.folio?.guest
+      ? `${tx.folio.guest.firstName} ${tx.folio.guest.lastName}`.trim()
+      : 'N/A',
+    reservationNumber: tx.folio?.reservation?.reservationNumber ?? 'N/A',
+    folioNumber: tx.folio?.folioNumber ?? 'N/A',
+    description: tx.description || (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT ? 'Payment Ledger' : 'Transfert Ledger'),
+    amount: Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0)),
+    notes: tx.notes ?? '',
+  }))
+
+  const total = rows.reduce((sum, r) => sum + r.amount, 0)
+
+  return { rows, total, startDate, endDate }
+}
+
+async getCreditLedgerPaymentsReport({ request, response }: HttpContext) {
+  try {
+    const { hotelId, startDate, endDate } = request.qs()
+    const from = DateTime.fromISO(startDate)
+    const to = DateTime.fromISO(endDate)
+    const data = await this.getCreditLedgerPaymentsData(Number(hotelId), from, to)
+    return response.ok({ success: true, data })
+  } catch (error) {
+    return response.internalServerError({ success: false, error: error.message })
+  }
+}
+
+/**
+ * Generate Credit Ledger Payments PDF
+ */
+async generateCreditLedgerPaymentsPdf({ request, response, auth }: HttpContext) {
+  try {
+    const { hotelId, startDate, endDate } = request.only(['hotelId', 'startDate', 'endDate'])
+    
+    const from = DateTime.fromISO(startDate)
+    const to = DateTime.fromISO(endDate)
+    const hotel = await Hotel.findOrFail(hotelId)
+    
+    const user = auth.user
+    const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
+
+    const data = await this.getCreditLedgerPaymentsData(Number(hotelId), from, to)
+
+    // On génère le HTML (Le corps du tableau)
+    const htmlContent = await this.generateCreditLedgerPaymentsHtml(hotel.hotelName, data, printedBy)
+
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+    const headerTemplate = `
+<div style="font-size:8px; width:100%; padding:2px 15px; margin:0;">
+  <!-- Hotel name and report title -->
+  <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:3px; margin-bottom:2px;">
+    <div style="font-weight:bold; color:#00008B; font-size:11px;">${hotel.hotelName}</div>
+    <div style="font-size:11px; color:#8B0000; font-weight:bold;">Credit Ledger Payments</div>
+  </div>
+
+  <!-- Report Info -->
+  <div style="font-size:8px; margin-bottom:2px; padding-top:3px;">
+    <span>Period: ${from.toFormat('dd/MM/yyyy')} to ${to.toFormat('dd/MM/yyyy')}</span>
+  </div>
+
+  <div style="border-top:1px solid #333; margin:0;"></div>
+
+  <!-- Column Headers -->
+  <table style="width:100%; border-collapse:collapse; font-size:8px; margin:0; padding:0;">
+    <thead>
+      <tr style="background-color:#f5f5f5;">
+        <th style="width:10%; text-align:left; padding:3px 1px; font-weight:bold;">Date</th>
+        <th style="width:12%; text-align:left; padding:3px 1px; font-weight:bold;">Trans.N° </th>
+        <th style="width:12%; text-align:left; padding:3px 1px; font-weight:bold;">Resa.N° </th>
+        <th style="width:10%; text-align:left; padding:3px 1px; font-weight:bold;">Folio</th>
+        <th style="width:18%; text-align:left; padding:3px 1px; font-weight:bold;">Guest Name</th>
+        <th style="width:16%; text-align:left; padding:3px 1px; font-weight:bold;">Description</th>
+        <th style="width:10%; text-align:left; padding:3px 1px; font-weight:bold;">Amount</th>
+        <th style="width:12%; text-align:left; padding:3px 1px; font-weight:bold;">Comment</th>
+      </tr>
+    </thead>
+  </table>
+
+  <div style="border-top:1px solid #333; margin-top:1px;"></div>
+</div>
+`
+
+
+    const footerTemplate = `
+      <div style="font-size:7px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; justify-content:space-between;">
+        <div>Printed on : ${printedOn}</div>
+        <div>By : ${printedBy}</div>
+        <div>Page <span class="pageNumber"></span> on <span class="totalPages"></span></div>
+      </div>`
+
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      margin: { top: '100px', right: '10px', bottom: '60px', left: '10px' },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      printBackground: true,
+    })
+
+    const fileName = `credit-ledger-${hotel.hotelName.replace(/\s+/g, '-')}.pdf`
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    return response.send(pdfBuffer)
+
+  } catch (error) {
+    console.error('Error generating PDF:', error)
+    return response.internalServerError({ success: false, message: error.message })
+  }
+}
+
+/**
+ * Generate HTML for Credit Ledger Payments
+ */
+
+public async generateCreditLedgerPaymentsHtml(
+  hotelName: string,
+  data: any,
+  printedBy: string = 'System'
+): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('node:path')
+
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  const fc = (v: number) =>
+    Number(v ?? 0).toLocaleString('fr-FR', { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 0 
+    })
+
+  return await edge.render('reports/credit_ledger_payments', {
+    hotelName,
+    data,
+    printedBy,
+    helpers: { fc }
+  })
+}
 }

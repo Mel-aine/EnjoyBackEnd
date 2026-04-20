@@ -30,6 +30,9 @@ export default class Guest extends BaseModel {
   declare title: string
 
   @column()
+  declare outstandingCredit: number | null 
+
+  @column()
   declare hotelId: number
 
   @column()

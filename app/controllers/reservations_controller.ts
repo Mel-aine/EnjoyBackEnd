@@ -44,6 +44,7 @@ import TaxRate from '#models/tax_rate'
 import GuestSummaryService from '#services/guest_summary_service'
 import ReservationHook from '../hooks/reservation_hooks.js'
 import ReservationEmailService from '#services/reservation_email_service'
+import CreditLedgerService from '#services/credit_ledger_service'
 
 
 function runInBackground(task: () => Promise<void>) {
@@ -1226,6 +1227,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     let totalTaxes = 0
     let totalServiceCharges = 0
     let totalDiscounts = 0
+    let creditLedgerTransferred = 0
 
     folios.forEach((folio) => {
       const activeTransactions = folio.transactions.filter(
@@ -1250,6 +1252,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
             }
           } else if (transaction.transactionType === TransactionType.REFUND) {
             totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+          } else if (transaction.transactionType === TransactionType.CREDIT_LEDGER_TRANSFER) {
+            totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+            creditLedgerTransferred += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+            totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
           }
 
           totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
@@ -1270,6 +1277,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
       outstandingBalance: parseFloat(outstandingBalance.toFixed(0)),
       totalChargesWithTaxes: parseFloat(totalCharges.toFixed(2)),
+      creditLedgerTransferred: parseFloat(creditLedgerTransferred.toFixed(2)),
+      hasCreditLedgerTransfer: creditLedgerTransferred > 0,
       balanceStatus:
         outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled',
     }
@@ -3071,7 +3080,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * Create reservation
    */
-  public async saveReservation(ctx: HttpContext) {
+   public async saveReservation(ctx: HttpContext) {
     const { request, auth, response } = ctx
 
     try {
@@ -3168,9 +3177,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
             message: validationErrors.join(', '),
           })
         }
-
-        // Create or find primary guest
-        const guest = await ReservationService.createOrFindGuest(data, trx)
 
         // Generate reservation numbers
         const confirmationNumber = generateConfirmationNumber()
@@ -3437,7 +3443,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
 
-        const guestId = Number(guest.id)
+        const guestId = Number(primaryGuest.id)
         if (!isNaN(guestId)) {
           await LoggerService.log({
             actorId: auth.user?.id!,

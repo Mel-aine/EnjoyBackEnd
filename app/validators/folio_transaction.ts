@@ -13,6 +13,7 @@ export const createFolioTransactionValidator = vine.compile(
     transactionType: vine.enum(Object.values(TransactionType)),
     transactionCategory: vine.string().optional(),
     transactionCode: vine.string().optional(),
+    isCreditLedger: vine.boolean().optional(),
 
     // Financial Information
     amount: vine.number(),
@@ -192,6 +193,7 @@ export const updateFolioTransactionValidator = vine.compile(
     transactionType: vine.enum(Object.values(TransactionType)).optional(),
     transactionCategory: vine.string().optional(),
     transactionCode: vine.string().optional(),
+    isCreditLedger: vine.boolean().optional(),
 
     // Financial Information
     amount: vine.number().optional(),

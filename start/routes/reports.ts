@@ -225,6 +225,11 @@ router.group(() => {
     router.get('/city-ledger-detail', [ReportsController, 'getCityLedgerDetail'])
     router.post('/city-ledger-detail-pdf', [ReportsController, 'generateCityLedgerDetailPdf'])
 
+    //credit ledger
+    router.get('/credit-ledger-payments', [ReportsController, 'getCreditLedgerPaymentsReport'])
+    router.post('/credit-ledger-payments/pdf', [ReportsController, 'generateCreditLedgerPaymentsPdf'])
+    
+
     // City Ledger Summary
     router.get('/city-ledger-summary', [ReportsController, 'getCityLedgerSummary'])
     router.post('/city-ledger-summary-pdf', [ReportsController, 'generateCityLedgerSummaryPdf'])
