@@ -4471,7 +4471,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     reportDate: DateTime,
     currency: string,
     sectionsData: any,
-    printedBy: string = 'System'
+    printedBy: string = 'System',
+    hasCreditLedger: boolean = false
   ): string {
     const formattedDate = reportDate.toFormat('dd-MM-yyyy')
     const currentDateTime = DateTime.now().toFormat('dd-MM-yyyy HH:mm:ss')
@@ -4507,8 +4508,10 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       { label: 'Rooms Vacant',   key: 'vacant'       },
       { label: 'Reservations',   key: 'reservations' },
       { label: 'City Ledger',    key: 'cityLedger'   },
-      { label: 'Credit Ledger (OUT)',  key: 'creditLedgerPayment' },
-      { label: 'Credit Ledger (IN)', key: 'creditLedgerTransfer' },
+      ...(hasCreditLedger ? [
+        { label: 'Credit Ledger (OUT)', key: 'creditLedgerPayment'  },
+        { label: 'Credit Ledger (IN)',  key: 'creditLedgerTransfer' },
+      ] : []),
     ]
 
     // ── RIGHT KPI rows ──────────────────────────────────────
@@ -4545,14 +4548,16 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         label: 'City Ledger Revenue',
         fmt: (d: any, m: any, y: any) => [fc(d.cityLedgerCA), fc(m.cityLedgerCA), fc(y.cityLedgerCA)],
       },
-      {
-        label: 'Credit Ledger (OUT)',
-        fmt: (d: any, m: any, y: any) => [fc(d.creditLedgerPayment), fc(m.creditLedgerPayment), fc(y.creditLedgerPayment)],
-      },
-      {
-        label: 'Credit Ledger (IN)',
-        fmt: (d: any, m: any, y: any) => [fc(d.creditLedgerTransfer), fc(m.creditLedgerTransfer), fc(y.creditLedgerTransfer)],
-      },
+      ...(hasCreditLedger ? [
+        {
+          label: 'Credit Ledger (OUT)',
+          fmt: (d: any, m: any, y: any) => [fc(d.creditLedgerPayment), fc(m.creditLedgerPayment), fc(y.creditLedgerPayment)],
+        },
+        {
+          label: 'Credit Ledger (IN)',
+          fmt: (d: any, m: any, y: any) => [fc(d.creditLedgerTransfer), fc(m.creditLedgerTransfer), fc(y.creditLedgerTransfer)],
+        },
+      ] : []),
     ]
 
     const rows = roomTypeStats?.rows ?? []
@@ -4665,6 +4670,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(tm.cityLedger)}</td>
         <td class="num">${fc(ty.cityLedger)}</td>
       </tr>
+      ${hasCreditLedger ?`
        <tr class="total-row">
       <td class="lbl">Total Credit Ledger (OUT)</td>
       <td class="num">${fd(clDay.creditLedgerPaymentCount)}</td>
@@ -4676,7 +4682,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       <td class="num">${fd(clDay.creditLedgerTransferCount)}</td>
       <td class="num">${fd(clMonth.creditLedgerTransferCount)}</td>
       <td class="num">${fd(clYear.creditLedgerTransferCount)}</td>
-    </tr>
+    </tr>` : ''}
 
   ${(otherRevenues?.rows ?? []).map((r: any) => `
   <tr class="data-row">
@@ -4714,6 +4720,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     <td class="num">${fc(ra.month.cityLedgerCA)}</td>
     <td class="num">${fc(ra.year.cityLedgerCA)}</td>
   </tr>
+  ${hasCreditLedger ?`
   <tr class="total-row">
     <td class="lbl" >Credit Ledger (OUT)</td>
     <td class="num">${fc(clDay.creditLedgerPayment)}</td>
@@ -4725,7 +4732,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     <td class="num">${fc(clDay.creditLedgerTransfer)}</td>
     <td class="num">${fc(clMonth.creditLedgerTransfer)}</td>
     <td class="num">${fc(clYear.creditLedgerTransfer)}</td>
-  </tr>
+  </tr>` : ''}
 
 
   ${(otherRevenues?.rows ?? []).map((r: any) => `
@@ -5481,7 +5488,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     reportDate: DateTime,
     currency: string,
     sectionsData: any,
-    printedBy: string = 'System'
+    printedBy: string = 'System',
+    hasCreditLedger: boolean = false
   ): Promise<string> {
     const { default: edge } = await import('edge.js')
     const path = await import('node:path')
@@ -5549,6 +5557,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
 
     // Calculate Transfer Charges to Guest Ledger
+    
     totals.transferToGuestLedger.today = totals.revenueWithTax.today + totals.posToPs.today
     totals.transferToGuestLedger.ptd = totals.revenueWithTax.ptd + totals.posToPs.ptd
     totals.transferToGuestLedger.ytd = totals.revenueWithTax.ytd + totals.posToPs.ytd
@@ -5564,6 +5573,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       printedBy,
       currentPage: 1,
       totalPages: 1, // Will be calculated by PDF service
+      hasCreditLedger,
       content: {
         ...sectionsData,
         totals,

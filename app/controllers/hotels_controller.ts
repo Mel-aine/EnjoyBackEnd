@@ -524,6 +524,7 @@ export default class HotelsController {
         'hotelPolicy',
         'nightAuditStartTime',
         'nightAuditEndTime',
+        'hasCreditLedger'
       ])
 
       // Create update data with proper typing
