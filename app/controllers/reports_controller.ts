@@ -1837,8 +1837,20 @@ export default class ReportsController {
       const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
 
       let sectionsData: any = {}
+      // if (auditDetails && auditDetails.nightAuditReportData) {
+      //   sectionsData = auditDetails?.nightAuditReportData
+      // } else {
+      //   sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
+      // }
+
       if (auditDetails && auditDetails.nightAuditReportData) {
-        sectionsData = auditDetails?.nightAuditReportData
+          sectionsData = auditDetails.nightAuditReportData
+        if (!sectionsData.creditLedger) {
+          sectionsData.creditLedger = await this.getCreditLedgerNightAuditData(
+            Number(hotelId),
+            reportDate
+          )
+        }
       } else {
         sectionsData = await this.generateNightAuditSections(hotelId, reportDate, currency)
       }
@@ -2557,34 +2569,33 @@ export default class ReportsController {
       .first()
 
     // ── Credit Ledger = paiements par credit ledger ou transferts vers credit ledger ───
-    const creditLedgerPaymentsRow = await FolioTransaction.query()
-      .where('hotel_id', hotelId)
-      .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
-      .where('transaction_type', TransactionType.PAYMENT)
-      .where('is_voided', false)
-      .where('is_credit_ledger', true)
-      .whereHas('folio', (folioQuery) => {
-        folioQuery.whereHas('reservationRoom', (rrQuery) => {
-          rrQuery.where('hotel_id', hotelId)
-          if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
-        })
+   const creditLedgerPaymentsRow = await FolioTransaction.query()
+    .where('hotel_id', hotelId)
+    .where('transaction_type', TransactionType.CREDIT_LEDGER_PAYMENT)
+    .where('is_voided', false)
+    .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
+    .whereHas('folio', (folioQuery) => {
+      folioQuery.whereHas('reservationRoom', (rrQuery) => {
+        rrQuery.where('hotel_id', hotelId)
+        if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
       })
-      .sum('total_amount as total')
-      .first()
+    })
+    .sum('total_amount as total')
+    .first()
 
     const creditLedgerTransfersRow = await FolioTransaction.query()
-      .where('hotel_id', hotelId)
-      .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
-      .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
-      .where('is_voided', false)
-      .whereHas('folio', (folioQuery) => {
-        folioQuery.whereHas('reservationRoom', (rrQuery) => {
-          rrQuery.where('hotel_id', hotelId)
-          if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
-        })
+    .where('hotel_id', hotelId)
+    .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
+    .where('is_voided', false)
+    .whereRaw("DATE(transaction_date) BETWEEN ? AND ?", [from, to])
+    .whereHas('folio', (folioQuery) => {
+      folioQuery.whereHas('reservationRoom', (rrQuery) => {
+        rrQuery.where('hotel_id', hotelId)
+        if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
       })
-      .sum('total_amount as total')
-      .first()
+    })
+    .sum('total_amount as total')
+    .first()
 
     const caHT        = Number(caRow?.$extras.caHT      ?? 0)
     const extraHT     = Number(extraRow?.$extras.extraHT ?? 0)
@@ -2662,17 +2673,25 @@ private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTim
         TransactionType.CREDIT_LEDGER_TRANSFER,
       ])
       .where('is_voided', false)
-      .whereBetween('current_working_date', [from, to])
+      .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
       .select('transaction_type', 'total_amount', 'amount')
 
-    const totals = { creditLedgerPayment: 0, creditLedgerTransfer: 0, total: 0 }
+    const totals = { 
+      creditLedgerPayment: 0, 
+      creditLedgerTransfer: 0, 
+      total: 0,
+      creditLedgerPaymentCount: 0,
+      creditLedgerTransferCount: 0,
+    }
 
     for (const tx of payments) {
       const amt = Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0))
       if (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
         totals.creditLedgerPayment += amt
+        totals.creditLedgerPaymentCount += 1  
       } else {
-        totals.creditLedgerTransfer  += amt
+        totals.creditLedgerTransfer += amt
+        totals.creditLedgerTransferCount += 1  
       }
       totals.total += amt
     }
@@ -2687,6 +2706,53 @@ private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTim
   ])
 
   return { day, month, year }
+}
+
+private async getCreditLedgerManagementData(
+  hotelId: number,
+  reportDate: DateTime,
+  ptdStartDate: DateTime,
+  ytdStartDate: DateTime
+) {
+  const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+
+  const getPeriodData = async (from: string, to: string) => {
+    const payments = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('transaction_type', [
+        TransactionType.CREDIT_LEDGER_PAYMENT,
+        TransactionType.CREDIT_LEDGER_TRANSFER,
+      ])
+      .where('is_voided', false)
+     .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+      .select('transaction_type', 'total_amount', 'amount')
+
+    const totals = {
+      creditLedgerPayment: 0,
+      creditLedgerTransfer: 0,
+      total: 0,
+    }
+
+    for (const tx of payments) {
+      const amt = Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0))
+      if (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+        totals.creditLedgerPayment += amt
+      } else {
+        totals.creditLedgerTransfer += amt
+      }
+      totals.total += amt
+    }
+
+    return totals
+  }
+
+  const [today, ptd, ytd] = await Promise.all([
+    getPeriodData(fmt(reportDate), fmt(reportDate)),
+    getPeriodData(fmt(ptdStartDate), fmt(reportDate)),
+    getPeriodData(fmt(ytdStartDate), fmt(reportDate)),
+  ])
+
+  return { today, ptd, ytd }
 }
 
   //Encaissement
@@ -4419,7 +4485,11 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     const { roomTypeStats, ratiosCA, encaissements, otherRevenues, petitDejeuner,creditLedger } = sectionsData
     const pd = petitDejeuner ?? { today: 0, ptd: 0, ytd: 0 }
     const ra = ratiosCA ?? { day: {}, month: {}, year: {} }
-    const cl = creditLedger ?? { day: {}, month: {}, year: {} };
+    const emptyPeriod = { creditLedgerPayment: 0, creditLedgerTransfer: 0, total: 0 }
+    const cl = creditLedger ?? { day: emptyPeriod, month: emptyPeriod, year: emptyPeriod }
+    const clDay   = cl.day   ?? emptyPeriod
+    const clMonth = cl.month ?? emptyPeriod
+    const clYear  = cl.year  ?? emptyPeriod
 
     // ── Other revenues totals ───────────────────────────────
     const s4Tot = otherRevenues?.totals ?? {}
@@ -4595,18 +4665,18 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(tm.cityLedger)}</td>
         <td class="num">${fc(ty.cityLedger)}</td>
       </tr>
-      <tr class="total-row">
-        <td class="lbl">Total Credit Ledger (OUT)</td>
-        <td class="num">${fc(td.creditLedgerPayment)}</td>
-        <td class="num">${fc(tm.creditLedgerPayment)}</td>
-        <td class="num">${fc(ty.creditLedgerPayment)}</td>
-      </tr>
-      <tr class="total-row">
-        <td class="lbl">Total Credit Ledger (IN)</td>
-        <td class="num">${fc(td.creditLedgerTransfer)}</td>
-        <td class="num">${fc(tm.creditLedgerTransfer)}</td>
-        <td class="num">${fc(ty.creditLedgerTransfer)}</td>
-      </tr>
+       <tr class="total-row">
+      <td class="lbl">Total Credit Ledger (OUT)</td>
+      <td class="num">${fd(clDay.creditLedgerPaymentCount)}</td>
+      <td class="num">${fd(clMonth.creditLedgerPaymentCount)}</td>
+      <td class="num">${fd(clYear.creditLedgerPaymentCount)}</td>
+    </tr>
+    <tr class="total-row">
+      <td class="lbl">Total Credit Ledger (IN)</td>
+      <td class="num">${fd(clDay.creditLedgerTransferCount)}</td>
+      <td class="num">${fd(clMonth.creditLedgerTransferCount)}</td>
+      <td class="num">${fd(clYear.creditLedgerTransferCount)}</td>
+    </tr>
 
   ${(otherRevenues?.rows ?? []).map((r: any) => `
   <tr class="data-row">
@@ -4645,17 +4715,18 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     <td class="num">${fc(ra.year.cityLedgerCA)}</td>
   </tr>
   <tr class="total-row">
-        <td class="lbl" style="color: #800020;">Credit Ledger (OUT)</td>
-        <td class="num">${fc(cl.day.creditLedgerPayment)}</td>
-        <td class="num">${fc(cl.month.creditLedgerPayment)}</td>
-        <td class="num">${fc(cl.year.creditLedgerPayment)}</td>
+    <td class="lbl" >Credit Ledger (OUT)</td>
+    <td class="num">${fc(clDay.creditLedgerPayment)}</td>
+    <td class="num">${fc(clMonth.creditLedgerPayment)}</td>
+    <td class="num">${fc(clYear.creditLedgerPayment)}</td>
   </tr>
   <tr class="total-row">
-        <td class="lbl" style="color: #800020;">Credit Ledger (IN)</td>
-        <td class="num">${fc(cl.day.creditLedgerTransfer)}</td>
-        <td class="num">${fc(cl.month.creditLedgerTransfer)}</td>
-        <td class="num">${fc(cl.year.creditLedgerTransfer)}</td>
+    <td class="lbl">Credit Ledger (IN)</td>
+    <td class="num">${fc(clDay.creditLedgerTransfer)}</td>
+    <td class="num">${fc(clMonth.creditLedgerTransfer)}</td>
+    <td class="num">${fc(clYear.creditLedgerTransfer)}</td>
   </tr>
+
 
   ${(otherRevenues?.rows ?? []).map((r: any) => `
   <tr class="data-row">
@@ -4756,14 +4827,14 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     }
 
     .section-title-dooble {
-      margin: 12px 12px;
+      margin: 12px 0px;
       padding-bottom: 12px;
       border-bottom: 1px dashed #666;
       border-top: 1px dashed #666;
     }
 
     .section-titleseparator {
-      margin: 12px 12px;
+      margin: 12px 0px;
       padding-bottom: 12px;
       border-top: 1px dashed #666;
     }
@@ -4868,7 +4939,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
     /* ─── SUB-SECTION TABLES ──────────────────────── */
     .sub-section { margin-top: 3px; }
-    .sub-section table { width: 54%; }
+    .sub-section table { width: 100%; }
     .sub-section thead th {
       background: #C5D3E8;
       border-top: 1.5px solid #000;
@@ -4997,7 +5068,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
   <!-- BREAKFAST COUNT -->
   <div class="section-titleseparator">
-    <div class="section-title" style="margin-top:4px;"><span>Breakfasts (POS)</span></div>
+    <div class="section-title"><span>Breakfasts (POS)</span></div>
     <div class="sub-section">
       <table>
         <thead>
@@ -5022,7 +5093,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
   <!-- PAYMENTS RECEIVED -->
   <div class="section-title-dooble">
-    <div class="section-title" style="margin-top:4px;"><span>PAYMENTS RECEIVED</span></div>
+    <div class="section-title" ><span>PAYMENTS RECEIVED</span></div>
     <div class="sub-section">
       <table>
         <thead>
@@ -5183,13 +5254,27 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         : 'System'
 
       // Generate all sections data
-      let sectionsData: any = {}
+       let sectionsData: any = {}
       const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
+
       if (auditDetails && auditDetails?.managerReportData) {
-        sectionsData = auditDetails?.managerReportData
+        sectionsData = auditDetails.managerReportData
+
+      
+        if (!sectionsData.creditLedger) {
+          const ptdStartDate = reportDate.startOf('month')
+          const ytdStartDate = reportDate.startOf('year')
+          sectionsData.creditLedger = await this.getCreditLedgerManagementData(
+            Number(hotelId),
+            reportDate,
+            ptdStartDate,
+            ytdStartDate
+          )
+        }
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
+     
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
@@ -5311,6 +5396,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       postings,
       revenueByRateType,
       revenueByRoomType,
+      creditLedger
     ] = await Promise.all([
       // Section 1: Room Charges
       this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
@@ -5347,6 +5433,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       // Revenue breakdowns
       this.getRevenueByRateTypeForDay(hotelId, reportDate),
       this.getRevenueByRoomTypeForDay(hotelId, reportDate),
+      this.getCreditLedgerManagementData(hotelId, reportDate, ptdStartDate, ytdStartDate), 
     ])
 
     // Section 11: Statistics (depends on roomCharges and roomSummary)
@@ -5370,6 +5457,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       adjustments,
       tax,
       payments,
+      creditLedger,
       cityLedger,
       advanceDepositLedger,
       guestLedger,
@@ -12949,7 +13037,7 @@ public async getCreditLedgerPaymentsData(hotelId: number, startDate: DateTime, e
       TransactionType.CREDIT_LEDGER_TRANSFER
     ])
     .where('is_voided', false)
-    .whereBetween('current_working_date', [
+     .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [
       startDate.toFormat('yyyy-MM-dd'),
       endDate.toFormat('yyyy-MM-dd'),
     ])
