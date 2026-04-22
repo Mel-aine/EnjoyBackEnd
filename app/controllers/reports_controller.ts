@@ -1860,7 +1860,8 @@ export default class ReportsController {
         reportDate,
         currency,
         sectionsData,
-        printedBy
+        printedBy,
+        hotel.hasCreditLedger
       )
       console.log('data.send', sectionsData)
       // Import PDF generation service
@@ -5289,7 +5290,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         reportDate,
         currency,
         sectionsData,
-        printedBy
+        printedBy,
+        hotel.hasCreditLedger
       )
 
       // Import PDF generation service
