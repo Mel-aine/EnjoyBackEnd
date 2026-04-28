@@ -597,13 +597,19 @@ export class HotelAnalyticsService {
                 isWomen: this.isWomanTitle(reservation.guest.title),
                 isSplitedOrigin:reservationRoom.isSplitedOrigin,
                 isSplitedDestination:reservationRoom.isplitedDestinatination,
-                otaName:reservation.otaName
+                otaName:reservation.otaName,
+                has_credit_transfer: reservation.folios?.some((f: any) =>
+                  f.transactions?.some((t: any) =>
+                    t.transactionType === 'credit_ledger_transfer' && !t.isVoided
+                  )
+                ) ?? false,
               })
             }
           }
         })
       }
     }
+
 
     // Calculate global room status statistics
 

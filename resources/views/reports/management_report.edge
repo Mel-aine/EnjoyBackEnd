@@ -452,6 +452,33 @@
           </tr>
         </tbody>
       </table>
+     @if(hasCreditLedger && content.creditLedger)
+      <div class="section-title">
+        Credit Ledger
+      </div>
+      <table>
+        <tbody>
+          <tr>
+            <td style="width: 40%;">Credit Ledger (OUT)</td>
+            <td class="currency" style="width: 20%;">{{ formatCurrency(content.creditLedger?.today?.creditLedgerPayment) }}</td>
+            <td class="currency" style="width: 20%;">{{ formatCurrency(content.creditLedger?.ptd?.creditLedgerPayment) }}</td>
+            <td class="currency" style="width: 20%;">{{ formatCurrency(content.creditLedger?.ytd?.creditLedgerPayment) }}</td>
+          </tr>
+          <tr>
+            <td style="width: 40%;">Credit Ledger (IN)</td>
+            <td class="currency" style="width: 20%;">{{ formatCurrency(content.creditLedger?.today?.creditLedgerTransfer) }}</td>
+            <td class="currency" style="width: 20%;">{{ formatCurrency(content.creditLedger?.ptd?.creditLedgerTransfer) }}</td>
+            <td class="currency" style="width: 20%;">{{ formatCurrency(content.creditLedger?.ytd?.creditLedgerTransfer) }}</td>
+          </tr>
+          <tr class="section-total">
+            <td><strong>Total Credit Ledger</strong></td>
+            <td class="currency"><strong>{{ formatCurrency(content.creditLedger?.today?.total) }}</strong></td>
+            <td class="currency"><strong>{{ formatCurrency(content.creditLedger?.ptd?.total) }}</strong></td>
+            <td class="currency"><strong>{{ formatCurrency(content.creditLedger?.ytd?.total) }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      @endif   
 
       <!-- Section 7: City Ledger -->
       <div class="section-title">

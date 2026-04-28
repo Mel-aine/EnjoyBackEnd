@@ -72,6 +72,8 @@ export enum TransactionType {
   VOID = 'void',
   CORRECTION = 'correction',
   ROOM_POSTING = 'room_posting',
+  CREDIT_LEDGER_TRANSFER = 'credit_ledger_transfer',
+  CREDIT_LEDGER_PAYMENT  = 'credit_ledger_payment',
 }
 
 export enum TransactionCategory {
@@ -105,7 +107,8 @@ export enum TransactionCategory {
   RESORT_FEE = 'resort_fee',
   VOID = 'void',
   REFUND = 'refund',
-  EXTRACT_CHARGE = 'extract_charge'
+  EXTRACT_CHARGE = 'extract_charge',
+  CREDIT_LEDGER = 'credit_ledger',
 }
 
 export enum TransactionStatus {
@@ -140,7 +143,8 @@ export enum PaymentMethodType {
   MASTERCARD = 'master_card',
   VISA = 'visa',
   ORANGE_MONEY = 'orange_money',
-  MOBILE_MONEY = 'mobile_money'
+  MOBILE_MONEY = 'mobile_money',
+  CREDIT_LEDGER = 'credit_ledger'
 }
 
 export enum ChannexRestrictionType {

@@ -66,6 +66,7 @@ import OtaController from '#controllers/ota_controller'
 import ChannexRestrictionsController from '#controllers/channex_restrictions_controller'
 import WidgetsController from '#controllers/widgets_controller'
 import NotificationsController from '#controllers/notifications_controller'
+import CreditLedgersController from '#controllers/credit_ledgers_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
@@ -228,6 +229,7 @@ const houseKeepersController = new HouseKeepersController()
 const otaController = new OtaController()
 const channexRestrictionsController = new ChannexRestrictionsController()
 const widgetsController = new WidgetsController()
+const creditLedgersController = new CreditLedgersController()
 
 
 
@@ -1634,6 +1636,18 @@ router
         router.patch('/:id/assign', workOrdersController.assign.bind(workOrdersController)) // Assign work order to a user
       })
       .prefix('work_orders')
+
+      // Credit Ledger Management Routes
+      router
+        .group(() => {
+          router.get('/hotels/:hotelId/guests/:guestId/credit-balance', creditLedgersController.getBalance.bind(creditLedgersController))
+          router.post('/hotels/:hotelId/guests/:guestId/credit-history', creditLedgersController.getHistory.bind(creditLedgersController))
+          router.post('/hotels/:hotelId/guests/:guestId/apply-credit', creditLedgersController.applyCredit.bind(creditLedgersController))
+        })
+        .prefix('credit_ledgers')
+
+
+
 
   })
   .prefix('/api')
