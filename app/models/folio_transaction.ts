@@ -40,6 +40,9 @@ export default class FolioTransaction extends BaseModel {
   declare subcategory: string
 
   @column()
+  declare isCreditLedger: boolean
+
+  @column()
   declare description: string
 
   @column()
