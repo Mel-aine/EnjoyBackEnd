@@ -24,7 +24,7 @@ cron.schedule('0 0 * * *', () => {
   })
 })
 
-cron.schedule('0 2 1 * *', () => {
+cron.schedule('1 0 1 * *', () => {
   exec('node ace subscriptions:renew', (error, stdout, stderr) => {
     if (error) {
       console.error(`Error while running subscriptions renewal: ${error.message}`)
