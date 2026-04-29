@@ -12,6 +12,8 @@ import { createFolioTransactionValidator, updateFolioTransactionValidator } from
 import Currency from '#models/currency'
 import CurrencyCacheService from '#services/currency_cache_service'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
+import db from '@adonisjs/lucid/services/db'
+import CreditLedgerService from '#services/credit_ledger_service'
 
 export default class FolioTransactionsController {
   /**
@@ -101,306 +103,269 @@ export default class FolioTransactionsController {
   /**
    * Create a new folio transaction
    */
-  async store(ctx: HttpContext) {
-    const { request, response, auth } = ctx
-    try {
-      const payload = await request.validateUsing(createFolioTransactionValidator)
+async store(ctx: HttpContext) {
+  const { request, response, auth } = ctx
+  try {
+    const payload = await request.validateUsing(createFolioTransactionValidator)
+    const folio = await Folio.findOrFail(payload.folioId)
 
-      // Get folio to access hotel information
-      const folio = await Folio.findOrFail(payload.folioId)
+    const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(folio.hotelId)
+    if (!defaultCurrencyPayload) {
+      return response.badRequest({ message: 'Default currency not configured for this hotel' })
+    }
+    const baseCurrencyCode: string = defaultCurrencyPayload.currencyCode
 
-      // Resolve default/base currency for the hotel
-      const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(folio.hotelId)
-      if (!defaultCurrencyPayload) {
-        return response.badRequest({
-          message: 'Default currency not configured for this hotel'
-        })
-      }
-      const baseCurrencyCode: string = defaultCurrencyPayload.currencyCode
+    const transactionCurrencyCode: string = (payload.currency || baseCurrencyCode).toUpperCase()
+    let usedExchangeRate = 1
+    let baseAmount = payload.amount
+    let exchangeRateDate = DateTime.now()
 
-      // Generate transaction number
-      const lastTransaction = await FolioTransaction.query()
-        .where('hotelId', folio.hotelId)
-        .select(['id', 'transactionNumber'])
-        .orderBy('transactionNumber', 'desc')
+    if (transactionCurrencyCode !== baseCurrencyCode) {
+      const currencyRow = await Currency.query()
+        .where('hotel_id', folio.hotelId)
+        .where('currency_code', transactionCurrencyCode)
         .first()
-      const transactionNumber = (Number(lastTransaction?.transactionNumber) || 0) + 1
-      console.log('transactionNumber', transactionNumber)
+      usedExchangeRate = currencyRow?.exchangeRate ?? 1
+      exchangeRateDate = currencyRow?.updatedAt ?? DateTime.now()
+      baseAmount = Number((payload.amount * usedExchangeRate).toFixed(2))
+    } else {
+      baseAmount = Number(payload.amount.toFixed(2))
+    }
 
-      // Generate transaction code if not provided
-      const transactionCode = generateTransactionCode()
 
-      // Map category to particular description
-      const category = payload.category as TransactionCategory || TransactionCategory.MISCELLANEOUS
-      let particular = 'Miscellaneous Transaction'
+    // ─── BRANCHE CREDIT LEDGER ───────────────────────────────
+    if (payload.category === TransactionCategory.CREDIT_LEDGER) {
+      const guestId = folio.guestId
+      if (!guestId) return response.badRequest({ message: 'No guest linked to this folio' })
 
-      switch (category) {
-        case TransactionCategory.ROOM:
-          particular = 'Room Charge'
-          break
-        case TransactionCategory.FOOD_BEVERAGE:
-          particular = 'Food & Beverage'
-          break
-        case TransactionCategory.TELEPHONE:
-          particular = 'Telephone Charge'
-          break
-        case TransactionCategory.LAUNDRY:
-          particular = 'Laundry Service'
-          break
-        case TransactionCategory.MINIBAR:
-          particular = 'Minibar Charge'
-          break
-        case TransactionCategory.SPA:
-          particular = 'Spa Service'
-          break
-        case TransactionCategory.BUSINESS_CENTER:
-          particular = 'Business Center'
-          break
-        case TransactionCategory.PARKING:
-          particular = 'Parking Fee'
-          break
-        case TransactionCategory.INTERNET:
-          particular = 'Internet Service'
-          break
-        case TransactionCategory.PAYMENT:
-          particular = 'Payment Received'
-          break
-        case TransactionCategory.ADJUSTMENT:
-          particular = 'Folio Adjustment'
-          break
-        case TransactionCategory.TAX:
-          particular = 'Tax Charge'
-          break
-        case TransactionCategory.SERVICE_CHARGE:
-          particular = 'Service Charge'
-          break
-        case TransactionCategory.CANCELLATION_FEE:
-          particular = 'Cancellation Fee'
-          break
-        case TransactionCategory.NO_SHOW_FEE:
-          particular = 'No Show Fee'
-          break
-        case TransactionCategory.EARLY_DEPARTURE_FEE:
-          particular = 'Early Departure Fee'
-          break
-        case TransactionCategory.LATE_CHECKOUT_FEE:
-          particular = 'Late Checkout Fee'
-          break
-        case TransactionCategory.EXTRA_BED:
-          particular = 'Extra Bed Charge'
-          break
-        case TransactionCategory.CITY_TAX:
-          particular = 'City Tax'
-          break
-        case TransactionCategory.RESORT_FEE:
-          particular = 'Resort Fee'
-          break
-        case TransactionCategory.TRANSFER_IN:
-          particular = 'Transfer In'
-          break
-        case TransactionCategory.TRANSFER_OUT:
-          particular = 'Transfer Out'
-          break
-        case TransactionCategory.VOID:
-          particular = 'Void Transaction'
-          break
-        case TransactionCategory.REFUND:
-          particular = 'Refund'
-          break
-        case TransactionCategory.EXTRACT_CHARGE:
-          particular = 'Extract Charge'
-          break
-        default:
-          particular = 'Miscellaneous Charge'
-      }
+      let folioTx : FolioTransaction | null = null
 
-      // Currency conversion
-      const transactionCurrencyCode: string = (payload.currency || baseCurrencyCode).toUpperCase()
-      let usedExchangeRate = 1
-      let baseAmount = payload.amount
+      await db.transaction(async (trx) => {
 
-      // Look up the exchange rate for the transaction currency from the currencies table
-      let exchangeRateDate = DateTime.now()
-      if (transactionCurrencyCode !== baseCurrencyCode) {
-        const currencyRow = await Currency.query()
-          .where('hotel_id', folio.hotelId)
-          .where('currency_code', transactionCurrencyCode)
-          .first()
+        if (payload.transactionType === TransactionType.CREDIT_LEDGER_TRANSFER) {
 
-        usedExchangeRate = currencyRow?.exchangeRate ?? 1
-        // Use the currency's last update time as the effective date of the rate, fallback to now
-        exchangeRateDate = currencyRow?.updatedAt ?? DateTime.now()
-        baseAmount = Number((payload.amount * usedExchangeRate).toFixed(2))
-      } else {
-        usedExchangeRate = 1
-        baseAmount = Number(payload.amount.toFixed(2))
-        exchangeRateDate = DateTime.now()
-      }
+          folioTx = await CreditLedgerService.transferExcessToCreditLedger({
+            guestId,
+            hotelId: folio.hotelId,
+            reservationId: payload.reservationId!,
+            folioId: payload.folioId,
+            amount: baseAmount,
+            actorId: auth.user?.id || 0,
+            trx,
+            notes: payload.notes || `Surplus transferred to the customer profile`,
+          })
 
-      const transaction = await FolioTransaction.create({
-        hotelId: folio.hotelId,
-        folioId: payload.folioId,
-        transactionNumber,
-        transactionCode,
-        transactionType: payload.transactionType,
-        category: category,
-        particular: particular,
-        description: payload.description,
-        notes: payload.notes || '',
+          await FolioService.updateFolioTotals(payload.folioId, trx)
 
-        // Persist base amount into the canonical amount fields
-        amount: baseAmount,
-        totalAmount: baseAmount,
-        netAmount: baseAmount,
-        grossAmount: baseAmount,
-        baseCurrencyAmount: baseAmount,
+        } else if (payload.transactionType === TransactionType.PAYMENT) {
 
-        // Track original/source currency details
-        originalAmount: payload.amount,
-        originalCurrency: transactionCurrencyCode,
-        exchangeRate: usedExchangeRate,
-        exchangeRateDate,
-        currencyCode: baseCurrencyCode,
+          const available = await CreditLedgerService.getGuestCreditBalance(guestId)
 
-        quantity: payload.quantity || 1,
-        paymentMethodId: payload.paymentMethodId,
-        extraChargeId: payload.extraChargeId,
-        serviceChargeAmount: payload.serviceChargeAmount || 0,
-        serviceChargeRate: payload.serviceChargeRate || 0,
-        discountAmount: 0,
-        discountRate: 0,
-        reservationId: payload.reservationId,
+          if (baseAmount > available) {
+            throw new Error(`Crédit insuffisant. Disponible : ${available}, Demandé : ${baseAmount}`)
+          }
 
-        transactionDate: payload.transactionDate ? DateTime.fromJSDate(new Date(payload.transactionDate)) : DateTime.now(),
-        postingDate: payload.postingDate ? DateTime.fromJSDate(new Date(payload.postingDate)) : DateTime.now(),
-        serviceDate: DateTime.now(),
-        transactionTime: DateTime.now().toISOTime(),
+          folioTx = await CreditLedgerService.applyCreditToReservation({
+            guestId,
+            hotelId: folio.hotelId,
+            targetReservationId: payload.reservationId!,
+            targetFolioId: payload.folioId,
+            amountToApply: baseAmount,
+            actorId: auth.user?.id || 0,
+            trx,
+          })
 
-        status: payload.status,
-        cashierId: auth.user?.id || 0,
-        createdBy: auth.user?.id || 0
+          await FolioService.updateFolioTotals(payload.folioId, trx)
+
+        } else {
+          throw new Error('Invalid transactionType for CREDIT_LEDGER category')
+        }
       })
 
-      // Update folio totals
-      await this.updateFolioTotals(payload.folioId)
+      await folioTx!.load('hotel')
+      await folioTx!.load('folio')
 
-      // Create receipt if this is a payment transaction
-      if (payload.transactionType === TransactionType.PAYMENT && payload.paymentMethodId) {
+      return response.created({
+        message: 'Credit Ledger transaction created successfully',
+        data: folioTx!
+      })
+    }
+
+    // ─── CAS NORMAL ──────────────────────────────────────────
+    const lastTransaction = await FolioTransaction.query()
+      .where('hotelId', folio.hotelId)
+      .select(['id', 'transactionNumber'])
+      .orderBy('transactionNumber', 'desc')
+      .first()
+    const transactionNumber = (Number(lastTransaction?.transactionNumber) || 0) + 1
+    const transactionCode = generateTransactionCode()
+
+    const category = payload.category as TransactionCategory || TransactionCategory.MISCELLANEOUS
+    let particular = 'Miscellaneous Transaction'
+    switch (category) {
+      case TransactionCategory.ROOM: particular = 'Room Charge'; break
+      case TransactionCategory.FOOD_BEVERAGE: particular = 'Food & Beverage'; break
+      case TransactionCategory.TELEPHONE: particular = 'Telephone Charge'; break
+      case TransactionCategory.LAUNDRY: particular = 'Laundry Service'; break
+      case TransactionCategory.MINIBAR: particular = 'Minibar Charge'; break
+      case TransactionCategory.SPA: particular = 'Spa Service'; break
+      case TransactionCategory.BUSINESS_CENTER: particular = 'Business Center'; break
+      case TransactionCategory.PARKING: particular = 'Parking Fee'; break
+      case TransactionCategory.INTERNET: particular = 'Internet Service'; break
+      case TransactionCategory.PAYMENT: particular = 'Payment Received'; break
+      case TransactionCategory.ADJUSTMENT: particular = 'Folio Adjustment'; break
+      case TransactionCategory.TAX: particular = 'Tax Charge'; break
+      case TransactionCategory.SERVICE_CHARGE: particular = 'Service Charge'; break
+      case TransactionCategory.CANCELLATION_FEE: particular = 'Cancellation Fee'; break
+      case TransactionCategory.NO_SHOW_FEE: particular = 'No Show Fee'; break
+      case TransactionCategory.EARLY_DEPARTURE_FEE: particular = 'Early Departure Fee'; break
+      case TransactionCategory.LATE_CHECKOUT_FEE: particular = 'Late Checkout Fee'; break
+      case TransactionCategory.EXTRA_BED: particular = 'Extra Bed Charge'; break
+      case TransactionCategory.CITY_TAX: particular = 'City Tax'; break
+      case TransactionCategory.RESORT_FEE: particular = 'Resort Fee'; break
+      case TransactionCategory.TRANSFER_IN: particular = 'Transfer In'; break
+      case TransactionCategory.TRANSFER_OUT: particular = 'Transfer Out'; break
+      case TransactionCategory.VOID: particular = 'Void Transaction'; break
+      case TransactionCategory.REFUND: particular = 'Refund'; break
+      case TransactionCategory.EXTRACT_CHARGE: particular = 'Extract Charge'; break
+      default: particular = 'Miscellaneous Charge'
+    }
+
+    const transaction = await FolioTransaction.create({
+      hotelId: folio.hotelId,
+      folioId: payload.folioId,
+      transactionNumber,
+      transactionCode,
+      transactionType: payload.transactionType,
+      category,
+      particular,
+      description: payload.description,
+      notes: payload.notes || '',
+      amount: baseAmount,
+      totalAmount: baseAmount,
+      netAmount: baseAmount,
+      grossAmount: baseAmount,
+      baseCurrencyAmount: baseAmount,
+      originalAmount: payload.amount,
+      originalCurrency: transactionCurrencyCode,
+      exchangeRate: usedExchangeRate,
+      exchangeRateDate,
+      currencyCode: baseCurrencyCode,
+      quantity: payload.quantity || 1,
+      paymentMethodId: payload.paymentMethodId,
+      extraChargeId: payload.extraChargeId,
+      serviceChargeAmount: payload.serviceChargeAmount || 0,
+      serviceChargeRate: payload.serviceChargeRate || 0,
+      discountAmount: 0,
+      discountRate: 0,
+      reservationId: payload.reservationId,
+      transactionDate: payload.transactionDate
+        ? DateTime.fromJSDate(new Date(payload.transactionDate))
+        : DateTime.now(),
+      postingDate: payload.postingDate
+        ? DateTime.fromJSDate(new Date(payload.postingDate))
+        : DateTime.now(),
+      serviceDate: DateTime.now(),
+      transactionTime: DateTime.now().toISOTime(),
+      status: payload.status,
+      cashierId: auth.user?.id || 0,
+      createdBy: auth.user?.id || 0
+    })
+
+    await this.updateFolioTotals(payload.folioId)
+
+    // ─── RECEIPT + CITY LEDGER ───────────────────────────────
+    if (payload.transactionType === TransactionType.PAYMENT && payload.paymentMethodId) {
+      try {
+        await ReceiptService.createReceipt({
+          tenantId: folio.guestId || 0,
+          hotelId: folio.hotelId,
+          paymentDate: transaction.transactionDate,
+          paymentMethodId: payload.paymentMethodId,
+          totalAmount: transaction.amount,
+          description: transaction.description,
+          breakdown: {
+            payment: transaction.amount,
+            serviceCharge: transaction.serviceChargeAmount || 0
+          },
+          createdBy: auth.user?.id || 0,
+          folioTransactionId: transaction.id,
+          currency: folio.currencyCode || 'XAF'
+        })
+
         try {
-          await ReceiptService.createReceipt({
-            tenantId: folio.guestId || 0, // Use guestId from folio
-            hotelId: folio.hotelId,
-            paymentDate: transaction.transactionDate,
-            paymentMethodId: payload.paymentMethodId,
-            totalAmount: transaction.amount,
-            description: transaction.description,
-            breakdown: {
-              payment: transaction.amount,
-              serviceCharge: transaction.serviceChargeAmount || 0
-            },
-            createdBy: auth.user?.id || 0,
-            folioTransactionId: transaction.id,
-            currency: folio.currencyCode || 'XAF'
-          })
-          // If payment method is City Ledger, create a child transaction on company folio
-          try {
-            const pm = await PaymentMethod.find(payload.paymentMethodId)
-            if (pm && pm.methodType == PaymentMethodType.CITY_LEDGER) {
-              // Ensure folio has guest and reservationRoom->room preloaded before creating CL child
-              await transaction.load('folio', (folioQuery: any) => {
-                folioQuery.preload('guest')
-                folioQuery.preload('reservationRoom', (roomQuery: any) => {
-                  roomQuery.preload('room')
-                })
+          const pm = await PaymentMethod.find(payload.paymentMethodId)
+          if (pm && pm.methodType == PaymentMethodType.CITY_LEDGER) {
+            await transaction.load('folio', (folioQuery: any) => {
+              folioQuery.preload('guest')
+              folioQuery.preload('reservationRoom', (roomQuery: any) => {
+                roomQuery.preload('room')
               })
-              const result = await CityLedgerService.createCityLedgerChildForPayment({
-                originalTransaction: transaction,
-                postedBy: auth.user?.id || 0,
-                ctx
-              })
-
-              if (result) {
-                await LoggerService.log({
-                  actorId: auth.user?.id || 0,
-                  action: 'CREATE',
-                  entityType: 'CityLedgerChildTransaction',
-                  entityId: result.child.id,
-                  description: 'Created City Ledger child transaction for payment',
-                  meta: {
-                    parentTransactionId: transaction.id,
-                    childTransactionId: result.child.id,
-                    companyFolioId: result.child.folioId,
-                    currentBalance: result.currentBalance,
-                  },
-                  hotelId: transaction.hotelId,
-                  ctx
-                })
-              }
-            }
-          } catch (clError) {
-            await LoggerService.log({
-              actorId: auth.user?.id || 0,
-              action: 'ERROR',
-              entityType: 'CityLedgerChildTransaction',
-              entityId: transaction.id,
-              description: 'Failed to create City Ledger child transaction',
-              meta: {
-                error: clError.message,
-                parentTransactionId: transaction.id,
-              },
-              hotelId: transaction.hotelId,
+            })
+            const result = await CityLedgerService.createCityLedgerChildForPayment({
+              originalTransaction: transaction,
+              postedBy: auth.user?.id || 0,
               ctx
             })
+            if (result) {
+              await LoggerService.log({
+                actorId: auth.user?.id || 0,
+                action: 'CREATE',
+                entityType: 'CityLedgerChildTransaction',
+                entityId: result.child.id,
+                description: 'Created City Ledger child transaction for payment',
+                meta: {
+                  parentTransactionId: transaction.id,
+                  childTransactionId: result.child.id
+                },
+                hotelId: transaction.hotelId,
+                ctx
+              })
+            }
           }
-          await LoggerService.log({
-            actorId: auth.user?.id || 0,
-            action: 'CREATE',
-            entityType: 'Receipt',
-            entityId: transaction.id,
-            description: 'Receipt created for payment transaction',
-            meta: {
-              transactionId: transaction.id,
-              folioId: folio.id,
-              amount: transaction.amount
-            },
-            hotelId: transaction.hotelId,
-            ctx: ctx
-          })
-        } catch (receiptError) {
-          // Log error but don't fail the transaction creation
+        } catch (clError) {
           await LoggerService.log({
             actorId: auth.user?.id || 0,
             action: 'ERROR',
-            entityType: 'Receipt',
+            entityType: 'CityLedgerChildTransaction',
             entityId: transaction.id,
-            description: 'Failed to create receipt for payment transaction',
-            meta: {
-              error: receiptError.message,
-              transactionId: transaction.id,
-              folioId: folio.id
-            },
+            description: 'Failed to create City Ledger child transaction',
+            meta: { error: clError.message },
             hotelId: transaction.hotelId,
-            ctx: ctx
+            ctx
           })
         }
+      } catch (receiptError) {
+        await LoggerService.log({
+          actorId: auth.user?.id || 0,
+          action: 'ERROR',
+          entityType: 'Receipt',
+          entityId: transaction.id,
+          description: 'Failed to create receipt for payment transaction',
+          meta: { error: receiptError.message },
+          hotelId: transaction.hotelId,
+          ctx
+        })
       }
-
-      await transaction.load('hotel')
-      await transaction.load('folio')
-      await transaction.load('paymentMethod')
-
-      return response.created({
-        message: 'Folio transaction created successfully',
-        data: transaction
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Failed to create folio transaction',
-        error: error.message
-      })
     }
-  }
 
+    await transaction.load('hotel')
+    await transaction.load('folio')
+    await transaction.load('paymentMethod')
+
+    return response.created({
+      message: 'Folio transaction created successfully',
+      data: transaction
+    })
+
+  } catch (error) {
+    console.error(' ERREUR store:', error.message)
+    return response.badRequest({
+      message: 'Failed to create folio transaction',
+      error: error.message
+    })
+  }
+}
   /**
    * Show a specific folio transaction
    */
@@ -591,6 +556,31 @@ export default class FolioTransactionsController {
       transaction.status = TransactionStatus.VOIDED
       transaction.notes += `\nVoid reason: ${reason || 'Transaction voided'}`
       await transaction.save()
+
+
+      if (transaction.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+        await CreditLedgerService.refundCreditOnVoid({
+          guestId: transaction.guestId,
+          hotelId: transaction.hotelId,
+          reservationId: transaction.reservationId!,
+          folioId: transaction.folioId,
+          amount: Math.abs(parseFloat(`${transaction.totalAmount}`)),
+          actorId: auth.user?.id || 0,
+          originalTransactionId: transaction.id,
+        })
+      }
+
+      if (transaction.transactionType === TransactionType.CREDIT_LEDGER_TRANSFER) {
+        await CreditLedgerService.reverseCreditTransferOnVoid({
+          guestId: transaction.guestId,
+          hotelId: transaction.hotelId,
+          reservationId: transaction.reservationId!,
+          folioId: transaction.folioId,
+          amount: Math.abs(parseFloat(`${transaction.totalAmount}`)),
+          actorId: auth.user?.id || 0,
+          originalTransactionId: transaction.id,
+        })
+      }
 
       // Update folio totals
       await this.updateFolioTotals(transaction.folioId)

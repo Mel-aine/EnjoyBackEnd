@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Credit Ledger Payments Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 9px;
+      margin: 0;
+      padding: 3px 15px 15px 15px;
+      color: #333;
+    }
+    .horizontal-line {
+      border-top: 1px solid #333;
+      margin: 6px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+    th, td {
+      text-align: left;
+      padding: 3px 1px;
+      font-size: 9px;
+      vertical-align: top;
+    }
+    .section-title {
+      font-weight: bold;
+      margin: 0px 0 3px 0;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .bold-section {
+      font-weight: bold;
+    }
+    .text-center {
+      text-align: center;
+    }
+    .text-right {
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+   
+    
+    <table>
+      <tbody>
+        @each(r in data.rows)
+          <tr>
+            <td style="width: 10%;">{{ r.date }}</td>
+            <td style="width: 12%;">
+                <span style="font-weight: bold; color: #666;">[{{ r.type }}]</span> 
+                {{ r.transactionNumber }}
+            </td>
+            <td style="width: 12%;">{{ r.reservationNumber || '-' }}</td>
+            <td style="width: 10%;">{{ r.folioNumber || '-' }}</td>
+            <td style="width: 18%;">{{ r.guestName }}</td>
+            <td style="width: 16%;">{{ r.description }}</td>
+            <td class="text-left" style="width: 10%; font-weight: bold;">
+              {{ helpers.fc(r.amount) }}
+            </td>
+            <td style="width: 12%; font-size: 8px; color: #555;">
+              {{ r.notes || '' }}
+            </td>
+          </tr>
+        @endeach
+      </tbody>
+    </table>
+
+    <div class="horizontal-line"></div>
+    
+    <!-- Summary Section -->
+    <table>
+      <tbody>
+        <tr class="bold-section">
+          <td style="width: 78%;">
+            <strong>TOTAL</strong>
+          </td>
+          <td style="width: 20%;" class="text-right">
+            <strong>{{ helpers.fc(data.total) }} FCFA</strong>
+          </td>
+          <td style="width: 12%;"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="horizontal-line"></div>
+  </div>
+</body>
+</html>

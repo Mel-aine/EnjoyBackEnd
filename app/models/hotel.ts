@@ -63,6 +63,9 @@ export default class Hotel extends BaseModel {
   @column()
   declare timezone: string
 
+  @column({ columnName: 'has_credit_ledger' })
+  declare hasCreditLedger: boolean
+
   @column({ columnName: 'tax_rate' })
   declare taxRate: number
 

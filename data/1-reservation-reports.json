@@ -171,6 +171,10 @@
       {
         "id": "work_order_list",
         "name": "Work Order List"
+      },
+      {
+        "id": "credit_ledger_payments",
+        "name": "Credit Ledger Payments"
       }
     ]
   },
