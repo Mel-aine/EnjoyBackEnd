@@ -586,7 +586,7 @@ export default class Hotel extends BaseModel {
       .query()
       .preload('module')
       .whereHas('module', (query: ModelQueryBuilderContract<typeof Module>) => query.where('slug', moduleSlug))
-      .where('status', 'active')
+      .whereIn('status', ['active', 'past_due'])
       .where('ends_at', '>', now)
       .first()
 
@@ -597,7 +597,7 @@ export default class Hotel extends BaseModel {
       .query()
       .preload('module')
       .whereHas('module', (query: ModelQueryBuilderContract<typeof Module>) => query.where('is_bundle', true))
-      .where('status', 'active')
+      .whereIn('status', ['active', 'past_due'])
       .where('ends_at', '>', now)
 
     for (const sub of bundleSubs) {
