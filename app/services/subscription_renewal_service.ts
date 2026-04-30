@@ -191,6 +191,117 @@ export default class SubscriptionRenewalService {
     await invoice.save()
   }
 
+  public async generateMonthlyInvoiceIfMissing(params: {
+    hotelId: number
+    month: string
+    runAt?: DateTime
+    sendEmail?: boolean
+  }) {
+    const hotelId = Number(params.hotelId)
+    const runAt = params.runAt ?? DateTime.now()
+    const sendEmail = params.sendEmail !== false
+    const monthRaw = String(params.month || '').trim()
+
+    const monthStart =
+      DateTime.fromISO(`${monthRaw}-01`, { zone: 'utc' }).startOf('month') ||
+      DateTime.invalid('invalid')
+
+    if (!monthStart.isValid) {
+      return { created: false, reason: `Invalid month: ${monthRaw}. Expected YYYY-MM.` as string }
+    }
+
+    const periodStart = monthStart.startOf('month')
+    const periodEnd = monthStart.endOf('month')
+
+    const existing = await db
+      .from('invoice_subscriptions')
+      .where('hotel_id', hotelId)
+      .whereRaw('period_start::date = ?', [periodStart.toISODate()])
+      .whereRaw('period_end::date = ?', [periodEnd.toISODate()])
+      .first()
+
+    if (existing) {
+      return { created: false, reason: 'Invoice already exists for this period' as string }
+    }
+
+    const hotel = await Hotel.find(hotelId)
+    if (!hotel) {
+      return { created: false, reason: `Hotel not found: ${hotelId}` as string }
+    }
+
+    const subs = await Subscription.query()
+      .where('hotel_id', hotelId)
+      .whereIn('status', ['active', 'past_due'])
+      .where('starts_at', '<=', periodEnd.toSQL()!)
+      .where((q) => q.whereNull('ends_at').orWhere('ends_at', '>=', periodStart.toSQL()!))
+      .preload('module')
+      .preload('addOn')
+
+    if (subs.length === 0) {
+      return { created: false, reason: 'No subscriptions to bill for this period' as string }
+    }
+
+    const currency = (hotel as any)?.currencyCode ?? 'EUR'
+    const autopUserId = env.get('AUTOPROCESS_USER_ID') ?? 1
+
+    const invoiceNumber = `SUBINV-${periodStart.toFormat('yyyyLL')}-${hotelId}-${Math.floor(Math.random() * 100000)
+      .toString()
+      .padStart(5, '0')}`
+
+    const totalAmount = subs.reduce((sum, s) => sum + Number(s.price || 0), 0)
+    if (totalAmount <= 0) {
+      return { created: false, reason: 'Total amount is 0; invoice not created' as string }
+    }
+
+    const created = await db.transaction(async (trx) => {
+      const invoice = await InvoiceSubscription.create(
+        {
+          hotelId,
+          invoiceNumber,
+          totalAmount,
+          currency,
+          status: 'pending',
+          billingDate: runAt,
+          periodStart,
+          periodEnd,
+          paidAt: null,
+          billingFrom: null,
+          createdBy: autopUserId,
+        },
+        { client: trx }
+      )
+
+      await trx.table('invoice_subscription_items').insert(
+        subs.map((s) => {
+          const moduleName = (s as any)?.module?.name ?? 'Subscription'
+          const cycleLabel = s.billingCycle === 'yearly' ? 'Yearly' : 'Monthly'
+          return {
+            invoice_subscription_id: invoice.id,
+            subscription_id: s.id,
+            line_amount: Number(s.price || 0),
+            description: `${moduleName} (${cycleLabel})`,
+            period_start: periodStart.toJSDate(),
+            period_end: periodEnd.toJSDate(),
+            created_at: runAt.toJSDate(),
+            updated_at: runAt.toJSDate(),
+          }
+        })
+      )
+
+      return invoice
+    })
+
+    if (sendEmail) {
+      try {
+        await this.sendInvoiceEmail(created)
+      } catch (error: any) {
+        console.error('Backfill subscription invoice email failed:', error?.message ?? error)
+      }
+    }
+
+    return { created: true, invoiceId: created.id, invoiceNumber: created.invoiceNumber as string }
+  }
+
   public async runMonthlyRenewal(runAt: DateTime = DateTime.now(), hotelId?: number) {
     const now = runAt
     const todayEnd = now.endOf('day')
