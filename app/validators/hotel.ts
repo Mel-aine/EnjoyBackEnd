@@ -198,6 +198,25 @@ export const createHotelValidator = vine.compile(
   })
 )
 
+export const createExternalHotelValidator = vine.compile(
+  vine.object({
+    name: vine.string().trim().minLength(2).maxLength(255),
+    description: vine.string().trim().maxLength(1000).optional(),
+    address: vine.string().trim().maxLength(500).optional(),
+    city: vine.string().trim().maxLength(100).optional(),
+    state: vine.string().trim().maxLength(100).optional(),
+    country: vine.string().trim().maxLength(100).optional(),
+    postalCode: vine.string().trim().maxLength(20).optional(),
+    phone: vine.string().trim().maxLength(20).optional(),
+    email: vine.string().trim().email().maxLength(255).optional(),
+    website: vine.string().trim().url().maxLength(255).optional(),
+    currency: vine.string().fixedLength(3).optional(),
+    timezone: vine.string().trim().maxLength(50).optional(),
+    taxRate: vine.number().min(0).max(100).optional(),
+    isActive: vine.boolean().optional(),
+  })
+)
+
 /**
  * Validator to validate the payload when updating
  * an existing hotel.
