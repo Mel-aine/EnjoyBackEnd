@@ -78,7 +78,7 @@ export default class SubscriptionsController {
 
     // Check for dependencies (e.g., Channel Manager requires PMS)
 
-    if (module.slug === 'channel-manager') {
+    if (module.slug === 'channel_manager') {
       const hasPMS = await hotel.hasAccessTo('pms')
 
       // Vérifier aussi si PMS est dans le même batch

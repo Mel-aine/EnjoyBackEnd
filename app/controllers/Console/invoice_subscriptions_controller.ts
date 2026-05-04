@@ -311,7 +311,7 @@ export default class InvoiceSubscriptionsController {
             throw new Error(`Duplicate active subscription for module_id=${moduleId}`)
           }
 
-          if (module.slug === 'channel-manager') {
+          if (module.slug === 'channel_manager') {
             const hasPms = await hotel.hasAccessTo('pms')
             if (!hasPms && !pmsInBatch) {
               throw new Error('DEPENDENCY_MISSING: PMS is required to purchase Channel Manager')
