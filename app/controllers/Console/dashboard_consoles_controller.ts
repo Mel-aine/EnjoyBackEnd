@@ -194,8 +194,9 @@ export default class DashboardConsolesController {
           interval '1 day'
         ) AS gs(day)
         LEFT JOIN subscriptions s
-          ON DATE_TRUNC('day', s.starts_at)::date = gs.day::date
-          AND s.status = 'active'
+          ON s.status = 'active'
+          AND s.starts_at <= gs.day
+          AND s.ends_at   >= gs.day
         GROUP BY gs.day
         ORDER BY gs.day ASC
       `),
@@ -210,8 +211,9 @@ export default class DashboardConsolesController {
           interval '1 month'
         ) AS gs(month)
         LEFT JOIN subscriptions s
-          ON DATE_TRUNC('month', s.starts_at)::date = gs.month::date
-          AND s.status = 'active'
+          ON s.status = 'active'
+          AND s.starts_at <= (gs.month + interval '1 month - 1 day')
+          AND s.ends_at   >= gs.month
         GROUP BY gs.month
         ORDER BY gs.month ASC
       `),
