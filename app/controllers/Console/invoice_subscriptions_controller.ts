@@ -8,7 +8,7 @@ import Subscription from '#models/subscription'
 import Module from '#models/module'
 import AddOn from '#models/add_on'
 import EmailAccount from '#models/email_account'
-import PdfService from '#services/pdf_service'
+import PdfGenerationService from '#services/pdf_generation_service'
 import MailService from '#services/mail_service'
 import { formatCurrency } from '#app/utils/utilities'
 import db from '@adonisjs/lucid/services/db'
@@ -311,7 +311,7 @@ export default class InvoiceSubscriptionsController {
             throw new Error(`Duplicate active subscription for module_id=${moduleId}`)
           }
 
-          if (module.slug === 'channel-manager') {
+          if (module.slug === 'channel_manager') {
             const hasPms = await hotel.hasAccessTo('pms')
             if (!hasPms && !pmsInBatch) {
               throw new Error('DEPENDENCY_MISSING: PMS is required to purchase Channel Manager')
@@ -578,7 +578,7 @@ export default class InvoiceSubscriptionsController {
       logoDataUri,
     })
 
-    const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
     })
@@ -790,7 +790,7 @@ export default class InvoiceSubscriptionsController {
       logoDataUri,
     })
 
-    const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
     })
@@ -1027,7 +1027,7 @@ export default class InvoiceSubscriptionsController {
       logoDataUri,
     })
 
-    return PdfService.generatePdfFromHtml(html, {
+    return PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
     })
@@ -1131,7 +1131,7 @@ export default class InvoiceSubscriptionsController {
       logoDataUri,
     })
 
-    return PdfService.generatePdfFromHtml(html, {
+    return PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
     })
