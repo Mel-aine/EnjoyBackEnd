@@ -70,11 +70,20 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           permis_reports: data.permis_reports ? JSON.stringify(data.permis_reports) : null,
         })
         isNewUser = true;
-        // Prepare and send email verification via service
-        const forwardedProto = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
-        const proto = forwardedProto || (ctx.request.secure() ? 'https' : ctx.request.protocol())
-        const baseUrl = `${proto}://${ctx.request.host()}`
-        await UserEmailService.prepareAndSendVerification(user, baseUrl)
+        
+        try {
+          const forwardedProto = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
+          const proto = forwardedProto || (ctx.request.secure() ? 'https' : ctx.request.protocol())
+          const baseUrl = `${proto}://${ctx.request.host()}`
+          
+          const result = await UserEmailService.prepareAndSendVerification(user, baseUrl,hotelId)
+          
+          console.log('Email sent successfully:', result.confirmUrl)
+        } catch (emailError) {
+         
+          console.error('EMAIL ERROR:', emailError) 
+        }
+     
       }
 
       // 3. Vérifier si une assignation existe déjà

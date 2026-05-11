@@ -30,52 +30,142 @@ export default class AuthController {
   }
 
   public async confirmEmail(ctx: HttpContext) {
-    const { request, response } = ctx
-    const token = request.input('token') || request.qs().token
-    const email = request.input('email') || request.qs().email
+  const { request, response } = ctx
+  const token = request.input('token') || request.qs().token
+  const email = request.input('email') || request.qs().email
 
-    if (!token || !email) {
-      return response.badRequest({ message: 'Missing token or email' })
+  const frontendUrl = process.env.LIVE_ENPOINT || 'http://localhost:5173'
+
+  const renderPage = (success: boolean, title: string, message: string) => {
+    const color = success ? '#10b981' : '#ef4444'
+    const icon = success ? '✓' : '✗'
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
-    try {
-      const user = await User.findBy('email', email)
-      if (!user) {
-        return response.badRequest({ message: 'Invalid token or email' })
-      }
-      if (user.emailVerified) {
-        return response.ok({ message: 'Email already verified' })
-      }
-
-      if (!user.emailVerificationToken || user.emailVerificationToken !== token) {
-        return response.badRequest({ message: 'Invalid token' })
-      }
-
-      if (user.emailVerificationExpires && DateTime.now() > user.emailVerificationExpires) {
-        return response.badRequest({ message: 'Verification token expired' })
-      }
-
-      user.emailVerified = true
-      user.emailVerificationToken = null
-      user.emailVerificationExpires = null
-      await user.save()
-
-      await LoggerService.log({
-        actorId: user.id,
-        action: 'EMAIL_VERIFIED',
-        entityType: 'User',
-        entityId: user.id.toString(),
-        description: `Email verified for ${user.email}`,
-        ctx: ctx,
-      })
-
-      return response.ok({ message: 'Email verified successfully' })
-    } catch (error) {
-      return response
-        .status(500)
-        .json({ message: 'Failed to verify email', error: (error as any).message })
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 48px 40px;
+      max-width: 440px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     }
+    .icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: ${color}1a;
+      color: ${color};
+      font-size: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    h1 { font-size: 22px; color: #1a202c; margin-bottom: 12px; }
+    p  { font-size: 15px; color: #64748b; line-height: 1.6; margin-bottom: 32px; }
+    a {
+      display: inline-block;
+      background: #4f46e5;
+      color: white;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    a:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${icon}</div>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    ${success ? `<a href="${frontendUrl}">Go to application</a>` : ''}
+  </div>
+</body>
+</html>`
   }
+
+  if (!token || !email) {
+    return response
+      .status(400)
+      .header('Content-Type', 'text/html')
+      .send(renderPage(false, 'Invalid Link', 'The confirmation link is missing required parameters.'))
+  }
+
+  try {
+    const user = await User.findBy('email', email)
+
+    if (!user) {
+      return response
+        .status(400)
+        .header('Content-Type', 'text/html')
+        .send(renderPage(false, 'Invalid Link', 'No account found for this email address.'))
+    }
+
+    if (user.emailVerified) {
+      return response
+        .header('Content-Type', 'text/html')
+        .send(renderPage(true, 'Already Verified', 'Your email has already been verified. You can log in to your account.'))
+    }
+
+    if (!user.emailVerificationToken || user.emailVerificationToken !== token) {
+      return response
+        .status(400)
+        .header('Content-Type', 'text/html')
+        .send(renderPage(false, 'Invalid Token', 'This confirmation link is invalid or has already been used.'))
+    }
+
+    if (user.emailVerificationExpires && DateTime.now() > user.emailVerificationExpires) {
+      return response
+        .status(400)
+        .header('Content-Type', 'text/html')
+        .send(renderPage(false, 'Link Expired', 'This confirmation link has expired. Please request a new one.'))
+    }
+
+    user.emailVerified = true
+    user.emailVerificationToken = null
+    user.emailVerificationExpires = null
+    await user.save()
+
+    await LoggerService.log({
+      actorId: user.id,
+      action: 'EMAIL_VERIFIED',
+      entityType: 'User',
+      entityId: user.id.toString(),
+      description: `Email verified for ${user.email}`,
+      ctx,
+    })
+
+    return response
+      .header('Content-Type', 'text/html')
+      .send(renderPage(true, 'Email Confirmed!', 'Your account is now active. You can now log in and start using the application.'))
+
+  } catch (error) {
+    return response
+      .status(500)
+      .header('Content-Type', 'text/html')
+      .send(renderPage(false, 'Server Error', 'Something went wrong. Please try again later.'))
+  }
+}
+
+  
   // Fonction auxiliaire pour envoyer des réponses de succès
   private response(message: string, data?: any) {
     return {
