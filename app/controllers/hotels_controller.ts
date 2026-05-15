@@ -31,6 +31,7 @@ import Discount from '../models/discount.js'
 import { DEFAULT_TEMPLATE_CATEGORIES, DEFAULT_EMAIL_TEMPLATES } from '../data/default_email_templates.js'
 import { PaymentMethodType } from '../enums.js'
 import UserEmailService from '#services/user_email_service'
+import WhatsappTemplateSyncService from '#services/whatsapp_template_sync_service'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -159,6 +160,7 @@ export default class HotelsController {
         status: payload.isActive !== false ? 'active' : 'inactive',
         cancellationPolicy: payload.cancellationPolicy,
         hotelPolicy: payload.policies,
+        whatsappEnabled : payload.whatsappEnabled,
         propertyType: 'hotel',
         ...(payload.nightAuditStartTime !== undefined
           ? { nightAuditStartTime: payload.nightAuditStartTime }
@@ -516,6 +518,7 @@ export default class HotelsController {
         .preload('noShowRevenueTaxRates')
         .preload('subscriptions', (subQuery) => {
           subQuery.preload('module')
+          subQuery.preload('addOn')
         })
         .firstOrFail()
 
@@ -585,6 +588,7 @@ export default class HotelsController {
         status:             payload.isActive !== false ? 'active' : 'inactive',
         cancellationPolicy: payload.cancellationPolicy,
         hotelPolicy:        payload.policies,
+        whatsappEnabled : payload.whatsappEnabled,
         lastModifiedBy:     auth.user?.id              || 0,
         ...(isConsoleRequest && payload.useCashering !== undefined
           ? { useCashering: payload.useCashering }
@@ -690,9 +694,13 @@ export default class HotelsController {
         'hotelPolicy',
         'nightAuditStartTime',
         'nightAuditEndTime',
-        'hasCreditLedger'
+        'hasCreditLedger',
+        'whatsappEnabled',
+        'whatsappProviderType',
+        'whatsappConfig',
       ])
-
+      const whatsappJustEnabled =
+      payload.whatsappEnabled === true && hotel.whatsappEnabled === false
       // Create update data with proper typing
       const updateData: any = {
         ...payload,
@@ -701,6 +709,14 @@ export default class HotelsController {
 
       hotel.merge(updateData)
       await hotel.save()
+
+      if (whatsappJustEnabled) {
+      const syncService = new WhatsappTemplateSyncService()
+      // Fire & forget — on ne bloque pas la réponse HTTP
+      syncService.syncHotelTemplates(hotel.id).catch((err) => {
+        console.error(`[TemplateSyncService] Erreur sync hotel ${hotel.id}:`, err)
+      })
+    }
 
       return response.ok({
         message: 'Hotel information updated successfully',

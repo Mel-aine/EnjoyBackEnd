@@ -97,4 +97,16 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Enjoy Rental integration API key
   ENJOY_RENTAL_API_KEY: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring WhatsApp integration
+  |----------------------------------------------------------
+  */
+  WHATSAPP_MANAGED_BASE_URL: Env.schema.string.optional(),
+  WHATSAPP_MANAGED_VERSION: Env.schema.string.optional(),
+  WHATSAPP_MANAGED_PHONE_ID: Env.schema.string.optional(),
+  WHATSAPP_MANAGED_WABA_ID: Env.schema.string.optional(),
+  WHATSAPP_MANAGED_TOKEN: Env.schema.string.optional(),
+  WHATSAPP_MANAGED_SENDER_NAME: Env.schema.string.optional(),
 })

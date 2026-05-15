@@ -69,6 +69,19 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'tax_rate' })
   declare taxRate: number
 
+   @column({ columnName: 'whatsapp_enabled' })
+  declare whatsappEnabled: boolean
+
+  @column({ columnName: 'whatsapp_provider_type' })
+  declare whatsappProviderType: string
+
+  @column({
+    columnName: 'whatsapp_config',
+    prepare: (value) => JSON.stringify(value ?? {}),
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : (value ?? {})),
+  })
+  declare whatsappConfig: Record<string, any>
+
   @column({ columnName: 'license_number' })
   declare licenseNumber: string | null
 

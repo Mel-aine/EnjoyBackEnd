@@ -67,6 +67,11 @@ import ChannexRestrictionsController from '#controllers/channex_restrictions_con
 import WidgetsController from '#controllers/widgets_controller'
 import NotificationsController from '#controllers/notifications_controller'
 import CreditLedgersController from '#controllers/credit_ledgers_controller'
+import ModulesController from '#controllers/Console/modules_controller'
+import InvoiceSubscriptionsController from '#controllers/Console/invoice_subscriptions_controller'
+import SubscriptionsController from '#controllers/Console/subscriptions_controller'
+import WhatsAppController from '#controllers/whatsapps_controller'
+import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
@@ -230,6 +235,11 @@ const otaController = new OtaController()
 const channexRestrictionsController = new ChannexRestrictionsController()
 const widgetsController = new WidgetsController()
 const creditLedgersController = new CreditLedgersController()
+const modulesController = new ModulesController()
+const invoiceSubscriptionsController = new InvoiceSubscriptionsController()
+const subscriptionsController = new SubscriptionsController()
+const whatsappController = new WhatsAppController()
+const whatsappWebhookController = new WhatsAppWebhookController()
 
 
 
@@ -1540,6 +1550,8 @@ router
         router.delete('/:id', ipConfigurationsController.destroy.bind(ipConfigurationsController))
       })
       .prefix('configuration/hotels/:hotelId/ip_configurations')
+
+    
     // Night Audit Routes
     router
       .group(() => {
@@ -1617,6 +1629,15 @@ router
         router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
       }).prefix('audit-trail')
 
+    router
+      .group(() => {
+      router.get('/',modulesController.index.bind(modulesController))
+      router.post('/:hotel_id/invoices-subscriptions', invoiceSubscriptionsController.store.bind(invoiceSubscriptionsController))
+      router.put('/:id/subscriptions', subscriptionsController.update.bind(subscriptionsController))
+
+    }).prefix('market_place')
+   
+
     // Widget Dashboard
     router.get('/widget/dashboard', widgetsController.dashboard.bind(widgetsController))
 
@@ -1646,7 +1667,8 @@ router
         })
         .prefix('credit_ledgers')
 
-
+        // WhatsApp Test Route
+        router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
 
 
   })
@@ -1658,6 +1680,9 @@ router
     })
   )
 
+
+router.get('/api/webhooks/whatsapp', whatsappWebhookController.verify.bind(whatsappWebhookController))
+router.post('/api/webhooks/whatsapp', whatsappWebhookController.handle.bind(whatsappWebhookController))
 router.post('/api/channex/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController))
   .use(middleware.apiKey())
 
