@@ -1,5 +1,6 @@
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
+import { DateTime } from 'luxon'
 import HotelWhatsappTemplate, { TemplateStatus } from '#models/hotel_whatsapp_template'
 import { ENJOY_STANDARD_TEMPLATES, EnjoyTemplateDefinition } from '../types/enjoyTemplates.js'
 
@@ -63,7 +64,9 @@ export default class WhatsappTemplateSyncService {
         if (existingNames.has(templateDef.name)) {
           const metaTemplate = existingOnMeta.find((t) => t.name === templateDef.name)!
           await this.upsertLocalTemplate(hotelId, templateDef, metaTemplate.id, metaTemplate.status)
-          logger.info(`[TemplateSyncService] "${templateDef.name}" déjà sur Meta (${metaTemplate.status}) — sync locale`)
+          logger.info(
+            `[TemplateSyncService] "${templateDef.name}" déjà sur Meta (${metaTemplate.status}) — sync locale`
+          )
           result.skipped.push(templateDef.name)
           continue
         }
@@ -71,7 +74,9 @@ export default class WhatsappTemplateSyncService {
         // Créer sur Meta
         const created = await this.createTemplateOnMeta(templateDef)
         await this.upsertLocalTemplate(hotelId, templateDef, created.id, created.status)
-        logger.info(`[TemplateSyncService] Template "${templateDef.name}" créé (status: ${created.status})`)
+        logger.info(
+          `[TemplateSyncService] Template "${templateDef.name}" créé (status: ${created.status})`
+        )
         result.created.push(templateDef.name)
       } catch (error) {
         logger.error(
@@ -105,7 +110,7 @@ export default class WhatsappTemplateSyncService {
       .update({
         status,
         rejection_reason: rejectionReason ?? null,
-        last_synced_at: new Date(),
+        last_synced_at: DateTime.now(),
       })
 
     logger.info(
@@ -139,41 +144,39 @@ export default class WhatsappTemplateSyncService {
   // Privé — Meta API
   // ---------------------------------------------------------------------------
 
- private async createTemplateOnMeta(
-  templateDef: EnjoyTemplateDefinition
-): Promise<MetaTemplateCreateResponse> {
-  const payload = {
-    name: templateDef.name,
-    category: templateDef.category,
-    language: templateDef.language,
-    components: templateDef.components,
+  private async createTemplateOnMeta(
+    templateDef: EnjoyTemplateDefinition
+  ): Promise<MetaTemplateCreateResponse> {
+    const payload = {
+      name: templateDef.name,
+      category: templateDef.category,
+      language: templateDef.language,
+      components: templateDef.components,
+    }
+
+    logger.info({ payload: JSON.stringify(payload) }, '[TemplateSyncService] Payload envoyé à Meta')
+
+    const response = await fetch(`${this.baseUrl}/${this.wabaId}/message_templates`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const data = (await response.json()) as any
+
+    logger.info({ response: JSON.stringify(data) }, '[TemplateSyncService] Réponse Meta complète')
+
+    if (!response.ok) {
+      throw new Error(
+        `Meta API ${response.status}: ${data?.error?.message ?? JSON.stringify(data)} | error_data: ${JSON.stringify(data?.error)}`
+      )
+    }
+
+    return data as MetaTemplateCreateResponse
   }
-
-  // Logger le payload envoyé
-  logger.info({ payload: JSON.stringify(payload) }, '[TemplateSyncService] Payload envoyé à Meta')
-
-  const response = await fetch(`${this.baseUrl}/${this.wabaId}/message_templates`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${this.accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-
-  const data = await response.json() as any
-
-  // Logger la réponse complète
-  logger.info({ response: JSON.stringify(data) }, '[TemplateSyncService] Réponse Meta complète')
-
-  if (!response.ok) {
-    throw new Error(
-      `Meta API ${response.status}: ${data?.error?.message ?? JSON.stringify(data)} | error_data: ${JSON.stringify(data?.error)}`
-    )
-  }
-
-  return data as MetaTemplateCreateResponse
-}
 
   private async fetchExistingMetaTemplates(): Promise<MetaTemplateListItem[]> {
     const url = new URL(`${this.baseUrl}/${this.wabaId}/message_templates`)
@@ -189,8 +192,8 @@ export default class WhatsappTemplateSyncService {
       return []
     }
 
-    const data = await response.json() as any
-    return data.data ?? [] 
+    const data = (await response.json()) as any
+    return data.data ?? []
   }
 
   // ---------------------------------------------------------------------------
@@ -213,7 +216,7 @@ export default class WhatsappTemplateSyncService {
         templateId: metaTemplateId,
         status,
         components: templateDef.components,
-        lastSyncedAt: new Date() as any,
+        lastSyncedAt: DateTime.now(),
       })
       await existing.save()
       return existing
@@ -227,7 +230,7 @@ export default class WhatsappTemplateSyncService {
       language: templateDef.language,
       status,
       components: templateDef.components,
-      lastSyncedAt: new Date() as any,
+      lastSyncedAt: DateTime.now(),
     })
   }
 }

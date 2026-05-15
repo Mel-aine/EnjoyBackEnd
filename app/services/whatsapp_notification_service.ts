@@ -1,5 +1,8 @@
 import Hotel from '#models/hotel'
 import env from '#start/env'
+import WhatsappLog from '#models/whatsapp_log'
+import { DateTime } from 'luxon'
+import logger from '@adonisjs/core/services/logger'
 
 const MANAGED_API_CONFIG = {
     provider: 'meta',
@@ -14,6 +17,43 @@ const MANAGED_API_CONFIG = {
 type WhatsAppConfig = Record<string, any>
 
 export default class WhatsAppNotificationService {
+
+     private async writeLog(input: {
+    hotelId: number | null | undefined
+    reservationId?: number | null
+    templateName?: string | null
+    recipientPhone: string | null
+    messageBody: string
+    credentialSource?: string | null
+    deliveryResult: Record<string, any>
+  }): Promise<void> {
+    try {
+      const res = input.deliveryResult
+      const metaMessageId: string | null =
+        res.provider_response?.messages?.[0]?.id ?? null
+
+      const status = res.delivered ? 'sent' : 'failed'
+
+      await WhatsappLog.create({
+        hotelId: input.hotelId ?? 0,
+        reservationId: input.reservationId ?? null,
+        metaMessageId,
+        status,
+        templateName: input.templateName ?? null,
+        recipientPhone: input.recipientPhone,
+        messageBody: input.messageBody,
+        provider: res.provider ?? 'meta',
+        credentialSource: input.credentialSource ?? null,
+        providerResponse: res.provider_response ?? null,
+        failureReason: res.delivered ? null : (res.reason ?? 'unknown'),
+        sentAt: res.delivered ? DateTime.now() : null,
+        failedAt: res.delivered ? null : DateTime.now(),
+      })
+    } catch (err) {
+      // Le logging ne doit jamais bloquer l'envoi
+      logger.warn({ err }, '[WhatsAppNotificationService] Échec écriture log')
+    }
+  }
     private redactConfig(config: WhatsAppConfig) {
         if (!config || typeof config !== 'object') return {}
 
@@ -285,20 +325,35 @@ export default class WhatsAppNotificationService {
         }
     }
 
-    async sendTextMessage(input: {
-        hotelId?: number | null
-        recipientPhoneNumber?: string | null
-        message: string
-        configOverride?: WhatsAppConfig | null
-    }) {
-        const settings = await this.resolveSettings(input.hotelId)
-        return this.deliver({
-            settings,
-            recipientPhoneNumber: input.recipientPhoneNumber,
-            message: input.message,
-            configOverride: input.configOverride,
-        })
-    }
+     async sendTextMessage(input: {
+    hotelId?: number | null
+    reservationId?: number | null       
+    recipientPhoneNumber?: string | null
+    templateName?: string | null           
+    message: string
+    configOverride?: WhatsAppConfig | null
+  }) {
+    const settings = await this.resolveSettings(input.hotelId)
+    const result = await this.deliver({
+      settings,
+      recipientPhoneNumber: input.recipientPhoneNumber,
+      message: input.message,
+      configOverride: input.configOverride,
+    })
+
+    await this.writeLog({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      templateName: input.templateName,
+      recipientPhone: input.recipientPhoneNumber ?? null,
+      messageBody: input.message,
+      credentialSource: (settings as any).credentialSource ?? null,
+      deliveryResult: result,
+    })
+
+    return result
+  }
+
 
     async notifyExtraChargeAdded(input: {
         hotelId?: number | null
@@ -319,6 +374,7 @@ export default class WhatsAppNotificationService {
 
     async notifyReservationConfirmed(input: {
         hotelId?: number | null
+        reservationId?: number | null
         recipientPhoneNumber?: string | null
         recipientName?: string | null
         reservationNumber: string
@@ -329,6 +385,8 @@ export default class WhatsAppNotificationService {
     }) {
         return this.sendTextMessage({
             hotelId: input.hotelId,
+            reservationId: input.reservationId,
+            templateName: 'htl_booking_confirm',
             recipientPhoneNumber: input.recipientPhoneNumber,
             message: this.buildReservationMessage(input),
         })
@@ -336,6 +394,7 @@ export default class WhatsAppNotificationService {
 
     async notifyCheckIn(input: {
         hotelId?: number | null
+        reservationId?: number | null
         recipientPhoneNumber?: string | null
         recipientName?: string | null
         roomNumber: string
@@ -345,27 +404,35 @@ export default class WhatsAppNotificationService {
         return this.sendTextMessage({
             hotelId: input.hotelId,
             recipientPhoneNumber: input.recipientPhoneNumber,
+             reservationId: input.reservationId,
+      
+      templateName: 'check_in',
             message: this.buildCheckInMessage(input),
         })
     }
 
-    async notifyRoomPosting(input: {
-        hotelId?: number | null
-        recipientPhoneNumber?: string | null
-        recipientName?: string | null
-        serviceName: string
-        amountFcfa: string
-        bookingTotalFcfa: string
-    }) {
-        return this.sendTextMessage({
-            hotelId: input.hotelId,
-            recipientPhoneNumber: input.recipientPhoneNumber,
-            message: this.buildRoomPostingMessage(input),
-        })
-    }
+  async notifyRoomPosting(input: {
+    hotelId?: number | null
+    reservationId?: number | null
+    recipientPhoneNumber?: string | null
+    recipientName?: string | null
+    serviceName: string
+    amountFcfa: string
+    bookingTotalFcfa: string
+  }) {
+    return this.sendTextMessage({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      recipientPhoneNumber: input.recipientPhoneNumber,
+      templateName: 'room_posting',
+      message: this.buildRoomPostingMessage(input),
+    })
+  }
+
 
     async notifyCheckOut(input: {
         hotelId?: number | null
+          reservationId?: number | null
         recipientPhoneNumber?: string | null
         recipientName?: string | null
         hotelName: string
@@ -375,6 +442,9 @@ export default class WhatsAppNotificationService {
         return this.sendTextMessage({
             hotelId: input.hotelId,
             recipientPhoneNumber: input.recipientPhoneNumber,
+             reservationId: input.reservationId,
+    
+      templateName: 'htl_checkout_feedback',
             message: this.buildCheckOutMessage(input),
         })
     }

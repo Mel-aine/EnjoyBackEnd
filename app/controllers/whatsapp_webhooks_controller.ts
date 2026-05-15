@@ -3,6 +3,12 @@ import type { HttpContext } from '@adonisjs/core/http'
 import WhatsAppWebhookService from '#services/whatsapp_webhook_service'
 import env from '#start/env'
 
+const STATUS_MAP: Record<string, 'sent' | 'delivered' | 'read' | 'failed'> = {
+  sent: 'sent',
+  delivered: 'delivered',
+  read: 'read',
+  failed: 'failed',
+}
 
 
 export default class WhatsAppWebhookController {
@@ -12,7 +18,7 @@ export default class WhatsAppWebhookController {
   const token = request.qs()['hub.verify_token']
   const challenge = request.qs()['hub.challenge']
 
-  console.log('🔐 Webhook verify appelé')
+  console.log(' Webhook verify appelé')
   console.log('mode:', mode)
   console.log('token reçu:', token)
   console.log('token attendu:', env.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN'))
@@ -21,11 +27,11 @@ export default class WhatsAppWebhookController {
   const verifyToken = env.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
 
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log('✅ Vérification réussie')
+    console.log(' Vérification réussie')
     return response.ok(challenge)  // doit retourner JUSTE le challenge en texte brut
   }
 
-  console.log('❌ Vérification échouée')
+  console.log('Vérification échouée')
   return response.forbidden({ error: 'invalid_verify_token' })
 }
 
