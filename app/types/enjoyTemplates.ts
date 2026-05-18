@@ -9,44 +9,44 @@ export type EnjoyTemplateDefinition = {
 
 export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
   {
-    name: 'enjoy_booking_confirmations',
+    name: 'htl_booking_confirm',
     category: 'UTILITY',
-    language: 'fr',
+    language: 'en',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Confirmation de reservation',
+        text: 'Booking Confirmation',
       },
       {
         type: 'BODY',
-        text: 'Bonjour {{1}},\n\nVotre reservation au {{2}} est confirmee pour le {{3}}.\n\nNumero de reservation : {{4}}\n\nNous avons hate de vous accueillir !',
+        text: 'Hello {{1}},\n\nYour booking at {{2}} is confirmed for {{3}}.\n\nBooking number: {{4}}\n\nWe look forward to welcoming you!',
         example: {
-          body_text: [['Jean Dupont', 'Hotel Enjoy Yaounde', '24 Mai 2025', 'RES-00123']],
+          body_text: [['John Doe', 'Hotel Enjoy Yaounde', 'May 24, 2025', 'RES-00123']],
         },
       },
       {
         type: 'FOOTER',
-        text: 'Enjoy Hotels - Powered by Laakam',
+        text: 'Enjoy Hotels',
       },
     ],
   },
 
   {
-    name: 'enjoy_checkin_reminders',
+    name: 'htl_checkin_remind',
     category: 'UTILITY',
-    language: 'fr',
+    language: 'en',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Votre check-in approche',
+        text: 'Your Check-in is Coming Up',
       },
       {
         type: 'BODY',
-        text: "Bonjour {{1}},\n\nVotre check-in au {{2}} est prevu demain, le {{3}}.\n\nHeure d'arrivee prevue : {{4}}\n\nBesoin d'aide pour votre arrivee ? Repondez a ce message.",
+        text: 'Hello {{1}},\n\nYour check-in at {{2}} is scheduled for tomorrow, {{3}}.\n\nExpected arrival time: {{4}}\n\nNeed help with your arrival? Reply to this message.',
         example: {
-          body_text: [['Jean Dupont', 'Hotel Enjoy Yaounde', '24 Mai 2025', '14h00']],
+          body_text: [['John Doe', 'Hotel Enjoy Yaounde', 'May 24, 2025', '2:00 PM']],
         },
       },
       {
@@ -56,28 +56,28 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
       {
         type: 'BUTTONS',
         buttons: [
-          { type: 'QUICK_REPLY', text: 'Modifier mon arrivee' },
-          { type: 'QUICK_REPLY', text: "Besoin d'aide" },
+          { type: 'QUICK_REPLY', text: 'Change my arrival' },
+          { type: 'QUICK_REPLY', text: 'Need help' },
         ],
       },
     ],
   },
 
   {
-    name: 'enjoy_checkout_feedbacks',
+    name: 'htl_checkout_feedback',
     category: 'MARKETING',
-    language: 'fr',
+    language: 'en',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Votre avis nous interesse',
+        text: 'We Value Your Feedback',
       },
       {
         type: 'BODY',
-        text: 'Bonjour {{1}},\n\nNous esperons que votre sejour au {{2}} vous a plu.\n\nVotre avis compte beaucoup pour nous. Prenez 1 minute pour nous noter !',
+        text: 'Hello {{1}},\n\nWe hope you enjoyed your stay at {{2}}.\n\nYour feedback means a lot to us. Take 1 minute to rate your experience!',
         example: {
-          body_text: [['Jean Dupont', 'Hotel Enjoy Yaounde']],
+          body_text: [['John Doe', 'Hotel Enjoy Yaounde']],
         },
       },
       {
@@ -89,7 +89,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
         buttons: [
           {
             type: 'URL',
-            text: 'Laisser un avis',
+            text: 'Leave a review',
             url: 'https://enjoy-hotels.com/feedback/{{1}}',
             example: ['https://enjoy-hotels.com/feedback/RES-00123'],
           },
@@ -99,21 +99,21 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
   },
 
   {
-    name: 'enjoy_special_offers',
+    name: 'htl_special_offer',
     category: 'MARKETING',
-    language: 'fr',
+    language: 'en',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Offre Exclusive',
+        text: 'Exclusive Offer',
       },
       {
         type: 'BODY',
-        text: "Bonjour {{1}},\n\n{{2}} vous reserve une offre exclusive :\n\n{{3}}\n\nValable jusqu'au {{4}}. Ne manquez pas cette opportunite !",
+        text: 'Hello {{1}},\n\n{{2}} has an exclusive offer just for you:\n\n{{3}}\n\nValid until {{4}}. Do not miss this opportunity!',
         example: {
           body_text: [
-            ['Jean Dupont', 'Hotel Enjoy Yaounde', '-20% sur votre prochain sejour', '31 Mai 2025'],
+            ['John Doe', 'Hotel Enjoy Yaounde', '20% off your next stay', 'May 31, 2025'],
           ],
         },
       },
@@ -126,7 +126,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
         buttons: [
           {
             type: 'URL',
-            text: "Profiter de l'offre",
+            text: 'Claim the offer',
             url: 'https://enjoy-hotels.com/promo/{{1}}',
             example: ['https://enjoy-hotels.com/promo/PROMO2025'],
           },

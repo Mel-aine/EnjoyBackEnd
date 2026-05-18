@@ -1266,7 +1266,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
     })
 
-    const outstandingBalance = totalCharges + totalAdjustments - totalPayments
+    const outstandingBalance = totalCharges + totalAdjustments - totalPayments - totalDiscounts
+    const totalChargesWithDiscounts = totalCharges - totalDiscounts
 
     return {
       totalCharges: parseFloat(totalCharges.toFixed(2)),
@@ -1276,7 +1277,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
       totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
       outstandingBalance: parseFloat(outstandingBalance.toFixed(0)),
-      totalChargesWithTaxes: parseFloat(totalCharges.toFixed(2)),
+      totalChargesWithTaxes: parseFloat(totalChargesWithDiscounts.toFixed(2)),
       creditLedgerTransferred: parseFloat(creditLedgerTransferred.toFixed(2)),
       hasCreditLedgerTransfer: creditLedgerTransferred > 0,
       balanceStatus:
