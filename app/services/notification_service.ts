@@ -167,7 +167,7 @@ export default class NotificationService {
         const Hotel = (await import('#models/hotel')).default
         const h = await Hotel.find(context.hotelId)
         if (h) {
-          vars['HotelName'] = h.name || ''
+          vars['HotelName'] = h.hotelName || ''
           vars['HotelCity'] = h.city || ''
         }
       }
@@ -178,7 +178,7 @@ export default class NotificationService {
         const room = await Room.find(context.roomId)
         if (room) {
           vars['RoomNumber'] = room.roomNumber || ''
-          vars['RoomFloor'] = room.floor || ''
+          vars['RoomFloor'] = room.floorNumber || ''
         }
       }
     } catch {}
@@ -217,4 +217,6 @@ export default class NotificationService {
     // Normalisation clé → permet l’usage {{Var}} et [Var]
     return vars
   }
+
+  
 }

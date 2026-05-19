@@ -71,6 +71,7 @@ import ModulesController from '#controllers/Console/modules_controller'
 import InvoiceSubscriptionsController from '#controllers/Console/invoice_subscriptions_controller'
 import SubscriptionsController from '#controllers/Console/subscriptions_controller'
 import WhatsAppController from '#controllers/whatsapps_controller'
+import WhatsappLogsController from '#controllers/whatsapp_logs_controller'
 import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -240,6 +241,7 @@ const invoiceSubscriptionsController = new InvoiceSubscriptionsController()
 const subscriptionsController = new SubscriptionsController()
 const whatsappController = new WhatsAppController()
 const whatsappWebhookController = new WhatsAppWebhookController()
+const whatsappLogsController = new WhatsappLogsController()
 
 
 
@@ -1669,6 +1671,7 @@ router
 
         // WhatsApp Test Route
         router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
+        router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
 
 
   })

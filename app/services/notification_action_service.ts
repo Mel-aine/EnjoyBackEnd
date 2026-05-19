@@ -1013,6 +1013,49 @@ static async notifyPaxChange(
   }
 
 
+  /**
+ * Notifier le staff quand un feedback négatif est reçu via WhatsApp
+ */
+static async notifyNegativeFeedback(input: {
+  hotelId: number
+  reservationId?: number | null
+  guestPhone: string
+  comment?: string | null
+  stage: 'button_clicked' | 'comment_received'
+}) {
+  try {
+    const templateCode = 'NEGATIVE_FEEDBACK_STAFF'
+
+    const variables = await NotificationService.buildVariables(templateCode, {
+      hotelId: input.hotelId,
+      reservationId: input.reservationId ?? undefined,
+      extra: {
+        GuestPhone:    input.guestPhone,
+        ReservationId: input.reservationId ?? 'N/A',
+        Rating:        'À améliorer',
+        Comment:       input.comment ?? 'En attente du commentaire...',
+        Stage:         input.stage === 'button_clicked'
+                         ? 'Le client a cliqué "À améliorer" — commentaire en attente'
+                         : 'Commentaire reçu',
+        ReceivedAt:    DateTime.now().toFormat('dd/MM/yyyy HH:mm'),
+      },
+    })
+
+    await this.notifyHotelStaff(
+      input.hotelId,
+      templateCode,
+      variables,
+      input.reservationId ?? undefined
+    )
+
+    logger.info('[NegativeFeedback] Staff notifié', {
+      hotelId: input.hotelId,
+      stage: input.stage,
+    })
+  } catch (error) {
+    logger.error('[NegativeFeedback] Erreur notification staff:', error)
+  }
+}
 
 
 
