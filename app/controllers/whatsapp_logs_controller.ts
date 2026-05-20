@@ -5,7 +5,7 @@ import WhatsappLog from '#models/whatsapp_log'
 export default class WhatsappLogsController {
   async index({ params, request, response }: HttpContext) {
     const { hotelId } = params
-    const { reservationId } = request.qs()
+      const { reservationId, page, perPage } = request.qs()
 
     const query = WhatsappLog.query()
       .where('hotel_id', hotelId)
@@ -15,7 +15,8 @@ export default class WhatsappLogsController {
       query.where('reservation_id', reservationId)
     }
 
-    const logs = await query.limit(50)
-    return response.ok({ data: logs })
+    const logs = await query.paginate(Number(page) || 1, Number(perPage) || 20)
+
+    return response.ok(logs)
   }
 }

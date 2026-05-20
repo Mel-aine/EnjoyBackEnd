@@ -73,6 +73,7 @@ import SubscriptionsController from '#controllers/Console/subscriptions_controll
 import WhatsAppController from '#controllers/whatsapps_controller'
 import WhatsappLogsController from '#controllers/whatsapp_logs_controller'
 import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
+import GuestFeedbacksController from '#controllers/guest_feedbacks_controller'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
@@ -242,6 +243,7 @@ const subscriptionsController = new SubscriptionsController()
 const whatsappController = new WhatsAppController()
 const whatsappWebhookController = new WhatsAppWebhookController()
 const whatsappLogsController = new WhatsappLogsController()
+const guestFeedbacksController = new GuestFeedbacksController()
 
 
 
@@ -1672,6 +1674,8 @@ router
         // WhatsApp Test Route
         router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
         router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
+        router.get('/hotels/:id/satisfaction-stats', guestFeedbacksController.index.bind(guestFeedbacksController))
+   
 
 
   })

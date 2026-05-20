@@ -142,7 +142,6 @@ export default class WhatsAppWebhookService {
 
     // ── Routeur feedback ──────────────────────────────────────────────────────────
     private async handleFeedbackReply(hotel: Hotel, message: IncomingMessage): Promise<void> {
-        const POSITIVE_BUTTONS = ['Excellent / Très bien', 'Satisfaisant']
 
         // Cas A/B : le client a cliqué sur un bouton Quick Reply
         if ((message.type === 'interactive' || message.type === 'button') && message.buttonText) {
@@ -164,6 +163,7 @@ export default class WhatsAppWebhookService {
         contextId: string | null
     ): Promise<void> {
         const POSITIVE_BUTTONS = ['Excellent / Très bien', 'Satisfaisant']
+
 
         // Retrouver le log du survey via WhatsappLog
         const surveyLog = await WhatsappLog.query()
@@ -261,6 +261,10 @@ export default class WhatsAppWebhookService {
             .first()
 
         if (!feedback) return // pas une réponse au survey → on laisse notifyPms gérer
+        if (feedback.comment !== null) {
+            console.log(`[Feedback] Commentaire déjà enregistré → ignoré`)
+            return
+        }
 
         feedback.comment = text
         await feedback.save()
@@ -338,6 +342,11 @@ export default class WhatsAppWebhookService {
         if (!message) {
             console.log(' Payload non parseable ou vide')
             return
+        }
+        const alreadyProcessed = await WhatsappLog.findBy('meta_message_id', message.messageId)
+        if (alreadyProcessed) {
+        console.log(`[Webhook] ${message.messageId} déjà traité → ignoré`)
+        return
         }
 
         console.log(` Message de ${message.from} - type: ${message.type} - text: ${message.text}`)

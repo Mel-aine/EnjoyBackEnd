@@ -738,4 +738,66 @@ async sendFeedbackNegativeReply(input: {
       "Nous sommes sincèrement désolés que votre séjour n'ait pas été à la hauteur de vos attentes. 😕\n\nPourriez-vous nous dire ici ce que nous aurions pu mieux faire ? Votre retour sera transmis directement à la direction pour nous améliorer.",
   })
 }
+
+async notifyExpenseAlert(input: {
+ hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string   // {{1}}
+  amount: string          // {{2}} ex: "5 000 FCFA"
+  roomNumber: string      // {{3}} ex: "204"
+  itemLabel: string       // {{4}} ex: "1x Jus de Gingembre - Bar"
+  totalBalance: string    // {{5}} ex: "15 000 FCFA"
+}) {
+  const settings = await this.resolveSettings(input.hotelId)
+
+  if (!settings.enabled) {
+    await this.writeLog({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      templateName: 'expense_alerts',
+      recipientPhone: input.recipientPhoneNumber ?? null,
+      messageBody: '',
+      credentialSource: settings.credentialSource ?? null,
+      deliveryResult: { delivered: false, reason: settings.reason },
+    })
+    return { delivered: false, reason: settings.reason }
+  }
+
+  const recipientPhone = this.normalizePhoneNumber(input.recipientPhoneNumber)
+  if (!recipientPhone) {
+    return { delivered: false, reason: 'missing_recipient_phone_number' }
+  }
+
+  const result = await this.deliverMetaTemplateMessage({
+    recipientPhoneNumber: recipientPhone,
+    templateName: 'expense_alerts',
+    languageCode: 'fr',
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: input.recipientName },  // {{1}}
+          { type: 'text', text: input.amount },         // {{2}}
+          { type: 'text', text: input.roomNumber },     // {{3}}
+          { type: 'text', text: input.itemLabel },      // {{4}}
+          { type: 'text', text: input.totalBalance },
+        ],
+      },
+    ],
+    config: settings.config,
+  })
+
+  await this.writeLog({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    templateName: 'expense_alert',
+    recipientPhone: input.recipientPhoneNumber ?? null,
+    messageBody: `expense_alert | room ${input.roomNumber} | ${input.itemLabel} | ${input.amount}`,
+    credentialSource: settings.credentialSource ?? null,
+    deliveryResult: result,
+  })
+
+  return result
+}
 }

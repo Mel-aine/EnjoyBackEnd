@@ -1,4 +1,7 @@
 import { TemplateComponent } from '#models/hotel_whatsapp_template'
+import env from '#start/env'
+
+
 
 export type EnjoyTemplateDefinition = {
   name: string
@@ -221,33 +224,92 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
   },
   // client satisfait → lien Google
 
-{
-  name: 'feedback_positive_reply',
-  category: 'MARKETING',
-  language: 'fr',
-  components: [
-    {
-      type: 'BODY',
-      text: "C'est un plaisir de le lire ! \n\nPourriez-vous prendre 30 secondes pour partager votre expérience sur notre page Google ? Votre avis aide énormément notre équipe et les futurs voyageurs.",
-  
-    },
-    {
-      type: 'FOOTER',
-      text: 'Enjoy PMS',
-    },
-    {
-      type: 'BUTTONS',
-      buttons: [
-        {
-          type: 'URL',
-          text: 'Laisser un avis',
-          url: 'https://search.google.com/local/writereview?placeid={{1}}',
-          example: ['ChIJXXXXXX'], 
+  {
+    name: 'feedback_positive_reply',
+    category: 'MARKETING',
+    language: 'fr',
+    components: [
+      {
+        type: 'BODY',
+        text: "C'est un plaisir de le lire ! \n\nPourriez-vous prendre 30 secondes pour partager votre expérience sur notre page Google ? Votre avis aide énormément notre équipe .",
+
+      },
+      {
+        type: 'FOOTER',
+        text: 'Enjoy PMS',
+      },
+      {
+        type: 'BUTTONS',
+        buttons: [
+          {
+            type: 'URL',
+            text: 'Laisser un avis',
+            url: 'https://search.google.com/local/writereview?placeid={{1}}',
+            example: ['ChIJXXXXXX'],
+          },
+        ],
+      },
+    ],
+  },
+
+
+  {
+    name: 'feedback_surveys',
+    category: 'MARKETING',
+    language: 'fr',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: 'Votre facture et votre avis'
+      },
+      {
+        type: 'BODY',
+      
+        text: "Bonjour {{1}} ! Merci d'avoir séjourné chez {{2}}.\n\nVous pouvez consulter votre facture finale ici : {{3}}\n\nComment évalueriez-vous votre expérience globale au sein de notre établissement ? Votre avis est précieux pour nous aider à améliorer nos services.",
+        example: {
+          body_text: [['John Doe', 'Hôtel Enjoy Yaoundé', 'https://live.enjoy-stay.com/invoice/inv-123']],
         },
-      ],
-    },
-  ],
-}
+      },
+      {
+        type: 'FOOTER',
+        text: 'Enjoy PMS',
+      },
+      {
+        type: 'BUTTONS',
+        buttons: [
+          { type: 'QUICK_REPLY', text: 'Excellent / Très bien' },
+          { type: 'QUICK_REPLY', text: 'Satisfaisant' },
+          { type: 'QUICK_REPLY', text: 'À améliorer' },
+        ],
+      },
+    ],
+  },
+
+
+  {
+    name: 'htl_booking_confirms',
+    category: 'UTILITY',
+    language: 'fr',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: 'Confirmation de réservation'
+      },
+      {
+        type: 'BODY',
+        text: 'Bonjour {{1}},\n\nVotre réservation chez {{2}} est confirmée pour le {{3}}.\n\nVous pouvez consulter et télécharger votre bon de réservation complet ici : {{4}}\n\nNous avons hâte de vous accueillir !',
+        example: {
+          body_text: [['John Doe', 'Hôtel Enjoy Yaoundé', '24 mai 2026', 'https://live.enjoy-stay.com/voucher/res-123']]
+        },
+      },
+      {
+        type: 'FOOTER',
+        text: 'Enjoy PMS',
+      }
+    ]
+  }
 
 
 
