@@ -193,7 +193,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       } else {
         checkInDateTime = DateTime.now()
       }
-      const checkedInRooms = []
+      const checkedInRooms: any[] = []
       // Vérifier que toutes les chambres ont un roomId valide
       const invalidRooms = reservationRoomsToCheckIn.filter((rr) => !rr.roomId)
       if (invalidRooms.length > 0) {
@@ -342,6 +342,63 @@ export default class ReservationsController extends CrudController<typeof Reserv
           } catch (summaryError) {
             console.error('Error recomputing guest summary:', summaryError)
           }
+
+          try {
+            const WhatsAppNotificationService = (
+              await import('#services/whatsapp_notification_service')
+            ).default
+            const svc = new WhatsAppNotificationService()
+ 
+            const Guest = (await import('#models/guest')).default
+            const Hotel = (await import('#models/hotel')).default
+ 
+            const [guest, hotel] = await Promise.all([
+              Guest.find(reservation.guestId),
+              Hotel.find(reservation.hotelId),
+            ])
+ 
+            const phone = guest?.phoneSecondary || guest?.phonePrimary
+            if (!phone) {
+              console.warn('[WA CheckIn] No phone number for guest')
+              return
+            }
+ 
+            const recipientName  = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()
+            const hotelName      = hotel?.hotelName || 'Our hotel'
+            const roomNumber     = checkedInRooms?.[0]?.roomNumber || 'N/A'
+ 
+            const ns   = hotel?.notificationSettings ?? {}
+            const wifiCode       = ns.wifiCode       ?? null
+            const breakfastStart = ns.breakfastStart ?? null
+            const breakfastEnd   = ns.breakfastEnd   ?? null
+            const hasSmartLock   = ns.hasSmartLock   ?? false
+ 
+            // ── Clé numérique (serrure connectée) ─────────────────────────────
+           
+            let digitalKeyToken: string | null = null
+            if (hasSmartLock) {   
+              // Exemple : digitalKeyToken = await SmartLockService.getTokenForReservation(reservation.id)
+              digitalKeyToken = reservation.reservationNumber ?? null
+            }
+ 
+            const result = await svc.notifyCheckInWelcome({
+              hotelId:  reservation.hotelId,
+              reservationNumber: reservation.reservationNumber,
+              recipientPhoneNumber: phone,
+              recipientName,
+              hotelName,
+              roomNumber,
+              wifiCode,
+              breakfastStart,
+              breakfastEnd,
+              digitalKeyToken,
+            })
+ 
+            console.log('[WA CheckIn] Result:', JSON.stringify(result))
+          } catch (waErr) {
+            console.error('[WA CheckIn] Failed:', waErr)
+          }
+
       })
 
       return response.ok({
@@ -754,6 +811,38 @@ export default class ReservationsController extends CrudController<typeof Reserv
           logger.error('Error sending check-out notifications', notifError)
         }
 
+       
+      // Emit event → listener planifie le feedback survey dans 2h
+       try {
+          const { default: emitter } = await import('@adonisjs/core/services/emitter')
+          const { default: ReservationCheckedOut } = await import('#events/reservation_checked_out')
+          const { default: Guest } = await import('#models/guest')
+          const { default: Hotel } = await import('#models/hotel')
+
+          const [guest, hotel] = await Promise.all([
+            Guest.find(reservation.guestId),
+            Hotel.find(reservation.hotelId),
+          ])
+
+          const phone = guest?.phoneSecondary || guest?.phonePrimary || null
+          const guestName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()
+          const hotelName = hotel?.hotelName || 'Notre hôtel'
+
+          //  Classe comme premier argument + await
+          await emitter.emit(
+            ReservationCheckedOut,
+            new ReservationCheckedOut(
+              reservation.id,
+              reservation.hotelId,
+              reservation.guestId ?? null,
+              phone,
+              guestName,
+              hotelName
+            )
+          )
+        } catch (waErr) {
+          logger.error('[WA FeedbackSurvey] Erreur émission event', waErr)
+        }
 
       })
 
@@ -3575,6 +3664,35 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
             console.log('Notification envoyée')
+            try {
+              const WhatsAppNotificationService = (
+                await import('#services/whatsapp_notification_service')
+              ).default
+              const svc = new WhatsAppNotificationService()
+              const phone = primaryGuest.phoneSecondary || primaryGuest.phonePrimary
+              if (!phone) {
+                console.warn('[WA] Pas de téléphone pour le guest, WhatsApp annulé')
+              } else {
+               
+                const Hotel = (await import('#models/hotel')).default
+                const hotel = await Hotel.find(reservation.hotelId)
+
+                const result = await svc.notifyReservationConfirmed({
+                  hotelId: reservation.hotelId,
+                  reservationId: reservation.id,
+                  recipientPhoneNumber: phone,
+                  recipientName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
+                  hotelName: hotel?.hotelName || 'Notre hôtel',
+                  checkInDate: arrivedDate.toFormat('MMM dd, yyyy'),   // "May 18, 2026" — format attendu par le template
+                  checkOutDate: departDate.toFormat('MMM dd, yyyy'),   
+                  reservationNumber: reservation.reservationNumber || '',
+                })
+
+                console.log('[WA] Résultat réservation:', JSON.stringify(result))
+              }
+            } catch (waErr) {
+              console.error('[WA] WhatsApp reservation notification failed:', waErr)
+            }
           } catch (notifError) {
             console.warn('Erreur notifications réservation:', (notifError as any)?.message)
           }

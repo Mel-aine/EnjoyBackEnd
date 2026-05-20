@@ -82,8 +82,20 @@ export default class Hotel extends BaseModel {
   })
   declare whatsappConfig: Record<string, any>
 
+  @column({
+    columnName: 'notification_settings',
+    prepare: (value) => JSON.stringify(value ?? {}),
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : (value ?? {})),
+  })
+  declare notificationSettings: Record<string, any>
+
+
+
   @column({ columnName: 'license_number' })
   declare licenseNumber: string | null
+
+  @column({ columnName: 'google_place_id' })
+  declare googlePlaceId: string | null
 
   @column()
   declare status: string

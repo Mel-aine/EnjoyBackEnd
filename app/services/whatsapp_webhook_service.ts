@@ -14,6 +14,8 @@ interface IncomingMessage {
     type: string
     text?: string
     timestamp: string
+    contextId?: string | null        // id du message auquel le client répond
+    buttonText?: string | null
 }
 
 export default class WhatsAppWebhookService {
@@ -42,6 +44,12 @@ export default class WhatsAppWebhookService {
                 type: message.type,
                 text: message.text?.body ?? null,
                 timestamp: message.timestamp,
+                contextId: message.context?.id ?? null,
+                buttonText: message.interactive?.type === 'button_reply'
+                ? message.interactive.button_reply.text
+                : message.type === 'button'
+                ? message.button?.text ?? null
+                : null,
             }
         } catch (err) {
             console.log(' parsePayload - erreur:', err)
@@ -132,6 +140,161 @@ export default class WhatsAppWebhookService {
         // await Event.emit('whatsapp:message:received', { hotel, message })
     }
 
+    // ── Routeur feedback ──────────────────────────────────────────────────────────
+    private async handleFeedbackReply(hotel: Hotel, message: IncomingMessage): Promise<void> {
+        const POSITIVE_BUTTONS = ['Excellent / Très bien', 'Satisfaisant']
+
+        // Cas A/B : le client a cliqué sur un bouton Quick Reply
+        if ((message.type === 'interactive' || message.type === 'button') && message.buttonText) {
+            await this.handleSurveyButton(hotel, message.from, message.buttonText, message.contextId ?? null)
+            return
+        }
+
+        // Cas B suite : le client a tapé un commentaire libre
+        if (message.type === 'text' && message.text) {
+            await this.handleNegativeComment(hotel, message.from, message.text)
+        }
+    }
+
+
+    private async handleSurveyButton(
+        hotel: Hotel,
+        from: string,
+        buttonText: string,
+        contextId: string | null
+    ): Promise<void> {
+        const POSITIVE_BUTTONS = ['Excellent / Très bien', 'Satisfaisant']
+
+        // Retrouver le log du survey via WhatsappLog
+        const surveyLog = await WhatsappLog.query()
+            .where('hotel_id', hotel.id)
+            .where('template_name', 'feedback_survey')
+            .where((q) => {
+                if (contextId) q.where('meta_message_id', contextId)
+                else q.where('recipient_phone', from)
+            })
+            .orderBy('created_at', 'desc')
+            .first()
+
+        if (!surveyLog) {
+            console.warn('[Feedback] Survey log introuvable', { from, contextId })
+            return
+        }
+
+        const { default: GuestFeedback } = await import('#models/guest_feedback')
+
+        const rating =
+            buttonText === 'Excellent / Très bien' ? 'excellent'
+                : buttonText === 'Satisfaisant' ? 'satisfaisant'
+                    : 'a_ameliorer'
+
+        // Enregistrer le feedback
+        await GuestFeedback.create({
+            hotelId: hotel.id,
+            reservationId: surveyLog.reservationId ?? null,
+            phoneNumber: from,
+            rating,
+            comment: null,
+            surveyWaMessageId: contextId,
+        })
+
+        console.log(`[Feedback] Rating enregistré: ${rating} pour ${from}`)
+
+        const { default: WhatsAppNotificationService } = await import(
+            '#services/whatsapp_notification_service'
+        )
+        const svc = new WhatsAppNotificationService()
+
+        if (POSITIVE_BUTTONS.includes(buttonText)) {
+            // ── Cas A : lien Google
+            if (!hotel.googlePlaceId) {
+                console.warn('[Feedback] googlePlaceId manquant pour hotel_id:', hotel.id)
+                return
+            }
+
+            await svc.sendFeedbackPositiveReply({
+                hotelId: hotel.id,
+                reservationId: surveyLog.reservationId ?? null,
+                recipientPhoneNumber: from,
+                googlePlaceId: hotel?.googlePlaceId ?? '',
+            })
+        } else {
+            // ── Cas B : question ouverte
+            await svc.sendFeedbackNegativeReply({
+                hotelId: hotel.id,
+                reservationId: surveyLog.reservationId ?? null,
+                recipientPhoneNumber: from,
+            })
+            //alerte email immediate au gerant
+            try {
+                const { default: CheckInCheckOutNotificationService } = await import(
+                    '#services/notification_action_service'
+                )
+                await CheckInCheckOutNotificationService.notifyNegativeFeedback({
+                    hotelId: surveyLog.hotelId,
+                    reservationId: surveyLog.reservationId ?? null,
+                    guestPhone: from,
+                    comment: null,
+                    stage: 'button_clicked',
+                })
+            } catch (notifErr) {
+                console.error('[Feedback] Erreur notification staff (bouton):', notifErr)
+            }
+
+        }
+    }
+
+
+    private async handleNegativeComment(
+        hotel: Hotel,
+        from: string,
+        text: string
+    ): Promise<void> {
+        const { default: GuestFeedback } = await import('#models/guest_feedback')
+
+        const feedback = await GuestFeedback.query()
+            .where('hotel_id', hotel.id)
+            .where('phone_number', from)
+            .where('rating', 'a_ameliorer')
+            .whereNull('comment')
+            .orderBy('created_at', 'desc')
+            .first()
+
+        if (!feedback) return // pas une réponse au survey → on laisse notifyPms gérer
+
+        feedback.comment = text
+        await feedback.save()
+
+        console.log(`[Feedback] Commentaire négatif sauvegardé, id=${feedback.id}`)
+
+        // Accusé de réception
+        const { default: WhatsAppNotificationService } = await import(
+            '#services/whatsapp_notification_service'
+        )
+        const svc = new WhatsAppNotificationService()
+
+        await svc.sendTextMessage({
+            hotelId: hotel.id,
+            reservationId: feedback.reservationId,
+            recipientPhoneNumber: from,
+            message:
+                'Merci pour votre retour. 🙏 Votre commentaire a bien été transmis à la direction. Nous ferons le nécessaire pour nous améliorer.',
+        })
+        try {
+            const { default: NotificationService } = await import(
+                '#services/notification_action_service'
+            )
+            await NotificationService.notifyNegativeFeedback({
+                hotelId: hotel.id,
+                reservationId: feedback.reservationId,
+                guestPhone: from,
+                comment: text,
+                stage: 'comment_received',
+            })
+        } catch (notifErr) {
+            console.error('[Feedback] Erreur notification staff (commentaire):', notifErr)
+        }
+    }
 
 
     async process(payload: any): Promise<void> {
@@ -194,6 +357,9 @@ export default class WhatsAppWebhookService {
         await trackingService.track(hotel, message.from)
 
         await this.notifyPms(hotel, message)
+        await this.handleFeedbackReply(hotel, message).catch((err: any) =>
+            console.error('[WhatsappWebhook] Erreur feedback reply:', err)
+        )
         console.log('Traitement terminé')
     }
 

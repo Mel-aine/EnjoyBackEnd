@@ -11,23 +11,23 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
   {
     name: 'htl_booking_confirm',
     category: 'UTILITY',
-    language: 'en',
+    language: 'fr',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Booking Confirmation',
+        text: 'Confirmation de réservation',
       },
       {
         type: 'BODY',
-        text: 'Hello {{1}},\n\nYour booking at {{2}} is confirmed for {{3}}.\n\nBooking number: {{4}}\n\nWe look forward to welcoming you!',
+        text: 'Bonjour {{1}},\n\nVotre réservation chez {{2}} est confirmée pour le {{3}}.\n\nNuméro de réservation : {{4}}\n\nNous avons hâte de vous accueillir !',
         example: {
-          body_text: [['John Doe', 'Hotel Enjoy Yaounde', 'May 24, 2025', 'RES-00123']],
+          body_text: [['John Doe', 'Hôtel Enjoy Yaoundé', '24 mai 2025', 'RES-00123']],
         },
       },
       {
         type: 'FOOTER',
-        text: 'Enjoy Hotels',
+        text: 'Enjoy PMS',
       },
     ],
   },
@@ -35,103 +35,220 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
   {
     name: 'htl_checkin_remind',
     category: 'UTILITY',
-    language: 'en',
+    language: 'fr',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Your Check-in is Coming Up',
+        text: 'Votre enregistrement approche',
       },
       {
         type: 'BODY',
-        text: 'Hello {{1}},\n\nYour check-in at {{2}} is scheduled for tomorrow, {{3}}.\n\nExpected arrival time: {{4}}\n\nNeed help with your arrival? Reply to this message.',
+        text: 'Bonjour {{1}},\n\nVotre enregistrement chez {{2}} est prévu pour demain, {{3}}.\n\nHeure d\'arrivée prévue : {{4}}\n\nBesoin d\'aide pour votre arrivée ? Répondez à ce message.',
         example: {
-          body_text: [['John Doe', 'Hotel Enjoy Yaounde', 'May 24, 2025', '2:00 PM']],
+          body_text: [['John Doe', 'Hôtel Enjoy Yaoundé', '24 mai 2025', '14h00']],
         },
       },
       {
         type: 'FOOTER',
-        text: 'Enjoy Hotels',
+        text: 'Enjoy PMS',
       },
       {
         type: 'BUTTONS',
         buttons: [
-          { type: 'QUICK_REPLY', text: 'Change my arrival' },
-          { type: 'QUICK_REPLY', text: 'Need help' },
+          { type: 'QUICK_REPLY', text: 'Changer mon arrivée' },
+          { type: 'QUICK_REPLY', text: 'Besoin d\'aide' },
         ],
       },
     ],
   },
 
   {
-    name: 'htl_checkout_feedback',
+    name: 'feedback_survey',
     category: 'MARKETING',
-    language: 'en',
+    language: 'fr',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'We Value Your Feedback',
+        text: 'Merci pour votre séjour',
       },
       {
         type: 'BODY',
-        text: 'Hello {{1}},\n\nWe hope you enjoyed your stay at {{2}}.\n\nYour feedback means a lot to us. Take 1 minute to rate your experience!',
+        text: "Bonjour {{1}} ! Merci d'avoir séjourné chez {{2}}.\n\nNous espérons que vous avez fait bon voyage. Comment évalueriez-vous votre expérience globale au sein de notre établissement ?",
         example: {
-          body_text: [['John Doe', 'Hotel Enjoy Yaounde']],
+          body_text: [['John Doe', 'Hôtel Enjoy Yaoundé']],
         },
       },
       {
         type: 'FOOTER',
-        text: 'Enjoy Hotels',
+        text: 'Enjoy PMS',
       },
+
       {
+
         type: 'BUTTONS',
         buttons: [
-          {
-            type: 'URL',
-            text: 'Leave a review',
-            url: 'https://enjoy-hotels.com/feedback/{{1}}',
-            example: ['https://enjoy-hotels.com/feedback/RES-00123'],
-          },
+          { type: 'QUICK_REPLY', text: 'Excellent / Très bien' },
+          { type: 'QUICK_REPLY', text: 'Satisfaisant' },
+          { type: 'QUICK_REPLY', text: 'À améliorer' },
         ],
+
+
       },
     ],
   },
+
 
   {
     name: 'htl_special_offer',
     category: 'MARKETING',
-    language: 'en',
+    language: 'fr',
     components: [
       {
         type: 'HEADER',
         format: 'TEXT',
-        text: 'Exclusive Offer',
+        text: 'Offre exclusive',
       },
       {
         type: 'BODY',
-        text: 'Hello {{1}},\n\n{{2}} has an exclusive offer just for you:\n\n{{3}}\n\nValid until {{4}}. Do not miss this opportunity!',
+        text: 'Bonjour {{1}},\n\n{{2}} a une offre exclusive juste pour vous :\n\n{{3}}\n\nValable jusqu\'au {{4}}. Ne manquez pas cette opportunité !',
         example: {
           body_text: [
-            ['John Doe', 'Hotel Enjoy Yaounde', '20% off your next stay', 'May 31, 2025'],
+            ['John Doe', 'Hôtel Enjoy Yaoundé', '20 % de réduction sur votre prochain séjour', '31 mai 2025'],
           ],
         },
       },
       {
         type: 'FOOTER',
-        text: 'Enjoy Hotels',
+        text: 'Enjoy PMS',
       },
       {
         type: 'BUTTONS',
         buttons: [
           {
             type: 'URL',
-            text: 'Claim the offer',
-            url: 'https://enjoy-hotels.com/promo/{{1}}',
-            example: ['https://enjoy-hotels.com/promo/PROMO2025'],
+            text: 'Profitez de l\'offre',
+            url: 'https://live.enjoy-stay.com/promo/{{1}}',
+            example: ['https://live.enjoy-stay.com/promo/PROMO2025'],
           },
         ],
       },
     ],
   },
+
+  {
+    name: 'checkin_welcome',
+    category: 'UTILITY',
+    language: 'fr',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: 'Bienvenue chez {{1}} !',
+        example: {
+          header_text: ['Hôtel Enjoy Yaoundé'],
+        },
+      },
+      {
+        type: 'BODY',
+        // Les variables recommencent à {{1}} pour le bloc BODY
+        text: 'Bonjour {{1}},\n\nBienvenue ! Votre chambre {{2}} est prête.\n\nWi-Fi : {{3}}\nPetit-déjeuner : {{4}} – {{5}}\n\nProfitez de votre séjour ! N\'hésitez pas à répondre à ce message si vous avez besoin de quoi que ce soit.',
+        example: {
+          body_text: [
+            [
+              'John Doe',        // {{1}}
+              '204',             // {{2}}
+              'EnjoyGuest2025',  // {{3}}
+              '07:00',           // {{4}}
+              '10:00',           // {{5}}
+            ],
+          ],
+        },
+      },
+      {
+        type: 'FOOTER',
+        text: 'Enjoy PMS',
+      },
+      {
+        type: 'BUTTONS',
+        buttons: [
+          {
+            type: 'URL',
+            text: 'Ouvrir ma clé numérique',
+            // Si cette variable fait référence à un paramètre dynamique de l'URL, elle doit être {{1}} pour ce bouton
+            url: 'https://live.enjoy-stay.com/key/{{1}}',
+            example: ['RES-00123'],
+          },
+        ],
+      },
+    ],
+  },
+
+
+
+
+  {
+    name: 'expense_alerts',
+    category: 'UTILITY',
+    language: 'fr',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: 'Alerte de dépense',
+      },
+      {
+        type: 'BODY',
+        text: 'Bonjour {{1}},\n\nVous avez effectué une dépense de {{2}} dans votre chambre {{3}}.\n\nDétail de la dépense : {{4}}.\n\nVotre solde total cumulé est désormais de {{5}}. Merci de vérifier vos dépenses pour éviter les surprises au moment du checkout.',
+        example: {
+          body_text: [
+            [
+              'John Doe', // {{1}} - Nom du client
+              '5 000 FCFA', // {{2}} - Montant de la transaction
+              '204', // {{3}} - Numéro de chambre
+              '1x Jus de Gingembre - Bar', // {{4}} - Libellé de la consommation
+              '15 000 FCFA' // {{5}} - Nouveau solde total cumulé
+            ],
+          ],
+        },
+      },
+      {
+        type: 'FOOTER',
+        text: 'Enjoy PMS',
+      },
+    ],
+  },
+  // client satisfait → lien Google
+
+{
+  name: 'feedback_positive_reply',
+  category: 'MARKETING',
+  language: 'fr',
+  components: [
+    {
+      type: 'BODY',
+      text: "C'est un plaisir de le lire ! \n\nPourriez-vous prendre 30 secondes pour partager votre expérience sur notre page Google ? Votre avis aide énormément notre équipe et les futurs voyageurs.",
+  
+    },
+    {
+      type: 'FOOTER',
+      text: 'Enjoy PMS',
+    },
+    {
+      type: 'BUTTONS',
+      buttons: [
+        {
+          type: 'URL',
+          text: 'Laisser un avis',
+          url: 'https://search.google.com/local/writereview?placeid={{1}}',
+          example: ['ChIJXXXXXX'], 
+        },
+      ],
+    },
+  ],
+}
+
+
+
 ]

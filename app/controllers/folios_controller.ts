@@ -466,10 +466,11 @@ export default class FoliosController {
         .where('folio_id', folio.id)
         .where('is_voided', false)
         .where('transaction_type', TransactionType.CHARGE)
-        .sum('amount as total')
+        .sum('total_amount  as total')
         .first()
 
       const applicableBase = parseFloat(`${baseAmountResult?.total || 0}`)
+ 
 
       // Calculate discount amount
       let discountAmount = 0
