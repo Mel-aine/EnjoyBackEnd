@@ -18,16 +18,10 @@ export default class WhatsAppWebhookController {
   const token = request.qs()['hub.verify_token']
   const challenge = request.qs()['hub.challenge']
 
-  console.log(' Webhook verify appelé')
-  console.log('mode:', mode)
-  console.log('token reçu:', token)
-  console.log('token attendu:', env.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN'))
-  console.log('challenge:', challenge)
 
   const verifyToken = env.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
 
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log(' Vérification réussie')
     return response.ok(challenge)  // doit retourner JUSTE le challenge en texte brut
   }
 
@@ -37,12 +31,12 @@ export default class WhatsAppWebhookController {
 
   async handle({ request, response }: HttpContext) {
     const payload = request.body()
-    console.log(' Webhook reçu:', JSON.stringify(payload, null, 2))
 
+    response.ok({ status: 'received' })
     const service = new WhatsAppWebhookService()
-    await service.process(payload)
-
-    // Meta exige toujours un 200 rapide
-    return response.ok({ status: 'received' })
+    service.process(payload).catch((err) =>
+      console.error('[Webhook] Erreur traitement asynchrone:', err)
+    )
+   
   }
 }

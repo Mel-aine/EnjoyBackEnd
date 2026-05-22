@@ -698,7 +698,8 @@ export default class HotelsController {
         'whatsappEnabled',
         'whatsappProviderType',
         'whatsappConfig',
-        'notificationSettings'
+        'notificationSettings',
+        'googlePlaceId'
       ])
       const whatsappJustEnabled =
       payload.whatsappEnabled === true && hotel.whatsappEnabled === false

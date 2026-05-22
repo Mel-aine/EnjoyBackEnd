@@ -241,6 +241,58 @@ export default class PosController {
         status: TransactionStatus.COMPLETED
       })
       await FolioService.updateFolioTotals(parseInt(folioId))
+       // ── Notification WhatsApp (fire & forget) ─────────────────────────
+    setImmediate(async () => {
+      try {
+        const { default: ReservationRoom } = await import('#models/reservation_room')
+        const { default: WhatsAppNotificationService } = await import('#services/whatsapp_notification_service')
+
+        const reservationRoom = await ReservationRoom.query()
+          .where('id', parseInt(reservationRoomId))
+          .preload('guest')
+          .preload('room')
+          .preload('reservation', (q) => q.preload('guest'))
+          .firstOrFail()
+
+        const guest = reservationRoom.guest ?? reservationRoom.reservation?.guest
+        const phone = guest?.phoneSecondary ?? guest?.phonePrimary ?? null
+        const roomNumber = reservationRoom.room?.roomNumber ?? String(roomId)
+        const recipientName = guest?.displayName ?? 'Customer'
+
+        // Montant formaté
+        const formattedAmount = new Intl.NumberFormat('fr-FR').format(parseFloat(amount)) + ' FCFA'
+
+        // Libellé depuis articles ou description
+        let itemLabel = description
+        if (Array.isArray(articles) && articles.length > 0) {
+          itemLabel = articles
+            .map((a: any) => `${a.quantity ?? 1}x ${a.name ?? a.label}`)
+            .join(', ')
+        }
+
+        // Nouveau solde total après mise à jour
+        const updatedFolio = await Folio.find(parseInt(folioId))
+        const totalBalance = new Intl.NumberFormat('fr-FR').format(
+          updatedFolio?.totalCharges ?? 0
+        ) + ' FCFA'
+
+        if (phone) {
+          const whatsappService = new WhatsAppNotificationService()
+          await whatsappService.notifyExpenseAlert({
+            hotelId: parseInt(hotelId),
+            reservationId: reservationRoom.reservation?.id ?? null,
+            recipientPhoneNumber: phone,
+            recipientName,
+            amount: formattedAmount,
+            roomNumber,
+            itemLabel,
+            totalBalance,
+          })
+        }
+      } catch (notifError) {
+        logger.warn({ notifError }, '[POS] WhatsApp expense_alert failed — posting saved')
+      }
+    })
       return response.status(201).json({
         success: true,
         message: 'Room posting transaction created successfully',
