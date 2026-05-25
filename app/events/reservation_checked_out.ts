@@ -7,7 +7,8 @@ export default class ReservationCheckedOut extends BaseEvent {
     public readonly guestId: number | null,
     public readonly recipientPhone: string | null,
     public readonly recipientName: string,
-    public readonly hotelName: string
+    public readonly hotelName: string,
+    public readonly invoiceUrl: string,
   ) {
     super()
   }

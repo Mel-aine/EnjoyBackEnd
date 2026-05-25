@@ -51,6 +51,13 @@ export default class MailService {
   }
 
   static async sendWithAttachments(options: SendWithAttachmentsOptions) {
+      console.log('[MailService] Config:', {
+    driver: mail.use().name,         // smtp, ses, mailgun, etc.
+    to: options.to,
+    from: options.from,
+    subject: options.subject,
+    attachmentsCount: options.attachments?.length ?? 0,
+  })
     const { to, from, subject, text, html, cc = [], bcc = [], attachments = [] } = options
     await mail.send((message) => {
       const addRecipient = (recip: Recipient, fn: (address: string, name?: string) => void) => {

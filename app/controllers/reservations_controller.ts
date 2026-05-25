@@ -325,64 +325,62 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Queue post-commit tasks to run asynchronously
       runInBackground(async () => {
-          try {
-            const CheckinCheckoutNotificationService = (
-              await import('#services/notification_action_service')
-            ).default
-            await CheckinCheckoutNotificationService.notifyCheckInCompleted(
-              reservation.id,
-              auth.user!.id
-            )
-          } catch (notifError) {
-            console.error('Error sending check-in notifications:', notifError)
-          }
+        try {
+          const CheckinCheckoutNotificationService = (
+            await import('#services/notification_action_service')
+          ).default
+          await CheckinCheckoutNotificationService.notifyCheckInCompleted(
+            reservation.id,
+            auth.user!.id
+          )
+        } catch (notifError) {
+          console.error('Error sending check-in notifications:', notifError)
+        }
 
-          try {
-            await GuestSummaryService.recomputeFromReservation(reservation.id)
-          } catch (summaryError) {
-            console.error('Error recomputing guest summary:', summaryError)
-          }
+        try {
+          await GuestSummaryService.recomputeFromReservation(reservation.id)
+        } catch (summaryError) {
+          console.error('Error recomputing guest summary:', summaryError)
+        }
 
-          try {
-            const WhatsAppNotificationService = (
-              await import('#services/whatsapp_notification_service')
-            ).default
-            const svc = new WhatsAppNotificationService()
- 
-            const Guest = (await import('#models/guest')).default
-            const Hotel = (await import('#models/hotel')).default
- 
-            const [guest, hotel] = await Promise.all([
-              Guest.find(reservation.guestId),
-              Hotel.find(reservation.hotelId),
-            ])
- 
-            const phone = guest?.phoneSecondary || guest?.phonePrimary
-            if (!phone) {
-              console.warn('[WA CheckIn] No phone number for guest')
-              return
-            }
- 
-            const recipientName  = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()
-            const hotelName      = hotel?.hotelName || 'Our hotel'
-            const roomNumber     = checkedInRooms?.[0]?.roomNumber || 'N/A'
- 
-            const ns   = hotel?.notificationSettings ?? {}
-            const wifiCode       = ns.wifiCode       ?? null
+        try {
+          const WhatsAppNotificationService = (
+            await import('#services/whatsapp_notification_service')
+          ).default
+          const svc = new WhatsAppNotificationService()
+
+          const Guest = (await import('#models/guest')).default
+          const Hotel = (await import('#models/hotel')).default
+
+          const [guest, hotel] = await Promise.all([
+            Guest.find(reservation.guestId),
+            Hotel.find(reservation.hotelId),
+          ])
+
+          const phone = reservation.whatsappNotificationEnable
+            ? (reservation.whatsappNumber || guest?.phonePrimary)
+            : null
+
+          if (!phone) {
+            console.log('[WA CheckIn] WhatsApp disabled or no number for this reservation')
+          } else {
+            const recipientName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()
+            const hotelName = hotel?.hotelName || 'Our hotel'
+            const roomNumber = checkedInRooms?.[0]?.roomNumber || 'N/A'
+
+            const ns = hotel?.notificationSettings ?? {}
+            const wifiCode = ns.wifiCode ?? null
             const breakfastStart = ns.breakfastStart ?? null
-            const breakfastEnd   = ns.breakfastEnd   ?? null
-            const hasSmartLock   = ns.hasSmartLock   ?? false
- 
-            // ── Clé numérique (serrure connectée) ─────────────────────────────
-           
+            const breakfastEnd = ns.breakfastEnd ?? null
+            const hasSmartLock = ns.hasSmartLock ?? false
+
             let digitalKeyToken: string | null = null
-            if (hasSmartLock) {   
-              // Exemple : digitalKeyToken = await SmartLockService.getTokenForReservation(reservation.id)
+            if (hasSmartLock) {
               digitalKeyToken = reservation.reservationNumber ?? null
             }
- 
+
             const result = await svc.notifyCheckInWelcome({
-              hotelId:  reservation.hotelId,
+              hotelId: reservation.hotelId,
               reservationNumber: reservation.reservationNumber,
               recipientPhoneNumber: phone,
               recipientName,
@@ -393,11 +391,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
               breakfastEnd,
               digitalKeyToken,
             })
- 
+
             console.log('[WA CheckIn] Result:', JSON.stringify(result))
-          } catch (waErr) {
-            console.error('[WA CheckIn] Failed:', waErr)
-          }
+          } // ← ferme le else
+        } catch (waErr) {
+          console.error('[WA CheckIn] Failed:', waErr)
+        }
 
       })
 
@@ -811,11 +810,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
           logger.error('Error sending check-out notifications', notifError)
         }
 
-       
-      // Emit event → listener planifie le feedback survey dans 2h
-       try {
+
+        // Emit event → listener planifie le feedback survey dans 2h
+        try {
           const { default: emitter } = await import('@adonisjs/core/services/emitter')
           const { default: ReservationCheckedOut } = await import('#events/reservation_checked_out')
+          const { default: ReservationSendWhatsappService } = await import('#services/reservation_send_whatsapp_service')
           const { default: Guest } = await import('#models/guest')
           const { default: Hotel } = await import('#models/hotel')
 
@@ -824,22 +824,44 @@ export default class ReservationsController extends CrudController<typeof Reserv
             Hotel.find(reservation.hotelId),
           ])
 
-          const phone = guest?.phoneSecondary || guest?.phonePrimary || null
-          const guestName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()
-          const hotelName = hotel?.hotelName || 'Notre hôtel'
 
-          //  Classe comme premier argument + await
-          await emitter.emit(
-            ReservationCheckedOut,
-            new ReservationCheckedOut(
-              reservation.id,
-              reservation.hotelId,
-              reservation.guestId ?? null,
-              phone,
-              guestName,
-              hotelName
+          const phone = reservation.whatsappNotificationEnable
+            ? (reservation.whatsappNumber || guest?.phonePrimary)
+            : null
+          if (!phone) {
+            console.log('[WA CheckOut] WhatsApp disabled for this reservation')
+          } else {
+            const guestName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()
+            const hotelName = hotel?.hotelName || 'Notre hôtel'
+            let invoiceUrl = ''
+
+            try {
+              const folios = reservation.folios || []
+              const folioId = folios[0]?.id ?? null
+              invoiceUrl = await ReservationSendWhatsappService.generateInvoiceUrl({
+                reservationId: reservation.id,
+                reservationNumber: reservation.reservationNumber || '',
+                folioId,
+              })
+            } catch (urlErr) {
+              console.warn('[WA] Impossible de générer invoice URL pour survey:', urlErr)
+            }
+
+
+            //  Classe comme premier argument + await
+            await emitter.emit(
+              ReservationCheckedOut,
+              new ReservationCheckedOut(
+                reservation.id,
+                reservation.hotelId,
+                reservation.guestId ?? null,
+                phone,
+                guestName,
+                hotelName,
+                invoiceUrl,
+              )
             )
-          )
+          }
         } catch (waErr) {
           logger.error('[WA FeedbackSurvey] Erreur émission event', waErr)
         }
@@ -1424,8 +1446,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
     const hasSameDayRoomCheckIn = Array.isArray(reservation.reservationRooms) && reservation.reservationRooms.some(
       (rr: any) =>
-        ['checked_in'].includes((rr.status || '').toLowerCase()) &&  !rr.isplitedDestinatination &&
-        ((rr.actualCheckIn  && rr.actualCheckIn.toISODate && rr.actualCheckIn.toISODate() === todayISO) ||
+        ['checked_in'].includes((rr.status || '').toLowerCase()) && !rr.isplitedDestinatination &&
+        ((rr.actualCheckIn && rr.actualCheckIn.toISODate && rr.actualCheckIn.toISODate() === todayISO) ||
           (rr.checkInDate && rr.checkInDate.toISODate && rr.checkInDate.toISODate() === todayISO))
     )
 
@@ -2205,8 +2227,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CANCEL_RESERVATION',
         entityType: 'Guest',
         entityId: reservation.guestId || 0,
-      hotelId: reservation.hotelId,
-      description: `Guest #${reservation.guestId}: Reservation #${reservation.reservationNumber} cancelled. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}. Fee: ${cancellationFee || 0}.`,
+        hotelId: reservation.hotelId,
+        description: `Guest #${reservation.guestId}: Reservation #${reservation.reservationNumber} cancelled. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}. Fee: ${cancellationFee || 0}.`,
         meta: {
           reason,
           cancellationFee,
@@ -2732,47 +2754,47 @@ export default class ReservationsController extends CrudController<typeof Reserv
           const balanceByReservationId = new Map<number, any>()
 
           return rows.map((rr) => {
-          const res = rr.reservation
-          const guest = res?.guest || rr.guest
-          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
-          const selectedFolio = masterFolio || rr.folios?.[0]
-          const reservationId = res?.id || rr.reservationId
-          let balanceSummary: any = undefined
+            const res = rr.reservation
+            const guest = res?.guest || rr.guest
+            const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+            const selectedFolio = masterFolio || rr.folios?.[0]
+            const reservationId = res?.id || rr.reservationId
+            let balanceSummary: any = undefined
 
-          if (reservationId && res?.folios) {
-            if (!balanceByReservationId.has(reservationId)) {
-              balanceByReservationId.set(
-                reservationId,
-                ReservationsController.calculateBalanceSummary(res.folios)
-              )
+            if (reservationId && res?.folios) {
+              if (!balanceByReservationId.has(reservationId)) {
+                balanceByReservationId.set(
+                  reservationId,
+                  ReservationsController.calculateBalanceSummary(res.folios)
+                )
+              }
+              balanceSummary = balanceByReservationId.get(reservationId)
             }
-            balanceSummary = balanceByReservationId.get(reservationId)
-          }
 
-          return {
-            reservationRoomId: rr.id,
-            reservationId,
-            reservationNumber: res?.reservationNumber,
-            reservationStatus: res?.status,
-            guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
-            roomId: rr.roomId,
-            roomNumber: rr.room?.roomNumber,
-            roomTypeId: rr.roomTypeId,
-            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
-            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
-            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
-            nights: rr.nights,
-            adults: rr.adults,
-            children: rr.children,
-            rateTypeId: rr.rateTypeId,
-            rateTypeName: rr.rateType?.rateTypeName,
-            bookingSource: res?.bookingSource?.sourceName,
-            folioNumber: selectedFolio?.folioNumber,
-            isMaster: selectedFolio?.folioType === FolioType.MASTER,
-            balanceSummary,
-            status: res?.status,
-          }
-        })
+            return {
+              reservationRoomId: rr.id,
+              reservationId,
+              reservationNumber: res?.reservationNumber,
+              reservationStatus: res?.status,
+              guestName: guest ? `${guest.firstName || ''} ${guest.lastName || ''}`.trim() : '—',
+              roomId: rr.roomId,
+              roomNumber: rr.room?.roomNumber,
+              roomTypeId: rr.roomTypeId,
+              roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+              checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+              checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+              nights: rr.nights,
+              adults: rr.adults,
+              children: rr.children,
+              rateTypeId: rr.rateTypeId,
+              rateTypeName: rr.rateType?.rateTypeName,
+              bookingSource: res?.bookingSource?.sourceName,
+              folioNumber: selectedFolio?.folioNumber,
+              isMaster: selectedFolio?.folioType === FolioType.MASTER,
+              balanceSummary,
+              status: res?.status,
+            }
+          })
         })(),
         filters: { startDate: start, endDate: end, hotelId },
       })
@@ -2846,47 +2868,47 @@ export default class ReservationsController extends CrudController<typeof Reserv
           const balanceByReservationId = new Map<number, any>()
 
           return rows.map((rr) => {
-          const res = rr.reservation
-          const guest = res?.guest || rr.guest
-          const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
-          const selectedFolio = masterFolio || rr.folios?.[0]
-          const reservationId = res?.id || rr.reservationId
-          let balanceSummary: any = undefined
+            const res = rr.reservation
+            const guest = res?.guest || rr.guest
+            const masterFolio = rr.folios?.find((f: any) => f.folioType === FolioType.MASTER)
+            const selectedFolio = masterFolio || rr.folios?.[0]
+            const reservationId = res?.id || rr.reservationId
+            let balanceSummary: any = undefined
 
-          if (reservationId && res?.folios) {
-            if (!balanceByReservationId.has(reservationId)) {
-              balanceByReservationId.set(
-                reservationId,
-                ReservationsController.calculateBalanceSummary(res.folios)
-              )
+            if (reservationId && res?.folios) {
+              if (!balanceByReservationId.has(reservationId)) {
+                balanceByReservationId.set(
+                  reservationId,
+                  ReservationsController.calculateBalanceSummary(res.folios)
+                )
+              }
+              balanceSummary = balanceByReservationId.get(reservationId)
             }
-            balanceSummary = balanceByReservationId.get(reservationId)
-          }
 
-          return {
-            reservationRoomId: rr.id,
-            reservationId,
-            reservationNumber: res?.reservationNumber,
-            reservationStatus: res?.status,
-            guestName: guest ? `${guest.displayName||''}`.trim() : '—',
-            roomId: rr.roomId,
-            roomNumber: rr.room?.roomNumber,
-            roomTypeId: rr.roomTypeId,
-            roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
-            checkInDate: rr.checkInDate?.toISODate?.() || undefined,
-            checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
-            nights: rr.nights,
-            adults: rr.adults,
-            children: rr.children,
-            rateTypeId: rr.rateTypeId,
-            rateTypeName: rr.rateType?.rateTypeName,
-            bookingSource: res?.bookingSource?.sourceName,
-            folioNumber: selectedFolio?.folioNumber,
-            isMaster: selectedFolio?.folioType === FolioType.MASTER,
-            balanceSummary,
-            status: res.status,
-          }
-        })
+            return {
+              reservationRoomId: rr.id,
+              reservationId,
+              reservationNumber: res?.reservationNumber,
+              reservationStatus: res?.status,
+              guestName: guest ? `${guest.displayName || ''}`.trim() : '—',
+              roomId: rr.roomId,
+              roomNumber: rr.room?.roomNumber,
+              roomTypeId: rr.roomTypeId,
+              roomTypeName: rr.roomType?.roomTypeName || rr.room?.roomType?.roomTypeName,
+              checkInDate: rr.checkInDate?.toISODate?.() || undefined,
+              checkOutDate: rr.checkOutDate?.toISODate?.() || undefined,
+              nights: rr.nights,
+              adults: rr.adults,
+              children: rr.children,
+              rateTypeId: rr.rateTypeId,
+              rateTypeName: rr.rateType?.rateTypeName,
+              bookingSource: res?.bookingSource?.sourceName,
+              folioNumber: selectedFolio?.folioNumber,
+              isMaster: selectedFolio?.folioType === FolioType.MASTER,
+              balanceSummary,
+              status: res.status,
+            }
+          })
         })(),
         filters: { startDate: start, endDate: end, hotelId },
       })
@@ -3170,23 +3192,23 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * Create reservation
    */
-   public async saveReservation(ctx: HttpContext) {
+  public async saveReservation(ctx: HttpContext) {
     const { request, auth, response } = ctx
 
     try {
       const data = request.body() as ReservationData
-       setImmediate(()=>{
-          LoggerService.log({
-            actorId: auth.user?.id!,
-            action: 'CREATE',
-            entityType: 'Reservation',
-            entityId: ctx.auth?.user?.id!,
-            hotelId: data.hotel_id,
-            description: 'Reservation Request',
-            meta: request.body(),
-            ctx,
-          })
-       })
+      setImmediate(() => {
+        LoggerService.log({
+          actorId: auth.user?.id!,
+          action: 'CREATE',
+          entityType: 'Reservation',
+          entityId: ctx.auth?.user?.id!,
+          hotelId: data.hotel_id,
+          description: 'Reservation Request',
+          meta: request.body(),
+          ctx,
+        })
+      })
       // Input validation
       if (!data) {
         return response.badRequest({
@@ -3398,6 +3420,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             releaseTem: data.isHold ? data.ReleaseTem : null,
             releaseRemindGuestbeforeDays: data.isHold ? data.ReleaseRemindGuestbeforeDays : null,
             releaseRemindGuestbefore: data.isHold ? data.ReleaseRemindGuestbefore : null,
+            whatsappNotificationEnable: data.whatsapp_notification_enable ?? false,
+            whatsappNumber: data.whatsapp_number || null,
             reservedBy: auth.user?.id,
             createdBy: auth.user?.id,
           },
@@ -3415,6 +3439,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
           data,
           trx
         )
+
+        if (data.whatsapp_number && data.whatsapp_notification_enable) {
+          await primaryGuest
+            .merge({ phoneWhatsapp: data.whatsapp_number })
+            .useTransaction(trx)
+            .save()
+        }
 
         // Mettre à jour la réservation avec l'ID du primary guest
         await reservation.merge({ guestId: primaryGuest.id }).useTransaction(trx).save()
@@ -3668,14 +3699,25 @@ export default class ReservationsController extends CrudController<typeof Reserv
               const WhatsAppNotificationService = (
                 await import('#services/whatsapp_notification_service')
               ).default
+              const ReservationSendWhatsappService = (
+                await import('#services/reservation_send_whatsapp_service')
+              ).default
               const svc = new WhatsAppNotificationService()
-              const phone = primaryGuest.phoneSecondary || primaryGuest.phonePrimary
+
+              const phone = reservation.whatsappNotificationEnable
+                ? (reservation.whatsappNumber || primaryGuest.phonePrimary)
+                : null
+
               if (!phone) {
-                console.warn('[WA] Pas de téléphone pour le guest, WhatsApp annulé')
+                console.log('[WA] WhatsApp notifications disabled or no number')
               } else {
-               
+
                 const Hotel = (await import('#models/hotel')).default
                 const hotel = await Hotel.find(reservation.hotelId)
+                const voucherUrl = await ReservationSendWhatsappService.generateVoucherUrl({
+                  reservationId: reservation.id,
+                  reservationNumber: reservation.reservationNumber || '',
+                })
 
                 const result = await svc.notifyReservationConfirmed({
                   hotelId: reservation.hotelId,
@@ -3684,11 +3726,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   recipientName: `${primaryGuest.firstName} ${primaryGuest.lastName}`,
                   hotelName: hotel?.hotelName || 'Notre hôtel',
                   checkInDate: arrivedDate.toFormat('MMM dd, yyyy'),   // "May 18, 2026" — format attendu par le template
-                  checkOutDate: departDate.toFormat('MMM dd, yyyy'),   
+                  checkOutDate: departDate.toFormat('MMM dd, yyyy'),
                   reservationNumber: reservation.reservationNumber || '',
+                  voucherUrl,
                 })
 
                 console.log('[WA] Résultat réservation:', JSON.stringify(result))
+
               }
             } catch (waErr) {
               console.error('[WA] WhatsApp reservation notification failed:', waErr)
@@ -5408,13 +5452,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }) => {
         const roomChargeGrossDailyRate = Number(args.rate.baseRate || 0)
         const existing = await FolioTransaction.query({ client: trx })
-      .whereIn('folioId', args.folioIds)
-      .where('postingDate', '>=', args.startPostingDate.toISODate()!)
-      .where('postingDate', '<', args.endPostingDateExclusive.toISODate()!)
-      .where('reservationRoomId', args.reservationRoom.id)
-      .where('transactionType', TransactionType.CHARGE)
-      .where('category', TransactionCategory.ROOM)
-      .where('isVoided', false)
+          .whereIn('folioId', args.folioIds)
+          .where('postingDate', '>=', args.startPostingDate.toISODate()!)
+          .where('postingDate', '<', args.endPostingDateExclusive.toISODate()!)
+          .where('reservationRoomId', args.reservationRoom.id)
+          .where('transactionType', TransactionType.CHARGE)
+          .where('category', TransactionCategory.ROOM)
+          .where('isVoided', false)
 
         const existingDates = new Set<string>(
           existing
@@ -7504,7 +7548,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             })
         })
         .preload('folios', (folioQuery) => {
-          folioQuery.select(['id', 'folioNumber', 'balance','totalCharges'])
+          folioQuery.select(['id', 'folioNumber', 'balance', 'totalCharges'])
         })
         .orderBy('check_out_date', 'desc')
         .orderBy('depart_date', 'desc')
@@ -8042,7 +8086,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 <div class="section-content flex-wrap">
                     <div class="field" style="flex-basis: 45%;">
                         <span class="field-label">Arrival Date</span>
-                        <span class="input-line">${reservation.checkInDate ? formatDate(reservation.checkInDate): ''}</span>
+                        <span class="input-line">${reservation.checkInDate ? formatDate(reservation.checkInDate) : ''}</span>
                     </div>
                     <div class="field" style="flex-basis: 50%;">
                         <span class="field-label">Arrival Time</span>

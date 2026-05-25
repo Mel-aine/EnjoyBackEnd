@@ -40,61 +40,66 @@ export default class WhatsappTemplateSyncService {
   // Public
   // ---------------------------------------------------------------------------
 
-  public async syncHotelTemplates(hotelId: number): Promise<SyncResult> {
-    const result: SyncResult = { created: [], skipped: [], failed: [] }
+public async syncHotelTemplates(hotelId?: number): Promise<SyncResult> {
+  const result: SyncResult = { created: [], skipped: [], failed: [] }
 
-    const existingOnMeta = await this.fetchExistingMetaTemplates()
-    const existingNames = new Set(existingOnMeta.map((t) => t.name))
+  const existingOnMeta = await this.fetchExistingMetaTemplates()
+  const existingNames = new Set(existingOnMeta.map((t) => t.name))
 
-    for (const templateDef of ENJOY_STANDARD_TEMPLATES) {
-      try {
+  for (const templateDef of ENJOY_STANDARD_TEMPLATES) {
+    try {
+      if (hotelId) {
         const dbRecord = await HotelWhatsappTemplate.query()
           .where('hotel_id', hotelId)
           .where('template_name', templateDef.name)
           .first()
 
-        // Déjà approuvé → skip
         if (dbRecord?.status === 'APPROVED') {
           logger.info(`[TemplateSyncService] "${templateDef.name}" déjà APPROVED — skipped`)
           result.skipped.push(templateDef.name)
           continue
         }
+      }
 
-        // Existe sur Meta mais pas en base → sync statut local
-        if (existingNames.has(templateDef.name)) {
-          const metaTemplate = existingOnMeta.find((t) => t.name === templateDef.name)!
+      if (existingNames.has(templateDef.name)) {
+        const metaTemplate = existingOnMeta.find((t) => t.name === templateDef.name)!
+        if (hotelId) {
           await this.upsertLocalTemplate(hotelId, templateDef, metaTemplate.id, metaTemplate.status)
-          logger.info(
-            `[TemplateSyncService] "${templateDef.name}" déjà sur Meta (${metaTemplate.status}) — sync locale`
-          )
-          result.skipped.push(templateDef.name)
-          continue
         }
-
-        // Créer sur Meta
-        const created = await this.createTemplateOnMeta(templateDef)
-        await this.upsertLocalTemplate(hotelId, templateDef, created.id, created.status)
         logger.info(
-          `[TemplateSyncService] Template "${templateDef.name}" créé (status: ${created.status})`
+          `[TemplateSyncService] "${templateDef.name}" déjà sur Meta (${metaTemplate.status}) — sync locale`
         )
-        result.created.push(templateDef.name)
-      } catch (error) {
-        logger.error(
-          { err: error },
-          `[TemplateSyncService] Échec création "${templateDef.name}" pour hotel ${hotelId}`
-        )
-        result.failed.push(templateDef.name)
+        result.skipped.push(templateDef.name)
+        continue
+      }
 
+      const created = await this.createTemplateOnMeta(templateDef)
+      if (hotelId) {
+        await this.upsertLocalTemplate(hotelId, templateDef, created.id, created.status)
+      }
+      logger.info(
+        `[TemplateSyncService] Template "${templateDef.name}" créé (status: ${created.status})`
+      )
+      result.created.push(templateDef.name)
+    } catch (error) {
+      logger.error(
+        { err: error },
+        `[TemplateSyncService] Échec création "${templateDef.name}" pour hotel ${hotelId ?? 'global'}`
+      )
+      result.failed.push(templateDef.name)
+
+      if (hotelId) {
         await HotelWhatsappTemplate.query()
           .where('hotel_id', hotelId)
           .where('template_name', templateDef.name)
           .update({ status: 'REJECTED', rejection_reason: error.message })
       }
     }
-
-    logger.info({ hotelId, result }, '[TemplateSyncService] Synchronisation terminée')
-    return result
   }
+
+  logger.info({ hotelId, result }, '[TemplateSyncService] Synchronisation terminée')
+  return result
+}
 
   public async handleStatusWebhook(payload: {
     hotelId: number
@@ -233,4 +238,6 @@ export default class WhatsappTemplateSyncService {
       lastSyncedAt: DateTime.now(),
     })
   }
+
+  
 }

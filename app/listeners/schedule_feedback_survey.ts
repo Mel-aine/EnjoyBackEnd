@@ -23,8 +23,8 @@ export default class ScheduleFeedbackSurvey {
         recipientPhone: event.recipientPhone,
         recipientName: event.recipientName,
         hotelName: event.hotelName,
-        // sendAfter: DateTime.now().plus({ hours: 2 }),
-        sendAfter: DateTime.now().plus({ minutes: 2 }),
+        sendAfter: DateTime.now().plus({ hours: 2 }),
+        // sendAfter: DateTime.now().plus({ minutes: 2 }),
         status: 'pending',
       })
 

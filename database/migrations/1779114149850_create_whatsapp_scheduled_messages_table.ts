@@ -10,6 +10,7 @@ export default class extends BaseSchema {
       table.integer('hotel_id').unsigned().notNullable().references('id').inTable('hotels').onDelete('CASCADE')
       table.integer('reservation_id').unsigned().nullable().references('id').inTable('reservations').onDelete('SET NULL')
       table.integer('guest_id').nullable()
+      table.string('invoice_url', 500).nullable()
       table.string('template_name').nullable()       // 'feedback_survey'
       table.string('recipient_phone').nullable()
       table.string('recipient_name').nullable()

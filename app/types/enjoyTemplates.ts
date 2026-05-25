@@ -309,8 +309,55 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
         text: 'Enjoy PMS',
       }
     ]
-  }
+  },
 
+// Template invoice_ready
+{
+  name: 'invoice_ready',
+  category: 'UTILITY',
+  language: 'fr',
+  components: [
+    {
+      type: 'HEADER',
+      format: 'TEXT',
+      text: 'Votre facture est disponible',
+    },
+    {
+      type: 'BODY',
+      text: 'Bonjour {{1}},\n\nVotre facture pour votre séjour chez {{2}} (réservation *{{3}}*) est disponible.\n\n📄 Télécharger votre facture :\n{{4}}\n\nMerci pour votre confiance.',
+      example: {
+        body_text: [['John Doe', 'Hôtel Enjoy', 'RES-2026-001', 'https://enjoy-stay.com/documents/pdf/abc123']],
+      },
+    },
+    {
+      type: 'FOOTER',
+      text: 'Enjoy PMS',
+    },
+  ],
+},
 
+{
+  name: 'voucher_ready',
+  category: 'UTILITY',
+  language: 'fr',
+  components: [
+    {
+      type: 'HEADER',
+      format: 'TEXT',
+      text: 'Votre bon de réservation',
+    },
+    {
+      type: 'BODY',
+      text: 'Bonjour {{1}},\n\nVotre bon de réservation chez {{2}} est disponible.\n\n🔖 Réservation : *{{3}}*\n📅 Arrivée : {{4}}\n📅 Départ : {{5}}\n\n📄 Télécharger votre voucher :\n{{6}}\n\nNous avons hâte de vous accueillir !',
+      example: {
+        body_text: [['John Doe', 'Hôtel Enjoy', 'RES-2026-001', '24 Mai 2026', '26 Mai 2026', 'https://enjoy-stay.com/documents/pdf/abc123']],
+      },
+    },
+    {
+      type: 'FOOTER',
+      text: 'Enjoy PMS',
+    },
+  ],
+}
 
 ]
