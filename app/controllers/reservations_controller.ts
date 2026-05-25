@@ -8250,6 +8250,27 @@ export default class ReservationsController extends CrudController<typeof Reserv
         reservation.meansOfTransportation = payload.meansOfTransport
       }
 
+      // Mettre à jour les champs de notification WhatsApp
+      if (payload.whatsappNotificationEnable !== undefined) {
+        reservation.whatsappNotificationEnable = payload.whatsappNotificationEnable
+      }
+      if (payload.whatsappNumber !== undefined) {
+        reservation.whatsappNumber = payload.whatsappNumber
+        
+        if (payload.whatsappNumber && reservation.guestId) {
+          const primaryGuest = await Guest.query({ client: trx })
+            .where('id', reservation.guestId)
+            .first()
+
+          if (primaryGuest) {
+            await primaryGuest
+              .merge({ phoneWhatsapp: payload.whatsappNumber })
+              .useTransaction(trx)
+              .save()
+          }
+        }
+      }
+
       if (payload.timeType === 'arrival' && payload.time !== undefined) {
         reservation.checkInTime = payload.time
 
