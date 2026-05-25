@@ -74,6 +74,8 @@ import WhatsAppController from '#controllers/whatsapps_controller'
 import WhatsappLogsController from '#controllers/whatsapp_logs_controller'
 import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
 import GuestFeedbacksController from '#controllers/guest_feedbacks_controller'
+import WhatsappTemplatesController from '#controllers/whatsapp_templates_controller'
+
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
@@ -88,6 +90,27 @@ router.get('/', async ({ request, response }) => {
   html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
   response.type('html')
   return response.send(html)
+})
+router.get('/documents/:type/:token', async ({ params, response }) => {
+  try {
+    const { default: DocumentTokenService } = await import('#services/document_token_service')
+    
+    const doc = await DocumentTokenService.resolve(params.token)
+    if (!doc) {
+      return response.status(404).json({ message: 'Document not found or expired' })
+    }
+
+    const { createReadStream, existsSync } = await import('node:fs')
+    if (!existsSync(doc.filePath)) {
+      return response.status(404).json({ message: 'File not found' })
+    }
+
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${doc.filename}"`)
+    return response.stream(createReadStream(doc.filePath))
+  } catch (error) {
+    return response.status(500).json({ message: error.message })
+  }
 })
 
 // Password reset page (HTML form)
@@ -244,6 +267,7 @@ const whatsappController = new WhatsAppController()
 const whatsappWebhookController = new WhatsAppWebhookController()
 const whatsappLogsController = new WhatsappLogsController()
 const guestFeedbacksController = new GuestFeedbacksController()
+const whatsappTemplatesController = new WhatsappTemplatesController()
 
 
 
@@ -920,6 +944,10 @@ router
         router.post('/print-pdf', folioPrintController.printFolioPdf.bind(folioPrintController)) // Generate folio PDF (future implementation)
         router.post('/print_confirm_booking-pdf', folioPrintController.printBookingPdf.bind(folioPrintController)) // Generate invoice PDF
         router.post('/print_hotel-pdf', folioPrintController.printHotelPdf.bind(folioPrintController))
+        router.post('/send-invoice-email', folioPrintController.sendInvoiceByEmail.bind(folioPrintController))
+        router.post('/send-voucher-email', folioPrintController.sendVoucherByEmail.bind(folioPrintController))
+        router.post('/send-invoice-whatsapp', folioPrintController.sendInvoiceByWhatsapp.bind(folioPrintController))
+        router.post('/send-voucher-whatsapp', folioPrintController.sendVoucherByWhatsapp.bind(folioPrintController))
       })
       .prefix('folio-print')
 
@@ -1849,4 +1877,16 @@ router.group(() => {
   // ── Permissions utilisateur ──
   router.get('/permissions/me', permissionsController.getUserPermissions.bind(permissionsController))
 
+  // ── Templates ──
+ // ── WhatsApp Templates ──────────────────────────────────────────────────────
+
+router.get('/whatsapp/templates', whatsappTemplatesController.index.bind(whatsappTemplatesController))
+  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+
+router.post('/whatsapp/templates/sync', whatsappTemplatesController.sync.bind(whatsappTemplatesController))
+  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+
+
+
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
+

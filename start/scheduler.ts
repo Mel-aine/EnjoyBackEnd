@@ -10,7 +10,7 @@ cron.schedule('* * * * *', async () => {
 
     const pending = await WhatsappScheduledMessage.query()
       .where('status', 'pending')
-      .where('templateName', 'feedback_survey')
+      .where('templateName', 'feedback_surveys')
       .where('sendAfter', '<=', DateTime.now().toSQL())
       .limit(50)
 
@@ -28,6 +28,7 @@ cron.schedule('* * * * *', async () => {
           recipientPhoneNumber: msg.recipientPhone,
           recipientName: msg.recipientName ?? '',
           hotelName: msg.hotelName,
+          invoiceUrl: msg.invoiceUrl ?? '',
         })
 
         msg.status = result.delivered ? 'sent' : 'failed'

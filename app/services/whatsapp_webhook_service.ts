@@ -59,41 +59,34 @@ export default class WhatsAppWebhookService {
 
     private async resolveHotelByGuestPhone(phone: string): Promise<Hotel | null> {
         const normalizedPhone = phone.replace(/^\+/, '')
-        console.log(' resolveHotelByGuestPhone - numéro normalisé:', normalizedPhone)
 
-        //  séjour en cours
+        // Séjour en cours
         let booking = await Reservation.query()
-            .whereHas('guest', (q) => {
-                q.where('phone_secondary', normalizedPhone)
-                    .orWhere('phone_secondary', `+${normalizedPhone}`)
+            .where('whatsapp_notification_enable', true)
+            .where((q) => {
+                q.where('whatsapp_number', normalizedPhone)
+                .orWhere('whatsapp_number', `+${normalizedPhone}`)
             })
             .where('status', 'checked_in')
             .preload('hotel')
             .orderBy('created_at', 'desc')
             .first()
 
-        if (booking) {
-            console.log(` Séjour actif trouvé: reservation_id=${booking.id}, hotel_id=${booking.hotel.id}`)
-        } else {
-            console.log(' Aucun séjour actif → fallback sur réservation la plus récente')
-
-            //  réservation la plus récente
+        // Fallback : réservation la plus récente
+        if (!booking) {
             booking = await Reservation.query()
-                .whereHas('guest', (q) => {
-                    q.where('phone_secondary', normalizedPhone)
-                        .orWhere('phone_secondary', `+${normalizedPhone}`)
+                .where('whatsapp_notification_enable', true)
+                .where((q) => {
+                    q.where('whatsapp_number', normalizedPhone)
+                    .orWhere('whatsapp_number', `+${normalizedPhone}`)
                 })
                 .preload('hotel')
                 .orderBy('created_at', 'desc')
                 .first()
-
-            if (booking) {
-                console.log(` Réservation récente trouvée: reservation_id=${booking.id}, status=${booking.status}, hotel_id=${booking.hotel.id}`)
-            }
         }
 
         if (!booking?.hotel) {
-            console.log(` Aucune réservation trouvée pour le numéro: ${phone}`)
+            console.log(`Aucune réservation trouvée pour: ${phone}`)
             return null
         }
 
@@ -362,8 +355,11 @@ export default class WhatsAppWebhookService {
             console.error('[WhatsappWebhook] Erreur log message entrant:', err)
         )
 
+        const managedPhoneId = env.get('WHATSAPP_MANAGED_PHONE_ID')
+        const isManaged = managedPhoneId ? message.phoneNumberId === managedPhoneId : false
+
         const trackingService = new WhatsAppTrackingService()
-        await trackingService.track(hotel, message.from)
+        await trackingService.track(hotel, message.from, isManaged)
 
         await this.notifyPms(hotel, message)
         await this.handleFeedbackReply(hotel, message).catch((err: any) =>

@@ -72,7 +72,7 @@ export default class FolioPrintController {
       response.header('Content-Length', pdfBuffer.length.toString())
 
       return response.send(pdfBuffer)
-    } catch (error) { 
+    } catch (error) {
       console.error('Error generating folio PDF:', error)
       return response.status(500).json({
         success: false,
@@ -107,7 +107,7 @@ export default class FolioPrintController {
       const folioPrintData = await FolioPrintService.generateBookingPrintData(reservationId)
 
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      
+
       // Choix de la méthode en fonction de la langue
       let bookingPdf: Buffer
       if (language === 'fr') {
@@ -160,9 +160,9 @@ export default class FolioPrintController {
           ? Number(folioIdInput)
           : null
       )
-      
+
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
-      
+
       // Choix de la méthode en fonction de la langue
       let bookingPdf: Buffer
       if (language === 'fr') {
@@ -185,4 +185,192 @@ export default class FolioPrintController {
       })
     }
   }
+
+
+
+  async sendInvoiceByEmail({ request, response, auth }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const folioId = request.input('folioId', null)
+      const language = request.input('language', 'en')
+      const recipientEmail = request.input('recipientEmail')
+
+      if (!reservationId || !recipientEmail) {
+        return response.status(400).json({
+          success: false,
+          message: 'reservationId and recipientEmail are required',
+        })
+      }
+
+      const validLanguages = ['en', 'fr']
+      if (!validLanguages.includes(language)) {
+        return response.status(400).json({
+          success: false,
+          message: `Invalid language. Supported: ${validLanguages.join(', ')}`,
+        })
+      }
+
+      const { default: ReservationSendEmailService } = await import('#services/reservation_send_email_service')
+
+      await ReservationSendEmailService.sendInvoice({
+        reservationId: Number(reservationId),
+        folioId: folioId ? Number(folioId) : null,
+        recipientEmail,
+        language,
+        sentBy: auth.user?.id,
+      })
+
+      return response.ok({ success: true, message: 'Invoice sent by email' })
+    } catch (error) {
+      console.error('Error sending invoice by email:', error)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to send invoice by email',
+        error: error.message,
+      })
+    }
+  }
+
+  // async sendVoucherByEmail({ request, response, auth }: HttpContext) {
+  //   try {
+  //     const reservationId  = request.input('reservationId')
+  //     const language       = request.input('language', 'en')
+  //     const recipientEmail = request.input('recipientEmail')
+
+  //     if (!reservationId || !recipientEmail) {
+  //       return response.status(400).json({
+  //         success: false,
+  //         message: 'reservationId and recipientEmail are required',
+  //       })
+  //     }
+
+  //     const validLanguages = ['en', 'fr']
+  //     if (!validLanguages.includes(language)) {
+  //       return response.status(400).json({
+  //         success: false,
+  //         message: `Invalid language. Supported: ${validLanguages.join(', ')}`,
+  //       })
+  //     }
+
+  //     const { default: ReservationSendEmailService } = await import('#services/reservation_send_email_service')
+
+  //     await ReservationSendEmailService.sendVoucher({
+  //       reservationId: Number(reservationId),
+  //       recipientEmail,
+  //       language,
+  //       sentBy: auth.user?.id,
+  //     })
+
+  //     return response.ok({ success: true, message: 'Voucher sent by email' })
+  //   } catch (error) {
+  //     console.error('Error sending voucher by email:', error)
+  //     return response.status(500).json({
+  //       success: false,
+  //       message: 'Failed to send voucher by email',
+  //       error: error.message,
+  //     })
+  //   }
+  // }
+  async sendVoucherByEmail({ request, response, auth }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const language = request.input('language', 'en')
+      const recipientEmail = request.input('recipientEmail')
+
+      console.log('[sendVoucherByEmail] Inputs:', { reservationId, language, recipientEmail })
+
+      if (!reservationId || !recipientEmail) {
+        console.log('[sendVoucherByEmail] Missing required fields')
+        return response.status(400).json({
+          success: false,
+          message: 'reservationId and recipientEmail are required',
+        })
+      }
+
+      const validLanguages = ['en', 'fr']
+      if (!validLanguages.includes(language)) {
+        console.log('[sendVoucherByEmail] Invalid language:', language)
+        return response.status(400).json({
+          success: false,
+          message: `Invalid language. Supported: ${validLanguages.join(', ')}`,
+        })
+      }
+
+      console.log('[sendVoucherByEmail] Loading ReservationSendEmailService...')
+      const { default: ReservationSendEmailService } = await import('#services/reservation_send_email_service')
+
+      console.log('[sendVoucherByEmail] Calling sendVoucher...')
+      await ReservationSendEmailService.sendVoucher({
+        reservationId: Number(reservationId),
+        recipientEmail,
+        language,
+        sentBy: auth.user?.id,
+      })
+
+      console.log('[sendVoucherByEmail] Email sent successfully to:', recipientEmail)
+      return response.ok({ success: true, message: 'Voucher sent by email' })
+
+    } catch (error) {
+      console.error('[sendVoucherByEmail] Error:', error)
+      console.error('[sendVoucherByEmail] Stack:', error.stack)
+      return response.status(500).json({
+        success: false,
+        message: 'Failed to send voucher by email',
+        error: error.message,
+      })
+    }
+  }
+
+  async sendInvoiceByWhatsapp({ request, response, auth }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const folioId = request.input('folioId', null)
+      const language = request.input('language', 'en')
+      const recipientPhone = request.input('recipientPhone')
+
+      if (!reservationId) {
+        return response.status(400).json({ success: false, message: 'reservationId is required' })
+      }
+
+      const { default: ReservationSendWhatsappService } = await import('#services/reservation_send_whatsapp_service')
+
+      await ReservationSendWhatsappService.sendInvoice({
+        reservationId: Number(reservationId),
+        folioId: folioId ? Number(folioId) : null,
+        recipientPhone,
+        language,
+      })
+
+      return response.ok({ success: true, message: 'Invoice sent by WhatsApp' })
+    } catch (error) {
+      console.error('[sendInvoiceByWhatsapp] Error:', error)
+      return response.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  async sendVoucherByWhatsapp({ request, response }: HttpContext) {
+    try {
+      const reservationId = request.input('reservationId')
+      const language = request.input('language', 'en')
+      const recipientPhone = request.input('recipientPhone', null)
+
+      if (!reservationId) {
+        return response.status(400).json({ success: false, message: 'reservationId is required' })
+      }
+
+      const { default: ReservationSendWhatsappService } = await import('#services/reservation_send_whatsapp_service')
+
+      await ReservationSendWhatsappService.sendVoucher({
+        reservationId: Number(reservationId),
+        recipientPhone,
+        language,
+      })
+
+      return response.ok({ success: true, message: 'Voucher sent by WhatsApp' })
+    } catch (error) {
+      console.error('[sendVoucherByWhatsapp] Error:', error)
+      return response.status(500).json({ success: false, message: error.message })
+    }
+  }
+
 }

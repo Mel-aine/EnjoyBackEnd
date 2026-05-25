@@ -315,6 +315,7 @@ export default class WhatsAppNotificationService {
     checkInDate: string
     checkOutDate: string  
     reservationNumber: string
+    voucherUrl: string  
     roomType?: string   
   }) {
     const settings = await this.resolveSettings(input.hotelId)
@@ -323,7 +324,7 @@ export default class WhatsAppNotificationService {
       await this.writeLog({
         hotelId: input.hotelId,
         reservationId: input.reservationId,
-        templateName: 'htl_booking_confirm',
+        templateName: 'htl_booking_confirms',
         recipientPhone: input.recipientPhoneNumber ?? null,
         messageBody: '',
         credentialSource: settings.credentialSource ?? null,
@@ -339,7 +340,7 @@ export default class WhatsAppNotificationService {
 
     const result = await this.deliverMetaTemplateMessage({
       recipientPhoneNumber: recipientPhone,
-      templateName: 'htl_booking_confirm',
+      templateName: 'htl_booking_confirms',
       languageCode: 'fr',
       components: [
         {
@@ -348,7 +349,7 @@ export default class WhatsAppNotificationService {
             { type: 'text', text: input.recipientName },       // {{1}}
             { type: 'text', text: input.hotelName },           // {{2}}
             { type: 'text', text: input.checkInDate },         // {{3}}
-            { type: 'text', text: input.reservationNumber },   // {{4}}
+            { type: 'text', text: input.voucherUrl },          // {{5}}
           ],
         },
       ],
@@ -358,9 +359,9 @@ export default class WhatsAppNotificationService {
     await this.writeLog({
       hotelId: input.hotelId,
       reservationId: input.reservationId,
-      templateName: 'htl_booking_confirm',
+      templateName: 'htl_booking_confirms',
       recipientPhone: input.recipientPhoneNumber ?? null,
-      messageBody: `htl_booking_confirm | ${input.recipientName} | ${input.reservationNumber}`,
+      messageBody: `htl_booking_confirms | ${input.recipientName} | ${input.reservationNumber} | ${input.voucherUrl}`,
       credentialSource: settings.credentialSource ?? null,
       deliveryResult: result,
     })
@@ -441,6 +442,7 @@ async notifyFeedbackSurvey(input: {
   recipientPhoneNumber?: string | null
   recipientName: string
   hotelName: string
+  invoiceUrl: string
 }) {
   const settings = await this.resolveSettings(input.hotelId)
 
@@ -448,7 +450,7 @@ async notifyFeedbackSurvey(input: {
     await this.writeLog({
       hotelId: input.hotelId,
       reservationId: input.reservationId,
-      templateName: 'feedback_survey',
+      templateName: 'feedback_surveys',
       recipientPhone: input.recipientPhoneNumber ?? null,
       messageBody: '',
       credentialSource: settings.credentialSource ?? null,
@@ -464,7 +466,7 @@ async notifyFeedbackSurvey(input: {
 
   const result = await this.deliverMetaTemplateMessage({
     recipientPhoneNumber: recipientPhone,
-    templateName: 'feedback_survey',
+    templateName: 'feedback_surveys',
     languageCode: 'fr',
     components: [
       {
@@ -472,6 +474,7 @@ async notifyFeedbackSurvey(input: {
         parameters: [
           { type: 'text', text: input.recipientName }, // {{1}}
           { type: 'text', text: input.hotelName },     // {{2}}
+          { type: 'text', text: input.invoiceUrl },    // {{3}}
         ],
       },
     ],
@@ -481,9 +484,9 @@ async notifyFeedbackSurvey(input: {
   await this.writeLog({
     hotelId: input.hotelId,
     reservationId: input.reservationId,
-    templateName: 'feedback_survey',
+    templateName: 'feedback_surveys',
     recipientPhone: input.recipientPhoneNumber ?? null,
-    messageBody: `feedback_survey | ${input.recipientName} | ${input.hotelName}`,
+    messageBody: `feedback_surveys | ${input.recipientName} | ${input.hotelName} | ${input.invoiceUrl}`,
     credentialSource: settings.credentialSource ?? null,
     deliveryResult: result,
   })
@@ -800,4 +803,167 @@ async notifyExpenseAlert(input: {
 
   return result
 }
+
+async sendInvoiceLink(input: {
+  hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string
+  reservationNumber: string
+  downloadUrl: string 
+}) {
+  const message = `Bonjour ${input.recipientName},\n\nVeuillez trouver votre facture pour la réservation *${input.reservationNumber}* :\n\n📄 ${input.downloadUrl}\n\nMerci pour votre confiance.`
+
+  return this.sendTextMessage({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    recipientPhoneNumber: input.recipientPhoneNumber,
+    templateName: 'invoice_link',
+    message,
+  })
+}
+
+async sendVoucherLink(input: {
+  hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string
+  reservationNumber: string
+  checkInDate: string
+  checkOutDate: string
+  downloadUrl: string  
+}) {
+  const message = `Bonjour ${input.recipientName},\n\nVoici votre confirmation de réservation *${input.reservationNumber}* :\n\n📅 Arrivée : ${input.checkInDate}\n📅 Départ : ${input.checkOutDate}\n\n📄 Télécharger votre voucher :\n${input.downloadUrl}\n\nNous vous souhaitons un excellent séjour.`
+
+  return this.sendTextMessage({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    recipientPhoneNumber: input.recipientPhoneNumber,
+    templateName: 'voucher_link',
+    message,
+  })
+}
+
+// ── Notifier facture prête 
+async notifyInvoiceReady(input: {
+  hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string
+  hotelName: string
+  reservationNumber: string
+  invoiceUrl: string
+}) {
+  const settings = await this.resolveSettings(input.hotelId)
+
+  if (!settings.enabled) {
+    await this.writeLog({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      templateName: 'invoice_ready',
+      recipientPhone: input.recipientPhoneNumber ?? null,
+      messageBody: '',
+      credentialSource: settings.credentialSource ?? null,
+      deliveryResult: { delivered: false, reason: settings.reason },
+    })
+    return { delivered: false, reason: settings.reason }
+  }
+
+  const recipientPhone = this.normalizePhoneNumber(input.recipientPhoneNumber)
+  if (!recipientPhone) return { delivered: false, reason: 'missing_recipient_phone_number' }
+
+  const result = await this.deliverMetaTemplateMessage({
+    recipientPhoneNumber: recipientPhone,
+    templateName: 'invoice_ready',
+    languageCode: 'fr',
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: input.recipientName },      // {{1}}
+          { type: 'text', text: input.hotelName },          // {{2}}
+          { type: 'text', text: input.reservationNumber },  // {{3}}
+          { type: 'text', text: input.invoiceUrl },         // {{4}}
+        ],
+      },
+    ],
+    config: settings.config,
+  })
+
+  await this.writeLog({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    templateName: 'invoice_ready',
+    recipientPhone: input.recipientPhoneNumber ?? null,
+    messageBody: `invoice_ready | ${input.recipientName} | ${input.reservationNumber}`,
+    credentialSource: settings.credentialSource ?? null,
+    deliveryResult: result,
+  })
+
+  return result
+}
+
+// ── Notifier voucher prêt 
+async notifyVoucherReady(input: {
+  hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string
+  hotelName: string
+  reservationNumber: string
+  checkInDate: string
+  checkOutDate: string
+  voucherUrl: string
+}) {
+  const settings = await this.resolveSettings(input.hotelId)
+
+  if (!settings.enabled) {
+    await this.writeLog({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      templateName: 'voucher_ready',
+      recipientPhone: input.recipientPhoneNumber ?? null,
+      messageBody: '',
+      credentialSource: settings.credentialSource ?? null,
+      deliveryResult: { delivered: false, reason: settings.reason },
+    })
+    return { delivered: false, reason: settings.reason }
+  }
+
+  const recipientPhone = this.normalizePhoneNumber(input.recipientPhoneNumber)
+  if (!recipientPhone) return { delivered: false, reason: 'missing_recipient_phone_number' }
+
+  const result = await this.deliverMetaTemplateMessage({
+    recipientPhoneNumber: recipientPhone,
+    templateName: 'voucher_ready',
+    languageCode: 'fr',
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: input.recipientName },      // {{1}}
+          { type: 'text', text: input.hotelName },          // {{2}}
+          { type: 'text', text: input.reservationNumber },  // {{3}}
+          { type: 'text', text: input.checkInDate },        // {{4}}
+          { type: 'text', text: input.checkOutDate },       // {{5}}
+          { type: 'text', text: input.voucherUrl },         // {{6}}
+        ],
+      },
+    ],
+    config: settings.config,
+  })
+
+  await this.writeLog({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    templateName: 'voucher_ready',
+    recipientPhone: input.recipientPhoneNumber ?? null,
+    messageBody: `voucher_ready | ${input.recipientName} | ${input.reservationNumber}`,
+    credentialSource: settings.credentialSource ?? null,
+    deliveryResult: result,
+  })
+
+  return result
+}
+
 }

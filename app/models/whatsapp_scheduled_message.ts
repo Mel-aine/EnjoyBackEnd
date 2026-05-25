@@ -39,6 +39,9 @@ export default class WhatsappScheduledMessage extends BaseModel {
   declare status: 'pending' | 'sent' | 'failed'
 
   @column()
+  declare invoiceUrl: string | null 
+
+  @column()
   declare failureReason: string | null
 
   @column.dateTime({ autoCreate: true })

@@ -8,22 +8,20 @@ export default class WhatsAppTrackingService {
   /**
    * Point d'entrée principal — appelé à chaque message entrant.
    */
-  async track(hotel: Hotel, guestPhone: string): Promise<void> {
-    const month = DateTime.now().toFormat('yyyy-MM')
-    console.log(` Tracking - hotel_id=${hotel.id} | phone=${guestPhone} | mois=${month}`)
 
-    // Toujours incrémenter le compteur de messages
-    await this.incrementMessageCount(hotel.id, month)
+  async track(hotel: Hotel, guestPhone: string, trackSessions: boolean = false): Promise<void> {
+      const month = DateTime.now().toFormat('yyyy-MM')
 
-    //  Vérifier si une session 24h est active pour ce client
-    const isNewSession = await this.checkAndCreateSession(hotel.id, guestPhone)
+      // Toujours compter les messages
+      await this.incrementMessageCount(hotel.id, month)
 
-    // Si nouvelle session → incrémenter le compteur de sessions
-    if (isNewSession) {
-      await this.incrementSessionCount(hotel.id, month)
-    }
-
-    console.log(`Tracking terminé - nouvelle_session=${isNewSession}`)
+      // Sessions uniquement en mode managé
+      if (trackSessions) {
+          const isNewSession = await this.checkAndCreateSession(hotel.id, guestPhone)
+          if (isNewSession) {
+              await this.incrementSessionCount(hotel.id, month)
+          }
+      }
   }
 
   /**

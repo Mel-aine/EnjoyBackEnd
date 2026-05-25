@@ -89,7 +89,7 @@ export default class PosController {
         .where('hotel_id', parseInt(hotelId))
         .where('status', "checked_in")
         .preload('guest')
-        .preload('reservation', (reservationQuery:any) => {
+        .preload('reservation', (reservationQuery: any) => {
           reservationQuery.preload('guest')
           reservationQuery.preload('folios')
         })
@@ -200,7 +200,7 @@ export default class PosController {
         })
       }
       const transactionNumber = parseInt(Date.now().toString().slice(-9));
-      const transactionCode =generateTransactionCode('RMP');
+      const transactionCode = generateTransactionCode('RMP');
 
       // Normalize articles to an object (optional)
       let itemSummaryData: object | null = null
@@ -224,7 +224,7 @@ export default class PosController {
         // roomId: parseInt(roomId),
         hotelId: parseInt(hotelId),
         amount: parseFloat(amount),
-        totalAmount:parseFloat(amount),
+        totalAmount: parseFloat(amount),
         description: description,
         transactionCode: transactionCode,
         transactionNumber: transactionNumber,
@@ -241,58 +241,71 @@ export default class PosController {
         status: TransactionStatus.COMPLETED
       })
       await FolioService.updateFolioTotals(parseInt(folioId))
-       // ── Notification WhatsApp (fire & forget) ─────────────────────────
-    setImmediate(async () => {
-      try {
-        const { default: ReservationRoom } = await import('#models/reservation_room')
-        const { default: WhatsAppNotificationService } = await import('#services/whatsapp_notification_service')
+      // ── Notification WhatsApp (fire & forget) ─────────────────────────
+      setImmediate(async () => {
+        try {
+          const { default: ReservationRoom } = await import('#models/reservation_room')
+          const { default: WhatsAppNotificationService } = await import('#services/whatsapp_notification_service')
 
-        const reservationRoom = await ReservationRoom.query()
-          .where('id', parseInt(reservationRoomId))
-          .preload('guest')
-          .preload('room')
-          .preload('reservation', (q) => q.preload('guest'))
-          .firstOrFail()
+          const reservationRoom = await ReservationRoom.query()
+            .where('id', parseInt(reservationRoomId))
+            .preload('guest')
+            .preload('room')
+            .preload('reservation', (q) => q.preload('guest'))
+            .firstOrFail()
 
-        const guest = reservationRoom.guest ?? reservationRoom.reservation?.guest
-        const phone = guest?.phoneSecondary ?? guest?.phonePrimary ?? null
-        const roomNumber = reservationRoom.room?.roomNumber ?? String(roomId)
-        const recipientName = guest?.displayName ?? 'Customer'
+          const reservation = reservationRoom.reservation
 
-        // Montant formaté
-        const formattedAmount = new Intl.NumberFormat('fr-FR').format(parseFloat(amount)) + ' FCFA'
+          if (!reservation?.whatsappNotificationEnable) {
+            console.log('[WA POS] WhatsApp notifications disabled for this reservation')
+            return
+          }
 
-        // Libellé depuis articles ou description
-        let itemLabel = description
-        if (Array.isArray(articles) && articles.length > 0) {
-          itemLabel = articles
-            .map((a: any) => `${a.quantity ?? 1}x ${a.name ?? a.label}`)
-            .join(', ')
+
+          const guest = reservationRoom.guest ?? reservationRoom.reservation?.guest
+          const phone = reservation.whatsappNumber || guest?.phonePrimary || null
+
+          if (!phone) {
+            console.log('[WA POS] No phone number available')
+            return
+          }
+          const roomNumber = reservationRoom.room?.roomNumber ?? String(roomId)
+          const recipientName = guest?.displayName ?? 'Customer'
+
+          // Montant formaté
+          const formattedAmount = new Intl.NumberFormat('fr-FR').format(parseFloat(amount)) + ' FCFA'
+
+          // Libellé depuis articles ou description
+          let itemLabel = description
+          if (Array.isArray(articles) && articles.length > 0) {
+            itemLabel = articles
+              .map((a: any) => `${a.quantity ?? 1}x ${a.name ?? a.label}`)
+              .join(', ')
+          }
+
+          // Nouveau solde total après mise à jour
+          const updatedFolio = await Folio.find(parseInt(folioId))
+          const totalBalance = new Intl.NumberFormat('fr-FR').format(
+            updatedFolio?.totalCharges ?? 0
+          ) + ' FCFA'
+
+          if (phone) {
+            const whatsappService = new WhatsAppNotificationService()
+            await whatsappService.notifyExpenseAlert({
+              hotelId: parseInt(hotelId),
+              reservationId: reservationRoom.reservation?.id ?? null,
+              recipientPhoneNumber: phone,
+              recipientName,
+              amount: formattedAmount,
+              roomNumber,
+              itemLabel,
+              totalBalance,
+            })
+          }
+        } catch (notifError) {
+          logger.warn({ notifError }, '[POS] WhatsApp expense_alert failed — posting saved')
         }
-
-        // Nouveau solde total après mise à jour
-        const updatedFolio = await Folio.find(parseInt(folioId))
-        const totalBalance = new Intl.NumberFormat('fr-FR').format(
-          updatedFolio?.totalCharges ?? 0
-        ) + ' FCFA'
-
-        if (phone) {
-          const whatsappService = new WhatsAppNotificationService()
-          await whatsappService.notifyExpenseAlert({
-            hotelId: parseInt(hotelId),
-            reservationId: reservationRoom.reservation?.id ?? null,
-            recipientPhoneNumber: phone,
-            recipientName,
-            amount: formattedAmount,
-            roomNumber,
-            itemLabel,
-            totalBalance,
-          })
-        }
-      } catch (notifError) {
-        logger.warn({ notifError }, '[POS] WhatsApp expense_alert failed — posting saved')
-      }
-    })
+      })
       return response.status(201).json({
         success: true,
         message: 'Room posting transaction created successfully',

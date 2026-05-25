@@ -30,6 +30,7 @@ export default class SendScheduledFeedbackSurveys extends BaseCommand {
           recipientPhoneNumber: msg.recipientPhone,
           recipientName: msg.recipientName ?? '',
           hotelName: msg.hotelName,
+          invoiceUrl: msg.invoiceUrl ?? '' ,
         })
 
         msg.status = result.delivered ? 'sent' : 'failed'
