@@ -11,6 +11,7 @@ export default class ModulesController {
   const all = request.input('all',false)
 
   const query = Module.query()
+  .preload('addOns')
 
   if (search) {
     query.where((q) => {

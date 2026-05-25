@@ -339,7 +339,10 @@ export default class AuthController {
 
       // Cookie refresh token
       const refreshValue =
-        (refreshToken as any)?.value || (refreshToken as any)?.token || String(refreshToken)
+      (refreshToken as any).value?.release?.() ||
+      (refreshToken as any).value?.toString?.() ||
+      (refreshToken as any).value ||
+      (refreshToken as any).token
       response.cookie('refresh_token', refreshValue, {
         httpOnly: true,
         sameSite: 'lax',
@@ -599,13 +602,31 @@ export default class AuthController {
     let user: User
     let current: any
 
-    // 1) Essai via Authorization Bearer
     try {
       user = await auth.authenticate()
       current = user.currentAccessToken
     } catch {
-      // 2) Fallback via cookie httpOnly
-      const cookieVal = request.cookiesList()?.refresh_token
+      const cookies = request.cookiesList()
+      let cookieVal: any = cookies?.refresh_token as string | undefined
+
+      if (!cookieVal) {
+        return response.unauthorized({ message: 'Missing refresh token' })
+      }
+
+      //  Même logique que refresh_token_console
+      if (cookieVal?.startsWith('s:')) {
+        cookieVal = cookieVal.slice(2)
+      }
+
+      try {
+        const base64Part = cookieVal.split('.')[0]
+        const decoded = JSON.parse(Buffer.from(base64Part, 'base64').toString('utf-8'))
+        cookieVal = decoded.message
+      } catch (e) {
+        console.error('Erreur décodage cookie:', e)
+        return response.unauthorized({ message: 'Invalid refresh token format' })
+      }
+
       if (!cookieVal) {
         return response.unauthorized({ message: 'Missing refresh token' })
       }
@@ -615,7 +636,6 @@ export default class AuthController {
         return response.unauthorized({ message: 'Invalid refresh token' })
       }
 
-      // Charger l’utilisateur par tokenableId
       const tokenUserId = Number(verified.tokenableId)
       user = await User.findOrFail(
         isNaN(tokenUserId) ? (String(verified.tokenableId) as any) : tokenUserId

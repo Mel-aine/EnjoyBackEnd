@@ -35,6 +35,8 @@ export default class ReservationEmailService {
       const hotel: Hotel = reservation.hotel!
       const guest = reservation.guest
 
+      
+
       // Resolve print/email settings
       const rawSettings: any = hotel.printEmailSettings || {}
       const settings: PrintEmailSettings = {
@@ -42,6 +44,8 @@ export default class ReservationEmailService {
         checkoutThanksTemplate: (rawSettings as any)?.checkoutThanksTemplate,
         attachFolioWithThanksEmail: Boolean((rawSettings as any)?.attachFolioWithThanksEmail),
       }
+
+      
 
       // Eligibility checks
       const recipientEmail = guest?.email || guest?.emailSecondary || null
@@ -81,6 +85,7 @@ export default class ReservationEmailService {
         })
         return
       }
+      
 
       // Load template
       const templateService = new EmailTemplateService()
