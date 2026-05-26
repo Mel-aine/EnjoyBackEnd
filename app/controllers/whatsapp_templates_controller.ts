@@ -32,10 +32,14 @@ export default class WhatsappTemplateController {
   // POST /hotels/:hotelId/whatsapp/templates/sync
   // Force une re-synchronisation des templates depuis Meta
   // ---------------------------------------------------------------------------
- public async sync({ params, response }: HttpContext) {
-  const hotelId = params.hotelId ? Number(params.hotelId) : undefined
-  const result = await this.syncService.syncHotelTemplates(hotelId)
+public async sync({ response }: HttpContext) {
+  const result = await this.syncService.syncTemplates()
   return response.ok({ message: 'Synchronisation terminée', result })
+}
+
+public async refreshStatuses({ response }: HttpContext) {
+  const result = await this.syncService.refreshStatuses()
+  return response.ok({ message: 'Statuts mis à jour', result })
 }
 
   // ---------------------------------------------------------------------------
@@ -57,7 +61,7 @@ export default class WhatsappTemplateController {
       for (const change of changes) {
         if (change.field !== 'message_template_status_update') continue
 
-        const { message_template_name, message_template_id, event, reason } = change.value
+        const { message_template_name, event, reason } = change.value
 
         const hotelId = await this.resolveHotelIdFromWabaId(entry.id)
         if (!hotelId) continue
@@ -73,7 +77,7 @@ export default class WhatsappTemplateController {
         if (!status) continue
 
         await this.syncService.handleStatusWebhook({
-          hotelId,
+
           templateName: message_template_name,
           status: status as any,
           rejectionReason: reason,

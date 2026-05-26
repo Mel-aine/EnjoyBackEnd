@@ -1,5 +1,4 @@
 import { TemplateComponent } from '#models/hotel_whatsapp_template'
-import env from '#start/env'
 
 
 
@@ -359,5 +358,6 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
     },
   ],
 }
+
 
 ]
