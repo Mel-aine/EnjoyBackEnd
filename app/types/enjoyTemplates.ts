@@ -357,21 +357,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
       text: 'Enjoy PMS',
     },
   ],
-},
-{
-  name: 'feedback_negative_reply',
-  category: 'MARKETING',
-  language: 'fr',
-  components: [
-    {
-      type: 'BODY',
-      text: "Désolé de vous avoir apporté un problème. Nous vous remercions de votre confiance et nous ferons tout pour améliorer nos services.",
-    },
-    {
-      type: 'FOOTER',
-      text: 'Enjoy PMS',
-    },
-  ],
 }
+
 
 ]
