@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import Hotel from '#models/hotel'
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
 export type TemplateStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAUSED' | 'DISABLED'
 
 export type TemplateComponent = {
@@ -23,9 +22,6 @@ export default class HotelWhatsappTemplate extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-
-  @column()
-  declare hotelId: number
 
   @column()
   declare templateName: string
@@ -61,8 +57,7 @@ export default class HotelWhatsappTemplate extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
-  @belongsTo(() => Hotel)
-  declare hotel: BelongsTo<typeof Hotel>
+
 
   /**
    * Guard : empêche tout envoi si le template n'est pas APPROVED

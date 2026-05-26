@@ -305,17 +305,11 @@ export default class WhatsAppWebhookService {
             console.log(`Template status update: ${value.message_template_name} → ${value.message_template_status}`)
 
             const templateSyncService = new WhatsappTemplateSyncService()
-            const templates = await HotelWhatsappTemplate.query()
-                .where('template_name', value.message_template_name)
-
-            for (const template of templates) {
-                await templateSyncService.handleStatusWebhook({
-                    hotelId: template.hotelId,
-                    templateName: value.message_template_name,
-                    status: value.message_template_status,
-                    rejectionReason: value.reason ?? undefined,
-                })
-            }
+            await templateSyncService.handleStatusWebhook({
+                templateName: value.message_template_name,
+                status: value.message_template_status,
+                rejectionReason: value.reason ?? undefined,
+            })
             return
         }
 

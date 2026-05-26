@@ -715,7 +715,7 @@ export default class HotelsController {
       if (whatsappJustEnabled) {
       const syncService = new WhatsappTemplateSyncService()
       // Fire & forget — on ne bloque pas la réponse HTTP
-      syncService.syncHotelTemplates(hotel.id).catch((err) => {
+      syncService.syncTemplates(hotel.id).catch((err) => {
         console.error(`[TemplateSyncService] Erreur sync hotel ${hotel.id}:`, err)
       })
     }

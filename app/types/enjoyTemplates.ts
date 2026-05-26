@@ -1,5 +1,4 @@
 import { TemplateComponent } from '#models/hotel_whatsapp_template'
-import env from '#start/env'
 
 
 
@@ -352,6 +351,21 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
       example: {
         body_text: [['John Doe', 'Hôtel Enjoy', 'RES-2026-001', '24 Mai 2026', '26 Mai 2026', 'https://enjoy-stay.com/documents/pdf/abc123']],
       },
+    },
+    {
+      type: 'FOOTER',
+      text: 'Enjoy PMS',
+    },
+  ],
+},
+{
+  name: 'feedback_negative_reply',
+  category: 'MARKETING',
+  language: 'fr',
+  components: [
+    {
+      type: 'BODY',
+      text: "Désolé de vous avoir apporté un problème. Nous vous remercions de votre confiance et nous ferons tout pour améliorer nos services.",
     },
     {
       type: 'FOOTER',

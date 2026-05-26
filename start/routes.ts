@@ -1887,6 +1887,8 @@ router.post('/whatsapp/templates/sync', whatsappTemplatesController.sync.bind(wh
   .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
 
 
+router.post('/whatsapp/templates/refresh', whatsappTemplatesController.refreshStatuses.bind(whatsappTemplatesController))
+  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
 
