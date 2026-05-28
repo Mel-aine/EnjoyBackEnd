@@ -73,6 +73,10 @@
             {
                 "id": "access_to_export_functionality_in_centralized_guest_profile",
                 "name": "Access to Export Functionality in Centralized Guest Profile"
+            },
+            {
+                "id" : "access_products_view",
+                "name" : "Access to Market Place"
             }
         ]
     },

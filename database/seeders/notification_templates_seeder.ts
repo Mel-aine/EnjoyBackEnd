@@ -618,7 +618,15 @@ export default class NotificationTemplatesSeeder extends BaseSeeder {
       subjectTemplate: 'Lost and Found Item Reported [ItemId]',
       contentTemplate:
         'A new lost and found item has been reported. Item ID: [ItemId], Description: [Description], Reported By: [ReportedBy].',
-     }
+     },
+     {
+      code: 'NEGATIVE_FEEDBACK_STAFF',
+      channel: 'EMAIL',
+      locale: 'fr',
+      subjectTemplate: '⚠️ Avis négatif WhatsApp — [Stage]',
+      contentTemplate:
+        'Le client [GuestPhone] (réservation #[ReservationId]) a laissé un avis négatif le [ReceivedAt].\n\nNote : [Rating]\nCommentaire : [Comment]\n\nStatut : [Stage]',
+    },
 
     ]
 

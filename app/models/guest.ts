@@ -33,6 +33,9 @@ export default class Guest extends BaseModel {
   declare outstandingCredit: number | null 
 
   @column()
+  declare phoneWhatsapp: string | null
+
+  @column()
   declare hotelId: number
 
   @column()

@@ -12,6 +12,8 @@ export default class AdminConsolePermissionSeeder extends BaseSeeder {
         category: 'Console - Dashboard',
       },
 
+    
+
       // ── Clients ──
       {
         name: 'console_clients_view',
@@ -204,6 +206,13 @@ export default class AdminConsolePermissionSeeder extends BaseSeeder {
         label: 'Assigner un rôle à un utilisateur',
         icon: 'users',
         category: 'Console - Utilisateurs',
+      },
+
+        {
+        name: 'console_whatsapp_view',
+        label: 'Voir les templates WhatsApp',
+        icon: 'message',
+        category: 'Console - Notifications',
       },
     ]
 

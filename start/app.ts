@@ -39,3 +39,23 @@ cron.schedule('1 0 1 * *', () => {
     }
   })
 })
+
+// Modifié : '*' au lieu de '*/5' pour s'exécuter TOUTES les minutes
+cron.schedule('* * * * *', () => { 
+  console.log('Déclenchement de la transmission des feedback surveys planifiés...')
+  
+  exec('node ace auto:send-feedback-surveys', (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Erreur lors de l’exécution: ${error.message}`)
+      return
+    }
+    if (stderr) {
+      console.error(`Erreur dans la sortie : ${stderr}`)
+      return
+    }
+    // Très important pour voir ce que fait ta commande Ace !
+    console.log(`Résultat Ace Command : ${stdout}`) 
+  })
+})
+
+

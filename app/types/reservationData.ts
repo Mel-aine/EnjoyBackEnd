@@ -58,7 +58,8 @@ export interface ReservationData {
   booking_date?: any
   language?: string
   guest_id?: number,
-
+  whatsapp_number?: string,
+  whatsapp_notification_enable?: boolean,
   // Multiple guests support
   guests?: GuestData[]
 
