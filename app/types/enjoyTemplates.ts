@@ -67,7 +67,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
 
   {
     name: 'feedback_survey',
-    category: 'MARKETING',
+    category: 'UTILITY',
     language: 'fr',
     components: [
       {
@@ -104,7 +104,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
 
   {
     name: 'htl_special_offer',
-    category: 'MARKETING',
+    category: 'UTILITY',
     language: 'fr',
     components: [
       {
@@ -225,7 +225,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
 
   {
     name: 'feedback_positive_reply',
-    category: 'MARKETING',
+    category: 'UTILITY',
     language: 'fr',
     components: [
       {
@@ -254,7 +254,7 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
 
   {
     name: 'feedback_surveys',
-    category: 'MARKETING',
+    category: 'UTILITY',
     language: 'fr',
     components: [
       {
