@@ -557,16 +557,17 @@ async notifyFeedbackSurvey(input: {
     ]
  
     // Bouton URL uniquement si une clé numérique est disponible
-    if (input.digitalKeyToken) {
-      components.push({
-        type: 'button',
-        sub_type: 'url',
-        index: 0,
-        parameters: [
-          { type: 'text', text: input.digitalKeyToken },
-        ],
-      })
-    }
+   const keyParam = input.digitalKeyToken ?? 'guest'
+
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: 0,
+      parameters: [
+        { type: 'text', text: keyParam },
+      ],
+    })
+   
  
     const result = await this.deliverMetaTemplateMessage({
       recipientPhoneNumber: recipientPhone,
@@ -959,6 +960,132 @@ async notifyVoucherReady(input: {
     templateName: 'voucher_ready',
     recipientPhone: input.recipientPhoneNumber ?? null,
     messageBody: `voucher_ready | ${input.recipientName} | ${input.reservationNumber}`,
+    credentialSource: settings.credentialSource ?? null,
+    deliveryResult: result,
+  })
+
+  return result
+}
+
+//notifier le paiement 
+async notifyPaymentReceived(input: {
+  hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string
+  amount: string           // {{2}} ex: "50 000 FCFA"
+  hotelName: string        // {{3}}
+  reservationNumber: string // {{4}}
+  paymentMethod: string    // {{5}} ex: "Orange Money"
+  remainingBalance: string // {{6}} ex: "0 FCFA"
+}) {
+  const settings = await this.resolveSettings(input.hotelId)
+
+  if (!settings.enabled) {
+    await this.writeLog({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      templateName: 'htl_payment_received',
+      recipientPhone: input.recipientPhoneNumber ?? null,
+      messageBody: '',
+      credentialSource: settings.credentialSource ?? null,
+      deliveryResult: { delivered: false, reason: settings.reason },
+    })
+    return { delivered: false, reason: settings.reason }
+  }
+
+  const recipientPhone = this.normalizePhoneNumber(input.recipientPhoneNumber)
+  if (!recipientPhone) return { delivered: false, reason: 'missing_recipient_phone_number' }
+
+  const result = await this.deliverMetaTemplateMessage({
+    recipientPhoneNumber: recipientPhone,
+    templateName: 'htl_payment_received',
+    languageCode: 'fr',
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: input.recipientName },      // {{1}}
+          { type: 'text', text: input.amount },             // {{2}}
+          { type: 'text', text: input.hotelName },          // {{3}}
+          { type: 'text', text: input.reservationNumber },  // {{4}}
+          { type: 'text', text: input.paymentMethod },      // {{5}}
+          { type: 'text', text: input.remainingBalance },   // {{6}}
+        ],
+      },
+    ],
+    config: settings.config,
+  })
+
+  await this.writeLog({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    templateName: 'htl_payment_received',
+    recipientPhone: input.recipientPhoneNumber ?? null,
+    messageBody: `htl_payment_received | ${input.recipientName} | ${input.amount} | ${input.reservationNumber}`,
+    credentialSource: settings.credentialSource ?? null,
+    deliveryResult: result,
+  })
+
+  return result
+}
+
+
+async notifyStayAmendment(input: {
+  hotelId?: number | null
+  reservationId?: number | null
+  recipientPhoneNumber?: string | null
+  recipientName: string       // {{1}}
+  hotelName: string           // {{2}}
+  reservationNumber: string   // {{3}}
+  newCheckInDate: string      // {{4}}
+  newCheckOutDate: string     // {{5}}
+  roomNumber: string          // {{6}}
+}) {
+  const settings = await this.resolveSettings(input.hotelId)
+
+  if (!settings.enabled) {
+    await this.writeLog({
+      hotelId: input.hotelId,
+      reservationId: input.reservationId,
+      templateName: 'htl_stay_amendment',
+      recipientPhone: input.recipientPhoneNumber ?? null,
+      messageBody: '',
+      credentialSource: settings.credentialSource ?? null,
+      deliveryResult: { delivered: false, reason: settings.reason },
+    })
+    return { delivered: false, reason: settings.reason }
+  }
+
+  const recipientPhone = this.normalizePhoneNumber(input.recipientPhoneNumber)
+  if (!recipientPhone) return { delivered: false, reason: 'missing_recipient_phone_number' }
+
+  const result = await this.deliverMetaTemplateMessage({
+    recipientPhoneNumber: recipientPhone,
+    templateName: 'htl_stay_amendment',
+    languageCode: 'fr',
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: input.recipientName },      // {{1}}
+          { type: 'text', text: input.hotelName },          // {{2}}
+          { type: 'text', text: input.reservationNumber },  // {{3}}
+          { type: 'text', text: input.newCheckInDate },     // {{4}}
+          { type: 'text', text: input.newCheckOutDate },    // {{5}}
+          { type: 'text', text: input.roomNumber },         // {{6}}
+        ],
+      },
+    ],
+    config: settings.config,
+  })
+
+  await this.writeLog({
+    hotelId: input.hotelId,
+    reservationId: input.reservationId,
+    templateName: 'htl_stay_amendment',
+    recipientPhone: input.recipientPhoneNumber ?? null,
+    messageBody: `htl_stay_amendment | ${input.recipientName} | ${input.reservationNumber} | ${input.newCheckInDate} → ${input.newCheckOutDate}`,
     credentialSource: settings.credentialSource ?? null,
     deliveryResult: result,
   })

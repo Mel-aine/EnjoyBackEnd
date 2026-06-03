@@ -374,10 +374,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
             const breakfastEnd = ns.breakfastEnd ?? null
             const hasSmartLock = ns.hasSmartLock ?? false
 
-            let digitalKeyToken: string | null = null
-            if (hasSmartLock) {
-              digitalKeyToken = reservation.reservationNumber ?? null
-            }
+            const digitalKeyToken = hasSmartLock
+            ? (reservation.reservationNumber ?? null)
+            : reservation.reservationNumber ?? 'guest'
 
             const result = await svc.notifyCheckInWelcome({
               hotelId: reservation.hotelId,
@@ -5178,6 +5177,76 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         } catch (err) {
           console.warn('Notification STAY_AMENDED failed:', (err as any)?.message)
+        }
+
+        // ─── ENVOI DE LA NOTIFICATION WHATSAPP GUEST ──────────────────────
+        try {
+          const WhatsAppNotificationService = (
+            await import('#services/whatsapp_notification_service')
+          ).default
+          const svc = new WhatsAppNotificationService()
+
+          const Guest = (await import('#models/guest')).default
+          const Hotel = (await import('#models/hotel')).default
+          const ReservationRoom = (await import('#models/reservation_room')).default
+
+          await reservation.refresh()
+
+          const [guest, hotel] = await Promise.all([
+            Guest.find(reservation.guestId),
+            Hotel.find(reservation.hotelId),
+          ])
+
+          const isWhatsAppEnabled = reservation.whatsappNotificationEnable ?? true
+          const phone = isWhatsAppEnabled 
+            ? (reservation.whatsappNumber || guest?.phonePrimary) 
+            : null
+
+          if (!phone) {
+            console.log('[WA AmendStay] WhatsApp disabled or no number available for this guest')
+          } else {
+            const recipientName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'Cher Client'
+            const hotelName = hotel?.hotelName || 'Notre établissement'
+            const reservationNumber = reservation.reservationNumber || 'N/A'
+            
+            const formattedCheckIn = reservation.arrivedDate 
+              ? reservation.arrivedDate.toFormat('yyyy-MM-dd') 
+              : (newArrivalDate || 'N/A')
+              
+            const formattedCheckOut = reservation.departDate 
+              ? reservation.departDate.toFormat('yyyy-MM-dd') 
+              : (newDepartureDate || 'N/A')
+
+            const activeResRooms = await ReservationRoom.query()
+              .where('reservationId', reservation.id)
+              .where('isSplitedOrigin', false)
+              .whereNotIn('status', ['checked_out'])
+              .preload('room')
+
+            // Si selectedRooms était spécifié, on filtre pour ne garder que celles modifiées, sinon on prend tout
+            const filteredRooms = selectedRooms && selectedRooms.length > 0
+              ? activeResRooms.filter(rr => selectedRooms.includes(rr.roomId))
+              : activeResRooms
+
+            const displayRoomNumbers = filteredRooms
+              .map(rr => rr.room?.roomNumber || rr.roomId || 'N/A')
+              .join(', ')
+
+            const result = await svc.notifyStayAmendment({
+              hotelId: reservation.hotelId,
+              reservationId: reservation.id,
+              recipientPhoneNumber: phone,
+              recipientName,
+              hotelName,
+              reservationNumber,
+              newCheckInDate: formattedCheckIn,
+              newCheckOutDate: formattedCheckOut,
+              roomNumber: displayRoomNumbers || 'N/A', 
+            })
+
+          }
+        } catch (waErr) {
+          console.error('[WA AmendStay] Failed to send WhatsApp notification:', waErr)
         }
       })
       await trx.commit()

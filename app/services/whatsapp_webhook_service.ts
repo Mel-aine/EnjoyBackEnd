@@ -161,7 +161,7 @@ export default class WhatsAppWebhookService {
         // Retrouver le log du survey via WhatsappLog
         const surveyLog = await WhatsappLog.query()
             .where('hotel_id', hotel.id)
-            .where('template_name', 'feedback_survey')
+            .where('template_name', 'feedback_surveys')
             .where((q) => {
                 if (contextId) q.where('meta_message_id', contextId)
                 else q.where('recipient_phone', from)
