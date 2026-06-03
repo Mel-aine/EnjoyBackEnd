@@ -19,12 +19,13 @@ export default class ScheduleFeedbackSurvey {
         hotelId: event.hotelId,
         reservationId: event.reservationId,
         guestId: event.guestId,
-        templateName: 'feedback_survey',
+        templateName: 'feedback_surveys',
         recipientPhone: event.recipientPhone,
         recipientName: event.recipientName,
         hotelName: event.hotelName,
+        invoiceUrl: event.invoiceUrl, 
         sendAfter: DateTime.now().plus({ hours: 2 }),
-        // sendAfter: DateTime.now().plus({ minutes: 2 }),
+        // sendAfter: DateTime.now().plus({ minutes: 1 }),
         status: 'pending',
       })
 
@@ -33,7 +34,12 @@ export default class ScheduleFeedbackSurvey {
         phone: event.recipientPhone,
       })
     } catch (err) {
-      logger.error('[FeedbackSurvey] Erreur planification', err)
+       logger.error('[FeedbackSurvey] Erreur planification', {
+    message: err?.message,
+    stack: err?.stack,
+    reservationId: event.reservationId,
+    event, // log tout l'event pour voir ce qui est null
+  })
     }
   }
 }

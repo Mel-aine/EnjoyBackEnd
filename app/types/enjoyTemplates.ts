@@ -187,9 +187,6 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
     ],
   },
 
-
-
-
   {
     name: 'expense_alerts',
     category: 'UTILITY',
@@ -251,7 +248,6 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
     ],
   },
 
-
   {
     name: 'feedback_surveys',
     category: 'UTILITY',
@@ -284,7 +280,6 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
       },
     ],
   },
-
 
   {
     name: 'htl_booking_confirms',
@@ -357,7 +352,54 @@ export const ENJOY_STANDARD_TEMPLATES: EnjoyTemplateDefinition[] = [
       text: 'Enjoy PMS',
     },
   ],
-}
+},
+{
+  name: 'htl_stay_amendment',
+  category: 'UTILITY',
+  language: 'fr',
+  components: [
+    {
+      type: 'HEADER',
+      format: 'TEXT',
+      text: 'Modification de séjour',
+    },
+    {
+      type: 'BODY',
+      text: 'Bonjour {{1}},\n\nVotre séjour chez {{2}} (réservation *{{3}}*) a été modifié.\n\n Nouvelle date d\'arrivée : {{4}}\n Nouvelle date de départ : {{5}}\n Chambre : {{6}}\n\nSi vous avez des questions, n\'hésitez pas à nous contacter.',
+      example: {
+        body_text: [['John Doe', 'Hôtel Enjoy Yaoundé', 'RES-2026-001', '24 Mai 2026', '28 Mai 2026', '204']],
+      },
+    },
+    {
+      type: 'FOOTER',
+      text: 'Enjoy PMS',
+    },
+  ],
+},
+
+{
+  name: 'htl_payment_received',
+  category: 'UTILITY',
+  language: 'fr',
+  components: [
+    {
+      type: 'HEADER',
+      format: 'TEXT',
+      text: 'Paiement reçu',
+    },
+    {
+      type: 'BODY',
+      text: 'Bonjour {{1}},\n\nNous avons bien reçu votre paiement de *{{2}}* pour votre séjour chez {{3}} (réservation *{{4}}*).\n\n Mode de paiement : {{5}}\n Solde restant : {{6}}\n\nMerci pour votre confiance.',
+      example: {
+        body_text: [['John Doe', '50 000 FCFA', 'Hôtel Enjoy Yaoundé', 'RES-2026-001', 'Orange Money', '0 FCFA']],
+      },
+    },
+    {
+      type: 'FOOTER',
+      text: 'Enjoy PMS',
+    },
+  ],
+},
 
 
 ]
