@@ -4,14 +4,18 @@ export default class extends BaseSchema {
   protected tableName = 'whatsapp_scheduled_messages'
 
   async up() {
-    this.schema.alterTable(this.tableName, (table) => {
-      table.string('invoice_url').nullable()
-    })
+    const hasColumn = await this.schema.hasColumn(this.tableName, 'invoice_url')
+
+    if (!hasColumn) {
+      await this.schema.alterTable(this.tableName, (table) => {
+        table.string('invoice_url').nullable()
+      })
+    }
   }
 
   async down() {
-    this.schema.alterTable(this.tableName, (table) => {
-     table.dropColumn('invoice_url')
+    await this.schema.alterTable(this.tableName, (table) => {
+      table.dropColumn('invoice_url')
     })
   }
 }
