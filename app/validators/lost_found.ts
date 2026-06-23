@@ -8,6 +8,7 @@ export const createLostFoundValidator = vine.compile(
   vine.object({
     lostOn: vine.date().optional(),
     foundOn: vine.date().optional(),
+    hotelId: vine.number().positive().optional(),
     foundLocation: vine.string().trim().maxLength(255).optional(),
     lostLocation: vine.string().trim().maxLength(255).optional(),
     currentLocation: vine.string().trim().maxLength(255).optional(),
@@ -38,6 +39,7 @@ export const updateLostFoundValidator = vine.compile(
   vine.object({
     lostOn: vine.date().optional(),
     foundOn: vine.date().optional(),
+    hotelId: vine.number().positive().optional(),
     foundLocation: vine.string().trim().maxLength(255).optional(),
     lostLocation: vine.string().trim().maxLength(255).optional(),
     currentLocation: vine.string().trim().maxLength(255).optional(),

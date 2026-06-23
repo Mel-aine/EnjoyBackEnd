@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
+import Hotel from './hotel.js'
 
 export default class LostFound extends BaseModel {
   static table = 'lost_found'
@@ -62,6 +63,12 @@ export default class LostFound extends BaseModel {
   @column()
   declare zipCode: string
 
+  // Hotel relationship
+  @column()
+  declare hotelId: number
+
+ 
+
   // Status and additional info
   @column()
   declare status: string
@@ -82,4 +89,8 @@ export default class LostFound extends BaseModel {
   // Relationships
   @belongsTo(() => Room)
   declare room: BelongsTo<typeof Room>
+
+   // Hotel relationship
+  @belongsTo(() => Hotel)
+  declare hotel: BelongsTo<typeof Hotel>
 }
