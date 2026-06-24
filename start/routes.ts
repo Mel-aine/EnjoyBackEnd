@@ -178,6 +178,7 @@ router.get('/cron/subscriptions/renew', async ({ request, response }) => {
 })
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
+import externalSwagger from '#config/external_swagger'
 import { middleware } from '#start/kernel'
 
 // import { middleware } from '#start/kernel'
@@ -278,6 +279,24 @@ router.get('/swagger', async () => {
 router.get('/swagger/json', async () => {
   const routes = router.toJSON()
   return AutoSwagger.default.json(routes, swagger)
+})
+
+router.get('/swagger/external', async () => {
+  return AutoSwagger.default.ui('/swagger/external/json', externalSwagger)
+})
+
+router.get('/swagger/external/json', async () => {
+  const routes: any = router.toJSON()
+  const isExternalRoute = (route: any) => {
+    const pattern = String(route?.pattern || '')
+    return pattern.startsWith('/external') || pattern.startsWith('external')
+  }
+
+  const filteredRoutes = Array.isArray(routes)
+    ? routes.filter(isExternalRoute)
+    : { ...routes, root: Array.isArray(routes?.root) ? routes.root.filter(isExternalRoute) : [] }
+
+  return AutoSwagger.default.json(filteredRoutes, externalSwagger)
 })
 
 
