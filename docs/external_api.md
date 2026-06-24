@@ -55,6 +55,10 @@ Tous les endpoints de ce document sont **authentifiés** via la clé POS de l’
 
 **Base URL :** `https://enjoy-api.render.com` (ou votre instance)
 
+**Swagger External API :**
+- UI: `/swagger/external`
+- JSON: `/swagger/external/json`
+
 ### 2.1 Authentification
 
 Le client doit envoyer la clé dans l’en-tête HTTP :

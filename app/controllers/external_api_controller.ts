@@ -50,8 +50,17 @@ export default class ExternalApiController {
       return null
     }
 
-    ;(ctx.auth as any).user = user
     return user
+  }
+
+  private withActorUser(ctx: HttpContext, actor: User): HttpContext {
+    return {
+      ...ctx,
+      auth: {
+        ...(ctx.auth as any),
+        user: actor,
+      },
+    } as HttpContext
   }
 
   private async ensureReservationHotel(ctx: HttpContext, reservationId: number): Promise<boolean> {
@@ -257,7 +266,7 @@ export default class ExternalApiController {
 
     const GuestsController = (await import('#controllers/guests_controller')).default
     const controller = new GuestsController()
-    return controller.store(ctx)
+    return controller.store(this.withActorUser(ctx, actor))
   }
 
   public async reservationCreate(ctx: HttpContext) {
@@ -283,7 +292,7 @@ export default class ExternalApiController {
     })
 
     const controller = new ReservationsController()
-    return controller.saveReservation(ctx)
+    return controller.saveReservation(this.withActorUser(ctx, actor))
   }
 
   public async reservationDetails(ctx: HttpContext) {
@@ -372,7 +381,7 @@ export default class ExternalApiController {
     }
 
     const controller = new ReservationsController()
-    return controller.assignRoom(ctx)
+    return controller.assignRoom(this.withActorUser(ctx, actor))
   }
 
   public async reservationUnassignRoom(ctx: HttpContext) {
@@ -401,7 +410,7 @@ export default class ExternalApiController {
     }
 
     const controller = new ReservationsController()
-    return controller.unassignRoom(ctx)
+    return controller.unassignRoom(this.withActorUser(ctx, actor))
   }
 
   public async roomBlocksByHotel(ctx: HttpContext) {
@@ -446,7 +455,7 @@ export default class ExternalApiController {
 
     const RoomBlocksController = (await import('#controllers/room_blocks_controller')).default
     const controller = new RoomBlocksController()
-    return controller.store(ctx)
+    return controller.store(this.withActorUser(ctx, actor))
   }
 
   public async roomBlockDelete(ctx: HttpContext) {
@@ -477,7 +486,7 @@ export default class ExternalApiController {
 
     const RoomBlocksController = (await import('#controllers/room_blocks_controller')).default
     const controller = new RoomBlocksController()
-    return controller.destroy(ctx)
+    return controller.destroy(this.withActorUser(ctx, actor))
   }
 
   public async roomsWithDetails(ctx: HttpContext) {
@@ -519,7 +528,7 @@ export default class ExternalApiController {
 
     const FoliosController = (await import('#controllers/folios_controller')).default
     const controller = new FoliosController()
-    return controller.createForReservation(ctx)
+    return controller.createForReservation(this.withActorUser(ctx, actor))
   }
 
   public async folioPostTransaction(ctx: HttpContext) {
@@ -550,7 +559,7 @@ export default class ExternalApiController {
 
     const FoliosController = (await import('#controllers/folios_controller')).default
     const controller = new FoliosController()
-    return controller.postTransaction(ctx)
+    return controller.postTransaction(this.withActorUser(ctx, actor))
   }
 
   public async folioStatement(ctx: HttpContext) {
@@ -628,7 +637,7 @@ export default class ExternalApiController {
       return response.unauthorized({ success: false, message: 'Invalid x-pos-api-key' })
     }
 
-    await this.attachActorUser(ctx)
+    const actor = await this.attachActorUser(ctx)
 
     const reservationId = Number(request.input('reservationId'))
     if (Number.isNaN(reservationId)) {
@@ -642,7 +651,7 @@ export default class ExternalApiController {
 
     const FolioPrintController = (await import('#controllers/folio_print_controller')).default
     const controller = new FolioPrintController()
-    return controller.sendInvoiceByEmail(ctx)
+    return controller.sendInvoiceByEmail(actor ? this.withActorUser(ctx, actor) : ctx)
   }
 
   public async dashboardAvailability(ctx: HttpContext) {
@@ -669,7 +678,7 @@ export default class ExternalApiController {
       return response.unauthorized({ success: false, message: 'Invalid x-pos-api-key' })
     }
 
-    await this.attachActorUser(ctx)
+    const actor = await this.attachActorUser(ctx)
 
     const rawBody = request.body() as any
     request.updateBody({
@@ -679,7 +688,7 @@ export default class ExternalApiController {
 
     const ReportsController = (await import('#controllers/reports_controller')).default
     const controller = new ReportsController()
-    return controller.generateManagementReportPdf(ctx)
+    return controller.generateManagementReportPdf(actor ? this.withActorUser(ctx, actor) : ctx)
   }
 
   public async nightAuditReportPdf(ctx: HttpContext) {
@@ -689,7 +698,7 @@ export default class ExternalApiController {
       return response.unauthorized({ success: false, message: 'Invalid x-pos-api-key' })
     }
 
-    await this.attachActorUser(ctx)
+    const actor = await this.attachActorUser(ctx)
 
     const rawBody = request.body() as any
     request.updateBody({
@@ -699,7 +708,7 @@ export default class ExternalApiController {
 
     const ReportsController = (await import('#controllers/reports_controller')).default
     const controller = new ReportsController()
-    return controller.generateNightAuditReportPdf(ctx)
+    return controller.generateNightAuditReportPdf(actor ? this.withActorUser(ctx, actor) : ctx)
   }
 
   public async roomsAvailabilityByRoomType(ctx: HttpContext) {
@@ -893,7 +902,7 @@ export default class ExternalApiController {
     }
 
     const controller = new ReservationsController()
-    return controller.cancelReservation(ctx)
+    return controller.cancelReservation(this.withActorUser(ctx, actor))
   }
 
   public async reservationCheckIn(ctx: HttpContext) {
@@ -922,7 +931,7 @@ export default class ExternalApiController {
     }
 
     const controller = new ReservationsController()
-    return controller.checkIn(ctx)
+    return controller.checkIn(this.withActorUser(ctx, actor))
   }
 
   public async reservationCheckOut(ctx: HttpContext) {
@@ -951,6 +960,6 @@ export default class ExternalApiController {
     }
 
     const controller = new ReservationsController()
-    return controller.checkOut(ctx)
+    return controller.checkOut(this.withActorUser(ctx, actor))
   }
 }
