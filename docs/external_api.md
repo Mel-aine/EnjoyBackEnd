@@ -35,7 +35,7 @@
 │  (AdonisJS 6 - PMS complet)                       │
 │                                                     │
 │  Endpoints REST exposés :                          │
-│  • /api/external/*  → API dédiées pour Directus    │
+│  • /external/*      → API dédiées pour Directus     │
 │  • /api/auth*       → Authentification             │
 │  • /reservation/*   → Gestion réservations         │
 │  • /guests/*        → Gestion clients               │
@@ -65,10 +65,16 @@ x-pos-api-key: <pos_api_key>
 
 Cette clé est rattachée à un hôtel (champ `hotels.pos_api_key`) et permet d’authentifier l’intégration sans login/password.
 
+Pour les endpoints qui **créent/modifient** des données, il faut aussi fournir l’utilisateur “système” (celui qui sera utilisé pour les champs `created_by`, logs, etc.) :
+
+```http
+x-user-id: <userId>
+```
+
 Exemple :
 
 ```http
-GET /api/configuration/hotels/47
+GET /external/configuration/hotels/47
 x-pos-api-key: <pos_api_key>
 ```
 
@@ -78,7 +84,7 @@ x-pos-api-key: <pos_api_key>
 
 #### GET la configuration complète d'un hôtel
 ```http
-GET /api/configuration/hotels/{hotelId}
+GET /external/configuration/hotels/{hotelId}
 x-pos-api-key: <pos_api_key>
 
 Response: {
@@ -98,7 +104,7 @@ Response: {
 
 #### GET les types de chambres
 ```http
-GET /api/configuration/hotels/{hotelId}/room_types
+GET /external/configuration/hotels/{hotelId}/room_types
 x-pos-api-key: <pos_api_key>
 
 Response: [
@@ -118,7 +124,7 @@ Response: [
 
 #### GET les chambres
 ```http
-GET /api/configuration/hotels/{hotelId}/rooms
+GET /external/configuration/hotels/{hotelId}/rooms
 x-pos-api-key: <pos_api_key>
 
 Response: [
@@ -139,31 +145,31 @@ Response: [
 
 #### GET les types de lits
 ```http
-GET /api/configuration/hotels/{hotelId}/bed_types
+GET /external/configuration/hotels/{hotelId}/bed_types
 x-pos-api-key: <pos_api_key>
 ```
 
 #### GET les tarifs
 ```http
-GET /api/configuration/hotels/{hotelId}/room_rates
+GET /external/configuration/hotels/{hotelId}/room_rates
 x-pos-api-key: <pos_api_key>
 ```
 
 #### GET les saisons
 ```http
-GET /api/configuration/hotels/{hotelId}/seasons
+GET /external/configuration/hotels/{hotelId}/seasons
 x-pos-api-key: <pos_api_key>
 ```
 
 #### GET les types de tarifs
 ```http
-GET /api/configuration/hotels/{hotelId}/rate_types
+GET /external/configuration/hotels/{hotelId}/rate_types
 x-pos-api-key: <pos_api_key>
 ```
 
 #### GET les suppléments (extra charges)
 ```http
-GET /api/configuration/hotels/{hotelId}/extra_charges
+GET /external/configuration/hotels/{hotelId}/extra_charges
 x-pos-api-key: <pos_api_key>
 ```
 
@@ -173,7 +179,7 @@ x-pos-api-key: <pos_api_key>
 
 #### Rechercher un client
 ```http
-GET /api/guests?search=Jean&hotelId=1
+GET /external/guests?search=Jean
 x-pos-api-key: <pos_api_key>
 
 Response: {
@@ -194,8 +200,9 @@ Response: {
 
 #### Créer un client
 ```http
-POST /api/guests
+POST /external/guests
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -218,7 +225,7 @@ Response: {
 
 #### Obtenir les détails d'un client
 ```http
-GET /api/guests/{id}
+GET /external/guests/{id}
 x-pos-api-key: <pos_api_key>
 ```
 
@@ -226,9 +233,25 @@ x-pos-api-key: <pos_api_key>
 
 ### 2.4 Gestion des Disponibilités
 
+#### Disponibilités (tous les types)
+```http
+GET /external/configuration/hotels/{hotelId}/rooms/availability-by-room-type?date_from=2026-06-25&date_to=2026-06-28
+x-pos-api-key: <pos_api_key>
+
+Response: {
+  "success": true,
+  "hotelId": 47,
+  "date_from": "2026-06-25",
+  "date_to": "2026-06-28",
+  "data": [
+    { "roomTypeId": 1, "roomTypeName": "Chambre Standard", "totalRooms": 10, "unavailableRooms": 3, "availableRooms": 7 }
+  ]
+}
+```
+
 #### Vérifier la disponibilité par type de chambre
 ```http
-GET /api/configuration/hotels/{hotelId}/rooms/available-by-room-type/{roomTypeId}?date_from=2026-06-25&date_to=2026-06-28
+GET /external/configuration/hotels/{hotelId}/rooms/available-by-room-type/{roomTypeId}?date_from=2026-06-25&date_to=2026-06-28
 x-pos-api-key: <pos_api_key>
 
 Response: {
@@ -248,7 +271,7 @@ Response: {
 
 #### Vérifier la disponibilité d'une chambre spécifique
 ```http
-GET /api/configuration/hotels/{hotelId}/rooms/{roomId}/availability?date_from=2026-06-25&date_to=2026-06-28
+GET /external/configuration/hotels/{hotelId}/rooms/{roomId}/availability?date_from=2026-06-25&date_to=2026-06-28
 x-pos-api-key: <pos_api_key>
 
 Response: {
@@ -261,7 +284,7 @@ Response: {
 
 #### Voir le statut housekeeping des chambres
 ```http
-GET /api/configuration/hotels/{hotelId}/rooms/house-status
+GET /external/configuration/hotels/{hotelId}/rooms/house-status
 x-pos-api-key: <pos_api_key>
 ```
 
@@ -271,8 +294,9 @@ x-pos-api-key: <pos_api_key>
 
 #### Créer une réservation (pour Directus)
 ```http
-POST /api/reservation/create
+POST /external/reservation/create
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -301,8 +325,9 @@ Response: {
 
 #### Créer une réservation avec attribution de chambre immédiate
 ```http
-POST /api/reservation/create
+POST /external/reservation/create
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -322,7 +347,7 @@ Content-Type: application/json
 
 #### Obtenir les détails d'une réservation
 ```http
-GET /api/reservation/{reservationId}/details
+GET /external/reservation/{reservationId}/details
 x-pos-api-key: <pos_api_key>
 
 Response: {
@@ -355,26 +380,27 @@ Response: {
 
 #### Obtenir les réservations pour une période
 ```http
-GET /api/hotels/{hotelId}/reservation/search?date_from=2026-06-25&date_to=2026-06-28&status=confirmed
+GET /external/hotels/{hotelId}/reservation/search?date_from=2026-06-25&date_to=2026-06-28&status=confirmed
 x-pos-api-key: <pos_api_key>
 ```
 
 #### Obtenir les arrivées du jour
 ```http
-GET /api/hotels/{hotelId}/reservation/arrivals?date=2026-06-25
+GET /external/hotels/{hotelId}/reservation/arrivals?date=2026-06-25
 x-pos-api-key: <pos_api_key>
 ```
 
 #### Obtenir les départs du jour
 ```http
-GET /api/hotels/{hotelId}/reservation/departures?date=2026-06-25
+GET /external/hotels/{hotelId}/reservation/departures?date=2026-06-25
 x-pos-api-key: <pos_api_key>
 ```
 
 #### Effectuer un check-in
 ```http
-POST /api/reservation/{reservationId}/checkin
+POST /external/reservation/{reservationId}/checkin
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -384,14 +410,16 @@ Content-Type: application/json
 
 #### Effectuer un check-out
 ```http
-POST /api/reservation/{reservationId}/check-out
+POST /external/reservation/{reservationId}/check-out
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 ```
 
 #### Annuler une réservation
 ```http
-POST /api/reservation/{reservationId}/cancel
+POST /external/reservation/{reservationId}/cancel
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -406,8 +434,9 @@ Content-Type: application/json
 
 #### Assigner une chambre à une réservation
 ```http
-POST /api/reservation/{reservationId}/assign-room
+POST /external/reservation/{reservationId}/assign-room
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -420,8 +449,9 @@ Content-Type: application/json
 
 #### Désassigner une chambre
 ```http
-POST /api/reservation/{reservationId}/unassign-room
+POST /external/reservation/{reservationId}/unassign-room
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -435,8 +465,9 @@ Content-Type: application/json
 
 #### Créer un bloc (maintenance, indisponibilité)
 ```http
-POST /api/room-blocks
+POST /external/room-blocks
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -451,13 +482,14 @@ Content-Type: application/json
 
 #### Lever un bloc
 ```http
-DELETE /api/room-blocks/{id}
+DELETE /external/room-blocks/{id}
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 ```
 
 #### Liste des blocs
 ```http
-GET /api/room-blocks/{hotelId}
+GET /external/room-blocks/{hotelId}
 x-pos-api-key: <pos_api_key>
 ```
 
@@ -467,8 +499,9 @@ x-pos-api-key: <pos_api_key>
 
 #### Créer un folio pour une réservation
 ```http
-POST /api/folios/reservation
+POST /external/folios/reservation
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -481,8 +514,9 @@ Content-Type: application/json
 
 #### Ajouter une transaction
 ```http
-POST /api/folios/transactions
+POST /external/folios/transactions
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -497,7 +531,7 @@ Content-Type: application/json
 
 #### Obtenir le relevé d'un folio
 ```http
-GET /api/folios/{folioId}/statement
+GET /external/folios/{folioId}/statement
 x-pos-api-key: <pos_api_key>
 ```
 
@@ -507,7 +541,7 @@ x-pos-api-key: <pos_api_key>
 
 #### Générer un PDF de confirmation de réservation
 ```http
-POST /api/folio-print/print_confirm_booking-pdf
+POST /external/folio-print/print_confirm_booking-pdf
 x-pos-api-key: <pos_api_key>
 Content-Type: application/json
 
@@ -521,7 +555,7 @@ Response: binary (PDF)
 
 #### Générer une facture PDF
 ```http
-POST /api/folio-print/print-pdf
+POST /external/folio-print/print-pdf
 x-pos-api-key: <pos_api_key>
 Content-Type: application/json
 
@@ -535,7 +569,7 @@ Response: binary (PDF)
 
 #### Envoyer la facture par email
 ```http
-POST /api/folio-print/send-invoice-email
+POST /external/folio-print/send-invoice-email
 x-pos-api-key: <pos_api_key>
 Content-Type: application/json
 
@@ -547,8 +581,9 @@ Content-Type: application/json
 
 #### Générer le rapport de gestion (Manager Report) PDF
 ```http
-POST /api/reports/statistics/management-report-pdf
+POST /external/reports/statistics/management-report-pdf
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -562,8 +597,9 @@ Response: binary (PDF)
 
 #### Générer le rapport d'audit de nuit PDF
 ```http
-POST /api/reports/statistics/night-audit-report-pdf
+POST /external/reports/statistics/night-audit-report-pdf
 x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
 Content-Type: application/json
 
 {
@@ -578,21 +614,21 @@ Content-Type: application/json
 
 #### Données complètes pour le feed Google
 ```http
-GET /api/configuration/hotels/{hotelId}/rooms/views/details
+GET /external/configuration/hotels/{hotelId}/rooms/views/details
 x-pos-api-key: <pos_api_key>
 
 Response: Liste des chambres avec leurs types et caractéristiques
 ```
 
 ```http
-GET /api/configuration/hotels/{hotelId}/room_rates?date_from=...&date_to=...
+GET /external/configuration/hotels/{hotelId}/room_rates?date_from=...&date_to=...
 x-pos-api-key: <pos_api_key>
 
 Response: Tarifs par chambre et par date
 ```
 
 ```http
-GET /api/dashboard/availability/{serviceId}
+GET /external/dashboard/availability/{serviceId}
 x-pos-api-key: <pos_api_key>
 
 Response: Disponibilités et taux d'occupation
@@ -890,10 +926,10 @@ Configuration à ajouter dans EnjoyBackEnd (par hôtel ou globale) :
 
 | Odoo (actuel) | EnjoyBackEnd API (nouveau) |
 |---|---|
-| `ODOO_URL/json/2/planning.slot` | `GET /api/configuration/hotels/{id}/rooms/available-by-room-type/{roomTypeId}` |
-| `ODOO_URL/json/2/reservation` (create) | `POST /api/reservation/create` |
-| `ODOO_URL/json/2/reservation` (read) | `GET /api/reservation/{id}/details` |
-| `ODOO_URL/json/2/res.partner` | `POST /api/guests` + `GET /api/guests` |
+| `ODOO_URL/json/2/planning.slot` | `GET /external/configuration/hotels/{id}/rooms/available-by-room-type/{roomTypeId}` |
+| `ODOO_URL/json/2/reservation` (create) | `POST /external/reservation/create` |
+| `ODOO_URL/json/2/reservation` (read) | `GET /external/reservation/{id}/details` |
+| `ODOO_URL/json/2/res.partner` | `POST /external/guests` + `GET /external/guests` |
 | `ODOO_URL/json/2/manager-report` | `POST /api/reports/statistics/management-report-pdf` |
 | Webhooks Odoo | Webhooks EnjoyBackEnd (même principe HMAC) |
 | PDF Odoo | PDF natifs EnjoyBackEnd (Puppeteer) |
@@ -919,21 +955,21 @@ Configuration à ajouter dans EnjoyBackEnd (par hôtel ou globale) :
 | Méthode | Endpoint EnjoyBackEnd | Usage Directus |
 |---|---|---|
 | — | Header `x-pos-api-key: <pos_api_key>` | Authentification |
-| GET | `/api/configuration/hotels/{hotelId}/rooms` | Synchroniser les chambres |
-| GET | `/api/configuration/hotels/{hotelId}/room_types` | Types de chambres |
-| GET | `/api/configuration/hotels/{hotelId}/rooms/available-by-room-type/{roomTypeId}` | Vérifier disponibilité |
-| POST | `/api/reservation/create` | Créer une réservation |
-| GET | `/api/reservation/{id}/details` | Détails réservation |
-| POST | `/api/reservation/{id}/cancel` | Annuler réservation |
-| POST | `/api/reservation/{id}/checkin` | Check-in |
-| POST | `/api/reservation/{id}/check-out` | Check-out |
-| GET | `/api/hotels/{hotelId}/reservation/arrivals` | Arrivées du jour |
-| GET | `/api/hotels/{hotelId}/reservation/departures` | Départs du jour |
-| POST | `/api/guests` | Créer/Mettre à jour client |
-| GET | `/api/guests?search=...` | Rechercher client |
-| POST | `/api/room-blocks` | Bloquer chambre |
-| DELETE | `/api/room-blocks/{id}` | Débloquer chambre |
-| POST | `/api/folios/reservation` | Créer folio |
-| POST | `/api/folio-print/print_confirm_booking-pdf` | PDF confirmation |
-| POST | `/api/folio-print/print-pdf` | PDF facture |
+| GET | `/external/configuration/hotels/{hotelId}/rooms` | Synchroniser les chambres |
+| GET | `/external/configuration/hotels/{hotelId}/room_types` | Types de chambres |
+| GET | `/external/configuration/hotels/{hotelId}/rooms/available-by-room-type/{roomTypeId}` | Vérifier disponibilité |
+| POST | `/external/reservation/create` | Créer une réservation |
+| GET | `/external/reservation/{id}/details` | Détails réservation |
+| POST | `/external/reservation/{id}/cancel` | Annuler réservation |
+| POST | `/external/reservation/{id}/checkin` | Check-in |
+| POST | `/external/reservation/{id}/check-out` | Check-out |
+| GET | `/external/hotels/{hotelId}/reservation/arrivals` | Arrivées du jour |
+| GET | `/external/hotels/{hotelId}/reservation/departures` | Départs du jour |
+| POST | `/external/guests` | Créer/Mettre à jour client |
+| GET | `/external/guests?search=...` | Rechercher client |
+| POST | `/external/room-blocks` | Bloquer chambre |
+| DELETE | `/external/room-blocks/{id}` | Débloquer chambre |
+| POST | `/external/folios/reservation` | Créer folio |
+| POST | `/external/folio-print/print_confirm_booking-pdf` | PDF confirmation |
+| POST | `/external/folio-print/print-pdf` | PDF facture |
 | POST | `/api/reports/statistics/management-report-pdf` | Rapport de gestion PDF |
