@@ -12,6 +12,7 @@ import ExtraCharge from '#models/extra_charge'
 import Guest from '#models/guest'
 import Reservation from '#models/reservation'
 import ReservationsController from '#controllers/reservations_controller'
+import ReservationCreationService from '#services/reservation_creation_service'
 import { DateTime } from 'luxon'
 
 export default class ExternalApiController {
@@ -61,6 +62,237 @@ export default class ExternalApiController {
         user: actor,
       },
     } as HttpContext
+  }
+
+  private toNumber(value: any): number | null {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  private normalizeDate(value: any): string | null {
+    if (!value) return null
+    const parsed = DateTime.fromISO(String(value))
+    return parsed.isValid ? parsed.toISODate() : null
+  }
+
+  private normalizeTime(value: any, fallback: string): string {
+    if (!value) return fallback
+    const raw = String(value).trim()
+    const match = raw.match(/^(\d{2}:\d{2})/)
+    return match ? match[1] : fallback
+  }
+
+  private async findRateForRoomType(
+    hotelId: number,
+    roomTypeId: number,
+    preferredRateTypeId?: number | null
+  ): Promise<RoomRate | null> {
+    const query = RoomRate.query().where('hotel_id', hotelId).where('room_type_id', roomTypeId)
+
+    if (preferredRateTypeId) {
+      query.where('rate_type_id', preferredRateTypeId)
+    }
+
+    const exactRate = await query.orderBy('id', 'asc').first()
+    if (exactRate) {
+      return exactRate
+    }
+
+    if (preferredRateTypeId) {
+      return RoomRate.query()
+        .where('hotel_id', hotelId)
+        .where('room_type_id', roomTypeId)
+        .orderBy('id', 'asc')
+        .first()
+    }
+
+    return null
+  }
+
+  private async buildReservationPayload(rawBody: any, hotelId: number, actorId: number) {
+    const arrivedDate = this.normalizeDate(rawBody.arrived_date ?? rawBody.scheduledArrivalDate)
+    const departDate = this.normalizeDate(rawBody.depart_date ?? rawBody.scheduledDepartureDate)
+
+    const arrivedTime = this.normalizeTime(
+      rawBody.arrived_time ?? rawBody.check_in_time ?? rawBody.arrivedTime,
+      '14:00'
+    )
+    const departTime = this.normalizeTime(
+      rawBody.depart_time ?? rawBody.check_out_time ?? rawBody.departTime,
+      '12:00'
+    )
+
+    const primaryRoomTypeId =
+      this.toNumber(rawBody.primary_room_type_id ?? rawBody.primaryRoomTypeId) ??
+      this.toNumber(rawBody.rooms?.[0]?.room_type_id ?? rawBody.rooms?.[0]?.roomTypeId)
+
+    const preferredRateTypeId =
+      this.toNumber(rawBody.rate_type_id ?? rawBody.rateTypeId ?? rawBody.rate_plan_id ?? rawBody.ratePlanId) ?? null
+
+    const guestId = this.toNumber(rawBody.guest_id ?? rawBody.guestId)
+    const existingGuest =
+      guestId !== null
+        ? await Guest.query().where('id', guestId).where('hotel_id', hotelId).first()
+        : null
+
+    const normalizedRooms = Array.isArray(rawBody.rooms)
+      ? rawBody.rooms.map((room: any) => ({
+          room_type_id: this.toNumber(room.room_type_id ?? room.roomTypeId) ?? 0,
+          rate_type_id: this.toNumber(room.rate_type_id ?? room.rateTypeId ?? preferredRateTypeId) ?? undefined,
+          meal_plan_id: this.toNumber(room.meal_plan_id ?? room.mealPlanId),
+          room_id: this.toNumber(room.room_id ?? room.roomId),
+          room_rate: Number(room.room_rate ?? room.roomRate ?? 0),
+          adult_count: Number(room.adult_count ?? room.adultCount ?? rawBody.numAdultsTotal ?? 1),
+          child_count: Number(room.child_count ?? room.childCount ?? rawBody.numChildrenTotal ?? 0),
+          room_rate_id: this.toNumber(room.room_rate_id ?? room.roomRateId) ?? 0,
+          tax_includes: Boolean(room.tax_includes ?? room.taxIncludes ?? true),
+          meal_plan_rate_include: Boolean(
+            room.meal_plan_rate_include ?? room.mealPlanRateInclude ?? false
+          ),
+          taxes: Number(room.taxes ?? 0),
+          arriving_to: String(room.arriving_to ?? room.arrivingTo ?? rawBody.arriving_to ?? ''),
+          going_to: String(room.going_to ?? room.goingTo ?? rawBody.going_to ?? ''),
+          means_of_transport: String(
+            room.means_of_transport ?? room.meansOfTransport ?? rawBody.means_of_transportation ?? ''
+          ),
+        }))
+      : []
+
+    if (normalizedRooms.length === 0 && primaryRoomTypeId && arrivedDate && departDate) {
+      const autoRate = await this.findRateForRoomType(hotelId, primaryRoomTypeId, preferredRateTypeId)
+
+      normalizedRooms.push({
+        room_type_id: primaryRoomTypeId,
+        rate_type_id: preferredRateTypeId ?? autoRate?.rateTypeId ?? undefined,
+        meal_plan_id: null,
+        room_id: null,
+        room_rate: Number(rawBody.room_rate ?? autoRate?.baseRate ?? 0),
+        adult_count: Number(rawBody.numAdultsTotal ?? 1),
+        child_count: Number(rawBody.numChildrenTotal ?? 0),
+        room_rate_id: autoRate?.id ?? 0,
+        tax_includes: true,
+        meal_plan_rate_include: false,
+        taxes: Number(rawBody.tax_amount ?? 0),
+        arriving_to: String(rawBody.arriving_to ?? ''),
+        going_to: String(rawBody.going_to ?? ''),
+        means_of_transport: String(rawBody.means_of_transportation ?? ''),
+      })
+    } else {
+      for (const room of normalizedRooms) {
+        if (!room.room_rate_id && room.room_type_id) {
+          const autoRate = await this.findRateForRoomType(hotelId, room.room_type_id, room.rate_type_id)
+          if (autoRate) {
+            room.room_rate_id = autoRate.id
+            room.room_rate = room.room_rate || Number(autoRate.baseRate ?? 0)
+            room.rate_type_id = room.rate_type_id ?? autoRate.rateTypeId
+          }
+        }
+      }
+    }
+
+    const computedTotalAmount =
+      normalizedRooms.length > 0
+        ? normalizedRooms.reduce((sum, room) => sum + Number(room.room_rate || 0), 0)
+        : Number(rawBody.total_amount ?? rawBody.totalEstimatedRevenue ?? 0)
+
+    const paidAmount = Number(rawBody.paid_amount ?? rawBody.payment ?? 0)
+    const finalAmount = Number(rawBody.final_amount ?? rawBody.total_amount ?? computedTotalAmount)
+    const taxAmount = Number(rawBody.tax_amount ?? 0)
+
+    const reservationNumber = String(
+      rawBody.reservation_number ??
+        rawBody.reservationNumber ??
+        rawBody.ota_reservation_code ??
+        rawBody.otaReservationCode ??
+        rawBody.reference ??
+        ''
+    ).trim()
+
+    const guestPayload =
+      guestId !== null
+        ? undefined
+        : {
+            firstName: String(rawBody.first_name ?? rawBody.firstName ?? existingGuest?.firstName ?? ''),
+            lastName: String(rawBody.last_name ?? rawBody.lastName ?? existingGuest?.lastName ?? ''),
+            email: String(rawBody.email ?? existingGuest?.email ?? ''),
+            phone: String(rawBody.phone_primary ?? rawBody.phonePrimary ?? existingGuest?.phonePrimary ?? ''),
+            address: rawBody.address_line ?? rawBody.addressLine ?? existingGuest?.addressLine ?? null,
+            city: rawBody.city ?? existingGuest?.city ?? null,
+            country: rawBody.country ?? existingGuest?.country ?? null,
+            postalCode: rawBody.zipcode ?? rawBody.postalCode ?? existingGuest?.postalCode ?? null,
+            language: rawBody.language ?? existingGuest?.language ?? null,
+            idType: rawBody.idType ?? rawBody.id_type ?? null,
+            idNumber: rawBody.idNumber ?? rawBody.id_number ?? null,
+            passportNumber: rawBody.passportNumber ?? rawBody.passport_number ?? null,
+            companyName: rawBody.company_name ?? rawBody.companyName ?? existingGuest?.companyName ?? null,
+          }
+
+    return {
+      ...rawBody,
+      hotel_id: hotelId,
+      created_by: this.toNumber(rawBody.created_by ?? rawBody.createdBy ?? actorId) ?? actorId,
+      guest_id: guestId,
+      guest: guestPayload,
+      first_name: String(rawBody.first_name ?? rawBody.firstName ?? existingGuest?.firstName ?? ''),
+      last_name: String(rawBody.last_name ?? rawBody.lastName ?? existingGuest?.lastName ?? ''),
+      email: String(rawBody.email ?? existingGuest?.email ?? ''),
+      phone_primary: String(rawBody.phone_primary ?? rawBody.phonePrimary ?? existingGuest?.phonePrimary ?? ''),
+      title: rawBody.title ?? existingGuest?.title ?? null,
+      company_name: rawBody.company_name ?? rawBody.companyName ?? existingGuest?.companyName ?? null,
+      company_id: this.toNumber(rawBody.company_id ?? rawBody.companyId ?? existingGuest?.companyId),
+      profession: rawBody.profession ?? existingGuest?.profession ?? null,
+      group_name: rawBody.group_name ?? rawBody.groupName ?? null,
+      address_line: rawBody.address_line ?? rawBody.addressLine ?? null,
+      country: rawBody.country ?? existingGuest?.country ?? null,
+      state: rawBody.state ?? existingGuest?.stateProvince ?? null,
+      city: rawBody.city ?? existingGuest?.city ?? null,
+      zipcode: rawBody.zipcode ?? rawBody.postalCode ?? existingGuest?.postalCode ?? null,
+      hotelId: hotelId,
+      reservation_type_id: this.toNumber(rawBody.reservation_type_id ?? rawBody.reservationTypeId),
+      booking_source: this.toNumber(rawBody.booking_source ?? rawBody.bookingSourceId),
+      business_source: this.toNumber(rawBody.business_source ?? rawBody.businessSourceId),
+      reservation_status: rawBody.reservation_status ?? rawBody.reservationStatus ?? rawBody.status ?? 'confirmed',
+      status: rawBody.status ?? rawBody.reservationStatus ?? 'confirmed',
+      reservation_number: reservationNumber || undefined,
+      confirmation_number: rawBody.confirmation_number ?? rawBody.confirmationNumber ?? undefined,
+      arrived_date: arrivedDate,
+      depart_date: departDate,
+      arrived_time: arrivedTime,
+      depart_time: departTime,
+      check_in_time: arrivedTime,
+      check_out_time: departTime,
+      rate_type_id: preferredRateTypeId,
+      ota_name: rawBody.ota_name ?? rawBody.otaName ?? 'Directus',
+      ota_reservation_code: rawBody.ota_reservation_code ?? rawBody.otaReservationCode ?? rawBody.reference ?? null,
+      whatsapp_number: rawBody.whatsapp_number ?? rawBody.whatsappNumber ?? null,
+      whatsapp_notification_enable:
+        rawBody.whatsapp_notification_enable ?? rawBody.whatsappNotificationEnable ?? false,
+      special_requests: rawBody.special_requests ?? rawBody.specialNotes ?? rawBody.special_requests ?? '',
+      guest_notes: rawBody.guest_notes ?? rawBody.guestNotes ?? '',
+      arriving_to: rawBody.arriving_to ?? rawBody.arrivingTo ?? '',
+      going_to: rawBody.going_to ?? rawBody.goingTo ?? '',
+      means_of_transportation:
+        rawBody.means_of_transportation ?? rawBody.meansOfTransportation ?? '',
+      rooms: normalizedRooms,
+      total_amount: computedTotalAmount,
+      tax_amount: taxAmount,
+      final_amount: finalAmount,
+      paid_amount: paidAmount,
+      remaining_amount: Number(rawBody.remaining_amount ?? Math.max(finalAmount - paidAmount, 0)),
+      payment_mod: this.toNumber(rawBody.payment_mod ?? rawBody.paymentMethodId),
+      payment_type: rawBody.payment_type ?? rawBody.paymentType ?? null,
+      bill_to: rawBody.bill_to ?? rawBody.billTo ?? null,
+      market_code_id: this.toNumber(rawBody.market_code_id ?? rawBody.marketCodeId),
+      payment: Number(rawBody.payment ?? 0),
+      isHold: Boolean(rawBody.isHold ?? false),
+      holdReleaseDate: rawBody.holdReleaseDate ?? arrivedDate,
+      ReleaseTem: Number(rawBody.ReleaseTem ?? 0),
+      ReleaseRemindGuestbeforeDays: Number(rawBody.ReleaseRemindGuestbeforeDays ?? 0),
+      ReleaseRemindGuestbefore: rawBody.ReleaseRemindGuestbefore ?? null,
+      booking_date: rawBody.booking_date ?? rawBody.bookingDate ?? DateTime.now().toISO(),
+      numAdultsTotal: Number(rawBody.numAdultsTotal ?? normalizedRooms.reduce((sum: number, room: any) => sum + (room.adult_count || 0), 0)),
+      numChildrenTotal: Number(rawBody.numChildrenTotal ?? normalizedRooms.reduce((sum: number, room: any) => sum + (room.child_count || 0), 0)),
+    }
   }
 
   private async ensureReservationHotel(ctx: HttpContext, reservationId: number): Promise<boolean> {
@@ -285,14 +517,38 @@ export default class ExternalApiController {
     }
 
     const rawBody = request.body() as any
-    request.updateBody({
-      ...rawBody,
-      hotel_id: apiKeyHotelId,
-      created_by: rawBody.created_by ?? actor.id,
-    })
+    const normalizedPayload = await this.buildReservationPayload(rawBody, apiKeyHotelId, actor.id)
+    if (normalizedPayload.reservation_number) {
+      const existingReservation = await Reservation.query()
+        .where('hotel_id', apiKeyHotelId)
+        .where('reservation_number', normalizedPayload.reservation_number)
+        .select('id', 'reservation_number', 'status')
+        .first()
 
-    const controller = new ReservationsController()
-    return controller.saveReservation(this.withActorUser(ctx, actor))
+      if (existingReservation) {
+        return response.conflict({
+          success: false,
+          message: `Reservation already exists: ${normalizedPayload.reservation_number}`,
+          data: existingReservation,
+        })
+      }
+    }
+
+    const result = await ReservationCreationService.createReservation(normalizedPayload, ctx)
+
+    if (!result.success) {
+      return response.badRequest({
+        success: false,
+        message: result.message || result.error || 'Reservation creation failed',
+        validationErrors: result.validationErrors,
+      })
+    }
+
+    return response.created({
+      success: true,
+      message: result.message,
+      data: result,
+    })
   }
 
   public async reservationDetails(ctx: HttpContext) {
