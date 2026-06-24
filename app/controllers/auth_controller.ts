@@ -347,9 +347,10 @@ export default class AuthController {
         httpOnly: true,
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
-        path: '/api/refresh-token',
+        path: '/',
         maxAge: 7 * 24 * 60 * 60,
       })
+
 
       const userData = user.serialize()
       delete userData.serviceAssignments
@@ -667,7 +668,7 @@ export default class AuthController {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      path: '/api/refresh-token',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60,
     })
 

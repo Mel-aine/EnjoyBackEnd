@@ -16,6 +16,8 @@ export default class LostFoundController {
       const limit = request.input('limit', 10)
       const status = request.input('status')
       const search = request.input('search')
+      const hotelId = request.input('hotel_id')
+
       const sortBy = request.input('sortBy', 'created_at')
       const sortOrder = request.input('sortOrder', 'desc')
 
@@ -24,6 +26,7 @@ export default class LostFoundController {
         limit,
         status,
         search,
+        hotelId,
         sortBy,
         sortOrder,
       })
@@ -70,7 +73,8 @@ export default class LostFoundController {
           payload.whoFound || 'Unknown',
           payload.foundLocation || 'Unknown Location',
           DateTime.fromJSDate(payload.foundOn) ,
-
+          payload.hotelId as any,
+         
 
         )}
       } catch (notifError) {
