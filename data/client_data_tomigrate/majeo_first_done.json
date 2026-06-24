@@ -1,0 +1,77 @@
+[
+  {
+    "id": "RBK00252",
+    "status": "Done",
+    "client": "ROGER VICTOR",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01073",
+      "Facture en brouillon (* 3444)"
+    ],
+    "rooms": [
+      {
+        "name": "A203-AZUR",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {
+            "name": "COUVRE COUETTE",
+            "quantity": 1
+          },
+          {
+            "name": "TAIE",
+            "quantity": 4
+          },
+          {
+            "name": "DRAPS",
+            "quantity": 1
+          },
+          {
+            "name": "SORTIE DE BAIN",
+            "quantity": 1
+          },
+          {
+            "name": "PAPIER HYGIENIQUE",
+            "quantity": 1
+          },
+          {
+            "name": "LAIT DE TOILETTE",
+            "quantity": 1
+          },
+          {
+            "name": "SHAMPOING",
+            "quantity": 1
+          },
+          {
+            "name": "GEL DE DOUCHE",
+            "quantity": 1
+          },
+          {
+            "name": "SERVIETTE PM",
+            "quantity": 1
+          },
+          {
+            "name": "SERVIETTE MM",
+            "quantity": 1
+          },
+          {
+            "name": "SERVIETTE GM",
+            "quantity": 1
+          },
+          {
+            "name": "KIT DENTITION",
+            "quantity": 1
+          },
+          {
+            "name": "PEIGNOIR",
+            "quantity": 1
+          },
+          {
+            "name": "BONNET DE BAIN",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  }
+]

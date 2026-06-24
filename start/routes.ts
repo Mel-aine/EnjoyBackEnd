@@ -1738,6 +1738,9 @@ import './routes/reports.js'
 // Import POS routes
 import './routes/pos.js'
 
+// External API routes (POS API key protected)
+import './routes/external.js'
+
 // Enjoy Rental integration (API key protected)
 router
   .group(() => {
