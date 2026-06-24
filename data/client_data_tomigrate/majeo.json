@@ -1,0 +1,2706 @@
+[
+  {
+    "id": "RBK00049",
+    "status": "Cancel",
+    "client": "CANAL+CAMEROUN",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00077"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2026-02-08",
+        "check_out": "2026-02-11",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00048",
+    "status": "Cancel",
+    "client": "MEGAPTCHE TCHOULI Carmen",
+    "guests": 5,
+    "documents": [
+      "BL/2026/02/00076"
+    ],
+    "rooms": [
+      {
+        "name": "B301-MATTHAI",
+        "check_in": "2026-02-07",
+        "check_out": "2026-02-09",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00047",
+    "status": "Cancel",
+    "client": "Afra Mbarga",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00075"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2026-02-06",
+        "check_out": "2026-02-07",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00007",
+    "status": "Cancel",
+    "client": "Jean Baptiste Ngwem",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00005",
+      "FAC/2025/00017"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2025-12-31",
+        "check_out": "2026-01-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00252",
+    "status": "Done",
+    "client": "ROGER VICTOR",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01073",
+      "Facture en brouillon (* 3444)"
+    ],
+    "rooms": [
+      {
+        "name": "A203-AZUR",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00251",
+    "status": "Done",
+    "client": "NGUEDA ASSOUGA",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01070",
+      "Facture en brouillon (* 3443)"
+    ],
+    "rooms": [
+      {
+        "name": "B105-MENELIK",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00250",
+    "status": "Done",
+    "client": "ADELETCHA BOUGONG",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01069",
+      "Facture en brouillon (* 3442)"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00249",
+    "status": "Done",
+    "client": "KEEDI BOUGONG",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01068",
+      "Facture en brouillon (* 3441)"
+    ],
+    "rooms": [
+      {
+        "name": "B102-ZARIA",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00247",
+    "status": "Done",
+    "client": "YOUDOM",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01066",
+      "Facture en brouillon (* 3440)"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00246",
+    "status": "Done",
+    "client": "LIEPOUEMO",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01065",
+      "FAC/2026/00869"
+    ],
+    "rooms": [
+      {
+        "name": "B303-LOBO",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00245",
+    "status": "Done",
+    "client": "MAYANGA",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01064",
+      "Facture en brouillon (* 3438)"
+    ],
+    "rooms": [
+      {
+        "name": "A201-MIRAGE",
+        "check_in": "2026-06-13",
+        "check_out": "2026-06-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00244",
+    "status": "Done",
+    "client": "NDJANA OMBETE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01055",
+      "Facture en brouillon (* 3379)"
+    ],
+    "rooms": [
+      {
+        "name": null,
+        "check_in": "2026-06-11",
+        "check_out": "2026-06-13",
+        "amenities": []
+      }
+    ]
+  },
+  {
+    "id": "RBK00240",
+    "status": "Done",
+    "client": "TCHOFFO Charnelle",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00963",
+      "FAC/2026/00783"
+    ],
+    "rooms": [
+      {
+        "name": "B102-ZARIA",
+        "check_in": "2026-05-31",
+        "check_out": "2026-06-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00238",
+    "status": "Done",
+    "client": "KAPCHE NADEGE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00952",
+      "FAC/2026/00786"
+    ],
+    "rooms": [
+      {
+        "name": "B105-MENELIK",
+        "check_in": "2026-05-30",
+        "check_out": "2026-06-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00237",
+    "status": "Done",
+    "client": "YOUAGISSI TAGNE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00951",
+      "FAC/2026/00766"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2026-05-30",
+        "check_out": "2026-05-31",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00236",
+    "status": "Done",
+    "client": "YOUAGUISSI TAGNE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00950",
+      "FAC/2026/00765"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2026-05-30",
+        "check_out": "2026-05-31",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00227",
+    "status": "Done",
+    "client": "ZE NKA PIERRE DAMIEN",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00896",
+      "FAC/2026/00711"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2026-05-21",
+        "check_out": "2026-05-22",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00226",
+    "status": "Done",
+    "client": "MASSAGA EPSE WANDJI",
+    "guests": 2,
+    "documents": [
+      "BL/2026/05/00885",
+      "FAC/2026/00695"
+    ],
+    "rooms": [
+      {
+        "name": "B102-ZARIA",
+        "check_in": "2026-05-20",
+        "check_out": "2026-05-24",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00225",
+    "status": "Done",
+    "client": "ANNIE ANZOUER",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00871",
+      "FAC/2026/00782"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2026-05-31",
+        "check_out": "2026-06-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00224",
+    "status": "Done",
+    "client": "DIMO OUBINHOU",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00857",
+      "FAC/2026/00686"
+    ],
+    "rooms": [
+      {
+        "name": "B105-MENELIK",
+        "check_in": "2026-05-16",
+        "check_out": "2026-05-17",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00223",
+    "status": "Done",
+    "client": "TCHIO AMOUGOU",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00856",
+      "FAC/2026/00685"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2026-05-16",
+        "check_out": "2026-05-17",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00222",
+    "status": "Done",
+    "client": "GHUEMTCHUANG Bibiana",
+    "guests": 2,
+    "documents": [
+      "BL/2026/05/00832"
+    ],
+    "rooms": [
+      {
+        "name": "A201-MIRAGE",
+        "check_in": "2026-05-09",
+        "check_out": "2026-05-17",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00221",
+    "status": "Done",
+    "client": "TEUBA Stephane",
+    "guests": 2,
+    "documents": [
+      "BL/2026/05/00827",
+      "FAC/2026/00654"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2026-05-09",
+        "check_out": "2026-05-10",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00201",
+    "status": "Done",
+    "client": "DONBOU Hervé",
+    "guests": 2,
+    "documents": [
+      "BL/2026/05/00714",
+      "FAC/2026/00571"
+    ],
+    "rooms": [
+      {
+        "name": "B303-LOBO",
+        "check_in": "2026-05-01",
+        "check_out": "2026-05-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00200",
+    "status": "Done",
+    "client": "Cabinet Blessing",
+    "guests": 1,
+    "documents": [
+      "BL/2026/05/00713",
+      "FAC/2026/00570"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2026-05-01",
+        "check_out": "2026-05-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00199",
+    "status": "Done",
+    "client": "TCHUENTEU",
+    "guests": 2,
+    "documents": [
+      "BL/2026/05/00712",
+      "Facture en brouillon (* 2470)"
+    ],
+    "rooms": [
+      {
+        "name": "A202-MABEA",
+        "check_in": "2026-05-01",
+        "check_out": "2026-05-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00198",
+    "status": "Done",
+    "client": "TCHUENTEU",
+    "guests": 4,
+    "documents": [
+      "BL/2026/05/00711",
+      "FAC/2026/00635"
+    ],
+    "rooms": [
+      {
+        "name": "B201-MANDELA",
+        "check_in": "2026-05-01",
+        "check_out": "2026-05-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00192",
+    "status": "Done",
+    "client": "AFUI YVONNE",
+    "guests": 3,
+    "documents": [
+      "BL/2026/04/00687",
+      "FAC/2026/00550"
+    ],
+    "rooms": [
+      {
+        "name": "A102-PINK BEACH",
+        "check_in": "2026-04-28",
+        "check_out": "2026-04-29",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00162",
+    "status": "Done",
+    "client": "Mme NGAZOA",
+    "guests": 2,
+    "documents": [
+      "BL/2026/04/00624",
+      "FAC/2026/00554"
+    ],
+    "rooms": [
+      {
+        "name": "B301-MATTHAI",
+        "check_in": "2026-05-02",
+        "check_out": "2026-05-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00152",
+    "status": "Done",
+    "client": "Mme FOUDA",
+    "guests": 2,
+    "documents": [
+      "BL/2026/04/00606",
+      "FAC/2026/00505"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2026-04-24",
+        "check_out": "2026-04-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00142",
+    "status": "Done",
+    "client": "NGUE Laurence",
+    "guests": 4,
+    "documents": [
+      "BL/2026/04/00561",
+      "FAC/2026/00469"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2026-04-18",
+        "check_out": "2026-04-19",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00140",
+    "status": "Done",
+    "client": "NANA DANGA Epse DIMO",
+    "guests": 1,
+    "documents": [
+      "BL/2026/04/00532",
+      "FAC/2026/00441"
+    ],
+    "rooms": [
+      {
+        "name": "B205-FAKO",
+        "check_in": "2026-04-17",
+        "check_out": "2026-04-19",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00139",
+    "status": "Done",
+    "client": "Cabinet Blessing",
+    "guests": 1,
+    "documents": [
+      "BL/2026/04/00501",
+      "Facture en brouillon (* 1983)"
+    ],
+    "rooms": [
+      {
+        "name": "A203-AZUR",
+        "check_in": "2026-05-01",
+        "check_out": "2026-05-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00110",
+    "status": "Done",
+    "client": "NJOCK DENIS",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00381",
+      "FAC/2026/00329"
+    ],
+    "rooms": [
+      {
+        "name": "B104-TUTU",
+        "check_in": "2026-03-29",
+        "check_out": "2026-03-30",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00108",
+    "status": "Done",
+    "client": "NGO MATIP Epse MPOUEL",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00379",
+      "FAC/2026/00330"
+    ],
+    "rooms": [
+      {
+        "name": "B105-MENELIK",
+        "check_in": "2026-03-29",
+        "check_out": "2026-03-30",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00107",
+    "status": "Done",
+    "client": "EWANE CECILE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00378",
+      "FAC/2026/00334"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2026-03-29",
+        "check_out": "2026-03-30",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00105",
+    "status": "Done",
+    "client": "GHUEMTCHUANG",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00360",
+      "FAC/2026/00326"
+    ],
+    "rooms": [
+      {
+        "name": "A202-MABEA",
+        "check_in": "2026-03-28",
+        "check_out": "2026-03-29",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00104",
+    "status": "Done",
+    "client": "BATCHAHO ANGE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00353",
+      "FAC/2026/00327"
+    ],
+    "rooms": [
+      {
+        "name": "A101-LOBE",
+        "check_in": "2026-03-27",
+        "check_out": "2026-03-29",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00103",
+    "status": "Done",
+    "client": "NANGOMOKO",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00345",
+      "FAC/2026/00328"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2026-03-27",
+        "check_out": "2026-03-29",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00102",
+    "status": "Done",
+    "client": "BASSEGA BEBGA",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00344",
+      "FAC/2026/00279"
+    ],
+    "rooms": [
+      {
+        "name": "B102-ZARIA",
+        "check_in": "2026-03-27",
+        "check_out": "2026-03-30",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00095",
+    "status": "Done",
+    "client": "NANG DOROTHY",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00295",
+      "FAC/2026/00240"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2026-03-20",
+        "check_out": "2026-03-22",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00094",
+    "status": "Done",
+    "client": "EDO TAGNE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/03/00268",
+      "FAC/2026/00217"
+    ],
+    "rooms": [
+      {
+        "name": "A202-MABEA",
+        "check_in": "2026-03-07",
+        "check_out": "2026-03-08",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00092",
+    "status": "Done",
+    "client": "Meudje Abeti Elie",
+    "guests": 2,
+    "documents": [
+      "BL/2026/03/00229",
+      "FAC/2026/00185"
+    ],
+    "rooms": [
+      {
+        "name": "B205-FAKO",
+        "check_in": "2026-03-03",
+        "check_out": "2026-03-05",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00089",
+    "status": "Done",
+    "client": "GUISING LARBA Epse BEBE NJOH",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00207",
+      "FAC/2026/00169"
+    ],
+    "rooms": [
+      {
+        "name": "A102-PINK BEACH",
+        "check_in": "2026-02-28",
+        "check_out": "2026-03-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00082",
+    "status": "Done",
+    "client": "MOKAM WABO",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00199",
+      "FAC/2026/00166"
+    ],
+    "rooms": [
+      {
+        "name": "B204-MANDARA",
+        "check_in": "2026-02-28",
+        "check_out": "2026-03-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00078",
+    "status": "Done",
+    "client": "DJAMBOU STEVE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00161",
+      "FAC/2026/00142"
+    ],
+    "rooms": [
+      {
+        "name": "B204-MANDARA",
+        "check_in": "2026-02-21",
+        "check_out": "2026-02-22",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00064",
+    "status": "Done",
+    "client": "BASSOUNGUI TIMOTHEE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00134",
+      "FAC/2026/00134"
+    ],
+    "rooms": [
+      {
+        "name": "B201-MANDELA",
+        "check_in": "2026-02-20",
+        "check_out": "2026-02-21",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00063",
+    "status": "Done",
+    "client": "PIERRE CLAVER BASSOUNGUI",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00133",
+      "FAC/2026/00133"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2026-02-20",
+        "check_out": "2026-02-21",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00061",
+    "status": "Done",
+    "client": "NDOCKI KOUM",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00128",
+      "FAC/2026/00140"
+    ],
+    "rooms": [
+      {
+        "name": "A102-PINK BEACH",
+        "check_in": "2026-02-20",
+        "check_out": "2026-02-21",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00060",
+    "status": "Done",
+    "client": "NJOUM ETIENNE",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00127",
+      "FAC/2026/00138"
+    ],
+    "rooms": [
+      {
+        "name": "B105-MENELIK",
+        "check_in": "2026-02-20",
+        "check_out": "2026-02-21",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00059",
+    "status": "Done",
+    "client": "MINKOUA MINKOUA",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00126",
+      "FAC/2026/00139"
+    ],
+    "rooms": [
+      {
+        "name": "B202-ATLANTIQUE",
+        "check_in": "2026-02-20",
+        "check_out": "2026-02-21",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00054",
+    "status": "Done",
+    "client": "FANKOUA NGAKOUA",
+    "guests": 0,
+    "documents": [
+      "BL/2026/02/00107",
+      "FAC/2026/00130"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2026-02-14",
+        "check_out": "2026-02-15",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00053",
+    "status": "Done",
+    "client": "YOUSSOUPHA OUSSEINI",
+    "guests": 0,
+    "documents": [
+      "BL/2026/02/00081",
+      "FAC/2026/00119"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2026-01-30",
+        "check_out": "2026-02-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00050",
+    "status": "Done",
+    "client": "Association Myriam",
+    "guests": 1,
+    "documents": [
+      "BL/2026/02/00078",
+      "Facture en brouillon FAC/2026/00231"
+    ],
+    "rooms": [
+      {
+        "name": "A101-LOBE",
+        "check_in": "2026-02-27",
+        "check_out": "2026-03-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00046",
+    "status": "Done",
+    "client": "Waltrowski Jean François",
+    "guests": 1,
+    "documents": [
+      "BL/2026/01/00071",
+      "FAC/2026/00080"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2026-01-21",
+        "check_out": "2026-01-22",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00045",
+    "status": "Done",
+    "client": "NGUIDJO Nicolas Florentin",
+    "guests": 2,
+    "documents": [
+      "BL/2026/01/00042",
+      "FAC/2026/00041"
+    ],
+    "rooms": [
+      {
+        "name": "B104-TUTU",
+        "check_in": "2026-01-07",
+        "check_out": "2026-01-08",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00042",
+    "status": "Done",
+    "client": "Yawe Hélène",
+    "guests": 1,
+    "documents": [
+      "BL/2026/01/00040",
+      "FAC/2026/00037"
+    ],
+    "rooms": [
+      {
+        "name": "B303-LOBO",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00038",
+    "status": "Done",
+    "client": "Check Emmanuel Tifuh",
+    "guests": 1,
+    "documents": [
+      "BL/2026/01/00036",
+      "FAC/2026/00025"
+    ],
+    "rooms": [
+      {
+        "name": "A203-AZUR",
+        "check_in": "2026-01-01",
+        "check_out": "2026-01-03",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00037",
+    "status": "Done",
+    "client": "Coach Vicky",
+    "guests": 1,
+    "documents": [
+      "BL/2026/01/00035",
+      "FAC/2026/00003"
+    ],
+    "rooms": [
+      {
+        "name": "A202-MABEA",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00036",
+    "status": "Done",
+    "client": "Folack Joël",
+    "guests": 1,
+    "documents": [
+      "BL/2026/01/00034",
+      "FAC/2026/00002"
+    ],
+    "rooms": [
+      {
+        "name": "B105-MENELIK",
+        "check_in": "2025-12-31",
+        "check_out": "2026-01-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00035",
+    "status": "Done",
+    "client": "Ngo Ndenha Thérèse Espérance",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00033",
+      "FAC/2026/00001"
+    ],
+    "rooms": [
+      {
+        "name": "A303-ZANZIBAR",
+        "check_in": "2025-12-31",
+        "check_out": "2026-01-01",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00034",
+    "status": "Done",
+    "client": "Nana Dokou Leonel",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00032",
+      "FAC/2026/00032"
+    ],
+    "rooms": [
+      {
+        "name": "B102-ZARIA",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00033",
+    "status": "Done",
+    "client": "Nana Danga Epse Dimo",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00031",
+      "FAC/2026/00031"
+    ],
+    "rooms": [
+      {
+        "name": "B301-MATTHAI",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00032",
+    "status": "Done",
+    "client": "Sihanou Hélène",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00030",
+      "FAC/2026/00030"
+    ],
+    "rooms": [
+      {
+        "name": "B104-TUTU",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00031",
+    "status": "Done",
+    "client": "Nana Joseph",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00029",
+      "FAC/2026/00029"
+    ],
+    "rooms": [
+      {
+        "name": "B302-DJA",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 1.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00030",
+    "status": "Done",
+    "client": "Tchoua Nkoundja Gervais",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00028",
+      "FAC/2026/00028"
+    ],
+    "rooms": [
+      {
+        "name": "B201-MANDELA",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00029",
+    "status": "Done",
+    "client": "Ndjomi Nana Blondel",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00027",
+      "FAC/2026/00027"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00028",
+    "status": "Done",
+    "client": "Youdom Obinhou Brice",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00026",
+      "FAC/2026/00026"
+    ],
+    "rooms": [
+      {
+        "name": "B202-ATLANTIQUE",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      },
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00027",
+    "status": "Done",
+    "client": "Henri Epesse",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00025",
+      "FAC/2026/00007"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2025-12-30",
+        "check_out": "2026-01-02",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00026",
+    "status": "Done",
+    "client": "Sabal-Lecco Cassandra Paule Andrée",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00024",
+      "FAC/2025/00078"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2025-12-28",
+        "check_out": "2025-12-29",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00021",
+    "status": "Done",
+    "client": "Tiguep Nana Alix",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00019",
+      "FAC/2025/00063"
+    ],
+    "rooms": [
+      {
+        "name": "A102-PINK BEACH",
+        "check_in": "2025-12-24",
+        "check_out": "2025-12-26",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00020",
+    "status": "Done",
+    "client": "Mme Seh Mbengou Berthe",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00018",
+      "FAC/2025/00068"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2025-12-25",
+        "check_out": "2025-12-27",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00019",
+    "status": "Done",
+    "client": "Azegue Jean Philippe Junior",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00017",
+      "FAC/2025/00061"
+    ],
+    "rooms": [
+      {
+        "name": "A201-MIRAGE",
+        "check_in": "2025-12-24",
+        "check_out": "2025-12-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00018",
+    "status": "Done",
+    "client": "Ngandjou Anne Laure",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00016",
+      "FAC/2025/00060"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2025-12-24",
+        "check_out": "2025-12-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00014",
+    "status": "Done",
+    "client": "Visiter le Cameroun Avec Moi",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00012",
+      "FAC/2025/00075"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2025-12-26",
+        "check_out": "2025-12-28",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00013",
+    "status": "Done",
+    "client": "Staff extra Majeo",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00011",
+      "FAC/2025/00083"
+    ],
+    "rooms": [
+      {
+        "name": "A203-AZUR",
+        "check_in": "2025-12-23",
+        "check_out": "2025-12-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00012",
+    "status": "Done",
+    "client": "Meudje Abeti Elie",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00010",
+      "FAC/2025/00062"
+    ],
+    "rooms": [
+      {
+        "name": "B203-ROYAL",
+        "check_in": "2025-12-24",
+        "check_out": "2025-12-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00011",
+    "status": "Done",
+    "client": "Efouba Embogo Roland",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00009",
+      "FAC/2025/00038"
+    ],
+    "rooms": [
+      {
+        "name": "A103-HORIZON",
+        "check_in": "2025-12-19",
+        "check_out": "2025-12-21",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00008",
+    "status": "Done",
+    "client": "Ndongmo Kenfack Rodrigue",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00006",
+      "FAC/2025/00023"
+    ],
+    "rooms": [
+      {
+        "name": "B103-CHARI",
+        "check_in": "2025-12-13",
+        "check_out": "2025-12-14",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00006",
+    "status": "Done",
+    "client": "Client Comptoir",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00004",
+      "FAC/2025/00008"
+    ],
+    "rooms": [
+      {
+        "name": "B202-ATLANTIQUE",
+        "check_in": "2025-11-24",
+        "check_out": "2025-11-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00004",
+    "status": "Done",
+    "client": "Client Comptoir",
+    "guests": 1,
+    "documents": [
+      "BL/2025/12/00003",
+      "FAC/2025/00007"
+    ],
+    "rooms": [
+      {
+        "name": "B205-FAKO",
+        "check_in": "2025-11-24",
+        "check_out": "2025-11-25",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "RBK00257",
+    "status": "Draft",
+    "client": "LADIF NGOUH",
+    "guests": 1,
+    "documents": [
+      "BL/2026/06/01107"
+    ],
+    "rooms": [
+      {
+        "name": "B101-LOGONE",
+        "check_in": "2026-07-05",
+        "check_out": "2026-07-06",
+        "amenities": [
+          {"name": "COUVRE COUETTE", "quantity": 1.0},
+          {"name": "TAIE", "quantity": 4.0},
+          {"name": "DRAPS", "quantity": 1.0},
+          {"name": "SORTIE DE BAIN", "quantity": 1.0},
+          {"name": "PAPIER HYGIENIQUE", "quantity": 1.0},
+          {"name": "LAIT DE TOILETTE", "quantity": 1.0},
+          {"name": "SHAMPOING", "quantity": 1.0},
+          {"name": "GEL DE DOUCHE", "quantity": 1.0},
+          {"name": "SERVIETTE PM", "quantity": 1.0},
+          {"name": "SERVIETTE MM", "quantity": 1.0},
+          {"name": "SERVIETTE GM", "quantity": 1.0},
+          {"name": "KIT DENTITION", "quantity": 1.0},
+          {"name": "PEIGNOIR", "quantity": 1.0},
+          {"name": "BONNET DE BAIN", "quantity": 1.0}
+        ]
+      }
+    ]
+  }
+]
