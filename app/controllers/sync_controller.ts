@@ -121,6 +121,10 @@ export default class SyncController {
   /**
    * POST /api/sync/initial-load
    * Chargement initial complet pour un nouveau device
+   * 
+   * Optionnel : passer dateFrom (YYYY-MM-DD) pour spécifier
+   * à partir de quand charger les réservations.
+   * Par défaut : 30 jours avant la date courante.
    */
   async initialLoad({ request, response, auth }: HttpContext) {
     const user = auth.user!
@@ -129,7 +133,8 @@ export default class SyncController {
     const result = await SyncService.initialLoad(
       payload.hotelId,
       user.id,
-      payload.deviceId
+      payload.deviceId,
+      payload.dateFrom
     )
 
     return response.ok(result)

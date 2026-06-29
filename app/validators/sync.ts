@@ -35,6 +35,7 @@ export const syncInitialLoadValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     deviceId: vine.string().minLength(1).maxLength(64),
+    dateFrom: vine.string().regex(/^\d{4}-\d{2}-\d{2}(T|$)/).optional(),
   })
 )
 

@@ -593,11 +593,15 @@ export default class SyncService {
 
   /**
    * Chargement initial complet pour un nouveau device
+   * 
+   * @param dateFrom - Date ISO (YYYY-MM-DD) à partir de laquelle charger les réservations.
+   *                   Par défaut : 15 jours avant la date courante.
    */
   static async initialLoad(
     hotelId: number,
     userId: number,
-    deviceId: string
+    deviceId: string,
+    dateFrom?: string
   ): Promise<{
     data: Record<string, any[]>
     checkpoint: number
@@ -610,52 +614,79 @@ export default class SyncService {
     const { default: ExtraCharge } = await import('#models/extra_charge')
     const { default: TaxRate } = await import('#models/tax_rate')
     const { default: Discount } = await import('#models/discount')
-    const { default: PaymentMethod } = await import('#models/payment_method')
     const { default: Reservation } = await import('#models/reservation')
-    const { default: Guest } = await import('#models/guest')
+    const { default: GuestModel } = await import('#models/guest')
     const { default: Folio } = await import('#models/folio')
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: BookingSource } = await import('#models/booking_source')
 
-    // Hôtel
+    // ── Déterminer la date de début ─────────────────────────────
+    // Si dateFrom est fourni, on l'utilise; sinon 15 jours en arrière
+    const fromDate = dateFrom
+      ? DateTime.fromISO(dateFrom)
+      : DateTime.now().minus({ days: 30 })
+
+    const fromDateSQL = fromDate.toSQL()
+
+    // ── Hôtel avec relations ────────────────────────────────────
     const hotel = await Hotel.query()
       .where('id', hotelId)
       .preload('roomTypes', (q) => q.preload('rooms'))
       .preload('paymentMethods')
       .firstOrFail()
 
-    // Récupérer les données récentes (30 derniers jours + futurs)
-    const thirtyDaysAgo = DateTime.now().minus({ days: 30 }).toSQL()
-
+    // ── Réservations : de dateFrom jusqu'à l'infini ─────────────
+    // Inclut toutes les réservations avec une date d'arrivée >= dateFrom
+    // ou une date de départ >= dateFrom, pour couvrir les séjours en cours
     const recentReservations = await Reservation.query()
       .where('hotelId', hotelId)
       .where((q) => {
-        q.where('scheduled_arrival_date', '>=', thirtyDaysAgo!)
-          .orWhere('scheduled_departure_date', '>=', thirtyDaysAgo!)
+        q.where('scheduled_arrival_date', '>=', fromDateSQL!)
+          .orWhere('scheduled_departure_date', '>=', fromDateSQL!)
       })
       .preload('guest')
       .preload('reservationRooms', (q) => q.preload('room'))
       .preload('folios', (q) => q.preload('transactions'))
 
-    const guests = await Guest.query()
+    // ── Clients (guests) : tous pour cet hôtel ──────────────────
+    const guests = await GuestModel.query()
       .where('hotelId', hotelId)
-      .limit(500)
+      .limit(2000)
       .orderBy('updated_at', 'desc')
 
+    // ── Chambres et types de chambres ───────────────────────────
     const allRoomTypes = await RoomType.query().where('hotel_id', hotelId)
     const allRooms = await Room.query().where('hotel_id', hotelId)
 
+    // ── Tarifs : à partir de dateFrom ───────────────────────────
     const rates = await RoomRate.query()
       .whereIn('room_type_id', hotel.roomTypes.map((rt) => rt.id))
-      .where('date', '>=', thirtyDaysAgo!)
-      .limit(1000)
+      .where('date', '>=', fromDateSQL!)
 
+    // ── Folios : ouverts ou mis à jour récemment ────────────────
     const folios = await Folio.query()
       .where('hotelId', hotelId)
       .where((q) => {
-        q.whereNull('closedDate').orWhere('updatedAt', '>=', thirtyDaysAgo!)
+        q.whereNull('closedDate')
+          .orWhere('updatedAt', '>=', fromDateSQL!)
       })
-      .preload('transactions')
 
-    // Créer le checkpoint initial
+    // ── Transactions : toutes les transactions des folios ouverts ──
+    // On récupère toutes les transactions des 30 derniers jours + des folios ouverts
+    const thirtyDaysAgo = DateTime.now().minus({ days: 30 }).toSQL()
+    const recentTransactions = await FolioTransaction.query()
+      .whereIn('folio_id', folios.map((f) => f.id))
+      .where('transaction_date', '>=', thirtyDaysAgo!)
+      .orderBy('transaction_date', 'desc')
+
+    // ── Données de référence ────────────────────────────────────
+    const rateTypes = await RateType.query().where('hotel_id', hotelId)
+    const taxRates = await TaxRate.query().where('hotel_id', hotelId)
+    const extraCharges = await ExtraCharge.query().where('hotel_id', hotelId)
+    const discounts = await Discount.query().where('hotel_id', hotelId)
+    const bookingSources = await BookingSource.query().where('hotel_id', hotelId)
+
+    // ── Checkpoint initial ──────────────────────────────────────
     const version = await this.nextVersion()
     await SyncCheckpoint.updateOrCreate(
       { hotelId, userId, deviceId, resourceType: '*' },
@@ -668,14 +699,16 @@ export default class SyncService {
         roomTypes: allRoomTypes.map((r) => r.serialize()),
         rooms: allRooms.map((r) => r.serialize()),
         paymentMethods: hotel.paymentMethods.map((pm) => pm.serialize()),
-        rateTypes: (await RateType.query().where('hotel_id', hotelId)).map((r) => r.serialize()),
+        rateTypes: rateTypes.map((r) => r.serialize()),
         rates: rates.map((r) => r.serialize()),
-        taxRates: (await TaxRate.query().where('hotel_id', hotelId)).map((r) => r.serialize()),
-        extraCharges: (await ExtraCharge.query().where('hotel_id', hotelId)).map((r) => r.serialize()),
-        discounts: (await Discount.query().where('hotel_id', hotelId)).map((r) => r.serialize()),
+        taxRates: taxRates.map((r) => r.serialize()),
+        extraCharges: extraCharges.map((r) => r.serialize()),
+        discounts: discounts.map((r) => r.serialize()),
+        bookingSources: bookingSources.map((r) => r.serialize()),
         reservations: recentReservations.map((r) => r.serialize()),
         guests: guests.map((g) => g.serialize()),
         folios: folios.map((f) => f.serialize()),
+        folioTransactions: recentTransactions.map((t) => t.serialize()),
       },
       checkpoint: version,
     }
