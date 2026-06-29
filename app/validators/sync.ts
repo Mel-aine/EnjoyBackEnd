@@ -4,7 +4,7 @@ export const syncPushValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     deviceId: vine.string().minLength(1).maxLength(64),
-    lastSyncVersion: vine.number().min(0).optional().default(0),
+    lastSyncVersion: vine.number().min(0).optional(),
     operations: vine.array(
       vine.object({
         operationId: vine.string().minLength(1).maxLength(64),
@@ -16,7 +16,7 @@ export const syncPushValidator = vine.compile(
         resourceId: vine.number().positive().optional(),
         payload: vine.object({}).allowUnknownProperties(),
         clientTimestamp: vine.string().regex(/^\d{4}-\d{2}-\d{2}T/),
-        priority: vine.number().min(0).max(10).optional().default(0),
+        priority: vine.number().min(0).max(10).optional(),
       })
     ).maxLength(100),
   })
@@ -26,7 +26,7 @@ export const syncPullValidator = vine.compile(
   vine.object({
     hotelId: vine.number().positive(),
     deviceId: vine.string().minLength(1).maxLength(64),
-    lastSyncVersion: vine.number().min(0).optional().default(0),
+    lastSyncVersion: vine.number().min(0).optional(),
     resourceTypes: vine.array(vine.string()).minLength(1).maxLength(20).optional(),
   })
 )
