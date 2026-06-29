@@ -1168,6 +1168,34 @@ export default class HotelsController {
     }
   }
 
+  /**
+   * Toggle offline mode for a hotel
+   */
+  async toggleOfflineMode({ params, response, auth }: HttpContext) {
+    try {
+      const hotel = await Hotel.findOrFail(params.id)
+
+      hotel.offlineModeEnabled = !hotel.offlineModeEnabled
+      hotel.lastModifiedBy = auth.user?.id || 0
+
+      await hotel.save()
+
+      return response.ok({
+        message: `Offline mode ${hotel.offlineModeEnabled ? 'enabled' : 'disabled'} successfully`,
+        data: {
+          id: hotel.id,
+          hotelName: hotel.hotelName,
+          offlineModeEnabled: hotel.offlineModeEnabled
+        }
+      })
+    } catch (error) {
+      return response.badRequest({
+        message: 'Failed to toggle offline mode',
+        error: error.message
+      })
+    }
+  }
+
   //recuperer les hotels avec leurs services product et option
   public async getHotelsWithProductsAndOptions({ request, params, response }: HttpContext) {
     try {
