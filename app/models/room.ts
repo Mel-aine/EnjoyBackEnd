@@ -54,6 +54,19 @@ export default class Room extends BaseModel {
 })
 declare housekeepingRemarks: any[]
 
+@column({
+  consume: (value) => {
+    if (typeof value === 'string') return JSON.parse(value)
+    return value ?? []
+  },
+  prepare: (value) => JSON.stringify(value ?? [])
+})
+declare equipements: Array<{
+  amenity_id: number
+  amenity_name: string
+  quantity: number
+}>
+
 
 
 
