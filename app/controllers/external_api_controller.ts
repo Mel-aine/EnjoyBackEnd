@@ -1218,4 +1218,33 @@ export default class ExternalApiController {
     const controller = new ReservationsController()
     return controller.checkOut(this.withActorUser(ctx, actor))
   }
+
+  public async reservationAddPayment(ctx: HttpContext) {
+    const { params, response } = ctx
+    const apiKeyHotelId = this.getApiKeyHotelId(ctx)
+    if (!apiKeyHotelId) {
+      return response.unauthorized({ success: false, message: 'Invalid x-pos-api-key' })
+    }
+
+    const actor = await this.attachActorUser(ctx)
+    if (!actor) {
+      return response.badRequest({
+        success: false,
+        message: 'x-user-id is required for this endpoint',
+      })
+    }
+
+    const reservationId = Number(params.reservationId)
+    if (Number.isNaN(reservationId)) {
+      return response.badRequest({ success: false, message: 'Invalid reservationId' })
+    }
+
+    const belongs = await this.ensureReservationHotel(ctx, reservationId)
+    if (!belongs) {
+      return response.unauthorized({ success: false, message: 'Reservation not found for this hotel' })
+    }
+
+    const controller = new ReservationsController()
+    return controller.addPayment(this.withActorUser(ctx, actor))
+  }
 }
