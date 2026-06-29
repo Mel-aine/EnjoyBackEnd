@@ -75,6 +75,7 @@ import WhatsappLogsController from '#controllers/whatsapp_logs_controller'
 import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
 import GuestFeedbacksController from '#controllers/guest_feedbacks_controller'
 import WhatsappTemplatesController from '#controllers/whatsapp_templates_controller'
+import SyncController from '#controllers/sync_controller'
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -94,7 +95,7 @@ router.get('/', async ({ request, response }) => {
 router.get('/documents/:type/:token', async ({ params, response }) => {
   try {
     const { default: DocumentTokenService } = await import('#services/document_token_service')
-    
+
     const doc = await DocumentTokenService.resolve(params.token)
     if (!doc) {
       return response.status(404).json({ message: 'Document not found or expired' })
@@ -1602,7 +1603,7 @@ router
       })
       .prefix('configuration/hotels/:hotelId/ip_configurations')
 
-    
+
     // Night Audit Routes
     router
       .group(() => {
@@ -1682,12 +1683,12 @@ router
 
     router
       .group(() => {
-      router.get('/',modulesController.index.bind(modulesController))
-      router.post('/:hotel_id/invoices-subscriptions', invoiceSubscriptionsController.store.bind(invoiceSubscriptionsController))
-      router.put('/:id/subscriptions', subscriptionsController.update.bind(subscriptionsController))
+        router.get('/', modulesController.index.bind(modulesController))
+        router.post('/:hotel_id/invoices-subscriptions', invoiceSubscriptionsController.store.bind(invoiceSubscriptionsController))
+        router.put('/:id/subscriptions', subscriptionsController.update.bind(subscriptionsController))
 
-    }).prefix('market_place')
-   
+      }).prefix('market_place')
+
 
     // Widget Dashboard
     router.get('/widget/dashboard', widgetsController.dashboard.bind(widgetsController))
@@ -1709,20 +1710,20 @@ router
       })
       .prefix('work_orders')
 
-      // Credit Ledger Management Routes
-      router
-        .group(() => {
-          router.get('/hotels/:hotelId/guests/:guestId/credit-balance', creditLedgersController.getBalance.bind(creditLedgersController))
-          router.post('/hotels/:hotelId/guests/:guestId/credit-history', creditLedgersController.getHistory.bind(creditLedgersController))
-          router.post('/hotels/:hotelId/guests/:guestId/apply-credit', creditLedgersController.applyCredit.bind(creditLedgersController))
-        })
-        .prefix('credit_ledgers')
+    // Credit Ledger Management Routes
+    router
+      .group(() => {
+        router.get('/hotels/:hotelId/guests/:guestId/credit-balance', creditLedgersController.getBalance.bind(creditLedgersController))
+        router.post('/hotels/:hotelId/guests/:guestId/credit-history', creditLedgersController.getHistory.bind(creditLedgersController))
+        router.post('/hotels/:hotelId/guests/:guestId/apply-credit', creditLedgersController.applyCredit.bind(creditLedgersController))
+      })
+      .prefix('credit_ledgers')
 
-        // WhatsApp Test Route
-        router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
-        router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
-        router.get('/hotels/:id/satisfaction-stats', guestFeedbacksController.index.bind(guestFeedbacksController))
-   
+    // WhatsApp Test Route
+    router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
+    router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
+    router.get('/hotels/:id/satisfaction-stats', guestFeedbacksController.index.bind(guestFeedbacksController))
+
 
 
   })
@@ -1807,17 +1808,17 @@ router.group(() => {
   // ── Announcements ──
   router.resource('announcements', '#controllers/Console/announcements_controller').apiOnly()
     .use(['index', 'show'], middleware.permission({ permissions: ['console_announcements_view'] }))
-    .use('store',      middleware.permission({ permissions: ['console_announcements_create'] }))
-    .use('update',     middleware.permission({ permissions: ['console_announcements_edit'] }))
-    .use('destroy',    middleware.permission({ permissions: ['console_announcements_delete'] }))
+    .use('store', middleware.permission({ permissions: ['console_announcements_create'] }))
+    .use('update', middleware.permission({ permissions: ['console_announcements_edit'] }))
+    .use('destroy', middleware.permission({ permissions: ['console_announcements_delete'] }))
 
   // ── Users ──
   router.get('/users/commercials', '#controllers/Console/users_consoles_controller.getCommercials')
   router.resource('users', '#controllers/Console/users_consoles_controller')
     .use(['index', 'show'], middleware.permission({ permissions: ['console_users_view'] }))
-    .use('store',      middleware.permission({ permissions: ['console_users_create'] }))
-    .use('update',     middleware.permission({ permissions: ['console_users_edit'] }))
-    .use('destroy',    middleware.permission({ permissions: ['console_users_delete'] }))
+    .use('store', middleware.permission({ permissions: ['console_users_create'] }))
+    .use('update', middleware.permission({ permissions: ['console_users_edit'] }))
+    .use('destroy', middleware.permission({ permissions: ['console_users_delete'] }))
 
 
 
@@ -1900,17 +1901,29 @@ router.group(() => {
   router.get('/permissions/me', permissionsController.getUserPermissions.bind(permissionsController))
 
   // ── Templates ──
- // ── WhatsApp Templates ──────────────────────────────────────────────────────
+  // ── WhatsApp Templates ──────────────────────────────────────────────────────
 
-router.get('/whatsapp/templates', whatsappTemplatesController.index.bind(whatsappTemplatesController))
-  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+  router.get('/whatsapp/templates', whatsappTemplatesController.index.bind(whatsappTemplatesController))
+    .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
 
-router.post('/whatsapp/templates/sync', whatsappTemplatesController.sync.bind(whatsappTemplatesController))
-  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+  router.post('/whatsapp/templates/sync', whatsappTemplatesController.sync.bind(whatsappTemplatesController))
+    .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
 
 
-router.post('/whatsapp/templates/refresh', whatsappTemplatesController.refreshStatuses.bind(whatsappTemplatesController))
-  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+  router.post('/whatsapp/templates/refresh', whatsappTemplatesController.refreshStatuses.bind(whatsappTemplatesController))
+    .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
+// ── Sync (Offline Mode) ──
+router.group(() => {
+  router.post('/sync/push', [SyncController, 'push'])
+  router.post('/sync/pull', [SyncController, 'pull'])
+  router.post('/sync/initial-load', [SyncController, 'initialLoad'])
+  router.get('/sync/status', [SyncController, 'status'])
+  router.get('/sync/conflicts', [SyncController, 'conflicts'])
+  router.post('/sync/conflicts/:id/resolve', [SyncController, 'resolveConflict'])
+})
+  .use(middleware.auth({ guards: ['api'] })).use(middleware.checkOfflineMode())
+  .use(middleware.syncRateLimit())
+
 

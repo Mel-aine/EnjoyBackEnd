@@ -69,7 +69,10 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'tax_rate' })
   declare taxRate: number
 
-   @column({ columnName: 'whatsapp_enabled' })
+   @column({ columnName: 'offline_mode_enabled' })
+  declare offlineModeEnabled: boolean
+
+  @column({ columnName: 'whatsapp_enabled' })
   declare whatsappEnabled: boolean
 
   @column({ columnName: 'whatsapp_provider_type' })
