@@ -76,7 +76,7 @@ class GuestSummaryService {
     const arr: ArrItem[] = allReservations.map((r) => ({
       reservation: r,
       // Prefer actual arrival first, then check-in, then scheduled arrival
-      arrival: r.arrivedDate ?? r.checkInDate ?? r.scheduledArrivalDate ?? null,
+      arrival: r.arrivedDate ?? r.checkInDate ?? null,
     }))
 
     const withArrival = arr.filter((a) => !!a.arrival)

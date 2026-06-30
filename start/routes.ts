@@ -1917,14 +1917,14 @@ router.group(() => {
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
 // ── Sync (Offline Mode) ──
 router.group(() => {
-  router.post('/sync/push', [SyncController, 'push'])
-  router.post('/sync/pull', [SyncController, 'pull'])
-  router.post('/sync/initial-load', [SyncController, 'initialLoad'])
-  router.get('/sync/status', [SyncController, 'status'])
-  router.get('/sync/conflicts', [SyncController, 'conflicts'])
-  router.post('/sync/conflicts/:id/resolve', [SyncController, 'resolveConflict'])
-})
-  .use(middleware.auth({ guards: ['api'] })).use(middleware.checkOfflineMode())
+  router.post('/push', [SyncController, 'push'])
+  router.post('/pull', [SyncController, 'pull'])
+  router.post('/initial-load', [SyncController, 'initialLoad'])
+  router.get('/status', [SyncController, 'status'])
+  router.get('/conflicts', [SyncController, 'conflicts'])
+  router.post('/conflicts/:id/resolve', [SyncController, 'resolveConflict'])
+}).prefix('api/sync')
+  .use(middleware.auth({ guards: ['api'] }))
   .use(middleware.syncRateLimit())
 
 

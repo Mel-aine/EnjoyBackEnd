@@ -641,8 +641,8 @@ export default class SyncService {
     const recentReservations = await Reservation.query()
       .where('hotelId', hotelId)
       .where((q) => {
-        q.where('scheduled_arrival_date', '>=', fromDateSQL!)
-          .orWhere('scheduled_departure_date', '>=', fromDateSQL!)
+        q.where('arrived_date', '>=', fromDateSQL!)
+          .orWhere('depart_date', '>=', fromDateSQL!)
       })
       .preload('guest')
       .preload('reservationRooms', (q) => q.preload('room'))
@@ -661,7 +661,7 @@ export default class SyncService {
     // ── Tarifs : à partir de dateFrom ───────────────────────────
     const rates = await RoomRate.query()
       .whereIn('room_type_id', hotel.roomTypes.map((rt) => rt.id))
-      .where('date', '>=', fromDateSQL!)
+      .where('rate_date', '>=', fromDateSQL!)
 
     // ── Folios : ouverts ou mis à jour récemment ────────────────
     const folios = await Folio.query()

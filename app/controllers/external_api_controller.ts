@@ -110,8 +110,8 @@ export default class ExternalApiController {
   }
 
   private async buildReservationPayload(rawBody: any, hotelId: number, actorId: number) {
-    const arrivedDate = this.normalizeDate(rawBody.arrived_date ?? rawBody.scheduledArrivalDate)
-    const departDate = this.normalizeDate(rawBody.depart_date ?? rawBody.scheduledDepartureDate)
+    const arrivedDate = this.normalizeDate(rawBody.arrived_date)
+    const departDate = this.normalizeDate(rawBody.depart_date)
 
     const arrivedTime = this.normalizeTime(
       rawBody.arrived_time ?? rawBody.check_in_time ?? rawBody.arrivedTime,
