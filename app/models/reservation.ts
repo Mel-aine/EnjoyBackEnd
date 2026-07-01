@@ -106,6 +106,12 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'group_id' })
   declare groupId: number | null
 
+  @column()
+  declare whatsappNotificationEnable: boolean
+
+  @column()
+  declare whatsappNumber: string | null
+
   @column.dateTime({ columnName: 'reservation_datetime' })
   declare reservationDatetime: DateTime
 

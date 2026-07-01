@@ -434,7 +434,7 @@ export default class FoliosController {
    * Apply a discount to a folio by creating a discount transaction
    */
   async applyDiscount(ctx: HttpContext) {
-    logger.info('enterhere')
+  
     const { request, response, auth } = ctx;
     const payload = await request.validateUsing(applyFolioDiscountValidator)
 
@@ -461,15 +461,16 @@ export default class FoliosController {
       // Determine applicable base amount for discount based on applyOn
       // room_charge -> sum of CHARGE transactions in ROOM category
       // extra_charge -> sum of CHARGE transactions in EXTRACT_CHARGE category
-      const baseAmountResult = await db
-        .from('folio_transactions')
-        .where('folio_id', folio.id)
-        .where('is_voided', false)
-        .where('transaction_type', TransactionType.CHARGE)
-        .sum('amount as total')
-        .first()
+      // const baseAmountResult = await db
+      //   .from('folio_transactions')
+      //   .where('folio_id', folio.id)
+      //   .where('is_voided', false)
+      //   .where('transaction_type', TransactionType.CHARGE)
+      //   .sum('total_amount  as total')
+      //   .first()
 
-      const applicableBase = parseFloat(`${baseAmountResult?.total || 0}`)
+      const applicableBase = parseFloat(`${folio.balance}`)
+ 
 
       // Calculate discount amount
       let discountAmount = 0
@@ -564,7 +565,7 @@ export default class FoliosController {
       folio.totalTaxes = totalTaxes
       folio.totalServiceCharges = totalServiceCharges
       folio.totalDiscounts = totalDiscounts
-      folio.balance = totalCharges + totalAdjustments + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts
+     folio.balance = Math.round((totalCharges + totalAdjustments + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts) * 100) / 100
       folio.lastModifiedBy = auth.user?.id || 0
       await folio.save()
 
@@ -593,63 +594,60 @@ export default class FoliosController {
     }
   }
 
+
   /**
    * update discount
    */
-  public async updateDiscount(ctx: HttpContext) {
+
+
+
+public async updateDiscount(ctx: HttpContext) {
   const { request, response, auth } = ctx;
-  logger.info('enter update discount')
 
   const payload = await request.validateUsing(applyFolioDiscountValidator)
 
   try {
     const transactionId = request.param('id')
-    const existingTx = await FolioTransaction.findOrFail(transactionId)
 
+    const existingTx = await FolioTransaction.findOrFail(transactionId)
     const folio = await Folio.findOrFail(existingTx.folioId)
+ 
 
     if (!folio.canBeModified) {
       return response.badRequest({ message: 'Folio cannot be modified - finalized or closed' })
     }
 
-    // Validate reservation/hotel context
     if (payload.reservationId && folio.reservationId && folio.reservationId !== payload.reservationId) {
       return response.badRequest({ message: 'Reservation mismatch for folio' })
     }
+
     if (payload.hotelId && folio.hotelId !== payload.hotelId) {
       return response.badRequest({ message: 'Hotel mismatch for folio' })
     }
 
-    // Validate discount
     const discount = await Discount.findOrFail(payload.discountId)
+
+
     if (discount.status !== 'active' || discount.isDeleted) {
       return response.badRequest({ message: 'Discount is not active or has been deleted' })
     }
 
-    // Compute new applicable base
-    const baseAmountResult = await db
-      .from('folio_transactions')
-      .where('folio_id', folio.id)
-      .where('is_voided', false)
-      .where('transaction_type', TransactionType.CHARGE)
-      .sum('amount as total')
-      .first()
+   const ancienDiscountAmount = Math.abs(parseFloat(`${existingTx.discountAmount}`))
+const applicableBase = parseFloat(`${folio.balance}`) + ancienDiscountAmount
 
-    const applicableBase = parseFloat(`${baseAmountResult?.total || 0}`)
 
-    // Compute new discount amount
     let discountAmount = 0
     if (discount.type === 'percentage') {
       discountAmount = applicableBase * (discount.value / 100)
     } else {
       discountAmount = Math.min(discount.value, applicableBase)
+      console.log(`[updateDiscount] Calcul flat : min(${discount.value}, ${applicableBase}) = ${discountAmount}`)
     }
 
     if (!discountAmount || discountAmount <= 0) {
       return response.badRequest({ message: 'No applicable charges found to apply discount' })
     }
 
-    // Update transaction fields
     existingTx.merge({
       discountId: discount.id,
       particular: discount.name,
@@ -667,8 +665,8 @@ export default class FoliosController {
     })
 
     await existingTx.save()
+  
 
-    // --- Recompute folio totals ---
     const transactions = await FolioTransaction.query()
       .where('folioId', folio.id)
       .where('isVoided', false)
@@ -697,6 +695,10 @@ export default class FoliosController {
       totalDiscounts += parseFloat(`${tx.discountAmount ?? 0}`) || 0
     }
 
+    const newBalance = Math.round((
+      totalCharges + totalAdjustments + totalTaxes + totalServiceCharges - totalPayments - totalDiscounts
+    ) * 100) / 100
+
     folio.merge({
       totalCharges,
       totalPayments,
@@ -704,18 +706,11 @@ export default class FoliosController {
       totalTaxes,
       totalServiceCharges,
       totalDiscounts,
-      balance:
-        totalCharges +
-        totalAdjustments +
-        totalTaxes +
-        totalServiceCharges -
-        totalPayments -
-        totalDiscounts,
+      balance: newBalance,
       lastModifiedBy: auth.user?.id || 0,
     })
     await folio.save()
 
-    // Logging
     await LoggerService.log({
       actorId: auth.user?.id || 0,
       action: 'UPDATE',
@@ -739,9 +734,6 @@ export default class FoliosController {
     return response.badRequest({ message: error.message })
   }
 }
-
-
-
 
   /**
    * Transfer charges between folios

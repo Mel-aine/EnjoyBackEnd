@@ -31,6 +31,7 @@ import Discount from '../models/discount.js'
 import { DEFAULT_TEMPLATE_CATEGORIES, DEFAULT_EMAIL_TEMPLATES } from '../data/default_email_templates.js'
 import { PaymentMethodType } from '../enums.js'
 import UserEmailService from '#services/user_email_service'
+import WhatsappTemplateSyncService from '#services/whatsapp_template_sync_service'
 
 export default class HotelsController {
   private userService: CrudService<typeof User>
@@ -64,9 +65,10 @@ export default class HotelsController {
         })
       }
 
-      if (status) {
+     if (status && status !== 'all') {
         query.where('status', status)
       }
+
 
       if (country) {
         query.where('country', country)
@@ -91,10 +93,24 @@ export default class HotelsController {
         .orderBy('created_at', 'desc')
         .paginate(page, limit)
 
-      return response.ok({
-        message: 'Hotels retrieved successfully',
-        data: hotels
-      })
+        const [totalActive, totalInactive, totalSuspended, totalAll] = await Promise.all([
+          Hotel.query().where('status', 'active').count('* as total'),
+          Hotel.query().where('status', 'inactive').count('* as total'),
+          Hotel.query().where('status', 'suspended').count('* as total'),
+          Hotel.query().count('* as total'),
+        ])
+
+        return response.ok({
+          message: 'Hotels retrieved successfully',
+          data: hotels,
+          counts: {
+            all:       Number(totalAll[0].$extras.total),
+            active:    Number(totalActive[0].$extras.total),
+            inactive:  Number(totalInactive[0].$extras.total),
+            suspended: Number(totalSuspended[0].$extras.total),
+          }
+        })
+
     } catch (error) {
       console.error('Error retrieving hotels:', error)
       return response.internalServerError({
@@ -144,6 +160,7 @@ export default class HotelsController {
         status: payload.isActive !== false ? 'active' : 'inactive',
         cancellationPolicy: payload.cancellationPolicy,
         hotelPolicy: payload.policies,
+        whatsappEnabled : payload.whatsappEnabled,
         propertyType: 'hotel',
         ...(payload.nightAuditStartTime !== undefined
           ? { nightAuditStartTime: payload.nightAuditStartTime }
@@ -501,6 +518,7 @@ export default class HotelsController {
         .preload('noShowRevenueTaxRates')
         .preload('subscriptions', (subQuery) => {
           subQuery.preload('module')
+          subQuery.preload('addOn')
         })
         .firstOrFail()
 
@@ -570,6 +588,7 @@ export default class HotelsController {
         status:             payload.isActive !== false ? 'active' : 'inactive',
         cancellationPolicy: payload.cancellationPolicy,
         hotelPolicy:        payload.policies,
+        whatsappEnabled : payload.whatsappEnabled,
         lastModifiedBy:     auth.user?.id              || 0,
         ...(isConsoleRequest && payload.useCashering !== undefined
           ? { useCashering: payload.useCashering }
@@ -675,9 +694,15 @@ export default class HotelsController {
         'hotelPolicy',
         'nightAuditStartTime',
         'nightAuditEndTime',
-        'hasCreditLedger'
+        'hasCreditLedger',
+        'whatsappEnabled',
+        'whatsappProviderType',
+        'whatsappConfig',
+        'notificationSettings',
+        'googlePlaceId'
       ])
-
+      const whatsappJustEnabled =
+      payload.whatsappEnabled === true && hotel.whatsappEnabled === false
       // Create update data with proper typing
       const updateData: any = {
         ...payload,
@@ -686,6 +711,14 @@ export default class HotelsController {
 
       hotel.merge(updateData)
       await hotel.save()
+
+      if (whatsappJustEnabled) {
+      const syncService = new WhatsappTemplateSyncService()
+      // Fire & forget — on ne bloque pas la réponse HTTP
+      syncService.syncTemplates(hotel.id).catch((err) => {
+        console.error(`[TemplateSyncService] Erreur sync hotel ${hotel.id}:`, err)
+      })
+    }
 
       return response.ok({
         message: 'Hotel information updated successfully',

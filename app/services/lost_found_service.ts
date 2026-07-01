@@ -7,6 +7,7 @@ interface GetAllOptions {
   page: number
   limit: number
   status?: string
+  hotelId?: number
   search?: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
@@ -29,13 +30,18 @@ export default class LostFoundService {
    * Get all lost and found items with filtering and pagination
    */
   async getAll(options: GetAllOptions) {
-    const { page, limit, status, search, sortBy, sortOrder } = options
+    const { page, limit, status, search,hotelId, sortBy, sortOrder } = options
 
     let query = LostFound.query().preload('room')
 
     // Filter by status
     if (status) {
       query = query.where('status', status)
+    }
+
+    // Filter by hotel ID
+    if (hotelId) {
+      query = query.where('hotel_id', hotelId)
     }
 
     // Search functionality

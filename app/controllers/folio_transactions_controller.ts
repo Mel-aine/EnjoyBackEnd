@@ -14,6 +14,15 @@ import CurrencyCacheService from '#services/currency_cache_service'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
 import db from '@adonisjs/lucid/services/db'
 import CreditLedgerService from '#services/credit_ledger_service'
+import logger from '@adonisjs/core/services/logger'
+
+function runInBackground(task: () => Promise<void>) {
+  setImmediate(() => {
+    task().catch((error) => {
+      logger.error({ err: error }, 'Background task failed')
+    })
+  })
+}
 
 export default class FolioTransactionsController {
   /**
@@ -347,6 +356,73 @@ async store(ctx: HttpContext) {
           ctx
         })
       }
+    }
+
+    
+   // ─── WHATSAPP NOTIFICATION ───────────────────────────────
+    if (payload.transactionType === TransactionType.PAYMENT && payload.paymentMethodId) {
+     
+      runInBackground(async () => {
+        try {
+          const WhatsAppNotificationService = (
+            await import('#services/whatsapp_notification_service')
+          ).default
+          const svc = new WhatsAppNotificationService()
+
+          const Guest = (await import('#models/guest')).default
+          const Hotel = (await import('#models/hotel')).default
+          const Reservation = (await import('#models/reservation')).default
+          const PaymentMethod = (await import('#models/payment_method')).default
+
+          await folio.refresh()
+
+          // Récupération des entités liées
+          const [guest, hotel, reservation, paymentMethod] = await Promise.all([
+            Guest.find(folio.guestId),
+            Hotel.find(folio.hotelId),
+            payload.reservationId ? Reservation.find(payload.reservationId) : null,
+            PaymentMethod.find(payload.paymentMethodId)
+          ])
+
+          // Vérification si le WhatsApp est activé pour cette réservation ou par défaut
+          const isWhatsAppEnabled = reservation ? reservation.whatsappNotificationEnable : true
+          const phone = isWhatsAppEnabled 
+            ? (reservation?.whatsappNumber || guest?.phonePrimary) 
+            : null
+
+          if (!phone) {
+            console.log('[WA Payment] WhatsApp disabled or no number available for this guest')
+          } else {
+            const recipientName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'Cher Client'
+            const hotelName = hotel?.hotelName || 'Notre établissement'
+            const reservationNumber = reservation?.reservationNumber || 'N/A'
+            const paymentMethodName = paymentMethod?.methodName || 'Paiement'
+            
+            // Formatage des montants (Ex: "50 000 XAF")
+            const currencySymbol = baseCurrencyCode || 'XAF'
+            const formattedAmount = `${transaction.amount.toLocaleString()} ${currencySymbol}`
+            
+            // Calcul du solde restant (Remaining Balance) basé sur le folio mis à jour
+            const remainingBalanceValue = folio.balance ?? 0
+            const formattedBalance = `${remainingBalanceValue.toLocaleString()} ${currencySymbol}`
+
+            const result = await svc.notifyPaymentReceived({
+              hotelId: folio.hotelId,
+              reservationId: payload.reservationId,
+              recipientPhoneNumber: phone,
+              recipientName,
+              amount: formattedAmount,
+              hotelName,
+              reservationNumber,
+              paymentMethod: paymentMethodName,
+              remainingBalance: formattedBalance,
+            })
+
+          }
+        } catch (waErr) {
+          console.error('[WA Payment] Failed to send notification:', waErr)
+        }
+      })
     }
 
     await transaction.load('hotel')

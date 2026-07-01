@@ -67,6 +67,15 @@ import ChannexRestrictionsController from '#controllers/channex_restrictions_con
 import WidgetsController from '#controllers/widgets_controller'
 import NotificationsController from '#controllers/notifications_controller'
 import CreditLedgersController from '#controllers/credit_ledgers_controller'
+import ModulesController from '#controllers/Console/modules_controller'
+import InvoiceSubscriptionsController from '#controllers/Console/invoice_subscriptions_controller'
+import SubscriptionsController from '#controllers/Console/subscriptions_controller'
+import WhatsAppController from '#controllers/whatsapps_controller'
+import WhatsappLogsController from '#controllers/whatsapp_logs_controller'
+import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
+import GuestFeedbacksController from '#controllers/guest_feedbacks_controller'
+import WhatsappTemplatesController from '#controllers/whatsapp_templates_controller'
+
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
@@ -81,6 +90,27 @@ router.get('/', async ({ request, response }) => {
   html = html.replace(/\{\{BASE_URL\}\}/g, baseUrl)
   response.type('html')
   return response.send(html)
+})
+router.get('/documents/:type/:token', async ({ params, response }) => {
+  try {
+    const { default: DocumentTokenService } = await import('#services/document_token_service')
+    
+    const doc = await DocumentTokenService.resolve(params.token)
+    if (!doc) {
+      return response.status(404).json({ message: 'Document not found or expired' })
+    }
+
+    const { createReadStream, existsSync } = await import('node:fs')
+    if (!existsSync(doc.filePath)) {
+      return response.status(404).json({ message: 'File not found' })
+    }
+
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${doc.filename}"`)
+    return response.stream(createReadStream(doc.filePath))
+  } catch (error) {
+    return response.status(500).json({ message: error.message })
+  }
 })
 
 // Password reset page (HTML form)
@@ -148,6 +178,7 @@ router.get('/cron/subscriptions/renew', async ({ request, response }) => {
 })
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
+import externalSwagger from '#config/external_swagger'
 import { middleware } from '#start/kernel'
 
 // import { middleware } from '#start/kernel'
@@ -230,6 +261,14 @@ const otaController = new OtaController()
 const channexRestrictionsController = new ChannexRestrictionsController()
 const widgetsController = new WidgetsController()
 const creditLedgersController = new CreditLedgersController()
+const modulesController = new ModulesController()
+const invoiceSubscriptionsController = new InvoiceSubscriptionsController()
+const subscriptionsController = new SubscriptionsController()
+const whatsappController = new WhatsAppController()
+const whatsappWebhookController = new WhatsAppWebhookController()
+const whatsappLogsController = new WhatsappLogsController()
+const guestFeedbacksController = new GuestFeedbacksController()
+const whatsappTemplatesController = new WhatsappTemplatesController()
 
 
 
@@ -240,6 +279,24 @@ router.get('/swagger', async () => {
 router.get('/swagger/json', async () => {
   const routes = router.toJSON()
   return AutoSwagger.default.json(routes, swagger)
+})
+
+router.get('/swagger/external', async () => {
+  return AutoSwagger.default.ui('/swagger/external/json', externalSwagger)
+})
+
+router.get('/swagger/external/json', async () => {
+  const routes: any = router.toJSON()
+  const isExternalRoute = (route: any) => {
+    const pattern = String(route?.pattern || '')
+    return pattern.startsWith('/external') || pattern.startsWith('external')
+  }
+
+  const filteredRoutes = Array.isArray(routes)
+    ? routes.filter(isExternalRoute)
+    : { ...routes, root: Array.isArray(routes?.root) ? routes.root.filter(isExternalRoute) : [] }
+
+  return AutoSwagger.default.json(filteredRoutes, externalSwagger)
 })
 
 
@@ -906,6 +963,10 @@ router
         router.post('/print-pdf', folioPrintController.printFolioPdf.bind(folioPrintController)) // Generate folio PDF (future implementation)
         router.post('/print_confirm_booking-pdf', folioPrintController.printBookingPdf.bind(folioPrintController)) // Generate invoice PDF
         router.post('/print_hotel-pdf', folioPrintController.printHotelPdf.bind(folioPrintController))
+        router.post('/send-invoice-email', folioPrintController.sendInvoiceByEmail.bind(folioPrintController))
+        router.post('/send-voucher-email', folioPrintController.sendVoucherByEmail.bind(folioPrintController))
+        router.post('/send-invoice-whatsapp', folioPrintController.sendInvoiceByWhatsapp.bind(folioPrintController))
+        router.post('/send-voucher-whatsapp', folioPrintController.sendVoucherByWhatsapp.bind(folioPrintController))
       })
       .prefix('folio-print')
 
@@ -1540,6 +1601,8 @@ router
         router.delete('/:id', ipConfigurationsController.destroy.bind(ipConfigurationsController))
       })
       .prefix('configuration/hotels/:hotelId/ip_configurations')
+
+    
     // Night Audit Routes
     router
       .group(() => {
@@ -1617,6 +1680,15 @@ router
         router.get('/', auditTrailController.getAuditTrail.bind(auditTrailController))
       }).prefix('audit-trail')
 
+    router
+      .group(() => {
+      router.get('/',modulesController.index.bind(modulesController))
+      router.post('/:hotel_id/invoices-subscriptions', invoiceSubscriptionsController.store.bind(invoiceSubscriptionsController))
+      router.put('/:id/subscriptions', subscriptionsController.update.bind(subscriptionsController))
+
+    }).prefix('market_place')
+   
+
     // Widget Dashboard
     router.get('/widget/dashboard', widgetsController.dashboard.bind(widgetsController))
 
@@ -1646,7 +1718,11 @@ router
         })
         .prefix('credit_ledgers')
 
-
+        // WhatsApp Test Route
+        router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
+        router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
+        router.get('/hotels/:id/satisfaction-stats', guestFeedbacksController.index.bind(guestFeedbacksController))
+   
 
 
   })
@@ -1658,6 +1734,9 @@ router
     })
   )
 
+
+router.get('/api/webhooks/whatsapp', whatsappWebhookController.verify.bind(whatsappWebhookController))
+router.post('/api/webhooks/whatsapp', whatsappWebhookController.handle.bind(whatsappWebhookController))
 router.post('/api/channex/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController))
   .use(middleware.apiKey())
 
@@ -1677,6 +1756,9 @@ import './routes/reports.js'
 
 // Import POS routes
 import './routes/pos.js'
+
+// External API routes (POS API key protected)
+import './routes/external.js'
 
 // Enjoy Rental integration (API key protected)
 router
@@ -1817,4 +1899,18 @@ router.group(() => {
   // ── Permissions utilisateur ──
   router.get('/permissions/me', permissionsController.getUserPermissions.bind(permissionsController))
 
+  // ── Templates ──
+ // ── WhatsApp Templates ──────────────────────────────────────────────────────
+
+router.get('/whatsapp/templates', whatsappTemplatesController.index.bind(whatsappTemplatesController))
+  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+
+router.post('/whatsapp/templates/sync', whatsappTemplatesController.sync.bind(whatsappTemplatesController))
+  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+
+
+router.post('/whatsapp/templates/refresh', whatsappTemplatesController.refreshStatuses.bind(whatsappTemplatesController))
+  .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
+
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
+
