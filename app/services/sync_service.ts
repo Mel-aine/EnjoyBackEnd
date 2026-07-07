@@ -218,6 +218,38 @@ export default class SyncService {
   }
 
   /**
+   * Table de correspondance resourceType → nom de table PostgreSQL
+   */
+  private static readonly TABLE_MAP: Record<string, string> = {
+    reservation: 'reservations',
+    guest: 'guests',
+    room: 'rooms',
+    folio: 'folios',
+    folio_transaction: 'folio_transactions',
+    room_type: 'room_types',
+    rate_type: 'rate_types',
+    room_rate: 'room_rates',
+    extra_charge: 'extra_charges',
+    booking_source: 'booking_sources',
+    payment_method: 'payment_methods',
+    tax_rate: 'tax_rates',
+    discount: 'discounts',
+    work_order: 'work_orders',
+    room_block: 'room_blocks',
+    vip_status: 'vip_statuses',
+    black_list_reason: 'black_list_reasons',
+    notification: 'notifications',
+    announcement: 'announcements',
+  }
+
+  /**
+   * Retourne le nom de la table pour un type de ressource
+   */
+  private static getTableName(resourceType: string): string | null {
+    return this.TABLE_MAP[resourceType] ?? null
+  }
+
+  /**
    * Exécute une opération individuelle
    */
   private static async executeOperation(
@@ -226,6 +258,7 @@ export default class SyncService {
     userId: number
   ): Promise<{ serverId: number; version: number }> {
     switch (op.resourceType) {
+      // Types existants
       case 'reservation':
         return this.executeReservationOperation(op, hotelId, userId)
       case 'guest':
@@ -236,6 +269,32 @@ export default class SyncService {
         return this.executeRoomOperation(op, hotelId, userId)
       case 'folio':
         return this.executeFolioOperation(op, hotelId, userId)
+
+      // Types de configuration (CRUD simple)
+      case 'room_type':
+      case 'rate_type':
+      case 'room_rate':
+      case 'extra_charge':
+      case 'booking_source':
+      case 'payment_method':
+      case 'tax_rate':
+      case 'discount':
+      case 'vip_status':
+      case 'black_list_reason':
+        return this.executeConfigOperation(op, hotelId, userId)
+
+      // Types opérationnels
+      case 'work_order':
+        return this.executeWorkOrderOperation(op, hotelId, userId)
+      case 'room_block':
+        return this.executeRoomBlockOperation(op, hotelId, userId)
+
+      // Types système
+      case 'notification':
+        return this.executeNotificationOperation(op, hotelId, userId)
+      case 'announcement':
+        return this.executeAnnouncementOperation(op, hotelId, userId)
+
       default:
         throw new Error(`Unsupported resource type: ${op.resourceType}`)
     }
@@ -388,6 +447,265 @@ export default class SyncService {
   }
 
   /**
+   * Mapping des colonnes d'audit par table de configuration.
+   * Chaque table a ses propres conventions de nommage.
+   */
+  private static readonly AUDIT_COLUMNS: Record<string, {
+    createdBy: string
+    updatedBy: string
+    hotelRef: string
+  }> = {
+    room_types: { createdBy: 'created_by_user_id', updatedBy: 'updated_by_user_id', hotelRef: 'hotel_id' },
+    rate_types: { createdBy: 'created_by_user_id', updatedBy: 'updated_by_user_id', hotelRef: 'hotel_id' },
+    extra_charges: { createdBy: 'created_by_user_id', updatedBy: 'updated_by_user_id', hotelRef: 'hotel_id' },
+    black_list_reasons: { createdBy: 'created_by_user_id', updatedBy: 'updated_by_user_id', hotelRef: 'hotel_id' },
+    booking_sources: { createdBy: 'created_by', updatedBy: 'last_modified_by', hotelRef: 'hotel_id' },
+    payment_methods: { createdBy: 'created_by', updatedBy: 'last_modified_by', hotelRef: 'hotel_id' },
+    tax_rates: { createdBy: 'created_by', updatedBy: 'last_modified_by', hotelRef: 'hotel_id' },
+    discounts: { createdBy: 'created_by', updatedBy: 'last_modified_by', hotelRef: 'hotel_id' },
+    vip_statuses: { createdBy: 'created_by', updatedBy: 'last_modified_by', hotelRef: 'hotel_id' },
+    room_rates: { createdBy: 'created_by', updatedBy: 'last_modified_by', hotelRef: 'hotel_id' },
+  }
+
+  /**
+   * Exécute une opération CRUD générique pour les tables de configuration
+   */
+  private static async executeConfigOperation(
+    op: SyncOperationInput,
+    hotelId: number,
+    userId: number
+  ): Promise<{ serverId: number; version: number }> {
+    const table = this.getTableName(op.resourceType)
+    if (!table) {
+      throw new Error(`No table mapping for resource type: ${op.resourceType}`)
+    }
+
+    // Récupérer les noms de colonnes d'audit pour cette table
+    const auditCols = this.AUDIT_COLUMNS[table]
+
+    switch (op.operationType) {
+      case 'create': {
+        // Nettoyer le payload des champs de suivi offline
+        const cleanPayload: Record<string, any> = {}
+        for (const [key, value] of Object.entries(op.payload)) {
+          if (['_pending', '_operationId', '_tempId', 'id', 'version'].includes(key)) continue
+          if (value === undefined) continue
+          // Convertir camelCase en snake_case
+          const columnName = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          cleanPayload[columnName] = value
+        }
+
+        // Ajouter les colonnes d'audit selon la table
+        if (auditCols) {
+          cleanPayload[auditCols.hotelRef] = hotelId
+          cleanPayload[auditCols.createdBy] = userId
+          cleanPayload[auditCols.updatedBy] = userId
+        } else {
+          // Fallback générique
+          cleanPayload.hotel_id = hotelId
+          cleanPayload.created_by = userId
+        }
+
+        const result = await db.insertQuery().table(table).insert(cleanPayload).returning('id')
+        const serverId = typeof result[0] === 'number' ? result[0] : result[0].id
+        return { serverId, version: 1 }
+      }
+
+      case 'update': {
+        await this.checkVersionConflict(table, op.resourceId!, op.payload?.version)
+
+        const cleanPayload: Record<string, any> = {}
+        for (const [key, value] of Object.entries(op.payload)) {
+          if (['_pending', '_operationId', '_tempId', 'id', 'version', 'createdAt', 'created_at'].includes(key)) continue
+          if (value === undefined) continue
+          // Convertir camelCase en snake_case
+          const columnName = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          cleanPayload[columnName] = value
+        }
+
+        // Ajouter les colonnes de mise à jour
+        if (auditCols) {
+          cleanPayload[auditCols.updatedBy] = userId
+        }
+        cleanPayload.updated_at = new Date().toISOString()
+
+        await db.from(table).where('id', op.resourceId!).update(cleanPayload)
+        return { serverId: op.resourceId!, version: (op.payload?.version || 1) + 1 }
+      }
+
+      case 'delete': {
+        // Soft delete si la table supporte is_deleted, sinon hard delete
+        const softDeleteTables = ['room_types', 'rate_types', 'extra_charges', 'black_list_reasons']
+        if (softDeleteTables.includes(table)) {
+          const deletePayload: Record<string, any> = {
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+          if (auditCols) {
+            deletePayload[auditCols.updatedBy] = userId
+          }
+          await db.from(table).where('id', op.resourceId!).update(deletePayload)
+        } else {
+          await db.from(table).where('id', op.resourceId!).delete()
+        }
+        return { serverId: op.resourceId!, version: 0 }
+      }
+
+      default:
+        throw new Error(`Unknown operation type for config: ${op.operationType}`)
+    }
+  }
+
+  /**
+   * Exécute une opération de work order
+   */
+  private static async executeWorkOrderOperation(
+    op: SyncOperationInput,
+    hotelId: number,
+    userId: number
+  ): Promise<{ serverId: number; version: number }> {
+    switch (op.operationType) {
+      case 'create': {
+        const { default: WorkOrder } = await import('#models/work_order')
+        const orderNumber = WorkOrder.generateOrderNumber()
+        const workOrder = await WorkOrder.create({
+          ...op.payload,
+          orderNumber: op.payload.orderNumber || orderNumber,
+          hotelId,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        })
+        return { serverId: workOrder.id, version: (workOrder as any).version || 1 }
+      }
+      case 'update': {
+        await this.checkVersionConflict('work_orders', op.resourceId!, op.payload?.version)
+        const { default: WorkOrder } = await import('#models/work_order')
+        const existing = await WorkOrder.findOrFail(op.resourceId!)
+        existing.merge(op.payload)
+        await existing.save()
+        return { serverId: existing.id, version: (existing as any).version || 1 }
+      }
+      case 'delete': {
+        const { default: WorkOrder } = await import('#models/work_order')
+        const existing = await WorkOrder.findOrFail(op.resourceId!)
+        await existing.delete()
+        return { serverId: op.resourceId!, version: 0 }
+      }
+      default:
+        throw new Error(`Unknown operation type for work_order: ${op.operationType}`)
+    }
+  }
+
+  /**
+   * Exécute une opération de room block
+   */
+  private static async executeRoomBlockOperation(
+    op: SyncOperationInput,
+    hotelId: number,
+    userId: number
+  ): Promise<{ serverId: number; version: number }> {
+    switch (op.operationType) {
+      case 'create': {
+        const { default: RoomBlock } = await import('#models/room_block')
+        const roomBlock = await RoomBlock.create({
+          ...op.payload,
+          hotelId,
+          blockedByUserId: userId,
+        })
+        return { serverId: roomBlock.id, version: (roomBlock as any).version || 1 }
+      }
+      case 'update': {
+        await this.checkVersionConflict('room_blocks', op.resourceId!, op.payload?.version)
+        const { default: RoomBlock } = await import('#models/room_block')
+        const existing = await RoomBlock.findOrFail(op.resourceId!)
+        existing.merge(op.payload)
+        await existing.save()
+        return { serverId: existing.id, version: (existing as any).version || 1 }
+      }
+      case 'delete': {
+        const { default: RoomBlock } = await import('#models/room_block')
+        const existing = await RoomBlock.findOrFail(op.resourceId!)
+        await existing.delete()
+        return { serverId: op.resourceId!, version: 0 }
+      }
+      default:
+        throw new Error(`Unknown operation type for room_block: ${op.operationType}`)
+    }
+  }
+
+  /**
+   * Exécute une opération de notification
+   */
+  private static async executeNotificationOperation(
+    op: SyncOperationInput,
+    hotelId: number,
+    userId: number
+  ): Promise<{ serverId: number; version: number }> {
+    switch (op.operationType) {
+      case 'create': {
+        const { default: Notification } = await import('#models/notification')
+        const notification = await Notification.create({
+          ...op.payload,
+          hotelId,
+          createdBy: userId,
+        })
+        return { serverId: notification.id, version: 1 }
+      }
+      case 'update': {
+        const { default: Notification } = await import('#models/notification')
+        const existing = await Notification.findOrFail(op.resourceId!)
+        existing.merge(op.payload)
+        await existing.save()
+        return { serverId: existing.id, version: 1 }
+      }
+      case 'delete': {
+        const { default: Notification } = await import('#models/notification')
+        const existing = await Notification.findOrFail(op.resourceId!)
+        await existing.delete()
+        return { serverId: op.resourceId!, version: 0 }
+      }
+      default:
+        throw new Error(`Unknown operation type for notification: ${op.operationType}`)
+    }
+  }
+
+  /**
+   * Exécute une opération d'annonce
+   */
+  private static async executeAnnouncementOperation(
+    op: SyncOperationInput,
+    _hotelId: number,
+    _userId: number
+  ): Promise<{ serverId: number; version: number }> {
+    switch (op.operationType) {
+      case 'create': {
+        const { default: Announcement } = await import('#models/announcement')
+        const announcement = await Announcement.create({
+          ...op.payload,
+          createdAt: DateTime.now(),
+        })
+        return { serverId: Number(announcement.id), version: 1 }
+      }
+      case 'update': {
+        const { default: Announcement } = await import('#models/announcement')
+        const existing = await Announcement.findOrFail(op.resourceId!)
+        existing.merge(op.payload)
+        await existing.save()
+        return { serverId: Number(existing.id), version: 1 }
+      }
+      case 'delete': {
+        const { default: Announcement } = await import('#models/announcement')
+        const existing = await Announcement.findOrFail(op.resourceId!)
+        await existing.delete()
+        return { serverId: Number(op.resourceId!), version: 0 }
+      }
+      default:
+        throw new Error(`Unknown operation type for announcement: ${op.operationType}`)
+    }
+  }
+
+  /**
    * Récupère les changements depuis le serveur (PULL)
    */
   static async pullChanges(input: PullRequest): Promise<{
@@ -429,29 +747,7 @@ export default class SyncService {
     fromVersion: number,
     hotelId: number
   ): Promise<{ created: any[]; updated: any[]; deleted: { id: number; deletedAt: string }[] }> {
-    const tableMap: Record<string, string> = {
-      reservation: 'reservations',
-      guest: 'guests',
-      room: 'rooms',
-      folio: 'folios',
-      folio_transaction: 'folio_transactions',
-      room_type: 'room_types',
-      rate_type: 'rate_types',
-      room_rate: 'room_rates',
-      extra_charge: 'extra_charges',
-      booking_source: 'booking_sources',
-      payment_method: 'payment_methods',
-      tax_rate: 'tax_rates',
-      discount: 'discounts',
-      work_order: 'work_orders',
-      room_block: 'room_blocks',
-      vip_status: 'vip_statuses',
-      black_list_reason: 'black_list_reasons',
-      notification: 'notifications',
-      announcement: 'announcements',
-    }
-
-    const table = tableMap[resourceType]
+    const table = this.getTableName(resourceType)
     if (!table) return { created: [], updated: [], deleted: [] }
 
     try {
@@ -575,33 +871,51 @@ export default class SyncService {
     const conflict = await SyncConflict.findOrFail(conflictId)
 
     if (resolution === 'client_wins') {
-      // Appliquer les données du client
-      const tableMap: Record<string, string> = {
-        reservation: 'reservations',
-        guest: 'guests',
-        room: 'rooms',
-        folio: 'folios',
-        folio_transaction: 'folio_transactions',
-        booking_source: 'booking_sources',
-        payment_method: 'payment_methods',
-        tax_rate: 'tax_rates',
-        discount: 'discounts',
-        work_order: 'work_orders',
-        room_block: 'room_blocks',
-        notification: 'notifications',
-        announcement: 'announcements',
-      }
-      const table = tableMap[conflict.resourceType]
-      if (table) {
-        const { default: db } = await import('@adonisjs/lucid/services/db')
-        await db.rawQuery(
-          `UPDATE "${table}" SET data = ?::jsonb, version = version + 1, updated_at = NOW()
-           WHERE id = ?`,
-          [JSON.stringify(conflict.clientData), conflict.resourceId]
-        )
+      // Appliquer les données du client en mettant à jour les colonnes individuelles
+      const table = this.getTableName(conflict.resourceType)
+      if (table && conflict.clientData && typeof conflict.clientData === 'object') {
+        const clientData = conflict.clientData as Record<string, any>
+
+        // Exclure les champs techniques qui ne doivent pas être écrits en base
+        const excludeFields = [
+          'id', 'version', 'created_at', 'createdAt',
+          '_pending', '_operationId', '_tempId',
+          'serverTimestamp', 'clientTimestamp',
+          'createdBy', 'created_by', 'created_by_user_id',
+          'updatedAt', 'updated_at',
+          'hotelId', 'hotel_id',
+        ]
+
+        const setClauses: string[] = []
+        const params: any[] = []
+
+        for (const [key, value] of Object.entries(clientData)) {
+          if (excludeFields.includes(key)) continue
+          // Ignorer les champs undefined
+          if (value === undefined) continue
+
+          // Convertir camelCase en snake_case pour les noms de colonnes
+          const columnName = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          setClauses.push(`"${columnName}" = ?`)
+          params.push(value !== null && value !== undefined ? value : null)
+        }
+
+        if (setClauses.length > 0) {
+          // Ajouter les champs de version et mise à jour
+          setClauses.push('"version" = COALESCE("version", 0) + 1')
+          setClauses.push('"updated_at" = NOW()')
+
+          params.push(conflict.resourceId)
+
+          await db.rawQuery(
+            `UPDATE "${table}" SET ${setClauses.join(', ')} WHERE "id" = ?`,
+            params
+          )
+        }
       }
     }
     // Si 'server_wins', ne rien faire (les données serveur sont conservées)
+    // 'merged' non implémenté — nécessite une logique métier par type
 
     conflict.resolution = resolution
     conflict.resolvedBy = resolvedBy
