@@ -1196,6 +1196,31 @@ export default class HotelsController {
     }
   }
 
+  /**
+   * Get offline mode status for a hotel
+   */
+  async getOfflineModeStatus({ params, response }: HttpContext) {
+    try {
+      const hotel = await Hotel.query()
+        .where('id', params.id)
+        .select('id', 'offline_mode_enabled')
+        .firstOrFail()
+
+      return response.ok({
+        message: 'Offline mode status retrieved successfully',
+        data: {
+          id: hotel.id,
+          offlineModeEnabled: hotel.offlineModeEnabled
+        }
+      })
+    } catch (error) {
+      return response.notFound({
+        message: 'Hotel not found',
+        error: error.message
+      })
+    }
+  }
+
   //recuperer les hotels avec leurs services product et option
   public async getHotelsWithProductsAndOptions({ request, params, response }: HttpContext) {
     try {

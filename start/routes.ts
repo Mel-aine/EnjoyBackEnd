@@ -711,6 +711,7 @@ router
         // Hotel status management
         router.patch('/:id/toggle-status', hotelsController.toggleStatus.bind(hotelsController)) // Activate/deactivate hotel
         router.patch('/:id/toggle-offline-mode', hotelsController.toggleOfflineMode.bind(hotelsController)) // Enable/disable offline mode
+        router.get('/:id/offline-mode-status', hotelsController.getOfflineModeStatus.bind(hotelsController)) // Get offline mode status
         router.patch('/:id/status-colors', hotelsController.updateStatusColors.bind(hotelsController)) // Update hotel status colors
       })
       .prefix('hotels')

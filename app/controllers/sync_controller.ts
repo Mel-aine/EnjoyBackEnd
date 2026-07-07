@@ -3,6 +3,7 @@ import SyncService from '#services/sync_service'
 import SyncOperation from '#models/sync_operation'
 import SyncCheckpoint from '#models/sync_checkpoint'
 import SyncConflict from '#models/sync_conflict'
+import Hotel from '#models/hotel'
 import { syncPushValidator, syncPullValidator, syncInitialLoadValidator, syncResolveConflictValidator } from '#validators/sync'
 
 export default class SyncController {
@@ -76,9 +77,24 @@ export default class SyncController {
       .count('* as total')
     const conflicts = Number(conflictsCount[0].$extras.total || 0)
 
+    // Récupérer le statut offlineModeEnabled de l'hôtel
+    let offlineModeEnabled = false
+    try {
+      const hotel = await Hotel.query()
+        .where('id', hotelId)
+        .select('offline_mode_enabled')
+        .first()
+      if (hotel) {
+        offlineModeEnabled = hotel.offlineModeEnabled
+      }
+    } catch {
+      // Silently fail — offlineModeEnabled reste false
+    }
+
     return response.ok({
       pending,
       conflicts,
+      offlineModeEnabled,
       lastSyncAt: lastCheckpoint?.lastSyncAt?.toISO(),
       lastVersion: Number(lastCheckpoint?.lastVersion || 0),
       serverTime: new Date().toISOString(),
