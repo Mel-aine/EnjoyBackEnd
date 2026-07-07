@@ -11,7 +11,7 @@ export const syncPushValidator = vine.compile(
         operationType: vine.enum(['create', 'update', 'delete'] as const),
         resourceType: vine.enum([
           'reservation', 'guest', 'room', 'folio', 'folio_transaction',
-          'room_type', 'rate_type', 'room_rate', 'extra_charge',
+          'room_type', 'rate_type', 'room_rate', 'extra_charge', 'booking_source', 'payment_method', 'tax_rate', 'discount', 'work_order', 'room_block', 'vip_status', 'black_list_reason', 'notification', 'announcement',
         ] as const),
         resourceId: vine.number().positive().optional(),
         payload: vine.object({}).allowUnknownProperties(),

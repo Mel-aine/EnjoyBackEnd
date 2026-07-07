@@ -439,6 +439,16 @@ export default class SyncService {
       rate_type: 'rate_types',
       room_rate: 'room_rates',
       extra_charge: 'extra_charges',
+      booking_source: 'booking_sources',
+      payment_method: 'payment_methods',
+      tax_rate: 'tax_rates',
+      discount: 'discounts',
+      work_order: 'work_orders',
+      room_block: 'room_blocks',
+      vip_status: 'vip_statuses',
+      black_list_reason: 'black_list_reasons',
+      notification: 'notifications',
+      announcement: 'announcements',
     }
 
     const table = tableMap[resourceType]
@@ -572,6 +582,14 @@ export default class SyncService {
         room: 'rooms',
         folio: 'folios',
         folio_transaction: 'folio_transactions',
+        booking_source: 'booking_sources',
+        payment_method: 'payment_methods',
+        tax_rate: 'tax_rates',
+        discount: 'discounts',
+        work_order: 'work_orders',
+        room_block: 'room_blocks',
+        notification: 'notifications',
+        announcement: 'announcements',
       }
       const table = tableMap[conflict.resourceType]
       if (table) {
@@ -619,6 +637,12 @@ export default class SyncService {
     const { default: Folio } = await import('#models/folio')
     const { default: FolioTransaction } = await import('#models/folio_transaction')
     const { default: BookingSource } = await import('#models/booking_source')
+    const { default: VipStatus } = await import('#models/vip_status')
+    const { default: BlackListReason } = await import('#models/black_list_reason')
+    const { default: WorkOrder } = await import('#models/work_order')
+    const { default: RoomBlock } = await import('#models/room_block')
+    const { default: Notification } = await import('#models/notification')
+    const { default: Announcement } = await import('#models/announcement')
 
     // ── Déterminer la date de début ─────────────────────────────
     // Si dateFrom est fourni, on l'utilise; sinon 15 jours en arrière
@@ -685,6 +709,12 @@ export default class SyncService {
     const extraCharges = await ExtraCharge.query().where('hotel_id', hotelId)
     const discounts = await Discount.query().where('hotel_id', hotelId)
     const bookingSources = await BookingSource.query().where('hotel_id', hotelId)
+    const workOrders = await WorkOrder.query().where('hotel_id', hotelId)
+    const roomBlocks = await RoomBlock.query().where('hotel_id', hotelId)
+    const vipStatuses = await VipStatus.query().where('hotel_id', hotelId)
+    const blackListReasons = await BlackListReason.query().where('hotel_id', hotelId)
+    const notifications = await Notification.query().where('hotel_id', hotelId).where('recipient_type', 'STAFF')
+    const announcements = await Announcement.query().where('is_active', true)
 
     // ── Checkpoint initial ──────────────────────────────────────
     const version = await this.nextVersion()
@@ -705,6 +735,12 @@ export default class SyncService {
         extraCharges: extraCharges.map((r) => r.serialize()),
         discounts: discounts.map((r) => r.serialize()),
         bookingSources: bookingSources.map((r) => r.serialize()),
+        workOrders: workOrders.map((w) => w.serialize()),
+        roomBlocks: roomBlocks.map((b) => b.serialize()),
+        vipStatuses: vipStatuses.map((v) => v.serialize()),
+        blackListReasons: blackListReasons.map((b) => b.serialize()),
+      notifications: notifications.map((n) => n.serialize()),
+      announcements: announcements.map((a) => a.serialize()),
         reservations: recentReservations.map((r) => r.serialize()),
         guests: guests.map((g) => g.serialize()),
         folios: folios.map((f) => f.serialize()),
