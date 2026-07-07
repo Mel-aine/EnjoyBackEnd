@@ -108,6 +108,7 @@ export default class RequestDemoService {
     return RequestDemo.query()
       .where('id', id)
       .preload('owner', (q) => q.preload('role'))
+      .preload('creator')
       .firstOrFail()
   }
 
@@ -121,7 +122,7 @@ export default class RequestDemoService {
     currentUserId?: number
     isCommercial?: boolean
   }) {
-    const query = RequestDemo.query().preload('owner')
+    const query = RequestDemo.query().preload('owner').preload('creator')
 
     if (filters.isCommercial && filters.currentUserId) {
       query.where((q) => {
@@ -168,6 +169,9 @@ export default class RequestDemoService {
       'emailSend', 'status', 'ownerId',
     ]
 
+    
+    const isBeingScheduled = input.status === 'Demo Scheduled' && lead.status !== 'Demo Scheduled'
+
     for (const field of updatableFields) {
       if (input[field] !== undefined) {
         (lead as any)[field] = input[field]
@@ -180,8 +184,29 @@ export default class RequestDemoService {
       await lead.load('owner')
     }
 
+    if (isBeingScheduled) {
+      await this.sendDemoScheduledEmail(lead)
+    }
+
     return lead
+}
+
+private async sendDemoScheduledEmail(lead: RequestDemo) {
+  try {
+    const formattedDate = lead.followUpDate
+      ? lead.followUpDate.setLocale('fr').toFormat("dd LLLL yyyy 'à' HH:mm")
+      : ''
+
+    await MailService.send({
+      to: lead.email,
+      subject: 'Votre démonstration Enjoy STAY est programmée',
+      text: `Bonjour ${lead.contactName},\n\nVotre démonstration de la solution Enjoy STAY est programmée pour le ${formattedDate}.\n\nNotre équipe vous contactera à cette date.\n\nEnjoy STAY`,
+      html: `<p>Bonjour ${lead.contactName},</p><p>Votre démonstration de la solution Enjoy STAY est programmée pour le <strong>${formattedDate}</strong>.</p><p>Notre équipe vous contactera à cette date.</p><p>Enjoy STAY</p>`,
+    })
+  } catch (e) {
+    console.error('Échec envoi mail demo programmée', e)
   }
+}
 
   public async delete(id: number) {
     const lead = await RequestDemo.findOrFail(id)
@@ -215,4 +240,6 @@ export default class RequestDemoService {
       await lead.save()
     } catch {}
   }
+
+  
 }
