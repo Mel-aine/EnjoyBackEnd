@@ -351,11 +351,19 @@ export default class SyncService {
     hotelId: number,
     userId: number
   ): Promise<{ serverId: number; version: number }> {
+    // Sanitize payload: remove fields not defined on Guest model
+    const { mobileNumber, ...cleanPayload } = op.payload || {}
+    // Map mobileNumber to phoneSecondary if present (existing column)
+    const sanitizedPayload = {
+      ...cleanPayload,
+      ...(mobileNumber != null ? { phoneSecondary: mobileNumber } : {}),
+    }
+
     switch (op.operationType) {
       case 'create': {
         const { default: Guest } = await import('#models/guest')
         const guest = await Guest.create({
-          ...op.payload,
+          ...sanitizedPayload,
           hotelId,
           createdBy: userId,
         })
@@ -365,7 +373,7 @@ export default class SyncService {
         await this.checkVersionConflict('guests', op.resourceId!, op.payload?.version)
         const { default: Guest } = await import('#models/guest')
         const existing = await Guest.findOrFail(op.resourceId!)
-        existing.merge({ ...op.payload, lastModifiedBy: userId })
+        existing.merge({ ...sanitizedPayload, lastModifiedBy: userId })
         await existing.save()
         return { serverId: existing.id, version: (existing as any).version || 1 }
       }
