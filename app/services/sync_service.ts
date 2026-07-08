@@ -239,6 +239,11 @@ export default class SyncService {
     vip_status: 'vip_statuses',
     black_list_reason: 'black_list_reasons',
     notification: 'notifications',
+    business_source: 'business_sources',
+    market_code: 'market_codes',
+    reservation_room: 'reservation_rooms',
+    reservation_type: 'reservation_types',
+    reservation_guest: 'reservation_guests',
     announcement: 'announcements',
   }
 
@@ -957,6 +962,8 @@ export default class SyncService {
     const { default: RoomBlock } = await import('#models/room_block')
     const { default: Notification } = await import('#models/notification')
     const { default: Announcement } = await import('#models/announcement')
+    const { default: ReservationType } = await import('#models/reservation_type')
+    const { default: ReservationRoom } = await import('#models/reservation_room')
 
     // ── Déterminer la date de début ─────────────────────────────
     // Si dateFrom est fourni, on l'utilise; sinon 15 jours en arrière
@@ -1027,6 +1034,10 @@ export default class SyncService {
     const roomBlocks = await RoomBlock.query().where('hotel_id', hotelId)
     const vipStatuses = await VipStatus.query().where('hotel_id', hotelId)
     const blackListReasons = await BlackListReason.query().where('hotel_id', hotelId)
+    const reservationTypes = await ReservationType.query().where('hotel_id', hotelId)
+    const reservationRooms = await ReservationRoom.query()
+      .whereIn('reservation_id', recentReservations.map((r) => r.id))
+      
     const notifications = await Notification.query().where('hotel_id', hotelId).where('recipient_type', 'STAFF')
     const announcements = await Announcement.query().where('is_active', true)
 
@@ -1055,6 +1066,8 @@ export default class SyncService {
         blackListReasons: blackListReasons.map((b) => b.serialize()),
       notifications: notifications.map((n) => n.serialize()),
       announcements: announcements.map((a) => a.serialize()),
+        reservationTypes: reservationTypes.map((r) => r.serialize()),
+        reservationRooms: reservationRooms.map((r) => r.serialize()),
         reservations: recentReservations.map((r) => r.serialize()),
         guests: guests.map((g) => g.serialize()),
         folios: folios.map((f) => f.serialize()),

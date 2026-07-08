@@ -5,6 +5,7 @@ import SyncCheckpoint from '#models/sync_checkpoint'
 import SyncConflict from '#models/sync_conflict'
 import Hotel from '#models/hotel'
 import { syncPushValidator, syncPullValidator, syncInitialLoadValidator, syncResolveConflictValidator } from '#validators/sync'
+import { DateTime } from 'luxon'
 
 export default class SyncController {
   /**
@@ -155,4 +156,50 @@ export default class SyncController {
 
     return response.ok(result)
   }
+
+  /**
+   * GET /api/sync/info
+   * Informations sur la configuration de synchronisation pour un hôtel.
+   * Utilisé par le frontend pour vérifier si le mode offline est supporté
+   * et quelles ressources sont disponibles.
+   */
+  async info({ request, response, auth }: HttpContext) {
+    const user = auth.user!
+    const hotelId = request.input('hotelId')
+
+    if (!hotelId) {
+      return response.badRequest({ message: 'hotelId is required' })
+    }
+
+    let offlineModeEnabled = false
+    try {
+      const hotel = await Hotel.query()
+        .where('id', hotelId)
+        .select('offline_mode_enabled')
+        .first()
+      if (hotel) {
+        offlineModeEnabled = hotel.offlineModeEnabled
+      }
+    } catch {
+      // Silently fail
+    }
+
+    const supportedResources = [
+      'reservation', 'guest', 'room', 'folio', 'folio_transaction',
+      'room_type', 'rate_type', 'room_rate', 'extra_charge',
+      'booking_source', 'payment_method', 'tax_rate', 'discount',
+      'work_order', 'room_block', 'vip_status', 'black_list_reason',
+      'notification', 'announcement',
+    ]
+
+    return response.ok({
+      offlineModeEnabled,
+      supportedResources,
+      maxBatchSize: 100,
+      maxRetries: 3,
+      supportedVersions: ['1.0'],
+      serverTime: DateTime.now().toISO(),
+    })
+  }
+
 }
