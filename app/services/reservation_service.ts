@@ -7,6 +7,13 @@ import type { ReservationData, GuestData } from '../types/reservationData.js'
 import { generateGuestCode } from '../utils/generate_guest_code.js'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
+import ReservationGuest from '#models/reservation_guest'
+import ReservationRoom from '#models/reservation_room'
+import Reservation from '#models/reservation'
+import { generateReservationNumber } from '../utils/generate_reservation_number.js'
+import { generateConfirmationNumber } from '../utils/generate_confirmation_number.js'
+
+
 
 export default class ReservationService {
   /**
@@ -601,6 +608,185 @@ export default class ReservationService {
   return { primaryGuest, allGuests }
 }
 
+ /**
+   * Cœur transactionnel de création de réservation.
+   * Extrait du contrôleur pour être appelable aussi bien en ligne
+   * (via HTTP) qu'en synchronisation offline (via SyncService).
+   *
+   * Ne gère volontairement PAS : logs d'activité (ctx-dépendants),
+   * notifications, création de folios — laissés à l'appelant.
+   */
+  static async createFullReservation(
+    data: any,
+    actorId: number
+  ): Promise<{ reservation: Reservation; primaryGuest: Guest; allGuests: Guest[]; roomsCreated: number }> {
+    const arrivedDate = DateTime.fromISO(data.arrived_date)
+    const departDate = DateTime.fromISO(data.depart_date)
+
+    if (!arrivedDate.isValid || !departDate.isValid) {
+      throw new Error('Invalid date format. Use ISO format (YYYY-MM-DD)')
+    }
+
+    const trx = await db.transaction()
+
+    try {
+      const numberOfNights =
+        arrivedDate.toISODate() === departDate.toISODate()
+          ? 0
+          : Math.ceil(departDate.diff(arrivedDate, 'days').days)
+
+      const validationErrors = this.validateReservationData(data)
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors.join(', '))
+      }
+
+      const confirmationNumber = generateConfirmationNumber()
+      const reservationNumber = generateReservationNumber()
+
+      const rooms = data.rooms || []
+      const totalAdults = rooms.reduce((s: number, r: any) => s + (parseInt(r.adult_count) || 0), 0)
+      const totalChildren = rooms.reduce((s: number, r: any) => s + (parseInt(r.child_count) || 0), 0)
+
+      // Re-vérification de dispo côté serveur — ESSENTIEL pour la sync :
+      // la chambre a pu être prise par quelqu'un d'autre entre la création offline et la sync
+      if (rooms.length > 0) {
+        const roomIds = rooms.map((r: any) => r.room_id).filter(Boolean)
+        if (roomIds.length > 0) {
+          const conflicts = await ReservationRoom.query({ client: trx })
+            .whereIn('room_id', roomIds)
+            .whereIn('status', ['reserved', 'checked_in', 'day_use'])
+            .where((q) => {
+              q.where('check_in_date', '<', departDate.toISODate()!)
+               .where('check_out_date', '>', arrivedDate.toISODate()!)
+            })
+          if (conflicts.length > 0) {
+            throw new Error('One or more rooms are not available for the selected dates')
+          }
+        }
+      }
+
+      const reservation = await Reservation.create(
+        {
+          hotelId: data.hotel_id,
+          userId: actorId,
+          arrivedDate,
+          departDate,
+          checkInDate: arrivedDate,
+          checkOutDate: departDate,
+          status: data.status || 'confirmed',
+          guestCount: totalAdults + totalChildren,
+          adults: totalAdults,
+          children: totalChildren,
+          checkInTime: data.check_in_time,
+          checkOutTime: data.check_out_time,
+          totalAmount: parseFloat(`${data.total_amount ?? 0}`),
+          taxAmount: parseFloat(`${data.tax_amount ?? 0}`),
+          isGroup: rooms.length > 1,
+          arrivingTo: data.arriving_to,
+          goingTo: data.going_to,
+          finalAmount: parseFloat(`${data.final_amount ?? 0}`),
+          confirmationNumber,
+          reservationNumber,
+          numberOfNights,
+          paidAmount: parseFloat(`${data.paid_amount ?? 0}`),
+          remainingAmount: parseFloat(`${data.remaining_amount ?? 0}`),
+          reservationTypeId: data.reservation_type_id,
+          bookingSourceId: data.booking_source,
+          businessSourceId: data.business_source,
+          complimentaryRoom: data.complimentary_room,
+          paymentStatus: 'pending',
+          paymentMethodId: data.payment_mod,
+          billTo: data.bill_to,
+          customerType: data.customType,
+          paymentType: data.payment_type,
+          taxExempt: data.tax_exempt,
+          isHold: data.isHold,
+          bookingDate: DateTime.now(),
+          whatsappNotificationEnable: data.whatsapp_notification_enable ?? false,
+          whatsappNumber: data.whatsapp_number || null,
+          reservedBy: actorId,
+          createdBy: actorId,
+        },
+        { client: trx }
+      )
+
+      if (!reservation.id) throw new Error("La réservation n'a pas pu être créée — ID manquant")
+
+      const { primaryGuest, allGuests } = await this.processReservationGuests(reservation.id, data, trx)
+      await reservation.merge({ guestId: primaryGuest.id }).useTransaction(trx).save()
+
+      if (rooms.length > 0) {
+        for (let index = 0; index < rooms.length; index++) {
+          const room = rooms[index]
+          let assignedGuestId = primaryGuest.id
+
+          if (index > 0) {
+            const roomGuest = await Guest.create({
+              hotelId: data.hotel_id,
+              title: primaryGuest.title,
+              firstName: primaryGuest.firstName,
+              lastName: primaryGuest.lastName,
+              phonePrimary: primaryGuest.phonePrimary,
+              nationality: primaryGuest.nationality,
+              guestType: 'individual',
+              guestCode: generateGuestCode(),
+              status: 'active',
+              createdBy: actorId,
+            }, { client: trx })
+            assignedGuestId = roomGuest.id
+            await ReservationGuest.create({
+              reservationId: reservation.id,
+              guestId: roomGuest.id,
+              isPrimary: false,
+              createdBy: actorId,
+            }, { client: trx })
+          }
+
+          await ReservationRoom.create(
+            {
+              reservationId: reservation.id,
+              roomTypeId: room.room_type_id,
+              roomId: room.room_id || null,
+              guestId: assignedGuestId,
+              checkInDate: arrivedDate,
+              checkOutDate: departDate,
+              checkInTime: data.check_in_time,
+              checkOutTime: data.check_out_time,
+              totalAmount: room.room_rate * numberOfNights,
+              nights: numberOfNights,
+              adults: room.adult_count,
+              children: room.child_count,
+              roomRate: room.room_rate,
+              roomRateId: room.room_rate_id,
+              paymentMethodId: data.payment_mod,
+              hotelId: data.hotel_id,
+              taxIncludes: true,
+              totalRoomCharges: numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights,
+              taxAmount: room.taxes,
+              totalTaxesAmount: numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights,
+              netAmount:
+                (numberOfNights === 0 ? room.room_rate : room.room_rate * numberOfNights) +
+                (numberOfNights === 0 ? room.taxes : room.taxes * numberOfNights),
+              status: numberOfNights === 0 ? 'day_use' : 'reserved',
+              rateTypeId: room.rate_type_id,
+              mealPlanId: room.meal_plan_id,
+              mealPlanRateInclude: room.meal_plan_rate_include ?? true,
+              isOwner: index === 0,
+              reservedByUser: actorId,
+              createdBy: actorId,
+            },
+            { client: trx }
+          )
+        }
+      }
+
+      await trx.commit()
+      return { reservation, primaryGuest, allGuests, roomsCreated: rooms.length }
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
+  }
 
 
 

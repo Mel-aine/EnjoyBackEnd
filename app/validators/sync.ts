@@ -27,7 +27,7 @@ export const syncPullValidator = vine.compile(
     hotelId: vine.number().positive(),
     deviceId: vine.string().minLength(1).maxLength(64),
     lastSyncVersion: vine.number().min(0).optional(),
-    resourceTypes: vine.array(vine.string()).minLength(1).maxLength(20).optional(),
+    resourceTypes: vine.array(vine.string()).minLength(1).maxLength(30).optional(),
   })
 )
 
