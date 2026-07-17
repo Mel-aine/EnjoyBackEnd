@@ -315,13 +315,26 @@ export default class SyncService {
   ): Promise<{ serverId: number; version: number }> {
     switch (op.operationType) {
       case 'create': {
-        const { default: Reservation } = await import('#models/reservation')
-        const reservation = await Reservation.create({
-          ...op.payload,
-          hotelId,
-          createdBy: userId,
-        })
-        return { serverId: reservation.id, version: (reservation as any).version || 1 }
+       const { default: ReservationService } = await import('#services/reservation_service')
+        const result = await ReservationService.createFullReservation(
+          { ...op.payload, hotel_id: hotelId },
+          userId
+        )
+
+        // Folios en arrière-plan, comme le fait le contrôleur
+        if (result.roomsCreated > 0) {
+          setImmediate(async () => {
+            try {
+              const { default: ReservationFolioService } = await import('#services/reservation_folio_service')
+              await ReservationFolioService.createFoliosOnConfirmation(result.reservation.id, userId)
+            } catch (e: any) {
+              logger.error('Sync: création folio arrière-plan échouée: ' + e.message)
+            }
+          })
+        }
+
+        return { serverId: result.reservation.id, version: 1 }
+    
       }
       case 'update': {
         await this.checkVersionConflict('reservations', op.resourceId!, op.payload?.version)
@@ -1014,7 +1027,8 @@ export default class SyncService {
     // ── Tarifs : à partir de dateFrom ───────────────────────────
     const rates = await RoomRate.query()
       .whereIn('room_type_id', hotel.roomTypes.map((rt) => rt.id))
-      .where('rate_date', '>=', fromDateSQL!)
+      // .where('rate_date', '>=', fromDateSQL!)
+      .orderBy('created_at', 'desc')
 
     // ── Folios : ouverts ou mis à jour récemment ────────────────
     const folios = await Folio.query()
