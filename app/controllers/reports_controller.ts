@@ -12115,13 +12115,26 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     }
     try {
       const hotel = await Hotel.find(hotelId)
-      if (!hotel || !hotel.posApiKey) {
+      if (!hotel) {
         return null
       }
 
-      const payload = await PosService.getNightAudit(hotelId, reportDate, hotel.posApiKey)
+      // hotelId == 2 => keep legacy logic with posApiKey
+      if (hotelId === 2) {
+        if (!hotel.posApiKey) {
+          return null
+        }
+        const payload = await PosService.getNightAudit(hotelId, reportDate, hotel.posApiKey)
+        this.posNightAuditCache.set(key, payload ?? null)
+        return payload ?? null
+      }
+
+      // New logic: use pos_tenant_id and pos_token_key
+      if (!hotel.posTenantId || !hotel.posTokenKey) {
+        return null
+      }
+      const payload = await PosService.getNightAuditV2(reportDate, hotel.posTenantId, hotel.posTokenKey)
       this.posNightAuditCache.set(key, payload ?? null)
-      console.log('payload@@@@@@', payload)
       return payload ?? null
     } catch (error) {
       logger.error({ msg: 'ReportsController.getPosNightAuditPayload', error })

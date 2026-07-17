@@ -143,6 +143,12 @@ export default class Hotel extends BaseModel {
   @column({ columnName: 'pos_api_key' })
   declare posApiKey: string | null
 
+  @column({ columnName: 'pos_tenant_id' })
+  declare posTenantId: string | null
+
+  @column({ columnName: 'pos_token_key' })
+  declare posTokenKey: string | null
+
   @column({
     columnName: 'contact_info',
     serialize: (value: object | null) => value,
