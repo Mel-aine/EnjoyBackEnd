@@ -74,6 +74,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   POS_API_BASE_URL: Env.schema.string.optional(),
+  POS_API_V2_BASE_URL: Env.schema.string.optional(),
   POS_API_TIMEOUT_MS: Env.schema.number.optional(),
 
   /*
