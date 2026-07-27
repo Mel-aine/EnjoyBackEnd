@@ -2,6 +2,7 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
+
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
@@ -12,6 +13,13 @@ RUN npm run build
 FROM node:22-slim AS runtime
 
 WORKDIR /app
+
+# Dépendances système nécessaires pour Chromium/Puppeteer (génération PDF)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0

@@ -8,7 +8,7 @@ import Expense from '#models/expense'
 import FolioTransaction from '#models/folio_transaction'
 import { TransactionStatus, TransactionType } from '#app/enums'
 import Database from '@adonisjs/lucid/services/db'
-import { HtmlReportGenerator } from './htmlReports_service.ts'
+import { HtmlReportGenerator } from './htmlReports_service.js'
 import { formatCurrency } from '../utils/utilities.js'
 import PickupsDropoffsLog from '#models/pickups_dropoffs_log'
 
