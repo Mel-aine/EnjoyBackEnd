@@ -775,15 +775,17 @@ export default class DashboardController {
 
     const totalRoomsQuery = Room.query(trx ? { client: trx } : undefined)
         .where('hotel_id', serviceId)
+        .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
         .count('* as total')
 
     //  Chambres occupées (réservations check-in et pas encore check-out)
     const occupiedRoomsQuery = ReservationRoom.query(trx ? { client: trx } : undefined)
         .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
         .where('reservations.hotel_id', serviceId)
-        .where('reservation_rooms.status', 'checked_in')
+        .whereIn('reservation_rooms.status', ['confirmed', 'checked_in', 'checked_out'])
         .where('reservations.check_in_date', '<=', dateStr)
         .where('reservations.check_out_date', '>', dateStr)
+        .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
         .count('* as total')
 
     //  Chambres day use
@@ -801,6 +803,7 @@ export default class DashboardController {
         .where('complimentary_room', true)
         .where('check_in_date', '<=', dateStr)
         .where('check_out_date', '>', dateStr)
+        .whereDoesntHave('reservationRooms.roomType', (q) => q.where('is_paymaster', true))
         .count('* as total')
 
     //  Chambres bloquées temporairement (room blocks)
@@ -854,13 +857,21 @@ export default class DashboardController {
   }
 
   private async getRevenueData(serviceId: number, startDate: DateTime, endDate: DateTime, trx?: any) {
+    const todayStr = startDate.toISODate()
+    if (!todayStr) {
+      return { revenue: { total: 0, averageRoomRate: 0, revpar: 0 } }
+    }
+
+    // Revenu des chambres OCCUPÉES aujourd'hui (tous les statuts, pas juste ceux arrivés aujourd'hui)
     const revenueDataOptimized = await ReservationRoom.query(trx ? { client: trx } : undefined)
       .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
       .join('room_rates', 'reservation_rooms.room_rate_id', 'room_rates.id')
       .join('rate_types', 'room_rates.rate_type_id', 'rate_types.id')
       .where('reservations.hotel_id', serviceId)
-      .whereBetween('reservations.check_in_date', [startDate.toSQLDate()!, endDate.toSQLDate()!])
-      .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
+      .whereIn('reservation_rooms.status', ['confirmed', 'checked_in', 'checked_out'])
+      .where('reservation_rooms.check_in_date', '<=', todayStr)
+      .where('reservation_rooms.check_out_date', '>', todayStr)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .groupBy('rate_types.id', 'rate_types.rate_type_name')
       .select('rate_types.rate_type_name as rate_type_name')
       .sum('room_rates.base_rate as total_revenue')
@@ -877,7 +888,7 @@ export default class DashboardController {
 
     const occupiedRooms = await Reservation.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
-      .where('status', 'checked_in')
+      .whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
       .count('* as total')
     const totalRooms = await Room.query(trx ? { client: trx } : undefined).where('hotel_id', serviceId).count('* as total')
 
@@ -902,6 +913,7 @@ export default class DashboardController {
       .query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('is_deleted', false)
+      .where('is_paymaster', false)
       .orderBy('sort_order', 'asc')
       .select(['id', 'room_type_name', 'sort_order'])
 
@@ -917,7 +929,7 @@ export default class DashboardController {
       .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
       .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
       .where('reservations.hotel_id', serviceId)
-      .where('reservations.status', 'checked_in')
+      .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
       .groupBy('rooms.room_type_id')
       .select('rooms.room_type_id')
       .select(Database.raw('COUNT(DISTINCT reservation_rooms.room_id) AS occupied'))
@@ -970,6 +982,7 @@ export default class DashboardController {
     const housekeepingStatusCounts = await Room.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .whereNotIn('id', blockedRoomIds.length ? blockedRoomIds : [0])
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .groupBy('housekeeping_status')
       .select('housekeeping_status')
       .count('* as total')
@@ -977,6 +990,7 @@ export default class DashboardController {
     //  Compter le total de chambres
     const totalRooms = await Room.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .count('* as total')
 
     const total = Number(totalRooms[0].$extras.total || 0)
