@@ -192,15 +192,31 @@ export default class NightAuditService {
   /**
    * Fetch POS night audit details from external endpoint and return raw data
    * The returned payload is stored under DailySummaryFact.nightAuditReportData.posNightAudit
+   * 
+   * Logic:
+   * - If hotelId == 2: use legacy POS API with apiKey (PosService.getNightAudit)
+   * - Otherwise: use new POS API v2 with tenantId and tokenKey (PosService.getNightAuditV2)
    */
   private static async fetchPosNightAudit(hotelId: number, auditDate: DateTime): Promise<any | null> {
     try {
       const hotel = await Hotel.find(hotelId)
-      if (!hotel || !hotel.posApiKey) {
+      if (!hotel) {
         return null
       }
 
-      return await PosService.getNightAudit(hotelId, auditDate, hotel.posApiKey)
+      // hotelId == 2 => keep current legacy logic
+      if (hotelId === 2) {
+        if (!hotel.posApiKey) {
+          return null
+        }
+        return await PosService.getNightAudit(hotelId, auditDate, hotel.posApiKey)
+      }
+
+      // New logic: use pos_tenant_id and pos_token_key
+      if (!hotel.posTenantId || !hotel.posTokenKey) {
+        return null
+      }
+      return await PosService.getNightAuditV2(auditDate, hotel.posTenantId, hotel.posTokenKey)
     } catch (err: any) {
       console.error('Error fetching POS night audit:', err?.message || err)
       // Throw error to trigger retry in job worker
