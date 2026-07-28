@@ -23,6 +23,7 @@ import numberToWords from 'number-to-words'
 import PosService from '#services/pos_service'
 import RoomBlock from '#models/room_block'
 import { formatCurrency } from '#app/utils/utilities'
+import { isActiveOccupancyStatus } from '#app/utils/occupancy_statuses'
 import BookingSource from '#models/booking_source'
 import ExtraCharge from '#models/extra_charge'
 export default class ReportsController {
@@ -2137,6 +2138,7 @@ export default class ReportsController {
           if (!rtId || !perType[rtId]) continue
           if (!rr.roomId) continue
 
+          let coveredNights = 1
           if (rr.checkInDate && rr.checkOutDate) {
             const ci = rr.checkInDate?.toISODate
               ? rr.checkInDate.toISODate()
@@ -2144,12 +2146,26 @@ export default class ReportsController {
             const co = rr.checkOutDate?.toISODate
               ? rr.checkOutDate.toISODate()
               : String(rr.checkOutDate).substring(0, 10)
-            const covers = singleDay
-              ? (ci <= from && co > from)
-              : (ci <= to && co > from)
-            if (!covers) continue
+
+            if (singleDay) {
+              const covers = ci <= from && co > from
+              if (!covers) continue
+              coveredNights = 1
+            } else {
+              const periodFrom = new Date(from)
+              const periodTo   = new Date(to)
+              const ciDate = new Date(ci)
+              const coDate = new Date(co)
+              const ciClamped = new Date(Math.max(ciDate.getTime(), periodFrom.getTime()))
+              const coClamped = new Date(Math.min(coDate.getTime(), periodTo.getTime()))
+              coveredNights = Math.max(
+                0,
+                Math.round((coClamped.getTime() - ciClamped.getTime()) / 86_400_000)
+              ) || 1
+              if (coveredNights <= 0) continue
+            }
           }
-          perType[rtId].occupied += 1
+          perType[rtId].occupied += coveredNights
 
           const guestsInRoom = (rr.adults ?? 1) + (rr.children ?? 0)
           perType[rtId].guests += guestsInRoom
@@ -2197,6 +2213,7 @@ export default class ReportsController {
     const daysMonthPeriod = Math.round(DateTime.fromISO(dayStr).diff(DateTime.fromISO(monthStart), 'days').days) + 1
     const daysYearPeriod  = Math.round(DateTime.fromISO(dayStr).diff(DateTime.fromISO(yearStart),  'days').days) + 1
 
+
     for (const rt of roomTypes) {
       const totalRooms = await Room.query()
         .where('hotel_id', hotelId)
@@ -2209,14 +2226,14 @@ export default class ReportsController {
       totalRoomsMap[rt.id] = {
         day:   nbRooms * daysDayPeriod,
         month: nbRooms * daysMonthPeriod,
-        year:  nbRooms * daysYearPeriod,
+        year: nbRooms * daysYearPeriod,
       }
 
       const countBlocked = async (from: string, to: string) => {
         const blocked = await RoomBlock.query()
           .where('hotel_id', hotelId)
           .where('room_type_id', rt.id)
-          .whereNot('status', 'completed')
+          // .whereNot('status', 'completed')
           .where('block_from_date', '<=', to)
           .where('block_to_date', '>=', from)
           .countDistinct('room_id as total')
@@ -2333,6 +2350,7 @@ export default class ReportsController {
     const totalRoomsRow = await Room.query()
       .where('hotel_id', hotelId)
       .where('is_deleted', false)
+      .where('status', '!=', 'out_of_order')
       .where((q) => {
         if (roomTypeId) q.where('room_type_id', roomTypeId)
         else q.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
@@ -2341,9 +2359,40 @@ export default class ReportsController {
       .first()
     const totalRooms = Number(totalRoomsRow?.$extras.total ?? 0)
 
+    // Compte les chambres bloquées pour cette période
+    const blockedQuery = RoomBlock.query()
+      .where('hotel_id', hotelId)
+      // .whereNot('status', 'completed')
+      .where('block_from_date', '<=', to)
+      .where('block_to_date', '>=', from)
+    if (roomTypeId) {
+      blockedQuery.where('room_type_id', roomTypeId)
+    } else {
+      blockedQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+    }
+
+    const blocks = await blockedQuery.select('block_from_date', 'block_to_date')
+
+    const getOverlapDays = (blkFrom: string, blkTo: string, rangeFrom: string, rangeTo: string) => {
+      const s = blkFrom > rangeFrom ? blkFrom : rangeFrom
+      const e = blkTo < rangeTo ? blkTo : rangeTo
+      if (s > e) return 0
+      return Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86_400_000) + 1
+    }
+
+    const blockedRoomNights = (blocks as any[]).reduce((sum, b) => {
+      const bf = b.blockFromDate?.toISODate?.() ?? String(b.blockFromDate).substring(0, 10)
+      const bt = b.blockToDate?.toISODate?.() ?? String(b.blockToDate).substring(0, 10)
+      return sum + getOverlapDays(bf, bt, from, to)
+    }, 0)
+    // const blockedRow = await blockedQuery
+    //   .countDistinct('room_id as total')
+    //   .first()
+    // const blockedRooms = Number(blockedRow?.$extras.total ?? 0)
+
     const reservations = await Reservation.query()
       .where('hotel_id', hotelId)
-      .whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+      .whereIn('status', ['checked_in', 'checked_out'])
       .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       .where((q) => {
         q.where('arrived_date', '<=', to).where('depart_date', '>', from)
@@ -2612,12 +2661,13 @@ export default class ReportsController {
           1,
           Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1
         )
-    const availablePeriod = totalRooms * nbDays
-    const or   = availablePeriod > 0 ? (rooms / availablePeriod) * 100 : 0
+    const availablePeriod = Math.max(0, totalRooms * nbDays - blockedRoomNights)
+    const or = availablePeriod > 0 ? (nights / availablePeriod) * 100 : 0
     const vr   = 100 - or
     const nmpc = rooms > 0 ? guests / rooms : 0
     const dms  = arrivals > 0 ? nights / arrivals : 0
     const arp  = rooms > 0 ? caHT / rooms : 0
+    console.log('[NightAudit RatiosCA]', { from, to, singleDay, roomTypeId, rooms, nights, arrivals, totalRooms, availablePeriod, or })
 
     return {
       nmpc:         +nmpc.toFixed(2),
@@ -2657,6 +2707,7 @@ export default class ReportsController {
     })
   )
 
+
   return { day: globalDay, month: globalMonth, year: globalYear, byRoomType }
 }
 
@@ -2677,9 +2728,9 @@ private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTim
       .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
       .select('transaction_type', 'total_amount', 'amount')
 
-    const totals = { 
-      creditLedgerPayment: 0, 
-      creditLedgerTransfer: 0, 
+    const totals = {
+      creditLedgerPayment: 0,
+      creditLedgerTransfer: 0,
       total: 0,
       creditLedgerPaymentCount: 0,
       creditLedgerTransferCount: 0,
@@ -2689,10 +2740,10 @@ private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTim
       const amt = Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0))
       if (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
         totals.creditLedgerPayment += amt
-        totals.creditLedgerPaymentCount += 1  
+        totals.creditLedgerPaymentCount += 1
       } else {
         totals.creditLedgerTransfer += amt
-        totals.creditLedgerTransferCount += 1  
+        totals.creditLedgerTransferCount += 1
       }
       totals.total += amt
     }
@@ -4481,7 +4532,11 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     // ── Formatting helpers ──────────────────────────────────
     const fc = (v: number | null | undefined) =>
       Number(v ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-    const fp = (v: number | null | undefined) => Math.round(Number(v ?? 0)) + '&nbsp;%'
+    const fp = (v: number | null | undefined) => {
+      const num = Number(v ?? 0)
+      const rounded = Number.isFinite(num) ? Math.round(num) : 0
+      return `${rounded}&nbsp;%`
+    }
     const fd = (v: number | null | undefined) => Math.round(Number(v ?? 0)).toString()
 
     const { roomTypeStats, ratiosCA, encaissements, otherRevenues, petitDejeuner,creditLedger } = sectionsData
@@ -4621,7 +4676,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${fc(rm.lateCA)}</td>
         <td class="num">${fc(ry.lateCA)}</td>
       </tr>
-   
+
       ${RIGHT_KPIS.map((kpi) => {
         const [dv, mv, yv] = kpi.fmt(rd, rm, ry)
         return `
@@ -4632,9 +4687,9 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         <td class="num">${yv}</td>
       </tr>`
       }).join('')}
-    
+
       <tr class="rt-spacer"><td colspan="4"></td></tr>`
-      
+
     }
 
     const leftBlocks  = rows.map(buildLeftBlock).join('')
@@ -5268,7 +5323,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       if (auditDetails && auditDetails?.managerReportData) {
         sectionsData = auditDetails.managerReportData
 
-      
+
         if (!sectionsData.creditLedger) {
           const ptdStartDate = reportDate.startOf('month')
           const ytdStartDate = reportDate.startOf('year')
@@ -5282,7 +5337,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
-     
+
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
@@ -5442,7 +5497,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       // Revenue breakdowns
       this.getRevenueByRateTypeForDay(hotelId, reportDate),
       this.getRevenueByRoomTypeForDay(hotelId, reportDate),
-      this.getCreditLedgerManagementData(hotelId, reportDate, ptdStartDate, ytdStartDate), 
+      this.getCreditLedgerManagementData(hotelId, reportDate, ptdStartDate, ytdStartDate),
     ])
 
     // Section 11: Statistics (depends on roomCharges and roomSummary)
@@ -5559,7 +5614,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
 
     // Calculate Transfer Charges to Guest Ledger
-    
+
     totals.transferToGuestLedger.today = totals.revenueWithTax.today + totals.posToPs.today
     totals.transferToGuestLedger.ptd = totals.revenueWithTax.ptd + totals.posToPs.ptd
     totals.transferToGuestLedger.ytd = totals.revenueWithTax.ytd + totals.posToPs.ytd
@@ -6770,31 +6825,37 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         ytd: 0,
       }
       const soldRooms = roomSummary.soldRoom || { today: 0, ptd: 0, ytd: 0 }
+      const complimentaryRooms = roomSummary.complimentaryRoom || { today: 0, ptd: 0, ytd: 0 }
+      const occupiedRooms = {
+        today: soldRooms.today + complimentaryRooms.today,
+        ptd: soldRooms.ptd + complimentaryRooms.ptd,
+        ytd: soldRooms.ytd + complimentaryRooms.ytd,
+      }
 
       // Extract values from roomCharges
       const roomRevenue = roomCharges.roomCharges || { today: 0, ptd: 0, ytd: 0 }
 
-      // Calculate Occupancy Rate
+      // Calculate Occupancy Rate based on all occupied rooms (sold + complimentary)
       const occupancyRate = {
         today:
           totalAvailableRoomNights.today > 0
-            ? (soldRooms.today / totalAvailableRoomNights.today) * 100
+            ? (occupiedRooms.today / totalAvailableRoomNights.today) * 100
             : 0,
         ptd:
           totalAvailableRoomNights.ptd > 0
-            ? (soldRooms.ptd / totalAvailableRoomNights.ptd) * 100
+            ? (occupiedRooms.ptd / totalAvailableRoomNights.ptd) * 100
             : 0,
         ytd:
           totalAvailableRoomNights.ytd > 0
-            ? (soldRooms.ytd / totalAvailableRoomNights.ytd) * 100
+            ? (occupiedRooms.ytd / totalAvailableRoomNights.ytd) * 100
             : 0,
       }
 
       // Calculate Average Daily Rate (ADR)
       const averageDailyRate = {
-        today: soldRooms.today > 0 ? roomRevenue.today / soldRooms.today : 0,
-        ptd: soldRooms.ptd > 0 ? roomRevenue.ptd / soldRooms.ptd : 0,
-        ytd: soldRooms.ytd > 0 ? roomRevenue.ytd / soldRooms.ytd : 0,
+        today: occupiedRooms.today > 0 ? roomRevenue.today / occupiedRooms.today : 0,
+        ptd: occupiedRooms.ptd > 0 ? roomRevenue.ptd / occupiedRooms.ptd : 0,
+        ytd: occupiedRooms.ytd > 0 ? roomRevenue.ytd / occupiedRooms.ytd : 0,
       }
 
       // Calculate Revenue Per Available Room (RevPAR)
@@ -6949,7 +7010,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         if (isDayUse) {
           stayEnd = arrival
         } else if (res.departDate) {
-          stayEnd = res.departDate.minus({ days: 1 }).toISODate()
+          stayEnd = res.departDate.minus({ days: 1 }).toISODate() as any
         }
 
         const updated = res.updatedAt ? res.updatedAt.toISODate() : ''
@@ -6964,7 +7025,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
 
         // --- Occupancy Metrics (Sold, Comp, DayUse, Guests) ---
         // Based on Room Nights / Guest Nights overlap
-        if (['checked_in', 'checked_out', 'completed'].includes(res.status) && arrival && stayEnd) {
+        if (isActiveOccupancyStatus(res.status) && arrival && stayEnd) {
           const daysToday = getOverlapDays(arrival, stayEnd, rDate, rDate)
           const daysPTD = getOverlapDays(arrival, stayEnd, ptdDate, rDate)
           const daysYTD = getOverlapDays(arrival, stayEnd, ytdDate, rDate)
@@ -7097,7 +7158,6 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       const avgGuestsPerRoomToday = occupiedToday > 0 ? guestsToday / occupiedToday : 0
       const avgGuestsPerRoomPTD = occupiedPTD > 0 ? guestsPTD / occupiedPTD : 0
       const avgGuestsPerRoomYTD = occupiedYTD > 0 ? guestsYTD / occupiedYTD : 0
-
       return {
         totalRoom: {
           today: stats.totalRooms,
@@ -13109,11 +13169,11 @@ async getCreditLedgerPaymentsReport({ request, response }: HttpContext) {
 async generateCreditLedgerPaymentsPdf({ request, response, auth }: HttpContext) {
   try {
     const { hotelId, startDate, endDate } = request.only(['hotelId', 'startDate', 'endDate'])
-    
+
     const from = DateTime.fromISO(startDate)
     const to = DateTime.fromISO(endDate)
     const hotel = await Hotel.findOrFail(hotelId)
-    
+
     const user = auth.user
     const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
 
@@ -13203,9 +13263,9 @@ public async generateCreditLedgerPaymentsHtml(
   edge.mount(path.join(process.cwd(), 'resources/views'))
 
   const fc = (v: number) =>
-    Number(v ?? 0).toLocaleString('fr-FR', { 
-      minimumFractionDigits: 0, 
-      maximumFractionDigits: 0 
+    Number(v ?? 0).toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     })
 
   return await edge.render('reports/credit_ledger_payments', {

@@ -897,6 +897,8 @@ export default class DashboardController {
   }
 
   private async getSuiteOccupancyData(serviceId: number, trx?: any) {
+    const today = DateTime.now().toFormat('yyyy-MM-dd')
+
     // Aggregated counts by room type to avoid heavy preloads
     const roomTypes = await RoomType
       .query(trx ? { client: trx } : undefined)
@@ -905,22 +907,45 @@ export default class DashboardController {
       .orderBy('sort_order', 'asc')
       .select(['id', 'room_type_name', 'sort_order'])
 
+    // Total rooms excluding out_of_order and paymaster room types
     const totalRows = await Database
       .from('rooms')
-      .where('hotel_id', serviceId)
-      .groupBy('room_type_id')
-      .select('room_type_id')
+      .join('room_types', 'rooms.room_type_id', 'room_types.id')
+      .where('rooms.hotel_id', serviceId)
+      .where('rooms.status', '!=', 'out_of_order')
+      .where('room_types.is_deleted', false)
+      .groupBy('rooms.room_type_id')
+      .select('rooms.room_type_id')
       .count('* as total')
 
+    // Occupied rooms (checked_in only) — excluding OOO and paymaster
     const occupiedRows = await Database
       .from('reservation_rooms')
       .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
       .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
+      .join('room_types', 'rooms.room_type_id', 'room_types.id')
       .where('reservations.hotel_id', serviceId)
-      .where('reservations.status', 'checked_in')
+      .where('reservation_rooms.status', 'checked_in')
+      .where('reservations.check_in_date', '<=', today)
+      .where('reservations.check_out_date', '>', today)
+      .where('rooms.status', '!=', 'out_of_order')
+      .where('room_types.is_deleted', false)
       .groupBy('rooms.room_type_id')
       .select('rooms.room_type_id')
       .select(Database.raw('COUNT(DISTINCT reservation_rooms.room_id) AS occupied'))
+    // Blocked rooms per room type for today
+    const blockedRows = await Database
+      .from('room_blocks')
+      .join('rooms', 'room_blocks.room_id', 'rooms.id')
+      .join('room_types', 'rooms.room_type_id', 'room_types.id')
+      .where('room_blocks.hotel_id', serviceId)
+      .where('room_blocks.block_from_date', '<=', today)
+      .where('room_blocks.block_to_date', '>=', today)
+      .whereNot('room_blocks.status', 'completed')
+      .where('rooms.status', '!=', 'out_of_order')
+      .groupBy('rooms.room_type_id')
+      .select('rooms.room_type_id')
+      .count('* as blocked')
 
     const totalMap = new Map<number, number>()
     for (const row of totalRows) {
@@ -932,16 +957,24 @@ export default class DashboardController {
       occupiedMap.set(Number(row.room_type_id), Number((row as any).occupied || 0))
     }
 
+    const blockedMap = new Map<number, number>()
+    for (const row of blockedRows) {
+      blockedMap.set(Number(row.room_type_id), Number((row as any).blocked || 0))
+    }
+
     const suites = roomTypes.map((rt) => {
       const totalRooms = totalMap.get(rt.id) ?? 0
       const occupied = occupiedMap.get(rt.id) ?? 0
-      const free = Math.max(totalRooms - occupied, 0)
-      const rate = totalRooms > 0 ? (occupied / totalRooms) * 100 : 0
+      const blocked = blockedMap.get(rt.id) ?? 0
+      const available = Math.max(totalRooms - blocked, 0)
+      const free = Math.max(available - occupied, 0)
+      const rate = available > 0 ? (occupied / available) * 100 : 0
       return {
         roomTypeId: rt.id,
         roomTypeName: rt.roomTypeName,
         totalRooms,
         occupied,
+        blocked,
         free,
         occupancyRate: `${rate.toFixed(0)}%`,
       }
