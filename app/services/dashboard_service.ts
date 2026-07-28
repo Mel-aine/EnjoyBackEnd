@@ -4,6 +4,8 @@ import { DateTime } from 'luxon'
 import Room from '#models/room'
 import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
+import ReservationRoom from '#models/reservation_room'
+import RoomBlock from '#models/room_block'
 
 export class RoomAvailabilityService {
   public static async getHotelStats(serviceId: number): Promise<{
@@ -153,37 +155,63 @@ export class RoomAnalyticsService {
       throw new Error("Ce service n'est pas un hôtel")
     }
 
+    // Total chambres : exclure out_of_order ET paymaster
     const totalRoomsResult = await Room.query()
       .where('hotel_id', serviceId)
+      .where('status', '!=', 'out_of_order')
       .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .count('* as total')
-    const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
-    if (totalRooms === 0) return { current: [], previous: [] }
+    const baseTotalRooms = Number(totalRoomsResult[0].$extras.total || '0')
+    if (baseTotalRooms === 0) return { current: [], previous: [] }
 
     const now = DateTime.now()
     const current: { label: string; occupancyRate: number }[] = []
     const previous: { label: string; occupancyRate: number }[] = []
 
+    // Compte les chambres bloquées pour une date donnée
+    const countBlockedForDate = async (date: DateTime): Promise<number> => {
+      const dateStr = date.toISODate()
+      if (!dateStr) return 0
+      const result = await RoomBlock
+        .query()
+        .where('hotel_id', serviceId)
+        .whereNot('status', 'completed')
+        .where('block_from_date', '<=', dateStr)
+        .where('block_to_date', '>=', dateStr)
+        .whereHas('room', (roomQuery) => {
+          roomQuery.where('status', '!=', 'out_of_order')
+          roomQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+        .countDistinct('room_id as total')
+      return Number(result[0].$extras.total || '0')
+    }
+
+    // Compte les chambres occupées pour une date donnée
+    const countOccupiedForDate = async (date: DateTime): Promise<number> => {
+      const dateStr = date.toISODate()
+      if (!dateStr) return 0
+      const result = await ReservationRoom
+        .query()
+        .where('hotel_id', serviceId)
+        .whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+        .where('check_in_date', '<=', dateStr)
+        .where('check_out_date', '>', dateStr)
+        .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+        .count('* as count')
+      return Number(result[0].$extras.count || '0')
+    }
+
     const buildOccupancyData = async (daysBackStart: number, daysBackEnd: number, target: typeof current) => {
       for (let i = daysBackStart; i >= daysBackEnd; i--) {
         const day = now.minus({ days: i })
-        const start = day.startOf('day').toSQL()
-        const end = day.endOf('day').toSQL()
-
-        const countResult = await Reservation
-          .query()
-          .where('hotel_id', serviceId)
-          .whereBetween('arrivedDate', [start, end])
-          .whereDoesntHave('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-          .count('* as count')
-
-        const occupied = Number(countResult[0].$extras.count || '0')
-        const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
-
+        const [occupied, blocked] = await Promise.all([
+          countOccupiedForDate(day),
+          countBlockedForDate(day),
+        ])
+        const netRooms = baseTotalRooms - blocked
+        const rate = netRooms > 0
+          ? Math.min(100, Math.round((occupied / netRooms) * 10000) / 100)
+          : 0
         target.push({ label: day.toFormat('cccc'), occupancyRate: rate })
       }
     }
@@ -199,21 +227,14 @@ export class RoomAnalyticsService {
 
       for (let d = 1; d <= daysInMonth; d++) {
         const date = startMonth.set({ day: d })
-        const start = date.startOf('day').toSQL()
-        const end = date.endOf('day').toSQL()
-
-        const countResult = await Reservation.query()
-          .where('hotel_id', serviceId)
-          .whereBetween('bookingDate', [start, end])
-          .whereDoesntHave('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-          .count('* as count')
-        const occupied = Number(countResult[0].$extras.count || '0')
-        const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
-
+        const [occupied, blocked] = await Promise.all([
+          countOccupiedForDate(date),
+          countBlockedForDate(date),
+        ])
+        const netRooms = baseTotalRooms - blocked
+        const rate = netRooms > 0
+          ? Math.min(100, Math.round((occupied / netRooms) * 10000) / 100)
+          : 0
         current.push({ label: date.toFormat('dd'), occupancyRate: rate })
       }
 
@@ -223,65 +244,51 @@ export class RoomAnalyticsService {
 
       for (let d = 1; d <= daysInPrevious; d++) {
         const date = startPrevious.set({ day: d })
-        const start = date.startOf('day').toSQL()
-        const end = date.endOf('day').toSQL()
-
-        const countResult = await Reservation.query()
-          .where('hotel_id', serviceId)
-          .whereBetween('bookingDate', [start, end])
-          .whereDoesntHave('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-          .count('* as count')
-        const occupied = Number(countResult[0].$extras.count || '0')
-        const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
-
+        const [occupied, blocked] = await Promise.all([
+          countOccupiedForDate(date),
+          countBlockedForDate(date),
+        ])
+        const netRooms = baseTotalRooms - blocked
+        const rate = netRooms > 0
+          ? Math.min(100, Math.round((occupied / netRooms) * 10000) / 100)
+          : 0
         previous.push({ label: date.toFormat('dd'), occupancyRate: rate })
       }
     }
 
     if (period === 'yearly') {
-      for (let m = 1; m <= 12; m++) {
-        const start = now.set({ month: m, day: 1 }).startOf('month').toSQL()
-        const end = now.set({ month: m, day: 1 }).endOf('month').toSQL()
+      const calcMonthlyRate = async (year: number, target: typeof current) => {
+        for (let m = 1; m <= 12; m++) {
+          const monthStart = DateTime.fromObject({ year, month: m }).startOf('month')
+          const monthEnd = monthStart.endOf('month')
+          const daysInMonth = monthStart.daysInMonth!
 
-        const countResult = await Reservation.query()
-          .where('hotel_id', serviceId)
-          .whereBetween('arrivedDate', [start, end])
-          .whereDoesntHave('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-          .count('* as count')
-        const occupied = Number(countResult[0].$extras.count || '0')
-        const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
+          let totalOccupied = 0
+          let totalBlockedNights = 0
+          let cursor = monthStart
+          while (cursor <= monthEnd) {
+            const [occ, blk] = await Promise.all([
+              countOccupiedForDate(cursor),
+              countBlockedForDate(cursor),
+            ])
+            totalOccupied += occ
+            totalBlockedNights += blk
+            cursor = cursor.plus({ days: 1 })
+          }
 
-        current.push({ label: DateTime.fromObject({ month: m }).toFormat('MMM'), occupancyRate: rate })
+          const totalPossibleNights = baseTotalRooms * daysInMonth
+          const totalNetNights = totalPossibleNights - totalBlockedNights
+          const rate = totalNetNights > 0
+            ? Math.min(100, Math.round((totalOccupied / totalNetNights) * 10000) / 100)
+            : 0
+          target.push({ label: monthStart.toFormat('MMM'), occupancyRate: rate })
+        }
       }
 
-      const previousYear = now.minus({ years: 1 })
-
-      for (let m = 1; m <= 12; m++) {
-        const start = previousYear.set({ month: m, day: 1 }).startOf('month').toSQL()
-        const end = previousYear.set({ month: m, day: 1 }).endOf('month').toSQL()
-
-        const countResult = await Reservation.query()
-          .where('hotel_id', serviceId)
-          .whereBetween('arrivedDate', [start, end])
-          .whereDoesntHave('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-          .count('* as count')
-        const occupied = Number(countResult[0].$extras.count || '0')
-        const rate = Math.min(100, Math.round((occupied / totalRooms) * 10000) / 100)
-
-        previous.push({ label: DateTime.fromObject({ month: m }).toFormat('MMM'), occupancyRate: rate })
-      }
+      await Promise.all([
+        calcMonthlyRate(now.year, current),
+        calcMonthlyRate(now.minus({ years: 1 }).year, previous),
+      ])
     }
 
     return { current, previous }
