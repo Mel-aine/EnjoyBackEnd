@@ -803,7 +803,11 @@ export default class DashboardController {
         .where('complimentary_room', true)
         .where('check_in_date', '<=', dateStr)
         .where('check_out_date', '>', dateStr)
-        .whereDoesntHave('reservationRooms.roomType', (q) => q.where('is_paymaster', true))
+        .whereDoesntHave('reservationRooms', (roomsQuery) => {
+          roomsQuery.whereHas('roomType', (typeQuery) => {
+            typeQuery.where('is_paymaster', true)
+          })
+        })
         .count('* as total')
 
     //  Chambres bloquées temporairement (room blocks)
@@ -908,6 +912,7 @@ export default class DashboardController {
   }
 
   private async getSuiteOccupancyData(serviceId: number, trx?: any) {
+    const today = DateTime.now().toFormat('yyyy-MM-dd')
     // Aggregated counts by room type to avoid heavy preloads
     const roomTypes = await RoomType
       .query(trx ? { client: trx } : undefined)
@@ -929,7 +934,10 @@ export default class DashboardController {
       .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
       .join('rooms', 'reservation_rooms.room_id', 'rooms.id')
       .where('reservations.hotel_id', serviceId)
-      .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
+      // .whereIn('reservations.status', ['confirmed', 'checked_in', 'checked_out'])
+      .where('reservation_rooms.status', 'checked_in')
+      .where('reservations.check_in_date', '<=', today)
+      .where('reservations.check_out_date', '>', today)
       .groupBy('rooms.room_type_id')
       .select('rooms.room_type_id')
       .select(Database.raw('COUNT(DISTINCT reservation_rooms.room_id) AS occupied'))
