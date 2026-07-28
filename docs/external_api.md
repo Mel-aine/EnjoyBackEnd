@@ -69,11 +69,15 @@ x-pos-api-key: <pos_api_key>
 
 Cette clé est rattachée à un hôtel (champ `hotels.pos_api_key`) et permet d’authentifier l’intégration sans login/password.
 
+Pour les endpoints `/external/*`, l’hôtel utilisé par le backend est déduit de `x-pos-api-key`. Quand l’URL contient `{hotelId}`, il doit correspondre à l’hôtel de la clé. Sur `POST /external/reservation/create`, un éventuel `hotelId`/`hotel_id` dans le body peut être envoyé, mais la valeur réellement utilisée reste celle portée par la clé API.
+
 Pour les endpoints qui **créent/modifient** des données, il faut aussi fournir l’utilisateur “système” (celui qui sera utilisé pour les champs `created_by`, logs, etc.) :
 
 ```http
 x-user-id: <userId>
 ```
+
+Pour les endpoints d’écriture, `created_by` ou `createdBy` dans le body peut aussi être accepté comme fallback, mais `x-user-id` reste la forme recommandée.
 
 Exemple :
 
@@ -296,7 +300,7 @@ x-pos-api-key: <pos_api_key>
 
 ### 2.5 Création et Gestion des Réservations
 
-#### Créer une réservation (pour Directus)
+#### Créer une réservation
 ```http
 POST /external/reservation/create
 x-pos-api-key: <pos_api_key>
@@ -304,30 +308,85 @@ x-user-id: <userId>
 Content-Type: application/json
 
 {
-  "hotelId": 1,
   "guestId": 1,
-  "primaryRoomTypeId": 1,
   "scheduledArrivalDate": "2026-06-25",
   "scheduledDepartureDate": "2026-06-28",
+  "primaryRoomTypeId": 1,
   "numAdultsTotal": 2,
   "numChildrenTotal": 0,
   "bookingSourceId": 1,
-  "ratePlanId": 1,
+  "rateTypeId": 1,
   "reservationStatus": "confirmed",
-  "specialNotes": "",
-  "sourceOfBusiness": "directus"
-}
-
-Response: {
-  "id": 123,
-  "reservationNumber": "RES-20260625-XXXXX",
-  "confirmationCode": "CONF-12345",
-  "status": "confirmed",
-  ...
+  "otaReservationCode": "DIR-20260625-0001",
+  "otaName": "Directus",
+  "specialNotes": "Client VIP"
 }
 ```
 
-#### Créer une réservation avec attribution de chambre immédiate
+**Ce qui a changé :**
+- Le body accepte maintenant **camelCase** et **snake_case**.
+- `ota_reservation_code` / `otaReservationCode` alimente **`reservation_number`** si `reservation_number` n’est pas déjà fourni.
+- Si aucun `room_id` n’est envoyé, l’affectation de chambre utilise la même logique de service que la synchro Channex.
+- Si une réservation existe déjà avec le même `reservation_number` dans le même hôtel, l’API retourne `409 Conflict`.
+- `hotelId`/`hotel_id` dans le body n’est plus la source de vérité: l’hôtel vient de `x-pos-api-key`.
+
+**Champs importants :**
+- `x-pos-api-key` : obligatoire
+- `x-user-id` : obligatoire pour cet endpoint
+- `scheduledArrivalDate` / `arrived_date` : obligatoire
+- `scheduledDepartureDate` / `depart_date` : obligatoire
+- `guestId` / `guest_id` ou les champs guest (`firstName`, `lastName`, etc.) : nécessaire pour rattacher ou créer le client
+- `primaryRoomTypeId` ou `rooms[].roomTypeId` : nécessaire pour créer la réservation et permettre l’auto-attribution
+
+**Aliases acceptés les plus utiles :**
+
+| Métier | camelCase accepté | snake_case accepté |
+|---|---|---|
+| Guest existant | `guestId` | `guest_id` |
+| Date arrivée | `scheduledArrivalDate` | `arrived_date` |
+| Date départ | `scheduledDepartureDate` | `depart_date` |
+| Heure arrivée | `arrivedTime` | `arrived_time`, `check_in_time` |
+| Heure départ | `departTime` | `depart_time`, `check_out_time` |
+| Type de chambre principal | `primaryRoomTypeId` | `primary_room_type_id` |
+| Source réservation | `bookingSourceId` | `booking_source` |
+| Type de tarif | `rateTypeId`, `ratePlanId` | `rate_type_id`, `rate_plan_id` |
+| Statut | `reservationStatus` | `reservation_status` |
+| Référence OTA | `otaReservationCode` | `ota_reservation_code` |
+| Notes | `specialNotes` | `special_requests` |
+
+**Réponse en succès :**
+
+```json
+{
+  "success": true,
+  "message": "Reservation created successfully",
+  "data": {
+    "success": true,
+    "message": "Reservation created successfully",
+    "reservation": {
+      "id": 123,
+      "reservationNumber": "DIR-20260625-0001",
+      "status": "confirmed"
+    }
+  }
+}
+```
+
+**Réponse en doublon (`409 Conflict`) :**
+
+```json
+{
+  "success": false,
+  "message": "Reservation already exists: DIR-20260625-0001",
+  "data": {
+    "id": 123,
+    "reservation_number": "DIR-20260625-0001",
+    "status": "confirmed"
+  }
+}
+```
+
+#### Exemple complet avec tous les champs utiles
 ```http
 POST /external/reservation/create
 x-pos-api-key: <pos_api_key>
@@ -335,17 +394,94 @@ x-user-id: <userId>
 Content-Type: application/json
 
 {
-  "hotelId": 1,
   "guestId": 1,
-  "primaryRoomTypeId": 1,
+  "scheduledArrivalDate": "2026-06-25",
+  "scheduledDepartureDate": "2026-06-28",
+  "arrivedTime": "14:00",
+  "departTime": "12:00",
+  "bookingSourceId": 1,
+  "businessSourceId": 2,
+  "reservationStatus": "confirmed",
+  "confirmationNumber": "CONF-20260625-0001",
+  "otaName": "Directus",
+  "otaReservationCode": "DIR-20260625-0001",
+  "specialNotes": "Late arrival",
+  "guestNotes": "Allergic to peanuts",
+  "whatsappNumber": "+237600000001",
+  "whatsappNotificationEnable": true,
+  "paymentMethodId": 1,
+  "paymentType": "cash",
+  "billTo": "guest",
+  "marketCodeId": 3,
+  "tax_amount": 1500,
+  "paid_amount": 10000,
+  "final_amount": 46500,
+  "bookingDate": "2026-06-20T09:30:00.000Z",
+  "rooms": [
+    {
+      "roomTypeId": 1,
+      "rateTypeId": 1,
+      "mealPlanId": 2,
+      "roomId": 101,
+      "roomRate": 15000,
+      "roomRateId": 55,
+      "adultCount": 2,
+      "childCount": 0,
+      "taxIncludes": true,
+      "mealPlanRateInclude": false,
+      "taxes": 1500,
+      "arrivingTo": "Douala",
+      "goingTo": "Yaounde",
+      "meansOfTransport": "car"
+    }
+  ]
+}
+```
+
+#### Exemple complet si le guest n’existe pas encore
+```http
+POST /external/reservation/create
+x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
+Content-Type: application/json
+
+{
+  "firstName": "Jean",
+  "lastName": "Dupont",
+  "email": "jean@email.com",
+  "phonePrimary": "+237600000001",
+  "addressLine": "Rue 123",
+  "city": "Douala",
+  "country": "CM",
+  "postalCode": "BP 1234",
+  "language": "fr",
+  "idType": "passport",
+  "idNumber": "CM123456",
+  "passportNumber": "P1234567",
+  "companyName": "ACME SARL",
   "scheduledArrivalDate": "2026-06-25",
   "scheduledDepartureDate": "2026-06-28",
   "numAdultsTotal": 2,
-  "numChildrenTotal": 0,
-  "bookingSourceId": 1,
-  "ratePlanId": 1,
-  "reservationStatus": "confirmed",
-  "roomId": 101
+  "numChildrenTotal": 1,
+  "primaryRoomTypeId": 1,
+  "otaReservationCode": "DIR-20260625-0002"
+}
+```
+
+#### Créer une réservation avec auto-attribution de chambre
+```http
+POST /external/reservation/create
+x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
+Content-Type: application/json
+
+{
+  "guestId": 1,
+  "scheduledArrivalDate": "2026-06-25",
+  "scheduledDepartureDate": "2026-06-28",
+  "primaryRoomTypeId": 1,
+  "rateTypeId": 1,
+  "otaReservationCode": "DIR-20260625-0003"
 }
 ```
 
@@ -418,6 +554,27 @@ POST /external/reservation/{reservationId}/check-out
 x-pos-api-key: <pos_api_key>
 x-user-id: <userId>
 ```
+
+#### Ajouter un paiement sur une réservation
+```http
+POST /external/reservation/{reservationId}/payment
+x-pos-api-key: <pos_api_key>
+x-user-id: <userId>
+Content-Type: application/json
+
+{
+  "amount": 10000,
+  "paymentMethodId": 1,
+  "reference": "CASH-001",
+  "description": "Paiement espece",
+  "currencyCode": "XAF"
+}
+```
+
+Notes :
+- Le client externe n’a pas besoin de connaître le `folioId`.
+- Le backend retrouve la réservation, récupère un folio ouvert ou en crée un automatiquement si nécessaire.
+- Le paiement est ensuite posté comme transaction de type `payment` sur ce folio.
 
 #### Annuler une réservation
 ```http
@@ -525,13 +682,16 @@ Content-Type: application/json
 
 {
   "folioId": 1,
-  "transactionType": "charge",
-  "category": "room",
-  "description": "Nuitée chambre 101",
-  "amount": 50000,
-  "quantity": 1
+  "transactionType": "payment",
+  "category": "payment",
+  "description": "Paiement espece",
+  "amount": 10000,
+  "paymentMethodId": 1,
+  "reference": "CASH-001"
 }
 ```
+
+Utiliser cet endpoint seulement si l’intégrateur connaît déjà le `folioId`. Sinon, préférer `POST /external/reservation/{reservationId}/payment`.
 
 #### Obtenir le relevé d'un folio
 ```http
@@ -678,16 +838,19 @@ class EnjoyApiClient {
   constructor(baseUrl, posApiKey) {
     this.baseUrl = baseUrl
     this.posApiKey = posApiKey
-    this.headers = {
+    this.defaultHeaders = {
       'x-pos-api-key': this.posApiKey,
       'Content-Type': 'application/json'
     }
   }
 
-  async request(method, path, body = null) {
+  async request(method, path, body = null, extraHeaders = {}) {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: this.headers,
+      headers: {
+        ...this.defaultHeaders,
+        ...extraHeaders
+      },
       body: body ? JSON.stringify(body) : undefined
     })
     if (!response.ok) {
@@ -709,8 +872,10 @@ class EnjoyApiClient {
     )
   }
 
-  async createReservation(data) {
-    return this.request('POST', '/reservation/create', data)
+  async createReservation(data, actorUserId) {
+    return this.request('POST', '/reservation/create', data, {
+      'x-user-id': String(actorUserId)
+    })
   }
 
   async getReservationDetails(reservationId) {
@@ -742,8 +907,10 @@ class EnjoyApiClient {
     return this.request('GET', `/guests?search=${encodeURIComponent(query)}&hotelId=${hotelId}`)
   }
 
-  async createGuest(data) {
-    return this.request('POST', '/guests', data)
+  async createGuest(data, actorUserId) {
+    return this.request('POST', '/guests', data, {
+      'x-user-id': String(actorUserId)
+    })
   }
 
   async getGuest(id) {
@@ -839,7 +1006,6 @@ const odooRes = await fetch(`${ODOO_URL}/json/2/reservation`, {
 
 // APRÈS (EnjoyBackEnd)
 const reservation = await enjoy.createReservation({
-  hotelId: data.hotelId,
   guestId: data.guestId,
   primaryRoomTypeId: data.roomTypeId,
   scheduledArrivalDate: data.arrivalDate,
@@ -847,17 +1013,19 @@ const reservation = await enjoy.createReservation({
   numAdultsTotal: data.adults,
   numChildrenTotal: data.children || 0,
   bookingSourceId: 1,
-  ratePlanId: data.ratePlanId,
+  rateTypeId: data.rateTypeId,
   reservationStatus: 'confirmed',
+  otaReservationCode: data.reservationNumber,
+  otaName: 'Directus',
   specialNotes: data.notes || ''
-})
+}, SYSTEM_USER_ID)
 
 // Stocker l'ID EnjoyBackEnd dans Directus
 await reservationsService.createOne({
-  enjoy_reservation_id: reservation.id,
-  reservation_number: reservation.reservationNumber,
-  confirmation_code: reservation.confirmationCode,
-  status: reservation.status,
+  enjoy_reservation_id: reservation.data?.reservation?.id,
+  reservation_number: reservation.data?.reservation?.reservationNumber,
+  confirmation_code: reservation.data?.reservation?.confirmationNumber,
+  status: reservation.data?.reservation?.status,
   guest_name: data.guestName,
   arrival_date: data.arrivalDate,
   departure_date: data.departureDate,
@@ -967,6 +1135,7 @@ Configuration à ajouter dans EnjoyBackEnd (par hôtel ou globale) :
 | POST | `/external/reservation/{id}/cancel` | Annuler réservation |
 | POST | `/external/reservation/{id}/checkin` | Check-in |
 | POST | `/external/reservation/{id}/check-out` | Check-out |
+| POST | `/external/reservation/{id}/payment` | Ajouter un paiement à partir de la réservation |
 | GET | `/external/hotels/{hotelId}/reservation/arrivals` | Arrivées du jour |
 | GET | `/external/hotels/{hotelId}/reservation/departures` | Départs du jour |
 | POST | `/external/guests` | Créer/Mettre à jour client |

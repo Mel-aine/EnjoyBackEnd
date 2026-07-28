@@ -17,6 +17,13 @@ export const createRoomValidator = vine.compile(
     building: vine.string().trim().maxLength(50).optional(),
     wing: vine.string().trim().maxLength(50).optional(),
     section: vine.string().trim().maxLength(50).optional(),
+    equipements: vine.array(
+      vine.object({
+        amenity_id: vine.number().positive(),
+        amenity_name: vine.string().trim().maxLength(100),
+        quantity: vine.number().min(0),
+      })
+    ).optional(),
     status: vine.enum(['available', 'occupied', 'out_of_order', 'maintenance', 'blocked']).optional(),
     housekeepingStatus: vine.enum(['clean', 'dirty', 'inspected', 'out_of_order']).optional(),
     maintenanceStatus: vine.enum(['operational', 'maintenance', 'repair', 'renovation']).optional(),
@@ -272,6 +279,13 @@ export const updateRoomValidator = vine.compile(
     building: vine.string().trim().maxLength(50).optional(),
     wing: vine.string().trim().maxLength(50).optional(),
     section: vine.string().trim().maxLength(50).optional(),
+    equipements: vine.array(
+      vine.object({
+        amenity_id: vine.number().positive(),
+        amenity_name: vine.string().trim().maxLength(100),
+        quantity: vine.number().min(0),
+      })
+    ).optional(),
     status: vine.enum(['available', 'occupied', 'out_of_order', 'maintenance', 'blocked']).optional(),
     housekeepingStatus: vine.enum(['clean', 'dirty', 'inspected', 'out_of_order']).optional(),
     maintenanceStatus: vine.enum(['operational', 'maintenance', 'repair', 'renovation']).optional(),

@@ -34,6 +34,7 @@ router
     router.post('/reservation/:reservationId/cancel', [ExternalApiController, 'reservationCancel'])
     router.post('/reservation/:reservationId/checkin', [ExternalApiController, 'reservationCheckIn'])
     router.post('/reservation/:reservationId/check-out', [ExternalApiController, 'reservationCheckOut'])
+    router.post('/reservation/:reservationId/payment', [ExternalApiController, 'reservationAddPayment'])
     router.post('/reservation/:reservationId/assign-room', [ExternalApiController, 'reservationAssignRoom'])
     router.post('/reservation/:reservationId/unassign-room', [ExternalApiController, 'reservationUnassignRoom'])
 

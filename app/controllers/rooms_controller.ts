@@ -120,8 +120,23 @@ export default class RoomsController {
         extnames: ['jpg', 'jpeg', 'png', 'webp']
       })
 
+      // Parser les equipements depuis FormData (reçus comme JSON string)
+      const rawEquipements = request.input('equipements')
+      if (rawEquipements && typeof rawEquipements === 'string') {
+        try {
+          request.updateBody({
+            ...request.body(),
+            equipements: JSON.parse(rawEquipements)
+          })
+        } catch {
+          return response.badRequest({
+            message: 'Invalid equipements format',
+          })
+        }
+      }
+
       const payload = await request.validateUsing(createRoomValidator)
-      const { taxRateIds, ...roomData } = payload
+      const { taxRateIds, equipements, ...roomData } = payload
 
       const uploadedImageUrls: string[] = []
 
@@ -130,12 +145,10 @@ export default class RoomsController {
 
         for (const image of imagesToUpload) {
           try {
-
             const result = await this.supabaseService.uploadFile(image, 'hotel', 'rooms')
             uploadedImageUrls.push(result.url)
-
           } catch (uploadError) {
-            console.error(` Failed to upload ${image.clientName}:`, uploadError.message)
+            console.error(`Failed to upload ${image.clientName}:`, uploadError.message)
           }
         }
       }
@@ -143,10 +156,10 @@ export default class RoomsController {
       const room = await Room.create({
         ...roomData,
         images: uploadedImageUrls,
+        equipements: equipements ?? [],
         createdBy: auth.user?.id,
       })
 
-      // Attach tax rates if provided
       if (taxRateIds && taxRateIds.length > 0) {
         await room.related('taxRates').attach(taxRateIds)
       }
@@ -214,33 +227,43 @@ export default class RoomsController {
       const room = await Room.findOrFail(params.id)
       const oldData = room.toJSON()
 
-      //  Récupérer les nouveaux fichiers uploadés
       const roomImages = request.files('roomImages', {
         size: '5mb',
         extnames: ['jpg', 'jpeg', 'png', 'webp']
       })
 
+      // Parser les equipements depuis FormData
+      const rawEquipements = request.input('equipements')
+      if (rawEquipements && typeof rawEquipements === 'string') {
+        try {
+          request.updateBody({
+            ...request.body(),
+            equipements: JSON.parse(rawEquipements)
+          })
+        } catch {
+          return response.badRequest({
+            message: 'Invalid equipements format',
+          })
+        }
+      }
 
       const payload = await request.validateUsing(updateRoomValidator)
-      const { taxRateIds, ...roomData } = payload
+      const { taxRateIds, equipements, ...roomData } = payload
 
-      //  Gérer le remplacement des images
       let updatedImageUrls = room.images || []
 
       if (roomImages && roomImages.length > 0) {
-        // Supprimer les anciennes images de Supabase
         if (room.images && Array.isArray(room.images) && room.images.length > 0) {
           for (const oldImageUrl of room.images) {
             try {
               const filePath = this.supabaseService.extractFilePathFromUrl(oldImageUrl, 'hotel')
               await this.supabaseService.deleteFile(filePath, 'hotel')
             } catch (deleteError) {
-              console.error(` Erreur suppression ancienne image:`, deleteError.message)
+              console.error(`Erreur suppression ancienne image:`, deleteError.message)
             }
           }
         }
 
-        // Upload les nouvelles images
         updatedImageUrls = []
         const imagesToUpload = roomImages.slice(0, 2)
 
@@ -249,7 +272,7 @@ export default class RoomsController {
             const result = await this.supabaseService.uploadFile(image, 'hotel', 'rooms')
             updatedImageUrls.push(result.url)
           } catch (uploadError) {
-            console.error(` Failed to upload ${image.clientName}:`, uploadError.message)
+            console.error(`Failed to upload ${image.clientName}:`, uploadError.message)
           }
         }
       }
@@ -257,12 +280,12 @@ export default class RoomsController {
       room.merge({
         ...roomData,
         images: updatedImageUrls,
+        equipements: equipements ?? room.equipements,
         lastModifiedBy: auth.user?.id,
       })
 
       await room.save()
 
-      // Update tax rates if provided
       if (taxRateIds !== undefined) {
         if (taxRateIds.length > 0) {
           await room.related('taxRates').sync(taxRateIds)
@@ -284,7 +307,7 @@ export default class RoomsController {
           entityId: room.id,
           hotelId: room.hotelId,
           description: `Room "${room.roomNumber}" updated successfully`,
-          changes: changes,
+          changes,
           ctx,
         })
       }
@@ -652,7 +675,7 @@ export default class RoomsController {
       // **2. Identify Blocked Rooms (Standard Overlap Logic)**
       // Conflict if (Block_Start <= Request_End) AND (Block_End >= Request_Start)
       const blockedRoomsResult = await RoomBlock.query()
-      .where('hotel_id', hotelId)
+        .where('hotel_id', hotelId)
         .whereIn('room_type_id', roomTypeIds)
         .where('block_from_date', '<=', checkOutISO)
         .where('block_to_date', '>=', checkInISO)
@@ -664,7 +687,7 @@ export default class RoomsController {
       // Conflict if (Reservation_Start < Request_End) AND (Reservation_End > Request_Start)
       const reservedRoomsResult = await ReservationRoom.query()
         .where('hotel_id', hotelId)
-        .whereIn('status', ['confirmed', 'checked_in', 'reserved','checked_out','checked-out'])
+        .whereIn('status', ['confirmed', 'checked_in', 'reserved', 'checked_out', 'checked-out'])
         .where('check_in_date', '<', checkOutISO)
         .where('check_out_date', '>', checkInISO)
         .whereNotNull('roomId')
@@ -859,6 +882,7 @@ export default class RoomsController {
   /**
    * Get rooms with details including reservations
    */
+
   public async getRoomsWithDetails({ params, response }: HttpContext) {
     const { hotelId } = params
 
@@ -874,7 +898,6 @@ export default class RoomsController {
         .preload('reservationRooms', (query) => {
           query.preload('reservation', (reservationQuery) => {
             reservationQuery
-              // 1. AJOUT: Inclure 'checkinDate' dans la sélection
               .select(['id', 'status', 'departDate', 'guestId', 'checkInDate'])
               .preload('guest', (guestQuery) => {
                 guestQuery.select(['id', 'title', 'firstName', 'lastName'])
@@ -883,32 +906,34 @@ export default class RoomsController {
         })
 
       const detailedRooms = rooms.map((room) => {
-        const reservations = room.reservationRooms
+        const reservationRooms = room.reservationRooms || []
 
-        const reservationData = reservations.map((rr) => ({
+        const reservationData = reservationRooms.map((rr) => ({
           reservation: rr.reservation,
-          // guest: rr.reservation?.guest ?? null,
           guest: rr.reservation?.guest ? rr.reservation.guest.serialize() : null,
           status: rr.reservation?.status ?? null,
         }))
 
-        const checkedInReservation = reservationData.find(
-          (r) => r.reservation?.status === 'checked-in' || r.reservation?.status === 'checked_in'
+        // Essayer plusieurs variantes du statut checked-in
+        const checkedInReservation = reservationData.find((r) =>
+          ['checked-in', 'checked_in', 'checkedin', 'occupied'].includes(
+            r.reservation?.status?.toLowerCase() ?? ''
+          )
         )
 
-        // const guestName = checkedInReservation?.guest
-        //   ? `${checkedInReservation.guest.firstName || ''} ${checkedInReservation.guest.lastName || ''}`.trim() ||
-        //     null
-        //   : null
+        //  Fix guestName : concaténation au lieu de displayName
         const guestName = checkedInReservation?.guest
-          ? checkedInReservation.guest.displayName
+          ? [
+              checkedInReservation.guest.title,
+              checkedInReservation.guest.firstName,
+              checkedInReservation.guest.lastName,
+            ]
+              .filter(Boolean)
+              .join(' ') || null
           : null
 
-
         const checkInTime = checkedInReservation?.reservation?.checkInDate
-          ? typeof checkedInReservation.reservation.checkInDate === 'string'
-            ? checkedInReservation.reservation.checkInDate
-            : checkedInReservation.reservation.checkInDate.toString()
+          ? checkedInReservation.reservation.checkInDate.toString()
           : null
 
         const reservationsWithDepart = reservationData
@@ -916,29 +941,32 @@ export default class RoomsController {
           .sort((a, b) => {
             const dateA = DateTime.fromISO(a.reservation?.departDate?.toString() || '')
             const dateB = DateTime.fromISO(b.reservation?.departDate?.toString() || '')
-            // Tri descendant pour avoir la date de départ la plus récente en premier
             return dateB.toMillis() - dateA.toMillis()
           })
 
         const latestDeparture = reservationsWithDepart[0]
-
         const nextAvailable = latestDeparture?.reservation?.departDate
-          ? typeof latestDeparture.reservation.departDate === 'string'
-            ? latestDeparture.reservation.departDate
-            : latestDeparture.reservation.departDate.toString()
+          ? latestDeparture.reservation.departDate.toString()
           : null
 
         const checkOutTime = nextAvailable
+
+        // Debug temporaire à retirer après validation
+        if (room.status === 'occupied' && !guestName) {
+          console.log(`Room ${room.roomNumber} occupée sans guest:`, {
+            reservationRoomsCount: reservationRooms.length,
+            statuses: reservationData.map(r => r.reservation?.status)
+          })
+        }
 
         return {
           ...room.serialize(),
           roomType: room.roomType?.serialize(),
           reservations: reservationData,
+          reservationRooms: reservationData,
           guestName,
           nextAvailable,
           checkOutTime,
-
-
           checkInTime,
           status: room.status || 'available',
         }
@@ -1220,148 +1248,148 @@ export default class RoomsController {
    * Bulk Update - WITH BUSINESS LOGIC RESTRICTIONS
    */
 
-async bulkUpdate({ request, response, auth }: HttpContext) {
-  try {
-    const {
-      room_ids,
-      operation,
-      housekeeping_status,
-      housekeeper_id,
-      user_id,
-    } = request.only([
-      'room_ids',
-      'operation',
-      'housekeeping_status',
-      'housekeeper_id',
-      'user_id',
-    ])
+  async bulkUpdate({ request, response, auth }: HttpContext) {
+    try {
+      const {
+        room_ids,
+        operation,
+        housekeeping_status,
+        housekeeper_id,
+        user_id,
+      } = request.only([
+        'room_ids',
+        'operation',
+        'housekeeping_status',
+        'housekeeper_id',
+        'user_id',
+      ])
 
-    //  Validations de base
-    if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
-      return response.badRequest({ message: 'Room IDs are required and must be an array' })
-    }
-    if (!operation) {
-      return response.badRequest({ message: 'Operation is required' })
-    }
+      //  Validations de base
+      if (!room_ids || !Array.isArray(room_ids) || room_ids.length === 0) {
+        return response.badRequest({ message: 'Room IDs are required and must be an array' })
+      }
+      if (!operation) {
+        return response.badRequest({ message: 'Operation is required' })
+      }
 
-    //  Récupérer les chambres (une seule fois)
-    const rooms = await Room.query().whereIn('id', room_ids)
-    if (rooms.length === 0) {
-      return response.badRequest({ message: 'No rooms found for the provided IDs' })
-    }
+      //  Récupérer les chambres (une seule fois)
+      const rooms = await Room.query().whereIn('id', room_ids)
+      if (rooms.length === 0) {
+        return response.badRequest({ message: 'No rooms found for the provided IDs' })
+      }
 
-    //  Préparer les données de mise à jour SQL
-    const updateData: any = {
-      last_modified_by: user_id || auth.user?.id,
-      updated_at: DateTime.now(),
-    }
+      //  Préparer les données de mise à jour SQL
+      const updateData: any = {
+        last_modified_by: user_id || auth.user?.id,
+        updated_at: DateTime.now(),
+      }
 
-    switch (operation) {
-      case 'set_status':
-        if (housekeeping_status) {
-          updateData.housekeeping_status = housekeeping_status
-        }
-        break
-      case 'assign_housekeeper':
-        updateData.assigned_housekeeper_id = housekeeper_id || null
-        break
-      case 'clear_status':
-        updateData.housekeeping_status = null
-        break
-      case 'clear_remark':
-        updateData.housekeeping_remarks = null
-        break
-      case 'unassign_housekeeper':
-        updateData.assigned_housekeeper_id = null
-        break
-    }
-
-    //  Exécuter la mise à jour massive en SQL
-    const updatedCount = await Room.query().whereIn('id', room_ids).update(updateData)
-
-
-    const actorId = auth.user?.id || 0
-    const finalNewStatus = updateData.housekeeping_status
-    const finalHousekeeperId = housekeeper_id || 0
-
-    setImmediate(() => {
-      (async () => {
-        console.log(`⏱️ Background Task: Sending notifications for ${rooms.length} rooms...`)
-
-        const HousekeepingNotifService = CheckInCheckOutNotificationService
-
-        try {
-          const logEntries = rooms.map((room) => ({
-            actorId: actorId,
-            action: 'UPDATE',
-            entityType: 'Room',
-            entityId: room.id,
-            hotelId: room.hotelId,
-            description: `Bulk update: ${operation}`,
-            changes: {
-              housekeepingStatus: {
-                old: room.housekeepingStatus,
-                new: finalNewStatus ?? room.housekeepingStatus,
-              },
-              assignedHousekeeperId: {
-                old: room.assignedHousekeeperId,
-                new: finalHousekeeperId ?? room.assignedHousekeeperId,
-              },
-            },
-            ctx: { request } as any,
-          }))
-          await LoggerService.bulkLog(logEntries)
-        } catch (logErr) {
-          console.error('Failed to log bulk update:', logErr)
-        }
-
-        // On traite toutes les notifications en parallèle pour gagner encore plus de temps
-        const notificationPromises = rooms.map(async (room) => {
-          try {
-            const oldStatus: any = room.housekeepingStatus
-            const newStatus = finalNewStatus ?? oldStatus
-
-            // Notifications spécifiques au type de statut
-            if (newStatus === 'clean') {
-              await HousekeepingNotifService.notifyRoomReady(room.id, finalHousekeeperId, actorId)
-            } else if (newStatus === 'dirty') {
-              await HousekeepingNotifService.notifyRoomDirty(room.id, actorId, 'normal')
-            } else if (newStatus === 'inspected') {
-              await HousekeepingNotifService.notifyRoomInspected(room.id, actorId, true)
-            } else if (newStatus === 'out_of_order') {
-              await HousekeepingNotifService.notifyRoomBlocked(room.id, actorId, 'Maintenance requise')
-            }
-
-            // Notification de changement de statut global
-            if (oldStatus !== newStatus) {
-              await HousekeepingNotifService.notifyStatusChange(room.id, oldStatus, newStatus, actorId)
-            }
-          } catch (err) {
-            console.error(` Background Notif Error for Room ${room.id}:`, err.message)
+      switch (operation) {
+        case 'set_status':
+          if (housekeeping_status) {
+            updateData.housekeeping_status = housekeeping_status
           }
-        })
+          break
+        case 'assign_housekeeper':
+          updateData.assigned_housekeeper_id = housekeeper_id || null
+          break
+        case 'clear_status':
+          updateData.housekeeping_status = null
+          break
+        case 'clear_remark':
+          updateData.housekeeping_remarks = null
+          break
+        case 'unassign_housekeeper':
+          updateData.assigned_housekeeper_id = null
+          break
+      }
 
-        // On attend que toutes les promesses soient terminées (Settled = succès ou échec)
-        await Promise.allSettled(notificationPromises)
-      })().catch((err) => console.error('Background task error:', err))
-    })
+      //  Exécuter la mise à jour massive en SQL
+      const updatedCount = await Room.query().whereIn('id', room_ids).update(updateData)
 
-    // Réponse immédiate au client
-    return response.ok({
-      message: `Successfully updated ${updatedCount} rooms`,
-      updated_count: updatedCount,
-      operation,
-      affected_rooms: room_ids,
-    })
 
-  } catch (error) {
-    console.error('❌ Error in bulk update:', error)
-    return response.internalServerError({
-      message: 'Error updating rooms. Please try again later.',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    })
+      const actorId = auth.user?.id || 0
+      const finalNewStatus = updateData.housekeeping_status
+      const finalHousekeeperId = housekeeper_id || 0
+
+      setImmediate(() => {
+        (async () => {
+          console.log(`⏱️ Background Task: Sending notifications for ${rooms.length} rooms...`)
+
+          const HousekeepingNotifService = CheckInCheckOutNotificationService
+
+          try {
+            const logEntries = rooms.map((room) => ({
+              actorId: actorId,
+              action: 'UPDATE',
+              entityType: 'Room',
+              entityId: room.id,
+              hotelId: room.hotelId,
+              description: `Bulk update: ${operation}`,
+              changes: {
+                housekeepingStatus: {
+                  old: room.housekeepingStatus,
+                  new: finalNewStatus ?? room.housekeepingStatus,
+                },
+                assignedHousekeeperId: {
+                  old: room.assignedHousekeeperId,
+                  new: finalHousekeeperId ?? room.assignedHousekeeperId,
+                },
+              },
+              ctx: { request } as any,
+            }))
+            await LoggerService.bulkLog(logEntries)
+          } catch (logErr) {
+            console.error('Failed to log bulk update:', logErr)
+          }
+
+          // On traite toutes les notifications en parallèle pour gagner encore plus de temps
+          const notificationPromises = rooms.map(async (room) => {
+            try {
+              const oldStatus: any = room.housekeepingStatus
+              const newStatus = finalNewStatus ?? oldStatus
+
+              // Notifications spécifiques au type de statut
+              if (newStatus === 'clean') {
+                await HousekeepingNotifService.notifyRoomReady(room.id, finalHousekeeperId, actorId)
+              } else if (newStatus === 'dirty') {
+                await HousekeepingNotifService.notifyRoomDirty(room.id, actorId, 'normal')
+              } else if (newStatus === 'inspected') {
+                await HousekeepingNotifService.notifyRoomInspected(room.id, actorId, true)
+              } else if (newStatus === 'out_of_order') {
+                await HousekeepingNotifService.notifyRoomBlocked(room.id, actorId, 'Maintenance requise')
+              }
+
+              // Notification de changement de statut global
+              if (oldStatus !== newStatus) {
+                await HousekeepingNotifService.notifyStatusChange(room.id, oldStatus, newStatus, actorId)
+              }
+            } catch (err) {
+              console.error(` Background Notif Error for Room ${room.id}:`, err.message)
+            }
+          })
+
+          // On attend que toutes les promesses soient terminées (Settled = succès ou échec)
+          await Promise.allSettled(notificationPromises)
+        })().catch((err) => console.error('Background task error:', err))
+      })
+
+      // Réponse immédiate au client
+      return response.ok({
+        message: `Successfully updated ${updatedCount} rooms`,
+        updated_count: updatedCount,
+        operation,
+        affected_rooms: room_ids,
+      })
+
+    } catch (error) {
+      console.error('❌ Error in bulk update:', error)
+      return response.internalServerError({
+        message: 'Error updating rooms. Please try again later.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      })
+    }
   }
-}
 
   /**
    * Update room status - WITH BUSINESS LOGIC
@@ -1450,40 +1478,40 @@ async bulkUpdate({ request, response, auth }: HttpContext) {
 
       //Ajouter une nouvelle remarque
       if (remarkInfo && (remarkInfo.remark || remarkInfo.fdRemark)) {
-      const newRemark = {
-        id: Date.now().toString(),
-        remark: remarkInfo.remark,
-        fdRemark: remarkInfo.fdRemark,
-        status: remarkInfo.status || housekeepingStatus,
-        housekeeperId: remarkInfo.housekeeper,
-        createdAt: new Date().toISOString(),
+        const newRemark = {
+          id: Date.now().toString(),
+          remark: remarkInfo.remark,
+          fdRemark: remarkInfo.fdRemark,
+          status: remarkInfo.status || housekeepingStatus,
+          housekeeperId: remarkInfo.housekeeper,
+          createdAt: new Date().toISOString(),
+        }
+
+        currentRemarks.push(newRemark)
+        console.log('New Clean Remark pushed:', newRemark)
+
+        // Mettre à jour le housekeeper assigné
+        if (remarkInfo.housekeeper) {
+          room.assignedHousekeeperId = remarkInfo.housekeeper
+        }
       }
 
-      currentRemarks.push(newRemark)
-      console.log('New Clean Remark pushed:', newRemark)
+      room.housekeepingRemarks = currentRemarks
+      await room.save()
 
-      // Mettre à jour le housekeeper assigné
-      if (remarkInfo.housekeeper) {
-        room.assignedHousekeeperId = remarkInfo.housekeeper
-      }
-    }
-
-    room.housekeepingRemarks = currentRemarks
-    await room.save()
-
-    await LoggerService.log({
-      actorId: auth.user!.id,
-      action: 'UPDATE',
-      entityType: 'Room',
-      entityId: room.id,
-      hotelId: room.hotelId,
-      description: `Room housekeeping status updated to ${room.housekeepingStatus}`,
-      changes: {
-        housekeepingStatus: { old: oldHousekeepingStatus, new: room.housekeepingStatus },
-        housekeepingRemarks: { old: oldRemarks, new: room.housekeepingRemarks },
-      },
-      ctx: { request, response } as any,
-    })
+      await LoggerService.log({
+        actorId: auth.user!.id,
+        action: 'UPDATE',
+        entityType: 'Room',
+        entityId: room.id,
+        hotelId: room.hotelId,
+        description: `Room housekeeping status updated to ${room.housekeepingStatus}`,
+        changes: {
+          housekeepingStatus: { old: oldHousekeepingStatus, new: room.housekeepingStatus },
+          housekeepingRemarks: { old: oldRemarks, new: room.housekeepingRemarks },
+        },
+        ctx: { request, response } as any,
+      })
 
 
       //notifications

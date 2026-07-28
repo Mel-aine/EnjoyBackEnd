@@ -1529,6 +1529,15 @@ export default class ReportsController {
     const yAxisMax = 100
     const maxChartHeight = 350
 
+    // Calcul du taux d'occupation mensuel (moyenne du mois)
+    const daysInMonth = startDate.daysInMonth!
+    const totalOccupiedRooms = reservationData.reduce((sum, d) => sum + (d.reservationCount || 0), 0)
+    const roomCount = reservationData.length > 0 ? (reservationData[0].totalRooms || 0) : 0
+    const totalPossibleNights = roomCount * daysInMonth
+    const monthlyOccupancyRate = totalPossibleNights > 0
+      ? Math.round((totalOccupiedRooms / totalPossibleNights) * 10000) / 100
+      : 0
+
     const chartData = reservationData.map((data) => ({
       day: data.day,
       occupancyRate: data.occupancyRate,
@@ -1719,10 +1728,16 @@ export default class ReportsController {
         <div class="hotel-name">${hotelName}</div>
         <h1 class="title">Monthly Occupancy - ${monthName}</h1>
 
+        <!-- Résumé du taux d'occupation mensuel -->
+        <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #f0f4ff; border: 1px solid #3b82f6; border-radius: 6px;">
+            <span style="font-size: 14px; color: #333; font-weight: 600;">Monthly Occupancy Rate: </span>
+            <span style="font-size: 22px; color: #3b82f6; font-weight: 700;">${monthlyOccupancyRate}%</span>
+        </div>
+
         <!-- Légende -->
         <div class="legend-box">
             <div class="legend-square"></div>
-            <span class="legend-text">Occupancy %</span>
+            <span class="legend-text">Daily Occupancy %</span>
         </div>
 
         <!-- Graphique -->
@@ -2148,8 +2163,24 @@ export default class ReportsController {
               ? (ci <= from && co > from)
               : (ci <= to && co > from)
             if (!covers) continue
+
+            // Pour le mois/année : compter les nuits-chambres (room-nights)
+            // au lieu des chambres uniques. Le dénominateur (disponibles)
+            // est en chambres × jours, donc le numérateur doit être en
+            // nuits-chambres pour que le ratio soit correct.
+            if (singleDay) {
+              perType[rtId].occupied += 1
+            } else {
+              const ciDT = DateTime.fromISO(ci)
+              const coDT = DateTime.fromISO(co)
+              const fromDT = DateTime.fromISO(from)
+              const toExclusive = DateTime.fromISO(to).plus({ days: 1 }) // to est inclusif, +1 pour borne exclusive
+              const overlapStart = ciDT > fromDT ? ciDT : fromDT
+              const overlapEnd   = coDT < toExclusive ? coDT : toExclusive
+              const nightsInPeriod = overlapEnd.diff(overlapStart, 'days').days
+              perType[rtId].occupied += Math.max(0, nightsInPeriod)
+            }
           }
-          perType[rtId].occupied += 1
 
           const guestsInRoom = (rr.adults ?? 1) + (rr.children ?? 0)
           perType[rtId].guests += guestsInRoom
