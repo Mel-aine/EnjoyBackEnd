@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
 import Reservation from '#models/reservation'
-import ServiceProduct from '#models/room'
 import Room from '#models/room'
+import ReservationRoom from '#models/reservation_room'
+import RoomBlock from '#models/room_block'
 import FolioTransaction from '../models/folio_transaction.js'
 import Database from '@adonisjs/lucid/services/db'
 
@@ -19,13 +20,12 @@ export class HotelAnalyticsDashboardService {
 
     // Calcul des périodes selon le type
     const periods = {
-      monthly: { current: now.startOf('month'), duration: now.daysInMonth },
-      quarterly: { current: now.startOf('quarter'), duration: Math.ceil(now.daysInYear / 4) },
+      monthly: { current: now.startOf('month') },
+      quarterly: { current: now.startOf('quarter') },
       semester: {
         current: DateTime.fromObject({ year: now.year, month: now.month <= 6 ? 1 : 7 }),
-        duration: 183
       },
-      yearly: { current: now.startOf('year'), duration: now.daysInYear }
+      yearly: { current: now.startOf('year') }
     }
 
     const periodConfig = periods[period]
@@ -33,14 +33,18 @@ export class HotelAnalyticsDashboardService {
       throw new Error(`Invalid period type: ${period}. Valid types are: ${Object.keys(periods).join(', ')}`)
     }
 
-    const { current, duration } = periodConfig
+    const { current } = periodConfig
     const previous = current.minus({
       months: period === 'monthly' ? 1 : period === 'quarterly' ? 3 : period === 'semester' ? 6 : 0,
       years: period === 'yearly' ? 1 : 0
     })
 
-    // Nombre total de chambres
-    const totalRoomsResult = await Room.query().where('hotel_id', serviceId).count('* as total')
+    // Nombre total de chambres (hors paymaster et out_of_order)
+    const totalRoomsResult = await Room.query()
+      .where('hotel_id', serviceId)
+      .where('status', '!=', 'out_of_order')
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+      .count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
 
     if (totalRooms === 0) {
@@ -52,81 +56,41 @@ export class HotelAnalyticsDashboardService {
       }
     }
 
-    // Calcul des dates de fin
-    const currentEnd = current.plus({ days: duration })
-    const previousEnd = previous.plus({ days: duration })
+    // Calcul des dates de fin basé sur la période réelle (mois/année)
+    const currentEnd = period === 'yearly'
+      ? current.plus({ years: 1 })
+      : current.plus({ months: period === 'monthly' ? 1 : period === 'quarterly' ? 3 : 6 })
+    const previousEnd = period === 'yearly'
+      ? previous.plus({ years: 1 })
+      : previous.plus({ months: period === 'monthly' ? 1 : period === 'quarterly' ? 3 : 6 })
 
-    // Récupération des réservations
-    const [currentReservations, previousReservations] = await Promise.all([
-      Reservation.query()
-        .where('hotel_id', serviceId)
-        .whereBetween('arrivedDate', [current.toFormat('yyyy-MM-dd'), currentEnd.toFormat('yyyy-MM-dd')]),
-      Reservation.query()
-        .where('hotel_id', serviceId)
-        .whereBetween('arrivedDate', [previous.toFormat('yyyy-MM-dd'), previousEnd.toFormat('yyyy-MM-dd')])
+    const daysInPeriod = currentEnd.diff(current, 'days').days
+    const totalPossibleNights = totalRooms * daysInPeriod
+
+    const [currentData, previousData] = await Promise.all([
+      this.countNights(serviceId, current, currentEnd),
+      this.countNights(serviceId, previous, previousEnd),
     ])
 
-    // Calcul des nuits occupées
-    const calculateNights = (reservations: Reservation[], start: DateTime, end: DateTime) => {
-      return reservations.reduce((total, res) => {
-        // Vérification et conversion des dates
-        if (!res.arrivedDate || !res.departDate) {
-          return total // Ignorer les réservations sans dates complètes
-        }
+    const currentNetNights = totalPossibleNights - currentData.blockedNights
+    const previousNetNights = totalPossibleNights - previousData.blockedNights
 
-        let arrivalDate: DateTime
-        let departDate: DateTime
-
-        // Conversion sécurisée des dates
-        if (res.arrivedDate instanceof Date) {
-          arrivalDate = DateTime.fromJSDate(res.arrivedDate)
-        } else if (typeof res.arrivedDate === 'string') {
-          arrivalDate = DateTime.fromISO(res.arrivedDate)
-        } else {
-          // Si c'est déjà un DateTime de Luxon
-          arrivalDate = res.arrivedDate as DateTime
-        }
-
-        if (res.departDate instanceof Date) {
-          departDate = DateTime.fromJSDate(res.departDate)
-        } else if (typeof res.departDate === 'string') {
-          departDate = DateTime.fromISO(res.departDate)
-        } else {
-          // Si c'est déjà un DateTime de Luxon
-          departDate = res.departDate as DateTime
-        }
-
-        // Vérification de la validité des dates
-        if (!arrivalDate.isValid || !departDate.isValid) {
-          return total // Ignorer les dates invalides
-        }
-
-        const actualStart = arrivalDate < start ? start : arrivalDate
-        const actualEnd = departDate > end ? end : departDate
-        const nights = actualEnd.diff(actualStart, 'days').days
-
-        return total + (nights > 0 ? nights : 0)
-      }, 0)
-    }
-
-    const totalPossibleNights = totalRooms * duration
-    const currentNights = calculateNights(currentReservations, current, currentEnd)
-    const previousNights = calculateNights(previousReservations, previous, previousEnd)
-
-    const currentRate = Math.round((currentNights / totalPossibleNights) * 10000) / 100
-    const previousRate = Math.round((previousNights / totalPossibleNights) * 10000) / 100
+    const currentRate = currentNetNights > 0
+      ? Math.round((currentData.occupiedNights / currentNetNights) * 10000) / 100
+      : 0
+    const previousRate = previousNetNights > 0
+      ? Math.round((previousData.occupiedNights / previousNetNights) * 10000) / 100
+      : 0
     const difference = Math.round((currentRate - previousRate) * 100) / 100
 
     // Calcul correct du pourcentage de variation
     let variationPercentage = 0
 
     if (previousRate === 0) {
-      // Si la période précédente était à 0%, toute occupation actuelle est une amélioration
       if (currentRate > 0) {
-        variationPercentage = 100 // Amélioration de 100% depuis 0
+        variationPercentage = 100
       }
     } else {
-      // Calcul classique du pourcentage de variation
       variationPercentage = Math.round(((currentRate - previousRate) / previousRate) * 10000) / 100
     }
 
@@ -141,10 +105,12 @@ export class HotelAnalyticsDashboardService {
     const now = DateTime.now()
     const year = now.year
 
-    // Nombre total de chambres
+    // Nombre total de chambres (hors paymaster et out_of_order)
     const totalRoomsResult = await Room
       .query()
       .where('hotel_id', serviceId)
+      .where('status', '!=', 'out_of_order')
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
       .count('* as total')
     const totalRooms = Number(totalRoomsResult[0].$extras.total || '0')
 
@@ -160,31 +126,11 @@ export class HotelAnalyticsDashboardService {
       const daysInMonth = start.daysInMonth!
       const totalPossibleNights = totalRooms * daysInMonth
 
-      const reservations = await Reservation
-        .query()
-        .where('hotel_id', serviceId)
-        .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
+      const data = await this.countNights(serviceId, start, end)
+      const netNights = totalPossibleNights - data.blockedNights
 
-      const occupiedNights = reservations.reduce((sum, res) => {
-        if (!res.arrivedDate || !res.departDate) return sum
-
-        const arrived = res.arrivedDate instanceof Date
-          ? DateTime.fromJSDate(res.arrivedDate)
-          : DateTime.fromISO(res.arrivedDate.toString())
-
-        const depart = res.departDate instanceof Date
-          ? DateTime.fromJSDate(res.departDate)
-          : DateTime.fromISO(res.departDate.toString())
-
-        const actualStart = arrived < start ? start : arrived
-        const actualEnd = depart > end ? end : depart
-
-        const nights = actualEnd.diff(actualStart, 'days').days
-        return sum + (nights > 0 ? nights : 0)
-      }, 0)
-
-      const occupancyRate = totalPossibleNights > 0
-        ? Math.round((occupiedNights / totalPossibleNights) * 10000) / 100
+      const occupancyRate = netNights > 0
+        ? Math.round((data.occupiedNights / netNights) * 10000) / 100
         : 0
 
       results.push({
@@ -216,76 +162,54 @@ export class HotelAnalyticsDashboardService {
     }
 
     const config = periodConfigs[period]
-    const current = config.start
-    const previous = current.minus(config.subtract)
-    const currentEnd = current.plus(config.subtract)
-    const previousEnd = previous.plus(config.subtract)
+    const currentStart = config.start
+    const previousStart = currentStart.minus(config.subtract)
+    const currentEnd = currentStart.plus(config.subtract)
+    const previousEnd = previousStart.plus(config.subtract)
 
-    // Vérification des chambres
-    const totalRoomsResult = await ServiceProduct.query()
-      .where('hotel_id', serviceId)
-      .count('* as total')
+    // Calcul de l'ADR à partir des ReservationRoom
+    const calculateADR = async (start: DateTime, end: DateTime): Promise<number> => {
+      const startStr = start.toISODate()
+      const endStr = end.toISODate()
+      if (!startStr || !endStr) return 0
 
-    if (Number(totalRoomsResult[0].$extras.total || '0') === 0) {
-      throw new Error('Aucune chambre trouvée pour ce service')
-    }
-
-    // Récupération des réservations
-    const getReservations = (start: DateTime, end: DateTime) =>
-      Reservation.query()
+      const rooms = await ReservationRoom
+        .query()
         .where('hotel_id', serviceId)
-        .where('status', 'confirmed')
-        .whereBetween('arrivedDate', [start.toFormat('yyyy-MM-dd'), end.toFormat('yyyy-MM-dd')])
+        .whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+        .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+        .where('check_in_date', '<', endStr)    // chevauchement : check_in < fin_période
+        .where('check_out_date', '>', startStr)  // et check_out > début_période
+        .select('check_in_date', 'check_out_date', 'room_rate')
 
-    const [currentReservations, previousReservations] = await Promise.all([
-      getReservations(current, currentEnd),
-      getReservations(previous, previousEnd)
-    ])
-
-    // Calcul de l'ADR
-    const calculateADR = (reservations: Reservation[], start: DateTime, end: DateTime) => {
       let totalRevenue = 0
       let totalNights = 0
 
-      for (const res of reservations) {
-        if (!res.arrivedDate || !res.departDate || !res.totalAmount) continue
+      for (const room of rooms) {
+        const checkIn = room.checkInDate
+        const checkOut = room.checkOutDate
+        const roomRate = Number(room.roomRate || 0)
 
-        // Normalisation des dates
-        const arrivalDate = res.arrivedDate instanceof Date
-          ? DateTime.fromJSDate(res.arrivedDate)
-          : typeof res.arrivedDate === 'string'
-            ? DateTime.fromISO(res.arrivedDate)
-            : res.arrivedDate as DateTime
+        if (!checkIn || !checkOut || roomRate <= 0) continue
 
-        const departDate = res.departDate instanceof Date
-          ? DateTime.fromJSDate(res.departDate)
-          : typeof res.departDate === 'string'
-            ? DateTime.fromISO(res.departDate)
-            : res.departDate as DateTime
+        // Dates de la tranche qui tombe dans la période
+        const overlapStart = checkIn < start ? start : checkIn
+        const overlapEnd = checkOut > end ? end : checkOut
+        const nightsInPeriod = overlapEnd.diff(overlapStart, 'days').days
 
-        if (!arrivalDate.isValid || !departDate.isValid) continue
-
-        // Calcul des nuits dans la période
-        const actualStart = arrivalDate < start ? start : arrivalDate
-        const actualEnd = departDate > end ? end : departDate
-        const nights = actualEnd.diff(actualStart, 'days').days
-
-        if (nights > 0) {
-          const totalStayNights = departDate.diff(arrivalDate, 'days').days
-          const proportionalRevenue = totalStayNights > 0
-            ? (Number(res.totalAmount) * nights) / totalStayNights
-            : Number(res.totalAmount)
-
-          totalRevenue += proportionalRevenue
-          totalNights += nights
+        if (nightsInPeriod > 0) {
+          totalRevenue += roomRate * nightsInPeriod
+          totalNights += nightsInPeriod
         }
       }
 
       return totalNights > 0 ? Math.round((totalRevenue / totalNights) * 100) / 100 : 0
     }
 
-    const currentADR = calculateADR(currentReservations, current, currentEnd)
-    const previousADR = calculateADR(previousReservations, previous, previousEnd)
+    const [currentADR, previousADR] = await Promise.all([
+      calculateADR(currentStart, currentEnd),
+      calculateADR(previousStart, previousEnd),
+    ])
 
     // Calcul de la variation
     const variationPercentage = previousADR === 0
@@ -570,6 +494,64 @@ public static async getYearlyRevenueStats(serviceId: number, year: number): Prom
 
   return revenueByMonth;
 }
+
+  /**
+   * Calcule le total des chambres occupées ET bloquées jour par jour sur une période
+   */
+  private static async countNights(
+    serviceId: number, start: DateTime, end: DateTime
+  ): Promise<{ occupiedNights: number; blockedNights: number }> {
+    let occupiedNights = 0
+    let blockedNights = 0
+    let cursor = start
+    while (cursor < end) {
+      const [occ, blk] = await Promise.all([
+        HotelAnalyticsDashboardService.countOccupiedForDate(serviceId, cursor),
+        HotelAnalyticsDashboardService.countBlockedForDate(serviceId, cursor),
+      ])
+      occupiedNights += occ
+      blockedNights += blk
+      cursor = cursor.plus({ days: 1 })
+    }
+    return { occupiedNights, blockedNights }
+  }
+
+  /**
+   * Compte les chambres occupées pour une date donnée
+   */
+  private static async countOccupiedForDate(serviceId: number, date: DateTime): Promise<number> {
+    const dateStr = date.toISODate()
+    if (!dateStr) return 0
+    const result = await ReservationRoom
+      .query()
+      .where('hotel_id', serviceId)
+      .whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+      .where('check_in_date', '<=', dateStr)
+      .where('check_out_date', '>', dateStr)
+      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+      .count('* as count')
+    return Number(result[0].$extras.count || '0')
+  }
+
+  /**
+   * Compte les chambres bloquées pour une date donnée
+   */
+  private static async countBlockedForDate(serviceId: number, date: DateTime): Promise<number> {
+    const dateStr = date.toISODate()
+    if (!dateStr) return 0
+    const result = await RoomBlock
+      .query()
+      .where('hotel_id', serviceId)
+      .whereNot('status', 'completed')
+      .where('block_from_date', '<=', dateStr)
+      .where('block_to_date', '>=', dateStr)
+      .whereHas('room', (roomQuery) => {
+        roomQuery.where('status', '!=', 'out_of_order')
+        roomQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      })
+      .countDistinct('room_id as total')
+    return Number(result[0].$extras.total || '0')
+  }
 }
 
 
