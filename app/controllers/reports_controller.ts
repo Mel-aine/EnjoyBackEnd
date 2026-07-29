@@ -1861,12 +1861,19 @@ export default class ReportsController {
 
       if (auditDetails && auditDetails.nightAuditReportData) {
           sectionsData = auditDetails.nightAuditReportData
+        const roomTypeStats = await this.getRoomTypeStatsData(Number(hotelId), reportDate, currency)
+        const ratiosCA = await this.getRatiosCAData(Number(hotelId), reportDate, currency)
         const managementOccupancyRate = (auditDetails as any).managerReportData?.statistics?.occupancyRate
+        sectionsData = {
+          ...sectionsData,
+          roomTypeStats,
+          ratiosCA,
+        }
         if (managementOccupancyRate) {
           sectionsData = {
             ...sectionsData,
             occupancyRate: this.buildNightAuditGlobalOccupancyRate(
-              sectionsData.roomTypeStats,
+              roomTypeStats,
               managementOccupancyRate
             ),
           }
@@ -2033,6 +2040,191 @@ export default class ReportsController {
         Number(totalAvailableRoomNights.ytd || 0)
       ),
     }
+  }
+
+  private async getAlignedNightAuditOccupancyByRoomType(hotelId: number, reportDate: DateTime) {
+    const { default: Room } = await import('#models/room')
+    const { default: Reservation } = await import('#models/reservation')
+    const { default: RoomBlock } = await import('#models/room_block')
+
+    const roomTypes = await RoomType.query()
+      .where('hotel_id', hotelId)
+      .where('is_paymaster', false)
+      .where('is_deleted', false)
+      .orderBy('sort_order', 'asc')
+
+    const roomTypeIds = roomTypes.map((rt) => rt.id)
+    if (roomTypeIds.length === 0) {
+      return {
+        byRoomType: {},
+        totals: {
+          ptd: { available: 0, occupied: 0, vacant: 0, rate: 0 },
+          ytd: { available: 0, occupied: 0, vacant: 0, rate: 0 },
+        },
+      }
+    }
+
+    const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+    const ptdStartDate = reportDate.startOf('month')
+    const ytdStartDate = reportDate.startOf('year')
+    const reportDateIso = reportDate.toISODate()
+    const ptdDate = ptdStartDate.toISODate()
+    const ytdDate = ytdStartDate.toISODate()
+
+    const getOverlapDays = (start: string, end: string, rangeStart: string, rangeEnd: string) => {
+      if (!start || !end || !rangeStart || !rangeEnd) return 0
+      const s = start > rangeStart ? start : rangeStart
+      const e = end < rangeEnd ? end : rangeEnd
+      if (s > e) return 0
+      return Math.floor((new Date(e).getTime() - new Date(s).getTime()) / 86_400_000) + 1
+    }
+
+    const [rooms, blocks, reservations] = await Promise.all([
+      Room.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .whereIn('room_type_id', roomTypeIds),
+
+      RoomBlock.query()
+        .where('hotel_id', hotelId)
+        .where('block_from_date', '<=', fmt(reportDate))
+        .where('block_to_date', '>=', fmt(ytdStartDate))
+        .whereIn('room_type_id', roomTypeIds),
+
+      Reservation.query()
+        .where('hotel_id', hotelId)
+        .where((q) => {
+          q.where('depart_date', '>=', fmt(ytdStartDate)).orWhereRaw('DATE(updated_at) >= ?', [
+            fmt(ytdStartDate),
+          ])
+        })
+        .whereHas('reservationRooms', (rrQuery) => {
+          rrQuery.whereIn('room_type_id', roomTypeIds)
+        })
+        .preload('reservationRooms', (rrQuery) => {
+          rrQuery.preload('room', (roomQuery) => {
+            roomQuery.preload('roomType')
+          })
+        }),
+    ])
+
+    const statsByRoomType: Record<number, any> = {}
+    for (const rt of roomTypes) {
+      statsByRoomType[rt.id] = {
+        totalRooms: 0,
+        blocked: { today: 0, ptd: 0, ytd: 0 },
+        sold: { today: 0, ptd: 0, ytd: 0 },
+        comp: { today: 0, ptd: 0, ytd: 0 },
+      }
+    }
+
+    for (const room of rooms as any[]) {
+      const roomTypeId = Number(room.roomTypeId || room.room_type_id || 0)
+      if (statsByRoomType[roomTypeId]) {
+        statsByRoomType[roomTypeId].totalRooms += 1
+      }
+    }
+
+    if (reportDateIso && ptdDate && ytdDate) {
+      for (const block of blocks as any[]) {
+        const roomTypeId = Number(block.roomTypeId || block.room_type_id || 0)
+        const stats = statsByRoomType[roomTypeId]
+        if (!stats) continue
+
+        const from = block.blockFromDate?.toISODate?.() ?? ''
+        const to = block.blockToDate?.toISODate?.() ?? ''
+        if (!from || !to) continue
+
+        if (from <= reportDateIso && to >= reportDateIso) {
+          stats.blocked.today += 1
+        }
+        stats.blocked.ptd += getOverlapDays(from, to, ptdDate, reportDateIso)
+        stats.blocked.ytd += getOverlapDays(from, to, ytdDate, reportDateIso)
+      }
+
+      for (const reservation of reservations as any[]) {
+        if (!isActiveOccupancyStatus(reservation.status)) continue
+
+        const reservationRooms: any[] = Array.isArray(reservation.reservationRooms)
+          ? reservation.reservationRooms
+          : []
+
+        for (const rr of reservationRooms) {
+          const roomTypeId = Number(rr?.roomTypeId || rr?.room?.roomTypeId || rr?.room?.roomType?.id || 0)
+          const stats = statsByRoomType[roomTypeId]
+          if (!stats) continue
+          if (!(rr?.roomId || rr?.room?.id)) continue
+          if (rr?.room?.roomType?.isPaymaster) continue
+
+          const checkIn = rr.checkInDate?.toISODate?.() ?? ''
+          const checkOut = rr.checkOutDate?.toISODate?.() ?? ''
+          if (!checkIn || !checkOut) continue
+          if (checkIn === checkOut) continue
+
+          const stayEnd = DateTime.fromISO(checkOut).minus({ days: 1 }).toISODate()
+          if (!stayEnd) continue
+
+          const daysToday = getOverlapDays(checkIn, stayEnd, reportDateIso, reportDateIso)
+          const daysPTD = getOverlapDays(checkIn, stayEnd, ptdDate, reportDateIso)
+          const daysYTD = getOverlapDays(checkIn, stayEnd, ytdDate, reportDateIso)
+
+          const bucket = reservation.complimentaryRoom ? stats.comp : stats.sold
+          bucket.today += daysToday
+          bucket.ptd += daysPTD
+          bucket.ytd += daysYTD
+        }
+      }
+    }
+
+    const monthDays =
+      Math.abs(ptdStartDate.diff(reportDate.startOf('day'), 'days').days) + 1
+    const yearDays =
+      Math.abs(ytdStartDate.diff(reportDate.startOf('day'), 'days').days) + 1
+    const roundRate = (occupied: number, available: number) =>
+      available > 0 ? Math.round((occupied / available) * 100 * 100) / 100 : 0
+
+    const byRoomType: Record<number, any> = {}
+    const totals = {
+      ptd: { available: 0, occupied: 0, vacant: 0, rate: 0 },
+      ytd: { available: 0, occupied: 0, vacant: 0, rate: 0 },
+    }
+
+    for (const rt of roomTypes) {
+      const stats = statsByRoomType[rt.id]
+      const occupiedMonth = stats.sold.ptd + stats.comp.ptd
+      const occupiedYear = stats.sold.ytd + stats.comp.ytd
+      const availableMonth = Math.max(0, stats.totalRooms * monthDays - stats.blocked.ptd)
+      const availableYear = Math.max(0, stats.totalRooms * yearDays - stats.blocked.ytd)
+      const vacantMonth = Math.max(0, availableMonth - occupiedMonth)
+      const vacantYear = Math.max(0, availableYear - occupiedYear)
+
+      byRoomType[rt.id] = {
+        ptd: {
+          available: availableMonth,
+          occupied: occupiedMonth,
+          vacant: vacantMonth,
+          rate: roundRate(occupiedMonth, availableMonth),
+        },
+        ytd: {
+          available: availableYear,
+          occupied: occupiedYear,
+          vacant: vacantYear,
+          rate: roundRate(occupiedYear, availableYear),
+        },
+      }
+
+      totals.ptd.available += availableMonth
+      totals.ptd.occupied += occupiedMonth
+      totals.ptd.vacant += vacantMonth
+      totals.ytd.available += availableYear
+      totals.ytd.occupied += occupiedYear
+      totals.ytd.vacant += vacantYear
+    }
+
+    totals.ptd.rate = roundRate(totals.ptd.occupied, totals.ptd.available)
+    totals.ytd.rate = roundRate(totals.ytd.occupied, totals.ytd.available)
+
+    return { byRoomType, totals }
   }
 
   //  Statistiques d'occupation groupées par type de chambre
@@ -2388,12 +2580,53 @@ export default class ReportsController {
       avail > 0 ? +((occ / avail) * 100).toFixed(2) : 0
 
 
+    const alignedOccupancy = await this.getAlignedNightAuditOccupancyByRoomType(hotelId, reportDate)
+    const alignedRows = rows.map((row) => {
+      const aligned = alignedOccupancy?.byRoomType?.[row.roomTypeId]
+      if (!aligned) return row
+
+      return {
+        ...row,
+        disponibles: {
+          ...row.disponibles,
+          month: aligned.ptd.available,
+          year: aligned.ytd.available,
+        },
+        month: {
+          ...row.month,
+          occupied: aligned.ptd.occupied,
+          vacant: aligned.ptd.vacant,
+        },
+        year: {
+          ...row.year,
+          occupied: aligned.ytd.occupied,
+          vacant: aligned.ytd.vacant,
+        },
+      }
+    })
+
+    const alignedTotals = {
+      ...totals,
+      month: {
+        ...totals.month,
+        disponibles: alignedOccupancy?.totals?.ptd?.available ?? totals.month.disponibles,
+        occupied: alignedOccupancy?.totals?.ptd?.occupied ?? totals.month.occupied,
+        vacant: alignedOccupancy?.totals?.ptd?.vacant ?? totals.month.vacant,
+      },
+      year: {
+        ...totals.year,
+        disponibles: alignedOccupancy?.totals?.ytd?.available ?? totals.year.disponibles,
+        occupied: alignedOccupancy?.totals?.ytd?.occupied ?? totals.year.occupied,
+        vacant: alignedOccupancy?.totals?.ytd?.vacant ?? totals.year.vacant,
+      },
+    }
+
     return {
-      rows,
-      totals,
+      rows: alignedRows,
+      totals: alignedTotals,
       toDay:   toRate(totals.day.occupied,   totals.day.disponibles),
-      toMonth: toRate(totals.month.occupied, totals.month.disponibles),
-      toYear:  toRate(totals.year.occupied,  totals.year.disponibles),
+      toMonth: alignedOccupancy?.totals?.ptd?.rate ?? toRate(alignedTotals.month.occupied, alignedTotals.month.disponibles),
+      toYear:  alignedOccupancy?.totals?.ytd?.rate ?? toRate(alignedTotals.year.occupied, alignedTotals.year.disponibles),
     }
   }
 
@@ -2778,7 +3011,42 @@ export default class ReportsController {
   )
 
 
-  return { day: globalDay, month: globalMonth, year: globalYear, byRoomType }
+  const alignedOccupancy = await this.getAlignedNightAuditOccupancyByRoomType(hotelId, reportDate)
+
+  const alignedByRoomType: Record<number, { day: any; month: any; year: any; roomTypeName: string }> = {}
+  for (const [roomTypeId, stats] of Object.entries(byRoomType)) {
+    const aligned = alignedOccupancy?.byRoomType?.[Number(roomTypeId)]
+    alignedByRoomType[Number(roomTypeId)] = aligned
+      ? {
+          ...stats,
+          month: {
+            ...stats.month,
+            or: aligned.ptd.rate,
+            vr: Math.max(0, Math.round((100 - aligned.ptd.rate) * 100) / 100),
+          },
+          year: {
+            ...stats.year,
+            or: aligned.ytd.rate,
+            vr: Math.max(0, Math.round((100 - aligned.ytd.rate) * 100) / 100),
+          },
+        }
+      : stats
+  }
+
+  return {
+    day: globalDay,
+    month: {
+      ...globalMonth,
+      or: alignedOccupancy?.totals?.ptd?.rate ?? globalMonth.or,
+      vr: Math.max(0, Math.round((100 - (alignedOccupancy?.totals?.ptd?.rate ?? globalMonth.or)) * 100) / 100),
+    },
+    year: {
+      ...globalYear,
+      or: alignedOccupancy?.totals?.ytd?.rate ?? globalYear.or,
+      vr: Math.max(0, Math.round((100 - (alignedOccupancy?.totals?.ytd?.rate ?? globalYear.or)) * 100) / 100),
+    },
+    byRoomType: alignedByRoomType,
+  }
 }
 
 private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTime) {
