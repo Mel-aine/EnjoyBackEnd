@@ -1861,6 +1861,16 @@ export default class ReportsController {
 
       if (auditDetails && auditDetails.nightAuditReportData) {
           sectionsData = auditDetails.nightAuditReportData
+        const managementOccupancyRate = (auditDetails as any).managerReportData?.statistics?.occupancyRate
+        if (managementOccupancyRate) {
+          sectionsData = {
+            ...sectionsData,
+            occupancyRate: this.buildNightAuditGlobalOccupancyRate(
+              sectionsData.roomTypeStats,
+              managementOccupancyRate
+            ),
+          }
+        }
         if (!sectionsData.creditLedger) {
           sectionsData.creditLedger = await this.getCreditLedgerNightAuditData(
             Number(hotelId),
@@ -1946,7 +1956,8 @@ export default class ReportsController {
       posSummary,
       posPayment,
       payload,
-      creditLedger
+      creditLedger,
+      managementRoomSummary
     ] = await Promise.all([
       this.getRoomTypeStatsData(hotelId, reportDate, currency),
       this.getRatiosCAData(hotelId, reportDate, currency),
@@ -1958,8 +1969,15 @@ export default class ReportsController {
       this.getManagementPosPaymentSummaryData(hotelId, reportDate),
       this.getPosNightAuditPayload(hotelId, reportDate),
       this.getCreditLedgerNightAuditData(hotelId, reportDate),
+      this.getManagementRoomSummaryData(hotelId, reportDate),
     ])
     const otherRevenues = this.buildOtherRevenuesFromPos(posSummary)
+    const managementOccupancyRate =
+      this.getManagementOccupancyRateFromRoomSummary(managementRoomSummary)
+    const occupancyRate = this.buildNightAuditGlobalOccupancyRate(
+      roomTypeStats,
+      managementOccupancyRate
+    )
 
     // extract breakfast counter (fallback to zeros if the POS didn't supply it)
     const petitDejeuner = payload?.petitDejeuner ?? { today: 0, ptd: 0, ytd: 0 }
@@ -1974,8 +1992,46 @@ export default class ReportsController {
       posSummary,
       posPayment,
       petitDejeuner,
+      occupancyRate,
       otherRevenues,
       creditLedger
+    }
+  }
+
+  private buildNightAuditGlobalOccupancyRate(roomTypeStats: any, managementOccupancyRate: any) {
+    return {
+      today: Number(roomTypeStats?.toDay ?? managementOccupancyRate?.today ?? 0),
+      ptd: Number(managementOccupancyRate?.ptd ?? roomTypeStats?.toMonth ?? 0),
+      ytd: Number(managementOccupancyRate?.ytd ?? roomTypeStats?.toYear ?? 0),
+    }
+  }
+
+  private getManagementOccupancyRateFromRoomSummary(roomSummary: any) {
+    const totalAvailableRoomNights = roomSummary?.totalAvailableRoomNights || {
+      today: 0,
+      ptd: 0,
+      ytd: 0,
+    }
+    const soldRooms = roomSummary?.soldRoom || { today: 0, ptd: 0, ytd: 0 }
+    const complimentaryRooms = roomSummary?.complimentaryRoom || { today: 0, ptd: 0, ytd: 0 }
+
+    const round = (value: number) => Math.round(value * 100) / 100
+    const rate = (occupied: number, available: number) =>
+      available > 0 ? round((occupied / available) * 100) : 0
+
+    return {
+      today: rate(
+        Number(soldRooms.today || 0) + Number(complimentaryRooms.today || 0),
+        Number(totalAvailableRoomNights.today || 0)
+      ),
+      ptd: rate(
+        Number(soldRooms.ptd || 0) + Number(complimentaryRooms.ptd || 0),
+        Number(totalAvailableRoomNights.ptd || 0)
+      ),
+      ytd: rate(
+        Number(soldRooms.ytd || 0) + Number(complimentaryRooms.ytd || 0),
+        Number(totalAvailableRoomNights.ytd || 0)
+      ),
     }
   }
 
@@ -4553,9 +4609,22 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     }
     const fd = (v: number | null | undefined) => Math.round(Number(v ?? 0)).toString()
 
-    const { roomTypeStats, ratiosCA, encaissements, otherRevenues, petitDejeuner,creditLedger } = sectionsData
+    const {
+      roomTypeStats,
+      ratiosCA,
+      encaissements,
+      otherRevenues,
+      petitDejeuner,
+      creditLedger,
+      occupancyRate,
+    } = sectionsData
     const pd = petitDejeuner ?? { today: 0, ptd: 0, ytd: 0 }
     const ra = ratiosCA ?? { day: {}, month: {}, year: {} }
+    const or = occupancyRate ?? {
+      today: roomTypeStats?.toDay ?? 0,
+      ptd: roomTypeStats?.toMonth ?? 0,
+      ytd: roomTypeStats?.toYear ?? 0,
+    }
     const emptyPeriod = { creditLedgerPayment: 0, creditLedgerTransfer: 0, total: 0 }
     const cl = creditLedger ?? { day: emptyPeriod, month: emptyPeriod, year: emptyPeriod }
     const clDay   = cl.day   ?? emptyPeriod
@@ -4768,9 +4837,9 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   <tr class="rt-head"><td colspan="4">GLOBAL REVENUE</td></tr>
   <tr class="total-row">
     <td class="lbl">Occupancy Rate (O.R)</td>
-    <td class="num">${fp(roomTypeStats?.toDay)}</td>
-    <td class="num">${fp(roomTypeStats?.toMonth)}</td>
-    <td class="num">${fp(roomTypeStats?.toYear)}</td>
+    <td class="num">${fp(or.today)}</td>
+    <td class="num">${fp(or.ptd)}</td>
+    <td class="num">${fp(or.ytd)}</td>
   </tr>
   <tr class="total-row">
     <td class="lbl">Total Revenue excl. tax</td>
