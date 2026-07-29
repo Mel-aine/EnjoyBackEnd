@@ -2,7 +2,6 @@ import Reservation from '#models/reservation'
 import { DateTime } from 'luxon'
 import Room from '#models/room'
 import RoomBlock from '#models/room_block'
-import logger from '@adonisjs/core/services/logger'
 import ReservationsController from '../controllers/reservations_controller.js'
 
 export class HotelAnalyticsService {
@@ -35,6 +34,362 @@ export class HotelAnalyticsService {
     ]
 
     return womenTitles.includes(title.toLowerCase().trim())
+  }
+
+  private static buildDailyOccupancyContext(allRooms: any[]) {
+    const totalRooms = allRooms.filter((rm) => !rm.roomType?.isPaymaster).length
+    const roomTypes = Array.from(
+      new Map(allRooms.filter((r) => r.roomType).map((r) => [r.roomType!.id, r.roomType!])).values()
+    ).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+    const roomTypeByRoomId = new Map<number, number>()
+    const roomsByTypeTotal = new Map<number, number>()
+    const staticBlockedOrOO = new Set<number>()
+    const staticDirtyOrCleaning = new Set<number>()
+
+    for (const room of allRooms) {
+      if (room.roomTypeId) {
+        roomTypeByRoomId.set(room.id, room.roomTypeId)
+        roomsByTypeTotal.set(room.roomTypeId, (roomsByTypeTotal.get(room.roomTypeId) || 0) + 1)
+      }
+      if (
+        room.status === 'blocked' ||
+        room.status === 'out_of_order' ||
+        room.status === 'maintenance' ||
+        room.housekeepingStatus === 'out_of_order'
+      ) {
+        staticBlockedOrOO.add(room.id)
+      }
+      if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
+        staticDirtyOrCleaning.add(room.id)
+      }
+    }
+
+    const staticExcludedByTypeCount = new Map<number, number>()
+    for (const roomId of staticBlockedOrOO) {
+      const typeId = roomTypeByRoomId.get(roomId)
+      if (typeId !== undefined) {
+        staticExcludedByTypeCount.set(typeId, (staticExcludedByTypeCount.get(typeId) || 0) + 1)
+      }
+    }
+
+    return {
+      totalRooms,
+      roomTypes,
+      roomTypeByRoomId,
+      roomsByTypeTotal,
+      staticBlockedOrOO,
+      staticDirtyOrCleaning,
+      staticExcludedByTypeCount,
+    }
+  }
+
+  private static buildDailyOccupancyMetrics(params: {
+    startDate: DateTime
+    endDate: DateTime
+    reservations: any[]
+    roomBlocks: any[]
+    totalRooms: number
+    roomTypes: any[]
+    roomTypeByRoomId: Map<number, number>
+    roomsByTypeTotal: Map<number, number>
+    staticBlockedOrOO: Set<number>
+    staticDirtyOrCleaning: Set<number>
+    staticExcludedByTypeCount: Map<number, number>
+  }) {
+    const {
+      startDate,
+      endDate,
+      reservations,
+      roomBlocks,
+      totalRooms,
+      roomTypes,
+      roomTypeByRoomId,
+      roomsByTypeTotal,
+      staticBlockedOrOO,
+      staticDirtyOrCleaning,
+      staticExcludedByTypeCount,
+    } = params
+
+    const dailyMetrics = []
+    for (let dt = startDate; dt <= endDate; dt = dt.plus({ days: 1 })) {
+      const currentDate = dt
+
+      const activeReservationsForDay = reservations.filter(
+        (r) => r.arrivedDate && r.departDate && r.arrivedDate <= currentDate && r.departDate > currentDate
+      )
+
+      const occupiedRoomIds = new Set<number>()
+      let unassignedReservationsCount = 0
+      let occupiedEffCount = 0
+
+      for (const reservation of activeReservationsForDay) {
+        let isAssignedForToday = false
+        if (reservation.reservationRooms.length > 0) {
+          const currentDateStr = currentDate.toISODate()!
+          const coversToday = (rr: any) => {
+            const ci = rr.checkInDate ? rr.checkInDate.toISODate() : ''
+            const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : ''
+            return !!ci && !!co && ci <= currentDateStr && co > currentDateStr
+          }
+          const normalCount = reservation.reservationRooms.filter(
+            (rr: any) => coversToday(rr) && rr.roomId && !rr.roomType?.isPaymaster
+          ).length
+          occupiedEffCount += normalCount
+          for (const rsp of reservation.reservationRooms) {
+            if (rsp.roomId && coversToday(rsp)) {
+              occupiedRoomIds.add(rsp.roomId)
+              isAssignedForToday = true
+            }
+          }
+
+          if (!isAssignedForToday) {
+            unassignedReservationsCount++
+          }
+        }
+      }
+
+      const blockedRoomIds = new Set<number>()
+      const currentDateStr = currentDate.toFormat('yyyy-MM-dd')
+      roomBlocks.forEach((block) => {
+        const fromStr = (block.blockFromDate as any)?.toFormat
+          ? (block.blockFromDate as any).toFormat('yyyy-MM-dd')
+          : String(block.blockFromDate)
+        const toStr = (block.blockToDate as any)?.toFormat
+          ? (block.blockToDate as any).toFormat('yyyy-MM-dd')
+          : String(block.blockToDate)
+        if (fromStr && toStr && fromStr <= currentDateStr && toStr >= currentDateStr) {
+          const roomId = block.room?.id || block.roomId
+          if (roomId) blockedRoomIds.add(roomId)
+        }
+      })
+
+      const netTotalRooms = Math.max(0, totalRooms - blockedRoomIds.size)
+      const occupancyRate = netTotalRooms > 0 ? (occupiedEffCount / netTotalRooms) * 100 : 0
+
+      const availableRoomsByType: {
+        [key: number]: { room_type_id: number; room_type_name: string; available_count: number }
+      } = {}
+
+      roomTypes.forEach((roomType) => {
+        const baseAvailable =
+          (roomsByTypeTotal.get(roomType.id) || 0) -
+          (staticExcludedByTypeCount.get(roomType.id) || 0)
+        availableRoomsByType[roomType.id] = {
+          room_type_id: roomType.id,
+          room_type_name: roomType.roomTypeName,
+          available_count: baseAvailable,
+        }
+      })
+
+      const reservedRoomIds = new Set<number>()
+      activeReservationsForDay.forEach((reservation) => {
+        reservation.reservationRooms.forEach((rr: any) => {
+          if (rr.roomId) {
+            reservedRoomIds.add(rr.roomId)
+          }
+        })
+      })
+
+      reservedRoomIds.forEach((roomId) => {
+        const typeId = roomTypeByRoomId.get(roomId)
+        if (typeId !== undefined && availableRoomsByType[typeId]) {
+          availableRoomsByType[typeId].available_count = Math.max(
+            0,
+            availableRoomsByType[typeId].available_count - 1
+          )
+        }
+      })
+
+      blockedRoomIds.forEach((roomId) => {
+        const typeId = roomTypeByRoomId.get(roomId)
+        if (typeId !== undefined && availableRoomsByType[typeId]) {
+          availableRoomsByType[typeId].available_count = Math.max(
+            0,
+            availableRoomsByType[typeId].available_count - 1
+          )
+        }
+      })
+
+      const unassignedRoomReservationsByType: {
+        [key: string]: {
+          room_type_id: number | null
+          room_type_name: string
+          unassigned_count: number
+          unassigned_reservations: Reservation[]
+        }
+      } = {}
+
+      roomTypes.forEach((roomType) => {
+        unassignedRoomReservationsByType[roomType.id] = {
+          room_type_id: roomType.id,
+          room_type_name: roomType.roomTypeName,
+          unassigned_count: 0,
+          unassigned_reservations: [],
+        }
+      })
+
+      activeReservationsForDay.forEach((reservation) => {
+        reservation.reservationRooms.forEach((rr: any) => {
+          if (!rr.roomId && rr.roomTypeId) {
+            const roomTypeId = rr.roomTypeId
+            if (unassignedRoomReservationsByType[roomTypeId]) {
+              unassignedRoomReservationsByType[roomTypeId].unassigned_count++
+              const existingReservation = unassignedRoomReservationsByType[
+                roomTypeId
+              ].unassigned_reservations.find((r) => r.id === reservation.id)
+              if (!existingReservation) {
+                unassignedRoomReservationsByType[roomTypeId].unassigned_reservations.push(
+                  reservation
+                )
+              }
+            }
+          }
+        })
+      })
+
+      const checkingOutToday = reservations.filter(
+        (r) => r.departDate?.hasSame(currentDate, 'day') && r.status === 'checked_in'
+      )
+      const arrivingToday = reservations.filter(
+        (r) => r.arrivedDate?.hasSame(currentDate, 'day') && r.status === 'confirmed'
+      )
+
+      const dueOutRooms = new Set<number>()
+      checkingOutToday.forEach((r) => {
+        r.reservationRooms.forEach((rr: any) => {
+          if (rr.roomId) dueOutRooms.add(rr.roomId)
+        })
+      })
+
+      const arrivingRooms = new Set<number>()
+      arrivingToday.forEach((r) => {
+        r.reservationRooms.forEach((rr: any) => {
+          if (rr.roomId) arrivingRooms.add(rr.roomId)
+        })
+      })
+
+      const blockedSet = new Set<number>(blockedRoomIds)
+      staticBlockedOrOO.forEach((id) => blockedSet.add(id))
+
+      const roomStatusStats = {
+        all: totalRooms,
+        vacant: 0,
+        occupied: occupiedEffCount,
+        reserved: 0,
+        blocked: 0,
+        dueOut: 0,
+        dirty: 0,
+      }
+
+      dueOutRooms.forEach((id) => {
+        if (occupiedRoomIds.has(id)) roomStatusStats.dueOut++
+      })
+
+      arrivingRooms.forEach((id) => {
+        if (!occupiedRoomIds.has(id)) roomStatusStats.reserved++
+      })
+
+      blockedSet.forEach((id) => {
+        if (!occupiedRoomIds.has(id) && !arrivingRooms.has(id)) roomStatusStats.blocked++
+      })
+
+      staticDirtyOrCleaning.forEach((id) => {
+        if (!occupiedRoomIds.has(id) && !arrivingRooms.has(id) && !blockedSet.has(id)) {
+          roomStatusStats.dirty++
+        }
+      })
+
+      roomStatusStats.vacant = Math.max(
+        0,
+        totalRooms -
+          roomStatusStats.occupied -
+          roomStatusStats.reserved -
+          roomStatusStats.blocked -
+          roomStatusStats.dirty
+      )
+
+      dailyMetrics.push({
+        date: currentDate.toISODate(),
+        total_available_rooms: netTotalRooms,
+        occupancy_rate: parseFloat(occupancyRate.toFixed(0)),
+        allocated_rooms: occupiedEffCount,
+        unassigned_reservations: unassignedReservationsCount,
+        room_status_stats: roomStatusStats,
+        available_rooms_by_type: Object.values(availableRoomsByType),
+        unassigned_room_reservations_by_type: Object.values(unassignedRoomReservationsByType),
+      })
+    }
+
+    return dailyMetrics
+  }
+
+  public static async getDailyOccupancyMetrics(
+    hotelId: number,
+    startDate: DateTime,
+    endDate: DateTime
+  ) {
+    const roomsPromise = Room.query()
+      .select(['id', 'room_type_id', 'status', 'housekeeping_status'])
+      .where('hotel_id', hotelId)
+      .preload('roomType', (rtQuery) => {
+        rtQuery.select(['id', 'room_type_name', 'sort_order', 'max_adult', 'is_paymaster'])
+      })
+
+    const blocksPromise = RoomBlock.query()
+      .select(['room_id', 'block_from_date', 'block_to_date'])
+      .where('hotel_id', hotelId)
+      .where((query) => {
+        query
+          .whereBetween('block_from_date', [
+            startDate.toFormat('yyyy-MM-dd'),
+            endDate.toFormat('yyyy-MM-dd'),
+          ])
+          .orWhereBetween('block_to_date', [
+            startDate.toFormat('yyyy-MM-dd'),
+            endDate.toFormat('yyyy-MM-dd'),
+          ])
+          .orWhere((subQuery) => {
+            subQuery
+              .where('block_from_date', '<=', startDate.toFormat('yyyy-MM-dd'))
+              .andWhere('block_to_date', '>=', endDate.toFormat('yyyy-MM-dd'))
+          })
+      })
+      .preload('room', (roomQuery) => {
+        roomQuery.select(['id'])
+      })
+
+    const reservationsPromise = Reservation.query()
+      .select(['id', 'arrived_date', 'depart_date', 'status'])
+      .where('hotel_id', hotelId)
+      .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
+      .andWhere((query) => {
+        query.where('arrived_date', '<=', endDate.toISODate()!).andWhere('depart_date', '>=', startDate.toISODate()!)
+      })
+      .preload('reservationRooms', (rspQuery) => {
+        rspQuery
+          .select(['id', 'room_id', 'room_type_id', 'check_in_date', 'check_out_date'])
+          .preload('roomType', (rt) => rt.select(['id', 'is_paymaster']))
+      })
+
+    const [allRooms, roomBlocks, reservations] = await Promise.all([
+      roomsPromise,
+      blocksPromise,
+      reservationsPromise,
+    ])
+
+    const occupancyContext = this.buildDailyOccupancyContext(allRooms)
+    if (occupancyContext.totalRooms === 0) {
+      return []
+    }
+
+    return this.buildDailyOccupancyMetrics({
+      startDate,
+      endDate,
+      reservations,
+      roomBlocks,
+      ...occupancyContext,
+    })
   }
 
   public static async getDailyOccupancyAndReservations(
@@ -176,7 +531,16 @@ export class HotelAnalyticsService {
       reservationsPromise,
     ])
 
-    const totalRooms = allRooms.filter((rm)=>!rm.roomType?.isPaymaster).length
+    const occupancyContext = this.buildDailyOccupancyContext(allRooms)
+    const {
+      totalRooms,
+      roomTypes,
+      roomTypeByRoomId,
+      roomsByTypeTotal,
+      staticBlockedOrOO,
+      staticDirtyOrCleaning,
+      staticExcludedByTypeCount,
+    } = occupancyContext
 
     if (totalRooms === 0) {
       return {
@@ -185,278 +549,19 @@ export class HotelAnalyticsService {
       }
     }
 
-    // 2. Derive room types for the hotel and build fast indexes
-    const roomTypes = Array.from(
-      new Map(allRooms.filter((r) => r.roomType).map((r) => [r.roomType!.id, r.roomType!])).values()
-    ).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-
-    // Indexes for fast lookups
-    const roomTypeByRoomId = new Map<number, number>()
-    const roomsByTypeTotal = new Map<number, number>()
-    const staticBlockedOrOO = new Set<number>()
-    const staticDirtyOrCleaning = new Set<number>()
-
-    for (const room of allRooms) {
-      if (room.roomTypeId) {
-        roomTypeByRoomId.set(room.id, room.roomTypeId)
-        roomsByTypeTotal.set(room.roomTypeId, (roomsByTypeTotal.get(room.roomTypeId) || 0) + 1)
-      }
-      if (
-        room.status === 'blocked' ||
-        room.status === 'out_of_order' ||
-        room.status === 'maintenance' ||
-        room.housekeepingStatus === 'out_of_order'
-      ) {
-        staticBlockedOrOO.add(room.id)
-      }
-      if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'cleaning') {
-        staticDirtyOrCleaning.add(room.id)
-      }
-    }
-
-    const staticExcludedByTypeCount = new Map<number, number>()
-    for (const roomId of staticBlockedOrOO) {
-      const typeId = roomTypeByRoomId.get(roomId)
-      if (typeId !== undefined) {
-        staticExcludedByTypeCount.set(typeId, (staticExcludedByTypeCount.get(typeId) || 0) + 1)
-      }
-    }
-
-
-
-    // 4. Calculate daily occupancy metrics
-    const dailyMetrics = []
-    for (let dt = startDate; dt <= endDate; dt = dt.plus({ days: 1 })) {
-      const currentDate = dt
-
-      const activeReservationsForDay = reservations.filter(
-        (r) =>
-          r.arrivedDate &&
-          r.departDate &&
-          r.arrivedDate <= currentDate &&
-          r.departDate > currentDate
-      )
-
-      const occupiedRoomIds = new Set<number>()
-      let unassignedReservationsCount = 0
-      let occupiedEffCount = 0
-
-      for (const reservation of activeReservationsForDay) {
-        let isAssignedForToday = false
-        if (reservation.reservationRooms.length > 0) {
-          const currentDateStr = currentDate.toISODate()!
-          const coversToday = (rr: any) => {
-            const ci = rr.checkInDate ? rr.checkInDate.toISODate() : ''
-            const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : ''
-            return !!ci && !!co && ci <= currentDateStr && co > currentDateStr
-          }
-          const normalCount = reservation.reservationRooms.filter(
-            (rr: any) =>
-              coversToday(rr) &&
-              rr.roomId &&
-              !rr.roomType?.isPaymaster
-          ).length
-          occupiedEffCount += normalCount
-          for (const rsp of reservation.reservationRooms) {
-            if (rsp.roomId && coversToday(rsp)) {
-              occupiedRoomIds.add(rsp.roomId)
-              isAssignedForToday = true
-            }
-          }
-
-          if (!isAssignedForToday) {
-            logger.info(reservation)
-            unassignedReservationsCount++
-          }
-        }
-      }
-
-
-
-      // Get blocked room IDs for this specific date from preloaded blocks
-      const blockedRoomIds = new Set<number>()
-      const currentDateStr = currentDate.toFormat('yyyy-MM-dd')
-      roomBlocks.forEach((block) => {
-        const fromStr = (block.blockFromDate as any)?.toFormat
-          ? (block.blockFromDate as any).toFormat('yyyy-MM-dd')
-          : String(block.blockFromDate)
-        const toStr = (block.blockToDate as any)?.toFormat
-          ? (block.blockToDate as any).toFormat('yyyy-MM-dd')
-          : String(block.blockToDate)
-        if (fromStr && toStr && fromStr <= currentDateStr && toStr >= currentDateStr) {
-          if (block.room) {
-            blockedRoomIds.add(block.room.id)
-          }
-        }
-      })
-
-      const netTotalRooms = Math.max(0, totalRooms - blockedRoomIds.size)
-      const occupancyRate = netTotalRooms > 0 ? (occupiedEffCount / netTotalRooms) * 100 : 0
-
-      // Calculate available rooms per room type using precomputed totals
-      const availableRoomsByType: {
-        [key: number]: { room_type_id: number; room_type_name: string; available_count: number }
-      } = {}
-
-      roomTypes.forEach((roomType) => {
-        const baseAvailable =
-          (roomsByTypeTotal.get(roomType.id) || 0) -
-          (staticExcludedByTypeCount.get(roomType.id) || 0)
-        availableRoomsByType[roomType.id] = {
-          room_type_id: roomType.id,
-          room_type_name: roomType.roomTypeName,
-          available_count: baseAvailable,
-        }
-      })
-
-      // Get all room IDs that have reservations for this specific date (not just occupied)
-      const reservedRoomIds = new Set<number>()
-      activeReservationsForDay.forEach((reservation) => {
-        reservation.reservationRooms.forEach((rr) => {
-          if (rr.roomId) {
-            reservedRoomIds.add(rr.roomId)
-          }
-        })
-      })
-
-      // Subtract reserved and blocked from base availability per type
-      reservedRoomIds.forEach((roomId) => {
-        const typeId = roomTypeByRoomId.get(roomId)
-        if (typeId !== undefined && availableRoomsByType[typeId]) {
-          availableRoomsByType[typeId].available_count = Math.max(
-            0,
-            availableRoomsByType[typeId].available_count - 1
-          )
-        }
-      })
-
-      blockedRoomIds.forEach((roomId) => {
-        const typeId = roomTypeByRoomId.get(roomId)
-        if (typeId !== undefined && availableRoomsByType[typeId]) {
-          availableRoomsByType[typeId].available_count = Math.max(
-            0,
-            availableRoomsByType[typeId].available_count - 1
-          )
-        }
-      })
-
-      // Count unassigned room reservations by room type (reservation rooms without room assignment)
-      const unassignedRoomReservationsByType: {
-        [key: string]: {
-          room_type_id: number | null
-          room_type_name: string
-          unassigned_count: number
-          unassigned_reservations: Reservation[]
-        }
-      } = {}
-
-      // Initialize with all room types
-      roomTypes.forEach((roomType) => {
-        unassignedRoomReservationsByType[roomType.id] = {
-          room_type_id: roomType.id,
-          room_type_name: roomType.roomTypeName,
-          unassigned_count: 0,
-          unassigned_reservations: [],
-        }
-      })
-
-      // Count unassigned reservation rooms by their intended room type
-      activeReservationsForDay.forEach((reservation) => {
-        reservation.reservationRooms.forEach((rr) => {
-          if (!rr.roomId && rr.roomTypeId) {
-            const roomTypeId = rr.roomTypeId
-            if (unassignedRoomReservationsByType[roomTypeId]) {
-              unassignedRoomReservationsByType[roomTypeId].unassigned_count++
-              // Check if reservation is not already in the list
-              const existingReservation = unassignedRoomReservationsByType[
-                roomTypeId
-              ].unassigned_reservations.find((r) => r.id === reservation.id)
-              if (!existingReservation) {
-                unassignedRoomReservationsByType[roomTypeId].unassigned_reservations.push(
-                  reservation
-                )
-              }
-            }
-          }
-        })
-      })
-
-      // Calculate room status statistics using sets to avoid per-room scans
-      const checkingOutToday = reservations.filter(
-        (r) => r.departDate?.hasSame(currentDate, 'day') && r.status === 'checked_in'
-      )
-      const arrivingToday = reservations.filter(
-        (r) => r.arrivedDate?.hasSame(currentDate, 'day') && r.status === 'confirmed'
-      )
-
-      const dueOutRooms = new Set<number>()
-      checkingOutToday.forEach((r) => {
-        r.reservationRooms.forEach((rr) => {
-          if (rr.roomId) dueOutRooms.add(rr.roomId)
-        })
-      })
-
-      const arrivingRooms = new Set<number>()
-      arrivingToday.forEach((r) => {
-        r.reservationRooms.forEach((rr) => {
-          if (rr.roomId) arrivingRooms.add(rr.roomId)
-        })
-      })
-
-      const blockedSet = new Set<number>(blockedRoomIds)
-      staticBlockedOrOO.forEach((id) => blockedSet.add(id))
-
-      const roomStatusStats = {
-        all: totalRooms,
-        vacant: 0,
-        occupied: occupiedEffCount,
-        reserved: 0,
-        blocked: 0,
-        dueOut: 0,
-        dirty: 0,
-      }
-
-      // dueOut count = occupied rooms departing today
-      dueOutRooms.forEach((id) => {
-        if (occupiedRoomIds.has(id)) roomStatusStats.dueOut++
-      })
-
-      // reserved count = arriving rooms not already occupied
-      arrivingRooms.forEach((id) => {
-        if (!occupiedRoomIds.has(id)) roomStatusStats.reserved++
-      })
-
-      // blocked count = blocked rooms not occupied or reserved
-      blockedSet.forEach((id) => {
-        if (!occupiedRoomIds.has(id) && !arrivingRooms.has(id)) roomStatusStats.blocked++
-      })
-
-      // dirty count = dirty or cleaning rooms not occupied/reserved/blocked
-      staticDirtyOrCleaning.forEach((id) => {
-        if (!occupiedRoomIds.has(id) && !arrivingRooms.has(id) && !blockedSet.has(id))
-          roomStatusStats.dirty++
-      })
-
-      roomStatusStats.vacant = Math.max(
-        0,
-        totalRooms -
-        roomStatusStats.occupied -
-        roomStatusStats.reserved -
-        roomStatusStats.blocked -
-        roomStatusStats.dirty
-      )
-
-      dailyMetrics.push({
-        date: currentDate.toISODate(),
-        total_available_rooms: netTotalRooms,
-        occupancy_rate: parseFloat(occupancyRate.toFixed(0)),
-        allocated_rooms: occupiedEffCount,
-        unassigned_reservations: unassignedReservationsCount,
-        room_status_stats: roomStatusStats,
-        available_rooms_by_type: Object.values(availableRoomsByType),
-        unassigned_room_reservations_by_type: Object.values(unassignedRoomReservationsByType),
-      })
-    }
+    const dailyMetrics = this.buildDailyOccupancyMetrics({
+      startDate,
+      endDate,
+      reservations,
+      roomBlocks,
+      totalRooms,
+      roomTypes,
+      roomTypeByRoomId,
+      roomsByTypeTotal,
+      staticBlockedOrOO,
+      staticDirtyOrCleaning,
+      staticExcludedByTypeCount,
+    })
 
     // 4. Group reservation details by room type
     const groupedDetails: { [key: string]: any } = {}

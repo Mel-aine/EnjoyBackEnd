@@ -1422,101 +1422,27 @@ export default class ReportsController {
    */
   // Function to get daily occupancy rates
   public async getDailyReservationCounts(hotelId: number, startDate: DateTime, endDate: DateTime) {
-    const { default: Reservation } = await import('#models/reservation')
-    const { default: Room } = await import('#models/room')
+    const { HotelAnalyticsService } = await import('#services/hotel_analytics_service')
+    const dailyMetrics = await HotelAnalyticsService.getDailyOccupancyMetrics(
+      hotelId,
+      startDate,
+      endDate
+    )
 
-    // Count total active rooms for the hotel
-    const totalRooms = await Room.query()
-      .where('hotel_id', hotelId)
-      .where('isDeleted', false)
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
-      .count('* as total')
+    return (dailyMetrics || []).map((metric: any) => {
+      const date = metric?.date ? DateTime.fromISO(metric.date) : null
+      const totalRooms = Number(metric?.room_status_stats?.all || 0)
+      const totalAvailableRooms = Number(metric?.total_available_rooms || 0)
 
-    const roomCount = parseInt(totalRooms[0].$extras.total) || 0
-
-    if (roomCount === 0) {
-      throw new Error('Hotel has no active rooms')
-    }
-
-    // Preload all reservations overlapping the month, including reservation rooms and their assigned rooms
-    const allReservations = await Reservation.query()
-      .where('hotel_id', hotelId)
-      .whereRaw('DATE(arrived_date) <= ?', [endDate.toSQLDate()!])
-      .whereRaw('DATE(depart_date) > ?', [startDate.toSQLDate()!])
-      .whereNotIn('status', ['cancelled', 'voided', 'no_show'])
-      .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
-      .preload('reservationRooms', (rrQuery) => {
-        rrQuery
-          .preload('room')
-          .select([
-            'id',
-            'room_id',
-            'check_in_date',
-            'check_out_date',
-            'is_splited_origin',
-            'isplited_destinatination',
-          ])
-      })
-
-    const daysInMonth = endDate.day
-    const dailyCounts: Array<{
-      day: number
-      reservationCount: number
-      occupancyRate: number
-      totalRooms: number
-    }> = []
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = startDate.set({ day })
-      const currentDateStr = currentDate.toISODate()!
-
-      // Helper to determine if a reservation room covers the current date
-      const coversToday = (rr: any): boolean => {
-        const ci = rr.checkInDate ? rr.checkInDate.toISODate() : null
-        const co = rr.checkOutDate ? rr.checkOutDate.toISODate() : null
-        return !!ci && !!co && ci <= currentDateStr && co > currentDateStr
+      return {
+        day: date?.day || 0,
+        reservationCount: Number(metric?.allocated_rooms || 0),
+        occupancyRate: Number(metric?.occupancy_rate || 0),
+        totalRooms,
+        totalAvailableRooms,
+        blockedRooms: Math.max(0, totalRooms - totalAvailableRooms),
       }
-
-      // Calculate effective occupied rooms for the day:
-      // - Only count reservation rooms with an assigned room (room_id present)
-      // - Merge split segments (is_splited_origin / isplited_destinatination) into a single count per reservation
-      // - Count non-split assigned segments individually
-      let occupiedEffectiveRooms = 0
-
-      for (const reservation of allReservations) {
-        const todaysRRs = Array.isArray((reservation as any).reservationRooms)
-          ? (reservation as any).reservationRooms.filter(
-              (rr: any) => coversToday(rr) && (rr.roomId || (rr.room && rr.room.id))
-            )
-          : []
-
-        if (todaysRRs.length === 0) {
-          continue // no assigned room for today, do not consider
-        }
-
-        const normalAssignedCount = todaysRRs.filter(
-          (rr: any) => !rr.isSplitedOrigin && !rr.isplitedDestinatination
-        ).length
-
-        const hasAssignedSplit = todaysRRs.some(
-          (rr: any) => rr.isSplitedOrigin || rr.isplitedDestinatination
-        )
-
-        occupiedEffectiveRooms += normalAssignedCount + (hasAssignedSplit ? 1 : 0)
-      }
-
-      const occupancyRate =
-        roomCount > 0 ? Math.round((occupiedEffectiveRooms / roomCount) * 100 * 100) / 100 : 0
-
-      dailyCounts.push({
-        day,
-        reservationCount: occupiedEffectiveRooms,
-        occupancyRate,
-        totalRooms: roomCount,
-      })
-    }
-
-    return dailyCounts
+    })
   }
 
   // Génération HTML avec le style exact du PDF - VERSION LARGE
@@ -1531,12 +1457,13 @@ export default class ReportsController {
     const maxChartHeight = 350
 
     // Calcul du taux d'occupation mensuel (moyenne du mois)
-    const daysInMonth = startDate.daysInMonth!
     const totalOccupiedRooms = reservationData.reduce((sum, d) => sum + (d.reservationCount || 0), 0)
-    const roomCount = reservationData.length > 0 ? (reservationData[0].totalRooms || 0) : 0
-    const totalPossibleNights = roomCount * daysInMonth
-    const monthlyOccupancyRate = totalPossibleNights > 0
-      ? Math.round((totalOccupiedRooms / totalPossibleNights) * 10000) / 100
+    const totalAvailableRoomNights = reservationData.reduce(
+      (sum, d) => sum + (d.totalAvailableRooms || Math.max(0, (d.totalRooms || 0) - (d.blockedRooms || 0))),
+      0
+    )
+    const monthlyOccupancyRate = totalAvailableRoomNights > 0
+      ? Math.round((totalOccupiedRooms / totalAvailableRoomNights) * 10000) / 100
       : 0
 
     const chartData = reservationData.map((data) => ({
