@@ -69,7 +69,7 @@ export default class PosService {
       const res = await axios.get(url, {
         params: {
           date: auditDate.toISODate(),
-          use_previous_day: true,
+         // use_previous_day: true,
         },
         headers: {
           'X-Tenant': tenantId,
