@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer'
+//import puppeteer from 'puppeteer'
+import htmlPdf from 'html-pdf-node'
 import { DateTime } from 'luxon'
 
 export interface InvoiceData {
@@ -70,36 +71,59 @@ export default class PdfService {
   /**
    * Generate PDF from HTML content
    */
+  // static async generatePdfFromHtml(
+  //   html: string,
+  //   options: PdfOptions = {}
+  // ): Promise<Buffer> {
+  //   const browser = await puppeteer.launch({
+  //     headless: true,
+  //     args: ['--no-sandbox', '--disable-setuid-sandbox']
+  //   })
+
+  //   try {
+  //     const page = await browser.newPage()
+  //     await page.setContent(html, { waitUntil: 'networkidle0' })
+
+  //     const pdfBuffer = await page.pdf({
+  //       format: options.format || 'A4',
+  //       landscape: options.orientation === 'landscape',
+  //       margin: options.margin || {
+  //         top: '1cm',
+  //         right: '1cm',
+  //         bottom: '1cm',
+  //         left: '1cm'
+  //       },
+  //       printBackground: true
+  //     })
+
+  //     return Buffer.from(pdfBuffer)
+  //   } finally {
+  //     await browser.close()
+  //   }
+  // }
+
   static async generatePdfFromHtml(
-    html: string,
-    options: PdfOptions = {}
-  ): Promise<Buffer> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    })
+  html: string,
+  options: PdfOptions = {}
+): Promise<Buffer> {
+  const file = { content: html }
 
-    try {
-      const page = await browser.newPage()
-      await page.setContent(html, { waitUntil: 'networkidle0' })
-
-      const pdfBuffer = await page.pdf({
-        format: options.format || 'A4',
-        landscape: options.orientation === 'landscape',
-        margin: options.margin || {
-          top: '1cm',
-          right: '1cm',
-          bottom: '1cm',
-          left: '1cm'
-        },
-        printBackground: true
-      })
-
-      return Buffer.from(pdfBuffer)
-    } finally {
-      await browser.close()
-    }
+  const pdfOptions = {
+    format: options.format || 'A4',
+    landscape: options.orientation === 'landscape',
+    margin: options.margin || {
+      top: '1cm',
+      right: '1cm',
+      bottom: '1cm',
+      left: '1cm',
+    },
+    printBackground: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   }
+
+  const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+  return Buffer.from(pdfBuffer)
+}
 
   /**
    * Generate incidental invoice PDF
@@ -189,16 +213,16 @@ export default class PdfService {
           <p><strong>Status:</strong> <span class="status ${data.status.toLowerCase()}">${data.status}</span></p>
           <p><strong>Payment Method:</strong> ${data.paymentType}</p>
         </div>
-        
+
         <div class="billing-details">
           <div class="section-title">Hotel Information</div>
           <p><strong>${data.hotelName}</strong></p>
           <p>${data.hotelAddress}</p>
-          
+
           <div class="section-title" style="margin-top: 20px;">Guest Information</div>
           <p><strong>${data.guestName}</strong></p>
           ${data.guestEmail ? `<p>${data.guestEmail}</p>` : ''}
-          
+
           ${billingAddress ? `
             <div class="section-title" style="margin-top: 20px;">Billing Address</div>
             ${billingAddress}
@@ -373,17 +397,17 @@ export default class PdfService {
           <p>Receipt #: ${data.receiptNumber || 'N/A'}</p>
           <p>Date: ${data.date || new Date().toLocaleDateString()}</p>
         </div>
-        
+
         <div class="item">
           <span>${data.description || 'Service'}</span>
           <span>$${(data.amount || 0).toFixed(2)}</span>
         </div>
-        
+
         <div class="item total">
           <span>Total:</span>
           <span>$${(data.amount || 0).toFixed(2)}</span>
         </div>
-        
+
         <div style="text-align: center; margin-top: 20px;">
           <p>Thank you!</p>
         </div>
@@ -408,15 +432,15 @@ export default class PdfService {
     if (data.billingAddress) {
       address += `<p>${data.billingAddress}</p>`
     }
-    
+
     const cityStateZip = [data.billingCity, data.billingState, data.billingZip]
       .filter(Boolean)
       .join(', ')
-    
+
     if (cityStateZip) {
       address += `<p>${cityStateZip}</p>`
     }
-    
+
     if (data.billingCountry) {
       address += `<p>${data.billingCountry}</p>`
     }
