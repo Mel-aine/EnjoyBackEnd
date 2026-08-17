@@ -12,6 +12,10 @@ import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
 import CompanyAccount from '#models/company_account'
 import ActivityLog from './activity_log.js'
+import LoginAttempt from './login_attempt.js'
+import MfaMethod from './mfa_method.js'
+import MfaChallenge from './mfa_challenge.js'
+import MfaRecoveryCode from './mfa_recovery_code.js'
 
 const AuthFinder = withAuthFinder(() => hash.use('argon'), {
   uids: ['email'],
@@ -119,6 +123,24 @@ export default class  User extends AuthFinder(BaseModel) {
   @column({ columnName: 'two_factor_enabled' })
   declare twoFactorEnabled: boolean
 
+  @column({ columnName: 'login_attempts_count' })
+  declare loginAttemptsCount: number
+
+  @column.dateTime({ columnName: 'last_failed_login_at' })
+  declare lastFailedLoginAt: DateTime | null
+
+  @column.dateTime({ columnName: 'locked_until' })
+  declare lockedUntil: DateTime | null
+
+  @column({ columnName: 'lock_reason' })
+  declare lockReason: string | null
+
+  @column({ columnName: 'last_login_ip' })
+  declare lastLoginIp: string | null
+
+  @column({ columnName: 'last_login_user_agent' })
+  declare lastLoginUserAgent: string | null
+
   @column({ columnName: 'phone_number' })
   declare phoneNumber: string | null
 
@@ -188,6 +210,26 @@ export default class  User extends AuthFinder(BaseModel) {
     foreignKey: 'userId',
   })
   declare activityLogs: HasMany<typeof ActivityLog>
+
+  @hasMany(() => LoginAttempt, {
+    foreignKey: 'userId',
+  })
+  declare loginAttempts: HasMany<typeof LoginAttempt>
+
+  @hasMany(() => MfaMethod, {
+    foreignKey: 'userId',
+  })
+  declare mfaMethods: HasMany<typeof MfaMethod>
+
+  @hasMany(() => MfaChallenge, {
+    foreignKey: 'userId',
+  })
+  declare mfaChallenges: HasMany<typeof MfaChallenge>
+
+  @hasMany(() => MfaRecoveryCode, {
+    foreignKey: 'userId',
+  })
+  declare mfaRecoveryCodes: HasMany<typeof MfaRecoveryCode>
 
   // Define accessTokens before the beforeSave hook
   static accessTokens = DbAccessTokensProvider.forModel(User, {

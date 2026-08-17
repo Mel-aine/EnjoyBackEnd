@@ -65,7 +65,9 @@ export const middleware = router.named({
   apiKey: () => import('#middleware/api_key_middleware'),
   ipRestriction: () => import('#middleware/ip_restriction_middleware'),
   checkSubscription: () => import('#middleware/check_subscription_middleware'),
-  permission: () => import('#middleware/permission_middleware')
+  permission: () => import('#middleware/permission_middleware'),
+  loginRateLimit: () => import('#middleware/login_rate_limit_middleware'),
+  mfaRateLimit: () => import('#middleware/mfa_rate_limit_middleware'),
 })
 
 
