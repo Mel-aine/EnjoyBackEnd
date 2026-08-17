@@ -336,28 +336,24 @@ export class HotelAnalyticsDashboardService {
       const startOfPrevMonth = startOfMonth.minus({ months: 1 })
       const endOfPrevMonth = startOfPrevMonth.endOf('month')
 
-      // Récupération des types distincts pour le mois
-      // const distinctReservations = await Reservation
-      //   .query()
-      //   .where('hotel_id', serviceId)
-      //   .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
-      //   .distinct('reservation_type_id')
+      const startOfMonthDate = startOfMonth.toISODate()!
+      const endOfMonthDate = endOfMonth.toISODate()!
+      const startOfPrevMonthDate = startOfPrevMonth.toISODate()!
+      const endOfPrevMonthDate = endOfPrevMonth.toISODate()!
+
+      // Récupération des types distincts pour le mois, basé sur check_in_date
       const distinctReservations = await Reservation
-      .query()
-      .where('reservations.hotel_id', serviceId)
-      .whereBetween('reservations.created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
-      .join('reservation_types', 'reservations.reservation_type_id', 'reservation_types.id')
-      .distinct('reservations.reservation_type_id', 'reservation_types.name')
-      .select('reservation_types.id as typeId', 'reservation_types.name as typeName')
+        .query()
+        .where('reservations.hotel_id', serviceId)
+        .whereBetween('reservations.check_in_date', [startOfMonthDate, endOfMonthDate])
+        .join('reservation_types', 'reservations.reservation_type_id', 'reservation_types.id')
+        .distinct('reservations.reservation_type_id', 'reservation_types.name')
+        .select('reservation_types.id as typeId', 'reservation_types.name as typeName')
 
-    const types = distinctReservations.map(r => ({
-      id: r.$extras.typeId,
-      name: r.$extras.typeName || 'Inconnu'
-    }))
-
-
-
-      // const types = distinctReservations.map(r => r.reservationTypeId || 'Inconnu')
+      const types = distinctReservations.map(r => ({
+        id: r.$extras.typeId,
+        name: r.$extras.typeName || 'Inconnu'
+      }))
 
       // Statistiques hebdomadaires (4 semaines)
       const weeks: { label: string, data: { type: string, count: number }[] }[] = []
@@ -371,7 +367,7 @@ export class HotelAnalyticsDashboardService {
         for (const type of types) {
           const query = Reservation.query()
             .where('reservations.hotel_id', serviceId)
-            .whereBetween('reservations.created_at', [weekStart.toSQL()!, weekEnd.toSQL()!])
+            .whereBetween('reservations.check_in_date', [weekStart.toISODate()!, weekEnd.toISODate()!])
 
           type.name === 'Inconnu'
             ? query.whereNull('reservation_type_id')
@@ -385,7 +381,6 @@ export class HotelAnalyticsDashboardService {
           })
         }
 
-
         weeks.push({ label: `Semaine ${i + 1}`, data })
       }
 
@@ -393,11 +388,11 @@ export class HotelAnalyticsDashboardService {
       const summary = await Promise.all(types.map(async (type) => {
         const currentQuery = Reservation.query()
           .where('reservations.hotel_id', serviceId)
-          .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
+          .whereBetween('reservations.check_in_date', [startOfMonthDate, endOfMonthDate])
 
         const prevQuery = Reservation.query()
           .where('reservations.hotel_id', serviceId)
-          .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
+          .whereBetween('reservations.check_in_date', [startOfPrevMonthDate, endOfPrevMonthDate])
 
         type.name === 'Inconnu'
           ? (currentQuery.whereNull('reservation_type_id'), prevQuery.whereNull('reservation_type_id'))
@@ -413,31 +408,8 @@ export class HotelAnalyticsDashboardService {
         return { type: type.name, count: currentCount, progression }
       }))
 
-      // const summary = await Promise.all(types.map(async (type) => {
-      //   const currentQuery = Reservation.query()
-      //     .where('hotel_id', serviceId)
-      //     .whereBetween('created_at', [startOfMonth.toSQL()!, endOfMonth.toSQL()!])
-
-      //   const prevQuery = Reservation.query()
-      //     .where('hotel_id', serviceId)
-      //     .whereBetween('created_at', [startOfPrevMonth.toSQL()!, endOfPrevMonth.toSQL()!])
-
-      //   type === 'Inconnu'
-      //     ? (currentQuery.whereNull('reservation_type'), prevQuery.whereNull('reservation_type'))
-      //     : (currentQuery.where('reservation_type', type), prevQuery.where('reservation_type', type))
-
-      //   const currentCount = Number((await currentQuery.count('* as count'))[0].$extras.count || 0)
-      //   const previousCount = Number((await prevQuery.count('* as count'))[0].$extras.count || 0)
-
-      //   const progression = previousCount === 0
-      //     ? (currentCount > 0 ? 100 : 0)
-      //     : Math.round(((currentCount - previousCount) / previousCount) * 10000) / 100
-
-      //   return { type, count: currentCount, progression }
-      // }))
-
       results.push({
-        month: startOfMonth.toFormat('LLLL'), // Nom du mois (ex: Janvier)
+        month: startOfMonth.toFormat('LLLL'),
         weeks,
         summary
       })
@@ -462,6 +434,7 @@ export class HotelAnalyticsDashboardService {
     }
   }
 
+
   public static async getYearlyRevenueStats(serviceId: number, year: number): Promise<{ month: string, totalRevenue: number }[]> {
     const startOfYear = DateTime.fromObject({ year }).startOf('year').toSQLDate()
     const endOfYear = DateTime.fromObject({ year }).endOf('year').toSQLDate()
@@ -472,7 +445,7 @@ export class HotelAnalyticsDashboardService {
       .where('folio_transactions.transaction_type', 'payment')
       .where('folio_transactions.is_voided', false)
       .whereNotIn('folio_transactions.status', ['cancel', 'cancelled', 'voided'])
-      .whereBetween('folio_transactions.transaction_date', [startOfYear, endOfYear])
+      .whereBetween('folio_transactions.current_working_date', [startOfYear, endOfYear])
       // Exclure City Ledger
       .whereNotExists((query) => {
         query
@@ -482,18 +455,18 @@ export class HotelAnalyticsDashboardService {
           .where('payment_methods.method_type', 'city_ledger')
       })
       // Exclure paymaster
-      .whereNotExists((query) => {
-        query
-          .select(Database.raw('1'))
-          .from('folios')
-          .join('reservation_rooms', 'reservation_rooms.id', 'folios.reservation_room_id')
-          .join('rooms', 'rooms.id', 'reservation_rooms.room_id')
-          .join('room_types', 'room_types.id', 'rooms.room_type_id')
-          .whereRaw('folios.id = folio_transactions.folio_id')
-          .where('room_types.is_paymaster', true)
-      })
+      // .whereNotExists((query) => {
+      //   query
+      //     .select(Database.raw('1'))
+      //     .from('folios')
+      //     .join('reservation_rooms', 'reservation_rooms.id', 'folios.reservation_room_id')
+      //     .join('rooms', 'rooms.id', 'reservation_rooms.room_id')
+      //     .join('room_types', 'room_types.id', 'rooms.room_type_id')
+      //     .whereRaw('folios.id = folio_transactions.folio_id')
+      //     .where('room_types.is_paymaster', true)
+      // })
       .select(
-        Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"),
+        Database.raw("TO_CHAR(current_working_date, 'Mon') AS month"),
         'folio_transactions.amount'
       )
 
@@ -512,6 +485,7 @@ export class HotelAnalyticsDashboardService {
 
     return revenueByMonth
   }
+
 
   /**
    * Calcule le total des chambres occupées ET bloquées jour par jour sur une période

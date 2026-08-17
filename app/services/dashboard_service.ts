@@ -24,6 +24,7 @@ export class RoomAvailabilityService {
       throw new Error('Ce service ne correspond pas à un hôtel')
     }
 
+
     const totalResult = await Room.query()
       .where('hotel_id', serviceId)
       .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
