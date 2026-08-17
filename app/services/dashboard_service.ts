@@ -6,6 +6,7 @@ import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import ReservationRoom from '#models/reservation_room'
 import RoomBlock from '#models/room_block'
+import { PaymentMethodType } from '#app/enums'
 
 export class RoomAvailabilityService {
   public static async getHotelStats(serviceId: number): Promise<{
@@ -57,8 +58,8 @@ export class RoomAvailabilityService {
       .count('* as count')
 
       const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
-      const reservationRateToday = occupied > 0 
-        ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100) 
+      const reservationRateToday = occupied > 0
+        ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100)
         : 0
 
     const reservedLastWeekResult = await Reservation
@@ -97,20 +98,7 @@ export class RoomAvailabilityService {
       .whereBetween('transactionDate', [startOfMonth, endOfMonth])
       .where('transactionType', 'payment')
       .where('isVoided', false)
-      .sum('amount as total')
-
-    const totalRevenueThisMonth = Number(totalRevenueThisMonthResult[0].$extras.total || '0')
-
-    // 🔁 Ajout comparaison avec le mois précédent
-    const startOfLastMonth = now.minus({ months: 1 }).startOf('month').toSQL()
-    const endOfLastMonth = now.minus({ months: 1 }).endOf('month').toSQL()
-
-    const lastMonthRevenueResult = await FolioTransaction
-      .query()
-      .where('hotel_id', serviceId)
-      .whereBetween('transactionDate', [startOfLastMonth, endOfLastMonth])
-      .where('transactionType', 'payment')
-      .where('isVoided', false)
+      .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
       .whereDoesntHave('folio', (f) => {
         f.whereHas('reservation', (res) => {
           res.whereHas('reservationRooms', (rr) => {
@@ -119,6 +107,36 @@ export class RoomAvailabilityService {
             })
           })
         })
+      })
+      .whereDoesntHave('paymentMethod', (pmQuery) => {
+        pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
+      })
+      .sum('amount as total')
+
+    const totalRevenueThisMonth = Number(totalRevenueThisMonthResult[0].$extras.total || '0')
+
+    // 🔁 Ajout comparaison avec le mois précédent
+    const startOfLastMonth = now.minus({ months: 1 }).startOf('month').toSQL()
+    const endOfLastMonth = now.minus({ months: 1 }).endOf('month').toSQL()
+
+   const lastMonthRevenueResult = await FolioTransaction
+      .query()
+      .where('hotel_id', serviceId)
+      .whereBetween('transactionDate', [startOfLastMonth, endOfLastMonth])
+      .where('transactionType', 'payment')
+      .where('isVoided', false)
+      .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
+      .whereDoesntHave('folio', (f) => {
+        f.whereHas('reservation', (res) => {
+          res.whereHas('reservationRooms', (rr) => {
+            rr.whereHas('room', (r) => {
+              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+            })
+          })
+        })
+      })
+      .whereDoesntHave('paymentMethod', (pmQuery) => {
+        pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
       })
       .sum('amount as total')
 
@@ -139,6 +157,7 @@ export class RoomAvailabilityService {
       revenueGrowthRate
     }
   }
+
 }
 
 

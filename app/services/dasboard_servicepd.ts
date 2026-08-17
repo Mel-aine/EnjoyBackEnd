@@ -462,38 +462,56 @@ export class HotelAnalyticsDashboardService {
     }
   }
 
-public static async getYearlyRevenueStats(serviceId: number, year: number): Promise<{ month: string, totalRevenue: number }[]> {
-  const startOfYear = DateTime.fromObject({ year }).startOf('year').toSQLDate();
-  const endOfYear = DateTime.fromObject({ year }).endOf('year').toSQLDate();
+  public static async getYearlyRevenueStats(serviceId: number, year: number): Promise<{ month: string, totalRevenue: number }[]> {
+    const startOfYear = DateTime.fromObject({ year }).startOf('year').toSQLDate()
+    const endOfYear = DateTime.fromObject({ year }).endOf('year').toSQLDate()
 
-  // Query to group payments by month and calculate total revenue
-  const results = await Database
-    .from('folio_transactions')
-    .where('hotel_id', serviceId)
-    .where('transaction_type', 'payment')
-     .where('is_voided', false)
-    .whereBetween('transaction_date', [startOfYear, endOfYear])
-    .select(Database.raw("TO_CHAR(transaction_date, 'Mon') AS month")) // Extract month name
-    .sum('amount as totalRevenue') // Sum the payment amounts
-    .groupByRaw(Database.raw("TO_CHAR(transaction_date, 'Mon')")) // Group by month name
-    .orderBy(Database.raw("MIN(transaction_date)")); // Ensure months are ordered chronologically
+    const results = await Database
+      .from('folio_transactions')
+      .where('folio_transactions.hotel_id', serviceId)
+      .where('folio_transactions.transaction_type', 'payment')
+      .where('folio_transactions.is_voided', false)
+      .whereNotIn('folio_transactions.status', ['cancel', 'cancelled', 'voided'])
+      .whereBetween('folio_transactions.transaction_date', [startOfYear, endOfYear])
+      // Exclure City Ledger
+      .whereNotExists((query) => {
+        query
+          .select(Database.raw('1'))
+          .from('payment_methods')
+          .whereRaw('payment_methods.id = folio_transactions.payment_method_id')
+          .where('payment_methods.method_type', 'city_ledger')
+      })
+      // Exclure paymaster
+      .whereNotExists((query) => {
+        query
+          .select(Database.raw('1'))
+          .from('folios')
+          .join('reservation_rooms', 'reservation_rooms.id', 'folios.reservation_room_id')
+          .join('rooms', 'rooms.id', 'reservation_rooms.room_id')
+          .join('room_types', 'room_types.id', 'rooms.room_type_id')
+          .whereRaw('folios.id = folio_transactions.folio_id')
+          .where('room_types.is_paymaster', true)
+      })
+      .select(
+        Database.raw("TO_CHAR(transaction_date, 'Mon') AS month"),
+        'folio_transactions.amount'
+      )
 
-  // Map the results to ensure all months are included, even if no data exists
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ]
 
-  const revenueByMonth = months.map((month) => {
-    const result = results.find((r) => r.month === month);
-    return {
-      month,
-      totalRevenue: result ? Number(result.totalRevenue) : 0, // Default to 0 if no data for the month
-    };
-  });
+    const revenueByMonth = months.map((month) => {
+      const monthRows = results.filter((r: any) => r.month === month)
+      const totalRevenue = monthRows.reduce(
+        (sum: number, r: any) => sum + Math.abs(Number(r.amount || 0)), 0
+      )
+      return { month, totalRevenue }
+    })
 
-  return revenueByMonth;
-}
+    return revenueByMonth
+  }
 
   /**
    * Calcule le total des chambres occupées ET bloquées jour par jour sur une période
