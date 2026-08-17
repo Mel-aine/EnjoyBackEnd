@@ -6,6 +6,20 @@
 
 ---
 
+### ⚠️ IMPORTANT — Langue des messages Backend → Frontend
+**Tous les messages renvoyés par le Backend (JSON API, Logs Logger, Emails MFA, Sujets) sont en ANGLAIS (EN) par défaut.**
+Exemples :
+- Login erreur 401 uniforme : `{ "message": "Invalid credentials" }`
+- 202 Accepted : `{ "message": "MFA verification required", "mfa_required": true, … }`
+- MFA email sujet : `[Enjoy] Your sign-in verification code`
+- Lockout : `{ "message": "Account locked due to too many failed login attempts.", "retry_after_seconds": 900 }`
+- Logger descriptions : `Signed in via MFA_TOTP (ip=X)`, `User signed out — a***@x.com`, etc.
+
+👉 Le Frontend (EnjoyAdmin) **peut** afficher tel quel (convivial EN) **OU** utiliser le champ `error_code` + la clé `status` dans les réponses JSON pour faire de la **localisation via vue-i18n** (`fr.json` / `en.json`).
+Exemple de mapping i18n frontend à réaliser : `error_code.INVALID_TOTP_CODE → i18n.t('mfa.totp.invalid')`
+
+---
+
 ## 1. Stack frontend utilisée (déjà présente)
 
 | Couche | Technologie | Usage MFA |

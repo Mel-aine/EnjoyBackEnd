@@ -314,29 +314,30 @@ export default class TwoFactorAuthService {
   }
 
   private static async _sendEmailCode(user: User, code: string, ttlMinutes: number) {
-    const text = `Bonjour ${user.firstName ?? user.email},
+    const greet = user.firstName ? `Dear ${user.firstName}` : `Dear user`
+    const text = `${greet},
 
-Votre code de connexion Enjoy est : ${code}
+Your Enjoy sign-in verification code is: ${code}
 
-Ce code est valable ${ttlMinutes} minutes et ne peut être utilisé qu'une seule fois.
+This code is valid for ${ttlMinutes} minutes and can be used only once.
 
-Si vous n'êtes pas à l'origine de cette tentative de connexion, changez immédiatement votre mot de passe.
+If you did not attempt to sign in, please change your password immediately.
 
-L'équipe Enjoy.`
+The Enjoy Team.`
     const html = `<!DOCTYPE html>
 <html><body style="font-family:'Segoe UI',sans-serif;background:#f1f5f9;margin:0;padding:40px 20px;">
   <div style="max-width:480px;background:#ffffff;border-radius:16px;padding:40px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-    <div style="color:#475569;font-size:14px;margin-bottom:20px;">Bonjour ${user.firstName ? user.firstName : user.email},</div>
-    <div style="color:#0f172a;font-size:16px;margin-bottom:24px;">Voici votre code de connexion Enjoy :</div>
+    <div style="color:#475569;font-size:14px;margin-bottom:20px;">${greet},</div>
+    <div style="color:#0f172a;font-size:16px;margin-bottom:24px;">Here is your Enjoy sign-in verification code:</div>
     <div style="font-size:32px;letter-spacing:12px;font-weight:700;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;text-align:center;color:#4f46e5;margin-bottom:24px;">${code}</div>
-    <div style="color:#64748b;font-size:13px;line-height:1.6;">Ce code est valable <strong>${ttlMinutes} minutes</strong> et ne peut être utilisé qu'une seule fois.</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:24px;">Si vous n'êtes pas à l'origine de cette tentative, changez immédiatement votre mot de passe.</div>
+    <div style="color:#64748b;font-size:13px;line-height:1.6;">This code is valid for <strong>${ttlMinutes} minutes</strong> and can be used only once.</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:24px;">If you did not initiate this sign-in attempt, please change your password immediately.</div>
   </div>
 </body></html>`
     try {
       await MailService.send({
         to: user.email,
-        subject: '[Enjoy] Votre code de connexion',
+        subject: '[Enjoy] Your sign-in verification code',
         text,
         html,
       })

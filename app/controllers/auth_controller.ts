@@ -265,7 +265,7 @@ export default class AuthController {
         action: 'LOGIN',
         entityType: 'User',
         entityId: String(user.id),
-        description: `Connexion partielle — MFA required (ip=${ip})`,
+        description: `Partial login — MFA required (ip=${ip})`,
         ctx,
       })
       return response.status(202).json({
@@ -288,11 +288,11 @@ export default class AuthController {
 
     await LoginSecurityService.resetFailedAttempts(user, ip, userAgent)
 
-    let description = `Connexion via mot de passe — ${options.consoleMode ? 'Console' : 'App'} (ip=${ip})`
+    let description = `Signed in via password — ${options.consoleMode ? 'Console' : 'App'} (ip=${ip})`
 
     // Cas signin classique (on charge pms context si requirePmsContext)
     if (options.requirePmsContext) {
-      description = `Connexion de l'utilisateur ${email}`
+      description = `User signed in — ${email}`
     }
 
     await LoggerService.log({
@@ -628,7 +628,7 @@ export default class AuthController {
         action: 'LOGIN',
         entityType: 'User',
         entityId: String(user.id),
-        description: `Connexion via MFA_${methodType} (ip=${ip})`,
+        description: `Signed in via MFA_${methodType} (ip=${ip})`,
         ctx,
       })
 
@@ -895,7 +895,7 @@ export default class AuthController {
       })
       return response.ok({ message: 'Verification email sent successfully' })
     } catch (error) {
-      console.error('Erreur resendVerificationEmail:', error)
+      console.error('[AuthController] Error resendVerificationEmail:', error)
       return response.status(500).json({
         message: 'Failed to send verification email',
         error: (error as any).message,
@@ -955,7 +955,7 @@ export default class AuthController {
         action: 'SETUP',
         entityType: 'User',
         entityId: user.id.toString(),
-        description: `Connexion de l'utilisateur ${user.email}`,
+        description: `User signed in (space init) — ${user.email}`,
         ctx,
       })
 
@@ -1087,7 +1087,7 @@ export default class AuthController {
       action: 'LOGOUT',
       entityType: 'User',
       entityId: user.id.toString(),
-      description: `Déconnexion de l'utilisateur ${user.email}`,
+      description: `User signed out — ${user.email}`,
       ctx,
     })
     return response.ok({ message: 'Logout successfully' })
