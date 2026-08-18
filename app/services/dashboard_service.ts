@@ -6,158 +6,228 @@ import FolioTransaction from '#models/folio_transaction'
 import Hotel from '#models/hotel'
 import ReservationRoom from '#models/reservation_room'
 import RoomBlock from '#models/room_block'
-import { PaymentMethodType } from '#app/enums'
+
 
 export class RoomAvailabilityService {
-  public static async getHotelStats(serviceId: number): Promise<{
-    available: number
-    total: number
-    reservedToday: number
-    reservationRateToday: number
-    reservationRateLastWeek: number
-    totalReservationsThisMonth: number
-    totalRevenueThisMonth: number
-    revenueGrowthRate: number
-  }> {
-    const service = await Service.find(serviceId)
-    if (!service ) {
-      throw new Error('Ce service ne correspond pas à un hôtel')
+
+
+  private static async calculateRevenueWithTax(
+    hotelId: number,
+    startDate: DateTime,
+    endDate: DateTime
+  ): Promise<{ revenueWithoutTax: number; tax: number; revenueWithTax: number }> {
+    const startStr = startDate.toFormat('yyyy-MM-dd')
+    const endStr = endDate.toFormat('yyyy-MM-dd')
+
+    const scopeFolio = (folioQuery: any) => {
+      folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
+        rrQuery.where('hotel_id', hotelId)
+        rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+        rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
+      })
     }
 
+    // ── Room Charges ─────────────────────────────
+    const roomChargesRow = await FolioTransaction.query()
+      .whereHas('folio', scopeFolio)
+      .whereBetween('current_working_date', [startStr, endStr])
+      .where('category', 'room')
+      .where('transaction_type', 'charge')
+      .whereNotIn('status', ['cancelled', 'void', 'voided'])
+      .whereNot('is_voided', true)
+      .sum('room_final_net_amount as total')
+      .first()
+    const roomCharges = Number((roomChargesRow as any)?.$extras.total || 0)
 
-    const totalResult = await Room.query()
-      .where('hotel_id', serviceId)
-      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
-      .count('* as total')
-    const availableResult = await Room
-      .query()
-      .where('hotel_id', serviceId)
-      .where('status', 'available')
-      .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
-      .count('* as available')
+    // ── Extra Charges ────────────────────────────
+    const extraChargesRow = await FolioTransaction.query()
+      .whereHas('folio', scopeFolio)
+      .whereBetween('current_working_date', [startStr, endStr])
+      .where('category', 'extra_charge')
+      .where('transaction_type', 'charge')
+      .whereNotIn('status', ['cancelled', 'void', 'voided'])
+      .whereNot('is_voided', true)
+      .sum('amount as total')
+      .first()
+    const extraCharges = Number((extraChargesRow as any)?.$extras.total || 0)
 
-    const total = Number(totalResult[0].$extras.total || '0')
-    const available = Number(availableResult[0].$extras.available || '0')
-    const occupied = total - available
+    // ── Discounts ─────────────────────────────────
+    const discountRow = await FolioTransaction.query()
+      .whereHas('folio', scopeFolio)
+      .whereBetween('current_working_date', [startStr, endStr])
+      .whereNotNull('discount_amount')
+      .whereNotIn('status', ['cancelled', 'void', 'voided'])
+      .whereNot('is_voided', true)
+      .sum('discount_amount as total')
+      .first()
+    const discounts = Math.abs(Number((discountRow as any)?.$extras.total || 0))
 
-    const now = DateTime.now()
-    const todayStart = now.startOf('day').toSQL()
-    const tomorrowStart = now.plus({ days: 1 }).startOf('day').toSQL()
-    const lastWeekStart = now.minus({ days: 7 }).startOf('day').toSQL()
-    const lastWeekEnd = now.minus({ days: 6 }).startOf('day').toSQL()
+    // ── Adjustments (round off uniquement) ───────
+    const adjustmentTx = await FolioTransaction.query()
+      .whereHas('folio', scopeFolio)
+      .whereBetween('current_working_date', [startStr, endStr])
+      .where('category', 'adjustment')
+      .whereNotIn('status', ['cancelled', 'void', 'voided'])
+      .whereNot('is_voided', true)
+      .select('amount', 'particular', 'description')
 
-    const reservedTodayResult = await Reservation
-      .query()
-      .where('hotel_id', serviceId)
-      .where('status','confirmed')
-      .whereBetween('arrived_date', [todayStart, tomorrowStart])
-      .whereDoesntHave('reservationRooms', (rr) => {
-        rr.whereHas('room', (r) => {
-          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+    let adjustments = 0
+    for (const tx of adjustmentTx as any[]) {
+      const amount = Number(tx.amount || 0)
+      const desc = (tx.particular || tx.description || '').toLowerCase()
+      const isRoundOff =
+        desc.includes('round') || desc.includes('unit adjustment') || Math.abs(amount) < 1
+      if (isRoundOff) adjustments += amount
+    }
+
+    // ── Tax ───────────────────────────────────────
+    const taxTx = await FolioTransaction.query()
+      .whereHas('folio', scopeFolio)
+      .whereBetween('current_working_date', [startStr, endStr])
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .whereNot('is_voided', true)
+      .select('id', 'tax_breakdown')
+      .preload('taxes' as any)
+
+    let tax = 0
+    for (const tx of taxTx as any[]) {
+      if (tx.taxBreakdown?.items?.length > 0) {
+        tx.taxBreakdown.items.forEach((t: any) => {
+          tax += Number(t.taxAmount || 0)
         })
-      })
-      .count('* as count')
+      } else if (tx.taxes?.length > 0) {
+        tx.taxes.forEach((t: any) => {
+          tax += Number(t?.$pivot?.taxAmount ?? t?.taxAmount ?? 0)
+        })
+      }
+    }
 
-      const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
-      const reservationRateToday = occupied > 0
-        ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100)
+    const revenueWithoutTax = roomCharges + extraCharges - discounts + adjustments
+    const revenueWithTax = revenueWithoutTax + tax
+
+    return { revenueWithoutTax, tax, revenueWithTax }
+  }
+
+  public static async getHotelStats(serviceId: number): Promise<{
+  available: number
+  total: number
+  reservedToday: number
+  reservationRateToday: number
+  reservationRateLastWeek: number
+  totalReservationsThisMonth: number
+  totalRevenueThisMonth: number
+  revenueGrowthRate: number
+}> {
+  const service = await Service.find(serviceId)
+  if (!service) {
+    throw new Error('Ce service ne correspond pas à un hôtel')
+  }
+
+  const totalResult = await Room.query()
+    .where('hotel_id', serviceId)
+    .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+    .count('* as total')
+  const availableResult = await Room.query()
+    .where('hotel_id', serviceId)
+    .where('status', 'available')
+    .whereDoesntHave('roomType', (q) => q.where('is_paymaster', true))
+    .count('* as available')
+
+  const total = Number(totalResult[0].$extras.total || '0')
+  const available = Number(availableResult[0].$extras.available || '0')
+  const occupied = total - available
+
+  const now = DateTime.now()
+  const todayStart = now.startOf('day').toSQL()
+  const tomorrowStart = now.plus({ days: 1 }).startOf('day').toSQL()
+  const lastWeekStart = now.minus({ days: 7 }).startOf('day').toSQL()
+  const lastWeekEnd = now.minus({ days: 6 }).startOf('day').toSQL()
+
+  const reservedTodayResult = await Reservation.query()
+    .where('hotel_id', serviceId)
+    .where('status', 'confirmed')
+    .whereBetween('arrived_date', [todayStart, tomorrowStart])
+    .whereDoesntHave('reservationRooms', (rr) => {
+      rr.whereHas('room', (r) => {
+        r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
+    })
+    .count('* as count')
+
+  const reservedToday = Number(reservedTodayResult[0].$extras.count || '0')
+  const reservationRateToday =
+    occupied > 0 ? Math.min(100, Math.round((reservedToday / occupied) * 10000) / 100) : 0
+
+  const reservedLastWeekResult = await Reservation.query()
+    .where('hotel_id', serviceId)
+    .whereBetween('bookingDate', [lastWeekStart, lastWeekEnd])
+    .whereDoesntHave('reservationRooms', (rr) => {
+      rr.whereHas('room', (r) => {
+        r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
+    })
+    .count('* as count')
+
+  const reservedLastWeek = Number(reservedLastWeekResult[0].$extras.count || '0')
+  const reservationRateLastWeek =
+    occupied > 0 ? Math.min(100, Math.round((reservedLastWeek / occupied) * 10000) / 100) : 0
+
+  const startOfMonth = now.startOf('month')
+  const endOfMonth = now.endOf('month')
+
+  const totalReservationsThisMonthResult = await Reservation.query()
+    .where('hotel_id', serviceId)
+    .whereBetween('bookingDate', [startOfMonth.toSQL(), endOfMonth.toSQL()])
+    .whereDoesntHave('reservationRooms', (rr) => {
+      rr.whereHas('room', (r) => {
+        r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
+      })
+    })
+    .count('* as count')
+
+  const totalReservationsThisMonth = Number(
+    totalReservationsThisMonthResult[0].$extras.count || '0'
+  )
+
+  // ── Revenue "à date" (PTD) : du début du mois jusqu'à AUJOURD'HUI ──
+  // (aligné avec le Management/Night Audit report qui s'arrête au jour du rapport,
+  //  pas à la fin du mois calendaire)
+  const { revenueWithTax: totalRevenueThisMonth } = await this.calculateRevenueWithTax(
+    serviceId,
+    startOfMonth,
+    now.endOf('day')
+  )
+
+  // ── Revenue du mois précédent, sur la MÊME plage relative (1er -> même jour du mois dernier) ──
+  // pour comparer des périodes équivalentes (sinon on compare un PTD partiel à un mois complet)
+  const startOfLastMonth = now.minus({ months: 1 }).startOf('month')
+  const sameDayLastMonth = startOfLastMonth.plus({ days: now.day - 1 }).endOf('day')
+
+  const { revenueWithTax: lastMonthRevenue } = await this.calculateRevenueWithTax(
+    serviceId,
+    startOfLastMonth,
+    sameDayLastMonth
+  )
+
+  const revenueGrowthRate =
+    lastMonthRevenue === 0
+      ? totalRevenueThisMonth > 0
+        ? 100
         : 0
-
-    const reservedLastWeekResult = await Reservation
-      .query()
-      .where('hotel_id', serviceId)
-      .whereBetween('bookingDate', [lastWeekStart, lastWeekEnd])
-      .whereDoesntHave('reservationRooms', (rr) => {
-        rr.whereHas('room', (r) => {
-          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-        })
-      })
-      .count('* as count')
-
-    const reservedLastWeek = Number(reservedLastWeekResult[0].$extras.count || '0')
-    const reservationRateLastWeek = occupied > 0 ? Math.min(100, Math.round((reservedLastWeek / occupied) * 10000) / 100) : 0
-
-    const startOfMonth = now.startOf('month').toSQL()
-    const endOfMonth = now.endOf('month').toSQL()
-
-    const totalReservationsThisMonthResult = await Reservation
-      .query()
-      .where('hotel_id', serviceId)
-      .whereBetween('bookingDate', [startOfMonth, endOfMonth])
-      .whereDoesntHave('reservationRooms', (rr) => {
-        rr.whereHas('room', (r) => {
-          r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-        })
-      })
-      .count('* as count')
-
-    const totalReservationsThisMonth = Number(totalReservationsThisMonthResult[0].$extras.count || '0')
-
-    const totalRevenueThisMonthResult = await FolioTransaction
-      .query()
-      .where('hotel_id', serviceId)
-      .whereBetween('transactionDate', [startOfMonth, endOfMonth])
-      .where('transactionType', 'payment')
-      .where('isVoided', false)
-      .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-      .whereDoesntHave('folio', (f) => {
-        f.whereHas('reservation', (res) => {
-          res.whereHas('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-        })
-      })
-      .whereDoesntHave('paymentMethod', (pmQuery) => {
-        pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
-      })
-      .sum('amount as total')
-
-    const totalRevenueThisMonth = Number(totalRevenueThisMonthResult[0].$extras.total || '0')
-
-    // 🔁 Ajout comparaison avec le mois précédent
-    const startOfLastMonth = now.minus({ months: 1 }).startOf('month').toSQL()
-    const endOfLastMonth = now.minus({ months: 1 }).endOf('month').toSQL()
-
-   const lastMonthRevenueResult = await FolioTransaction
-      .query()
-      .where('hotel_id', serviceId)
-      .whereBetween('transactionDate', [startOfLastMonth, endOfLastMonth])
-      .where('transactionType', 'payment')
-      .where('isVoided', false)
-      .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-      .whereDoesntHave('folio', (f) => {
-        f.whereHas('reservation', (res) => {
-          res.whereHas('reservationRooms', (rr) => {
-            rr.whereHas('room', (r) => {
-              r.whereHas('roomType', (rt) => rt.where('is_paymaster', true))
-            })
-          })
-        })
-      })
-      .whereDoesntHave('paymentMethod', (pmQuery) => {
-        pmQuery.where('method_type', PaymentMethodType.CITY_LEDGER)
-      })
-      .sum('amount as total')
-
-    const lastMonthRevenue = Number(lastMonthRevenueResult[0].$extras.total || '0')
-
-    const revenueGrowthRate = lastMonthRevenue === 0
-      ? totalRevenueThisMonth > 0 ? 100 : 0
       : Math.round(((totalRevenueThisMonth - lastMonthRevenue) / lastMonthRevenue) * 10000) / 100
 
-    return {
-      available,
-      total,
-      reservedToday,
-      reservationRateToday,
-      reservationRateLastWeek,
-      totalReservationsThisMonth,
-      totalRevenueThisMonth,
-      revenueGrowthRate
-    }
+  return {
+    available,
+    total,
+    reservedToday,
+    reservationRateToday,
+    reservationRateLastWeek,
+    totalReservationsThisMonth,
+    totalRevenueThisMonth,
+    revenueGrowthRate,
   }
+}
+
 
 }
 

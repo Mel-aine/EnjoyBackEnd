@@ -417,74 +417,154 @@ export class HotelAnalyticsDashboardService {
 
     return results
   }
-  public static async getMonthlyRevenueComparison(serviceId: number): Promise<{
-    currentYear: { month: string, totalRevenue: number }[]
-    previousYear: { month: string, totalRevenue: number }[]
-  }> {
-    const now = DateTime.now()
-    const currentYear = now.year
-    const previousYear = currentYear - 1
+  private static async calculateRevenueWithTaxByMonth(
+      hotelId: number,
+      year: number
+    ): Promise<{ month: string; totalRevenue: number }[]> {
+      const startOfYear = DateTime.fromObject({ year }).startOf('year').toFormat('yyyy-MM-dd')
+      const endOfYear = DateTime.fromObject({ year }).endOf('year').toFormat('yyyy-MM-dd')
 
-    const currentYearResults = await this.getYearlyRevenueStats(serviceId, currentYear)
-    const previousYearResults = await this.getYearlyRevenueStats(serviceId, previousYear)
+      const scopeFolio = (folioQuery: any) => {
+        folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
+          rrQuery.where('hotel_id', hotelId)
+          rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+          rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
+        })
+      }
 
-    return {
-      currentYear: currentYearResults.map((r: any) => ({ month: r.month, totalRevenue: r.totalRevenue })),
-      previousYear: previousYearResults.map((r: any) => ({ month: r.month, totalRevenue: r.totalRevenue }))
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ]
+
+      const monthlyTotals: Record<string, number> = {}
+      months.forEach((m) => (monthlyTotals[m] = 0))
+
+      const addToMonth = (currentWorkingDate: any, amount: number) => {
+        if (!currentWorkingDate || !amount) return
+        const dt =
+          typeof currentWorkingDate?.toFormat === 'function'
+            ? currentWorkingDate
+            : DateTime.fromISO(String(currentWorkingDate))
+        if (!dt.isValid) return
+        const month = dt.toFormat('MMM')
+        if (monthlyTotals[month] !== undefined) {
+          monthlyTotals[month] += amount
+        }
+      }
+
+      // ── Room Charges ─────────────────────────────
+      const roomChargesTx = await FolioTransaction.query()
+        .whereHas('folio', scopeFolio)
+        .whereBetween('current_working_date', [startOfYear, endOfYear])
+        .where('category', 'room')
+        .where('transaction_type', 'charge')
+        .whereNotIn('status', ['cancelled', 'void', 'voided'])
+        .whereNot('is_voided', true)
+        .select('current_working_date', 'room_final_net_amount')
+
+      for (const tx of roomChargesTx as any[]) {
+        addToMonth(tx.currentWorkingDate, Number(tx.roomFinalNetAmount || 0))
+      }
+
+      // ── Extra Charges ────────────────────────────
+      const extraChargesTx = await FolioTransaction.query()
+        .whereHas('folio', scopeFolio)
+        .whereBetween('current_working_date', [startOfYear, endOfYear])
+        .where('category', 'extra_charge')
+        .where('transaction_type', 'charge')
+        .whereNotIn('status', ['cancelled', 'void', 'voided'])
+        .whereNot('is_voided', true)
+        .select('current_working_date', 'amount')
+
+      for (const tx of extraChargesTx as any[]) {
+        addToMonth(tx.currentWorkingDate, Number(tx.amount || 0))
+      }
+
+      // ── Discounts (soustraits) ───────────────────
+      const discountTx = await FolioTransaction.query()
+        .whereHas('folio', scopeFolio)
+        .whereBetween('current_working_date', [startOfYear, endOfYear])
+        .whereNotNull('discount_amount')
+        .whereNotIn('status', ['cancelled', 'void', 'voided'])
+        .whereNot('is_voided', true)
+        .select('current_working_date', 'discount_amount')
+
+      for (const tx of discountTx as any[]) {
+        addToMonth(tx.currentWorkingDate, -Math.abs(Number(tx.discountAmount || 0)))
+      }
+
+      // ── Adjustments (round off uniquement) ───────
+      const adjustmentTx = await FolioTransaction.query()
+        .whereHas('folio', scopeFolio)
+        .whereBetween('current_working_date', [startOfYear, endOfYear])
+        .where('category', 'adjustment')
+        .whereNotIn('status', ['cancelled', 'void', 'voided'])
+        .whereNot('is_voided', true)
+        .select('current_working_date', 'amount', 'particular', 'description')
+
+      for (const tx of adjustmentTx as any[]) {
+        const amount = Number(tx.amount || 0)
+        const desc = (tx.particular || tx.description || '').toLowerCase()
+        const isRoundOff =
+          desc.includes('round') || desc.includes('unit adjustment') || Math.abs(amount) < 1
+        if (isRoundOff) {
+          addToMonth(tx.currentWorkingDate, amount)
+        }
+      }
+
+      // ── Tax ───────────────────────────────────────
+      const taxTx = await FolioTransaction.query()
+        .whereHas('folio', scopeFolio)
+        .whereBetween('current_working_date', [startOfYear, endOfYear])
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .whereNot('is_voided', true)
+        .select('id', 'current_working_date', 'tax_breakdown')
+        .preload('taxes' as any)
+
+      for (const tx of taxTx as any[]) {
+        let txTax = 0
+        if (tx.taxBreakdown?.items?.length > 0) {
+          tx.taxBreakdown.items.forEach((t: any) => {
+            txTax += Number(t.taxAmount || 0)
+          })
+        } else if (tx.taxes?.length > 0) {
+          tx.taxes.forEach((t: any) => {
+            txTax += Number(t?.$pivot?.taxAmount ?? t?.taxAmount ?? 0)
+          })
+        }
+        addToMonth(tx.currentWorkingDate, txTax)
+      }
+
+      return months.map((month) => ({
+        month,
+        totalRevenue: Math.round(monthlyTotals[month]),
+      }))
     }
-  }
 
+    public static async getMonthlyRevenueComparison(serviceId: number): Promise<{
+      currentYear: { month: string; totalRevenue: number }[]
+      previousYear: { month: string; totalRevenue: number }[]
+    }> {
+      const now = DateTime.now()
+      const currentYear = now.year
+      const previousYear = currentYear - 1
 
-  public static async getYearlyRevenueStats(serviceId: number, year: number): Promise<{ month: string, totalRevenue: number }[]> {
-    const startOfYear = DateTime.fromObject({ year }).startOf('year').toSQLDate()
-    const endOfYear = DateTime.fromObject({ year }).endOf('year').toSQLDate()
+      const currentYearResults = await this.getYearlyRevenueStats(serviceId, currentYear)
+      const previousYearResults = await this.getYearlyRevenueStats(serviceId, previousYear)
 
-    const results = await Database
-      .from('folio_transactions')
-      .where('folio_transactions.hotel_id', serviceId)
-      .where('folio_transactions.transaction_type', 'payment')
-      .where('folio_transactions.is_voided', false)
-      .whereNotIn('folio_transactions.status', ['cancel', 'cancelled', 'voided'])
-      .whereBetween('folio_transactions.current_working_date', [startOfYear, endOfYear])
-      // Exclure City Ledger
-      .whereNotExists((query) => {
-        query
-          .select(Database.raw('1'))
-          .from('payment_methods')
-          .whereRaw('payment_methods.id = folio_transactions.payment_method_id')
-          .where('payment_methods.method_type', 'city_ledger')
-      })
-      // Exclure paymaster
-      // .whereNotExists((query) => {
-      //   query
-      //     .select(Database.raw('1'))
-      //     .from('folios')
-      //     .join('reservation_rooms', 'reservation_rooms.id', 'folios.reservation_room_id')
-      //     .join('rooms', 'rooms.id', 'reservation_rooms.room_id')
-      //     .join('room_types', 'room_types.id', 'rooms.room_type_id')
-      //     .whereRaw('folios.id = folio_transactions.folio_id')
-      //     .where('room_types.is_paymaster', true)
-      // })
-      .select(
-        Database.raw("TO_CHAR(current_working_date, 'Mon') AS month"),
-        'folio_transactions.amount'
-      )
+      return {
+        currentYear: currentYearResults.map((r) => ({ month: r.month, totalRevenue: r.totalRevenue })),
+        previousYear: previousYearResults.map((r) => ({ month: r.month, totalRevenue: r.totalRevenue })),
+      }
+    }
 
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ]
-
-    const revenueByMonth = months.map((month) => {
-      const monthRows = results.filter((r: any) => r.month === month)
-      const totalRevenue = monthRows.reduce(
-        (sum: number, r: any) => sum + Math.abs(Number(r.amount || 0)), 0
-      )
-      return { month, totalRevenue }
-    })
-
-    return revenueByMonth
-  }
+    public static async getYearlyRevenueStats(
+      serviceId: number,
+      year: number
+    ): Promise<{ month: string; totalRevenue: number }[]> {
+      return this.calculateRevenueWithTaxByMonth(serviceId, year)
+    }
 
 
   /**
