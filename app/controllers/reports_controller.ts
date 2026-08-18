@@ -6700,9 +6700,9 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         .whereHas('folio', (folioQuery: any) => {
           folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
             rrQuery.where('hotel_id', hotelId)
-            rrQuery.whereDoesntHave('roomType', (rtQuery: any) =>
-              rtQuery.where('is_paymaster', true)
-            )
+            // rrQuery.whereDoesntHave('roomType', (rtQuery: any) =>
+            //   rtQuery.where('is_paymaster', true)
+            // )
           })
         })
         .whereBetween('current_working_date', [
@@ -6732,7 +6732,39 @@ private buildOtherRevenuesFromPos(posSummary: any): {
           totalPayments += amount
         })
 
-      return { methods: paymentMethodsList, total: totalPayments }
+       const cityLedgerPaymentMethods = await PaymentMethod.query()
+          .where('hotel_id', hotelId)
+          .where('method_type', PaymentMethodType.CITY_LEDGER)
+        const cityLedgerPaymentMethodIds = cityLedgerPaymentMethods.map((pm) => pm.id)
+
+        const cityLedgerSettlements = await FolioTransaction.query()
+          .where('hotel_id', hotelId)
+          .whereHas('folio', (folioQuery: any) => {
+            folioQuery.whereIn('folioType', ['company', 'city_ledger'])
+          })
+          .whereBetween('current_working_date', [
+            startDate.toFormat('yyyy-MM-dd'),
+            endDate.toFormat('yyyy-MM-dd'),
+          ])
+          .where('transaction_type', TransactionType.PAYMENT)
+          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
+          .whereNot('isVoided', true)
+          .whereNotIn('paymentMethodId', cityLedgerPaymentMethodIds)
+          .select('paymentMethodId', 'totalAmount')
+          .preload('paymentMethod')
+
+        cityLedgerSettlements
+          .filter((payment) => payment.paymentMethod)
+          .forEach((payment) => {
+            const method: any = payment.paymentMethod.methodName
+            const amount = Math.abs(payment.totalAmount || 0)
+            paymentMethodsList[method] = (paymentMethodsList[method] || 0) + amount
+            totalPayments += amount
+          })
+
+        return { methods: paymentMethodsList, total: totalPayments }
+
+
     }
 
     const todayPayments = await getPaymentsByMethod(reportDate, reportDate)
