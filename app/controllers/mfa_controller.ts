@@ -44,7 +44,7 @@ export default class MfaController {
     const user = (await auth.authenticate()) as User
     const validator = vine.compile(
       vine.object({
-        code: vine.string().minLength(6).maxLength(6).numeric(),
+        code: vine.string().minLength(6).maxLength(6).regex(/^\d+$/),
         secret: vine.string().minLength(16).maxLength(64),
         label: vine.string().maxLength(100).optional(),
       })

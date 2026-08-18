@@ -13,10 +13,11 @@ interface LogData {
   entityId: number | string
   description?: string
   changes?: ChangeLog
-  ctx?: HttpContext
+  ctx?: HttpContext | { request?: any; response?: any }
   meta?:Record<string,any>
   hotelId?:number
-
+  ipAddress?: string
+  userAgent?: string
 }
 
 interface LogActivityData {
@@ -38,6 +39,38 @@ interface LogActivityData {
 }
 
 export default class LoggerService {
+  private static _extractIpAndUa(data: {
+    ctx?: any
+    ipAddress?: string | null
+    userAgent?: string | null
+  }): { ipAddress: string | null; userAgent: string | null } {
+    let ipAddress: string | null = data.ipAddress ?? null
+    let userAgent: string | null = data.userAgent ?? null
+
+    if (!ipAddress || !userAgent) {
+      const req = data.ctx?.request
+      if (req) {
+        try {
+          if (!ipAddress && typeof req.ip === 'function') {
+            ipAddress = req.ip() ?? null
+          } else if (!ipAddress && typeof req.ip === 'string') {
+            ipAddress = req.ip
+          }
+        } catch { /* ignore */ }
+        try {
+          if (!userAgent && typeof req.header === 'function') {
+            userAgent = req.header('user-agent') ?? null
+          } else if (!userAgent && typeof req.headers === 'object' && req.headers) {
+            const ua = req.headers['user-agent']
+            userAgent = Array.isArray(ua) ? ua[0] ?? null : (ua ?? null)
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    return { ipAddress, userAgent }
+  }
+
   public static async log(data: LogData) {
     try {
       const actor = await User.find(data.actorId)
@@ -45,6 +78,8 @@ export default class LoggerService {
       const numericEntityId =
         data.entityId === undefined || data.entityId === null ? null : Number(data.entityId)
       const entityId = Number.isNaN(numericEntityId as any) ? null : numericEntityId
+
+      const { ipAddress, userAgent } = this._extractIpAndUa(data)
 
       await ActivityLog.create({
         userId: data.actorId,
@@ -57,8 +92,8 @@ export default class LoggerService {
         meta: data.meta ?? null,
         hotelId: data.hotelId ?? null,
         createdBy: data.actorId,
-        ipAddress: data.ctx?.request.ip(),
-        userAgent: data.ctx?.request.header('user-agent'),
+        ipAddress,
+        userAgent,
       })
     } catch (error) {
       console.error('🔴 Failed to create activity log:', error)
@@ -79,6 +114,7 @@ export default class LoggerService {
       // Prepare bulk insert data
       const bulkData = dataArray.map(data => {
         const actor = actorMap.get(data.actorId)
+        const { ipAddress, userAgent } = this._extractIpAndUa(data)
         return {
           userId: data.actorId,
           username: actor?.fullName || '',
@@ -90,8 +126,8 @@ export default class LoggerService {
           meta: data.meta ?? null,
           hotelId: data.hotelId ?? null,
           createdBy: data.actorId,
-          ipAddress: data.ctx?.request.ip(),
-          userAgent: data.ctx?.request.header('user-agent'),
+          ipAddress,
+          userAgent,
         }
       })
 
