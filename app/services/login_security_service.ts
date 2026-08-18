@@ -91,7 +91,7 @@ export default class LoginSecurityService {
       .andWhere('created_at', '>=', since.toSQL() as any)
       .count('* as total')
 
-    const count = Number((rows as any)[0]?.total ?? 0)
+    const count = Number((rows[0] as any)?.$extras?.total ?? 0)
     if (count >= LOCKOUT_CONFIG.MAX_ATTEMPTS) {
       return { ok: false, retryAfterSec: LOCKOUT_CONFIG.WINDOW_MINUTES * 60 }
     }
@@ -103,6 +103,7 @@ export default class LoginSecurityService {
     user.lockReason = reason
     user.loginAttemptsCount = LOCKOUT_CONFIG.MAX_ATTEMPTS
     await user.save()
+
   }
 
   static async countRecentLocks(userId: number): Promise<number> {
@@ -112,7 +113,7 @@ export default class LoginSecurityService {
       .andWhere('failure_reason', 'ACCOUNT_LOCKED')
       .andWhere('created_at', '>=', dayAgo.toSQL() as any)
       .count('* as total')
-    return Number((rows as any)[0]?.total ?? 0)
+    return Number((rows[0] as any)?.$extras?.total ?? 0)
   }
 
   static async incrementFailed(
@@ -145,13 +146,18 @@ export default class LoginSecurityService {
       return { locked: false, attempts: 0 }
     }
 
+
+
     const since = DateTime.now().minus({ minutes: LOCKOUT_CONFIG.WINDOW_MINUTES })
-    const recentFails = await LoginAttempt.query()
+
+     const recentFails = await LoginAttempt.query()
       .where('user_id', user.id)
       .andWhere('success', false)
       .andWhere('created_at', '>=', since.toSQL() as any)
       .count('* as total')
-    const attempts = Number((recentFails as any)[0]?.total ?? 0)
+
+    const attempts = Number((recentFails[0] as any)?.$extras?.total ?? 0)
+
 
     let locked = false
     if (attempts >= LOCKOUT_CONFIG.MAX_ATTEMPTS && !this.isAccountLocked(user).locked) {
