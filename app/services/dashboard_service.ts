@@ -11,7 +11,7 @@ import RoomBlock from '#models/room_block'
 export class RoomAvailabilityService {
 
 
-  private static async calculateRevenueWithTax(
+  public static async calculateRevenueWithTax(
     hotelId: number,
     startDate: DateTime,
     endDate: DateTime

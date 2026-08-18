@@ -3,19 +3,16 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { HotelAnalyticsDashboardService } from '#services/dasboard_servicepd'
 import { HotelAnalyticsService } from '#services/hotel_analytics_service'
 import { DateTime } from 'luxon'
-import Task from '#models/task'
 import Reservation from '#models/reservation'
 import Room from '#models/room'
 import RoomType from '#models/room_type'
 import ActivityLog from '#models/activity_log'
-import Guest from '#models/guest'
 import Folio from '#models/folio'
 import ReservationRoom from '#models/reservation_room'
 import Database from '@adonisjs/lucid/services/db'
 import { ReservationStatus } from '../enums.js'
-
 import RoomBlock from '#models/room_block'
-import WorkOrder from '#models/work_order'
+
 export default class DashboardController {
   public async getAvailability({ params, response }: HttpContext) {
     try {
@@ -101,238 +98,155 @@ export default class DashboardController {
   }
 
  public async getRevenueStats({ params, request, response }: HttpContext) {
-    try {
-      const serviceId = parseInt(params.serviceId)
-      const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
+  try {
+    const serviceId = parseInt(params.serviceId)
+    const period = request.qs().period as 'monthly' | 'quarterly' | 'semester' | 'yearly'
 
-      if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
-        return response.badRequest({ success: false, message: 'Période invalide' })
-      }
-
-      const now = DateTime.now()
-      const year = now.year
-      const startOfYear = DateTime.local(year, 1, 1).startOf('day').toSQL()
-      const endOfYear = DateTime.local(year, 12, 31).endOf('day').toSQL()
-
-      const previousYear = year - 1
-      const startOfPrevYear = DateTime.local(previousYear, 1, 1).startOf('day').toSQL()
-      const endOfPrevYear = DateTime.local(previousYear, 12, 31).endOf('day').toSQL()
-
-      const calcProgression = (current: number, previous: number) => {
-        return previous === 0 ? (current > 0 ? 100 : 0) : Math.round(((current - previous) / previous) * 100)
-      }
-
-      // Sous-requête réutilisable pour exclure city ledger + paymaster
-      const applyExclusions = (query: any) => {
-        query
-          .whereNotExists((sub: any) => {
-            sub
-              .select(Database.raw('1'))
-              .from('payment_methods')
-              .whereRaw('payment_methods.id = folio_transactions.payment_method_id')
-              .where('payment_methods.method_type', 'city_ledger')
-          })
-          // .whereNotExists((sub: any) => {
-          //   sub
-          //     .select(Database.raw('1'))
-          //     .from('folios')
-          //     .join('reservation_rooms', 'reservation_rooms.id', 'folios.reservation_room_id')
-          //     .join('rooms', 'rooms.id', 'reservation_rooms.room_id')
-          //     .join('room_types', 'room_types.id', 'rooms.room_type_id')
-          //     .whereRaw('folios.id = folio_transactions.folio_id')
-          //     .where('room_types.is_paymaster', true)
-          // })
-        return query
-      }
-
-      if (period === 'monthly') {
-        const currentMonthName = now.toFormat('MMM')
-
-        const resultsQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
-        applyExclusions(resultsQuery)
-        const rows = await resultsQuery.select(
-          Database.raw("TO_CHAR(current_working_date, 'Mon') AS month"),
-          'amount'
-        )
-
-        const prevQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
-        applyExclusions(prevQuery)
-        const prevRows = await prevQuery.select(
-          Database.raw("TO_CHAR(current_working_date, 'Mon') AS month"),
-          'amount'
-        )
-
-        const sumForMonth = (rows: any[], month: string) =>
-          rows
-            .filter(r => r.month === month)
-            .reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
-
-        const currentTotal = sumForMonth(rows, currentMonthName)
-        const prevTotal = sumForMonth(prevRows, currentMonthName)
-        const progression = calcProgression(currentTotal, prevTotal)
-
-        return response.ok({
-          success: true,
-          data: [{ month: currentMonthName, totalRevenue: currentTotal, progression }]
-        })
-      }
-
-      if (period === 'quarterly') {
-        const quarterCase = `
-          CASE
-            WHEN EXTRACT(MONTH FROM current_working_date) BETWEEN 1 AND 3 THEN 'Q1'
-            WHEN EXTRACT(MONTH FROM current_working_date) BETWEEN 4 AND 6 THEN 'Q2'
-            WHEN EXTRACT(MONTH FROM current_working_date) BETWEEN 7 AND 9 THEN 'Q3'
-            ELSE 'Q4'
-          END
-        `
-
-        const resultsQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
-        applyExclusions(resultsQuery)
-        const rows = await resultsQuery.select(
-          Database.raw(`${quarterCase} AS quarter`),
-          'amount'
-        )
-
-        const prevQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
-        applyExclusions(prevQuery)
-        const prevRows = await prevQuery.select(
-          Database.raw(`${quarterCase} AS quarter`),
-          'amount'
-        )
-
-        const currentMonth = now.month
-        let currentQuarter = 'Q1'
-        if (currentMonth >= 4 && currentMonth <= 6) currentQuarter = 'Q2'
-        else if (currentMonth >= 7 && currentMonth <= 9) currentQuarter = 'Q3'
-        else if (currentMonth >= 10) currentQuarter = 'Q4'
-
-        const sumForQuarter = (rows: any[], q: string) =>
-          rows
-            .filter(r => r.quarter === q)
-            .reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
-
-        const currentTotal = sumForQuarter(rows, currentQuarter)
-        const prevTotal = sumForQuarter(prevRows, currentQuarter)
-        const progression = calcProgression(currentTotal, prevTotal)
-
-        return response.ok({
-          success: true,
-          data: [{ quarter: currentQuarter, totalRevenue: currentTotal, progression }]
-        })
-      }
-
-      if (period === 'semester') {
-        const semesterCase = `
-          CASE
-            WHEN EXTRACT(MONTH FROM current_working_date) BETWEEN 1 AND 6 THEN 'S1'
-            ELSE 'S2'
-          END
-        `
-
-        const resultsQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
-        applyExclusions(resultsQuery)
-        const rows = await resultsQuery.select(
-          Database.raw(`${semesterCase} AS semester`),
-          'amount'
-        )
-
-        const prevQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
-        applyExclusions(prevQuery)
-        const prevRows = await prevQuery.select(
-          Database.raw(`${semesterCase} AS semester`),
-          'amount'
-        )
-
-        const semesters = ['S1', 'S2']
-        const sumForSemester = (rows: any[], s: string) =>
-          rows
-            .filter(r => r.semester === s)
-            .reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
-
-        const data = semesters.map(s => {
-          const current = sumForSemester(rows, s)
-          const previous = sumForSemester(prevRows, s)
-          return { semester: s, totalRevenue: current, progression: calcProgression(current, previous) }
-        })
-
-        return response.ok({ success: true, data })
-      }
-
-      if (period === 'yearly') {
-        const currentQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfYear!, endOfYear!])
-        applyExclusions(currentQuery)
-        const currentRows = await currentQuery.select('amount')
-
-        const prevQuery = Database
-          .from('folio_transactions')
-          .where('hotel_id', serviceId)
-          .where('transaction_type', 'payment')
-          .where('is_voided', false)
-          .whereNotIn('status', ['cancel', 'cancelled', 'voided'])
-          .whereBetween('current_working_date', [startOfPrevYear!, endOfPrevYear!])
-        applyExclusions(prevQuery)
-        const prevRows = await prevQuery.select('amount')
-
-        const sumAmounts = (rows: any[]) =>
-          rows.reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
-
-        const currentTotal = sumAmounts(currentRows)
-        const prevTotal = sumAmounts(prevRows)
-        const progression = calcProgression(currentTotal, prevTotal)
-
-        return response.ok({
-          success: true,
-          data: [{ year: year.toString(), totalRevenue: currentTotal, progression }]
-        })
-      }
-
-    } catch (error) {
-      return response.internalServerError({ success: false, message: error.message })
+    if (!['monthly', 'quarterly', 'semester', 'yearly'].includes(period)) {
+      return response.badRequest({ success: false, message: 'Période invalide' })
     }
+
+    const now = DateTime.now()
+
+    const calcProgression = (current: number, previous: number) => {
+      return previous === 0
+        ? (current > 0 ? 100 : 0)
+        : Math.round(((current - previous) / previous) * 10000) / 100
+    }
+
+
+    const compareToPreviousPeriod = async (currentStart: DateTime, monthsBack: number) => {
+      const currentEnd = now.endOf('day')
+      const daysElapsed = Math.floor(now.diff(currentStart, 'days').days)
+
+      const previousStart = currentStart.minus({ months: monthsBack })
+      const previousEnd = previousStart.plus({ days: daysElapsed }).endOf('day')
+
+      const [current, previous] = await Promise.all([
+        RoomAvailabilityService.calculateRevenueWithTax(serviceId, currentStart, currentEnd),
+        RoomAvailabilityService.calculateRevenueWithTax(serviceId, previousStart, previousEnd),
+      ])
+
+      return {
+        currentTotal: current.revenueWithTax,
+        previousTotal: previous.revenueWithTax,
+      }
+    }
+
+    if (period === 'monthly') {
+      const currentStart = now.startOf('month')
+      const { currentTotal, previousTotal } = await compareToPreviousPeriod(currentStart, 1)
+
+      return response.ok({
+        success: true,
+        data: [
+          {
+            month: now.toFormat('MMM'),
+            totalRevenue: Math.round(currentTotal),
+            progression: calcProgression(currentTotal, previousTotal),
+          },
+        ],
+      })
+    }
+
+    if (period === 'quarterly') {
+      const currentMonth = now.month
+      let currentQuarter = 'Q1'
+      let quarterStartMonth = 1
+      if (currentMonth >= 4 && currentMonth <= 6) {
+        currentQuarter = 'Q2'
+        quarterStartMonth = 4
+      } else if (currentMonth >= 7 && currentMonth <= 9) {
+        currentQuarter = 'Q3'
+        quarterStartMonth = 7
+      } else if (currentMonth >= 10) {
+        currentQuarter = 'Q4'
+        quarterStartMonth = 10
+      }
+
+      const currentStart = DateTime.local(now.year, quarterStartMonth, 1).startOf('day')
+      const { currentTotal, previousTotal } = await compareToPreviousPeriod(currentStart, 3)
+
+      return response.ok({
+        success: true,
+        data: [
+          {
+            quarter: currentQuarter,
+            totalRevenue: Math.round(currentTotal),
+            progression: calcProgression(currentTotal, previousTotal),
+          },
+        ],
+      })
+    }
+
+    if (period === 'semester') {
+      const isFirstSemester = now.month <= 6
+      const currentSemesterLabel = isFirstSemester ? 'S1' : 'S2'
+      const currentStart = DateTime.local(now.year, isFirstSemester ? 1 : 7, 1).startOf('day')
+      const { currentTotal, previousTotal } = await compareToPreviousPeriod(currentStart, 6)
+
+      // L'autre semestre : comparaison en périodes complètes équivalentes (année vs année-1)
+      const otherSemesterLabel = currentSemesterLabel === 'S1' ? 'S2' : 'S1'
+      const otherStartMonth = currentSemesterLabel === 'S1' ? 7 : 1
+      const otherEndMonth = currentSemesterLabel === 'S1' ? 12 : 6
+
+      const otherStart = DateTime.local(now.year, otherStartMonth, 1).startOf('day')
+      const otherEnd = DateTime.local(now.year, otherEndMonth, 1).endOf('month')
+
+      // Si l'autre semestre n'a pas encore commencé, son total est 0
+      const otherEffectiveEnd = otherStart > now ? null : (otherEnd > now ? now.endOf('day') : otherEnd)
+
+      const otherPrevStart = otherStart.minus({ years: 1 })
+      const otherPrevEnd = otherEnd.minus({ years: 1 })
+
+      const [otherCurrent, otherPrevious] = await Promise.all([
+        otherEffectiveEnd
+          ? RoomAvailabilityService.calculateRevenueWithTax(serviceId, otherStart, otherEffectiveEnd)
+          : Promise.resolve({ revenueWithTax: 0 } as any),
+        RoomAvailabilityService.calculateRevenueWithTax(serviceId, otherPrevStart, otherPrevEnd),
+      ])
+
+      const data = [
+        {
+          semester: 'S1',
+          totalRevenue: Math.round(currentSemesterLabel === 'S1' ? currentTotal : otherCurrent.revenueWithTax),
+          progression: calcProgression(
+            currentSemesterLabel === 'S1' ? currentTotal : otherCurrent.revenueWithTax,
+            currentSemesterLabel === 'S1' ? previousTotal : otherPrevious.revenueWithTax
+          ),
+        },
+        {
+          semester: 'S2',
+          totalRevenue: Math.round(currentSemesterLabel === 'S2' ? currentTotal : otherCurrent.revenueWithTax),
+          progression: calcProgression(
+            currentSemesterLabel === 'S2' ? currentTotal : otherCurrent.revenueWithTax,
+            currentSemesterLabel === 'S2' ? previousTotal : otherPrevious.revenueWithTax
+          ),
+        },
+      ]
+
+      return response.ok({ success: true, data })
+    }
+
+    if (period === 'yearly') {
+      const currentStart = DateTime.local(now.year, 1, 1).startOf('day')
+      const { currentTotal, previousTotal } = await compareToPreviousPeriod(currentStart, 12)
+
+      return response.ok({
+        success: true,
+        data: [
+          {
+            year: now.year.toString(),
+            totalRevenue: Math.round(currentTotal),
+            progression: calcProgression(currentTotal, previousTotal),
+          },
+        ],
+      })
+    }
+  } catch (error) {
+    return response.internalServerError({ success: false, message: error.message })
   }
+}
 
 
   public async getMonthlyRevenueComparison({ params, response }: HttpContext) {
