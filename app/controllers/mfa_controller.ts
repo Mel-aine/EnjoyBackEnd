@@ -89,6 +89,7 @@ export default class MfaController {
     const user = (await auth.authenticate()) as User
     try {
       const method = await TwoFactorAuthService.enableEmailMethod(user)
+      await TwoFactorAuthService.generateEmailChallenge(user)
       await LoggerService.log({
         actorId: user.id,
         action: 'MFA_METHOD_ENABLED',

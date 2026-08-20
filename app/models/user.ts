@@ -59,6 +59,7 @@ export default class  User extends AuthFinder(BaseModel) {
   @column({ columnName: 'is_active' })
   declare isActive: boolean
 
+
   @column({ columnName: 'preferred_language' })
   declare preferredLanguage: string | null
 

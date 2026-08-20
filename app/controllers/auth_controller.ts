@@ -194,7 +194,7 @@ export default class AuthController {
     }
 
     // 3) ⚠️ COMPTE BLOQUÉ — AVANT Hash.verify (éviter DoS sur Argon2)
-    const lockStatus = LoginSecurityService.isAccountLocked(user)
+    const lockStatus = await LoginSecurityService.isAccountLocked(user)
     if (lockStatus.locked) {
       await LoginSecurityService.recordAttempt({
         email,
@@ -245,21 +245,31 @@ export default class AuthController {
     if (mfaOn) {
       const methods = await TwoFactorAuthService.getAvailableMethods(user)
       const defaultMethod = await TwoFactorAuthService.getDefaultMethod(user)
+      const hasRecoveryCodes = await TwoFactorAuthService.hasRecoveryCodes(user)
       // Crée un challenge placeholder pour relier les étapes (ne contient pas encore de code)
       let challengeId = request.only(['mfa_challenge_id']).mfa_challenge_id as string | undefined
+      let challengeRow = null
       if (challengeId) {
-        const existing = await MfaChallenge.query()
+        challengeRow = await MfaChallenge.query()
           .where('challenge_id', challengeId)
           .andWhere('user_id', user.id)
           .andWhere('is_consumed', false)
           .first()
-        if (!existing) challengeId = undefined
       }
-      if (!challengeId) {
+      if (!challengeRow) {
         challengeId = cuid()
-        // on ne crée pas de mfa_challenges row ici (code pas généré), mais c'est ok
-        // pour tracker l'étape 2, on s'en fiche, ça sera créé à mfa/email/send
+        challengeRow = await MfaChallenge.create({
+          userId: user.id,
+          challengeId,
+          methodType: (defaultMethod?.methodType ?? 'TOTP') as any,
+          hashedCode: '', // pas encore de code — sera rempli si méthode EMAIL et code envoyé
+          deliveredTo: user.email,
+          attempts: 0,
+          isConsumed: false,
+          expiresAt: DateTime.now().plus({ minutes: 10 }),
+        })
       }
+
       await LoggerService.log({
         actorId: user.id,
         action: 'LOGIN',
@@ -275,6 +285,7 @@ export default class AuthController {
         mfa_challenge_id: challengeId,
         available_methods: methods,
         default_method_id: defaultMethod?.id ?? null,
+        has_recovery_codes: hasRecoveryCodes,
       })
     }
 
@@ -457,7 +468,10 @@ export default class AuthController {
         })
       }
 
-      const { challengeId, expiresAt } = await TwoFactorAuthService.generateEmailChallenge(user)
+      const { challengeId, expiresAt } = await TwoFactorAuthService.generateEmailChallenge(
+        user,
+        body.mfa_challenge_id
+      )
       await LoggerService.log({
         actorId: user.id,
         action: 'MFA_CODE_SENT',
@@ -494,7 +508,7 @@ export default class AuthController {
     }
   }
 
-  async verifyMfa(ctx: HttpContext) {
+   async verifyMfa(ctx: HttpContext) {
     const { request, response } = ctx
     const ip = request.ip()
     const userAgent = request.header('user-agent')
@@ -514,27 +528,29 @@ export default class AuthController {
         .first()
       let user: User | null = challenge?.user ?? null
 
-      // Fallback si pas de challenge en base (cas TOTP où on a pas créé de row):
-      // on cherche l'user via last failed attempt + LOGIN MFA_REQUIRED activity log
-      if (!user) {
-        const latestLoginAttempts = await (
-          await import('#models/login_attempt')
-        ).default
-          .query()
-          .where('created_at', '>=', DateTime.now().minus({ minutes: 10 }).toSQL() as any)
-          .andWhere('success', false)
-          .orderBy('created_at', 'desc')
-          .limit(1)
-        if (latestLoginAttempts[0]?.userId) {
-          user = (await User.find(latestLoginAttempts[0].userId)) ?? null
-        }
-      }
-
       if (!user) {
         return response.notFound({
           status: 'error',
           message: 'Challenge expired or invalid. Please restart login.',
           error: 'MFA_CHALLENGE_NOT_FOUND',
+        })
+      }
+
+      // ⚠️ Challenge déjà consommé (anti-replay)
+      if (challenge!.isConsumed) {
+        return response.status(401).json({
+          status: 'error',
+          message: 'This MFA challenge has already been used. Please restart login.',
+          error: 'MFA_CHALLENGE_ALREADY_CONSUMED',
+        })
+      }
+
+      // ⚠️ Challenge expiré
+      if (DateTime.now() > challenge!.expiresAt) {
+        return response.status(401).json({
+          status: 'error',
+          message: 'This MFA challenge has expired. Please restart login.',
+          error: 'MFA_CHALLENGE_EXPIRED',
         })
       }
 
@@ -549,8 +565,21 @@ export default class AuthController {
         methodId = def?.id
         if (def) methodType = def.methodType
       } else {
-        const found = await (await import('#models/mfa_method')).default.find(methodId)
-        if (found) methodType = found.methodType
+        // ⚠️ Vérifier que la méthode appartient bien à ce user
+        const found = await (await import('#models/mfa_method')).default
+          .query()
+          .where('id', methodId)
+          .andWhere('user_id', user.id)
+          .first()
+        if (found) {
+          methodType = found.methodType
+        } else {
+          return response.badRequest({
+            status: 'error',
+            message: 'Invalid MFA method for this account.',
+            error: 'MFA_METHOD_NOT_FOUND',
+          })
+        }
       }
 
       if (methodType === 'EMAIL') {
@@ -584,7 +613,11 @@ export default class AuthController {
         })
       }
 
-      // Succès — émission des tokens
+      // Succès — on consomme le challenge (empêche le replay)
+      challenge!.isConsumed = true
+      await challenge!.save()
+
+      // Émission des tokens
       const tokenName = user.email || cuid()
       const { accessToken, refreshToken } = await this._emitTokens(user, {
         tokenName,

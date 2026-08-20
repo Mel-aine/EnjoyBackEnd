@@ -69,14 +69,14 @@ export default class TwoFactorAuthService {
       .where('user_id', user.id)
       .andWhere('is_verified', true)
       .count('* as total')
-    return Number((count as any)[0]?.total ?? 0) > 0
+    return Number((count as any)[0]?.$extras?.total ?? 0) > 0
   }
 
   static async getAvailableMethods(user: User) {
     const rows = await MfaMethod.query()
       .where('user_id', user.id)
       .andWhere('is_verified', true)
-      .orderBy('is_default', 'desc')
+      // .orderBy('is_default', 'desc')
       .orderBy('id', 'asc')
     return rows.map((r) => ({
       id: r.id,
@@ -294,21 +294,41 @@ export default class TwoFactorAuthService {
     return { canSend: true, count10min, lastSentAt }
   }
 
-  static async generateEmailChallenge(user: User): Promise<EmailChallengeResult> {
+
+  static async generateEmailChallenge(user: User, existingChallengeId?: string): Promise<EmailChallengeResult> {
     const code = String(crypto.randomInt(100000, 999999 + 1)).padStart(6, '0')
-    const challengeId = cuid()
     const hashedCode = await Hash.make(code)
     const expiresAt = DateTime.now().plus({ minutes: EMAIL_CHALLENGE_TTL_MINUTES })
-    const row = await MfaChallenge.create({
-      userId: user.id,
-      challengeId,
-      methodType: 'EMAIL' as MfaChallengeType,
-      hashedCode,
-      deliveredTo: user.email,
-      attempts: 0,
-      isConsumed: false,
-      expiresAt,
-    })
+
+    let row: MfaChallenge | null = null
+    if (existingChallengeId) {
+      row = await MfaChallenge.query()
+        .where('challenge_id', existingChallengeId)
+        .andWhere('user_id', user.id)
+        .first()
+    }
+
+    if (row) {
+      row.methodType = 'EMAIL' as MfaChallengeType
+      row.hashedCode = hashedCode
+      row.deliveredTo = user.email
+      row.attempts = 0
+      row.isConsumed = false
+      row.expiresAt = expiresAt
+      await row.save()
+    } else {
+      row = await MfaChallenge.create({
+        userId: user.id,
+        challengeId: cuid(),
+        methodType: 'EMAIL' as MfaChallengeType,
+        hashedCode,
+        deliveredTo: user.email,
+        attempts: 0,
+        isConsumed: false,
+        expiresAt,
+      })
+    }
+
     await this._sendEmailCode(user, code, EMAIL_CHALLENGE_TTL_MINUTES)
     return { challengeId: row.challengeId, code, expiresAt }
   }
@@ -437,5 +457,13 @@ The Enjoy Team.`
       out.push(RECOVERY_ALPHABET[crypto.randomInt(0, RECOVERY_ALPHABET.length)])
     }
     return out.join('')
+  }
+
+  static async hasRecoveryCodes(user: User): Promise<boolean> {
+    const count = await MfaRecoveryCode.query()
+      .where('user_id', user.id)
+      .andWhereNull('used_at')
+      .count('* as total')
+    return Number((count as any)[0]?.$extras?.total ?? 0) > 0
   }
 }
