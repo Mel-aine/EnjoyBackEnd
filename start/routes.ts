@@ -187,6 +187,7 @@ import ActivityLogsController from '#controllers/activity_logs_controller'
 
 // Import dynamique
 const AuthController = () => import('#controllers/auth_controller')
+const MfaController = () => import('#controllers/mfa_controller')
 import DashboardController from '#controllers/dasboard_controller'
 import PayrollsController from '#controllers/payrolls_controller'
 // Import dynamique
@@ -303,15 +304,49 @@ router.get('/swagger/external/json', async () => {
 router
   .group(() => {
     // Basic CRUD operations for hotels
-    router.post('/', hotelsController.store.bind(hotelsController)) // Create a new hotel
-    router.get('/:hotelId/check', [HotelsController, 'checkHotelExists'])
+    router.post('api/hotels/:hotelId/check', [HotelsController, 'checkHotelExists'])
   })
   .prefix('api/hotels')
-router.post('api/auth', [AuthController, 'login']).use(middleware.ipRestriction())
-router.post('api/authLogin', [AuthController, 'signin']).use(middleware.ipRestriction())
-router.post('api/authLoginConsole', [AuthController, 'signinConsole']).use(middleware.ipRestriction())
-// Route pour renvoyer l'email de vérification
-router.post('/api/auth/resend-verification', [AuthController, 'resendVerificationEmail']).use(middleware.ipRestriction())
+
+// =====================================================
+// GROUPE AUTH LOGIN + FORGOT — protégé rate limiting + IP
+// =====================================================
+router.group(() => {
+  router.post('api/auth', [AuthController, 'login'])
+  router.post('api/authLogin', [AuthController, 'signin'])
+  router.post('api/authLoginConsole', [AuthController, 'signinConsole'])
+  router.post('api/auth/resend-verification', [AuthController, 'resendVerificationEmail'])
+  router.post('api/validateEmail', [AuthController, 'validateEmail'])
+  router.post('api/validatePassword', [AuthController, 'validatePassword'])
+  router.post('api/auth/forgot-password', [AuthController, 'forgotPassword'])
+  router.post('api/auth/forgot-password-console', [AuthController, 'forgotPasswordConsole'])
+}).use([middleware.ipRestriction(), middleware.loginRateLimit()])
+
+// =====================================================
+// GROUPE MFA VERIFY / SEND — protégé MFA rate limit + IP
+// =====================================================
+router.group(() => {
+  router.post('api/mfa/verify', [AuthController, 'verifyMfa'])
+  router.post('api/mfa/email/send', [AuthController, 'sendEmailMfaCode'])
+  router.post('api/mfa/recovery/use', [AuthController, 'useRecoveryCodeLogin'])
+}).use([middleware.ipRestriction(), middleware.mfaRateLimit()])
+
+// =====================================================
+// GROUPE MFA PROFIL — AUTHENTIFIÉ uniquement
+// =====================================================
+router.group(() => {
+  router.get('/mfa/methods', [MfaController, 'listMethods'])
+  router.post('/mfa/totp/setup', [MfaController, 'setupTotp'])
+  router.post('/mfa/totp/confirm', [MfaController, 'confirmTotp'])
+  router.post('/mfa/email/enable', [MfaController, 'enableEmail'])
+  router.delete('/mfa/methods/:id', [MfaController, 'disableMethod'])
+  router.patch('/mfa/methods/:id/default', [MfaController, 'setDefault'])
+  router.get('/mfa/recovery-codes', [MfaController, 'getRecoveryCodes'])
+  router.post('/mfa/recovery-codes/regenerate', [MfaController, 'regenerateRecoveryCodes'])
+})
+  .prefix('api')
+  .use(middleware.auth({ guards: ['api'] }))
+
 // Refresh token route for Vue.js client
 router.post('api/refresh-token', [AuthController, 'refresh_token'])
 router.post('api/refresh_token_console', [AuthController, 'refresh_token_console'])
@@ -321,10 +356,7 @@ router.post('api/initSpace', [AuthController, 'initSpace'])
 router.post('api/authLogout', [AuthController, 'logout'])
 router.get('api/auth', [AuthController, 'user'])
 router.put('api/auth/:id', [AuthController, 'update_user'])
-router.post('api/validateEmail', [AuthController, 'validateEmail'])
-router.post('api/validatePassword', [AuthController, 'validatePassword'])
-router.post('api/auth/forgot-password', [AuthController, 'forgotPassword'])
-router.post('api/auth/forgot-password-console', [AuthController, 'forgotPasswordConsole'])
+// (ces routes sont DÉJÀ dans le groupe rate-limité ci-dessus : validateEmail validatePassword forgot-password forgot-password-console)
 router.post('api/auth/reset-password', [AuthController, 'resetPassword'])
 router.get('api/staff_management/dashboard/:serviceId', [StaffDashboardsController, 'index'])
 router.get('/ping', async ({ response }) => {
