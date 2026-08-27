@@ -109,6 +109,9 @@ export default class  User extends AuthFinder(BaseModel) {
   @column({ columnName: 'contract_type' })
   declare contractType: string | null
 
+  @column({ columnName: 'avatar_url' })
+  declare avatarUrl: string | null
+
   @column.date({ columnName: 'contract_end_date' })
   declare contractEndDate: DateTime | null
 
