@@ -94,7 +94,7 @@ router.get('/', async ({ request, response }) => {
 router.get('/documents/:type/:token', async ({ params, response }) => {
   try {
     const { default: DocumentTokenService } = await import('#services/document_token_service')
-    
+
     const doc = await DocumentTokenService.resolve(params.token)
     if (!doc) {
       return response.status(404).json({ message: 'Document not found or expired' })
@@ -304,7 +304,7 @@ router.get('/swagger/external/json', async () => {
 router
   .group(() => {
     // Basic CRUD operations for hotels
-    router.post('api/hotels/:hotelId/check', [HotelsController, 'checkHotelExists'])
+    router.post('/:hotelId/check', [HotelsController, 'checkHotelExists'])
   })
   .prefix('api/hotels')
 
@@ -1634,7 +1634,7 @@ router
       })
       .prefix('configuration/hotels/:hotelId/ip_configurations')
 
-    
+
     // Night Audit Routes
     router
       .group(() => {
@@ -1719,7 +1719,7 @@ router
       router.put('/:id/subscriptions', subscriptionsController.update.bind(subscriptionsController))
 
     }).prefix('market_place')
-   
+
 
     // Widget Dashboard
     router.get('/widget/dashboard', widgetsController.dashboard.bind(widgetsController))
@@ -1754,7 +1754,7 @@ router
         router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
         router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
         router.get('/hotels/:id/satisfaction-stats', guestFeedbacksController.index.bind(guestFeedbacksController))
-   
+
 
 
   })
