@@ -5676,7 +5676,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
             <th style="text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
             <th style="text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
             <th style="text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
-            <th style="text-align:right; padding:2px 0; font-weight:bold;">PTD N-1(XAF)</th>
+            <th style="text-align:right; padding:2px 0; font-weight:bold;">YTD N-1(XAF)</th>
             <th style="text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
           </tr>
         </thead>
