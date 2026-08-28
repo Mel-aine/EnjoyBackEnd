@@ -5616,12 +5616,19 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
 
-      //N-1 : même mois, année précédente
+      //N-1 : année précédente
       const reportDateN1 = reportDate.minus({ years: 1 })
-      const ptdStartDateN1 = reportDateN1.startOf('month')
       const ytdStartDateN1 = reportDateN1.startOf('year')
 
-      const sectionsDataN1 = await this.generateManagementReportSections(hotelId, reportDateN1, currency,ptdStartDateN1,ytdStartDateN1)
+      // Try to get N-1 data from daily_summary_facts first
+      let sectionsDataN1 = await this.aggregateManagerReportN1(hotelId, ytdStartDateN1, reportDateN1)
+
+      // Fallback: if no daily_summary_facts data, compute from folio_transactions
+      if (!sectionsDataN1) {
+        const ptdStartDateN1 = reportDateN1.startOf('month')
+        sectionsDataN1 = await this.generateManagementReportSections(hotelId, reportDateN1, currency, ptdStartDateN1, ytdStartDateN1)
+      } else {
+      }
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
@@ -13579,6 +13586,369 @@ async generateCreditLedgerPaymentsPdf({ request, response, auth }: HttpContext) 
 /**
  * Generate HTML for Credit Ledger Payments
  */
+
+  /**
+   * Aggregate YTD N-1 data from daily_summary_facts.
+   * Sums the 'today' values from each day's managerReportData to build YTD N-1.
+   */
+  public async aggregateManagerReportN1(
+    hotelId: number,
+    startDate: DateTime,
+    endDate: DateTime
+  ): Promise<any> {
+    const { default: DailySummaryFact } = await import('#models/daily_summary_fact')
+
+
+    const facts = await DailySummaryFact.query()
+      .where('hotel_id', hotelId)
+      .whereBetween('audit_date', [startDate.toJSDate(), endDate.toJSDate()])
+      .orderBy('audit_date', 'asc')
+
+    if (facts.length > 0) {
+      const firstFact = facts[0]
+      const d = firstFact.managerReportData as any
+    }
+
+    if (!facts || facts.length === 0) {
+      return null
+    }
+
+    // Initialize empty aggregated structure
+    const agg: any = {
+      roomCharges: {
+        roomCharges: { today: 0 },
+        cancellationRevenue: { today: 0 },
+        noShowRevenue: { today: 0 },
+        lateCheckoutCharges: { today: 0 },
+        total: { today: 0 },
+      },
+      extraCharges: { extraCharges: {}, totals: { today: 0 } },
+      discounts: { discounts: [], totals: { today: 0 } },
+      adjustments: { adjustments: [], today: 0 },
+      tax: { taxes: [], totals: { today: 0 } },
+      payments: { methods: {}, total: { today: 0 } },
+      creditLedger: {
+        today: { creditLedgerPayment: 0, creditLedgerTransfer: 0, total: 0 },
+      },
+      cityLedger: {
+        openingBalance: { today: 0 },
+        paymentReceived: { today: 0 },
+        chargesRaised: { today: 0 },
+        outstandingCommission: { today: 0 },
+        closingBalance: { today: 0 },
+      },
+      advanceDepositLedger: {
+        openingBalance: { today: 0 },
+        advanceDepositCollected: { today: 0 },
+        balanceTransferToGuestLedger: { today: 0 },
+        closingBalance: { today: 0 },
+      },
+      guestLedger: {
+        openingBalance: { today: 0 },
+        carryForwardedAdvanceDeposit: { today: 0 },
+        chargePostedToGuestLedger: { today: 0 },
+        settlementByGuest: { today: 0 },
+        outstandingPaymentOnCharges: { today: 0 },
+        transferFromAdvanceDeposit: { today: 0 },
+        closingBalance: { today: 0 },
+      },
+      roomSummary: {
+        totalRoom: { today: 0 },
+        blockRoom: { today: 0 },
+        noOfGuestAdult: { today: 0 },
+        noOfGuestChild: { today: 0 },
+        totalAvailableRoomNights: { today: 0 },
+        soldRoom: { today: 0 },
+        dayUseRoom: { today: 0 },
+        complimentaryRoom: { today: 0 },
+        noShows: { today: 0 },
+        averageGuestPerRoom: { today: 0 },
+        noOfReservationsConfirm: { today: 0 },
+        noOfReservationsUnconfirm: { today: 0 },
+        noOfWalkins: { today: 0 },
+        cancellations: { today: 0 },
+      },
+      statistics: {
+        occupancyRate: { today: 0 },
+        averageDailyRate: { today: 0 },
+        revenuePerAvailableRoom: { today: 0 },
+      },
+      posSummary: { outlets: [], totalWithoutTax: { today: 0 }, totalWithTax: { today: 0 } },
+      posPayment: { outlets: [], total: { today: 0 } },
+      postings: { posToPmsPosting: { today: 0 } },
+      revenueSummary: {
+        roomRevenue: { today: 0 },
+        extraRevenue: { today: 0 },
+        pmsRevenue: { today: 0 },
+      },
+      totalRevenue: { today: 0 },
+    }
+
+    // Helper: safely add a number from nested path
+    const addToday = (target: any, ...keys: string[]) => {
+      let obj = target
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!obj[keys[i]]) obj[keys[i]] = {}
+        obj = obj[keys[i]]
+      }
+      const lastKey = keys[keys.length - 1]
+      obj[lastKey] = (obj[lastKey] || 0) + 0 // will be set below
+    }
+
+    const sumToday = (source: any, target: any, ...keys: string[]) => {
+      let s = source
+      let t = target
+      for (let i = 0; i < keys.length - 1; i++) {
+        s = s?.[keys[i]]
+        if (!t[keys[i]]) t[keys[i]] = {}
+        t = t[keys[i]]
+      }
+      const lastKey = keys[keys.length - 1]
+      const val = Number(s?.[lastKey] ?? 0)
+      t[lastKey] = (Number(t[lastKey] || 0)) + val
+    }
+
+    let factIndex = 0
+    for (const fact of facts) {
+      const d = fact.managerReportData as any
+      if (!d) {
+        factIndex++
+        continue
+      }
+      if (factIndex === 0) {
+      }
+      factIndex++
+
+      // Room Charges
+      sumToday(d, agg, 'roomCharges', 'roomCharges', 'today')
+      sumToday(d, agg, 'roomCharges', 'cancellationRevenue', 'today')
+      sumToday(d, agg, 'roomCharges', 'noShowRevenue', 'today')
+      sumToday(d, agg, 'roomCharges', 'lateCheckoutCharges', 'today')
+      sumToday(d, agg, 'roomCharges', 'total', 'today')
+
+      // Extra Charges
+      if (d.extraCharges?.extraCharges) {
+        for (const [name, data] of Object.entries(d.extraCharges.extraCharges)) {
+          if (!agg.extraCharges.extraCharges[name]) {
+            agg.extraCharges.extraCharges[name] = { today: 0, isDeleted: (data as any).isDeleted }
+          }
+          agg.extraCharges.extraCharges[name].today += Number((data as any).today || 0)
+        }
+      }
+      agg.extraCharges.totals.today += Number(d.extraCharges?.totals?.today || d.extraCharges?.today || 0)
+
+      // Discounts
+      if (d.discounts?.discounts) {
+        for (const disc of d.discounts.discounts) {
+          let existing = agg.discounts.discounts.find((x: any) => x.shortCode === disc.shortCode)
+          if (!existing) {
+            existing = { name: disc.name, shortCode: disc.shortCode, today: 0, ptd: 0, ytd: 0 }
+            agg.discounts.discounts.push(existing)
+          }
+          existing.today += Number(disc.today || 0)
+        }
+      }
+      agg.discounts.totals.today += Number(d.discounts?.totals?.today || d.discounts?.today || 0)
+
+      // Adjustments
+      if (d.adjustments?.adjustments) {
+        for (const adj of d.adjustments.adjustments) {
+          let existing = agg.adjustments.adjustments.find((x: any) => x.name === adj.name)
+          if (!existing) {
+            existing = { name: adj.name, today: 0, ptd: 0, ytd: 0 }
+            agg.adjustments.adjustments.push(existing)
+          }
+          existing.today += Number(adj.today || 0)
+        }
+      }
+      agg.adjustments.today += Number(d.adjustments?.today || 0)
+
+      // Tax
+      if (d.tax?.taxes) {
+        for (const tax of d.tax.taxes) {
+          let existing = agg.tax.taxes.find((x: any) => x.name === tax.name)
+          if (!existing) {
+            existing = { name: tax.name, today: 0, ptd: 0, ytd: 0 }
+            agg.tax.taxes.push(existing)
+          }
+          existing.today += Number(tax.today || 0)
+        }
+      }
+      agg.tax.totals.today += Number(d.tax?.totals?.today || d.tax?.today || 0)
+
+      // Payments
+      if (d.payments?.methods) {
+        for (const [method, data] of Object.entries(d.payments.methods)) {
+          if (!agg.payments.methods[method]) {
+            agg.payments.methods[method] = { today: 0, ptd: 0, ytd: 0 }
+          }
+          agg.payments.methods[method].today += Number((data as any).today || 0)
+        }
+      }
+      agg.payments.total.today += Number(d.payments?.total?.today || 0)
+
+      // Credit Ledger
+      agg.creditLedger.today.creditLedgerPayment += Number(d.creditLedger?.today?.creditLedgerPayment || 0)
+      agg.creditLedger.today.creditLedgerTransfer += Number(d.creditLedger?.today?.creditLedgerTransfer || 0)
+      agg.creditLedger.today.total += Number(d.creditLedger?.today?.total || 0)
+
+      // City Ledger — use LAST day values (balances are point-in-time)
+      const setLast = (source: any, target: any, ...keys: string[]) => {
+        let s = source
+        let t = target
+        for (let i = 0; i < keys.length - 1; i++) {
+          s = s?.[keys[i]]
+          if (!t[keys[i]]) t[keys[i]] = {}
+          t = t[keys[i]]
+        }
+        const lastKey = keys[keys.length - 1]
+        t[lastKey] = Number(s?.[lastKey] ?? 0)
+      }
+      setLast(d, agg, 'cityLedger', 'openingBalance', 'today')
+      setLast(d, agg, 'cityLedger', 'paymentReceived', 'today')
+      setLast(d, agg, 'cityLedger', 'chargesRaised', 'today')
+      setLast(d, agg, 'cityLedger', 'outstandingCommission', 'today')
+      setLast(d, agg, 'cityLedger', 'closingBalance', 'today')
+
+      // Advance Deposit Ledger — use LAST day values
+      setLast(d, agg, 'advanceDepositLedger', 'openingBalance', 'today')
+      setLast(d, agg, 'advanceDepositLedger', 'advanceDepositCollected', 'today')
+      setLast(d, agg, 'advanceDepositLedger', 'balanceTransferToGuestLedger', 'today')
+      setLast(d, agg, 'advanceDepositLedger', 'closingBalance', 'today')
+
+      // Guest Ledger — use LAST day values
+      setLast(d, agg, 'guestLedger', 'openingBalance', 'today')
+      setLast(d, agg, 'guestLedger', 'carryForwardedAdvanceDeposit', 'today')
+      setLast(d, agg, 'guestLedger', 'chargePostedToGuestLedger', 'today')
+      setLast(d, agg, 'guestLedger', 'settlementByGuest', 'today')
+      setLast(d, agg, 'guestLedger', 'outstandingPaymentOnCharges', 'today')
+      setLast(d, agg, 'guestLedger', 'transferFromAdvanceDeposit', 'today')
+      setLast(d, agg, 'guestLedger', 'closingBalance', 'today')
+
+      // Room Summary
+      // Fields to SUM (daily counts)
+      const sumRoomKeys = ['blockRoom', 'soldRoom', 'dayUseRoom', 'complimentaryRoom', 'noShows', 'noOfReservationsConfirm', 'noOfReservationsUnconfirm', 'noOfWalkins', 'cancellations', 'noOfGuestAdult', 'noOfGuestChild']
+      // Fields to KEEP LAST VALUE (point-in-time or cumulative)
+      const lastRoomKeys = ['totalRoom', 'totalAvailableRoomNights']
+      // Fields to AVERAGE
+      const avgRoomKeys = ['averageGuestPerRoom']
+
+      if (d.roomSummary) {
+        for (const key of sumRoomKeys) {
+          if (agg.roomSummary[key]) {
+            agg.roomSummary[key].today += Number(d.roomSummary[key]?.today || 0)
+          }
+        }
+        for (const key of lastRoomKeys) {
+          if (agg.roomSummary[key]) {
+            agg.roomSummary[key].today = Number(d.roomSummary[key]?.today || 0)
+          }
+        }
+        for (const key of avgRoomKeys) {
+          if (agg.roomSummary[key]) {
+            agg.roomSummary[key].today += Number(d.roomSummary[key]?.today || 0)
+          }
+        }
+      }
+
+      // Statistics (average)
+      agg.statistics.occupancyRate.today += Number(d.statistics?.occupancyRate?.today || 0)
+      agg.statistics.averageDailyRate.today += Number(d.statistics?.averageDailyRate?.today || 0)
+      agg.statistics.revenuePerAvailableRoom.today += Number(d.statistics?.revenuePerAvailableRoom?.today || 0)
+
+      // POS Summary
+      if (d.posSummary?.outlets) {
+        for (const outlet of d.posSummary.outlets) {
+          let existing = agg.posSummary.outlets.find((o: any) => o.outlet === outlet.outlet)
+          if (!existing) {
+            existing = { outlet: outlet.outlet, categories: [], totalWithoutTax: { today: 0 }, totalWithTax: { today: 0 } }
+            agg.posSummary.outlets.push(existing)
+          }
+          if (outlet.categories) {
+            for (const cat of outlet.categories) {
+              let existingCat = existing.categories.find((c: any) => c.name === cat.name)
+              if (!existingCat) {
+                existingCat = { name: cat.name, today: 0, ptd: 0, ytd: 0 }
+                existing.categories.push(existingCat)
+              }
+              existingCat.today += Number(cat.today || 0)
+            }
+          }
+          existing.totalWithoutTax.today += Number(outlet.totalWithoutTax?.today || 0)
+          existing.totalWithTax.today += Number(outlet.totalWithTax?.today || 0)
+        }
+      }
+      agg.posSummary.totalWithoutTax.today += Number(d.posSummary?.totalWithoutTax?.today || 0)
+      agg.posSummary.totalWithTax.today += Number(d.posSummary?.totalWithTax?.today || 0)
+
+      // POS Payment
+      if (d.posPayment?.outlets) {
+        for (const outlet of d.posPayment.outlets) {
+          let existing = agg.posPayment.outlets.find((o: any) => o.outlet === outlet.outlet)
+          if (!existing) {
+            existing = { outlet: outlet.outlet, payments: [], total: { today: 0, ptd: 0, ytd: 0 } }
+            agg.posPayment.outlets.push(existing)
+          }
+          if (outlet.payments) {
+            for (const pay of outlet.payments) {
+              let existingPay = existing.payments.find((p: any) => p.name === pay.name)
+              if (!existingPay) {
+                existingPay = { name: pay.name, today: 0, ptd: 0, ytd: 0 }
+                existing.payments.push(existingPay)
+              }
+              existingPay.today += Number(pay.today || 0)
+            }
+          }
+          existing.total.today += Number(outlet.total?.today || 0)
+        }
+      }
+      agg.posPayment.total.today += Number(d.posPayment?.total?.today || 0)
+
+      // Postings
+      agg.postings.posToPmsPosting.today += Number(d.postings?.posToPmsPosting?.today || 0)
+
+      // Revenue Summary
+      agg.revenueSummary.roomRevenue.today += Number(d.revenueSummary?.roomRevenue?.today || 0)
+      agg.revenueSummary.extraRevenue.today += Number(d.revenueSummary?.extraRevenue?.today || 0)
+      agg.revenueSummary.pmsRevenue.today += Number(d.revenueSummary?.pmsRevenue?.today || 0)
+
+      // Total Revenue
+      agg.totalRevenue.today += Number(d.totalRevenue?.today || 0)
+    }
+
+    // Convert aggregated 'today' values to 'ytd' for the template
+    // The template accesses contentN1?.xxx?.ytd, so we map today → ytd
+    const mapTodayToYtd = (obj: any) => {
+      if (obj === null || obj === undefined) return
+      if (Array.isArray(obj)) {
+        obj.forEach(mapTodayToYtd)
+        return
+      }
+      if (typeof obj === 'object') {
+        if ('today' in obj) {
+          obj.ytd = obj.today
+        }
+        for (const key of Object.keys(obj)) {
+          if (typeof obj[key] === 'object' && obj[key] !== null) {
+            mapTodayToYtd(obj[key])
+          }
+        }
+      }
+    }
+    mapTodayToYtd(agg)
+
+    // Recompute averages (not sums)
+    const dayCount = facts.length
+    if (dayCount > 0) {
+      agg.statistics.occupancyRate.ytd = agg.statistics.occupancyRate.today / dayCount
+      agg.statistics.averageDailyRate.ytd = agg.statistics.averageDailyRate.today / dayCount
+      agg.statistics.revenuePerAvailableRoom.ytd = agg.statistics.revenuePerAvailableRoom.today / dayCount
+      agg.roomSummary.averageGuestPerRoom.ytd = agg.roomSummary.averageGuestPerRoom.today / dayCount
+    }
+
+
+    return agg
+  }
 
 public async generateCreditLedgerPaymentsHtml(
   hotelName: string,
