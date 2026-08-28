@@ -5663,14 +5663,21 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       <div style="border-top:1px solid #333; margin:0 ;"></div>
 
       <!-- Column Headers -->
-      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0;">
+      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0; table-layout:fixed;">
+        <colgroup>
+          <col style="width:28%;">
+          <col style="width:18%;">
+          <col style="width:18%;">
+          <col style="width:16%;">
+          <col style="width:20%;">
+        </colgroup>
         <thead>
           <tr style="background-color:#f5f5f5;">
-            <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
-            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
-            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
-            <th style="width:16%; text-align:right; padding:2px 0; font-weight:bold;">PTD N-1(XAF)</th>
-            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
+            <th style="text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
+            <th style="text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
+            <th style="text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
+            <th style="text-align:right; padding:2px 0; font-weight:bold;">PTD N-1(XAF)</th>
+            <th style="text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
           </tr>
         </thead>
       </table>

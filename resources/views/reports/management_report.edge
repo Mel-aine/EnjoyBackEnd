@@ -35,6 +35,7 @@
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 15px;
+        table-layout: fixed;
       }
 
       th,
@@ -119,21 +120,28 @@
         Room Charges
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 28%;">
+            <td>
               Room Charges
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(content.roomCharges?.roomCharges?.today) }}
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(content.roomCharges?.roomCharges?.ptd) }}
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ formatCurrency(contentN1?.roomCharges?.roomCharges?.ptd) }}
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ formatCurrency(content.roomCharges?.roomCharges?.ytd) }}
             </td>
           </tr>
@@ -215,42 +223,49 @@
         Extra Charges
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           @each(extraCharge in Object.keys(content.extraCharges.extraCharges || {}))
             @if(!content.extraCharges.extraCharges[extraCharge].isDeleted)
               <tr>
-                <td style="width: 28%;">
+                <td>
                   {{ extraCharge }}
                 </td>
-                <td class="currency" style="width: 16%;">
+                <td class="currency">
                   {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].today) }}
                 </td>
-                <td class="currency" style="width: 16%;">
+                <td class="currency">
                   {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ptd) }}
                 </td>
-                <td class="n1-col" style="width: 16%;">
+                <td class="n1-col">
                   {{ formatCurrency(contentN1?.extraCharges?.extraCharges?.[extraCharge]?.ptd) }}
                 </td>
-                <td class="currency" style="width: 24%;">
+                <td class="currency">
                   {{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ytd) }}
                 </td>
               </tr>
             @endif
           @endeach
           <tr class="section-total">
-            <td style="width: 28%;">
+            <td>
               <strong>Total Extra Charges</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.extraCharges.totals?.today || content.extraCharges.today) }}</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.extraCharges.totals?.ptd || content.extraCharges.ptd) }}</strong>
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               <strong>{{ formatCurrency(contentN1?.extraCharges?.totals?.ptd || contentN1?.extraCharges?.ptd) }}</strong>
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.extraCharges.totals?.ytd || content.extraCharges.ytd) }}</strong>
             </td>
           </tr>
@@ -262,40 +277,47 @@
         Discount
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           @each(discount in (content.discounts.discounts || []))
             <tr>
-              <td style="width: 28%">
+              <td>
                 {{ discount.name }} ({{ discount.shortCode }})
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(discount.today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(discount.ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency((contentN1?.discounts?.discounts || []).find((d) => d.shortCode === discount.shortCode)?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(discount.ytd) }}
               </td>
             </tr>
           @endeach
           <tr class="section-total">
-            <td style="width: 28%">
+            <td>
               <strong>Total Discount</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.discounts.totals?.today || content.discounts.today) }}</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.discounts.totals?.ptd || content.discounts.ptd) }}</strong>
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               <strong>{{ formatCurrency(contentN1?.discounts?.totals?.ptd || contentN1?.discounts?.ptd) }}</strong>
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.discounts.totals?.ytd || content.discounts.ytd) }}</strong>
             </td>
           </tr>
@@ -308,40 +330,47 @@
         Adjustments
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           @each(adjustment in (content.adjustments.adjustments || []))
             <tr>
-              <td style="width: 28%;">
+              <td>
                 {{ adjustment.name }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(adjustment.today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(adjustment.ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency((contentN1?.adjustments?.adjustments || []).find((a) => a.name === adjustment.name)?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(adjustment.ytd) }}
               </td>
             </tr>
           @endeach
           <tr class="section-total">
-            <td style="width: 28%;">
+            <td>
               <strong>Total Adjustments</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.adjustments.totals?.today || content.adjustments.today) }}</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.adjustments.totals?.ptd || content.adjustments.ptd) }}</strong>
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               <strong>{{ formatCurrency(contentN1?.adjustments?.totals?.ptd || contentN1?.adjustments?.ptd) }}</strong>
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.adjustments.totals?.ytd || content.adjustments.ytd) }}</strong>
             </td>
           </tr>
@@ -354,41 +383,48 @@
         Tax
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           @each(taxRate in ( content.tax.taxes || []))
             <tr>
-              <td style="width: 28%;">
+              <td>
                 {{ taxRate.name }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(taxRate.today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(taxRate.ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency((contentN1?.tax?.taxes || []).find((t) => t.name === taxRate.name)?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(taxRate.ytd) }}
               </td>
             </tr>
           @endeach
 
           <tr class="section-total">
-            <td style="width: 28%;">
+            <td>
               <strong>Total Tax</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.tax.totals?.today || content.tax.today) }}</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.tax.totals?.ptd || content.tax.ptd) }}</strong>
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               <strong>{{ formatCurrency(contentN1?.tax?.totals?.ptd || contentN1?.tax?.ptd) }}</strong>
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.tax.totals?.ytd || content.tax.ytd) }}</strong>
             </td>
           </tr>
@@ -397,21 +433,28 @@
 
       <!-- Bold Section After Tax -->
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr class="bold-section">
-            <td style="width: 28%;">
+            <td>
               <strong>Total Revenue without Tax</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.totals.revenueWithoutTax.today) }}</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.totals.revenueWithoutTax.ptd) }}</strong>
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               <strong>{{ formatCurrency(contentN1?.totals?.revenueWithoutTax?.ptd) }}</strong>
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.totals.revenueWithoutTax.ytd) }}</strong>
             </td>
           </tr>
@@ -474,22 +517,29 @@
         Payment
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           @each(method in Object.keys(content.payments.methods))
             <tr>
-              <td style="width: 28%;">
+              <td>
                 {{ method }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(content.payments.methods[method].today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(content.payments.methods[method].ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency(contentN1?.payments?.methods?.[method]?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(content.payments.methods[method].ytd) }}
               </td>
             </tr>
@@ -518,20 +568,27 @@
         Credit Ledger
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 28%;">Credit Ledger (OUT)</td>
-            <td class="currency" style="width: 16%;">{{ formatCurrency(content.creditLedger?.today?.creditLedgerPayment) }}</td>
-            <td class="currency" style="width: 16%;">{{ formatCurrency(content.creditLedger?.ptd?.creditLedgerPayment) }}</td>
-            <td class="n1-col" style="width: 16%;">{{ formatCurrency(contentN1?.creditLedger?.ptd?.creditLedgerPayment) }}</td>
-            <td class="currency" style="width: 24%;">{{ formatCurrency(content.creditLedger?.ytd?.creditLedgerPayment) }}</td>
+            <td>Credit Ledger (OUT)</td>
+            <td class="currency">{{ formatCurrency(content.creditLedger?.today?.creditLedgerPayment) }}</td>
+            <td class="currency">{{ formatCurrency(content.creditLedger?.ptd?.creditLedgerPayment) }}</td>
+            <td class="n1-col">{{ formatCurrency(contentN1?.creditLedger?.ptd?.creditLedgerPayment) }}</td>
+            <td class="currency">{{ formatCurrency(content.creditLedger?.ytd?.creditLedgerPayment) }}</td>
           </tr>
           <tr>
-            <td style="width: 28%;">Credit Ledger (IN)</td>
-            <td class="currency" style="width: 16%;">{{ formatCurrency(content.creditLedger?.today?.creditLedgerTransfer) }}</td>
-            <td class="currency" style="width: 16%;">{{ formatCurrency(content.creditLedger?.ptd?.creditLedgerTransfer) }}</td>
-            <td class="n1-col" style="width: 16%;">{{ formatCurrency(contentN1?.creditLedger?.ptd?.creditLedgerTransfer) }}</td>
-            <td class="currency" style="width: 24%;">{{ formatCurrency(content.creditLedger?.ytd?.creditLedgerTransfer) }}</td>
+            <td>Credit Ledger (IN)</td>
+            <td class="currency">{{ formatCurrency(content.creditLedger?.today?.creditLedgerTransfer) }}</td>
+            <td class="currency">{{ formatCurrency(content.creditLedger?.ptd?.creditLedgerTransfer) }}</td>
+            <td class="n1-col">{{ formatCurrency(contentN1?.creditLedger?.ptd?.creditLedgerTransfer) }}</td>
+            <td class="currency">{{ formatCurrency(content.creditLedger?.ytd?.creditLedgerTransfer) }}</td>
           </tr>
           <tr class="section-total">
             <td><strong>Total Credit Ledger</strong></td>
@@ -549,21 +606,28 @@
         City Ledger
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 28%;">
+            <td>
               Opening Balance
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(content.cityLedger?.openingBalance?.today) }}
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(content.cityLedger?.openingBalance?.ptd) }}
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ formatCurrency(contentN1?.cityLedger?.openingBalance?.ptd) }}
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ formatCurrency(content.cityLedger?.openingBalance?.ytd) }}
             </td>
           </tr>
@@ -643,18 +707,24 @@
         Advance Deposit Ledger
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 40%;">
+            <td>
               Opening Balance
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency">
               {{ formatCurrency(content.advanceDepositLedger?.openingBalance?.today) }}
             </td>
-            <td class="currency" style="width: 20%;">
-            </td>
-            <td class="currency" style="width: 20%;">
-            </td>
+            <td class="currency"></td>
+            <td class="n1-col"></td>
+            <td class="currency"></td>
           </tr>
           <tr>
             <td>
@@ -663,10 +733,9 @@
             <td class="currency">
               {{ formatCurrency(content.advanceDepositLedger?.advanceDepositCollected?.today) }}
             </td>
-            <td class="currency">
-            </td>
-            <td class="currency">
-            </td>
+            <td class="currency"></td>
+            <td class="n1-col"></td>
+            <td class="currency"></td>
           </tr>
           <tr>
             <td>
@@ -675,10 +744,9 @@
             <td class="currency">
               {{ formatCurrency(content.advanceDepositLedger?.balanceTransferToGuestLedger?.today) }}
             </td>
-            <td class="currency">
-            </td>
-            <td class="currency">
-            </td>
+            <td class="currency"></td>
+            <td class="n1-col"></td>
+            <td class="currency"></td>
           </tr>
           <tr class="section-total">
             <td>
@@ -687,10 +755,9 @@
             <td class="currency">
               <strong>{{ formatCurrency(content.advanceDepositLedger?.closingBalance?.today) }}</strong>
             </td>
-            <td class="currency">
-            </td>
-            <td class="currency">
-            </td>
+            <td class="currency"></td>
+            <td class="n1-col"></td>
+            <td class="currency"></td>
           </tr>
         </tbody>
       </table>
@@ -700,16 +767,24 @@
         Guest Ledger
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 40%;">
+            <td>
               Opening Balance
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency">
               {{ formatCurrency(content.guestLedger?.openingBalance?.today) }}
             </td>
-            <td class="currency" style="width: 20%;"></td>
-            <td class="currency" style="width: 20%;"></td>
+            <td class="currency"></td>
+            <td class="n1-col"></td>
+            <td class="currency"></td>
           </tr>
           <tr>
             <td>
@@ -719,6 +794,7 @@
               {{ formatCurrency(content.guestLedger?.carryForwardedAdvanceDeposit?.today) }}
             </td>
             <td class="currency"></td>
+            <td class="n1-col"></td>
             <td class="currency"></td>
           </tr>
           <tr>
@@ -729,6 +805,7 @@
               {{ formatCurrency(content.guestLedger?.chargePostedToGuestLedger?.today) }}
             </td>
             <td class="currency"></td>
+            <td class="n1-col"></td>
             <td class="currency"></td>
           </tr>
           <tr>
@@ -739,6 +816,7 @@
               {{ formatCurrency(content.guestLedger?.settlementByGuest?.today) }}
             </td>
             <td class="currency"></td>
+            <td class="n1-col"></td>
             <td class="currency"></td>
           </tr>
           <tr>
@@ -749,6 +827,7 @@
               {{ formatCurrency(content.guestLedger?.outstandingPaymentOnCharges?.today) }}
             </td>
             <td class="currency"></td>
+            <td class="n1-col"></td>
             <td class="currency"></td>
           </tr>
           <tr>
@@ -759,6 +838,7 @@
               {{ formatCurrency(content.guestLedger?.transferFromAdvanceDeposit?.today) }}
             </td>
             <td class="currency"></td>
+            <td class="n1-col"></td>
             <td class="currency"></td>
           </tr>
           <tr class="section-total">
@@ -769,6 +849,7 @@
               <strong>{{ formatCurrency(content.guestLedger?.closingBalance?.today) }}</strong>
             </td>
             <td class="currency"></td>
+            <td class="n1-col"></td>
             <td class="currency"></td>
           </tr>
         </tbody>
@@ -779,21 +860,28 @@
         Room Summary
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 28%;">
+            <td>
               Total Rooms
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ content.roomSummary?.totalRoom?.today || 0 }}
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ content.roomSummary?.totalRoom?.ptd || 0 }}
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ contentN1?.roomSummary?.totalRoom?.ptd || 0 }}
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ content.roomSummary?.totalRoom?.ytd || 0 }}
             </td>
           </tr>
@@ -1009,21 +1097,28 @@
         Statistics
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           <tr>
-            <td style="width: 28%;">
+            <td>
               Occupancy Rate (%)
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ (content.statistics?.occupancyRate?.today || 0).toFixed(0) }}%
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ (content.statistics?.occupancyRate?.ptd || 0).toFixed(0) }}%
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ (contentN1?.statistics?.occupancyRate?.ptd || 0).toFixed(0) }}%
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ (content.statistics?.occupancyRate?.ytd || 0).toFixed(0) }}%
             </td>
           </tr>
@@ -1073,36 +1168,39 @@
       </div>
 
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
         @each(outlet in content.posSummary?.outlets)
           <tr>
-            <td class="section-title" style="width: 28%;">
+            <td class="section-title">
               {{ outlet.outlet }}
             </td>
-            <td style="width: 16%;">
-            </td>
-            <td style="width: 16%;">
-            </td>
-            <td style="width: 16%;">
-            </td>
-            <td style="width: 24%;">
-            </td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
           @each(category in outlet.categories)
             <tr>
-              <td style="width: 28%;">
+              <td>
                 {{ category.name }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(category?.today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(category?.ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency((((contentN1?.posSummary?.outlets || []).find((o) => o.outlet === outlet.outlet))?.categories || []).find((c) => c.name === category.name)?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(category?.ytd) }}
               </td>
             </tr>
@@ -1111,16 +1209,16 @@
             <td class="section-title" style="width: 28%;">
               Total Revenue without Tax
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(outlet.totalWithoutTax.today) }}
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(outlet.totalWithoutTax.ptd) }}
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ formatCurrency(((contentN1?.posSummary?.outlets || []).find((o) => o.outlet === outlet.outlet))?.totalWithoutTax?.ptd) }}
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ formatCurrency(outlet.totalWithoutTax.ytd) }}
             </td>
           </tr>
@@ -1128,51 +1226,51 @@
             <td class="section-title" style="width: 28%;">
               Total Revenue with Tax
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(outlet.totalWithTax.today) }}
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(outlet.totalWithTax.ptd) }}
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ formatCurrency(((contentN1?.posSummary?.outlets || []).find((o) => o.outlet === outlet.outlet))?.totalWithTax?.ptd) }}
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ formatCurrency(outlet.totalWithTax.ytd) }}
             </td>
           </tr>
         @endeach
         <tr class="">
-          <td style="width: 28%;">
+          <td>
             <strong>All Outlet's Total Revenue without Tax</strong>
           </td>
-          <td class="currency" style="width: 16%;">
+          <td class="currency">
             <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.today) }}</strong>
           </td>
-          <td class="currency" style="width: 16%;">
+          <td class="currency">
             <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.ptd) }}</strong>
           </td>
-          <td class="n1-col" style="width: 16%;">
+          <td class="n1-col">
             <strong>{{ formatCurrency(contentN1?.posSummary?.totalWithoutTax?.ptd) }}</strong>
           </td>
-          <td class="currency" style="width: 24%;">
+          <td class="currency">
             <strong>{{ formatCurrency(content.posSummary?.totalWithoutTax.ytd) }}</strong>
           </td>
         </tr>
         <tr class="section-total-bottom">
-          <td style="width: 28%;">
+          <td>
             <strong>All Outlet's Total Revenue with Tax</strong>
           </td>
-          <td class="currency" style="width: 16%;">
+          <td class="currency">
             <strong>{{ formatCurrency(content.posSummary?.totalWithTax.today) }}</strong>
           </td>
-          <td class="currency" style="width: 16%;">
+          <td class="currency">
             <strong>{{ formatCurrency(content.posSummary?.totalWithTax.ptd) }}</strong>
           </td>
-          <td class="n1-col" style="width: 16%;">
+          <td class="n1-col">
             <strong>{{ formatCurrency(contentN1?.posSummary?.totalWithTax?.ptd) }}</strong>
           </td>
-          <td class="currency" style="width: 24%;">
+          <td class="currency">
             <strong>{{ formatCurrency(content.posSummary?.totalWithTax.ytd) }}</strong>
           </td>
         </tr>
@@ -1189,36 +1287,39 @@
       </div>
 
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
           @each(outlet in content.posPayment?.outlets)
             <tr>
-              <td class="section-title" style="width: 28%;">
+              <td class="section-title">
                 {{ outlet.outlet }}
               </td>
-              <td style="width: 16%;">
-              </td>
-              <td style="width: 16%;">
-              </td>
-              <td style="width: 16%;">
-              </td>
-              <td style="width: 24%;">
-              </td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
             </tr>
             @each(payment in outlet.payments)
               <tr>
-                <td style="width: 28%;">
+                <td>
                   {{ payment.name }}
                 </td>
-                <td class="currency" style="width: 16%;">
+                <td class="currency">
                   {{ formatCurrency(payment?.today) }}
                 </td>
-                <td class="currency" style="width: 16%;">
+                <td class="currency">
                   {{ formatCurrency(payment?.ptd) }}
                 </td>
-                <td class="n1-col" style="width: 16%;">
+                <td class="n1-col">
                   {{ formatCurrency((((contentN1?.posPayment?.outlets || []).find((o) => o.outlet === outlet.outlet))?.payments || []).find((p) => p.name === payment.name)?.ptd) }}
                 </td>
-                <td class="currency" style="width: 24%;">
+                <td class="currency">
                   {{ formatCurrency(payment?.ytd) }}
                 </td>
               </tr>
@@ -1227,34 +1328,34 @@
               <td class="section-title" style="width: 28%;">
                 Total
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(outlet.total.today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(outlet.total.ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency(((contentN1?.posPayment?.outlets || []).find((o) => o.outlet === outlet.outlet))?.total?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(outlet.total.ytd) }}
               </td>
             </tr>
           @endeach
           <tr class="">
-            <td style="width: 28%;">
+            <td>
               <strong>All Outlet's Payment Total</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.posPayment?.total.today) }}</strong>
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.posPayment?.total.ptd) }}</strong>
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               <strong>{{ formatCurrency(contentN1?.posPayment?.total?.ptd) }}</strong>
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               <strong>{{ formatCurrency(content.posPayment?.total.ytd) }}</strong>
             </td>
           </tr>
@@ -1267,21 +1368,28 @@
         Revenue Summary (without tax)
       </div>
       <table>
+        <colgroup>
+          <col style="width: 28%;">
+          <col style="width: 18%;">
+          <col style="width: 18%;">
+          <col style="width: 16%;">
+          <col style="width: 20%;">
+        </colgroup>
         <tbody>
-          <tr class="">
-            <td style="width: 28%;" >
+          <tr>
+            <td>
               Room Revenue
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.today) }}
             </td>
-            <td class="currency" style="width: 16%;">
+            <td class="currency">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.ptd) }}
             </td>
-            <td class="n1-col" style="width: 16%;">
+            <td class="n1-col">
               {{ formatCurrency(contentN1?.revenueSummary?.roomRevenue?.ptd) }}
             </td>
-            <td class="currency" style="width: 24%;">
+            <td class="currency">
               {{ formatCurrency(content.revenueSummary?.roomRevenue.ytd) }}
             </td>
           </tr>
@@ -1360,21 +1468,28 @@
       <!-- total -->
       <div class="horizontal-line">
         <table>
+          <colgroup>
+            <col style="width: 28%;">
+            <col style="width: 18%;">
+            <col style="width: 18%;">
+            <col style="width: 16%;">
+            <col style="width: 20%;">
+          </colgroup>
           <tbody>
             <tr class="font-bold">
-              <td style="width: 28%;">
+              <td>
                 Total Revenue
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(content.totalRevenue?.today) }}
               </td>
-              <td class="currency" style="width: 16%;">
+              <td class="currency">
                 {{ formatCurrency(content.totalRevenue?.ptd) }}
               </td>
-              <td class="n1-col" style="width: 16%;">
+              <td class="n1-col">
                 {{ formatCurrency(contentN1?.totalRevenue?.ptd) }}
               </td>
-              <td class="currency" style="width: 24%;">
+              <td class="currency">
                 {{ formatCurrency(content.totalRevenue?.ytd) }}
               </td>
             </tr>
@@ -1388,7 +1503,7 @@
       <p>*PMS Revenue = Total Revenue without Tax (PMS)</p>
       <p>*POS Revenue = All Outlet's Total Revenue without Tax</p>
       <p>*Total Revenue = PMS Revenue + POS Revenue</p>
-      <p>*PTD N-1 = même période (1er du mois → date du rapport), même mois, année précédente</p>
+      <p>*PTD N-1 = same period (1st of the month → report date), same month, previous year</p>
  <div class="horizontal-line">
       </div>
     </div>
