@@ -5730,6 +5730,156 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       })
     }
   }
+
+  /**
+   * Weekly Services Report PDF
+   * Shows all service sections (Room Charges, Extra Charges, Discounts, etc.)
+   * with one column per day of the week.
+   */
+  async generateWeeklyServicesReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, asOnDate, currency } = request.only(['hotelId', 'asOnDate', 'currency'])
+
+      if (!hotelId) return response.badRequest({ success: false, message: 'Hotel ID is required' })
+      if (!asOnDate) return response.badRequest({ success: false, message: 'As On Date is required' })
+      if (!currency) return response.badRequest({ success: false, message: 'Currency is required' })
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) return response.badRequest({ success: false, message: 'Invalid date format' })
+
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      const user = auth.user
+      const printedBy = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System' : 'System'
+
+      // Calculate week range (Monday to Sunday containing reportDate)
+      const weekStart = reportDate.startOf('week') // Monday
+      const weekEnd = weekStart.plus({ days: 6 }) // Sunday
+
+      // Fetch data for each day of the week
+      const weekDays: any[] = []
+      for (let i = 0; i < 7; i++) {
+        const dayDate = weekStart.plus({ days: i })
+        const dayLabel = dayDate.toFormat('dd/MM')
+        const dayName = dayDate.toFormat('EEEE') // Monday, Tuesday, etc.
+
+        // Try night audit cache first
+        let dayData: any = null
+        const auditDetails = await NightAuditService.getNightAuditDetails(dayDate, Number(hotelId))
+        if (auditDetails && auditDetails?.managerReportData) {
+          dayData = auditDetails.managerReportData
+        } else {
+          dayData = await this.generateManagementReportSections(hotelId, dayDate, currency)
+        }
+
+        weekDays.push({
+          dayName,
+          dayLabel,
+          date: dayDate,
+          data: dayData,
+        })
+      }
+
+      // Build totals row
+      const totals: any = {
+        roomCharges: { today: 0 },
+        cancellationRevenue: { today: 0 },
+        noShowRevenue: { today: 0 },
+        lateCheckoutCharges: { today: 0 },
+        totalRoomCharges: { today: 0 },
+        extraChargesTotal: { today: 0 },
+        discountsTotal: { today: 0 },
+        adjustmentsTotal: { today: 0 },
+        taxTotal: { today: 0 },
+        paymentsTotal: { today: 0 },
+        totalRevenue: { today: 0 },
+      }
+      for (const day of weekDays) {
+        const d = day.data
+        totals.roomCharges.today += Number(d?.roomCharges?.roomCharges?.today || 0)
+        totals.cancellationRevenue.today += Number(d?.roomCharges?.cancellationRevenue?.today || 0)
+        totals.noShowRevenue.today += Number(d?.roomCharges?.noShowRevenue?.today || 0)
+        totals.lateCheckoutCharges.today += Number(d?.roomCharges?.lateCheckoutCharges?.today || 0)
+        totals.totalRoomCharges.today += Number(d?.roomCharges?.total?.today || 0)
+        totals.extraChargesTotal.today += Number(d?.extraCharges?.totals?.today || d?.extraCharges?.today || 0)
+        totals.discountsTotal.today += Number(d?.discounts?.totals?.today || d?.discounts?.today || 0)
+        totals.adjustmentsTotal.today += Number(d?.adjustments?.today || 0)
+        totals.taxTotal.today += Number(d?.tax?.totals?.today || d?.tax?.today || 0)
+        totals.paymentsTotal.today += Number(d?.payments?.total?.today || 0)
+        totals.totalRevenue.today += Number(d?.totalRevenue?.today || 0)
+      }
+
+      // Format currency helper
+      const formatCurrency = (amount: number | null | undefined): string => {
+        const num = Number(amount)
+        if (!isFinite(num)) return '0'
+        return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      }
+
+      // Render Edge template
+      const { default: edge } = await import('edge.js')
+      const path = await import('node:path')
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      const htmlContent = await edge.render('reports/weekly_services_report', {
+        hotelName: hotel.hotelName,
+        weekStart: weekStart.toFormat('dd/MM/yyyy'),
+        weekEnd: weekEnd.toFormat('dd/MM/yyyy'),
+        currency,
+        printedBy,
+        printedOn: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
+        weekDays,
+        totals,
+        formatCurrency,
+      })
+
+      // Generate PDF
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+      const headerTemplate = `
+        <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
+            <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+            <div style="font-size:13px; color:#8B0000; font-weight:bold;">Weekly Services Report</div>
+          </div>
+          <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
+            <span style="margin-right:10px;">Week: ${weekStart.toFormat('dd/MM/yyyy')} - ${weekEnd.toFormat('dd/MM/yyyy')}</span>
+            <span>Currency: ${currency}</span>
+          </div>
+          <div style="border-top:1px solid #333; margin:0;"></div>
+        </div>
+      `
+
+      const footerTemplate = `
+        <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+          <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+          <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+        </div>
+      `
+
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        orientation: 'landscape',
+        margin: { top: '100px', right: '10px', bottom: '60px', left: '10px' },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true,
+      })
+
+      const fileName = `weekly-services-${hotel.hotelName.replace(/\s+/g, '-')}-${weekStart.toFormat('yyyy-MM-dd')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating weekly services report:', error)
+      return response.internalServerError({ success: false, message: 'Failed to generate weekly services report', error: error.message })
+    }
+  }
+
   /**
    * Generate all sections data for Management Report
    */

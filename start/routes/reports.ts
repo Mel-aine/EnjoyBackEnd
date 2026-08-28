@@ -146,6 +146,8 @@ router.group(() => {
     router.post('/night-audit-report-pdf', [ReportsController, 'generateNightAuditReportPdf'])
     // Management report PDF
     router.post('/management-report-pdf', [ReportsController, 'generateManagementReportPdf'])
+    // Weekly Services Report PDF
+    router.post('/weekly-services-report-pdf', [ReportsController, 'generateWeeklyServicesReportPdf'])
     //Meal Plan Report
     router.post('/MealPlan-report-pdf', [ReportsController, 'generateMealPlanReportPdf'])
 

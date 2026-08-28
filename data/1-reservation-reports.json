@@ -175,6 +175,10 @@
       {
         "id": "credit_ledger_payments",
         "name": "Credit Ledger Payments"
+      },
+      {
+        "id" : "weekly_services_report",
+        "name" : "Weekly Services Report"
       }
     ]
   },
