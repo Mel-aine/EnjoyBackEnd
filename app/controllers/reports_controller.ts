@@ -5616,6 +5616,12 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
 
+      //N-1 : même mois, année précédente
+      const reportDateN1 = reportDate.minus({ years: 1 })
+      const ptdStartDateN1 = reportDateN1.startOf('month')
+      const ytdStartDateN1 = reportDateN1.startOf('year')
+
+      const sectionsDataN1 = await this.generateManagementReportSections(hotelId, reportDateN1, currency,ptdStartDateN1,ytdStartDateN1)
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
@@ -5624,7 +5630,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         currency,
         sectionsData,
         printedBy,
-        hotel.hasCreditLedger
+        hotel.hasCreditLedger,
+        sectionsDataN1
       )
 
       // Import PDF generation service
@@ -5662,6 +5669,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
             <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
             <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
             <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
+            <th style="width:16%; text-align:right; padding:2px 0; font-weight:bold;">PTD N-1(XAF)</th>
             <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
           </tr>
         </thead>
@@ -5714,13 +5722,15 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   public async generateManagementReportSections(
     hotelId: number,
     reportDate: DateTime,
-    currency: string
+    currency: string,
+    ptdStartDate: DateTime = reportDate.startOf('month'),
+    ytdStartDate: DateTime = reportDate.startOf('year')
   ) {
     // Calculate PTD (Period To Date) - first day of month to report date
-    const ptdStartDate = reportDate.startOf('month')
+    // const ptdStartDate = reportDate.startOf('month')
 
     // Calculate YTD (Year To Date) - first day of year to report date
-    const ytdStartDate = reportDate.startOf('year')
+    // const ytdStartDate = reportDate.startOf('year')
 
     const [
       roomCharges,
@@ -5824,7 +5834,8 @@ private buildOtherRevenuesFromPos(posSummary: any): {
     currency: string,
     sectionsData: any,
     printedBy: string = 'System',
-    hasCreditLedger: boolean = false
+    hasCreditLedger: boolean = false,
+    sectionsDataN1: any = null
   ): Promise<string> {
     const { default: edge } = await import('edge.js')
     const path = await import('node:path')
@@ -5913,6 +5924,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         ...sectionsData,
         totals,
       },
+      contentN1: sectionsDataN1,
       formatCurrency,
       // Header specific data
       header: {
