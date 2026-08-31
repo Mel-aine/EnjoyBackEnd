@@ -14143,7 +14143,7 @@ export default class ReportsController {
     if (kpi.occupancyRate && Number(kpi.occupancyRate) < 40) {
       alerts.push({
         type: 'orange',
-        icon: '⚠️',
+        icon: '🟠',
         title: 'Occupation faible :',
         message: `Le taux d'occupation du mois (${kpi.occupancyRate}%) est en dessous du seuil recommandé.`,
       })
@@ -14159,7 +14159,7 @@ export default class ReportsController {
     if (revenueTTC > 0) {
       alerts.push({
         type: 'green',
-        icon: '✅',
+        icon: '🟢',
         title: 'Revenu généré :',
         message: `Le chiffre d'affaires cumulé du mois s'élève à ${this.fmtNum(revenueTTC)} ${currency}.`,
       })
@@ -14225,11 +14225,12 @@ export default class ReportsController {
     >()
     for (const tx of transactions as any[]) {
       const reservation = tx.reservationRoom?.reservation
-      const source =
-        reservation?.businessSource?.name ||
-        reservation?.bookingSource?.sourceName ||
-        reservation?.otaName ||
-        'Direct / Autre'
+      const hasBusinessSource = !!reservation?.businessSource?.name
+      const source = hasBusinessSource
+        ? 'Corporate / Enterprise'
+        : reservation?.bookingSource?.sourceName ||
+          reservation?.otaName ||
+          'Direct / Autre'
       const group = byChannel.get(source) || { revenue: 0, roomIds: new Set(), resIds: new Set() }
       group.revenue += Number(tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
@@ -14249,6 +14250,19 @@ export default class ReportsController {
       return { name, reservations, nights, revenueHT: g.revenue, adr }
     })
     totals.adr = totals.nights > 0 ? totals.revenueHT / totals.nights : 0
+
+    // ── Always include 'Corporate / Enterprise' even if no transactions ──
+    const existingNames = new Set(rows.map((r: any) => r.name))
+    if (!existingNames.has('Corporate / Enterprise')) {
+      rows.push({
+        name: 'Corporate / Enterprise',
+        reservations: 0,
+        nights: 0,
+        revenueHT: 0,
+        adr: 0,
+        percentage: 0,
+      })
+    }
 
     rows.forEach((r: any) => {
       r.percentage = totals.revenueHT > 0 ? +((r.revenueHT / totals.revenueHT) * 100).toFixed(1) : 0
