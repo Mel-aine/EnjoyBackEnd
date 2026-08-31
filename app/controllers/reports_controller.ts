@@ -5728,6 +5728,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       discounts,
       adjustments,
       tax,
+      banquetsEvents,
       payments,
       cityLedger,
       advanceDepositLedger,
@@ -5750,11 +5751,13 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       this.getManagementAdjustmentsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
       // Section 5: Tax
       this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate),
-      // Section 6: Payments
+      // Section 6: Banquets & Events
+      this.getManagementBanquetsEventsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+      // Section 7: Payments
       this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate),
-      // Section 7: City Ledger
+      // Section 8: City Ledger
       this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
-      // Section 8: Advance Deposit Ledger
+      // Section 9: Advance Deposit Ledger
       this.getManagementAdvanceDepositLedgerData(
         hotelId,
         reportDate,
@@ -5762,13 +5765,13 @@ private buildOtherRevenuesFromPos(posSummary: any): {
         ytdStartDate,
         currency
       ),
-      // Section 9: Guest Ledger
+      // Section 10: Guest Ledger
       this.getManagementGuestLedgerData(hotelId, reportDate, currency),
-      // Section 10: Room Summary
+      // Section 11: Room Summary
       this.getManagementRoomSummaryData(hotelId, reportDate),
-      // Section 12: POS Summary
+      // Section 13: POS Summary
       this.getManagementPosSummaryData(hotelId, reportDate),
-      // Section 13: POS Payment
+      // Section 14: POS Payment
       this.getManagementPosPaymentSummaryData(hotelId, reportDate),
       // Postings
       this.getManagementPostingsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
@@ -5786,11 +5789,11 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       roomSummary
     )
 
-    // Section 14: Revenue Summary (depends on roomCharges and extraCharges)
+    // Section 14: Revenue Summary (depends on roomCharges, extraCharges and banquetsEvents)
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
 
     // Section 15: Total Revenue (depends on posSummary and revenueSummary)
-    const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary)
+    const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary, banquetsEvents)
 
     return {
       roomCharges,
@@ -5798,6 +5801,7 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       discounts,
       adjustments,
       tax,
+      banquetsEvents,
       payments,
       creditLedger,
       cityLedger,
@@ -6682,6 +6686,167 @@ private buildOtherRevenuesFromPos(posSummary: any): {
   }
 
   /**
+   * Get Banquets & Events data for Management Report
+   * Banquets & Events = all reservations for room types with is_paymaster = true
+   */
+  private async getManagementBanquetsEventsData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: ReservationRoom } = await import('#models/reservation_room')
+
+    // Count ALL paymaster reservation rooms (events) by their arrival/departure overlap with the period
+    const countEvents = async (startDate: DateTime, endDate: DateTime) => {
+      const result = await ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .whereHas('roomType', (rtQuery: any) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .whereIn('status',  ['checked_in', 'checked_out', 'confirmed'])
+        .where((query) => {
+          query
+            .whereBetween('checkInDate', [
+              startDate.toFormat('yyyy-MM-dd'),
+              endDate.toFormat('yyyy-MM-dd'),
+            ])
+            .orWhereBetween('checkOutDate', [
+              startDate.toFormat('yyyy-MM-dd'),
+              endDate.toFormat('yyyy-MM-dd'),
+            ])
+            .orWhere((subQuery) => {
+              subQuery
+                .where('checkInDate', '<=', startDate.toFormat('yyyy-MM-dd'))
+                .where('checkOutDate', '>=', endDate.toFormat('yyyy-MM-dd'))
+            })
+        })
+        .countDistinct('id as total')
+        .first()
+
+      return Number(result?.$extras.total || 0)
+    }
+
+    // Get revenue & taxes from folio transactions on paymaster room types
+    const getRevenueAndTaxes = async (startDate: DateTime, endDate: DateTime) => {
+      const { default: Tax } = await import('#models/tax_rate')
+      const taxs = await Tax.query().where('hotel_id', hotelId)
+      const taxNameById = new Map<number, string>()
+      taxs.forEach((tax: any) => {
+        taxNameById.set(tax.taxRateId, tax.taxName)
+      })
+
+      const transactions = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
+            rrQuery.where('hotel_id', hotelId)
+            rrQuery.whereHas('roomType', (rtQuery: any) => {
+              rtQuery.where('is_paymaster', true)
+            }).whereIn('status',  ['checked_in', 'checked_out', 'confirmed'])
+          })
+        })
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereNotIn('status', ['cancel', 'voided'])
+        .whereNot('isVoided', true)
+        .preload('taxes', (taxQuery: any) => {
+          taxQuery.where('hotel_id', hotelId)
+        })
+        .select('id', 'amount', 'total_amount', 'tax_amount', 'tax_breakdown')
+
+      let totalRevenue = 0
+      let totalTaxes = 0
+      const taxesByName: Record<string, number> = {}
+
+      transactions.forEach((transaction: any) => {
+        totalRevenue += Number(transaction.totalAmount || 0)
+        // Calculate taxes from tax_breakdown or taxes relationship
+        if (
+          transaction.taxBreakdown?.items &&
+          Array.isArray(transaction.taxBreakdown.items) &&
+          transaction.taxBreakdown.items.length > 0
+        ) {
+          transaction.taxBreakdown.items.forEach((tax: any) => {
+            const taxName = taxNameById.get(tax.taxRateId) || tax.taxName || 'Tax'
+            const taxAmount = Number(tax.taxAmount || 0)
+            taxesByName[taxName] = (taxesByName[taxName] || 0) + taxAmount
+            totalTaxes += taxAmount
+          })
+        } else if (transaction.taxes && transaction.taxes.length > 0) {
+          transaction.taxes.forEach((tax: any) => {
+            const taxName = taxNameById.get(tax.taxRateId) || tax.taxName || 'Tax'
+            const taxAmount = Number(tax?.$pivot?.taxAmount ?? tax?.taxAmount ?? 0)
+            taxesByName[taxName] = (taxesByName[taxName] || 0) + taxAmount
+            totalTaxes += taxAmount
+          })
+        } else {
+          totalTaxes += Number(transaction.taxAmount || 0)
+        }
+      })
+
+      return {
+        revenue: totalRevenue,
+        taxes: totalTaxes,
+        taxesByName,
+      }
+    }
+
+    // Today
+    const todayEvents = await countEvents(reportDate, reportDate)
+    const todayRevenueData = await getRevenueAndTaxes(reportDate, reportDate)
+    // PTD
+    const ptdEvents = await countEvents(ptdStartDate, reportDate)
+    const ptdRevenueData = await getRevenueAndTaxes(ptdStartDate, reportDate)
+    // YTD
+    const ytdEvents = await countEvents(ytdStartDate, reportDate)
+    const ytdRevenueData = await getRevenueAndTaxes(ytdStartDate, reportDate)
+
+    // Merge all tax names across periods
+    const allTaxNames = new Set([
+      ...Object.keys(todayRevenueData.taxesByName),
+      ...Object.keys(ptdRevenueData.taxesByName),
+      ...Object.keys(ytdRevenueData.taxesByName),
+    ])
+
+    const taxesArray = Array.from(allTaxNames)
+      .map((name) => ({
+        name,
+        today: todayRevenueData.taxesByName[name] || 0,
+        ptd: ptdRevenueData.taxesByName[name] || 0,
+        ytd: ytdRevenueData.taxesByName[name] || 0,
+      }))
+      .filter((t) => t.today !== 0 || t.ptd !== 0 || t.ytd !== 0)
+
+    return {
+      number: {
+        today: todayEvents,
+        ptd: ptdEvents,
+        ytd: ytdEvents,
+      },
+      revenue: {
+        today: todayRevenueData.revenue,
+        ptd: ptdRevenueData.revenue,
+        ytd: ytdRevenueData.revenue,
+      },
+      taxes: {
+        today: todayRevenueData.taxes,
+        ptd: ptdRevenueData.taxes,
+        ytd: ytdRevenueData.taxes,
+      },
+      taxesArray,
+      revenueWithoutTax: {
+        today: todayRevenueData.revenue - todayRevenueData.taxes,
+        ptd: ptdRevenueData.revenue - ptdRevenueData.taxes,
+        ytd: ytdRevenueData.revenue - ytdRevenueData.taxes,
+      },
+    }
+  }
+
+  /**
    * Get Payment data for Management Report
    */
   private async getManagementPaymentData(
@@ -7542,11 +7707,12 @@ private buildOtherRevenuesFromPos(posSummary: any): {
       ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0),
     }
   }
-  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any) {
+  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any, banquetsEvents?: any) {
+    const banquetsRevenue = banquetsEvents?.revenueWithoutTax || { today: 0, ptd: 0, ytd: 0 }
     return {
-      today: (posRevenue?.totalWithoutTax?.today || 0) + (pmsRevenue?.today || 0),
-      ptd: (posRevenue?.totalWithoutTax?.ptd || 0) + (pmsRevenue?.ptd || 0),
-      ytd: (posRevenue?.totalWithoutTax?.ytd || 0) + (pmsRevenue?.ytd || 0),
+      today: (posRevenue?.totalWithoutTax?.today || 0) + (pmsRevenue?.today || 0) + (banquetsRevenue.today || 0),
+      ptd: (posRevenue?.totalWithoutTax?.ptd || 0) + (pmsRevenue?.ptd || 0) + (banquetsRevenue.ptd || 0),
+      ytd: (posRevenue?.totalWithoutTax?.ytd || 0) + (pmsRevenue?.ytd || 0) + (banquetsRevenue.ytd || 0),
     }
   }
   /**
