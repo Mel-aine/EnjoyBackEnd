@@ -13969,7 +13969,7 @@ export default class ReportsController {
         revenueTTC: roomsRevenueHT + roomsTax,
       },
       {
-        name: 'Events / Sales',
+        name: 'Banquets & Events',
         revenueHT: eventsRevenueHT,
         tax: eventsTax,
         revenueTTC: eventsRevenueHT + eventsTax,
