@@ -14153,12 +14153,13 @@ export default class ReportsController {
       .whereNotIn('status', ['cancelled', 'voided'])
       .whereNot('isVoided', true)
       .whereNotNull('reservation_room_id')
-      .whereHas('reservationRoom', (rrQuery) => {
-        rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
-      })
+      // .whereHas('reservationRoom', (rrQuery) => {
+      //   rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
+      // })
       .preload('reservationRoom', (rr) => {
         rr.preload('reservation', (res) => {
           res.preload('bookingSource')
+          res.preload('businessSource')
         })
       })
 
@@ -14167,7 +14168,12 @@ export default class ReportsController {
       { revenue: number; roomIds: Set<number>; resIds: Set<number> }
     >()
     for (const tx of transactions as any[]) {
-      const source = tx.reservationRoom?.reservation?.bookingSource?.sourceName || 'Direct / Autre'
+      const reservation = tx.reservationRoom?.reservation
+      const source =
+        reservation?.businessSource?.name ||
+        reservation?.bookingSource?.sourceName ||
+        reservation?.otaName ||
+        'Direct / Autre'
       const group = byChannel.get(source) || { revenue: 0, roomIds: new Set(), resIds: new Set() }
       group.revenue += Number(tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
