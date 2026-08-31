@@ -30,6 +30,7 @@
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 15px;
+        page-break-inside: auto;
       }
       th,
       td {
@@ -76,6 +77,13 @@
       }
       .font-bold{
         font-weight: 900;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+
+      thead {
+        display: table-header-group;
       }
       @media print {
         .page-break {

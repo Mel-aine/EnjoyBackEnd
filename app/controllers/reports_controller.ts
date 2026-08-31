@@ -5786,10 +5786,10 @@ export default class ReportsController {
         <thead>
           <tr style="background-color:#f5f5f5;">
             <th style="width:32%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
-            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
-            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
-            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
-            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">N-1(XAF)</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">Today</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">PTD</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">YTD</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">N-1</th>
           </tr>
         </thead>
       </table>
@@ -13866,18 +13866,18 @@ async generateServicesReportByPeriodPdf({ request, response, auth }: HttpContext
     <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
       <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
         <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
-        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Rapport des Services</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Services Report</div>
       </div>
       <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
-        <span style="margin-right:10px;">Période: ${formattedStart} au ${formattedEnd}</span>
-        <span>Devise: ${currency}</span>
+        <span style="margin-right:10px;">Period: ${formattedStart} to ${formattedEnd}</span>
+        <span>Currency: ${currency}</span>
       </div>
       <div style="border-top:1px solid #333; margin:0;"></div>
       <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
         <thead>
           <tr style="background-color:#f5f5f5;">
-            <th style="width:70%; text-align:left; padding:2px 0; font-weight:bold;">Rubrique</th>
-            <th style="width:30%; text-align:right; padding:2px 0; font-weight:bold;">Période (${currency})</th>
+            <th style="width:70%; text-align:left; padding:2px 0; font-weight:bold;">Category</th>
+            <th style="width:30%; text-align:right; padding:2px 0; font-weight:bold;">Amount</th>
           </tr>
         </thead>
       </table>
