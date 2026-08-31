@@ -25,6 +25,7 @@ import RoomBlock from '#models/room_block'
 import { formatCurrency } from '#app/utils/utilities'
 import { isActiveOccupancyStatus } from '#app/utils/ooccupancy_statuses'
 import BookingSource from '#models/booking_source'
+import {FolioType} from '#app/enums'
 import ExtraCharge from '#models/extra_charge'
 export default class ReportsController {
   private posNightAuditCache = new Map<string, any>()
@@ -13901,18 +13902,63 @@ export default class ReportsController {
   }
 
   /**
-   * Aging Balance — unpaid folios grouped by days outstanding
+   * Aging Balance — City Ledger transfers grouped by days outstanding
    */
   private async getAgingBalanceData(hotelId: number, reportDate: DateTime) {
-    const { default: Folio } = await import('#models/folio')
+    const { default: PaymentMethod } = await import('#models/payment_method')
 
-    const unpaidFolios = await Folio.query()
+    // Get City Ledger payment method IDs
+    const cityLedgerMethods = await PaymentMethod.query()
       .where('hotel_id', hotelId)
-      .where('balance', '>', 0)
-      .whereNot('status', 'closed')
-      .preload('reservationRoom', (rr) => {
-        rr.where('hotel_id', hotelId)
+      .where('method_type', PaymentMethodType.CITY_LEDGER)
+      .where('is_active', true)
+    const cityLedgerMethodIds = cityLedgerMethods.map((pm: any) => pm.id)
+
+    // Get all City Ledger transfers (charges posted to City Ledger)
+    const transfers = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('payment_method_id', cityLedgerMethodIds)
+      .where('transaction_type', TransactionType.PAYMENT)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .where('current_working_date', '<=', reportDate.toISODate()!)
+      .preload('folio', (folioQuery) => {
+        folioQuery.whereIn('folio_type', [FolioType.COMPANY, FolioType.CITY_LEDGER])
       })
+
+    // Get City Ledger payments received
+    const payments = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereHas('folio', (folioQuery) => {
+        folioQuery.whereIn('folio_type', [FolioType.COMPANY, FolioType.CITY_LEDGER])
+      })
+      .where('transaction_type', TransactionType.PAYMENT)
+      .whereNotIn('payment_method_id', cityLedgerMethodIds)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .where('current_working_date', '<=', reportDate.toISODate()!)
+
+    // Calculate net amount per folio: transfers - payments
+    const folioBalances = new Map<number, { amount: number; date: DateTime }>()
+
+    for (const tx of transfers as any[]) {
+      const folioId = tx.folioId
+      const amount = Number(tx.amount || 0)
+      const date = tx.currentWorkingDate
+      if (folioBalances.has(folioId)) {
+        folioBalances.get(folioId)!.amount += amount
+      } else {
+        folioBalances.set(folioId, { amount, date })
+      }
+    }
+
+    for (const tx of payments as any[]) {
+      const folioId = tx.folioId
+      const amount = Number(tx.amount || 0)
+      if (folioBalances.has(folioId)) {
+        folioBalances.get(folioId)!.amount -= amount
+      }
+    }
 
     const today = reportDate.startOf('day')
 
@@ -13923,30 +13969,25 @@ export default class ReportsController {
       over90: { label: '+ 90 days (Doubtful)', amount: 0, count: 0 },
     }
 
-    for (const folio of unpaidFolios as any[]) {
-      const balance = Number(folio.balance || 0)
-      if (balance <= 0) continue
+    for (const [, { amount, date }] of folioBalances) {
+      if (amount <= 0) continue
 
-      // Age based on closedDate (checkout) or openedDate
-      const refDate = folio.closedDate || folio.openedDate
-      if (!refDate) continue
-
-      const refDateTime = DateTime.isDateTime(refDate)
-        ? refDate
-        : DateTime.fromISO(refDate.toString())
+      const refDateTime = DateTime.isDateTime(date)
+        ? date
+        : DateTime.fromISO(date.toString())
       const days = today.diff(refDateTime.startOf('day'), 'days').days
 
       if (days <= 30) {
-        buckets.current.amount += balance
+        buckets.current.amount += amount
         buckets.current.count++
       } else if (days <= 60) {
-        buckets.days31_60.amount += balance
+        buckets.days31_60.amount += amount
         buckets.days31_60.count++
       } else if (days <= 90) {
-        buckets.days61_90.amount += balance
+        buckets.days61_90.amount += amount
         buckets.days61_90.count++
       } else {
-        buckets.over90.amount += balance
+        buckets.over90.amount += amount
         buckets.over90.count++
       }
     }
