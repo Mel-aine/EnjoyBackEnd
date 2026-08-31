@@ -13901,6 +13901,69 @@ export default class ReportsController {
   }
 
   /**
+   * Aging Balance — unpaid folios grouped by days outstanding
+   */
+  private async getAgingBalanceData(hotelId: number, reportDate: DateTime) {
+    const { default: Folio } = await import('#models/folio')
+
+    const unpaidFolios = await Folio.query()
+      .where('hotel_id', hotelId)
+      .where('balance', '>', 0)
+      .whereNot('status', 'closed')
+      .preload('reservationRoom', (rr) => {
+        rr.where('hotel_id', hotelId)
+      })
+
+    const today = reportDate.startOf('day')
+
+    const buckets = {
+      current: { label: '0 – 30 days (Current)', amount: 0, count: 0 },
+      days31_60: { label: '31 – 60 days', amount: 0, count: 0 },
+      days61_90: { label: '61 – 90 days', amount: 0, count: 0 },
+      over90: { label: '+ 90 days (Doubtful)', amount: 0, count: 0 },
+    }
+
+    for (const folio of unpaidFolios as any[]) {
+      const balance = Number(folio.balance || 0)
+      if (balance <= 0) continue
+
+      // Age based on closedDate (checkout) or openedDate
+      const refDate = folio.closedDate || folio.openedDate
+      if (!refDate) continue
+
+      const refDateTime = DateTime.isDateTime(refDate)
+        ? refDate
+        : DateTime.fromISO(refDate.toString())
+      const days = today.diff(refDateTime.startOf('day'), 'days').days
+
+      if (days <= 30) {
+        buckets.current.amount += balance
+        buckets.current.count++
+      } else if (days <= 60) {
+        buckets.days31_60.amount += balance
+        buckets.days31_60.count++
+      } else if (days <= 90) {
+        buckets.days61_90.amount += balance
+        buckets.days61_90.count++
+      } else {
+        buckets.over90.amount += balance
+        buckets.over90.count++
+      }
+    }
+
+    const rows = [
+      buckets.current,
+      buckets.days31_60,
+      buckets.days61_90,
+      buckets.over90,
+    ]
+    const totalAmount = rows.reduce((s, r) => s + r.amount, 0)
+    const totalCount = rows.reduce((s, r) => s + r.count, 0)
+
+    return { rows, totalAmount, totalCount }
+  }
+
+  /**
    * Business Analysis Report — data aggregation
    * Period: month-to-date (1st of month → asOnDate)
    */
@@ -13925,6 +13988,7 @@ export default class ReportsController {
       channels,
       prevRoomSummary,
       prevStatistics,
+      agingData,
     ] = await Promise.all([
       this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
       this.getManagementBanquetsEventsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
@@ -13946,6 +14010,7 @@ export default class ReportsController {
         const rs = await this.getManagementRoomSummaryData(hotelId, prevMonthDate)
         return this.getManagementStatisticsData(hotelId, prevMonthDate, rc, rs)
       })(),
+      this.getAgingBalanceData(hotelId, reportDate),
     ])
 
     const statistics = await this.getManagementStatisticsData(
@@ -14014,19 +14079,10 @@ export default class ReportsController {
     }))
     const totalPayments = payments.total?.ptd || 0
 
-    // ── Créances (City Ledger) ──
-    const agingBalance = [
-      { label: 'Opening balance', amount: cityLedger.openingBalance?.ptd || 0, count: '-' },
-      { label: 'New charges', amount: cityLedger.chargesRaised?.ptd || 0, count: '-' },
-      { label: 'Payments received', amount: -(cityLedger.paymentReceived?.ptd || 0), count: '-' },
-      {
-        label: 'Closing balance (unpaid)',
-        amount: cityLedger.closingBalance?.ptd || 0,
-        count: '-',
-      },
-    ]
-    const totalAging = cityLedger.closingBalance?.ptd || 0
-    const totalAgingCount = '-'
+    // ── Créances (Aging Balance) ──
+    const agingBalance = agingData.rows
+    const totalAging = agingData.totalAmount
+    const totalAgingCount = agingData.totalCount
 
     // ── Reste à recouvrer ──
     const resteARecouvrer = cityLedger.closingBalance?.ptd || 0

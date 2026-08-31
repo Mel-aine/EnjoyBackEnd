@@ -159,7 +159,7 @@
     </div>
 </div>
 <p style="font-size:8.5pt; color:#555; margin-top:4px;">
-   Outstanding Balance (City Ledger): <strong>{{ formatCurrency(content.resteARecouvrer) }} {{ currency }}</strong>
+   *Outstanding Balance (City Ledger): <strong>{{ formatCurrency(content.resteARecouvrer) }} {{ currency }}</strong>
 </p>
 
 <h2>2. Revenue by Department (Rooms / Events / POS)</h2>
@@ -213,21 +213,24 @@
 </div>
 
 <div class="grid-2">
-    <h2>4. Receivables (City Ledger)</h2>
+    <h2>4. Aging Balance (Receivables)</h2>
     <table>
         <tr>
-            <th style="width:60%;">Item</th>
-            <th class="text-right" style="width:40%;">Amount</th>
+            <th style="width:40%;">Aging</th>
+            <th class="text-right" style="width:30%;">Amount ({{ currency }})</th>
+            <th class="text-right" style="width:30%;">Invoices</th>
         </tr>
         @each(aging in content.agingBalance)
             <tr>
                 <td>{{ aging.label }}</td>
                 <td class="text-right">{{ formatCurrency(aging.amount) }}</td>
+                <td class="text-right">{{ aging.count }}</td>
             </tr>
         @endeach
         <tr class="total-row">
-            <td>Outstanding Balance</td>
+            <td>Total Receivables</td>
             <td class="text-right">{{ formatCurrency(content.totalAging) }}</td>
+            <td class="text-right">{{ content.totalAgingCount }}</td>
         </tr>
     </table>
 </div>
