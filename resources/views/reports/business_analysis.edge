@@ -69,7 +69,7 @@
         }
         th {
             background-color: #edf2f7;
-            color: #141414;
+            color: #222;
             font-weight: bold;
         }
         tr.total-row td {
@@ -236,7 +236,7 @@
 </div>
 <div style="clear: both;"></div>
 
-<h2>5. Booking Channels</h2>
+<h2>5. Performance of Rooms & Distribution Channels</h2>
 <table>
     <tr>
         <th style="width:28%;">Channel</th>
@@ -302,10 +302,11 @@
 </div>
 <div style="clear: both;"></div>
 
-<h2>7. Operational Alerts</h2>
+<h2>7. Operational Alerts & Business Management</h2>
 @each(alert in content.alerts)
-    <div class="alert-box alert-{{ alert.type }}">
-        {{ alert.icon }} <strong>{{ alert.title }}</strong> {{ alert.message }}
+    <div style="display:flex; align-items:flex-start; margin-bottom:6px; padding:5px 8px; background:{{ alert.type === 'red' ? '#fff5f5' : alert.type === 'orange' ? '#fffaf0' : '#f0fff4' }}; border-left:3px solid {{ alert.type === 'red' ? '#e53e3e' : alert.type === 'orange' ? '#dd6b20' : '#38a169' }}; font-size:8.5pt;">
+        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{{ alert.type === 'red' ? '#c53030' : alert.type === 'orange' ? '#c05621' : '#276749' }}; margin-right:8px; margin-top:3px; flex-shrink:0;"></span>
+        <span style="color:{{ alert.type === 'red' ? '#c53030' : alert.type === 'orange' ? '#c05621' : '#276749' }};"><strong>{{ alert.title }}</strong> {{ alert.message }}</span>
     </div>
 @endeach
 @if(content.alerts.length === 0)

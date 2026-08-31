@@ -14138,30 +14138,59 @@ export default class ReportsController {
       },
     ]
 
-    // ── Alertes opérationnelles ──
+    // ── Alertes Opérationnelles & Business Management ──
     const alerts: any[] = []
-    if (kpi.occupancyRate && Number(kpi.occupancyRate) < 40) {
+
+    // 1. Occupancy vs target
+    const occupancyNum = Number(kpi.occupancyRate || 0)
+    const occupancyTarget = 45
+    if (occupancyNum > 0 && occupancyNum < occupancyTarget) {
       alerts.push({
         type: 'orange',
         icon: '🟠',
-        title: 'Occupation faible :',
-        message: `Le taux d'occupation du mois (${kpi.occupancyRate}%) est en dessous du seuil recommandé.`,
+        title: 'Occupancy slightly below target:',
+        message: `Occupancy stands at ${occupancyNum}% against a forecast target of ${occupancyTarget}%. Corporate commercial actions need to be intensified during weekdays.`,
       })
     }
-    if (totalAging > 0) {
+
+    // 2. Positive pickup (compare last week of month vs previous week)
+    if (prevStatistics && statistics) {
+      const currentRev = statistics.revenuePerAvailableRoom?.ptd || 0
+      const prevRev = prevStatistics.revenuePerAvailableRoom?.ptd || 0
+      if (currentRev > prevRev && prevRev > 0) {
+        const pickupDelta = Math.round((currentRev - prevRev) / prevRev * 100)
+        alerts.push({
+          type: 'green',
+          icon: '🟢',
+          title: 'Strong Pickup observed:',
+          message: `Positive acceleration recorded in the last week of the month (+${this.fmtNum(pickupDelta)}% revenue compared to previous month).`,
+        })
+      }
+    }
+
+    // 3. Aging invoices (> 60 days)
+    const over60Count = agingData.rows
+      .filter((r: any) => r.label.includes('61 – 90') || r.label.includes('90'))
+      .reduce((sum: number, r: any) => sum + r.count, 0)
+    const over60Amount = agingData.rows
+      .filter((r: any) => r.label.includes('61 – 90') || r.label.includes('90'))
+      .reduce((sum: number, r: any) => sum + r.amount, 0)
+    if (over60Count > 0) {
       alerts.push({
         type: 'red',
         icon: '🔴',
-        title: 'Créances en attente :',
-        message: `${this.fmtNum(totalAging)} ${currency} restent à recouvrer sur le City Ledger.`,
+        title: 'Outstanding invoices follow-up:',
+        message: `${over60Count} invoice(s) over 60 days (${this.fmtNum(over60Amount)} ${currency}) require immediate follow-up by the accounting department.`,
       })
     }
-    if (revenueTTC > 0) {
+
+    // 4. Strong revenue (informational)
+    if (revenueTTC > 0 && occupancyNum >= occupancyTarget) {
       alerts.push({
         type: 'green',
         icon: '🟢',
-        title: 'Revenu généré :',
-        message: `Le chiffre d'affaires cumulé du mois s'élève à ${this.fmtNum(revenueTTC)} ${currency}.`,
+        title: 'Target achieved:',
+        message: `Cumulated revenue for the month stands at ${this.fmtNum(revenueTTC)} ${currency} with an occupancy rate of ${occupancyNum}%.`,
       })
     }
 
