@@ -228,7 +228,7 @@ router.group(() => {
     //credit ledger
     router.get('/credit-ledger-payments', [ReportsController, 'getCreditLedgerPaymentsReport'])
     router.post('/credit-ledger-payments/pdf', [ReportsController, 'generateCreditLedgerPaymentsPdf'])
-    
+
 
     // City Ledger Summary
     router.get('/city-ledger-summary', [ReportsController, 'getCityLedgerSummary'])
@@ -306,6 +306,11 @@ router.group(() => {
     // Get hotel histories with pagination and filters
     router.get('/', [HotelHistoriesController, 'index'])
   }).prefix('/hotel-histories')
+
+  //service report
+  router.group(() => {
+    router.get('/services-report-by-period-pdf', [ReportsController, 'generateServicesReportByPeriodPdf'])
+  })
 
 }).prefix('/api/reports').use([
   middleware.auth(),

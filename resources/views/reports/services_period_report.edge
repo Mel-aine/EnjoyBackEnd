@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 5px 20px 20px 20px; color: #333; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+    th, td { text-align: left; padding: 4px 0px; font-size: 11px; }
+    .section-title { font-weight: bold; margin: 0px 0 5px 0; font-size: 12px; }
+    .section-total { font-weight: bold; border-top: 1px dotted #333; border-bottom: 1px dotted #333; }
+    .currency { text-align: right; }
+    .bold-section { font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="section-title">Room Charges</div>
+  <table>
+    <tbody>
+      <tr>
+        <td style="width: 70%;">Room Charges</td>
+        <td class="currency" style="width: 30%;">{{ formatCurrency(content.roomCharges?.roomCharges?.ptd) }}</td>
+      </tr>
+      <tr>
+        <td>Cancellation Revenue</td>
+        <td class="currency">{{ formatCurrency(content.roomCharges?.cancellationRevenue?.ptd) }}</td>
+      </tr>
+      <tr>
+        <td>No Show Revenue</td>
+        <td class="currency">{{ formatCurrency(content.roomCharges?.noShowRevenue?.ptd) }}</td>
+      </tr>
+      <tr class="section-total">
+        <td><strong>Total Room Charges</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.roomCharges?.total?.ptd) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Extra Charges (Services)</div>
+  <table>
+    <tbody>
+      @each(extraCharge in Object.keys(content.extraCharges.extraCharges))
+        <tr>
+          <td style="width: 70%;">{{ extraCharge }}</td>
+          <td class="currency" style="width: 30%;">{{ formatCurrency(content.extraCharges.extraCharges[extraCharge].ptd) }}</td>
+        </tr>
+      @end
+      <tr class="section-total">
+        <td><strong>Total Extra Charges</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.extraCharges.totals?.ptd) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Discount</div>
+  <table>
+    <tbody>
+      @each(discount in content.discounts.discounts)
+        <tr>
+          <td style="width: 70%">{{ discount.name }} ({{ discount.shortCode }})</td>
+          <td class="currency" style="width: 30%;">{{ formatCurrency(discount.ptd) }}</td>
+        </tr>
+      @end
+      <tr class="section-total">
+        <td><strong>Total Discount</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.discounts.totals?.ptd) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Tax</div>
+  <table>
+    <tbody>
+      @each(taxRate in content.tax.taxes)
+        <tr>
+          <td style="width: 70%;">{{ taxRate.name }}</td>
+          <td class="currency" style="width: 30%;">{{ formatCurrency(taxRate.ptd) }}</td>
+        </tr>
+      @end
+      <tr class="section-total">
+        <td><strong>Total Tax</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.tax.totals?.ptd) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table>
+    <tbody>
+      <tr class="bold-section">
+        <td style="width: 70%;"><strong>Total Revenue without Tax</strong></td>
+        <td class="currency" style="width: 30%;"><strong>{{ formatCurrency(content.totals.revenueWithoutTax) }}</strong></td>
+      </tr>
+      <tr class="bold-section">
+        <td><strong>Total Revenue with Tax</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.totals.revenueWithTax) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Payment</div>
+  <table>
+    <tbody>
+      @each(method in Object.keys(content.payments.methods))
+        <tr>
+          <td style="width: 70%;">{{ method }}</td>
+          <td class="currency" style="width: 30%;">{{ formatCurrency(content.payments.methods[method].ptd) }}</td>
+        </tr>
+      @end
+      <tr class="section-total">
+        <td><strong>Total Payment</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.payments.total?.ptd) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:9px; margin-top:20px;">*Période = {{ periodStart }} au {{ periodEnd }}</p>
+
+</body>
+</html>
