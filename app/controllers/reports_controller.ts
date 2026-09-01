@@ -14294,7 +14294,7 @@ export default class ReportsController {
       revenueHT,
       taxes,
       revenueTTC,
-      encaissements: totalPayments,
+      encaissements: totalPayments + (posPaymentsSummary?.total || 0),
       resteARecouvrer,
       departments,
       totalDepartments,
