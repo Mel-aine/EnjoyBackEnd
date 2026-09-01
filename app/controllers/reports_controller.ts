@@ -14205,7 +14205,7 @@ export default class ReportsController {
     const forecast = [
       {
         label: 'Occupancy Rate(%)',
-        actual: `${(statistics.occupancyRate?.ptd || 0).toFixed(1)}%`,
+        actual: `${(statistics.occupancyRate?.ptd || 0).toFixed(0)}%`,
         forecast: `${(prevStatistics.occupancyRate?.ptd || 0).toFixed(1)}%`,
         variance: `${((statistics.occupancyRate?.ptd || 0) - (prevStatistics.occupancyRate?.ptd || 0)).toFixed(1)} pts`,
       },
