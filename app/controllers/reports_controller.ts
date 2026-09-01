@@ -6289,7 +6289,7 @@ export default class ReportsController {
       const rateName = tx.reservationRoom?.rateType?.rateTypeName || 'Unknown'
       const order = 0 // RateType has no sort_order; default to 0
       const group = byRate.get(rateName) || { revenue: 0, roomIds: new Set<number>(), order }
-      group.revenue += Number(tx.amount || 0)
+      group.revenue += Number(tx.roomFinalNetAmount || tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
       // Always keep the smallest sort order if mixed
       group.order = Math.min(group.order, order)
@@ -6354,7 +6354,7 @@ export default class ReportsController {
         roomIds: new Set<number>(),
         order,
       }
-      group.revenue += Number(tx.amount || 0)
+      group.revenue += Number(tx.roomFinalNetAmount || tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
       group.order = Math.min(group.order, order)
       byRoomType.set(roomTypeName, group)
@@ -14320,9 +14320,9 @@ export default class ReportsController {
       .whereNotIn('status', ['cancelled', 'voided'])
       .whereNot('isVoided', true)
       .whereNotNull('reservation_room_id')
-      // .whereHas('reservationRoom', (rrQuery) => {
-      //   rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
-      // })
+      .whereHas('reservationRoom', (rrQuery) => {
+        rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
+      })
       .preload('reservationRoom', (rr) => {
         rr.preload('reservation', (res) => {
           res.preload('bookingSource')
@@ -14343,7 +14343,7 @@ export default class ReportsController {
           reservation?.otaName ||
           'Direct / Autre'
       const group = byChannel.get(source) || { revenue: 0, roomIds: new Set(), resIds: new Set() }
-      group.revenue += Number(tx.amount || 0)
+      group.revenue += Number(tx.roomFinalNetAmount || tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
       if (tx.reservationRoom?.reservationId)
         group.resIds.add(Number(tx.reservationRoom.reservationId))
