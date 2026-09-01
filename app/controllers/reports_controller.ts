@@ -14184,12 +14184,17 @@ export default class ReportsController {
     const totalRevenueTTC = pmsRevenueTTC + posRevenueTTC + banquetsRevenueTTC
 
     // ── Encaissements (payment methods) ──
-    const paymentRows = Object.entries(payments.methods || {}).map(([name, v]: any) => ({
-      name,
-      amount: v.ptd || 0,
-      percentage:
-        payments.total?.ptd > 0 ? +(((v.ptd || 0) / payments.total.ptd) * 100).toFixed(1) : 0,
-    }))
+    // Payment methods to exclude from Payments Received by Method
+    const paymentsExcludedMethods = ['Payment - Discount']
+
+    const paymentRows = Object.entries(payments.methods || {})
+      .filter(([name, v]: any) => !paymentsExcludedMethods.includes(name) && (v.ptd || 0) !== 0)
+      .map(([name, v]: any) => ({
+        name,
+        amount: v.ptd || 0,
+        percentage:
+          payments.total?.ptd > 0 ? +(((v.ptd || 0) / payments.total.ptd) * 100).toFixed(1) : 0,
+      }))
     const totalPayments = payments.total?.ptd || 0
 
     // ── Créances (Aging Balance) ──
@@ -14300,11 +14305,14 @@ export default class ReportsController {
       })
     }
 
+    // Subtract Room Posting from total collected
+    const roomPostingAmount = posPaymentsSummary?.rows?.find((r: any) => r.name === 'Payment - Room Posting')?.amount || 0
+
     return {
       revenueHT,
       taxes,
       revenueTTC,
-      encaissements: totalPayments + (posPaymentsSummary?.total || 0),
+      encaissements: totalPayments + (posPaymentsSummary?.total || 0) - roomPostingAmount,
       resteARecouvrer,
       departments,
       totalDepartments,
@@ -14433,25 +14441,31 @@ export default class ReportsController {
     // Agrégation par nom de méthode, tous outlets confondus
     const byMethod = new Map<string, number>()
 
+    // Payment methods to exclude from POS Payments
+    const posExcludedMethods = ['Payment - Discount']
+
     for (const outlet of livePosPayment.outlets) {
       const paymentsList = Array.isArray(outlet.payments) ? outlet.payments : []
       for (const p of paymentsList) {
         const methodName =
           p.method ?? p.paymentMethod ?? p.methodName ?? p.name ?? p.label ?? 'Unknown'
+        // Skip excluded methods
+        if (posExcludedMethods.includes(methodName)) continue
         const amount = Number(p.ptd ?? 0)
         byMethod.set(methodName, (byMethod.get(methodName) ?? 0) + amount)
       }
     }
 
-
-
     const total = Array.from(byMethod.values()).reduce((sum, v) => sum + v, 0)
 
-    const rows = Array.from(byMethod.entries()).map(([name, amount]) => ({
-      name,
-      amount,
-      percentage: total > 0 ? +((amount / total) * 100).toFixed(1) : 0,
-    }))
+    // Only include rows where amount != 0
+    const rows = Array.from(byMethod.entries())
+      .filter(([, amount]) => amount !== 0)
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percentage: total > 0 ? +((amount / total) * 100).toFixed(1) : 0,
+      }))
 
 
 
