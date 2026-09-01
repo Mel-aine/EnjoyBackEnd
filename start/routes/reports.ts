@@ -300,6 +300,7 @@ router.group(() => {
     router.post('/completed', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersCompleted')
     router.post('/summary', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersSummary')
   }).prefix('/work-orders')
+  router.post('/business-analysis-report-pdf', [ReportsController, 'generateBusinessAnalysisReportPdf'])
 
   // Hotel Histories Reports
   router.group(() => {

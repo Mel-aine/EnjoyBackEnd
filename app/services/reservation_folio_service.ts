@@ -360,7 +360,10 @@ export default class ReservationFolioService {
 
       // Extract tax from grossDailyRate if hotel has tax rates configured
       const hotel: any = reservation.hotel
-      const taxes = hotel?.roomChargesTaxRates ?? []
+      const isPaymaster = (reservationRoom.room?.roomType as any)?.isPaymaster ?? false
+      const taxes = isPaymaster
+        ? (reservationRoom.room?.taxRates ?? [])
+        : (hotel?.roomChargesTaxRates ?? [])
       let percentageSum = 0
       let flatSum = 0
 
@@ -549,6 +552,7 @@ export default class ReservationFolioService {
         .preload('reservationRooms', (query) => {
           query.preload('room', (roomQuery: any) => {
             roomQuery.preload('roomType')
+            roomQuery.preload('taxRates')
           })
           query.preload('roomRates')
           query.preload('mealPlan', (mpQuery: any) => {

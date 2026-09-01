@@ -1,5 +1,7 @@
 import type { HttpContext, Response } from '@adonisjs/core/http'
 import ReportsService, { ReportFilters, HtmlReport, ReportData } from '#services/reports_service'
+import type { HttpContext, Response } from '@adonisjs/core/http'
+import ReportsService, { ReportFilters, HtmlReport, ReportData } from '#services/reports_service'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import {
@@ -25,6 +27,7 @@ import RoomBlock from '#models/room_block'
 import { formatCurrency } from '#app/utils/utilities'
 import { isActiveOccupancyStatus } from '#app/utils/ooccupancy_statuses'
 import BookingSource from '#models/booking_source'
+import {FolioType} from '#app/enums'
 import ExtraCharge from '#models/extra_charge'
 export default class ReportsController {
   private posNightAuditCache = new Map<string, any>()
@@ -358,6 +361,7 @@ export default class ReportsController {
           reportData = await ReportsService.getVoidReservations(reportFilters)
           break
         case 'pickupDropoff':
+        case 'pickupDropoff':
           reportData = await ReportsService.getPickupDropoff(reportFilters)
           break
         default:
@@ -493,6 +497,10 @@ export default class ReportsController {
         (sum: number, r: any) => sum + (r.children || 0),
         0
       )
+      const inHouseChildren = inHouseRows.reduce(
+        (sum: number, r: any) => sum + (r.children || 0),
+        0
+      )
       // In-house yesterday
       const inHouseYesterdayRows = await ReservationRoom.query()
         .join('reservations', 'reservation_rooms.reservation_id', 'reservations.id')
@@ -551,6 +559,8 @@ export default class ReportsController {
         .sum('amount as total')
       const todayPayments = Number((todayPaymentsRow[0] as any).$extras.total || 0)
       const yesterdayPayments = Number((yesterdayPaymentsRow[0] as any).$extras.total || 0)
+      const todayPayments = Number((todayPaymentsRow[0] as any).$extras.total || 0)
+      const yesterdayPayments = Number((yesterdayPaymentsRow[0] as any).$extras.total || 0)
 
       const todayChargesRow = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -564,6 +574,8 @@ export default class ReportsController {
         .where('is_voided', false)
         .whereRaw('DATE(current_working_date) = ?', [yesterdayISO])
         .sum('total_amount as total')
+      const todayRevenue = Number((todayChargesRow[0] as any).$extras.total || 0)
+      const yesterdayRevenue = Number((yesterdayChargesRow[0] as any).$extras.total || 0)
       const todayRevenue = Number((todayChargesRow[0] as any).$extras.total || 0)
       const yesterdayRevenue = Number((yesterdayChargesRow[0] as any).$extras.total || 0)
 
@@ -584,6 +596,8 @@ export default class ReportsController {
         .sum('total_amount as total')
       const todayRoomRevenue = Number((todayRoomRevenueRow[0] as any).$extras.total || 0)
       const yesterdayRoomRevenue = Number((yesterdayRoomRevenueRow[0] as any).$extras.total || 0)
+      const todayRoomRevenue = Number((todayRoomRevenueRow[0] as any).$extras.total || 0)
+      const yesterdayRoomRevenue = Number((yesterdayRoomRevenueRow[0] as any).$extras.total || 0)
 
       const adrToday = soldRooms > 0 ? todayRoomRevenue / soldRooms : 0
       const soldRoomsYesterdayRows = await ReservationRoom.query()
@@ -595,6 +609,8 @@ export default class ReportsController {
       const soldRoomsYesterday = soldRoomsYesterdayRows.length
       const adrYesterday = soldRoomsYesterday > 0 ? yesterdayRoomRevenue / soldRoomsYesterday : 0
 
+      const revparToday = totalRoomsCount > 0 ? todayRoomRevenue / totalRoomsCount : 0
+      const revparYesterday = totalRoomsCount > 0 ? yesterdayRoomRevenue / totalRoomsCount : 0
       const revparToday = totalRoomsCount > 0 ? todayRoomRevenue / totalRoomsCount : 0
       const revparYesterday = totalRoomsCount > 0 ? yesterdayRoomRevenue / totalRoomsCount : 0
 
@@ -614,11 +630,16 @@ export default class ReportsController {
           const bookingDT = (DateTime.isDateTime(b) ? b : DateTime.fromISO(b.toString())).startOf(
             'day'
           )
+          const bookingDT = (DateTime.isDateTime(b) ? b : DateTime.fromISO(b.toString())).startOf(
+            'day'
+          )
           const arrivedDT = (DateTime.isDateTime(a) ? a : a).startOf('day')
+          return arrivedDT.diff(bookingDT, 'days').days
           return arrivedDT.diff(bookingDT, 'days').days
         })
         .filter((d: number | null) => typeof d === 'number') as number[]
       const avgLeadToday =
+        leadTimes.length > 0 ? leadTimes.reduce((s, v) => s + v, 0) / leadTimes.length : 0
         leadTimes.length > 0 ? leadTimes.reduce((s, v) => s + v, 0) / leadTimes.length : 0
       // Rough yesterday lead time using yesterday arrivals
       const yArrivals = await Reservation.query()
@@ -630,6 +651,9 @@ export default class ReportsController {
           const b = r.bookingDate || r.reservationDatetime
           const a = r.arrivedDate
           if (!b || !a) return null
+          const bookingDT = (DateTime.isDateTime(b) ? b : DateTime.fromISO(b.toString())).startOf(
+            'day'
+          )
           const bookingDT = (DateTime.isDateTime(b) ? b : DateTime.fromISO(b.toString())).startOf(
             'day'
           )
@@ -650,6 +674,8 @@ export default class ReportsController {
         .filter((n: number) => !Number.isNaN(n))
       const alosToday =
         todayNights.length > 0 ? todayNights.reduce((s, v) => s + v, 0) / todayNights.length : 0
+      const alosToday =
+        todayNights.length > 0 ? todayNights.reduce((s, v) => s + v, 0) / todayNights.length : 0
       const alosYesterdayRows = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereRaw('DATE(arrived_date) = ?', [yesterdayISO])
@@ -657,6 +683,8 @@ export default class ReportsController {
       const yNights = alosYesterdayRows
         .map((r: any) => Number(r.numberOfNights || 0))
         .filter((n: number) => !Number.isNaN(n))
+      const alosYesterday =
+        yNights.length > 0 ? yNights.reduce((s, v) => s + v, 0) / yNights.length : 0
       const alosYesterday =
         yNights.length > 0 ? yNights.reduce((s, v) => s + v, 0) / yNights.length : 0
 
@@ -672,6 +700,8 @@ export default class ReportsController {
         .countDistinct('room_id as total')
       const blockedY = Number(blockedRoomsYesterday[0].$extras.total || 0)
       const netRoomsYesterday = Math.max(0, totalRoomsCount - blockedY)
+      const occYesterdayPct =
+        netRoomsYesterday > 0 ? (soldRoomsYesterday / netRoomsYesterday) * 100 : 0
       const occYesterdayPct =
         netRoomsYesterday > 0 ? (soldRoomsYesterday / netRoomsYesterday) * 100 : 0
 
@@ -787,6 +817,11 @@ export default class ReportsController {
   /**
    * Export report to PDF format
    */
+  private async exportToPDF(
+    response: HttpContext['response'],
+    reportData: HtmlReport,
+    filename: string
+  ) {
   private async exportToPDF(
     response: HttpContext['response'],
     reportData: HtmlReport,
@@ -1470,11 +1505,21 @@ export default class ReportsController {
       (sum, d) => sum + (d.reservationCount || 0),
       0
     )
+    const totalOccupiedRooms = reservationData.reduce(
+      (sum, d) => sum + (d.reservationCount || 0),
+      0
+    )
     const totalAvailableRoomNights = reservationData.reduce(
+      (sum, d) =>
+        sum + (d.totalAvailableRooms || Math.max(0, (d.totalRooms || 0) - (d.blockedRooms || 0))),
       (sum, d) =>
         sum + (d.totalAvailableRooms || Math.max(0, (d.totalRooms || 0) - (d.blockedRooms || 0))),
       0
     )
+    const monthlyOccupancyRate =
+      totalAvailableRoomNights > 0
+        ? Math.round((totalOccupiedRooms / totalAvailableRoomNights) * 10000) / 100
+        : 0
     const monthlyOccupancyRate =
       totalAvailableRoomNights > 0
         ? Math.round((totalOccupiedRooms / totalAvailableRoomNights) * 10000) / 100
@@ -1802,8 +1847,11 @@ export default class ReportsController {
 
       if (auditDetails && auditDetails.nightAuditReportData) {
         sectionsData = auditDetails.nightAuditReportData
+        sectionsData = auditDetails.nightAuditReportData
         const roomTypeStats = await this.getRoomTypeStatsData(Number(hotelId), reportDate, currency)
         const ratiosCA = await this.getRatiosCAData(Number(hotelId), reportDate, currency)
+        const managementOccupancyRate = (auditDetails as any).managerReportData?.statistics
+          ?.occupancyRate
         const managementOccupancyRate = (auditDetails as any).managerReportData?.statistics
           ?.occupancyRate
         sectionsData = {
@@ -1907,6 +1955,7 @@ export default class ReportsController {
       payload,
       creditLedger,
       managementRoomSummary,
+      managementRoomSummary,
     ] = await Promise.all([
       this.getRoomTypeStatsData(hotelId, reportDate, currency),
       this.getRatiosCAData(hotelId, reportDate, currency),
@@ -1943,6 +1992,7 @@ export default class ReportsController {
       petitDejeuner,
       occupancyRate,
       otherRevenues,
+      creditLedger,
       creditLedger,
     }
   }
@@ -2095,6 +2145,9 @@ export default class ReportsController {
           const roomTypeId = Number(
             rr?.roomTypeId || rr?.room?.roomTypeId || rr?.room?.roomType?.id || 0
           )
+          const roomTypeId = Number(
+            rr?.roomTypeId || rr?.room?.roomTypeId || rr?.room?.roomType?.id || 0
+          )
           const stats = statsByRoomType[roomTypeId]
           if (!stats) continue
           if (!(rr?.roomId || rr?.room?.id)) continue
@@ -2120,6 +2173,8 @@ export default class ReportsController {
       }
     }
 
+    const monthDays = Math.abs(ptdStartDate.diff(reportDate.startOf('day'), 'days').days) + 1
+    const yearDays = Math.abs(ytdStartDate.diff(reportDate.startOf('day'), 'days').days) + 1
     const monthDays = Math.abs(ptdStartDate.diff(reportDate.startOf('day'), 'days').days) + 1
     const yearDays = Math.abs(ytdStartDate.diff(reportDate.startOf('day'), 'days').days) + 1
     const roundRate = (occupied: number, available: number) =>
@@ -2174,7 +2229,9 @@ export default class ReportsController {
   private async getRoomTypeStatsData(hotelId: number, reportDate: DateTime, currency: string) {
     const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr = fmt(reportDate)
+    const dayStr = fmt(reportDate)
     const monthStart = fmt(reportDate.startOf('month'))
+    const yearStart = fmt(reportDate.startOf('year'))
     const yearStart = fmt(reportDate.startOf('year'))
 
     const roomTypes = await RoomType.query()
@@ -2205,10 +2262,20 @@ export default class ReportsController {
       const name = t.extraCharge?.name?.toLowerCase() ?? ''
       if (name.includes('early')) earlyCheckInRRIds.add(t.reservationId!)
       if (name.includes('late')) lateCheckOutRRIds.add(t.reservationId!)
+      if (name.includes('late')) lateCheckOutRRIds.add(t.reservationId!)
     }
 
     // ── helper: stats pour une période ──────────────────────────
     const computePeriodStats = async (from: string, to: string, singleDay = false) => {
+      const reservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        .where((q) => {
+          q.where('arrived_date', '<=', to).where('depart_date', '>', from)
+        })
+        .preload('reservationRooms', (rrQ) => rrQ.preload('roomType').preload('rateType'))
+        .preload('bookingSource')
       const reservations = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
@@ -2227,9 +2294,20 @@ export default class ReportsController {
         },
         {} as Record<string, number>
       )
+      const byStatus = reservations.reduce(
+        (acc, r) => {
+          acc[r.status] = (acc[r.status] ?? 0) + 1
+          return acc
+        },
+        {} as Record<string, number>
+      )
 
       const validRoomTypeIds = new Set(roomTypes.map((rt: any) => rt.id))
 
+      const reservationsCreated = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(created_at) BETWEEN ? AND ?', [from, to])
+        .preload('reservationRooms')
       const reservationsCreated = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereRaw('DATE(created_at) BETWEEN ? AND ?', [from, to])
@@ -2242,12 +2320,35 @@ export default class ReportsController {
           const rtId = rr.roomTypeId ?? rr.roomType?.id
           if (!rtId || rtIds.has(rtId)) continue
           if (!validRoomTypeIds.has(rtId)) continue
+      const reservationsCountByRoomType = new Map<number, number>()
+      for (const res of reservationsCreated) {
+        const rtIds = new Set<number>()
+        for (const rr of res.reservationRooms as any[]) {
+          const rtId = rr.roomTypeId ?? rr.roomType?.id
+          if (!rtId || rtIds.has(rtId)) continue
+          if (!validRoomTypeIds.has(rtId)) continue
 
           rtIds.add(rtId)
           reservationsCountByRoomType.set(rtId, (reservationsCountByRoomType.get(rtId) ?? 0) + 1)
         }
       }
+          rtIds.add(rtId)
+          reservationsCountByRoomType.set(rtId, (reservationsCountByRoomType.get(rtId) ?? 0) + 1)
+        }
+      }
 
+      // Compter les paiements city ledger par room type
+      const cityLedgerPayments = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_voided', false)
+        .whereHas('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', 'city_ledger')
+        })
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('reservationRoom')
+        })
       // Compter les paiements city ledger par room type
       const cityLedgerPayments = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -2267,7 +2368,23 @@ export default class ReportsController {
         if (!rtId) continue
         cityLedgerCountByRoomType.set(rtId, (cityLedgerCountByRoomType.get(rtId) ?? 0) + 1)
       }
+      const cityLedgerCountByRoomType = new Map<number, number>()
+      for (const tx of cityLedgerPayments as any[]) {
+        const rtId = tx.folio?.reservationRoom?.roomTypeId
+        if (!rtId) continue
+        cityLedgerCountByRoomType.set(rtId, (cityLedgerCountByRoomType.get(rtId) ?? 0) + 1)
+      }
 
+      // Compter les transactions credit ledger par room type
+      const creditLedgerPayments = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_voided', false)
+        .where('is_credit_ledger', true)
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('reservationRoom')
+        })
       // Compter les transactions credit ledger par room type
       const creditLedgerPayments = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -2288,6 +2405,15 @@ export default class ReportsController {
           (creditLedgerPaymentCountByRoomType.get(rtId) ?? 0) + 1
         )
       }
+      const creditLedgerPaymentCountByRoomType = new Map<number, number>()
+      for (const tx of creditLedgerPayments as any[]) {
+        const rtId = tx.folio?.reservationRoom?.roomTypeId
+        if (!rtId) continue
+        creditLedgerPaymentCountByRoomType.set(
+          rtId,
+          (creditLedgerPaymentCountByRoomType.get(rtId) ?? 0) + 1
+        )
+      }
 
       const creditLedgerTransfers = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -2297,7 +2423,24 @@ export default class ReportsController {
         .preload('folio', (folioQuery) => {
           folioQuery.preload('reservationRoom')
         })
+      const creditLedgerTransfers = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
+        .where('is_voided', false)
+        .preload('folio', (folioQuery) => {
+          folioQuery.preload('reservationRoom')
+        })
 
+      const creditLedgerTransferCountByRoomType = new Map<number, number>()
+      for (const tx of creditLedgerTransfers as any[]) {
+        const rtId = tx.folio?.reservationRoom?.roomTypeId
+        if (!rtId) continue
+        creditLedgerTransferCountByRoomType.set(
+          rtId,
+          (creditLedgerTransferCountByRoomType.get(rtId) ?? 0) + 1
+        )
+      }
       const creditLedgerTransferCountByRoomType = new Map<number, number>()
       for (const tx of creditLedgerTransfers as any[]) {
         const rtId = tx.folio?.reservationRoom?.roomTypeId
@@ -2327,9 +2470,40 @@ export default class ReportsController {
           creditLedgerTransfer: number
         }
       > = {}
+      const perType: Record<
+        number,
+        {
+          walkIn: number
+          corporate: number
+          gratuites: number
+          earlyCheckIn: number
+          lateCheckOut: number
+          guests: number
+          nights: number
+          occupied: number
+          vacant: number
+          reservations: number
+          cityLedger: number
+          creditLedgerPayment: number
+          creditLedgerTransfer: number
+        }
+      > = {}
 
       for (const rt of roomTypes) {
         perType[rt.id] = {
+          walkIn: 0,
+          corporate: 0,
+          gratuites: 0,
+          earlyCheckIn: 0,
+          lateCheckOut: 0,
+          guests: 0,
+          nights: 0,
+          occupied: 0,
+          vacant: 0,
+          reservations: 0,
+          cityLedger: 0,
+          creditLedgerPayment: 0,
+          creditLedgerTransfer: 0,
           walkIn: 0,
           corporate: 0,
           gratuites: 0,
@@ -2372,10 +2546,14 @@ export default class ReportsController {
             } else {
               const periodFrom = new Date(from)
               const periodTo = new Date(to)
+              const periodTo = new Date(to)
               const ciDate = new Date(ci)
               const coDate = new Date(co)
               const ciClamped = new Date(Math.max(ciDate.getTime(), periodFrom.getTime()))
               const coClamped = new Date(Math.min(coDate.getTime(), periodTo.getTime()))
+              coveredNights =
+                Math.max(0, Math.round((coClamped.getTime() - ciClamped.getTime()) / 86_400_000)) ||
+                1
               coveredNights =
                 Math.max(0, Math.round((coClamped.getTime() - ciClamped.getTime()) / 86_400_000)) ||
                 1
@@ -2400,7 +2578,14 @@ export default class ReportsController {
               !isCorporate &&
               res.bookingSourceId !== null &&
               walkInSourceIds.has(res.bookingSourceId)
+            const isWalkIn =
+              !isCorporate &&
+              res.bookingSourceId !== null &&
+              walkInSourceIds.has(res.bookingSourceId)
 
+            if (isComplementary) perType[rtId].gratuites += 1
+            if (isCorporate) perType[rtId].corporate += 1
+            if (isWalkIn) perType[rtId].walkIn += 1
             if (isComplementary) perType[rtId].gratuites += 1
             if (isCorporate) perType[rtId].corporate += 1
             if (isWalkIn) perType[rtId].walkIn += 1
@@ -2410,6 +2595,7 @@ export default class ReportsController {
 
       for (const rt of roomTypes) {
         perType[rt.id].reservations = reservationsCountByRoomType.get(rt.id) ?? 0
+        perType[rt.id].cityLedger = cityLedgerCountByRoomType.get(rt.id) ?? 0
         perType[rt.id].cityLedger = cityLedgerCountByRoomType.get(rt.id) ?? 0
         perType[rt.id].creditLedgerPayment = creditLedgerPaymentCountByRoomType.get(rt.id) ?? 0
         perType[rt.id].creditLedgerTransfer = creditLedgerTransferCountByRoomType.get(rt.id) ?? 0
@@ -2427,8 +2613,14 @@ export default class ReportsController {
 
     // ── Disponibles par type (chambres-nuits) ────────────────────
     const totalRoomsMap: Record<number, { day: number; month: number; year: number }> = {}
+    const totalRoomsMap: Record<number, { day: number; month: number; year: number }> = {}
     const blockedRoomsMap: Record<number, { day: number; month: number; year: number }> = {}
 
+    const daysDayPeriod = 1
+    const daysMonthPeriod =
+      Math.round(DateTime.fromISO(dayStr).diff(DateTime.fromISO(monthStart), 'days').days) + 1
+    const daysYearPeriod =
+      Math.round(DateTime.fromISO(dayStr).diff(DateTime.fromISO(yearStart), 'days').days) + 1
     const daysDayPeriod = 1
     const daysMonthPeriod =
       Math.round(DateTime.fromISO(dayStr).diff(DateTime.fromISO(monthStart), 'days').days) + 1
@@ -2445,6 +2637,7 @@ export default class ReportsController {
       const nbRooms = Number(totalRooms?.$extras.total ?? 0)
 
       totalRoomsMap[rt.id] = {
+        day: nbRooms * daysDayPeriod,
         day: nbRooms * daysDayPeriod,
         month: nbRooms * daysMonthPeriod,
         year: nbRooms * daysYearPeriod,
@@ -2479,18 +2672,24 @@ export default class ReportsController {
       const m = monthStats[rt.id]
       const y = yearStats[rt.id]
       const total = totalRoomsMap[rt.id]
+      const total = totalRoomsMap[rt.id]
       const blocked = blockedRoomsMap[rt.id]
 
       const availDay = Math.max(0, total.day - blocked.day)
+      const availDay = Math.max(0, total.day - blocked.day)
       const availMonth = Math.max(0, total.month - blocked.month)
+      const availYear = Math.max(0, total.year - blocked.year)
       const availYear = Math.max(0, total.year - blocked.year)
 
       return {
         roomTypeId: rt.id,
+        roomTypeId: rt.id,
         roomTypeName: rt.roomTypeName,
         disponibles: { day: availDay, month: availMonth, year: availYear },
         day: { ...d, vacant: Math.max(0, availDay - d.occupied) },
+        day: { ...d, vacant: Math.max(0, availDay - d.occupied) },
         month: { ...m, vacant: Math.max(0, availMonth - m.occupied) },
+        year: { ...y, vacant: Math.max(0, availYear - y.occupied) },
         year: { ...y, vacant: Math.max(0, availYear - y.occupied) },
       }
     })
@@ -2504,13 +2703,22 @@ export default class ReportsController {
           acc.walkIn += s.walkIn
           acc.corporate += s.corporate
           acc.gratuites += s.gratuites
+          acc.disponibles += r.disponibles[p]
+          acc.walkIn += s.walkIn
+          acc.corporate += s.corporate
+          acc.gratuites += s.gratuites
           acc.earlyCheckIn += s.earlyCheckIn
           acc.lateCheckOut += s.lateCheckOut
           acc.guests += s.guests
           acc.nights += s.nights
           acc.occupied += s.occupied
           acc.vacant += s.vacant
+          acc.guests += s.guests
+          acc.nights += s.nights
+          acc.occupied += s.occupied
+          acc.vacant += s.vacant
           acc.reservations += s.reservations
+          acc.cityLedger += s.cityLedger
           acc.cityLedger += s.cityLedger
           acc.creditLedgerPayment += s.creditLedgerPayment
           acc.creditLedgerTransfer += s.creditLedgerTransfer
@@ -2531,12 +2739,28 @@ export default class ReportsController {
           cityLedger: 0,
           creditLedgerPayment: 0,
           creditLedgerTransfer: 0,
+          disponibles: 0,
+          walkIn: 0,
+          corporate: 0,
+          gratuites: 0,
+          earlyCheckIn: 0,
+          lateCheckOut: 0,
+          guests: 0,
+          nights: 0,
+          occupied: 0,
+          vacant: 0,
+          reservations: 0,
+          cityLedger: 0,
+          creditLedgerPayment: 0,
+          creditLedgerTransfer: 0,
         }
       )
 
     const totals = {
       day: sumPeriod(rows, 'day'),
+      day: sumPeriod(rows, 'day'),
       month: sumPeriod(rows, 'month'),
+      year: sumPeriod(rows, 'year'),
       year: sumPeriod(rows, 'year'),
     }
 
@@ -2594,10 +2818,22 @@ export default class ReportsController {
       toYear:
         alignedOccupancy?.totals?.ytd?.rate ??
         toRate(alignedTotals.year.occupied, alignedTotals.year.disponibles),
+      toDay: toRate(totals.day.occupied, totals.day.disponibles),
+      toMonth:
+        alignedOccupancy?.totals?.ptd?.rate ??
+        toRate(alignedTotals.month.occupied, alignedTotals.month.disponibles),
+      toYear:
+        alignedOccupancy?.totals?.ytd?.rate ??
+        toRate(alignedTotals.year.occupied, alignedTotals.year.disponibles),
     }
   }
 
   //  Calcule NMPC | DMS | T.O | T.I | PMC | CA HT | CA TTC | Cityledger
+  private async getRatiosCAData(hotelId: number, reportDate: DateTime, _currency: string) {
+    const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+    const dayStr = fmt(reportDate)
+    const monthStart = fmt(reportDate.startOf('month'))
+    const yearStart = fmt(reportDate.startOf('year'))
   private async getRatiosCAData(hotelId: number, reportDate: DateTime, _currency: string) {
     const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr = fmt(reportDate)
@@ -2609,9 +2845,32 @@ export default class ReportsController {
       .where('is_paymaster', false)
       .where('is_deleted', false)
       .orderBy('sort_order', 'asc')
+    const roomTypes = await RoomType.query()
+      .where('hotel_id', hotelId)
+      .where('is_paymaster', false)
+      .where('is_deleted', false)
+      .orderBy('sort_order', 'asc')
 
     const validRoomTypeIds = new Set(roomTypes.map((rt: any) => rt.id))
+    const validRoomTypeIds = new Set(roomTypes.map((rt: any) => rt.id))
 
+    const computePeriod = async (
+      from: string,
+      to: string,
+      singleDay = false,
+      roomTypeId?: number
+    ) => {
+      const totalRoomsRow = await Room.query()
+        .where('hotel_id', hotelId)
+        .where('is_deleted', false)
+        .where('status', '!=', 'out_of_order')
+        .where((q) => {
+          if (roomTypeId) q.where('room_type_id', roomTypeId)
+          else q.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        })
+        .count('* as total')
+        .first()
+      const totalRooms = Number(totalRoomsRow?.$extras.total ?? 0)
     const computePeriod = async (
       from: string,
       to: string,
@@ -2641,9 +2900,32 @@ export default class ReportsController {
       } else {
         blockedQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
       }
+      // Compte les chambres bloquées pour cette période
+      const blockedQuery = RoomBlock.query()
+        .where('hotel_id', hotelId)
+        // .whereNot('status', 'completed')
+        .where('block_from_date', '<=', to)
+        .where('block_to_date', '>=', from)
+      if (roomTypeId) {
+        blockedQuery.where('room_type_id', roomTypeId)
+      } else {
+        blockedQuery.whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+      }
 
       const blocks = await blockedQuery.select('block_from_date', 'block_to_date')
+      const blocks = await blockedQuery.select('block_from_date', 'block_to_date')
 
+      const getOverlapDays = (
+        blkFrom: string,
+        blkTo: string,
+        rangeFrom: string,
+        rangeTo: string
+      ) => {
+        const s = blkFrom > rangeFrom ? blkFrom : rangeFrom
+        const e = blkTo < rangeTo ? blkTo : rangeTo
+        if (s > e) return 0
+        return Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86_400_000) + 1
+      }
       const getOverlapDays = (
         blkFrom: string,
         blkTo: string,
@@ -2665,7 +2947,24 @@ export default class ReportsController {
       //   .countDistinct('room_id as total')
       //   .first()
       // const blockedRooms = Number(blockedRow?.$extras.total ?? 0)
+      const blockedRoomNights = (blocks as any[]).reduce((sum, b) => {
+        const bf = b.blockFromDate?.toISODate?.() ?? String(b.blockFromDate).substring(0, 10)
+        const bt = b.blockToDate?.toISODate?.() ?? String(b.blockToDate).substring(0, 10)
+        return sum + getOverlapDays(bf, bt, from, to)
+      }, 0)
+      // const blockedRow = await blockedQuery
+      //   .countDistinct('room_id as total')
+      //   .first()
+      // const blockedRooms = Number(blockedRow?.$extras.total ?? 0)
 
+      const reservations = await Reservation.query()
+        .where('hotel_id', hotelId)
+        .whereIn('status', ['checked_in', 'checked_out'])
+        .whereDoesntHave('roomType', (rt) => rt.where('is_paymaster', true))
+        .where((q) => {
+          q.where('arrived_date', '<=', to).where('depart_date', '>', from)
+        })
+        .preload('reservationRooms')
       const reservations = await Reservation.query()
         .where('hotel_id', hotelId)
         .whereIn('status', ['checked_in', 'checked_out'])
@@ -2679,7 +2978,14 @@ export default class ReportsController {
       const roomGuestMap = new Map<number, number>()
       let nights = 0
       let arrivals = 0
+      const uniqueRoomKeys = new Set<number>()
+      const roomGuestMap = new Map<number, number>()
+      let nights = 0
+      let arrivals = 0
 
+      for (const res of reservations) {
+        const processedRRIds = new Set<number>()
+        let resHasValidRoom = false
       for (const res of reservations) {
         const processedRRIds = new Set<number>()
         let resHasValidRoom = false
@@ -2687,11 +2993,22 @@ export default class ReportsController {
         for (const rr of res.reservationRooms as any[]) {
           if (!validRoomTypeIds.has(rr.roomTypeId)) continue
           if (roomTypeId && rr.roomTypeId !== roomTypeId) continue
+        for (const rr of res.reservationRooms as any[]) {
+          if (!validRoomTypeIds.has(rr.roomTypeId)) continue
+          if (roomTypeId && rr.roomTypeId !== roomTypeId) continue
 
           resHasValidRoom = true
           const key = rr.roomId ? Number(rr.roomId) : -rr.id
           uniqueRoomKeys.add(key)
+          resHasValidRoom = true
+          const key = rr.roomId ? Number(rr.roomId) : -rr.id
+          uniqueRoomKeys.add(key)
 
+          if (!processedRRIds.has(rr.id)) {
+            processedRRIds.add(rr.id)
+            const guestsInRoom = (rr.adults ?? 1) + (rr.children ?? 0)
+            roomGuestMap.set(rr.id, guestsInRoom)
+          }
           if (!processedRRIds.has(rr.id)) {
             processedRRIds.add(rr.id)
             const guestsInRoom = (rr.adults ?? 1) + (rr.children ?? 0)
@@ -2714,13 +3031,49 @@ export default class ReportsController {
             nights += nightsCount || 1
           }
         }
+          if (singleDay) {
+            nights++
+          } else {
+            const periodFrom = new Date(from)
+            const periodTo = new Date(to)
+            const ci = rr.checkInDate ? new Date(rr.checkInDate) : periodFrom
+            const co = rr.checkOutDate ? new Date(rr.checkOutDate) : periodTo
+            const ciClamped = new Date(Math.max(ci.getTime(), periodFrom.getTime()))
+            const coClamped = new Date(Math.min(co.getTime(), periodTo.getTime()))
+            const nightsCount = Math.max(
+              0,
+              Math.round((coClamped.getTime() - ciClamped.getTime()) / 86_400_000)
+            )
+            nights += nightsCount || 1
+          }
+        }
 
+        if (resHasValidRoom) arrivals++
+      }
         if (resHasValidRoom) arrivals++
       }
 
       const rooms = uniqueRoomKeys.size
       const guests = Array.from(roomGuestMap.values()).reduce((sum, g) => sum + g, 0)
+      const rooms = uniqueRoomKeys.size
+      const guests = Array.from(roomGuestMap.values()).reduce((sum, g) => sum + g, 0)
 
+      // ── CA HT Room ────────────────────────────────────────────
+      const caRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('current_working_date', [from, to])
+        .where('category', TransactionCategory.ROOM)
+        .whereNotIn('status', ['cancelled', 'void'])
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery) => {
+            rrQuery.where('hotel_id', hotelId)
+            rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+            rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
+            if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+          })
+        })
+        .sum('room_final_net_amount as caHT')
+        .first()
       // ── CA HT Room ────────────────────────────────────────────
       const caRow = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -2755,7 +3108,40 @@ export default class ReportsController {
         })
         .sum('total_amount as extraHT')
         .first()
+      // ── CA HT Extra ───────────────────────────────────────────
+      const extraRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('current_working_date', [from, to])
+        .where('category', TransactionCategory.EXTRACT_CHARGE)
+        .whereNotIn('status', ['cancelled', 'void'])
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery) => {
+            rrQuery.where('hotel_id', hotelId)
+            rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+            rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
+            if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+          })
+        })
+        .sum('total_amount as extraHT')
+        .first()
 
+      // ── Taxes (via taxBreakdown) ───────────────────────────────
+      const taxTransactions = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereBetween('current_working_date', [from, to])
+        .whereNotIn('status', ['cancelled', 'voided'])
+        .whereNot('isVoided', true)
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery) => {
+            rrQuery.where('hotel_id', hotelId)
+            rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+            rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
+            if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+          })
+        })
+        .select('id', 'tax_breakdown', 'tax_amount')
+        .preload('taxes' as any)
       // ── Taxes (via taxBreakdown) ───────────────────────────────
       const taxTransactions = await FolioTransaction.query()
         .where('hotel_id', hotelId)
@@ -2785,7 +3171,20 @@ export default class ReportsController {
           })
         }
       }
+      let taxTotal = 0
+      for (const tx of taxTransactions as any[]) {
+        if (tx.taxBreakdown?.items?.length > 0) {
+          tx.taxBreakdown.items.forEach((t: any) => {
+            taxTotal += Number(t.taxAmount || 0)
+          })
+        } else if (tx.taxes?.length > 0) {
+          tx.taxes.forEach((t: any) => {
+            taxTotal += Number(t?.$pivot?.taxAmount ?? t?.taxAmount ?? 0)
+          })
+        }
+      }
 
+      // ── CA par catégorie de client ────────────────────────────
       // ── CA par catégorie de client ────────────────────────────
       const walkInSources = await BookingSource.query()
         .where('hotel_id', hotelId)
@@ -2795,6 +3194,7 @@ export default class ReportsController {
       // CA Early Check-in
       const earlyRow = await FolioTransaction.query()
         .where('hotel_id', hotelId)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .where('category', TransactionCategory.EXTRACT_CHARGE)
         .whereNotIn('status', ['cancelled', 'void'])
@@ -2813,6 +3213,7 @@ export default class ReportsController {
       const lateRow = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .where('category', TransactionCategory.EXTRACT_CHARGE)
         .whereNotIn('status', ['cancelled', 'void'])
         .whereHas('extraCharge', (ecQ) => {
@@ -2828,10 +3229,13 @@ export default class ReportsController {
 
       const earlyCA = Number(earlyRow?.$extras.total ?? 0)
       const lateCA = Number(lateRow?.$extras.total ?? 0)
+      const earlyCA = Number(earlyRow?.$extras.total ?? 0)
+      const lateCA = Number(lateRow?.$extras.total ?? 0)
 
       // Récupérer toutes les transactions ROOM avec les infos nécessaires
       const allRoomTx = await FolioTransaction.query()
         .where('hotel_id', hotelId)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .where('category', TransactionCategory.ROOM)
         .whereNotIn('status', ['cancelled', 'void'])
@@ -2852,7 +3256,12 @@ export default class ReportsController {
 
       let corporateCA = 0
       let walkInCA = 0
+      let walkInCA = 0
 
+      const resSummary = new Map<
+        number,
+        { isCorporate: boolean; isWalkIn: boolean; amount: number }
+      >()
       const resSummary = new Map<
         number,
         { isCorporate: boolean; isWalkIn: boolean; amount: number }
@@ -2868,6 +3277,10 @@ export default class ReportsController {
           !isCorporate &&
           res.bookingSourceId !== null &&
           walkInSourceIds.includes(res.bookingSourceId)
+        const isWalkIn =
+          !isCorporate &&
+          res.bookingSourceId !== null &&
+          walkInSourceIds.includes(res.bookingSourceId)
 
         if (resSummary.has(res.id)) {
           resSummary.get(res.id)!.amount += amount
@@ -2879,7 +3292,26 @@ export default class ReportsController {
       for (const { isCorporate, isWalkIn, amount } of resSummary.values()) {
         if (isCorporate) corporateCA += amount
         else if (isWalkIn) walkInCA += amount
+        else if (isWalkIn) walkInCA += amount
       }
+      // ── City Ledger = paiements transférés vers city ledger ───
+      // On cherche les transactions de paiement dont le payment method est city ledger
+      const cityRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .where('transaction_type', TransactionType.PAYMENT)
+        .where('is_voided', false)
+        .whereHas('paymentMethod', (pmQuery) => {
+          pmQuery.where('method_type', 'city_ledger')
+        })
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery) => {
+            rrQuery.where('hotel_id', hotelId)
+            if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+          })
+        })
+        .sum('total_amount as total')
+        .first()
       // ── City Ledger = paiements transférés vers city ledger ───
       // On cherche les transactions de paiement dont le payment method est city ledger
       const cityRow = await FolioTransaction.query()
@@ -2913,7 +3345,34 @@ export default class ReportsController {
         })
         .sum('total_amount as total')
         .first()
+      // ── Credit Ledger = paiements par credit ledger ou transferts vers credit ledger ───
+      const creditLedgerPaymentsRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', TransactionType.CREDIT_LEDGER_PAYMENT)
+        .where('is_voided', false)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery) => {
+            rrQuery.where('hotel_id', hotelId)
+            if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+          })
+        })
+        .sum('total_amount as total')
+        .first()
 
+      const creditLedgerTransfersRow = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
+        .where('is_voided', false)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .whereHas('folio', (folioQuery) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery) => {
+            rrQuery.where('hotel_id', hotelId)
+            if (roomTypeId) rrQuery.where('room_type_id', roomTypeId)
+          })
+        })
+        .sum('total_amount as total')
+        .first()
       const creditLedgerTransfersRow = await FolioTransaction.query()
         .where('hotel_id', hotelId)
         .where('transaction_type', TransactionType.CREDIT_LEDGER_TRANSFER)
@@ -2935,7 +3394,26 @@ export default class ReportsController {
       const cityLedgerCA = Number(cityRow?.$extras.total ?? 0)
       const creditLedgerPayment = Math.abs(Number(creditLedgerPaymentsRow?.$extras.total ?? 0))
       const creditLedgerTransfer = Math.abs(Number(creditLedgerTransfersRow?.$extras.total ?? 0))
+      const caHT = Number(caRow?.$extras.caHT ?? 0)
+      const extraHT = Number(extraRow?.$extras.extraHT ?? 0)
+      const totalHT = caHT + extraHT
+      const caTTC = totalHT + taxTotal
+      const cityLedgerCA = Number(cityRow?.$extras.total ?? 0)
+      const creditLedgerPayment = Math.abs(Number(creditLedgerPaymentsRow?.$extras.total ?? 0))
+      const creditLedgerTransfer = Math.abs(Number(creditLedgerTransfersRow?.$extras.total ?? 0))
 
+      const nbDays = singleDay
+        ? 1
+        : Math.max(
+            1,
+            Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1
+          )
+      const availablePeriod = Math.max(0, totalRooms * nbDays - blockedRoomNights)
+      const or = availablePeriod > 0 ? (nights / availablePeriod) * 100 : 0
+      const vr = 100 - or
+      const nmpc = rooms > 0 ? guests / rooms : 0
+      const dms = arrivals > 0 ? nights / arrivals : 0
+      const arp = rooms > 0 ? caHT / rooms : 0
       const nbDays = singleDay
         ? 1
         : Math.max(
@@ -2968,7 +3446,31 @@ export default class ReportsController {
         lateCA: +lateCA.toFixed(0),
       }
     }
+      return {
+        nmpc: +nmpc.toFixed(2),
+        dms: +dms.toFixed(2),
+        or: +or.toFixed(2),
+        vr: +vr.toFixed(2),
+        arp: +arp.toFixed(0),
+        caHT: +caHT.toFixed(0),
+        extraHT: +extraHT.toFixed(0),
+        totalHT: +totalHT.toFixed(0),
+        caTTC: +caTTC.toFixed(0),
+        cityLedgerCA: +cityLedgerCA.toFixed(0),
+        creditLedgerPayment: +creditLedgerPayment.toFixed(0),
+        creditLedgerTransfer: +creditLedgerTransfer.toFixed(0),
+        corporateCA: +corporateCA.toFixed(0),
+        walkInCA: +walkInCA.toFixed(0),
+        earlyCA: +earlyCA.toFixed(0),
+        lateCA: +lateCA.toFixed(0),
+      }
+    }
 
+    const [globalDay, globalMonth, globalYear] = await Promise.all([
+      computePeriod(dayStr, dayStr, true),
+      computePeriod(monthStart, dayStr),
+      computePeriod(yearStart, dayStr),
+    ])
     const [globalDay, globalMonth, globalYear] = await Promise.all([
       computePeriod(dayStr, dayStr, true),
       computePeriod(monthStart, dayStr),
@@ -2986,9 +3488,43 @@ export default class ReportsController {
         byRoomType[rt.id] = { roomTypeName: rt.roomTypeName, day: d, month: m, year: y }
       })
     )
+    const byRoomType: Record<number, { day: any; month: any; year: any; roomTypeName: string }> = {}
+    await Promise.all(
+      roomTypes.map(async (rt) => {
+        const [d, m, y] = await Promise.all([
+          computePeriod(dayStr, dayStr, true, rt.id),
+          computePeriod(monthStart, dayStr, false, rt.id),
+          computePeriod(yearStart, dayStr, false, rt.id),
+        ])
+        byRoomType[rt.id] = { roomTypeName: rt.roomTypeName, day: d, month: m, year: y }
+      })
+    )
 
     const alignedOccupancy = await this.getAlignedNightAuditOccupancyByRoomType(hotelId, reportDate)
+    const alignedOccupancy = await this.getAlignedNightAuditOccupancyByRoomType(hotelId, reportDate)
 
+    const alignedByRoomType: Record<
+      number,
+      { day: any; month: any; year: any; roomTypeName: string }
+    > = {}
+    for (const [roomTypeId, stats] of Object.entries(byRoomType)) {
+      const aligned = alignedOccupancy?.byRoomType?.[Number(roomTypeId)]
+      alignedByRoomType[Number(roomTypeId)] = aligned
+        ? {
+            ...stats,
+            month: {
+              ...stats.month,
+              or: aligned.ptd.rate,
+              vr: Math.max(0, Math.round((100 - aligned.ptd.rate) * 100) / 100),
+            },
+            year: {
+              ...stats.year,
+              or: aligned.ytd.rate,
+              vr: Math.max(0, Math.round((100 - aligned.ytd.rate) * 100) / 100),
+            },
+          }
+        : stats
+    }
     const alignedByRoomType: Record<
       number,
       { day: any; month: any; year: any; roomTypeName: string }
@@ -3033,7 +3569,33 @@ export default class ReportsController {
       byRoomType: alignedByRoomType,
     }
   }
+    return {
+      day: globalDay,
+      month: {
+        ...globalMonth,
+        or: alignedOccupancy?.totals?.ptd?.rate ?? globalMonth.or,
+        vr: Math.max(
+          0,
+          Math.round((100 - (alignedOccupancy?.totals?.ptd?.rate ?? globalMonth.or)) * 100) / 100
+        ),
+      },
+      year: {
+        ...globalYear,
+        or: alignedOccupancy?.totals?.ytd?.rate ?? globalYear.or,
+        vr: Math.max(
+          0,
+          Math.round((100 - (alignedOccupancy?.totals?.ytd?.rate ?? globalYear.or)) * 100) / 100
+        ),
+      },
+      byRoomType: alignedByRoomType,
+    }
+  }
 
+  private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTime) {
+    const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+    const dayStr = fmt(reportDate)
+    const monthStart = fmt(reportDate.startOf('month'))
+    const yearStart = fmt(reportDate.startOf('year'))
   private async getCreditLedgerNightAuditData(hotelId: number, reportDate: DateTime) {
     const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr = fmt(reportDate)
@@ -3050,7 +3612,24 @@ export default class ReportsController {
         .where('is_voided', false)
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .select('transaction_type', 'total_amount', 'amount')
+    const getPeriodData = async (from: string, to: string) => {
+      const payments = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('transaction_type', [
+          TransactionType.CREDIT_LEDGER_PAYMENT,
+          TransactionType.CREDIT_LEDGER_TRANSFER,
+        ])
+        .where('is_voided', false)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .select('transaction_type', 'total_amount', 'amount')
 
+      const totals = {
+        creditLedgerPayment: 0,
+        creditLedgerTransfer: 0,
+        total: 0,
+        creditLedgerPaymentCount: 0,
+        creditLedgerTransferCount: 0,
+      }
       const totals = {
         creditLedgerPayment: 0,
         creditLedgerTransfer: 0,
@@ -3070,7 +3649,20 @@ export default class ReportsController {
         }
         totals.total += amt
       }
+      for (const tx of payments) {
+        const amt = Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0))
+        if (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+          totals.creditLedgerPayment += amt
+          totals.creditLedgerPaymentCount += 1
+        } else {
+          totals.creditLedgerTransfer += amt
+          totals.creditLedgerTransferCount += 1
+        }
+        totals.total += amt
+      }
 
+      return totals
+    }
       return totals
     }
 
@@ -3079,10 +3671,24 @@ export default class ReportsController {
       getPeriodData(monthStart, dayStr),
       getPeriodData(yearStart, dayStr),
     ])
+    const [day, month, year] = await Promise.all([
+      getPeriodData(dayStr, dayStr),
+      getPeriodData(monthStart, dayStr),
+      getPeriodData(yearStart, dayStr),
+    ])
 
     return { day, month, year }
   }
+    return { day, month, year }
+  }
 
+  private async getCreditLedgerManagementData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
+    const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
   private async getCreditLedgerManagementData(
     hotelId: number,
     reportDate: DateTime,
@@ -3101,7 +3707,22 @@ export default class ReportsController {
         .where('is_voided', false)
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .select('transaction_type', 'total_amount', 'amount')
+    const getPeriodData = async (from: string, to: string) => {
+      const payments = await FolioTransaction.query()
+        .where('hotel_id', hotelId)
+        .whereIn('transaction_type', [
+          TransactionType.CREDIT_LEDGER_PAYMENT,
+          TransactionType.CREDIT_LEDGER_TRANSFER,
+        ])
+        .where('is_voided', false)
+        .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
+        .select('transaction_type', 'total_amount', 'amount')
 
+      const totals = {
+        creditLedgerPayment: 0,
+        creditLedgerTransfer: 0,
+        total: 0,
+      }
       const totals = {
         creditLedgerPayment: 0,
         creditLedgerTransfer: 0,
@@ -3117,7 +3738,18 @@ export default class ReportsController {
         }
         totals.total += amt
       }
+      for (const tx of payments) {
+        const amt = Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0))
+        if (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+          totals.creditLedgerPayment += amt
+        } else {
+          totals.creditLedgerTransfer += amt
+        }
+        totals.total += amt
+      }
 
+      return totals
+    }
       return totals
     }
 
@@ -3126,7 +3758,14 @@ export default class ReportsController {
       getPeriodData(fmt(ptdStartDate), fmt(reportDate)),
       getPeriodData(fmt(ytdStartDate), fmt(reportDate)),
     ])
+    const [today, ptd, ytd] = await Promise.all([
+      getPeriodData(fmt(reportDate), fmt(reportDate)),
+      getPeriodData(fmt(ptdStartDate), fmt(reportDate)),
+      getPeriodData(fmt(ytdStartDate), fmt(reportDate)),
+    ])
 
+    return { today, ptd, ytd }
+  }
     return { today, ptd, ytd }
   }
 
@@ -3134,7 +3773,11 @@ export default class ReportsController {
   private async getEncaissementsData(hotelId: number, reportDate: DateTime, _currency: string) {
     const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
     const dayStr = fmt(reportDate)
+  private async getEncaissementsData(hotelId: number, reportDate: DateTime, _currency: string) {
+    const fmt = (d: DateTime) => d.toFormat('yyyy-MM-dd')
+    const dayStr = fmt(reportDate)
     const monthStart = fmt(reportDate.startOf('month'))
+    const yearStart = fmt(reportDate.startOf('year'))
     const yearStart = fmt(reportDate.startOf('year'))
 
     const paymentMethods = await PaymentMethod.query()
@@ -3147,6 +3790,7 @@ export default class ReportsController {
     if (paymentMethods.length === 0) {
       return { rows: [], totals: { day: 0, month: 0, year: 0 } }
     }
+    const idToLabel = new Map<number, string>(paymentMethods.map((pm) => [pm.id, pm.methodName]))
     const idToLabel = new Map<number, string>(paymentMethods.map((pm) => [pm.id, pm.methodName]))
 
     // Ordre d'affichage = ordre des méthodes dans la DB
@@ -3170,6 +3814,7 @@ export default class ReportsController {
       for (const tx of txs as any[]) {
         // paymentMethodId est la FK directe sur la transaction
         const pmId = tx.paymentMethodId ?? tx.payment_method_id
+        const pmId = tx.paymentMethodId ?? tx.payment_method_id
         const label = pmId ? idToLabel.get(Number(pmId)) : undefined
         if (!label) continue
 
@@ -3185,10 +3830,14 @@ export default class ReportsController {
       getByPeriod(dayStr, dayStr),
       getByPeriod(monthStart, dayStr),
       getByPeriod(yearStart, dayStr),
+      getByPeriod(yearStart, dayStr),
     ])
 
     const rows = DISPLAY_ORDER.map((label) => ({
       label,
+      day: +(day[label] ?? 0).toFixed(0),
+      month: +(month[label] ?? 0).toFixed(0),
+      year: +(year[label] ?? 0).toFixed(0),
       day: +(day[label] ?? 0).toFixed(0),
       month: +(month[label] ?? 0).toFixed(0),
       year: +(year[label] ?? 0).toFixed(0),
@@ -3198,7 +3847,9 @@ export default class ReportsController {
       rows,
       totals: {
         day: rows.reduce((s, r) => s + r.day, 0),
+        day: rows.reduce((s, r) => s + r.day, 0),
         month: rows.reduce((s, r) => s + r.month, 0),
+        year: rows.reduce((s, r) => s + r.year, 0),
         year: rows.reduce((s, r) => s + r.year, 0),
       },
     }
@@ -3230,7 +3881,34 @@ export default class ReportsController {
         totals: { dayCount: 0, day: 0, monthCount: 0, month: 0, yearCount: 0, year: 0 },
       }
     }
+  //POS
+  private buildOtherRevenuesFromPos(posSummary: any): {
+    rows: {
+      label: string
+      dayCount: number
+      day: number
+      monthCount: number
+      month: number
+      yearCount: number
+      year: number
+    }[]
+    totals: {
+      dayCount: number
+      day: number
+      monthCount: number
+      month: number
+      yearCount: number
+      year: number
+    }
+  } {
+    if (!posSummary?.outlets || posSummary.outlets.length === 0) {
+      return {
+        rows: [],
+        totals: { dayCount: 0, day: 0, monthCount: 0, month: 0, yearCount: 0, year: 0 },
+      }
+    }
 
+    console.log('POS Summary:', JSON.stringify(posSummary, null, 2))
     console.log('POS Summary:', JSON.stringify(posSummary, null, 2))
 
     const rows = posSummary.outlets.map((outlet: any) => ({
@@ -3242,7 +3920,28 @@ export default class ReportsController {
       yearCount: outlet.nbcommande?.ytd ?? outlet.totalCount?.ytd ?? 0,
       year: outlet.totalWithTax?.ytd ?? 0,
     }))
+    const rows = posSummary.outlets.map((outlet: any) => ({
+      label: outlet.outlet,
+      dayCount: outlet.nbcommande?.today ?? outlet.totalCount?.today ?? 0,
+      day: outlet.totalWithTax?.today ?? 0,
+      monthCount: outlet.nbcommande?.ptd ?? outlet.totalCount?.ptd ?? 0,
+      month: outlet.totalWithTax?.ptd ?? 0,
+      yearCount: outlet.nbcommande?.ytd ?? outlet.totalCount?.ytd ?? 0,
+      year: outlet.totalWithTax?.ytd ?? 0,
+    }))
 
+    return {
+      rows,
+      totals: {
+        dayCount: posSummary.totalCount?.today ?? 0,
+        day: posSummary.totalWithTax?.today ?? 0,
+        monthCount: posSummary.totalCount?.ptd ?? 0,
+        month: posSummary.totalWithTax?.ptd ?? 0,
+        yearCount: posSummary.totalCount?.ytd ?? 0,
+        year: posSummary.totalWithTax?.ytd ?? 0,
+      },
+    }
+  }
     return {
       rows,
       totals: {
@@ -4892,7 +5591,9 @@ export default class ReportsController {
     const emptyPeriod = { creditLedgerPayment: 0, creditLedgerTransfer: 0, total: 0 }
     const cl = creditLedger ?? { day: emptyPeriod, month: emptyPeriod, year: emptyPeriod }
     const clDay = cl.day ?? emptyPeriod
+    const clDay = cl.day ?? emptyPeriod
     const clMonth = cl.month ?? emptyPeriod
+    const clYear = cl.year ?? emptyPeriod
     const clYear = cl.year ?? emptyPeriod
 
     // ── Other revenues totals ───────────────────────────────
@@ -4903,8 +5604,23 @@ export default class ReportsController {
       { label: 'Corporate', key: 'corporate' },
       { label: 'Walk-in', key: 'walkIn' },
       { label: 'Complimentary', key: 'gratuites' },
+      { label: 'Corporate', key: 'corporate' },
+      { label: 'Walk-in', key: 'walkIn' },
+      { label: 'Complimentary', key: 'gratuites' },
       { label: 'Early Check-in', key: 'earlyCheckIn' },
       { label: 'Late Check-out', key: 'lateCheckOut' },
+      { label: 'No. of Guests', key: 'guests' },
+      { label: 'No. of Nights', key: 'nights' },
+      { label: 'Rooms Occupied', key: 'occupied' },
+      { label: 'Rooms Vacant', key: 'vacant' },
+      { label: 'Reservations', key: 'reservations' },
+      { label: 'City Ledger', key: 'cityLedger' },
+      ...(hasCreditLedger
+        ? [
+            { label: 'Credit Ledger (OUT)', key: 'creditLedgerPayment' },
+            { label: 'Credit Ledger (IN)', key: 'creditLedgerTransfer' },
+          ]
+        : []),
       { label: 'No. of Guests', key: 'guests' },
       { label: 'No. of Nights', key: 'nights' },
       { label: 'Rooms Occupied', key: 'occupied' },
@@ -4956,7 +5672,32 @@ export default class ReportsController {
           fc(m.cityLedgerCA),
           fc(y.cityLedgerCA),
         ],
+        fmt: (d: any, m: any, y: any) => [
+          fc(d.cityLedgerCA),
+          fc(m.cityLedgerCA),
+          fc(y.cityLedgerCA),
+        ],
       },
+      ...(hasCreditLedger
+        ? [
+            {
+              label: 'Credit Ledger (OUT)',
+              fmt: (d: any, m: any, y: any) => [
+                fc(d.creditLedgerPayment),
+                fc(m.creditLedgerPayment),
+                fc(y.creditLedgerPayment),
+              ],
+            },
+            {
+              label: 'Credit Ledger (IN)',
+              fmt: (d: any, m: any, y: any) => [
+                fc(d.creditLedgerTransfer),
+                fc(m.creditLedgerTransfer),
+                fc(y.creditLedgerTransfer),
+              ],
+            },
+          ]
+        : []),
       ...(hasCreditLedger
         ? [
             {
@@ -4996,11 +5737,15 @@ export default class ReportsController {
         </tr>
         ${LEFT_METRICS.map(
           ({ label, key }) => `
+        ${LEFT_METRICS.map(
+          ({ label, key }) => `
         <tr class="data-row">
           <td class="lbl">${label}</td>
           <td class="num">${fc((d as any)[key])}</td>
           <td class="num">${fc((m as any)[key])}</td>
           <td class="num">${fc((y as any)[key])}</td>
+        </tr>`
+        ).join('')}
         </tr>`
         ).join('')}
         <tr class="rt-spacer"><td colspan="4"></td></tr>`
@@ -5009,6 +5754,9 @@ export default class ReportsController {
     // ── Build RIGHT block per room type ─────────────────────
     const buildRightBlock = (rt: any): string => {
       const rtRatios = ratiosCA?.byRoomType?.[rt.roomTypeId] ?? {
+        day: ra.day,
+        month: ra.month,
+        year: ra.year,
         day: ra.day,
         month: ra.month,
         year: ra.year,
@@ -5059,11 +5807,14 @@ export default class ReportsController {
     }
 
     const leftBlocks = rows.map(buildLeftBlock).join('')
+    const leftBlocks = rows.map(buildLeftBlock).join('')
     const rightBlocks = rows.map(buildRightBlock).join('')
 
     // ── Grand totals ────────────────────────────────────────
     const td = roomTypeStats?.totals?.day ?? {}
+    const td = roomTypeStats?.totals?.day ?? {}
     const tm = roomTypeStats?.totals?.month ?? {}
+    const ty = roomTypeStats?.totals?.year ?? {}
     const ty = roomTypeStats?.totals?.year ?? {}
 
     const leftTotals = `
@@ -5095,6 +5846,9 @@ export default class ReportsController {
       ${
         hasCreditLedger
           ? `
+      ${
+        hasCreditLedger
+          ? `
        <tr class="total-row">
       <td class="lbl">Total Credit Ledger (OUT)</td>
       <td class="num">${fd(clDay.creditLedgerPaymentCount)}</td>
@@ -5109,7 +5863,13 @@ export default class ReportsController {
     </tr>`
           : ''
       }
+    </tr>`
+          : ''
+      }
 
+  ${(otherRevenues?.rows ?? [])
+    .map(
+      (r: any) => `
   ${(otherRevenues?.rows ?? [])
     .map(
       (r: any) => `
@@ -5118,6 +5878,9 @@ export default class ReportsController {
     <td class="num">${r.dayCount}</td>
     <td class="num">${r.monthCount}</td>
     <td class="num">${r.yearCount}</td>
+  </tr>`
+    )
+    .join('')}`
   </tr>`
     )
     .join('')}`
@@ -5151,6 +5914,9 @@ export default class ReportsController {
   ${
     hasCreditLedger
       ? `
+  ${
+    hasCreditLedger
+      ? `
   <tr class="total-row">
     <td class="lbl" >Credit Ledger (OUT)</td>
     <td class="num">${fc(clDay.creditLedgerPayment)}</td>
@@ -5165,8 +5931,14 @@ export default class ReportsController {
   </tr>`
       : ''
   }
+  </tr>`
+      : ''
+  }
 
 
+  ${(otherRevenues?.rows ?? [])
+    .map(
+      (r: any) => `
   ${(otherRevenues?.rows ?? [])
     .map(
       (r: any) => `
@@ -5178,9 +5950,14 @@ export default class ReportsController {
   </tr>`
     )
     .join('')}`
+  </tr>`
+    )
+    .join('')}`
 
     // ── Payments ────────────────────────────────────────────
     const s3Rows = (encaissements?.rows ?? [])
+      .map(
+        (r: any) => `
       .map(
         (r: any) => `
       <tr>
@@ -5188,6 +5965,9 @@ export default class ReportsController {
         <td class="num">${fc(r.day)}</td>
         <td class="num">${fc(r.month)}</td>
         <td class="num">${fc(r.year)}</td>
+      </tr>`
+      )
+      .join('')
       </tr>`
       )
       .join('')
@@ -5724,6 +6504,7 @@ export default class ReportsController {
 
       // Generate all sections data
       let sectionsData: any = {}
+      let sectionsData: any = {}
       const auditDetails = await NightAuditService.getNightAuditDetails(reportDate, Number(hotelId))
 
       if (auditDetails && auditDetails?.managerReportData) {
@@ -5855,6 +6636,7 @@ export default class ReportsController {
       discounts,
       adjustments,
       tax,
+      banquetsEvents,
       payments,
       cityLedger,
       advanceDepositLedger,
@@ -5877,11 +6659,13 @@ export default class ReportsController {
       this.getManagementAdjustmentsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
       // Section 5: Tax
       this.getManagementTaxData(hotelId, reportDate, ptdStartDate, ytdStartDate),
-      // Section 6: Payments
+      // Section 6: Banquets & Events
+      this.getManagementBanquetsEventsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+      // Section 7: Payments
       this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate),
-      // Section 7: City Ledger
+      // Section 8: City Ledger
       this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
-      // Section 8: Advance Deposit Ledger
+      // Section 9: Advance Deposit Ledger
       this.getManagementAdvanceDepositLedgerData(
         hotelId,
         reportDate,
@@ -5889,13 +6673,13 @@ export default class ReportsController {
         ytdStartDate,
         currency
       ),
-      // Section 9: Guest Ledger
+      // Section 10: Guest Ledger
       this.getManagementGuestLedgerData(hotelId, reportDate, currency),
-      // Section 10: Room Summary
+      // Section 11: Room Summary
       this.getManagementRoomSummaryData(hotelId, reportDate),
-      // Section 12: POS Summary
+      // Section 13: POS Summary
       this.getManagementPosSummaryData(hotelId, reportDate),
-      // Section 13: POS Payment
+      // Section 14: POS Payment
       this.getManagementPosPaymentSummaryData(hotelId, reportDate),
       // Postings
       this.getManagementPostingsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
@@ -5913,11 +6697,15 @@ export default class ReportsController {
       roomSummary
     )
 
-    // Section 14: Revenue Summary (depends on roomCharges and extraCharges)
+    // Section 14: Revenue Summary (depends on roomCharges, extraCharges and banquetsEvents)
     const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
 
     // Section 15: Total Revenue (depends on posSummary and revenueSummary)
-    const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary)
+    const totalRevenue = await this.getManagementTotalRevenue(
+      posSummary,
+      revenueSummary,
+      banquetsEvents
+    )
 
     return {
       roomCharges,
@@ -5925,6 +6713,7 @@ export default class ReportsController {
       discounts,
       adjustments,
       tax,
+      banquetsEvents,
       payments,
       creditLedger,
       cityLedger,
@@ -6314,7 +7103,7 @@ export default class ReportsController {
       const rateName = tx.reservationRoom?.rateType?.rateTypeName || 'Unknown'
       const order = 0 // RateType has no sort_order; default to 0
       const group = byRate.get(rateName) || { revenue: 0, roomIds: new Set<number>(), order }
-      group.revenue += Number(tx.amount || 0)
+      group.revenue += Number(tx.roomFinalNetAmount || tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
       // Always keep the smallest sort order if mixed
       group.order = Math.min(group.order, order)
@@ -6379,7 +7168,7 @@ export default class ReportsController {
         roomIds: new Set<number>(),
         order,
       }
-      group.revenue += Number(tx.amount || 0)
+      group.revenue += Number(tx.roomFinalNetAmount || tx.amount || 0)
       if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
       group.order = Math.min(group.order, order)
       byRoomType.set(roomTypeName, group)
@@ -6815,6 +7604,169 @@ export default class ReportsController {
       today: totalToday,
       ptd: totalPtd,
       ytd: totalYtd,
+    }
+  }
+
+  /**
+   * Get Banquets & Events data for Management Report
+   * Banquets & Events = all reservations for room types with is_paymaster = true
+   */
+  private async getManagementBanquetsEventsData(
+    hotelId: number,
+    reportDate: DateTime,
+    ptdStartDate: DateTime,
+    ytdStartDate: DateTime
+  ) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+    const { default: ReservationRoom } = await import('#models/reservation_room')
+
+    // Count ALL paymaster reservation rooms (events) by their arrival/departure overlap with the period
+    const countEvents = async (startDate: DateTime, endDate: DateTime) => {
+      const result = await ReservationRoom.query()
+        .where('hotel_id', hotelId)
+        .whereHas('roomType', (rtQuery: any) => {
+          rtQuery.where('is_paymaster', true)
+        })
+        .whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+        .where((query) => {
+          query
+            .whereBetween('checkInDate', [
+              startDate.toFormat('yyyy-MM-dd'),
+              endDate.toFormat('yyyy-MM-dd'),
+            ])
+            .orWhereBetween('checkOutDate', [
+              startDate.toFormat('yyyy-MM-dd'),
+              endDate.toFormat('yyyy-MM-dd'),
+            ])
+            .orWhere((subQuery) => {
+              subQuery
+                .where('checkInDate', '<=', startDate.toFormat('yyyy-MM-dd'))
+                .where('checkOutDate', '>=', endDate.toFormat('yyyy-MM-dd'))
+            })
+        })
+        .countDistinct('id as total')
+        .first()
+
+      return Number(result?.$extras.total || 0)
+    }
+
+    // Get revenue & taxes from folio transactions on paymaster room types
+    const getRevenueAndTaxes = async (startDate: DateTime, endDate: DateTime) => {
+      const { default: Tax } = await import('#models/tax_rate')
+      const taxs = await Tax.query().where('hotel_id', hotelId)
+      const taxNameById = new Map<number, string>()
+      taxs.forEach((tax: any) => {
+        taxNameById.set(tax.taxRateId, tax.taxName)
+      })
+
+      const transactions = await FolioTransaction.query()
+        .whereHas('folio', (folioQuery: any) => {
+          folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
+            rrQuery.where('hotel_id', hotelId)
+            rrQuery
+              .whereHas('roomType', (rtQuery: any) => {
+                rtQuery.where('is_paymaster', true)
+              })
+              .whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+          })
+        })
+        .whereBetween('current_working_date', [
+          startDate.toFormat('yyyy-MM-dd'),
+          endDate.toFormat('yyyy-MM-dd'),
+        ])
+        .where('transaction_type', TransactionType.CHARGE)
+        .whereNotIn('status', ['cancel', 'voided'])
+        .whereNot('isVoided', true)
+        .preload('taxes', (taxQuery: any) => {
+          taxQuery.where('hotel_id', hotelId)
+        })
+        .select('id', 'amount', 'total_amount', 'tax_amount', 'tax_breakdown')
+
+      let totalRevenue = 0
+      let totalTaxes = 0
+      const taxesByName: Record<string, number> = {}
+
+      transactions.forEach((transaction: any) => {
+        totalRevenue += Number(transaction.totalAmount || 0)
+        // Calculate taxes from tax_breakdown or taxes relationship
+        if (
+          transaction.taxBreakdown?.items &&
+          Array.isArray(transaction.taxBreakdown.items) &&
+          transaction.taxBreakdown.items.length > 0
+        ) {
+          transaction.taxBreakdown.items.forEach((tax: any) => {
+            const taxName = taxNameById.get(tax.taxRateId) || tax.taxName || 'Tax'
+            const taxAmount = Number(tax.taxAmount || 0)
+            taxesByName[taxName] = (taxesByName[taxName] || 0) + taxAmount
+            totalTaxes += taxAmount
+          })
+        } else if (transaction.taxes && transaction.taxes.length > 0) {
+          transaction.taxes.forEach((tax: any) => {
+            const taxName = taxNameById.get(tax.taxRateId) || tax.taxName || 'Tax'
+            const taxAmount = Number(tax?.$pivot?.taxAmount ?? tax?.taxAmount ?? 0)
+            taxesByName[taxName] = (taxesByName[taxName] || 0) + taxAmount
+            totalTaxes += taxAmount
+          })
+        } else {
+          totalTaxes += Number(transaction.taxAmount || 0)
+        }
+      })
+
+      return {
+        revenue: totalRevenue,
+        taxes: totalTaxes,
+        taxesByName,
+      }
+    }
+
+    // Today
+    const todayEvents = await countEvents(reportDate, reportDate)
+    const todayRevenueData = await getRevenueAndTaxes(reportDate, reportDate)
+    // PTD
+    const ptdEvents = await countEvents(ptdStartDate, reportDate)
+    const ptdRevenueData = await getRevenueAndTaxes(ptdStartDate, reportDate)
+    // YTD
+    const ytdEvents = await countEvents(ytdStartDate, reportDate)
+    const ytdRevenueData = await getRevenueAndTaxes(ytdStartDate, reportDate)
+
+    // Merge all tax names across periods
+    const allTaxNames = new Set([
+      ...Object.keys(todayRevenueData.taxesByName),
+      ...Object.keys(ptdRevenueData.taxesByName),
+      ...Object.keys(ytdRevenueData.taxesByName),
+    ])
+
+    const taxesArray = Array.from(allTaxNames)
+      .map((name) => ({
+        name,
+        today: todayRevenueData.taxesByName[name] || 0,
+        ptd: ptdRevenueData.taxesByName[name] || 0,
+        ytd: ytdRevenueData.taxesByName[name] || 0,
+      }))
+      .filter((t) => t.today !== 0 || t.ptd !== 0 || t.ytd !== 0)
+
+    return {
+      number: {
+        today: todayEvents,
+        ptd: ptdEvents,
+        ytd: ytdEvents,
+      },
+      revenue: {
+        today: todayRevenueData.revenue,
+        ptd: ptdRevenueData.revenue,
+        ytd: ytdRevenueData.revenue,
+      },
+      taxes: {
+        today: todayRevenueData.taxes,
+        ptd: ptdRevenueData.taxes,
+        ytd: ytdRevenueData.taxes,
+      },
+      taxesArray,
+      revenueWithoutTax: {
+        today: todayRevenueData.revenue - todayRevenueData.taxes,
+        ptd: ptdRevenueData.revenue - ptdRevenueData.taxes,
+        ytd: ytdRevenueData.revenue - ytdRevenueData.taxes,
+      },
     }
   }
 
@@ -7677,11 +8629,21 @@ export default class ReportsController {
       ytd: (roomChargesTotal.ytd || 0) + (extraChargesTotal.ytd || 0),
     }
   }
-  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any) {
+  private async getManagementTotalRevenue(posRevenue: any, pmsRevenue: any, banquetsEvents?: any) {
+    const banquetsRevenue = banquetsEvents?.revenueWithoutTax || { today: 0, ptd: 0, ytd: 0 }
     return {
-      today: (posRevenue?.totalWithoutTax?.today || 0) + (pmsRevenue?.today || 0),
-      ptd: (posRevenue?.totalWithoutTax?.ptd || 0) + (pmsRevenue?.ptd || 0),
-      ytd: (posRevenue?.totalWithoutTax?.ytd || 0) + (pmsRevenue?.ytd || 0),
+      today:
+        (posRevenue?.totalWithoutTax?.today || 0) +
+        (pmsRevenue?.today || 0) +
+        (banquetsRevenue.today || 0),
+      ptd:
+        (posRevenue?.totalWithoutTax?.ptd || 0) +
+        (pmsRevenue?.ptd || 0) +
+        (banquetsRevenue.ptd || 0),
+      ytd:
+        (posRevenue?.totalWithoutTax?.ytd || 0) +
+        (pmsRevenue?.ytd || 0) +
+        (banquetsRevenue.ytd || 0),
     }
   }
   /**
@@ -10767,7 +11729,12 @@ export default class ReportsController {
       }
 
       const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
+      const roomAvailabilityData = await ReportsService.getRoomAvailability(reportFilters)
 
+      const user = auth.user
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
       const user = auth.user
       const printedBy = user
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
@@ -10778,9 +11745,25 @@ export default class ReportsController {
         { dateFrom, dateTo, roomTypeId, floor, roomTypeName },
         printedBy
       )
+      const htmlContent = this.generateSimplifiedRoomAvailabilityHtml(
+        roomAvailabilityData,
+        { dateFrom, dateTo, roomTypeId, floor, roomTypeName },
+        printedBy
+      )
 
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        orientation: 'landscape',
+        margin: {
+          top: '1cm',
+          right: '1cm',
+          bottom: '1cm',
+          left: '1cm',
+        },
+      })
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         orientation: 'landscape',
@@ -10794,11 +11777,26 @@ export default class ReportsController {
 
       const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
       const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
+      const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
+      const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
 
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${filename}"`)
       response.header('Content-Length', pdfBuffer.length.toString())
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${filename}"`)
+      response.header('Content-Length', pdfBuffer.length.toString())
 
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating room availability PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate room availability PDF',
+        error: error.message,
+      })
+    }
+  }
       return response.send(pdfBuffer)
     } catch (error) {
       console.error('Error generating room availability PDF:', error)
@@ -10846,6 +11844,11 @@ export default class ReportsController {
         const value = weeklyData[index]
         const height = Math.round((value / maxValue) * 80)
         return `
+    const barsHtml = days
+      .map((day, index) => {
+        const value = weeklyData[index]
+        const height = Math.round((value / maxValue) * 80)
+        return `
         <td style="text-align:center; vertical-align:bottom; padding: 0 4px; width: 30px;">
           <div style="font-size:9px; font-weight:bold; color:#2c3e50; margin-bottom:2px;">${value}%</div>
           <div style="height:${height}px; background-color:#3498db; width:20px; margin:0 auto; border-radius:2px 2px 0 0; min-height:4px;"></div>
@@ -10854,8 +11857,23 @@ export default class ReportsController {
       `
       })
       .join('')
+      })
+      .join('')
 
     // Grille des chambres statique
+    const roomsHtml = rooms
+      .map((room: any) => {
+        const roomNumber = room.roomNumber || room.number || 'N/A'
+        const status = room.status || 'available'
+        const bgColor =
+          status === 'available'
+            ? '#2ecc71'
+            : status === 'occupied'
+              ? '#e74c3c'
+              : status === 'maintenance'
+                ? '#f39c12'
+                : '#95a5a6'
+        return `
     const roomsHtml = rooms
       .map((room: any) => {
         const roomNumber = room.roomNumber || room.number || 'N/A'
@@ -10883,6 +11901,8 @@ export default class ReportsController {
       `
       })
       .join('')
+      })
+      .join('')
 
     // Découper les chambres en rangées de 15
     const COLS = 15
@@ -10891,6 +11911,21 @@ export default class ReportsController {
       roomRows.push(rooms.slice(i, i + COLS))
     }
 
+    const roomsTableHtml = roomRows
+      .map((rowRooms) => {
+        const cells = rowRooms
+          .map((room: any) => {
+            const roomNumber = room.roomNumber || room.number || 'N/A'
+            const status = room.status || 'available'
+            const bgColor =
+              status === 'available'
+                ? '#2ecc71'
+                : status === 'occupied'
+                  ? '#e74c3c'
+                  : status === 'maintenance'
+                    ? '#f39c12'
+                    : '#95a5a6'
+            return `
     const roomsTableHtml = roomRows
       .map((rowRooms) => {
         const cells = rowRooms
@@ -10918,6 +11953,14 @@ export default class ReportsController {
             height: 30px;
           ">${roomNumber}</td>
         `
+          })
+          .join('')
+        // Remplir les cellules vides si la dernière ligne est incomplète
+        const emptyCells = COLS - rowRooms.length
+        const emptyHtml = Array(emptyCells).fill('<td style="width:35px;"></td>').join('')
+        return `<tr>${cells}${emptyHtml}</tr>`
+      })
+      .join('')
           })
           .join('')
         // Remplir les cellules vides si la dernière ligne est incomplète
@@ -11046,6 +12089,7 @@ export default class ReportsController {
   </body>
   </html>
     `
+  }
   }
 
   // Méthode auxiliaire pour générer les données hebdomadaires
@@ -11618,6 +12662,7 @@ export default class ReportsController {
 
       // Apply status filter if provided
       if (status && status !== 'null') {
+        query.where('status', status)
         query.where('status', status)
       }
 
@@ -12656,6 +13701,11 @@ export default class ReportsController {
         hotel.posTenantId,
         hotel.posTokenKey
       )
+      const payload = await PosService.getNightAuditV2(
+        reportDate,
+        hotel.posTenantId,
+        hotel.posTokenKey
+      )
       this.posNightAuditCache.set(key, payload ?? null)
       return payload ?? null
     } catch (error) {
@@ -13497,6 +14547,7 @@ export default class ReportsController {
         return response.badRequest({
           success: false,
           message: 'Transaction ID is required',
+          message: 'Transaction ID is required',
         })
       }
 
@@ -13519,8 +14570,10 @@ export default class ReportsController {
         return response.notFound({
           success: false,
           message: 'Transaction not found',
+          message: 'Transaction not found',
         })
       }
+      console.log('reservation', transaction.itemSummary)
       console.log('reservation', transaction.itemSummary)
       // Prepare receipt data for the template
       const receiptData = {
@@ -13534,6 +14587,7 @@ export default class ReportsController {
         currentDate: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
         formattedAmount: transaction.amount,
         currency: 'XAF',
+        formatCurrency: formatCurrency,
         formatCurrency: formatCurrency,
       }
       const { default: edge } = await import('edge.js')
@@ -13552,10 +14606,16 @@ export default class ReportsController {
           bottom: '10px',
           left: '10px',
         },
+          left: '10px',
+        },
       })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
+      response.header(
+        'Content-Disposition',
+        `inline; filename="pos-receipt-${transaction.transactionNumber}.pdf"`
+      )
       response.header(
         'Content-Disposition',
         `inline; filename="pos-receipt-${transaction.transactionNumber}.pdf"`
@@ -13569,11 +14629,35 @@ export default class ReportsController {
         success: false,
         message: 'Error generating POS receipt PDF',
         error: error.message,
+        error: error.message,
       })
     }
   }
 
   /**
+   * Get Credit Ledger Payments Report Data
+   */
+  public async getCreditLedgerPaymentsData(
+    hotelId: number,
+    startDate: DateTime,
+    endDate: DateTime
+  ) {
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('transaction_type', [
+        TransactionType.CREDIT_LEDGER_PAYMENT,
+        TransactionType.CREDIT_LEDGER_TRANSFER,
+      ])
+      .where('is_voided', false)
+      .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [
+        startDate.toFormat('yyyy-MM-dd'),
+        endDate.toFormat('yyyy-MM-dd'),
+      ])
+      .preload('folio', (folioQuery) => {
+        folioQuery.preload('guest')
+        folioQuery.preload('reservation')
+      })
+      .orderBy('current_working_date', 'asc')
    * Get Credit Ledger Payments Report Data
    */
   public async getCreditLedgerPaymentsData(
@@ -13618,12 +14702,46 @@ export default class ReportsController {
       amount: Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0)),
       notes: tx.notes ?? '',
     }))
+    const rows = transactions.map((tx) => ({
+      date:
+        tx.transactionDate?.toFormat('dd/MM/yyyy') ??
+        tx.currentWorkingDate?.toFormat('dd/MM/yyyy') ??
+        'N/A',
+      transactionNumber: tx.transactionNumber,
+      type: tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT ? 'PAY' : 'TRF',
+      guestName: tx.folio?.guest
+        ? `${tx.folio.guest.firstName} ${tx.folio.guest.lastName}`.trim()
+        : 'N/A',
+      reservationNumber: tx.folio?.reservation?.reservationNumber ?? 'N/A',
+      folioNumber: tx.folio?.folioNumber ?? 'N/A',
+      description:
+        tx.description ||
+        (tx.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT
+          ? 'Payment Ledger'
+          : 'Transfert Ledger'),
+      amount: Math.abs(Number(tx.totalAmount ?? tx.amount ?? 0)),
+      notes: tx.notes ?? '',
+    }))
 
+    const total = rows.reduce((sum, r) => sum + r.amount, 0)
     const total = rows.reduce((sum, r) => sum + r.amount, 0)
 
     return { rows, total, startDate, endDate }
   }
+    return { rows, total, startDate, endDate }
+  }
 
+  async getCreditLedgerPaymentsReport({ request, response }: HttpContext) {
+    try {
+      const { hotelId, startDate, endDate } = request.qs()
+      const from = DateTime.fromISO(startDate)
+      const to = DateTime.fromISO(endDate)
+      const data = await this.getCreditLedgerPaymentsData(Number(hotelId), from, to)
+      return response.ok({ success: true, data })
+    } catch (error) {
+      return response.internalServerError({ success: false, error: error.message })
+    }
+  }
   async getCreditLedgerPaymentsReport({ request, response }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.qs()
@@ -13642,7 +14760,16 @@ export default class ReportsController {
   async generateCreditLedgerPaymentsPdf({ request, response, auth }: HttpContext) {
     try {
       const { hotelId, startDate, endDate } = request.only(['hotelId', 'startDate', 'endDate'])
+  /**
+   * Generate Credit Ledger Payments PDF
+   */
+  async generateCreditLedgerPaymentsPdf({ request, response, auth }: HttpContext) {
+    try {
+      const { hotelId, startDate, endDate } = request.only(['hotelId', 'startDate', 'endDate'])
 
+      const from = DateTime.fromISO(startDate)
+      const to = DateTime.fromISO(endDate)
+      const hotel = await Hotel.findOrFail(hotelId)
       const from = DateTime.fromISO(startDate)
       const to = DateTime.fromISO(endDate)
       const hotel = await Hotel.findOrFail(hotelId)
@@ -13651,9 +14778,20 @@ export default class ReportsController {
       const printedBy = user
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
         : 'System'
+      const user = auth.user
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
+        : 'System'
 
       const data = await this.getCreditLedgerPaymentsData(Number(hotelId), from, to)
+      const data = await this.getCreditLedgerPaymentsData(Number(hotelId), from, to)
 
+      // On génère le HTML (Le corps du tableau)
+      const htmlContent = await this.generateCreditLedgerPaymentsHtml(
+        hotel.hotelName,
+        data,
+        printedBy
+      )
       // On génère le HTML (Le corps du tableau)
       const htmlContent = await this.generateCreditLedgerPaymentsHtml(
         hotel.hotelName,
@@ -13663,7 +14801,10 @@ export default class ReportsController {
 
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
       const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
 
+      const headerTemplate = `
       const headerTemplate = `
 <div style="font-size:8px; width:100%; padding:2px 15px; margin:0;">
   <!-- Hotel name and report title -->
@@ -13700,12 +14841,21 @@ export default class ReportsController {
 `
 
       const footerTemplate = `
+      const footerTemplate = `
       <div style="font-size:7px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; justify-content:space-between;">
         <div>Printed on : ${printedOn}</div>
         <div>By : ${printedBy}</div>
         <div>Page <span class="pageNumber"></span> on <span class="totalPages"></span></div>
       </div>`
 
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+        format: 'A4',
+        margin: { top: '100px', right: '10px', bottom: '60px', left: '10px' },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        printBackground: true,
+      })
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         margin: { top: '100px', right: '10px', bottom: '60px', left: '10px' },
@@ -13724,7 +14874,19 @@ export default class ReportsController {
       return response.internalServerError({ success: false, message: error.message })
     }
   }
+      const fileName = `credit-ledger-${hotel.hotelName.replace(/\s+/g, '-')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      return response.internalServerError({ success: false, message: error.message })
+    }
+  }
 
+  /**
+   * Generate HTML for Credit Ledger Payments
+   */
   /**
    * Generate HTML for Credit Ledger Payments
    */
@@ -13736,9 +14898,21 @@ export default class ReportsController {
   ): Promise<string> {
     const { default: edge } = await import('edge.js')
     const path = await import('node:path')
+  public async generateCreditLedgerPaymentsHtml(
+    hotelName: string,
+    data: any,
+    printedBy: string = 'System'
+  ): Promise<string> {
+    const { default: edge } = await import('edge.js')
+    const path = await import('node:path')
 
     edge.mount(path.join(process.cwd(), 'resources/views'))
 
+    const fc = (v: number) =>
+      Number(v ?? 0).toLocaleString('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })
     const fc = (v: number) =>
       Number(v ?? 0).toLocaleString('fr-FR', {
         minimumFractionDigits: 0,
@@ -13969,4 +15143,715 @@ public async generateServicesReportByPeriodHtml(
 
   return await edge.render('reports/services_period_report', templateData)
 }
+    return await edge.render('reports/credit_ledger_payments', {
+      hotelName,
+      data,
+      printedBy,
+      helpers: { fc },
+    })
+  }
+
+  /**
+   * Aging Balance — City Ledger transfers grouped by days outstanding
+   */
+  private async getAgingBalanceData(hotelId: number, reportDate: DateTime) {
+    const { default: PaymentMethod } = await import('#models/payment_method')
+
+    const reportDateISO = reportDate.toISODate()!
+    const today = reportDate.startOf('day')
+
+    // Get City Ledger payment method IDs
+    const cityLedgerMethods = await PaymentMethod.query()
+      .where('hotel_id', hotelId)
+      .where('method_type', PaymentMethodType.CITY_LEDGER)
+      .where('is_active', true)
+    const cityLedgerMethodIds = cityLedgerMethods.map((pm: any) => pm.id)
+
+    if (cityLedgerMethodIds.length === 0) {
+      return {
+        rows: [
+          { label: '0 – 30 days (Current)', amount: 0, count: 0 },
+          { label: '31 – 60 days', amount: 0, count: 0 },
+          { label: '61 – 90 days', amount: 0, count: 0 },
+          { label: '+ 90 days (Doubtful)', amount: 0, count: 0 },
+        ],
+        totalAmount: 0,
+        totalCount: 0,
+      }
+    }
+
+    // 1. Get ALL transfers to City Ledger (debt incurred on guest folios)
+    //    These are transactions where payment_method = City Ledger
+    const transfers = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('payment_method_id', cityLedgerMethodIds)
+      .where('transaction_type', TransactionType.PAYMENT)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .where('current_working_date', '<=', reportDateISO)
+      .orderBy('current_working_date', 'asc')
+      .select('amount', 'current_working_date')
+
+    // 2. Get ALL payments received on City Ledger folios
+    const payments = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereHas('folio', (folioQuery: any) => {
+        folioQuery.whereIn('folio_type', [FolioType.COMPANY, FolioType.CITY_LEDGER])
+      })
+      .where('transaction_type', TransactionType.PAYMENT)
+      .whereNotIn('payment_method_id', cityLedgerMethodIds)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .where('current_working_date', '<=', reportDateISO)
+      .orderBy('current_working_date', 'asc')
+      .select('amount', 'current_working_date')
+
+    // 3. Get ALL commissions on City Ledger
+    const commissions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('is_commissionable', true)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .where('current_working_date', '<=', reportDateISO)
+      .select('commission_amount', 'current_working_date')
+
+    // Total payments + commissions to apply FIFO against oldest transfers
+    const totalPayments = payments.reduce((s: number, t: any) => s + Math.abs(Number(t.amount || 0)), 0)
+    const totalCommissions = commissions.reduce((s: number, t: any) => s + Math.abs(Number(t.commission_amount || 0)), 0)
+    let remainingDeduction = totalPayments + totalCommissions
+
+    // FIFO: apply deductions to oldest transfers first
+    const unpaidByDate: { date: DateTime; amount: number }[] = []
+    for (const tx of transfers as any[]) {
+      const amount = Number(tx.amount || 0)
+      const date = tx.currentWorkingDate
+      let remaining = amount
+
+      if (remainingDeduction > 0) {
+        const deduction = Math.min(remainingDeduction, remaining)
+        remaining -= deduction
+        remainingDeduction -= deduction
+      }
+
+      if (remaining > 0) {
+        unpaidByDate.push({ date, amount: remaining })
+      }
+    }
+
+    // If deductions exceed transfers, we have negative aging (overpaid) — show 0
+    if (remainingDeduction > 0) {
+      // Overpaid: reduce the last unpaid entries
+      let excess = remainingDeduction
+      for (let i = unpaidByDate.length - 1; i >= 0 && excess > 0; i--) {
+        const reduction = Math.min(excess, unpaidByDate[i].amount)
+        unpaidByDate[i].amount -= reduction
+        excess -= reduction
+        if (unpaidByDate[i].amount <= 0) unpaidByDate.splice(i, 1)
+      }
+    }
+
+    // Group unpaid amounts into aging buckets
+    const buckets = {
+      current: { label: '0 – 30 days (Current)', amount: 0, count: 0 },
+      days31_60: { label: '31 – 60 days', amount: 0, count: 0 },
+      days61_90: { label: '61 – 90 days', amount: 0, count: 0 },
+      over90: { label: '+ 90 days (Doubtful)', amount: 0, count: 0 },
+    }
+
+    for (const entry of unpaidByDate) {
+      const refDateTime = DateTime.isDateTime(entry.date)
+        ? entry.date
+        : DateTime.fromISO(entry.date.toString())
+      const days = today.diff(refDateTime.startOf('day'), 'days').days
+
+      if (days <= 30) {
+        buckets.current.amount += entry.amount
+        buckets.current.count++
+      } else if (days <= 60) {
+        buckets.days31_60.amount += entry.amount
+        buckets.days31_60.count++
+      } else if (days <= 90) {
+        buckets.days61_90.amount += entry.amount
+        buckets.days61_90.count++
+      } else {
+        buckets.over90.amount += entry.amount
+        buckets.over90.count++
+      }
+    }
+
+    const rows = [
+      buckets.current,
+      buckets.days31_60,
+      buckets.days61_90,
+      buckets.over90,
+    ]
+    const totalAmount = rows.reduce((s, r) => s + r.amount, 0)
+    const totalCount = rows.reduce((s, r) => s + r.count, 0)
+
+    return { rows, totalAmount, totalCount }
+  }
+
+
+  /**
+   * Business Analysis Report — data aggregation
+   * Period: month-to-date (1st of month → asOnDate)
+   */
+  private async getBusinessAnalysisReportData(
+    hotelId: number,
+    reportDate: DateTime,
+    currency: string
+  ) {
+    const ptdStartDate = reportDate.startOf('month')
+    const ytdStartDate = reportDate.startOf('year')
+    const prevMonthDate = reportDate.minus({ months: 1 })
+    const prevPtdStart = prevMonthDate.startOf('month')
+
+  const [
+    roomCharges,
+    banquetsEvents,
+    posSummary,
+    payments,
+    cityLedger,
+    roomSummary,
+    ratiosCA,
+    channels,
+    prevRoomSummary,
+    prevStatistics,
+    agingData,
+    extraCharges,
+  ] = await Promise.all([
+    this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
+    this.getManagementBanquetsEventsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+    this.getManagementPosSummaryData(hotelId, reportDate),
+    this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+    this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
+    this.getManagementRoomSummaryData(hotelId, reportDate),
+    this.getRatiosCAData(hotelId, reportDate, currency),
+    this.getChannelPerformanceData(hotelId, ptdStartDate, reportDate),
+    this.getManagementRoomSummaryData(hotelId, prevMonthDate),
+    (async () => {
+      const rc = await this.getManagementRoomChargesData(
+        hotelId,
+        prevMonthDate,
+        prevPtdStart,
+        prevMonthDate.startOf('year'),
+        currency
+      )
+      const rs = await this.getManagementRoomSummaryData(hotelId, prevMonthDate)
+      const stats = await this.getManagementStatisticsData(hotelId, prevMonthDate, rc, rs)
+      const [prevBanquets, prevPos, prevExtra] = await Promise.all([
+        this.getManagementBanquetsEventsData(hotelId, prevMonthDate, prevPtdStart, prevMonthDate.startOf('year')),
+        this.getManagementPosSummaryData(hotelId, prevMonthDate),
+        this.getManagementExtraChargesData(hotelId, prevMonthDate, prevPtdStart, prevMonthDate.startOf('year')),
+      ])
+      const prevPmsHT = (rc.total?.ptd || 0) + (prevExtra?.totals?.ptd || 0)
+      const prevPmsTax = await this.getRoomTaxForPeriod(hotelId, prevPtdStart, prevMonthDate)
+      const prevPmsTTC = prevPmsHT + prevPmsTax
+      const prevPosTTC = prevPos?.totalWithTax?.ptd || 0
+      const prevBanquetsTTC = (prevBanquets.revenueWithoutTax?.ptd || 0) + (prevBanquets.taxes?.ptd || 0)
+      ;(stats as any).totalRevenueTTC = prevPmsTTC + prevPosTTC + prevBanquetsTTC
+      return stats
+    })(),
+    this.getAgingBalanceData(hotelId, reportDate),
+    this.getManagementExtraChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+  ])
+
+    const posPaymentsSummary = await this.getPosPaymentsSummaryByMethod(hotelId, ptdStartDate, reportDate)
+
+    const statistics = await this.getManagementStatisticsData(
+      hotelId,
+      reportDate,
+      roomCharges,
+      roomSummary
+    )
+
+    // ── Départements : Rooms, Events/Sales, + outlets POS ──
+    const roomsRevenueHT = roomCharges.roomCharges?.ptd || 0
+    const roomsTax = await this.getRoomTaxForPeriod(hotelId, ptdStartDate, reportDate)
+    const eventsRevenueHT = banquetsEvents.revenueWithoutTax?.ptd || 0
+    const eventsTax = banquetsEvents.taxes?.ptd || 0
+
+    const departments: any[] = [
+      {
+        name: 'Rooms',
+        revenueHT: roomsRevenueHT,
+        tax: roomsTax,
+        revenueTTC: roomsRevenueHT + roomsTax,
+      },
+      {
+        name: 'Banquets & Events',
+        revenueHT: eventsRevenueHT,
+        tax: eventsTax,
+        revenueTTC: eventsRevenueHT + eventsTax,
+      },
+    ]
+    for (const outlet of posSummary?.outlets || []) {
+      const revenueHT = outlet.totalWithoutTax?.ptd || 0
+      const revenueTTC = outlet.totalWithTax?.ptd || 0
+      departments.push({
+        name: outlet.outlet,
+        revenueHT,
+        tax: Math.max(0, revenueTTC - revenueHT),
+        revenueTTC,
+      })
+    }
+    const totalDepartments = departments.reduce(
+      (acc, d) => {
+        acc.revenueHT += d.revenueHT
+        acc.tax += d.tax
+        acc.revenueTTC += d.revenueTTC
+        return acc
+      },
+      { revenueHT: 0, tax: 0, revenueTTC: 0 }
+    )
+    departments.forEach((d) => {
+      d.percentage =
+        totalDepartments.revenueTTC > 0
+          ? +((d.revenueTTC / totalDepartments.revenueTTC) * 100).toFixed(1)
+          : 0
+    })
+
+    const revenueHT = totalDepartments.revenueHT
+    const taxes = totalDepartments.tax
+    const revenueTTC = totalDepartments.revenueTTC
+
+    // ── Total Revenue TTC = PMS Revenue TTC + POS Revenue TTC + Banquets TTC (même formule que Management Report) ──
+    const pmsRevenueHT = (roomCharges.total?.ptd || 0) + (extraCharges?.totals?.ptd || 0)
+    const pmsTax = roomsTax // taxe rooms proportionnelle
+    const pmsRevenueTTC = pmsRevenueHT + pmsTax
+    const posRevenueTTC = posSummary?.totalWithTax?.ptd || 0
+    const banquetsRevenueTTC = (banquetsEvents.revenueWithoutTax?.ptd || 0) + (banquetsEvents.taxes?.ptd || 0)
+    const totalRevenueTTC = pmsRevenueTTC + posRevenueTTC + banquetsRevenueTTC
+
+    // ── Encaissements (payment methods) ──
+    const paymentRows = Object.entries(payments.methods || {}).map(([name, v]: any) => ({
+      name,
+      amount: v.ptd || 0,
+      percentage:
+        payments.total?.ptd > 0 ? +(((v.ptd || 0) / payments.total.ptd) * 100).toFixed(1) : 0,
+    }))
+    const totalPayments = payments.total?.ptd || 0
+
+    // ── Créances (Aging Balance) ──
+    const agingBalance = agingData.rows
+    const totalAging = agingData.totalAmount
+    const totalAgingCount = agingData.totalCount
+
+    // ── Reste à recouvrer ──
+    const resteARecouvrer = cityLedger.closingBalance?.ptd || 0
+
+    // ── KPI ──
+    const kpi = {
+      totalAvailableRooms: roomSummary.totalAvailableRoomNights?.ptd || 0,
+      soldRoomNights: (roomSummary.soldRoom?.ptd || 0) + (roomSummary.complimentaryRoom?.ptd || 0),
+      totalRevenue: totalRevenueTTC,
+      occupancyRate: (statistics.occupancyRate?.ptd || 0).toFixed(1),
+      adr: statistics.averageDailyRate?.ptd || 0,
+      revpar: statistics.revenuePerAvailableRoom?.ptd || 0,
+      los: ratiosCA?.month?.dms || 0,
+    }
+
+    // ── Forecast (Réel du mois vs même période le mois précédent, à titre de référence) ──
+    const forecast = [
+      {
+        label: 'Occupancy Rate(%)',
+        actual: `${(statistics.occupancyRate?.ptd || 0).toFixed(0)}%`,
+        forecast: `${(prevStatistics.occupancyRate?.ptd || 0).toFixed(1)}%`,
+        variance: `${((statistics.occupancyRate?.ptd || 0) - (prevStatistics.occupancyRate?.ptd || 0)).toFixed(1)} pts`,
+      },
+      {
+        label: 'ADR',
+        actual: this.fmtNum(statistics.averageDailyRate?.ptd || 0),
+        forecast: this.fmtNum(prevStatistics.averageDailyRate?.ptd || 0),
+        variance: this.fmtNum(
+          (statistics.averageDailyRate?.ptd || 0) - (prevStatistics.averageDailyRate?.ptd || 0)
+        ),
+      },
+      {
+        label: 'RevPAR',
+        actual: this.fmtNum(statistics.revenuePerAvailableRoom?.ptd || 0),
+        forecast: this.fmtNum(prevStatistics.revenuePerAvailableRoom?.ptd || 0),
+        variance: this.fmtNum(
+          (statistics.revenuePerAvailableRoom?.ptd || 0) -
+            (prevStatistics.revenuePerAvailableRoom?.ptd || 0)
+        ),
+      },
+      {
+        label: 'Revenue Total(M)',
+        actual: this.fmtNum(totalRevenueTTC),
+        forecast: this.fmtNum(prevStatistics?.totalRevenueTTC || 0),
+        variance: this.fmtNum(totalRevenueTTC - (prevStatistics?.totalRevenueTTC || 0)),
+      },
+    ]
+
+    // ── Alertes Opérationnelles & Business Management ──
+    const alerts: any[] = []
+
+    // 1. Occupancy vs target
+    const occupancyNum = Number(kpi.occupancyRate || 0)
+    const occupancyTarget = 45
+    if (occupancyNum > 0 && occupancyNum < occupancyTarget) {
+      alerts.push({
+        type: 'orange',
+        icon: '🟠',
+        title: 'Occupancy slightly below target:',
+        message: `Occupancy stands at ${occupancyNum}% against a forecast target of ${occupancyTarget}%. Corporate commercial actions need to be intensified during weekdays.`,
+      })
+    }
+
+    // 2. Positive pickup (compare last week of month vs previous week)
+    if (prevStatistics && statistics) {
+      const currentRev = statistics.revenuePerAvailableRoom?.ptd || 0
+      const prevRev = prevStatistics.revenuePerAvailableRoom?.ptd || 0
+      if (currentRev > prevRev && prevRev > 0) {
+        const pickupDelta = Math.round((currentRev - prevRev) / prevRev * 100)
+        alerts.push({
+          type: 'green',
+          icon: '🟢',
+          title: 'Strong Pickup observed:',
+          message: `Positive acceleration recorded in the last week of the month (+${this.fmtNum(pickupDelta)}% revenue compared to previous month).`,
+        })
+      }
+    }
+
+    // 3. Aging invoices (> 60 days)
+    const over60Count = agingData.rows
+      .filter((r: any) => r.label.includes('61 – 90') || r.label.includes('90'))
+      .reduce((sum: number, r: any) => sum + r.count, 0)
+    const over60Amount = agingData.rows
+      .filter((r: any) => r.label.includes('61 – 90') || r.label.includes('90'))
+      .reduce((sum: number, r: any) => sum + r.amount, 0)
+    if (over60Count > 0) {
+      alerts.push({
+        type: 'red',
+        icon: '🔴',
+        title: 'Outstanding invoices follow-up:',
+        message: `${over60Count} invoice(s) over 60 days (${this.fmtNum(over60Amount)} ${currency}) require immediate follow-up by the accounting department.`,
+      })
+    }
+
+    // 4. Strong revenue (informational)
+    if (revenueTTC > 0 && occupancyNum >= occupancyTarget) {
+      alerts.push({
+        type: 'green',
+        icon: '🟢',
+        title: 'Target achieved:',
+        message: `Cumulated revenue for the month stands at ${this.fmtNum(revenueTTC)} ${currency} with an occupancy rate of ${occupancyNum}%.`,
+      })
+    }
+
+    return {
+      revenueHT,
+      taxes,
+      revenueTTC,
+      encaissements: totalPayments + (posPaymentsSummary?.total || 0),
+      resteARecouvrer,
+      departments,
+      totalDepartments,
+      payments: paymentRows,
+      totalPayments,
+      posPaymentsRows: posPaymentsSummary.rows,
+      totalPosPayments: posPaymentsSummary.total,
+      agingBalance,
+      totalAging,
+      totalAgingCount,
+      channels: channels.rows,
+      totalChannels: channels.totals,
+      currentMonth: reportDate.toFormat('MMMM yyyy'),
+      kpi,
+      forecast,
+      alerts,
+    }
+  }
+
+  private fmtNum(v: number): string {
+    return Number(v || 0).toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+  }
+
+  /**
+   * Booking-source (channel) performance for a date range.
+   */
+  private async getChannelPerformanceData(hotelId: number, startDate: DateTime, endDate: DateTime) {
+    const transactions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereBetween('current_working_date', [
+        startDate.toFormat('yyyy-MM-dd'),
+        endDate.toFormat('yyyy-MM-dd'),
+      ])
+      .where('hotel_id', hotelId)
+      .where('category', TransactionCategory.ROOM)
+      .where('transaction_type', TransactionType.CHARGE)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .whereNot('isVoided', true)
+      .whereNotNull('reservation_room_id')
+      .whereHas('reservationRoom', (rrQuery) => {
+        rrQuery.where('hotel_id', hotelId)
+        rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+        rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
+      })
+      .preload('reservationRoom', (rr) => {
+        rr.preload('reservation', (res) => {
+          res.preload('bookingSource')
+          res.preload('businessSource')
+        })
+      })
+
+
+    const byChannel = new Map<
+      string,
+      { revenue: number; roomIds: Set<number>; resIds: Set<number> }
+    >()
+    for (const tx of transactions as any[]) {
+      const reservation = tx.reservationRoom?.reservation
+      const hasBusinessSource = !!reservation?.businessSource?.name
+      const source = hasBusinessSource
+        ? 'Corporate / Enterprise'
+        : reservation?.bookingSource?.sourceName ||
+          reservation?.otaName ||
+          'Direct / Autre'
+      const group = byChannel.get(source) || { revenue: 0, roomIds: new Set(), resIds: new Set() }
+      group.revenue += Number(tx.roomFinalNetAmount || tx.amount || 0)
+      if (tx.reservationRoomId) group.roomIds.add(Number(tx.reservationRoomId))
+      if (tx.reservationRoom?.reservationId)
+        group.resIds.add(Number(tx.reservationRoom.reservationId))
+      byChannel.set(source, group)
+    }
+
+    const totals = { reservations: 0, nights: 0, revenueHT: 0, adr: 0 }
+    const rows = Array.from(byChannel.entries()).map(([name, g]) => {
+      const nights = g.roomIds.size
+      const reservations = g.resIds.size
+      const adr = nights > 0 ? g.revenue / nights : 0
+      totals.reservations += reservations
+      totals.nights += nights
+      totals.revenueHT += g.revenue
+      return { name, reservations, nights, revenueHT: g.revenue, adr }
+    })
+    totals.adr = totals.nights > 0 ? totals.revenueHT / totals.nights : 0
+
+    // ── Always include 'Corporate / Enterprise' even if no transactions ──
+    const existingNames = new Set(rows.map((r: any) => r.name))
+    if (!existingNames.has('Corporate / Enterprise')) {
+      rows.push({
+        name: 'Corporate / Enterprise',
+        reservations: 0,
+        nights: 0,
+        revenueHT: 0,
+        adr: 0,
+        percentage: 0,
+      })
+    }
+
+    rows.forEach((r: any) => {
+      r.percentage = totals.revenueHT > 0 ? +((r.revenueHT / totals.revenueHT) * 100).toFixed(1) : 0
+    })
+    rows.sort((a, b) => b.revenueHT - a.revenueHT)
+    return { rows, totals }
+  }
+  /**
+   * Paiements POS par outlet puis par méthode, pour la période PTD.
+   * Le service POS renvoie déjà today/ptd/ytd en un seul appel pour
+   * reportDate (comme roomTypeStats/ratiosCA) — pas besoin d'agréger
+   * des DailySummaryFact jour par jour, ce champ n'y est pas stocké.
+   */
+  private async getPosPaymentsSummaryByMethod(
+    hotelId: number,
+    _ptdStartDate: DateTime,
+    reportDate: DateTime
+  ): Promise<{ rows: { name: string; amount: number; percentage: number }[]; total: number }> {
+    const livePosPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate)
+
+
+
+    if (!livePosPayment?.outlets || livePosPayment.outlets.length === 0) {
+      return { rows: [], total: 0 }
+    }
+
+    // Agrégation par nom de méthode, tous outlets confondus
+    const byMethod = new Map<string, number>()
+
+    for (const outlet of livePosPayment.outlets) {
+      const paymentsList = Array.isArray(outlet.payments) ? outlet.payments : []
+      for (const p of paymentsList) {
+        const methodName =
+          p.method ?? p.paymentMethod ?? p.methodName ?? p.name ?? p.label ?? 'Unknown'
+        const amount = Number(p.ptd ?? 0)
+        byMethod.set(methodName, (byMethod.get(methodName) ?? 0) + amount)
+      }
+    }
+
+
+
+    const total = Array.from(byMethod.values()).reduce((sum, v) => sum + v, 0)
+
+    const rows = Array.from(byMethod.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+      percentage: total > 0 ? +((amount / total) * 100).toFixed(1) : 0,
+    }))
+
+
+
+    return { rows, total }
+  }
+
+    /**
+   * Somme de la taxe (roomFinalRateTaxe) des charges "Room" postées
+   * sur la période [startDate, reportDate] — utilisée pour la ligne
+   * "Rooms" du tableau "Revenue by Department" du Business Analysis
+   */
+
+  private async getRoomTaxForPeriod(hotelId: number, startDate: DateTime, reportDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const rows = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery: any) => {
+        folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
+          rrQuery.where('hotel_id', hotelId)
+          rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+          rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
+        })
+      })
+      .whereBetween('current_working_date', [
+        startDate.toFormat('yyyy-MM-dd'),
+        reportDate.toFormat('yyyy-MM-dd'),
+      ])
+      .where('category', 'room')
+      .where('transaction_type', TransactionType.CHARGE)
+      .whereNotIn('status', ['cancelled', 'void'])
+      .whereDoesntHave('reservationRoom', (rrQuery) => {
+        rrQuery.whereHas('room', (roomQuery) => {
+          roomQuery.whereHas('roomType', (rtQuery) => {
+            rtQuery.where('is_paymaster', true)
+          })
+        })
+      })
+      .select('id', 'tax_breakdown', 'tax_amount', 'room_final_rate_taxe')
+      .preload('taxes' as any)
+
+    let total = 0
+    let breakdownHits = 0
+    let taxesRelationHits = 0
+    let fallbackHits = 0
+
+    for (const tx of rows as any[]) {
+      if (tx.taxBreakdown?.items?.length > 0) {
+        breakdownHits++
+        for (const t of tx.taxBreakdown.items) {
+          total += Number(t.taxAmount || 0)
+        }
+      } else if (tx.taxes?.length > 0) {
+        taxesRelationHits++
+        for (const t of tx.taxes) {
+          total += Number(t?.$pivot?.taxAmount ?? t?.taxAmount ?? 0)
+        }
+      } else {
+        fallbackHits++
+        total += Number(tx.roomFinalRateTaxe ?? tx.taxAmount ?? 0)
+      }
+    }
+
+
+
+    return total
+  }
+  /**
+   * Generate Business Analysis Report PDF (Enjoy PMS style)
+   */
+  async generateBusinessAnalysisReportPdf({ request, response, auth }: HttpContext) {
+    try {
+      const {
+        hotelId,
+        asOnDate,
+        currency = 'XAF',
+      } = request.only(['hotelId', 'asOnDate', 'currency'])
+
+      if (!hotelId) {
+        return response.badRequest({ success: false, message: 'Hotel ID is required' })
+      }
+      if (!asOnDate) {
+        return response.badRequest({ success: false, message: 'As On Date is required' })
+      }
+
+      const reportDate = DateTime.fromISO(asOnDate)
+      if (!reportDate.isValid) {
+        return response.badRequest({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD',
+        })
+      }
+
+      const { default: Hotel } = await import('#models/hotel')
+      const hotel = await Hotel.findOrFail(hotelId)
+
+      const user = auth.user
+      const printedBy = user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User'
+        : 'System'
+
+      const content = await this.getBusinessAnalysisReportData(
+        Number(hotelId),
+        reportDate,
+        currency
+      )
+
+      const { default: edge } = await import('edge.js')
+      const path = await import('node:path')
+      edge.mount(path.join(process.cwd(), 'resources/views'))
+
+      const formatCurrency = (amount: number | null | undefined): string => {
+        const num = Number(amount)
+        if (!isFinite(num)) return '0'
+        return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      }
+
+      const dateFrom = reportDate.startOf('month').toFormat('dd/MM/yyyy')
+      const dateTo = reportDate.toFormat('dd/MM/yyyy')
+      const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+      const html = await edge.render('reports/business_analysis', {
+        hotelName: hotel.hotelName,
+        periodLabel: 'Mensuel',
+        dateFrom,
+        dateTo,
+        printedOn,
+        currency,
+        content,
+        formatCurrency,
+      })
+
+      const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+      const footerTemplate = `
+      <div style="font-size:8px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; justify-content:space-between;">
+        <div>Printed on: ${printedOn}</div>
+        <div>By: ${printedBy}</div>
+        <div>Page <span class="pageNumber"></span> / <span class="totalPages"></span></div>
+      </div>`
+
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
+        format: 'A4',
+        margin: { top: '15mm', right: '12mm', bottom: '18mm', left: '12mm' },
+        displayHeaderFooter: true,
+        headerTemplate: '<div></div>',
+        footerTemplate,
+        printBackground: true,
+      })
+
+      const fileName = `business-analysis-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM')}.pdf`
+      response.header('Content-Type', 'application/pdf')
+      response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+      return response.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating business analysis report PDF:', error)
+      return response.internalServerError({
+        success: false,
+        message: 'Failed to generate business analysis report PDF',
+        error: error.message,
+      })
+    }
+  }
 }
