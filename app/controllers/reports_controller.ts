@@ -5720,6 +5720,7 @@ export default class ReportsController {
       } else {
         sectionsData = await this.generateManagementReportSections(hotelId, reportDate, currency)
       }
+      sectionsData.n1 = await this.getManagerReportPreviousYearData(Number(hotelId), reportDate)
 
       // Generate HTML content using Edge template
       const htmlContent = await this.generateManagementReportHtml(
@@ -5743,30 +5744,29 @@ export default class ReportsController {
       // Create header template
       const headerTemplate = `
     <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
-      <!-- Hotel name and report title -->
       <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
         <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
         <div style="font-size:13px; color:#8B0000; font-weight:bold;">Manager Report</div>
       </div>
 
-      <!-- Report Info -->
       <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
         <span style="margin-right:10px;">As On Date: ${formattedDate}</span>
         <span style="margin-right:10px;">PTD: ${ptdDate}</span>
         <span style="margin-right:10px;">YTD: ${ytdDate}</span>
+        <span style="margin-right:10px;">N-1: 31/12/${reportDate.minus({ years: 1 }).year}</span>
         <span>Currency: ${currency}</span>
       </div>
 
       <div style="border-top:1px solid #333; margin:0 ;"></div>
 
-      <!-- Column Headers -->
-      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:0; padding:0;">
+      <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
         <thead>
           <tr style="background-color:#f5f5f5;">
-            <th style="width:40%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
-            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">Today(XAF)</th>
-            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">PTD(XAF)</th>
-            <th style="width:20%; text-align:right; padding:2px 0; font-weight:bold;">YTD(XAF)</th>
+            <th style="width:32%; text-align:left; padding:2px 0; font-weight:bold;">Particulars</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">Today</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">PTD</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">YTD</th>
+            <th style="width:17%; text-align:right; padding:2px 0; font-weight:bold;">N-1</th>
           </tr>
         </thead>
       </table>
@@ -5980,21 +5980,29 @@ export default class ReportsController {
           (sectionsData.extraCharges.totals?.ytd || 0) -
           Math.abs(sectionsData.discounts.totals?.ytd || 0) +
           (sectionsData.adjustments?.ytd || 0),
+        n1:
+          (sectionsData.n1?.roomCharges?.total?.today || 0) +
+          (sectionsData.n1?.extraCharges?.totals?.today || 0) -
+          Math.abs(sectionsData.n1?.discounts?.totals?.today || 0) +
+          (sectionsData.n1?.adjustments?.today || 0),
       },
       revenueWithTax: {
         today: 0,
         ptd: 0,
         ytd: 0,
+        n1: 0,
       },
       posToPs: {
         today: sectionsData.postings?.posToPmsPosting?.today || 0,
         ptd: sectionsData.postings?.posToPmsPosting?.ptd || 0,
         ytd: sectionsData.postings?.posToPmsPosting?.ytd || 0,
+        n1: sectionsData.n1?.postings?.posToPmsPosting?.today || 0,
       },
       transferToGuestLedger: {
         today: 0,
         ptd: 0,
         ytd: 0,
+        n1: 0,
       },
     }
 
@@ -6002,12 +6010,14 @@ export default class ReportsController {
     totals.revenueWithTax.today = totals.revenueWithoutTax.today + (sectionsData.tax?.today || 0)
     totals.revenueWithTax.ptd = totals.revenueWithoutTax.ptd + (sectionsData.tax?.ptd || 0)
     totals.revenueWithTax.ytd = totals.revenueWithoutTax.ytd + (sectionsData.tax?.ytd || 0)
+    totals.revenueWithTax.n1 = totals.revenueWithoutTax.n1 + (sectionsData.n1?.tax?.today || 0)
 
     // Calculate Transfer Charges to Guest Ledger
 
     totals.transferToGuestLedger.today = totals.revenueWithTax.today + totals.posToPs.today
     totals.transferToGuestLedger.ptd = totals.revenueWithTax.ptd + totals.posToPs.ptd
     totals.transferToGuestLedger.ytd = totals.revenueWithTax.ytd + totals.posToPs.ytd
+    totals.transferToGuestLedger.n1 = totals.revenueWithTax.n1 + totals.posToPs.n1
 
     // Prepare template data with header and footer info
     const templateData = {
@@ -7478,14 +7488,14 @@ export default class ReportsController {
     }
   }
 
-  private async getManagementRoomSummaryData(hotelId: number, reportDate: DateTime) {
+  private async getManagementRoomSummaryData(hotelId: number, reportDate: DateTime ,customPtdStartDate?: DateTime) {
     try {
       const { default: Room } = await import('#models/room')
       const { default: Reservation } = await import('#models/reservation')
       const { default: RoomBlock } = await import('#models/room_block')
 
       // Calculate PTD and YTD start dates
-      const ptdStartDate = reportDate.startOf('month')
+      const ptdStartDate = customPtdStartDate ?? reportDate.startOf('month')
       const ytdStartDate = reportDate.startOf('year')
 
       // Helper to format date
@@ -14604,4 +14614,250 @@ export default class ReportsController {
       })
     }
   }
+
+   /**
+ * Agrège toutes les sections du manager report pour une période libre
+ * (startDate -> endDate), en réutilisant les méthodes existantes et en
+ * ne conservant que leur champ `.ptd` (qui correspond ici à notre période).
+ */
+private async getServicesReportByPeriodData(
+  hotelId: number,
+  startDate: DateTime,
+  endDate: DateTime,
+  currency: string
+) {
+  const [
+    roomCharges,
+    extraCharges,
+    discounts,
+    adjustments,
+    tax,
+    banquetsEvents,
+    payments,
+    cityLedger,
+    advanceDepositLedger,
+    creditLedger,
+    roomSummary,
+    posSummary,
+    posPayment,
+  ] = await Promise.all([
+    this.getManagementRoomChargesData(hotelId, endDate, startDate, startDate, currency),
+    this.getManagementExtraChargesData(hotelId, endDate, startDate, startDate),
+    this.getManagementDiscountData(hotelId, endDate, startDate, startDate),
+    this.getManagementAdjustmentsData(hotelId, endDate, startDate, startDate),
+    this.getManagementTaxData(hotelId, endDate, startDate, startDate),
+    this.getManagementBanquetsEventsData(hotelId, endDate, startDate, startDate),
+    this.getManagementPaymentData(hotelId, endDate, startDate, startDate),
+    this.getManagementCityLedgerData(hotelId, endDate, startDate, startDate, currency),
+    this.getManagementAdvanceDepositLedgerData(hotelId, endDate, startDate, startDate, currency),
+    this.getCreditLedgerManagementData(hotelId, endDate, startDate, startDate),
+    // NB: roomSummary calcule en interne ptdStartDate = reportDate.startOf('month').
+    // Voir la modification ci-dessous pour lui passer notre propre startDate.
+    this.getManagementRoomSummaryData(hotelId, endDate, startDate),
+    this.getManagementPosSummaryData(hotelId, endDate),
+    this.getManagementPosPaymentSummaryData(hotelId, endDate),
+  ])
+
+  const guestLedger = await this.getManagementGuestLedgerData(hotelId, endDate, currency)
+  const statistics = await this.getManagementStatisticsData(hotelId, endDate, roomCharges, roomSummary)
+  const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
+  const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary, banquetsEvents)
+
+  return {
+    roomCharges,
+    extraCharges,
+    discounts,
+    adjustments,
+    tax,
+    banquetsEvents,
+    payments,
+    cityLedger,
+    advanceDepositLedger,
+    guestLedger, // solde ponctuel à endDate, pas de notion de "période" ici
+    creditLedger,
+    roomSummary,
+    statistics,
+    posSummary,  // voir note plus bas
+    posPayment,
+    revenueSummary,
+    totalRevenue,
+  }
+  // Chaque section garde sa forme {today, ptd, ytd} d'origine — le template
+  // n'affichera que .ptd (ou .today pour guestLedger, .ptd pour creditLedger).
+}
+
+async generateServicesReportByPeriodPdf({ request, response, auth }: HttpContext) {
+  try {
+    const { hotelId, startDate, endDate, currency } = request.only([
+      'hotelId', 'startDate', 'endDate', 'currency',
+    ])
+
+    if (!hotelId || !startDate || !endDate || !currency) {
+      return response.badRequest({
+        success: false,
+        message: 'hotelId, startDate, endDate et currency sont requis',
+      })
+    }
+
+    const start = DateTime.fromISO(startDate)
+    const end = DateTime.fromISO(endDate)
+    if (!start.isValid || !end.isValid) {
+      return response.badRequest({ success: false, message: 'Format de date invalide' })
+    }
+
+    const { default: Hotel } = await import('#models/hotel')
+    const hotel = await Hotel.findOrFail(hotelId)
+
+    const user = auth.user
+    const printedBy = user
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
+      : 'System'
+
+    const sectionsData = await this.getServicesReportByPeriodData(
+      Number(hotelId), start, end, currency
+    )
+
+    const htmlContent = await this.generateServicesReportByPeriodHtml(
+      hotel.hotelName, start, end, currency, sectionsData, printedBy, hotel.hasCreditLedger
+    )
+
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+    const formattedStart = start.toFormat('dd/MM/yyyy')
+    const formattedEnd = end.toFormat('dd/MM/yyyy')
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:3px 20px; margin:0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:3px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Services Report</div>
+      </div>
+      <div style="font-size:10px; margin-bottom:3px; padding-bottom:5px; padding-top:5px;">
+        <span style="margin-right:10px;">Period: ${formattedStart} to ${formattedEnd}</span>
+        <span>Currency: ${currency}</span>
+      </div>
+      <div style="border-top:1px solid #333; margin:0;"></div>
+      <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5;">
+            <th style="width:70%; text-align:left; padding:2px 0; font-weight:bold;">Category</th>
+            <th style="width:30%; text-align:right; padding:2px 0; font-weight:bold;">Amount</th>
+          </tr>
+        </thead>
+      </table>
+      <div style="border-top:1px solid #333; margin-top:2px;"></div>
+    </div>`
+
+    const footerTemplate = `
+    <div style="font-size:9px; width:100%; padding:8px 20px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
+
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      margin: { top: '110px', right: '10px', bottom: '70px', left: '10px' },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      printBackground: true,
+    })
+
+    const fileName = `services-report-${hotel.hotelName.replace(/\s+/g, '-')}-${start.toFormat('yyyy-MM-dd')}_${end.toFormat('yyyy-MM-dd')}.pdf`
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    return response.send(pdfBuffer)
+  } catch (error) {
+    console.error('Error generating services report by period PDF:', error)
+    return response.internalServerError({
+      success: false,
+      message: 'Failed to generate services report PDF',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Rendu Edge — copie de generateManagementReportHtml mais avec une colonne unique.
+ */
+public async generateServicesReportByPeriodHtml(
+  hotelName: string,
+  startDate: DateTime,
+  endDate: DateTime,
+  currency: string,
+  sectionsData: any,
+  printedBy: string = 'System',
+  hasCreditLedger: boolean = false
+): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('node:path')
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  const formatCurrency = (amount: number | null | undefined): string => {
+    const num = Number(amount)
+    if (!isFinite(num)) return '0'
+    return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  }
+
+  const totals = {
+    revenueWithoutTax:
+      (sectionsData.roomCharges?.total?.ptd || 0) +
+      (sectionsData.extraCharges.totals?.ptd || 0) -
+      Math.abs(sectionsData.discounts.totals?.ptd || 0) +
+      (sectionsData.adjustments?.ptd || 0) +
+      (sectionsData.banquetsEvents?.revenueWithoutTax?.ptd || 0),
+    posToPs: sectionsData.postings?.posToPmsPosting?.ptd || 0,
+  }
+  const revenueWithTax = totals.revenueWithoutTax + (sectionsData.tax?.ptd || 0)
+  const transferToGuestLedger = revenueWithTax + totals.posToPs
+
+  const templateData = {
+    hotelName,
+    periodStart: startDate.toFormat('dd/MM/yyyy'),
+    periodEnd: endDate.toFormat('dd/MM/yyyy'),
+    currency,
+    printedOn: DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss'),
+    printedBy,
+    hasCreditLedger,
+    content: {
+      ...sectionsData,
+      totals: {
+        revenueWithoutTax: totals.revenueWithoutTax,
+        revenueWithTax,
+        posToPs: totals.posToPs,
+        transferToGuestLedger,
+      },
+    },
+    formatCurrency,
+  }
+
+  return await edge.render('reports/services_period_report', templateData)
+}
+
+/**
+   * Récupère les données du Manager Report du 31/12 de l'année précédente (colonne N-1)
+   */
+  private async getManagerReportPreviousYearData(
+    hotelId: number,
+    reportDate: DateTime
+  ): Promise<any | null> {
+    try {
+      const { default: DailySummaryFact } = await import('#models/daily_summary_fact')
+      const dec31LastYear = reportDate.minus({ years: 1 }).set({ month: 12, day: 31 })
+
+      const fact = await DailySummaryFact.query()
+        .where('hotel_id', hotelId)
+        .where('audit_date', dec31LastYear.toFormat('yyyy-MM-dd'))
+        .first()
+
+      return fact?.managerReportData ?? null
+    } catch (error) {
+      console.error('Error fetching N-1 manager report data:', error)
+      return null
+    }
+  }
+
+
 }

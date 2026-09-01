@@ -308,6 +308,11 @@ router.group(() => {
     router.get('/', [HotelHistoriesController, 'index'])
   }).prefix('/hotel-histories')
 
+  //service report
+  router.group(() => {
+    router.get('/services-report-by-period-pdf', [ReportsController, 'generateServicesReportByPeriodPdf'])
+  })
+
 }).prefix('/api/reports').use([
   middleware.auth(),
   middleware.checkSubscription('pms')
