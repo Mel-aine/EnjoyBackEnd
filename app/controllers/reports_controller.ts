@@ -14151,6 +14151,9 @@ export default class ReportsController {
     const taxes = totalDepartments.tax
     const revenueTTC = totalDepartments.revenueTTC
 
+    console.log(`[BusinessAnalysis] TOTAL departments revenueHT: ${revenueHT}, revenueTTC: ${revenueTTC}`)
+    departments.forEach((d: any) => console.log(`  ${d.name}: revenueHT=${d.revenueHT}, tax=${d.tax}`))
+
     // ── Encaissements (payment methods) ──
     const paymentRows = Object.entries(payments.methods || {}).map(([name, v]: any) => ({
       name,
@@ -14315,12 +14318,15 @@ export default class ReportsController {
         startDate.toFormat('yyyy-MM-dd'),
         endDate.toFormat('yyyy-MM-dd'),
       ])
+      .where('hotel_id', hotelId)
       .where('category', TransactionCategory.ROOM)
       .where('transaction_type', TransactionType.CHARGE)
       .whereNotIn('status', ['cancelled', 'voided'])
       .whereNot('isVoided', true)
       .whereNotNull('reservation_room_id')
       .whereHas('reservationRoom', (rrQuery) => {
+        rrQuery.where('hotel_id', hotelId)
+        rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
         rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
       })
       .preload('reservationRoom', (rr) => {
@@ -14329,6 +14335,14 @@ export default class ReportsController {
           res.preload('businessSource')
         })
       })
+
+    console.log(`[ChannelPerf] total transactions found: ${transactions.length}`)
+    if (transactions.length > 0) {
+      const sample = transactions.slice(0, 3)
+      sample.forEach((tx: any, i: number) => {
+        console.log(`[ChannelPerf] tx[${i}]: amount=${tx.amount}, roomFinalNetAmount=${tx.roomFinalNetAmount}, taxAmount=${tx.taxAmount}, category=${tx.category}`)
+      })
+    }
 
     const byChannel = new Map<
       string,
@@ -14379,6 +14393,9 @@ export default class ReportsController {
       r.percentage = totals.revenueHT > 0 ? +((r.revenueHT / totals.revenueHT) * 100).toFixed(1) : 0
     })
     rows.sort((a, b) => b.revenueHT - a.revenueHT)
+
+    console.log(`[ChannelPerf] TOTAL channels revenueHT: ${totals.revenueHT}, nights: ${totals.nights}, adr: ${totals.adr}`)
+    rows.forEach((r: any) => console.log(`  ${r.name}: revenueHT=${r.revenueHT}, nights=${r.nights}`))
 
     return { rows, totals }
   }
