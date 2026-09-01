@@ -14106,7 +14106,7 @@ export default class ReportsController {
     this.getManagementExtraChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate),
   ])
 
-    const posPayments = await this.getPosPaymentsByOutletForPeriod(hotelId, ptdStartDate, reportDate)
+    const posPaymentsSummary = await this.getPosPaymentsSummaryByMethod(hotelId, ptdStartDate, reportDate)
 
     const statistics = await this.getManagementStatisticsData(
       hotelId,
@@ -14300,7 +14300,8 @@ export default class ReportsController {
       totalDepartments,
       payments: paymentRows,
       totalPayments,
-      posPayments,
+      posPaymentsRows: posPaymentsSummary.rows,
+      totalPosPayments: posPaymentsSummary.total,
       agingBalance,
       totalAging,
       totalAgingCount,
@@ -14348,13 +14349,6 @@ export default class ReportsController {
         })
       })
 
-    console.log(`[ChannelPerf] total transactions found: ${transactions.length}`)
-    if (transactions.length > 0) {
-      const sample = transactions.slice(0, 3)
-      sample.forEach((tx: any, i: number) => {
-        console.log(`[ChannelPerf] tx[${i}]: amount=${tx.amount}, roomFinalNetAmount=${tx.roomFinalNetAmount}, taxAmount=${tx.taxAmount}, category=${tx.category}`)
-      })
-    }
 
     const byChannel = new Map<
       string,
@@ -14405,10 +14399,6 @@ export default class ReportsController {
       r.percentage = totals.revenueHT > 0 ? +((r.revenueHT / totals.revenueHT) * 100).toFixed(1) : 0
     })
     rows.sort((a, b) => b.revenueHT - a.revenueHT)
-
-    console.log(`[ChannelPerf] TOTAL channels revenueHT: ${totals.revenueHT}, nights: ${totals.nights}, adr: ${totals.adr}`)
-    rows.forEach((r: any) => console.log(`  ${r.name}: revenueHT=${r.revenueHT}, nights=${r.nights}`))
-
     return { rows, totals }
   }
   /**
@@ -14417,50 +14407,46 @@ export default class ReportsController {
    * reportDate (comme roomTypeStats/ratiosCA) — pas besoin d'agréger
    * des DailySummaryFact jour par jour, ce champ n'y est pas stocké.
    */
-  private async getPosPaymentsByOutletForPeriod(
+  private async getPosPaymentsSummaryByMethod(
     hotelId: number,
     _ptdStartDate: DateTime,
     reportDate: DateTime
-  ): Promise<
-    { name: string; methods: { name: string; amount: number; percentage: number }[]; total: number }[]
-  > {
+  ): Promise<{ rows: { name: string; amount: number; percentage: number }[]; total: number }> {
     const livePosPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate)
 
-    console.log('[posPayments] live posPayment result:', JSON.stringify(livePosPayment, null, 2))
+
 
     if (!livePosPayment?.outlets || livePosPayment.outlets.length === 0) {
-      console.log('[posPayments] no outlets returned by POS service')
-      return []
+      return { rows: [], total: 0 }
     }
 
-    const result = livePosPayment.outlets.map((outlet: any) => {
-      const outletName = outlet.outlet ?? outlet.name ?? 'Outlet'
+    // Agrégation par nom de méthode, tous outlets confondus
+    const byMethod = new Map<string, number>()
+
+    for (const outlet of livePosPayment.outlets) {
       const paymentsList = Array.isArray(outlet.payments) ? outlet.payments : []
+      for (const p of paymentsList) {
+        const methodName =
+          p.method ?? p.paymentMethod ?? p.methodName ?? p.name ?? p.label ?? 'Unknown'
+        const amount = Number(p.ptd ?? 0)
+        byMethod.set(methodName, (byMethod.get(methodName) ?? 0) + amount)
+      }
+    }
 
-      console.log(
-        `[posPayments] outlet "${outletName}" raw payments:`,
-        JSON.stringify(paymentsList, null, 2)
-      )
 
-      const methods = paymentsList.map((p: any) => ({
-        name: p.method ?? p.paymentMethod ?? p.methodName ?? p.name ?? p.label ?? 'Unknown',
-        amount: Number(p.ptd ?? 0),
-        percentage: 0,
-      }))
 
-      const total = methods.reduce((sum: number, m: any) => sum + m.amount, 0)
-      methods.forEach((m: any) => {
-        m.percentage = total > 0 ? +((m.amount / total) * 100).toFixed(1) : 0
-      })
+    const total = Array.from(byMethod.values()).reduce((sum, v) => sum + v, 0)
 
-      return { name: outletName, methods, total }
-    })
+    const rows = Array.from(byMethod.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+      percentage: total > 0 ? +((amount / total) * 100).toFixed(1) : 0,
+    }))
 
-    console.log('[posPayments] final result:', JSON.stringify(result, null, 2))
 
-    return result
+
+    return { rows, total }
   }
-
 
     /**
    * Somme de la taxe (roomFinalRateTaxe) des charges "Room" postées
@@ -14518,18 +14504,7 @@ export default class ReportsController {
       }
     }
 
-    console.log(
-      '[roomsTax] rows:',
-      rows.length,
-      'via taxBreakdown:',
-      breakdownHits,
-      'via taxes relation:',
-      taxesRelationHits,
-      'via fallback field:',
-      fallbackHits,
-      '-> total:',
-      total
-    )
+
 
     return total
   }

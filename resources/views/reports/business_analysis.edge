@@ -354,57 +354,28 @@
     </div>
 
     <div class="grid-2">
-      <h2>
-        4. Payments by Outlet & Payment Method (POS)
-      </h2>
-      @each(outlet in content.posPayments)
-        <table>
-          <tr>
-            <th colspan="3" style="background-color:#1b365d; color:#fff; text-transform:uppercase;">
-              {{ outlet.name }}
-            </th>
+    <h2>4. POS Payments Received by Method</h2>
+<table>
+    <tr>
+        <th style="width:60%;">Payment Method</th>
+        <th class="text-right" style="width:20%;">Amount</th>
+        <th class="text-right" style="width:20%;">% Share</th>
           </tr>
-          <tr>
-            <th style="width:60%;">
-              Payment Method
-            </th>
-            <th class="text-right" style="width:20%;">
-              Amount
-            </th>
-            <th class="text-right" style="width:20%;">
-              % Share
-            </th>
-          </tr>
-          @each(method in outlet.methods)
-            <tr>
-              <td>
-                {{ method.name }}
-              </td>
-              <td class="text-right">
-                {{ formatCurrency(method.amount) }}
-              </td>
-              <td class="text-right">
-                {{ method.percentage }}%
-              </td>
-            </tr>
+          @each(method in content.posPaymentsRows)
+              <tr>
+                  <td>{{ method.name }}</td>
+                  <td class="text-right">{{ formatCurrency(method.amount) }}</td>
+                  <td class="text-right">{{ method.percentage }}%</td>
+              </tr>
           @endeach
           <tr class="total-row">
-            <td>
-              Total
-            </td>
-            <td class="text-right">
-              {{ formatCurrency(outlet.total) }}
-            </td>
-            <td class="text-right">
-              100%
-            </td>
+              <td>Total POS Payments</td>
+              <td class="text-right">{{ formatCurrency(content.totalPosPayments) }}</td>
+              <td class="text-right">100%</td>
           </tr>
-        </table>
-      @endeach
-      @if(content.posPayments.length === 0)
-        <p style="font-size:8.5pt; color:#718096;">
-          No POS payment data for this period.
-        </p>
+      </table>
+      @if(content.posPaymentsRows.length === 0)
+          <p style="font-size:8.5pt; color:#718096;">No POS payment data for this period.</p>
       @endif
     </div>
 
@@ -449,28 +420,7 @@
       </tr>
     </table>
 
-    {{-- <div class="grid-2">
-    <h2>4. Aging Balance (Receivables)</h2>
-    <table>
-        <tr>
-            <th style="width:40%;">Aging</th>
-            <th class="text-right" style="width:30%;">Amount ({{ currency }})</th>
-            <th class="text-right" style="width:30%;">Invoices</th>
-        </tr>
-        @each(aging in content.agingBalance)
-            <tr>
-                <td>{{ aging.label }}</td>
-                <td class="text-right">{{ formatCurrency(aging.amount) }}</td>
-                <td class="text-right">{{ aging.count }}</td>
-            </tr>
-        @endeach
-        <tr class="total-row">
-            <td>Total Receivables</td>
-            <td class="text-right">{{ formatCurrency(content.totalAging) }}</td>
-            <td class="text-right">{{ content.totalAgingCount }}</td>
-        </tr>
-    </table>
-    </div> --}}
+
     <div style="clear: both;">
     </div>
 
