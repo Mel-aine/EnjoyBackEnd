@@ -173,8 +173,16 @@
         "name": "Work Order List"
       },
       {
+        "id":"business_analysis_report",
+        "name":"Business Analysis Report"
+      },
+      {
         "id": "credit_ledger_payments",
         "name": "Credit Ledger Payments"
+      },
+      {
+        "id": "weekly_services_report",
+        "name": "Services For a Period"
       }
     ]
   },

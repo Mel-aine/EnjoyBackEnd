@@ -75,13 +75,13 @@ export default class AssigmentUsersController extends CrudController<typeof Serv
           const forwardedProto = (ctx.request.header('x-forwarded-proto') || '').split(',')[0]
           const proto = forwardedProto || (ctx.request.secure() ? 'https' : ctx.request.protocol())
           const baseUrl = `${proto}://${ctx.request.host()}`
-          
+
           const result = await UserEmailService.prepareAndSendVerification(user, baseUrl,hotelId)
-          
+
           console.log('Email sent successfully:', result.confirmUrl)
         } catch (emailError) {
-         
-          console.error('EMAIL ERROR:', emailError) 
+
+          console.error('EMAIL ERROR:', emailError)
         }
       }
 
@@ -245,6 +245,7 @@ public async updateUser(ctx: HttpContext) {
       contractEndDate: data.contract_end_date ? DateTime.fromISO(data.contract_end_date) : user.contractEndDate,
       dataProcessingConsent: data.data_processing_consent !== undefined ? data.data_processing_consent : user.dataProcessingConsent,
       consentDate: data.consent_date ? DateTime.fromISO(data.consent_date) : user.consentDate,
+      twoFactorEnabled : data.two_factor_enabled || user.twoFactorEnabled,
 
 
 
