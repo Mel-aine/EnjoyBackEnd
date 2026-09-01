@@ -68,6 +68,30 @@
     </tbody>
   </table>
 
+  <div class="section-title">Banquets & Events</div>
+  <table>
+    <tbody>
+      <tr>
+        <td style="width: 70%;">Number of Events</td>
+        <td class="currency" style="width: 30%;">{{ content.banquetsEvents?.number?.ptd || 0 }}</td>
+      </tr>
+      <tr>
+        <td>Revenue</td>
+        <td class="currency">{{ formatCurrency(content.banquetsEvents?.revenue?.ptd) }}</td>
+      </tr>
+      @each(tax in (content.banquetsEvents?.taxesArray || []))
+        <tr>
+          <td>{{ tax.name }}</td>
+          <td class="currency">{{ formatCurrency(tax.ptd) }}</td>
+        </tr>
+      @endeach
+      <tr class="section-total">
+        <td><strong>Total Revenue without Tax</strong></td>
+        <td class="currency"><strong>{{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ptd) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
   <div class="section-title">Tax</div>
   <table>
     <tbody>

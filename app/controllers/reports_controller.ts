@@ -14632,6 +14632,7 @@ private async getServicesReportByPeriodData(
     discounts,
     adjustments,
     tax,
+    banquetsEvents,
     payments,
     cityLedger,
     advanceDepositLedger,
@@ -14645,6 +14646,7 @@ private async getServicesReportByPeriodData(
     this.getManagementDiscountData(hotelId, endDate, startDate, startDate),
     this.getManagementAdjustmentsData(hotelId, endDate, startDate, startDate),
     this.getManagementTaxData(hotelId, endDate, startDate, startDate),
+    this.getManagementBanquetsEventsData(hotelId, endDate, startDate, startDate),
     this.getManagementPaymentData(hotelId, endDate, startDate, startDate),
     this.getManagementCityLedgerData(hotelId, endDate, startDate, startDate, currency),
     this.getManagementAdvanceDepositLedgerData(hotelId, endDate, startDate, startDate, currency),
@@ -14659,7 +14661,7 @@ private async getServicesReportByPeriodData(
   const guestLedger = await this.getManagementGuestLedgerData(hotelId, endDate, currency)
   const statistics = await this.getManagementStatisticsData(hotelId, endDate, roomCharges, roomSummary)
   const revenueSummary = await this.getManagementRevenueSummaryData(roomCharges, extraCharges)
-  const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary)
+  const totalRevenue = await this.getManagementTotalRevenue(posSummary, revenueSummary, banquetsEvents)
 
   return {
     roomCharges,
@@ -14667,6 +14669,7 @@ private async getServicesReportByPeriodData(
     discounts,
     adjustments,
     tax,
+    banquetsEvents,
     payments,
     cityLedger,
     advanceDepositLedger,
@@ -14803,7 +14806,8 @@ public async generateServicesReportByPeriodHtml(
       (sectionsData.roomCharges?.total?.ptd || 0) +
       (sectionsData.extraCharges.totals?.ptd || 0) -
       Math.abs(sectionsData.discounts.totals?.ptd || 0) +
-      (sectionsData.adjustments?.ptd || 0),
+      (sectionsData.adjustments?.ptd || 0) +
+      (sectionsData.banquetsEvents?.revenueWithoutTax?.ptd || 0),
     posToPs: sectionsData.postings?.posToPmsPosting?.ptd || 0,
   }
   const revenueWithTax = totals.revenueWithoutTax + (sectionsData.tax?.ptd || 0)

@@ -287,46 +287,55 @@
       <table>
         <tbody>
           <tr>
-            <td style="width: 40%;">
+            <td style="width: 32%;">
               Number of Events
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 17%;">
               {{ content.banquetsEvents?.number?.today || 0 }}
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 17%;">
               {{ content.banquetsEvents?.number?.ptd || 0 }}
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 17%;">
               {{ content.banquetsEvents?.number?.ytd || 0 }}
+            </td>
+            <td class="currency" style="width: 17%;">
+              {{ content.n1?.banquetsEvents?.number?.today || 0 }}
             </td>
           </tr>
           <tr>
-            <td style="width: 40%;">
+            <td style="width: 32%;">
               Revenue
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 17%;">
               {{ formatCurrency(content.banquetsEvents?.revenue?.today) }}
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 17%;">
               {{ formatCurrency(content.banquetsEvents?.revenue?.ptd) }}
             </td>
-            <td class="currency" style="width: 20%;">
+            <td class="currency" style="width: 17%;">
               {{ formatCurrency(content.banquetsEvents?.revenue?.ytd) }}
+            </td>
+            <td class="currency" style="width: 17%;">
+              {{ formatCurrency(content.n1?.banquetsEvents?.revenue?.today) }}
             </td>
           </tr>
           @each(tax in (content.banquetsEvents?.taxesArray || []))
             <tr>
-              <td style="width: 40%;">
+              <td style="width: 32%;">
                 {{ tax.name }}
               </td>
-              <td class="currency" style="width: 20%;">
+              <td class="currency" style="width: 17%;">
                 {{ formatCurrency(tax.today) }}
               </td>
-              <td class="currency" style="width: 20%;">
+              <td class="currency" style="width: 17%;">
                 {{ formatCurrency(tax.ptd) }}
               </td>
-              <td class="currency" style="width: 20%;">
+              <td class="currency" style="width: 17%;">
                 {{ formatCurrency(tax.ytd) }}
+              </td>
+              <td class="currency" style="width: 17%;">
+                {{ formatCurrency((content.n1?.banquetsEvents?.taxesArray || []).find((t) => t.name === tax.name)?.today) }}
               </td>
             </tr>
           @endeach
@@ -342,6 +351,9 @@
             </td>
             <td class="currency">
               <strong>{{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ytd) }}</strong>
+            </td>
+            <td class="currency">
+              <strong>{{ formatCurrency(content.n1?.banquetsEvents?.revenueWithoutTax?.today) }}</strong>
             </td>
           </tr>
         </tbody>
@@ -823,6 +835,9 @@
             </td>
             <td class="currency">
               {{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ytd || 0) }}
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.n1?.banquetsEvents?.revenueWithoutTax?.today || 0) }}
             </td>
           </tr>
           @each(outlet in content.posSummary?.outlets)
