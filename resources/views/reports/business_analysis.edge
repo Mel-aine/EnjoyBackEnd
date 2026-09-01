@@ -1,218 +1,455 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Business Analysis Report</title>
+  <head>
+    <meta charset="UTF-8" />
+    <title>
+      Business Analysis Report
+    </title>
     <style>
-        @page {
-            size: A4;
-            margin: 15mm 12mm;
-        }
-        *, *::before, *::after { box-sizing: border-box; }
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            font-size: 9.5pt;
-            line-height: 1.35;
-            color: #222;
-        }
-        .header-container {
-            border-bottom: 2px solid #1b365d;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-        .hotel-title {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #1b365d;
-            margin: 0 0 3px 0;
-            text-transform: uppercase;
-        }
-        .report-subtitle {
-            font-size: 12pt;
-            font-weight: bold;
-            color: #8B0000;
-            margin: 0;
-            text-transform: uppercase;
-        }
-        .meta-info {
-            float: right;
-            text-align: right;
-            font-size: 8.5pt;
-            color: #555;
-        }
-        h2 {
-            font-size: 10.5pt;
-            color: #1b365d;
-            background-color: #edf2f7;
-            padding: 5px 8px;
-            margin-top: 16px;
-            margin-bottom: 8px;
-            border-left: 4px solid #1b365d;
-            text-transform: uppercase;
-            page-break-after: avoid;
-        }
-        table {
-            width: 100%;
-            table-layout: fixed;
-            border-collapse: collapse;
-            margin: 6px 0 10px 0;
-            font-size: 8.5pt;
-        }
-        tr { page-break-inside: avoid; }
-        th, td {
-            border: 1px solid #cbd5e0;
-            padding: 5px 6px;
-            text-align: left;
-            overflow-wrap: break-word;
-        }
-        th {
-            background-color: #edf2f7;
-            color: #222;
-            font-weight: bold;
-        }
-        tr.total-row td {
-            font-weight: bold;
-            background-color: #edf2f7;
-        }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .kpi-box {
-            display: inline-block;
-            width: 23%;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-left: 4px solid #1b365d;
-            border-radius: 4px;
-            padding: 8px;
-            margin-right: 1.5%;
-            margin-bottom: 8px;
-            vertical-align: top;
-            page-break-inside: avoid;
-        }
-        .kpi-box:last-child { margin-right: 0; }
-        .kpi-title {
-            font-size: 7.5pt;
-            color: #4a5568;
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 3px;
-        }
-        .kpi-value {
-            font-size: 13pt;
-            font-weight: bold;
-            color: #1b365d;
-        }
-        .kpi-sub {
-            font-size: 7.5pt;
-            color: #718096;
-            margin-top: 2px;
-        }
-        .alert-box {
-            padding: 6px 10px;
-            margin-bottom: 6px;
-            border-radius: 4px;
-            font-size: 8.5pt;
-        }
-        .alert-red { background-color: #fff5f5; border-left: 3px solid #e53e3e; color: #c53030; }
-        .alert-orange { background-color: #fffaf0; border-left: 3px solid #dd6b20; color: #c05621; }
-        .alert-green { background-color: #f0fff4; border-left: 3px solid #38a169; color: #276749; }
-        .grid-2 { width: 48%; display: inline-block; vertical-align: top; }
-        .grid-2:nth-child(odd) { margin-right: 3%; }
+      @page {
+        size: A4;
+        margin: 15mm 12mm;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        font-size: 9.5pt;
+        line-height: 1.35;
+        color: #222;
+      }
+
+      .header-container {
+        border-bottom: 2px solid #1b365d;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+      }
+
+      .hotel-title {
+        font-size: 16pt;
+        font-weight: bold;
+        color: #1b365d;
+        margin: 0 0 3px 0;
+        text-transform: uppercase;
+      }
+
+      .report-subtitle {
+        font-size: 12pt;
+        font-weight: bold;
+        color: #8B0000;
+        margin: 0;
+        text-transform: uppercase;
+      }
+
+      .meta-info {
+        float: right;
+        text-align: right;
+        font-size: 8.5pt;
+        color: #555;
+      }
+
+      h2 {
+        font-size: 10.5pt;
+        color: #1b365d;
+        background-color: #edf2f7;
+        padding: 5px 8px;
+        margin-top: 16px;
+        margin-bottom: 8px;
+        border-left: 4px solid #1b365d;
+        text-transform: uppercase;
+        page-break-after: avoid;
+      }
+
+      table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+        margin: 6px 0 10px 0;
+        font-size: 8.5pt;
+      }
+
+      tr {
+        page-break-inside: avoid;
+      }
+
+      th,
+      td {
+        border: 1px solid #cbd5e0;
+        padding: 5px 6px;
+        text-align: left;
+        overflow-wrap: break-word;
+      }
+
+      th {
+        background-color: #edf2f7;
+        color: #222;
+        font-weight: bold;
+      }
+
+      tr.total-row td {
+        font-weight: bold;
+        background-color: #edf2f7;
+      }
+
+      .text-right {
+        text-align: right;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      .kpi-box {
+        display: inline-block;
+        width: 23%;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #1b365d;
+        border-radius: 4px;
+        padding: 8px;
+        margin-right: 1.5%;
+        margin-bottom: 8px;
+        vertical-align: top;
+        page-break-inside: avoid;
+      }
+
+      .kpi-box:last-child {
+        margin-right: 0;
+      }
+
+      .kpi-title {
+        font-size: 7.5pt;
+        color: #4a5568;
+        text-transform: uppercase;
+        font-weight: bold;
+        margin-bottom: 3px;
+      }
+
+      .kpi-value {
+        font-size: 13pt;
+        font-weight: bold;
+        color: #1b365d;
+      }
+
+      .kpi-sub {
+        font-size: 7.5pt;
+        color: #718096;
+        margin-top: 2px;
+      }
+
+      .alert-box {
+        padding: 6px 10px;
+        margin-bottom: 6px;
+        border-radius: 4px;
+        font-size: 8.5pt;
+      }
+
+      .alert-red {
+        background-color: #fff5f5;
+        border-left: 3px solid #e53e3e;
+        color: #c53030;
+      }
+
+      .alert-orange {
+        background-color: #fffaf0;
+        border-left: 3px solid #dd6b20;
+        color: #c05621;
+      }
+
+      .alert-green {
+        background-color: #f0fff4;
+        border-left: 3px solid #38a169;
+        color: #276749;
+      }
+
+      .grid-2 {
+        width: 48%;
+        display: inline-block;
+        vertical-align: top;
+      }
+
+      .grid-2:nth-child(odd) {
+        margin-right: 3%;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
 
-<div class="header-container">
-    <div class="meta-info">
-        <strong>Period:</strong> {{ dateFrom }} – {{ dateTo }}<br>
-        <strong>Generated on:</strong> {{ printedOn }}<br>
-        <strong>Currency:</strong> {{ currency }}
+    <div class="header-container">
+      <div class="meta-info">
+        <strong>Period:</strong>{{ dateFrom }} – {{ dateTo }}<br />
+        <strong>Generated on:</strong>{{ printedOn }}<br />
+        <strong>Currency:</strong>{{ currency }}
+      </div>
+      <h1 class="hotel-title">
+        {{ hotelName }}
+      </h1>
+      <p class="report-subtitle">
+        Business Analysis Report
+      </p>
+      <div style="clear: both;">
+      </div>
     </div>
-    <h1 class="hotel-title">{{ hotelName }}</h1>
-    <p class="report-subtitle">Business Analysis Report</p>
-    <div style="clear: both;"></div>
-</div>
 
-<h2>1. Financial Summary</h2>
-<div>
-    <div class="kpi-box">
-        <div class="kpi-title">Revenue (Excl. Tax)</div>
-        <div class="kpi-value">{{ formatCurrency(content.revenueHT) }}</div>
-        <div class="kpi-sub">{{ currency }}</div>
+    <h2>
+      1. Financial Summary
+    </h2>
+    <div>
+      <div class="kpi-box">
+        <div class="kpi-title">
+          Revenue (Excl. Tax)
+        </div>
+        <div class="kpi-value">
+          {{ formatCurrency(content.revenueHT) }}
+        </div>
+        <div class="kpi-sub">
+          {{ currency }}
+        </div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-title">
+          Taxes
+        </div>
+        <div class="kpi-value">
+          {{ formatCurrency(content.taxes) }}
+        </div>
+        <div class="kpi-sub">
+          {{ currency }}
+        </div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-title">
+          Revenue (Incl. Tax)
+        </div>
+        <div class="kpi-value">
+          {{ formatCurrency(content.revenueTTC) }}
+        </div>
+        <div class="kpi-sub">
+          {{ currency }}
+        </div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-title">
+          Total Collected
+        </div>
+        <div class="kpi-value">
+          {{ formatCurrency(content.encaissements) }}
+        </div>
+        <div class="kpi-sub">
+          {{ currency }}
+        </div>
+      </div>
     </div>
-    <div class="kpi-box">
-        <div class="kpi-title">Taxes</div>
-        <div class="kpi-value">{{ formatCurrency(content.taxes) }}</div>
-        <div class="kpi-sub">{{ currency }}</div>
-    </div>
-    <div class="kpi-box">
-        <div class="kpi-title">Revenue (Incl. Tax)</div>
-        <div class="kpi-value">{{ formatCurrency(content.revenueTTC) }}</div>
-        <div class="kpi-sub">{{ currency }}</div>
-    </div>
-    <div class="kpi-box">
-        <div class="kpi-title">Total Collected</div>
-        <div class="kpi-value">{{ formatCurrency(content.encaissements) }}</div>
-        <div class="kpi-sub">{{ currency }}</div>
-    </div>
-</div>
-<p style="font-size:8.5pt; color:#555; margin-top:4px;">
-   *Outstanding Balance (City Ledger): <strong>{{ formatCurrency(content.resteARecouvrer) }} {{ currency }}</strong>
-</p>
+    <p style="font-size:8.5pt; color:#555; margin-top:4px;">
+      *Outstanding Balance (City Ledger): <strong>{{ formatCurrency(content.resteARecouvrer) }} {{ currency }}</strong>
+    </p>
 
-<h2>2. Revenue by Department (Rooms / Events / POS)</h2>
-<table>
-    <tr>
-        <th style="width:34%;">Department</th>
-        <th class="text-right" style="width:16%;">Revenue (Excl. Tax)</th>
-        <th class="text-right" style="width:16%;">Tax</th>
-        <th class="text-right" style="width:16%;">Revenue (Incl. Tax)</th>
-        <th class="text-right" style="width:18%;">% of Revenue</th>
-    </tr>
-    @each(dept in content.departments)
-        <tr>
-            <td>{{ dept.name }}</td>
-            <td class="text-right">{{ formatCurrency(dept.revenueHT) }}</td>
-            <td class="text-right">{{ formatCurrency(dept.tax) }}</td>
-            <td class="text-right">{{ formatCurrency(dept.revenueTTC) }}</td>
-            <td class="text-right">{{ dept.percentage }}%</td>
-        </tr>
-    @endeach
-    <tr class="total-row">
-        <td>GRAND TOTAL</td>
-        <td class="text-right">{{ formatCurrency(content.totalDepartments.revenueHT) }}</td>
-        <td class="text-right">{{ formatCurrency(content.totalDepartments.tax) }}</td>
-        <td class="text-right">{{ formatCurrency(content.totalDepartments.revenueTTC) }}</td>
-        <td class="text-right">100.0%</td>
-    </tr>
-</table>
-
-<div class="grid-2">
-    <h2>3. Payments Received by Method</h2>
+    <h2>
+      2. Revenue by Department (Rooms / Events / POS)
+    </h2>
     <table>
+      <tr>
+        <th style="width:34%;">
+          Department
+        </th>
+        <th class="text-right" style="width:16%;">
+          Revenue (Excl. Tax)
+        </th>
+        <th class="text-right" style="width:16%;">
+          Tax
+        </th>
+        <th class="text-right" style="width:16%;">
+          Revenue (Incl. Tax)
+        </th>
+        <th class="text-right" style="width:18%;">
+          % of Revenue
+        </th>
+      </tr>
+      @each(dept in content.departments)
         <tr>
-            <th style="width:60%;">Payment Method</th>
-            <th class="text-right" style="width:20%;">Amount</th>
-            <th class="text-right" style="width:20%;">% Share</th>
+          <td>
+            {{ dept.name }}
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(dept.revenueHT) }}
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(dept.tax) }}
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(dept.revenueTTC) }}
+          </td>
+          <td class="text-right">
+            {{ dept.percentage }}%
+          </td>
+        </tr>
+      @endeach
+      <tr class="total-row">
+        <td>
+          GRAND TOTAL
+        </td>
+        <td class="text-right">
+          {{ formatCurrency(content.totalDepartments.revenueHT) }}
+        </td>
+        <td class="text-right">
+          {{ formatCurrency(content.totalDepartments.tax) }}
+        </td>
+        <td class="text-right">
+          {{ formatCurrency(content.totalDepartments.revenueTTC) }}
+        </td>
+        <td class="text-right">
+          100.0%
+        </td>
+      </tr>
+    </table>
+
+    <div class="grid-2">
+      <h2>
+        3. Payments Received by Method
+      </h2>
+      <table>
+        <tr>
+          <th style="width:60%;">
+            Payment Method
+          </th>
+          <th class="text-right" style="width:20%;">
+            Amount
+          </th>
+          <th class="text-right" style="width:20%;">
+            % Share
+          </th>
         </tr>
         @each(method in content.payments)
-            <tr>
-                <td>{{ method.name }}</td>
-                <td class="text-right">{{ formatCurrency(method.amount) }}</td>
-                <td class="text-right">{{ method.percentage }}%</td>
-            </tr>
+          <tr>
+            <td>
+              {{ method.name }}
+            </td>
+            <td class="text-right">
+              {{ formatCurrency(method.amount) }}
+            </td>
+            <td class="text-right">
+              {{ method.percentage }}%
+            </td>
+          </tr>
         @endeach
         <tr class="total-row">
-            <td>Total Collected</td>
-            <td class="text-right">{{ formatCurrency(content.totalPayments) }}</td>
-            <td class="text-right">100%</td>
+          <td>
+            Total Collected
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(content.totalPayments) }}
+          </td>
+          <td class="text-right">
+            100%
+          </td>
         </tr>
-    </table>
-</div>
+      </table>
+    </div>
 
-<div class="grid-2">
+    <div class="grid-2">
+      <h2>
+        4. Payments by Outlet & Payment Method (POS)
+      </h2>
+      @each(outlet in content.posPayments)
+        <table>
+          <tr>
+            <th colspan="3" style="background-color:#1b365d; color:#fff; text-transform:uppercase;">
+              {{ outlet.name }}
+            </th>
+          </tr>
+          <tr>
+            <th style="width:60%;">
+              Payment Method
+            </th>
+            <th class="text-right" style="width:20%;">
+              Amount
+            </th>
+            <th class="text-right" style="width:20%;">
+              % Share
+            </th>
+          </tr>
+          @each(method in outlet.methods)
+            <tr>
+              <td>
+                {{ method.name }}
+              </td>
+              <td class="text-right">
+                {{ formatCurrency(method.amount) }}
+              </td>
+              <td class="text-right">
+                {{ method.percentage }}%
+              </td>
+            </tr>
+          @endeach
+          <tr class="total-row">
+            <td>
+              Total
+            </td>
+            <td class="text-right">
+              {{ formatCurrency(outlet.total) }}
+            </td>
+            <td class="text-right">
+              100%
+            </td>
+          </tr>
+        </table>
+      @endeach
+      @if(content.posPayments.length === 0)
+        <p style="font-size:8.5pt; color:#718096;">
+          No POS payment data for this period.
+        </p>
+      @endif
+    </div>
+
+    <h2>
+      5. Aging Balance (Receivables)
+    </h2>
+    <table>
+      <tr>
+        <th style="width:40%;">
+          Aging
+        </th>
+        <th class="text-right" style="width:30%;">
+          Amount ({{ currency }})
+        </th>
+        <th class="text-right" style="width:30%;">
+          Invoices
+        </th>
+      </tr>
+      @each(aging in content.agingBalance)
+        <tr>
+          <td>
+            {{ aging.label }}
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(aging.amount) }}
+          </td>
+          <td class="text-right">
+            {{ aging.count }}
+          </td>
+        </tr>
+      @endeach
+      <tr class="total-row">
+        <td>
+          Total Receivables
+        </td>
+        <td class="text-right">
+          {{ formatCurrency(content.totalAging) }}
+        </td>
+        <td class="text-right">
+          {{ content.totalAgingCount }}
+        </td>
+      </tr>
+    </table>
+
+    {{-- <div class="grid-2">
     <h2>4. Aging Balance (Receivables)</h2>
     <table>
         <tr>
@@ -233,87 +470,200 @@
             <td class="text-right">{{ content.totalAgingCount }}</td>
         </tr>
     </table>
-</div>
-<div style="clear: both;"></div>
+    </div> --}}
+    <div style="clear: both;">
+    </div>
 
-<h2>5. Performance of Rooms & Distribution Channels</h2>
-<table>
-    <tr>
-        <th style="width:28%;">Channel</th>
-        <th class="text-center" style="width:14%;">Reservations</th>
-        <th class="text-center" style="width:14%;">Room Nights</th>
-        <th class="text-right" style="width:16%;">Revenue (Excl. Tax)</th>
-        <th class="text-right" style="width:14%;">ADR</th>
-        <th class="text-right" style="width:14%;">% of Revenue</th>
-    </tr>
-    @each(channel in content.channels)
-        <tr>
-            <td>{{ channel.name }}</td>
-            <td class="text-center">{{ channel.reservations }}</td>
-            <td class="text-center">{{ channel.nights }}</td>
-            <td class="text-right">{{ formatCurrency(channel.revenueHT) }}</td>
-            <td class="text-right">{{ formatCurrency(channel.adr) }}</td>
-            <td class="text-right">{{ channel.percentage }}%</td>
-        </tr>
-    @endeach
-    <tr class="total-row">
-        <td>TOTAL / AVERAGE</td>
-        <td class="text-center">{{ content.totalChannels.reservations }}</td>
-        <td class="text-center">{{ content.totalChannels.nights }}</td>
-        <td class="text-right">{{ formatCurrency(content.totalChannels.revenueHT) }}</td>
-        <td class="text-right">{{ formatCurrency(content.totalChannels.adr) }}</td>
-        <td class="text-right">100.0%</td>
-    </tr>
-</table>
-
-<h2>6. Hotel KPIs & Forecast (Monthly)</h2>
-<div class="grid-2">
+    <h2>
+      6. Performance of Rooms & Distribution Channels
+    </h2>
     <table>
+      <tr>
+        <th style="width:28%;">
+          Channel
+        </th>
+        <th class="text-center" style="width:14%;">
+          Reservations
+        </th>
+        <th class="text-center" style="width:14%;">
+          Room Nights
+        </th>
+        <th class="text-right" style="width:16%;">
+          Revenue (Excl. Tax)
+        </th>
+        <th class="text-right" style="width:14%;">
+          ADR
+        </th>
+        <th class="text-right" style="width:14%;">
+          % of Revenue
+        </th>
+      </tr>
+      @each(channel in content.channels)
         <tr>
-            <th style="width:60%;">Indicator</th>
-            <th class="text-right" style="width:40%;">{{ content.currentMonth }}</th>
+          <td>
+            {{ channel.name }}
+          </td>
+          <td class="text-center">
+            {{ channel.reservations }}
+          </td>
+          <td class="text-center">
+            {{ channel.nights }}
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(channel.revenueHT) }}
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(channel.adr) }}
+          </td>
+          <td class="text-right">
+            {{ channel.percentage }}%
+          </td>
         </tr>
-        <tr><td>Available Rooms</td><td class="text-right">{{ content.kpi.totalAvailableRooms }}</td></tr>
-        <tr><td>Room Nights Sold</td><td class="text-right">{{ content.kpi.soldRoomNights }}</td></tr>
-        <tr><td>Occupancy Rate</td><td class="text-right">{{ content.kpi.occupancyRate }}%</td></tr>
-        <tr><td>ADR</td><td class="text-right">{{ formatCurrency(content.kpi.adr) }} {{ currency }}</td></tr>
-        <tr><td>RevPAR</td><td class="text-right">{{ formatCurrency(content.kpi.revpar) }} {{ currency }}</td></tr>
-        <tr><td>Avg. Length of Stay</td><td class="text-right">{{ content.kpi.los }} days</td></tr>
+      @endeach
+      <tr class="total-row">
+        <td>
+          TOTAL / AVERAGE
+        </td>
+        <td class="text-center">
+          {{ content.totalChannels.reservations }}
+        </td>
+        <td class="text-center">
+          {{ content.totalChannels.nights }}
+        </td>
+        <td class="text-right">
+          {{ formatCurrency(content.totalChannels.revenueHT) }}
+        </td>
+        <td class="text-right">
+          {{ formatCurrency(content.totalChannels.adr) }}
+        </td>
+        <td class="text-right">
+          100.0%
+        </td>
+      </tr>
     </table>
-</div>
 
-<div class="grid-2">
-    <table>
+    <h2>
+      7. Hotel KPIs & Forecast (Monthly)
+    </h2>
+    <div class="grid-2">
+      <table>
         <tr>
-            <th style="width:34%;">Metric</th>
-            <th class="text-right" style="width:22%;">Actual</th>
-            <th class="text-right" style="width:22%;">Previous Month</th>
-            <th class="text-right" style="width:22%;">Variance</th>
+          <th style="width:60%;">
+            Indicator
+          </th>
+          <th class="text-right" style="width:40%;">
+            {{ content.currentMonth }}
+          </th>
+        </tr>
+        <tr>
+          <td>
+            Available Rooms
+          </td>
+          <td class="text-right">
+            {{ content.kpi.totalAvailableRooms }}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Room Nights Sold
+          </td>
+          <td class="text-right">
+            {{ content.kpi.soldRoomNights }}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Occupancy Rate
+          </td>
+          <td class="text-right">
+            {{ content.kpi.occupancyRate }}%
+          </td>
+        </tr>
+        <tr>
+          <td>
+            ADR
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(content.kpi.adr) }} {{ currency }}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            RevPAR
+          </td>
+          <td class="text-right">
+            {{ formatCurrency(content.kpi.revpar) }} {{ currency }}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Avg. Length of Stay
+          </td>
+          <td class="text-right">
+            {{ content.kpi.los }} days
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <table>
+        <tr>
+          <th style="width:34%;">
+            Metric
+          </th>
+          <th class="text-right" style="width:22%;">
+            Actual
+          </th>
+          <th class="text-right" style="width:22%;">
+            Previous Month
+          </th>
+          <th class="text-right" style="width:22%;">
+            Variance
+          </th>
         </tr>
         @each(item in content.forecast)
-            <tr>
-                <td>{{ item.label }}</td>
-                <td class="text-right">{{ item.actual }}</td>
-                <td class="text-right">{{ item.forecast }}</td>
-                <td class="text-right">{{ item.variance }}</td>
-            </tr>
+          <tr>
+            <td>
+              {{ item.label }}
+            </td>
+            <td class="text-right">
+              {{ item.actual }}
+            </td>
+            <td class="text-right">
+              {{ item.forecast }}
+            </td>
+            <td class="text-right">
+              {{ item.variance }}
+            </td>
+          </tr>
         @endeach
-    </table>
-</div>
-<div style="clear: both;"></div>
-
-<h2>7. Operational Alerts & Business Management</h2>
-@each(alert in content.alerts)
-    <div style="display:flex; align-items:flex-start; margin-bottom:6px; padding:5px 8px; background:{{ alert.type === 'red' ? '#fff5f5' : alert.type === 'orange' ? '#fffaf0' : '#f0fff4' }}; border-left:3px solid {{ alert.type === 'red' ? '#e53e3e' : alert.type === 'orange' ? '#dd6b20' : '#38a169' }}; font-size:8.5pt;">
-        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{{ alert.type === 'red' ? '#c53030' : alert.type === 'orange' ? '#c05621' : '#276749' }}; margin-right:8px; margin-top:3px; flex-shrink:0;"></span>
-        <span style="color:{{ alert.type === 'red' ? '#c53030' : alert.type === 'orange' ? '#c05621' : '#276749' }};"><strong>{{ alert.title }}</strong> {{ alert.message }}</span>
+      </table>
     </div>
-@endeach
-@if(content.alerts.length === 0)
-    <p style="font-size:8.5pt; color:#718096;">No alerts for this period.</p>
-@endif
+    <div style="clear: both;">
+    </div>
 
-</body>
+    <h2>
+      8. Operational Alerts & Business Management
+    </h2>
+    @each(alert in content.alerts)
+      <div
+        style="display:flex; align-items:flex-start; margin-bottom:6px; padding:5px 8px; background:{{ alert.type === 'red' ? '#fff5f5' : alert.type === 'orange' ? '#fffaf0' : '#f0fff4' }}; border-left:3px solid {{ alert.type === 'red' ? '#e53e3e' : alert.type === 'orange' ? '#dd6b20' : '#38a169' }}; font-size:8.5pt;"
+      >
+        <span
+          style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{{ alert.type === 'red' ? '#c53030' : alert.type === 'orange' ? '#c05621' : '#276749' }}; margin-right:8px; margin-top:3px; flex-shrink:0;"
+        ></span>
+        <span
+          style="color:{{ alert.type === 'red' ? '#c53030' : alert.type === 'orange' ? '#c05621' : '#276749' }};"
+        >          <strong>{{ alert.title }}</strong>{{ alert.message }}</span>
+      </div>
+    @endeach
+    @if(content.alerts.length === 0)
+      <p style="font-size:8.5pt; color:#718096;">
+        No alerts for this period.
+      </p>
+    @endif
+
+  </body>
 </html>
-
 

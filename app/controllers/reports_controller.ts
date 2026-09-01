@@ -14054,6 +14054,8 @@ export default class ReportsController {
       this.getAgingBalanceData(hotelId, reportDate),
     ])
 
+    const posPayments = await this.getPosPaymentsByOutletForPeriod(hotelId, ptdStartDate, reportDate)
+
     const statistics = await this.getManagementStatisticsData(
       hotelId,
       reportDate,
@@ -14063,7 +14065,7 @@ export default class ReportsController {
 
     // ── Départements : Rooms, Events/Sales, + outlets POS ──
     const roomsRevenueHT = roomCharges.total?.ptd || 0
-    const roomsTax = 0 // room charges already net; tax tracked via getManagementTaxData if needed
+    const roomsTax = await this.getRoomTaxForPeriod(hotelId, ptdStartDate, reportDate)
     const eventsRevenueHT = banquetsEvents.revenueWithoutTax?.ptd || 0
     const eventsTax = banquetsEvents.taxes?.ptd || 0
 
@@ -14245,6 +14247,7 @@ export default class ReportsController {
       totalDepartments,
       payments: paymentRows,
       totalPayments,
+      posPayments,
       agingBalance,
       totalAging,
       totalAgingCount,
@@ -14341,7 +14344,128 @@ export default class ReportsController {
 
     return { rows, totals }
   }
+  /**
+   * Paiements POS par outlet puis par méthode, pour la période PTD.
+   * Le service POS renvoie déjà today/ptd/ytd en un seul appel pour
+   * reportDate (comme roomTypeStats/ratiosCA) — pas besoin d'agréger
+   * des DailySummaryFact jour par jour, ce champ n'y est pas stocké.
+   */
+  private async getPosPaymentsByOutletForPeriod(
+    hotelId: number,
+    _ptdStartDate: DateTime,
+    reportDate: DateTime
+  ): Promise<
+    { name: string; methods: { name: string; amount: number; percentage: number }[]; total: number }[]
+  > {
+    const livePosPayment = await this.getManagementPosPaymentSummaryData(hotelId, reportDate)
 
+    console.log('[posPayments] live posPayment result:', JSON.stringify(livePosPayment, null, 2))
+
+    if (!livePosPayment?.outlets || livePosPayment.outlets.length === 0) {
+      console.log('[posPayments] no outlets returned by POS service')
+      return []
+    }
+
+    const result = livePosPayment.outlets.map((outlet: any) => {
+      const outletName = outlet.outlet ?? outlet.name ?? 'Outlet'
+      const paymentsList = Array.isArray(outlet.payments) ? outlet.payments : []
+
+      console.log(
+        `[posPayments] outlet "${outletName}" raw payments:`,
+        JSON.stringify(paymentsList, null, 2)
+      )
+
+      const methods = paymentsList.map((p: any) => ({
+        name: p.method ?? p.paymentMethod ?? p.methodName ?? p.name ?? p.label ?? 'Unknown',
+        amount: Number(p.ptd ?? 0),
+        percentage: 0,
+      }))
+
+      const total = methods.reduce((sum: number, m: any) => sum + m.amount, 0)
+      methods.forEach((m: any) => {
+        m.percentage = total > 0 ? +((m.amount / total) * 100).toFixed(1) : 0
+      })
+
+      return { name: outletName, methods, total }
+    })
+
+    console.log('[posPayments] final result:', JSON.stringify(result, null, 2))
+
+    return result
+  }
+
+
+    /**
+   * Somme de la taxe (roomFinalRateTaxe) des charges "Room" postées
+   * sur la période [startDate, reportDate] — utilisée pour la ligne
+   * "Rooms" du tableau "Revenue by Department" du Business Analysis
+   */
+
+  private async getRoomTaxForPeriod(hotelId: number, startDate: DateTime, reportDate: DateTime) {
+    const { default: FolioTransaction } = await import('#models/folio_transaction')
+
+    const rows = await FolioTransaction.query()
+      .whereHas('folio', (folioQuery: any) => {
+        folioQuery.whereHas('reservationRoom', (rrQuery: any) => {
+          rrQuery.where('hotel_id', hotelId)
+          rrQuery.whereIn('status', ['checked_in', 'checked_out', 'reserved'])
+          rrQuery.whereDoesntHave('roomType', (rtQuery: any) => rtQuery.where('is_paymaster', true))
+        })
+      })
+      .whereBetween('current_working_date', [
+        startDate.toFormat('yyyy-MM-dd'),
+        reportDate.toFormat('yyyy-MM-dd'),
+      ])
+      .where('category', 'room')
+      .where('transaction_type', TransactionType.CHARGE)
+      .whereNotIn('status', ['cancelled', 'void'])
+      .whereDoesntHave('reservationRoom', (rrQuery) => {
+        rrQuery.whereHas('room', (roomQuery) => {
+          roomQuery.whereHas('roomType', (rtQuery) => {
+            rtQuery.where('is_paymaster', true)
+          })
+        })
+      })
+      .select('id', 'tax_breakdown', 'tax_amount', 'room_final_rate_taxe')
+      .preload('taxes' as any)
+
+    let total = 0
+    let breakdownHits = 0
+    let taxesRelationHits = 0
+    let fallbackHits = 0
+
+    for (const tx of rows as any[]) {
+      if (tx.taxBreakdown?.items?.length > 0) {
+        breakdownHits++
+        for (const t of tx.taxBreakdown.items) {
+          total += Number(t.taxAmount || 0)
+        }
+      } else if (tx.taxes?.length > 0) {
+        taxesRelationHits++
+        for (const t of tx.taxes) {
+          total += Number(t?.$pivot?.taxAmount ?? t?.taxAmount ?? 0)
+        }
+      } else {
+        fallbackHits++
+        total += Number(tx.roomFinalRateTaxe ?? tx.taxAmount ?? 0)
+      }
+    }
+
+    console.log(
+      '[roomsTax] rows:',
+      rows.length,
+      'via taxBreakdown:',
+      breakdownHits,
+      'via taxes relation:',
+      taxesRelationHits,
+      'via fallback field:',
+      fallbackHits,
+      '-> total:',
+      total
+    )
+
+    return total
+  }
   /**
    * Generate Business Analysis Report PDF (Enjoy PMS style)
    */
