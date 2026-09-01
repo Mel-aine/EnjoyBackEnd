@@ -228,7 +228,7 @@ router.group(() => {
     //credit ledger
     router.get('/credit-ledger-payments', [ReportsController, 'getCreditLedgerPaymentsReport'])
     router.post('/credit-ledger-payments/pdf', [ReportsController, 'generateCreditLedgerPaymentsPdf'])
-    
+
 
     // City Ledger Summary
     router.get('/city-ledger-summary', [ReportsController, 'getCityLedgerSummary'])
@@ -300,6 +300,7 @@ router.group(() => {
     router.post('/completed', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersCompleted')
     router.post('/summary', [WorkOrderReportsController, 'generate']).where('reportType', 'workOrdersSummary')
   }).prefix('/work-orders')
+  router.post('/business-analysis-report-pdf', [ReportsController, 'generateBusinessAnalysisReportPdf'])
 
   // Hotel Histories Reports
   router.group(() => {

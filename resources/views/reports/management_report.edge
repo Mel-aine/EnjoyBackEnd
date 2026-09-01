@@ -414,7 +414,74 @@
         </tbody>
       </table>
 
-      <!-- Section 6: Payment -->
+      <!-- Section 6: Banquets & Events -->
+      <div class="section-title">
+        Banquets & Events
+      </div>
+      <table>
+        <tbody>
+          <tr>
+            <td style="width: 40%;">
+              Number of Events
+            </td>
+            <td class="currency" style="width: 20%;">
+              {{ content.banquetsEvents?.number?.today || 0 }}
+            </td>
+            <td class="currency" style="width: 20%;">
+              {{ content.banquetsEvents?.number?.ptd || 0 }}
+            </td>
+            <td class="currency" style="width: 20%;">
+              {{ content.banquetsEvents?.number?.ytd || 0 }}
+            </td>
+          </tr>
+          <tr>
+            <td style="width: 40%;">
+              Revenue
+            </td>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(content.banquetsEvents?.revenue?.today) }}
+            </td>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(content.banquetsEvents?.revenue?.ptd) }}
+            </td>
+            <td class="currency" style="width: 20%;">
+              {{ formatCurrency(content.banquetsEvents?.revenue?.ytd) }}
+            </td>
+          </tr>
+          @each(tax in (content.banquetsEvents?.taxesArray || []))
+            <tr>
+              <td style="width: 40%;">
+                {{ tax.name }}
+              </td>
+              <td class="currency" style="width: 20%;">
+                {{ formatCurrency(tax.today) }}
+              </td>
+              <td class="currency" style="width: 20%;">
+                {{ formatCurrency(tax.ptd) }}
+              </td>
+              <td class="currency" style="width: 20%;">
+                {{ formatCurrency(tax.ytd) }}
+              </td>
+            </tr>
+          @endeach
+          <tr class="section-total">
+            <td>
+              <strong>Total Revenue without Tax</strong>
+            </td>
+            <td class="currency">
+              <strong>{{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.today) }}</strong>
+            </td>
+            <td class="currency">
+              <strong>{{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ptd) }}</strong>
+            </td>
+            <td class="currency">
+              <strong>{{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ytd) }}</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Section 7: Payment -->
       <div class="section-title">
         Payment
       </div>
@@ -1155,6 +1222,20 @@
               {{ formatCurrency(content.revenueSummary?.pmsRevenue.ytd) }}
             </td>
           </tr>
+          <tr class="section-total">
+            <td class="">
+              Banquets & Events Revenue
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.today || 0) }}
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ptd || 0) }}
+            </td>
+            <td class="currency">
+              {{ formatCurrency(content.banquetsEvents?.revenueWithoutTax?.ytd || 0) }}
+            </td>
+          </tr>
           @each(outlet in content.posSummary?.outlets)
             <tr class="">
               <td class="">
@@ -1214,7 +1295,7 @@
       <p>*Transfer From Advance Deposit = Balance Transfer to Guest Ledger</p>
       <p>*PMS Revenue = Total Revenue without Tax (PMS)</p>
       <p>*POS Revenue = All Outlet's Total Revenue without Tax</p>
-      <p>*Total Revenue = PMS Revenue + POS Revenue</p>
+      <p>*Total Revenue = PMS Revenue + POS Revenue + Banquets & Events Revenue</p>
  <div class="horizontal-line">
       </div>
     </div>
