@@ -14056,41 +14056,55 @@ export default class ReportsController {
     const prevMonthDate = reportDate.minus({ months: 1 })
     const prevPtdStart = prevMonthDate.startOf('month')
 
-    const [
-      roomCharges,
-      banquetsEvents,
-      posSummary,
-      payments,
-      cityLedger,
-      roomSummary,
-      ratiosCA,
-      channels,
-      prevRoomSummary,
-      prevStatistics,
-      agingData,
-    ] = await Promise.all([
-      this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
-      this.getManagementBanquetsEventsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
-      this.getManagementPosSummaryData(hotelId, reportDate),
-      this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate),
-      this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
-      this.getManagementRoomSummaryData(hotelId, reportDate),
-      this.getRatiosCAData(hotelId, reportDate, currency),
-      this.getChannelPerformanceData(hotelId, ptdStartDate, reportDate),
-      this.getManagementRoomSummaryData(hotelId, prevMonthDate),
-      (async () => {
-        const rc = await this.getManagementRoomChargesData(
-          hotelId,
-          prevMonthDate,
-          prevPtdStart,
-          prevMonthDate.startOf('year'),
-          currency
-        )
-        const rs = await this.getManagementRoomSummaryData(hotelId, prevMonthDate)
-        return this.getManagementStatisticsData(hotelId, prevMonthDate, rc, rs)
-      })(),
-      this.getAgingBalanceData(hotelId, reportDate),
-    ])
+  const [
+    roomCharges,
+    banquetsEvents,
+    posSummary,
+    payments,
+    cityLedger,
+    roomSummary,
+    ratiosCA,
+    channels,
+    prevRoomSummary,
+    prevStatistics,
+    agingData,
+    extraCharges,
+  ] = await Promise.all([
+    this.getManagementRoomChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
+    this.getManagementBanquetsEventsData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+    this.getManagementPosSummaryData(hotelId, reportDate),
+    this.getManagementPaymentData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+    this.getManagementCityLedgerData(hotelId, reportDate, ptdStartDate, ytdStartDate, currency),
+    this.getManagementRoomSummaryData(hotelId, reportDate),
+    this.getRatiosCAData(hotelId, reportDate, currency),
+    this.getChannelPerformanceData(hotelId, ptdStartDate, reportDate),
+    this.getManagementRoomSummaryData(hotelId, prevMonthDate),
+    (async () => {
+      const rc = await this.getManagementRoomChargesData(
+        hotelId,
+        prevMonthDate,
+        prevPtdStart,
+        prevMonthDate.startOf('year'),
+        currency
+      )
+      const rs = await this.getManagementRoomSummaryData(hotelId, prevMonthDate)
+      const stats = await this.getManagementStatisticsData(hotelId, prevMonthDate, rc, rs)
+      const [prevBanquets, prevPos, prevExtra] = await Promise.all([
+        this.getManagementBanquetsEventsData(hotelId, prevMonthDate, prevPtdStart, prevMonthDate.startOf('year')),
+        this.getManagementPosSummaryData(hotelId, prevMonthDate),
+        this.getManagementExtraChargesData(hotelId, prevMonthDate, prevPtdStart, prevMonthDate.startOf('year')),
+      ])
+      const prevPmsHT = (rc.total?.ptd || 0) + (prevExtra?.totals?.ptd || 0)
+      const prevPmsTax = await this.getRoomTaxForPeriod(hotelId, prevPtdStart, prevMonthDate)
+      const prevPmsTTC = prevPmsHT + prevPmsTax
+      const prevPosTTC = prevPos?.totalWithTax?.ptd || 0
+      const prevBanquetsTTC = (prevBanquets.revenueWithoutTax?.ptd || 0) + (prevBanquets.taxes?.ptd || 0)
+      ;(stats as any).totalRevenueTTC = prevPmsTTC + prevPosTTC + prevBanquetsTTC
+      return stats
+    })(),
+    this.getAgingBalanceData(hotelId, reportDate),
+    this.getManagementExtraChargesData(hotelId, reportDate, ptdStartDate, ytdStartDate),
+  ])
 
     const posPayments = await this.getPosPaymentsByOutletForPeriod(hotelId, ptdStartDate, reportDate)
 
@@ -14151,8 +14165,13 @@ export default class ReportsController {
     const taxes = totalDepartments.tax
     const revenueTTC = totalDepartments.revenueTTC
 
-    console.log(`[BusinessAnalysis] TOTAL departments revenueHT: ${revenueHT}, revenueTTC: ${revenueTTC}`)
-    departments.forEach((d: any) => console.log(`  ${d.name}: revenueHT=${d.revenueHT}, tax=${d.tax}`))
+    // ── Total Revenue TTC = PMS Revenue TTC + POS Revenue TTC + Banquets TTC (même formule que Management Report) ──
+    const pmsRevenueHT = (roomCharges.total?.ptd || 0) + (extraCharges?.totals?.ptd || 0)
+    const pmsTax = roomsTax // taxe rooms proportionnelle
+    const pmsRevenueTTC = pmsRevenueHT + pmsTax
+    const posRevenueTTC = posSummary?.totalWithTax?.ptd || 0
+    const banquetsRevenueTTC = (banquetsEvents.revenueWithoutTax?.ptd || 0) + (banquetsEvents.taxes?.ptd || 0)
+    const totalRevenueTTC = pmsRevenueTTC + posRevenueTTC + banquetsRevenueTTC
 
     // ── Encaissements (payment methods) ──
     const paymentRows = Object.entries(payments.methods || {}).map(([name, v]: any) => ({
@@ -14175,6 +14194,7 @@ export default class ReportsController {
     const kpi = {
       totalAvailableRooms: roomSummary.totalAvailableRoomNights?.ptd || 0,
       soldRoomNights: (roomSummary.soldRoom?.ptd || 0) + (roomSummary.complimentaryRoom?.ptd || 0),
+      totalRevenue: totalRevenueTTC,
       occupancyRate: (statistics.occupancyRate?.ptd || 0).toFixed(1),
       adr: statistics.averageDailyRate?.ptd || 0,
       revpar: statistics.revenuePerAvailableRoom?.ptd || 0,
@@ -14207,18 +14227,10 @@ export default class ReportsController {
         ),
       },
       {
-        label: 'Room Nights Sold',
-        actual: String(
-          (roomSummary.soldRoom?.ptd || 0) + (roomSummary.complimentaryRoom?.ptd || 0)
-        ),
-        forecast: String(
-          (prevRoomSummary.soldRoom?.ptd || 0) + (prevRoomSummary.complimentaryRoom?.ptd || 0)
-        ),
-        variance: String(
-          (roomSummary.soldRoom?.ptd || 0) +
-            (roomSummary.complimentaryRoom?.ptd || 0) -
-            ((prevRoomSummary.soldRoom?.ptd || 0) + (prevRoomSummary.complimentaryRoom?.ptd || 0))
-        ),
+        label: 'Revenue Total(M)',
+        actual: this.fmtNum(totalRevenueTTC),
+        forecast: this.fmtNum(prevStatistics?.totalRevenueTTC || 0),
+        variance: this.fmtNum(totalRevenueTTC - (prevStatistics?.totalRevenueTTC || 0)),
       },
     ]
 
