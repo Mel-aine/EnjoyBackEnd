@@ -13907,6 +13907,9 @@ export default class ReportsController {
   private async getAgingBalanceData(hotelId: number, reportDate: DateTime) {
     const { default: PaymentMethod } = await import('#models/payment_method')
 
+    const reportDateISO = reportDate.toISODate()!
+    const today = reportDate.startOf('day')
+
     // Get City Ledger payment method IDs
     const cityLedgerMethods = await PaymentMethod.query()
       .where('hotel_id', hotelId)
@@ -13914,54 +13917,90 @@ export default class ReportsController {
       .where('is_active', true)
     const cityLedgerMethodIds = cityLedgerMethods.map((pm: any) => pm.id)
 
-    // Get all City Ledger transfers (charges posted to City Ledger)
+    if (cityLedgerMethodIds.length === 0) {
+      return {
+        rows: [
+          { label: '0 – 30 days (Current)', amount: 0, count: 0 },
+          { label: '31 – 60 days', amount: 0, count: 0 },
+          { label: '61 – 90 days', amount: 0, count: 0 },
+          { label: '+ 90 days (Doubtful)', amount: 0, count: 0 },
+        ],
+        totalAmount: 0,
+        totalCount: 0,
+      }
+    }
+
+    // 1. Get ALL transfers to City Ledger (debt incurred on guest folios)
+    //    These are transactions where payment_method = City Ledger
     const transfers = await FolioTransaction.query()
       .where('hotel_id', hotelId)
       .whereIn('payment_method_id', cityLedgerMethodIds)
       .where('transaction_type', TransactionType.PAYMENT)
       .where('is_voided', false)
       .whereNotIn('status', ['cancelled', 'voided'])
-      .where('current_working_date', '<=', reportDate.toISODate()!)
-      .preload('folio', (folioQuery) => {
-        folioQuery.whereIn('folio_type', [FolioType.COMPANY, FolioType.CITY_LEDGER])
-      })
+      .where('current_working_date', '<=', reportDateISO)
+      .orderBy('current_working_date', 'asc')
+      .select('amount', 'current_working_date')
 
-    // Get City Ledger payments received
+    // 2. Get ALL payments received on City Ledger folios
     const payments = await FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .whereHas('folio', (folioQuery) => {
+      .whereHas('folio', (folioQuery: any) => {
         folioQuery.whereIn('folio_type', [FolioType.COMPANY, FolioType.CITY_LEDGER])
       })
       .where('transaction_type', TransactionType.PAYMENT)
       .whereNotIn('payment_method_id', cityLedgerMethodIds)
       .where('is_voided', false)
       .whereNotIn('status', ['cancelled', 'voided'])
-      .where('current_working_date', '<=', reportDate.toISODate()!)
+      .where('current_working_date', '<=', reportDateISO)
+      .orderBy('current_working_date', 'asc')
+      .select('amount', 'current_working_date')
 
-    // Calculate net amount per folio: transfers - payments
-    const folioBalances = new Map<number, { amount: number; date: DateTime }>()
+    // 3. Get ALL commissions on City Ledger
+    const commissions = await FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .where('is_commissionable', true)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+      .where('current_working_date', '<=', reportDateISO)
+      .select('commission_amount', 'current_working_date')
 
+    // Total payments + commissions to apply FIFO against oldest transfers
+    const totalPayments = payments.reduce((s: number, t: any) => s + Math.abs(Number(t.amount || 0)), 0)
+    const totalCommissions = commissions.reduce((s: number, t: any) => s + Math.abs(Number(t.commission_amount || 0)), 0)
+    let remainingDeduction = totalPayments + totalCommissions
+
+    // FIFO: apply deductions to oldest transfers first
+    const unpaidByDate: { date: DateTime; amount: number }[] = []
     for (const tx of transfers as any[]) {
-      const folioId = tx.folioId
       const amount = Number(tx.amount || 0)
       const date = tx.currentWorkingDate
-      if (folioBalances.has(folioId)) {
-        folioBalances.get(folioId)!.amount += amount
-      } else {
-        folioBalances.set(folioId, { amount, date })
+      let remaining = amount
+
+      if (remainingDeduction > 0) {
+        const deduction = Math.min(remainingDeduction, remaining)
+        remaining -= deduction
+        remainingDeduction -= deduction
+      }
+
+      if (remaining > 0) {
+        unpaidByDate.push({ date, amount: remaining })
       }
     }
 
-    for (const tx of payments as any[]) {
-      const folioId = tx.folioId
-      const amount = Number(tx.amount || 0)
-      if (folioBalances.has(folioId)) {
-        folioBalances.get(folioId)!.amount -= amount
+    // If deductions exceed transfers, we have negative aging (overpaid) — show 0
+    if (remainingDeduction > 0) {
+      // Overpaid: reduce the last unpaid entries
+      let excess = remainingDeduction
+      for (let i = unpaidByDate.length - 1; i >= 0 && excess > 0; i--) {
+        const reduction = Math.min(excess, unpaidByDate[i].amount)
+        unpaidByDate[i].amount -= reduction
+        excess -= reduction
+        if (unpaidByDate[i].amount <= 0) unpaidByDate.splice(i, 1)
       }
     }
 
-    const today = reportDate.startOf('day')
-
+    // Group unpaid amounts into aging buckets
     const buckets = {
       current: { label: '0 – 30 days (Current)', amount: 0, count: 0 },
       days31_60: { label: '31 – 60 days', amount: 0, count: 0 },
@@ -13969,25 +14008,23 @@ export default class ReportsController {
       over90: { label: '+ 90 days (Doubtful)', amount: 0, count: 0 },
     }
 
-    for (const [, { amount, date }] of folioBalances) {
-      if (amount <= 0) continue
-
-      const refDateTime = DateTime.isDateTime(date)
-        ? date
-        : DateTime.fromISO(date.toString())
+    for (const entry of unpaidByDate) {
+      const refDateTime = DateTime.isDateTime(entry.date)
+        ? entry.date
+        : DateTime.fromISO(entry.date.toString())
       const days = today.diff(refDateTime.startOf('day'), 'days').days
 
       if (days <= 30) {
-        buckets.current.amount += amount
+        buckets.current.amount += entry.amount
         buckets.current.count++
       } else if (days <= 60) {
-        buckets.days31_60.amount += amount
+        buckets.days31_60.amount += entry.amount
         buckets.days31_60.count++
       } else if (days <= 90) {
-        buckets.days61_90.amount += amount
+        buckets.days61_90.amount += entry.amount
         buckets.days61_90.count++
       } else {
-        buckets.over90.amount += amount
+        buckets.over90.amount += entry.amount
         buckets.over90.count++
       }
     }
@@ -14003,6 +14040,7 @@ export default class ReportsController {
 
     return { rows, totalAmount, totalCount }
   }
+
 
   /**
    * Business Analysis Report — data aggregation
@@ -14064,7 +14102,7 @@ export default class ReportsController {
     )
 
     // ── Départements : Rooms, Events/Sales, + outlets POS ──
-    const roomsRevenueHT = roomCharges.total?.ptd || 0
+    const roomsRevenueHT = roomCharges.roomCharges?.ptd || 0
     const roomsTax = await this.getRoomTaxForPeriod(hotelId, ptdStartDate, reportDate)
     const eventsRevenueHT = banquetsEvents.revenueWithoutTax?.ptd || 0
     const eventsTax = banquetsEvents.taxes?.ptd || 0
