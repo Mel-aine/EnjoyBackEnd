@@ -233,10 +233,21 @@ export default class TwoFactorAuthService {
   // =======================
   // EMAIL method
   // =======================
-  static async enableEmailMethod(user: User): Promise<MfaMethod> {
+  static async enableEmailMethod(user: User ,verifiedChallengeId: string): Promise<MfaMethod> {
     if (!user.emailVerified) {
       const err: any = new Error('EMAIL_NOT_VERIFIED')
       err.code = 'EMAIL_NOT_VERIFIED'
+      throw err
+    }
+
+    const challenge = await MfaChallenge.query()
+      .where('challenge_id', verifiedChallengeId)
+      .andWhere('user_id', user.id)
+      .andWhere('is_consumed', true)
+      .first()
+    if (!challenge) {
+      const err: any = new Error('EMAIL_ENROLLMENT_NOT_VERIFIED')
+      err.code = 'EMAIL_ENROLLMENT_NOT_VERIFIED'
       throw err
     }
     let method = await MfaMethod.query()
@@ -273,6 +284,7 @@ export default class TwoFactorAuthService {
     const sent = await MfaChallenge.query()
       .where('user_id', user.id)
       .andWhere('method_type', 'EMAIL')
+      .andWhereNot('hashed_code', '')
       .andWhere('created_at', '>=', tenAgo.toSQL() as any)
       .orderBy('created_at', 'desc')
     const count10min = sent.length
