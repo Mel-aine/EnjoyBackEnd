@@ -85,18 +85,83 @@ export default class MfaController {
     }
   }
 
-  async enableEmail({ auth, response }: HttpContext) {
+  // async enableEmail({ auth, response }: HttpContext) {
+  //   const user = (await auth.authenticate()) as User
+  //   try {
+  //     const method = await TwoFactorAuthService.enableEmailMethod(user)
+  //     await TwoFactorAuthService.generateEmailChallenge(user)
+  //     await LoggerService.log({
+  //       actorId: user.id,
+  //       action: 'MFA_METHOD_ENABLED',
+  //       entityType: 'MfaMethod',
+  //       entityId: String(method.id),
+  //       description: 'MFA EMAIL method enabled',
+  //       ctx: { request: {} as any, response } as any,
+  //     })
+  //     return response.status(201).json(
+  //       this._resSuccess({
+  //         method: {
+  //           id: method.id,
+  //           type: method.methodType,
+  //           label: method.label,
+  //           is_default: method.isDefault,
+  //         },
+  //       })
+  //     )
+  //   } catch (err: any) {
+  //     if (err?.code === 'EMAIL_NOT_VERIFIED') {
+  //       return response.forbidden(this._resError('Email must be verified first', 403, 'EMAIL_NOT_VERIFIED'))
+  //     }
+  //     return response.internalServerError(
+  //       this._resError('Failed to enable email MFA', 500, 'EMAIL_MFA_FAILED', err.message)
+  //     )
+  //   }
+  // }
+
+  async sendEmailEnrollmentCode({ auth, response }: HttpContext) {
     const user = (await auth.authenticate()) as User
+    if (!user.emailVerified) {
+      return response.forbidden(this._resError('Email must be verified first', 403, 'EMAIL_NOT_VERIFIED'))
+    }
     try {
-      const method = await TwoFactorAuthService.enableEmailMethod(user)
-      await TwoFactorAuthService.generateEmailChallenge(user)
+      const { challengeId, expiresAt } = await TwoFactorAuthService.generateEmailChallenge(user)
+      return response.ok(
+        this._resSuccess({
+          challenge_id: challengeId,
+          expires_in_seconds: Math.max(1, Math.floor(expiresAt.diffNow('seconds').seconds ?? 300)),
+        })
+      )
+    } catch (err: any) {
+      return response.internalServerError(
+        this._resError('Failed to send code', 500, 'EMAIL_MFA_SEND_FAILED', err.message)
+      )
+    }
+  }
+
+  async confirmEmailEnrollment({ auth, request, response }: HttpContext) {
+    const user = (await auth.authenticate()) as User
+    const validator = vine.compile(
+      vine.object({
+        challenge_id: vine.string().minLength(5),
+        code: vine.string().minLength(4).maxLength(16),
+      })
+    )
+    try {
+        const body = await request.validateUsing(validator)
+      const result = await TwoFactorAuthService.verifyChallenge(body.challenge_id, body.code)
+      if (!result.valid || result.userId !== user.id) {
+        return response.status(401).json(
+          this._resError('Invalid or expired code', 401, `MFA_${result.failReason ?? 'INVALID_CODE'}`)
+        )
+      }
+      const method = await TwoFactorAuthService.enableEmailMethod(user, body.challenge_id)
       await LoggerService.log({
         actorId: user.id,
         action: 'MFA_METHOD_ENABLED',
         entityType: 'MfaMethod',
         entityId: String(method.id),
         description: 'MFA EMAIL method enabled',
-        ctx: { request: {} as any, response } as any,
+        ctx: { request, response } as any,
       })
       return response.status(201).json(
         this._resSuccess({
@@ -109,8 +174,11 @@ export default class MfaController {
         })
       )
     } catch (err: any) {
-      if (err?.code === 'EMAIL_NOT_VERIFIED') {
-        return response.forbidden(this._resError('Email must be verified first', 403, 'EMAIL_NOT_VERIFIED'))
+      if (err?.code === 'E_VALIDATION_ERROR') {
+        return response.badRequest(this._resError('Validation failed', 422, 'VALIDATION_ERROR', err.messages))
+      }
+      if (err?.code === 'EMAIL_ENROLLMENT_NOT_VERIFIED') {
+        return response.unauthorized(this._resError('Enrollment not verified', 401, 'EMAIL_ENROLLMENT_NOT_VERIFIED'))
       }
       return response.internalServerError(
         this._resError('Failed to enable email MFA', 500, 'EMAIL_MFA_FAILED', err.message)

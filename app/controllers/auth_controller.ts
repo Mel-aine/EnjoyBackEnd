@@ -456,6 +456,7 @@ export default class AuthController {
       }
 
       const status = await TwoFactorAuthService.getSendEmailStatus(user)
+      console.log('MFA send email status:', status)
       if (!status.canSend) {
         return response.status(429).json({
           status: 'error',
