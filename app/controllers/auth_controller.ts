@@ -697,7 +697,7 @@ export default class AuthController {
     const validator = vine.compile(
       vine.object({
         email: vine.string().trim().email(),
-        password: vine.string().minLength(1),
+        // password: vine.string().minLength(1),
         recovery_code: vine.string().minLength(4).maxLength(32),
       })
     )
@@ -732,12 +732,12 @@ export default class AuthController {
       if (!user.emailVerified) {
         return response.forbidden({ error: 'EMAIL_NOT_VERIFIED', requiresVerification: true })
       }
-      const bypass = WHITELIST_BYPASS_PASSWORDS.includes(email)
-      const pwdOk = bypass ? true : await Hash.verify(user.password, body.password)
-      if (!pwdOk) {
-        await LoginSecurityService.incrementFailed(user, ip, 'WRONG_PASSWORD', userAgent)
-        return response.unauthorized(AuthController._invalidCredentialsResponse())
-      }
+      // const bypass = WHITELIST_BYPASS_PASSWORDS.includes(email)
+      // const pwdOk = bypass ? true : await Hash.verify(user.password, body.password)
+      // if (!pwdOk) {
+      //   await LoginSecurityService.incrementFailed(user, ip, 'WRONG_PASSWORD', userAgent)
+      //   return response.unauthorized(AuthController._invalidCredentialsResponse())
+      // }
 
       if (!(await TwoFactorAuthService.isMfaEnabled(user))) {
         return response.badRequest({ status: 'error', error: 'MFA_NOT_ENABLED' })
