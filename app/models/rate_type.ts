@@ -31,6 +31,9 @@ export default class RateType extends BaseModel {
   declare roomTypes: ManyToMany<typeof RoomType>
 
   @column()
+  declare sortOrder: number
+
+  @column()
   declare status: 'active' | 'inactive' | 'draft'
 
   @column.dateTime({ autoCreate: true, columnName: 'created_at' })

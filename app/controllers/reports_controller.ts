@@ -7920,6 +7920,7 @@ export default class ReportsController {
       const allRateTypes = await RateType.query()
         .where('hotel_id', parseInt(String(hotelId)))
         .where('is_deleted', false)
+        .orderBy('sort_order', 'asc')
         .select(['rate_type_name'])
 
       const allRateTypeNames = new Set<string>()
@@ -8624,7 +8625,7 @@ export default class ReportsController {
     //  Récupérer TOUS les rate types de l'hôtel
     let allRateTypes = await RateType.query()
       .where('hotel_id', hotelId)
-      .orderBy('rate_type_name', 'asc')
+      .orderBy('sort_order', 'asc')
 
     if (rateTypeId) {
       allRateTypes = allRateTypes.filter((rt) => rt.id === parseInt(rateTypeId))

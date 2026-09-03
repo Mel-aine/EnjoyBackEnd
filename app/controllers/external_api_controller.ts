@@ -404,7 +404,7 @@ export default class ExternalApiController {
       return response.unauthorized({ success: false, message: 'Invalid hotel for provided x-pos-api-key' })
     }
 
-    const items = await RateType.query().where('hotel_id', hotelId).where('is_deleted', false).orderBy('id', 'asc')
+    const items = await RateType.query().where('hotel_id', hotelId).where('is_deleted', false).orderBy('sort_order', 'asc')
     return response.ok(items)
   }
 

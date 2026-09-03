@@ -417,12 +417,16 @@ export default class CompanyAccountService {
     if (existingMethod) {
       existingMethod.isActive = true
       existingMethod.lastModifiedBy = companyAccount.createdBy
+      if (!existingMethod.companyId) {
+        existingMethod.companyId = companyAccount.id
+      }
       await existingMethod.save()
       return existingMethod
     }
 
     return await PaymentMethod.create({
       hotelId: companyAccount.hotelId,
+      companyId: companyAccount.id,
       methodName: `City Ledger - ${companyAccount.companyName}`,
       methodCode: methodCode,
       methodType: PaymentMethodType.CITY_LEDGER,
