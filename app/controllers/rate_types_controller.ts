@@ -46,7 +46,7 @@ export default class RateTypesController {
         query.where('is_deleted', false)
       }
 
-      query.orderBy('created_at', 'desc')
+      query.orderBy('sort_order', 'asc')
 
       const rateTypes = await query.paginate(page, limit)
 
@@ -157,6 +157,7 @@ export default class RateTypesController {
       const rateTypes = await RateType.query()
         .where('hotel_id', params.hotelId)
         .where('is_deleted', false)
+        .orderBy('sort_order', 'asc')
         .preload('roomTypes', (roomTypesQuery) => {
           roomTypesQuery.preload('roomRates')
         })
@@ -217,6 +218,7 @@ export default class RateTypesController {
       const rateTypes = await RateType.query()
         .where('hotel_id', hotelId)
         .where('is_deleted', false)
+        .orderBy('sort_order', 'asc')
         .preload('roomTypes', (roomTypesQuery) => {
           roomTypesQuery
             .where('room_types.id', roomTypeId)
@@ -497,6 +499,7 @@ export default class RateTypesController {
       const rateTypes = await RateType.query()
         .where('hotel_id', hotelId)
         .andWhere('is_deleted', false)
+        .orderBy('sort_order', 'asc')
 
       return response.ok({
         message: 'Rate types retrieved successfully',

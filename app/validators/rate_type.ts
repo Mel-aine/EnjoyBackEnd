@@ -10,6 +10,7 @@ export const createRateTypeValidator = vine.compile(
     shortCode: vine.string().trim().minLength(1).maxLength(50),
     rateTypeName: vine.string().trim().minLength(1).maxLength(255),
     isPackage: vine.boolean().optional(),
+    sortOrder: vine.number().optional(),
     roomTypes: vine.array(vine.number().positive()).optional(),
     status: vine.enum(['active', 'inactive', 'draft']).optional()
   })
@@ -25,6 +26,7 @@ export const updateRateTypeValidator = vine.compile(
     shortCode: vine.string().trim().minLength(1).maxLength(50).optional(),
     rateTypeName: vine.string().trim().minLength(1).maxLength(255).optional(),
     isPackage: vine.boolean().optional(),
+    sortOrder: vine.number().optional(),
     roomTypes: vine.array(vine.number().positive()).optional(),
     status: vine.enum(['active', 'inactive', 'draft']).optional()
   })
