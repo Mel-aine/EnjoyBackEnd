@@ -89,6 +89,7 @@ export default class RateTypesController {
         hotelId: payload.hotelId,
         shortCode: payload.shortCode,
         rateTypeName: payload.rateTypeName,
+        sortOrder: payload.sortOrder || 0,
         isPackage: payload.isPackage || null,
         status: payload.status || 'active',
         createdByUserId: userId!,
@@ -343,6 +344,7 @@ export default class RateTypesController {
       if (payload.rateTypeName !== undefined) rateType.rateTypeName = payload.rateTypeName
       if (payload.isPackage !== undefined) rateType.isPackage = payload.isPackage
       if (payload.status !== undefined) rateType.status = payload.status
+      if (payload.sortOrder !== undefined) rateType.sortOrder = payload.sortOrder
 
       rateType.updatedByUserId = userId!
 
