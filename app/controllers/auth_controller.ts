@@ -193,6 +193,12 @@ export default class AuthController {
       return response.unauthorized(AuthController._invalidCredentialsResponse())
     }
 
+     if (!user.isActive) {
+      return response.unauthorized({
+        message: 'This account has been deactivated. Contact your administrator.'
+      })
+    }
+
     // 3) ⚠️ COMPTE BLOQUÉ — AVANT Hash.verify (éviter DoS sur Argon2)
     const lockStatus = await LoginSecurityService.isAccountLocked(user)
     if (lockStatus.locked) {
