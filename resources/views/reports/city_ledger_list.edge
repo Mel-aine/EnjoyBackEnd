@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>City Ledger List</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 10px;
+        margin: 0;
+        padding: 0;
+        color: #333;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        page-break-inside: auto;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+      th, td {
+        text-align: left;
+        padding: 3px 1px;
+        font-size: 9px;
+        border-bottom: 1px dotted #ccc;
+      }
+      td.center {
+        text-align: center;
+      }
+      td.currency {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+      }
+      tfoot td {
+        font-weight: bold;
+        border-top: 1.5px solid #555;
+        border-bottom: none;
+        background: #EFEFEF;
+      }
+      .no-data {
+        text-align: center;
+        padding: 20px 0;
+        color: #888;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <table>
+      <tbody>
+        @if(data.rows.length === 0)
+          <tr>
+            <td colspan="7" class="no-data">No City Ledger accounts found for the selected period</td>
+          </tr>
+        @else
+          @each((row, index) in data.rows)
+            <tr>
+              <td class="center" style="width: 5%;">{{ index + 1 }}</td>
+              <td style="width: 28%;">{{ row.accountName }}</td>
+              <td style="width: 14%;">{{ row.contactPerson }}</td>
+              <td style="width: 13%;">{{ row.phone }}</td>
+              <td class="currency" style="width: 13%;">{{ helpers.fc(row.debit) }}</td>
+              <td class="currency" style="width: 13%;">{{ helpers.fc(row.credit) }}</td>
+              <td class="currency" style="width: 14%;">{{ helpers.fc(row.closingBalance) }}</td>
+            </tr>
+          @endeach
+        @endif
+      </tbody>
+      @if(data.rows.length > 0)
+      <tfoot>
+        <tr>
+          <td colspan="4" style="text-align: left;"><strong>TOTAL</strong></td>
+          <td class="currency" style="width: 13%;"><strong>{{ helpers.fc(data.totals.debit) }}</strong></td>
+          <td class="currency" style="width: 13%;"><strong>{{ helpers.fc(data.totals.credit) }}</strong></td>
+          <td class="currency" style="width: 14%;"><strong>{{ helpers.fc(data.totals.closingBalance) }}</strong></td>
+        </tr>
+      </tfoot>
+      @endif
+    </table>
+  </body>
+</html>

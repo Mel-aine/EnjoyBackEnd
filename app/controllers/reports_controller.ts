@@ -14874,5 +14874,279 @@ public async generateServicesReportByPeriodHtml(
     }
   }
 
+  //City ledger report
+
+
+/**
+ * Génère le PDF "City Ledger List" — liste des comptes avec soldes
+ */
+async generateCityLedgerListPdf({ request, response, auth }: HttpContext) {
+  try {
+    const {
+      hotelId,
+      asOnDate,
+      currency = 'XAF',
+    } = request.only(['hotelId', 'asOnDate', 'currency'])
+
+    if (!hotelId || !asOnDate) {
+      return response.badRequest({
+        success: false,
+        message: 'hotelId et asOnDate sont requis',
+      })
+    }
+
+    const to = DateTime.fromISO(asOnDate)
+    if (!to.isValid) {
+      return response.badRequest({ success: false, message: 'Format de date invalide' })
+    }
+
+
+    const from = to.startOf('month')
+
+    const { default: Hotel } = await import('#models/hotel')
+    const hotel = await Hotel.findOrFail(hotelId)
+
+    const user = auth.user
+    const printedBy = user
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
+      : 'System'
+
+    const data = await this.getCityLedgerListData(Number(hotelId), from, to)
+
+    const htmlContent = await this.generateCityLedgerListHtml(hotel.hotelName, data, printedBy, currency)
+
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    const formattedFrom = from.toFormat('dd/MM/yyyy')
+    const formattedTo = to.toFormat('dd/MM/yyyy')
+
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:2px 10px; margin:0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:4px; margin-bottom:2px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">City Ledger List</div>
+      </div>
+
+      <div style="font-size:9px; margin:3px 0; padding-top:2px;">
+        <span style="margin-right:10px;">As On Date: ${formattedTo}</span>
+        <span style="margin-right:10px;">Period: ${formattedFrom} to ${formattedTo}</span>
+        <span>Currency: ${currency}</span>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5; border-top:1px solid #333; border-bottom:1px solid #333;">
+            <th style="width:5%; text-align:left; padding:2px 1px; font-weight:bold;">No</th>
+            <th style="width:28%; text-align:left; padding:2px 1px; font-weight:bold;">Account Name</th>
+            <th style="width:14%; text-align:left; padding:2px 1px; font-weight:bold;">Contact Person</th>
+            <th style="width:13%; text-align:left; padding:2px 1px; font-weight:bold;">Phone</th>
+            <th style="width:13%; text-align:right; padding:2px 1px; font-weight:bold;">Debit</th>
+            <th style="width:13%; text-align:right; padding:2px 1px; font-weight:bold;">Credit</th>
+            <th style="width:14%; text-align:right; padding:2px 1px; font-weight:bold;">Closing Balance</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+    `
+
+    const footerTemplate = `
+    <div style="font-size:7px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
+
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      orientation: 'landscape',
+      margin: {
+        top: '115px',
+        right: '10px',
+        bottom: '55px',
+        left: '10px',
+      },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      printBackground: true,
+    })
+
+    const fileName = `city-ledger-list-${hotel.hotelName.replace(/\s+/g, '-')}-${to.toFormat('yyyy-MM-dd')}.pdf`
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    return response.send(pdfBuffer)
+  } catch (error) {
+    console.error('Error generating city ledger list PDF:', error)
+    return response.internalServerError({
+      success: false,
+      message: 'Failed to generate city ledger list PDF',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Récupère, pour chaque compte City Ledger : solde d'ouverture, débit
+ * (créances transférées sur la période), crédit (paiements reçus),
+ * solde de clôture. Même logique Dr./Cr. que la section « City Ledger »
+ * du Manager Report (voir getManagementCityLedgerData).
+ */
+private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDate: DateTime) {
+  const { default: CompanyAccount } = await import('#models/company_account')
+  const { default: PaymentMethod } = await import('#models/payment_method')
+
+  const fromStr = startDate.toFormat('yyyy-MM-dd')
+  const toStr = endDate.toFormat('yyyy-MM-dd')
+
+  // ── 1. Chargements de base, en parallèle ──────────────────────────
+  const { default: Folio } = await import('#models/folio')
+
+  const [accounts, cityLedgerMethods] = await Promise.all([
+    CompanyAccount.query().where('hotel_id', hotelId).orderBy('company_name', 'asc'),
+    PaymentMethod.query()
+      .where('hotel_id', hotelId)
+      .where('method_type', PaymentMethodType.CITY_LEDGER),
+  ])
+  const cityLedgerMethodIds = cityLedgerMethods.map((pm: any) => pm.id)
+  const companyIds = accounts.map((account: any) => account.id)
+
+  // Folios rattachés à un compte entreprise : sert à mapper folio → compte
+  const companyFolios = await Folio.query()
+    .where('hotel_id', hotelId)
+    .whereIn('company_id', companyIds)
+    .select('id', 'company_id', 'folio_type')
+
+  const debitFolioIds: number[] = []
+  const creditFolioIds: number[] = []
+  const folioToCompany = new Map<number, number>()
+  for (const folio of companyFolios) {
+    if (folio.companyId == null) continue
+    folioToCompany.set(folio.id, folio.companyId)
+    debitFolioIds.push(folio.id)
+    // Le crédit (paiements reçus) ne concerne que les folios COMPANY / CITY_LEDGER
+    if ([FolioType.COMPANY, FolioType.CITY_LEDGER].includes(folio.folioType)) {
+      creditFolioIds.push(folio.id)
+    }
+  }
+
+  // ── 2. Agrégats GROUP BY folio : 4 requêtes au total, quel que soit le nombre de comptes ──
+  // Même logique Dr./Cr. que la section « City Ledger » du Manager Report :
+  //   Débit  = paiements enregistrés avec une méthode de paiement City Ledger (créances transférées)
+  //   Crédit = paiements reçus (autres méthodes) sur les folios entreprise
+  const activeTransactions = (ids: number[]) =>
+    FolioTransaction.query()
+      .where('hotel_id', hotelId)
+      .whereIn('folio_id', ids)
+      .where('transaction_type', TransactionType.PAYMENT)
+      .where('is_voided', false)
+      .whereNotIn('status', ['cancelled', 'voided'])
+
+  const [priorDebitRows, priorCreditRows, periodDebitRows, periodCreditRows] = await Promise.all([
+    // Solde d'ouverture – débit : créances transférées (méthode City Ledger) avant la période
+    activeTransactions(debitFolioIds)
+      .whereIn('payment_method_id', cityLedgerMethodIds)
+      .where('current_working_date', '<', fromStr)
+      .select('folio_id as fid')
+      .sum('amount as total')
+      .groupBy('folio_id'),
+    // Solde d'ouverture – crédit : paiements reçus (hors méthode City Ledger) avant la période
+    activeTransactions(creditFolioIds)
+      .whereNotIn('payment_method_id', cityLedgerMethodIds)
+      .where('current_working_date', '<', fromStr)
+      .select('folio_id as fid')
+      .sum('amount as total')
+      .groupBy('folio_id'),
+    // Débit (créances transférées) sur la période
+    activeTransactions(debitFolioIds)
+      .whereIn('payment_method_id', cityLedgerMethodIds)
+      .whereBetween('current_working_date', [fromStr, toStr])
+      .select('folio_id as fid')
+      .sum('amount as total')
+      .groupBy('folio_id'),
+    // Crédit (paiements reçus) sur la période
+    activeTransactions(creditFolioIds)
+      .whereNotIn('payment_method_id', cityLedgerMethodIds)
+      .whereBetween('current_working_date', [fromStr, toStr])
+      .select('folio_id as fid')
+      .sum('amount as total')
+      .groupBy('folio_id'),
+  ])
+
+  const sumByCompany = (rows: any[]) => {
+    const map = new Map<number, number>()
+    for (const row of rows) {
+      const companyId = folioToCompany.get(Number(row.$extras?.fid))
+      if (companyId === undefined) continue
+      map.set(companyId, (map.get(companyId) ?? 0) + Math.abs(Number(row.$extras?.total ?? 0)))
+    }
+    return map
+  }
+
+  const openingDebitByCompany = sumByCompany(priorDebitRows)
+  const openingCreditByCompany = sumByCompany(priorCreditRows)
+  const periodDebitByCompany = sumByCompany(periodDebitRows)
+  const periodCreditByCompany = sumByCompany(periodCreditRows)
+
+  const rows: any[] = []
+  const totals = { openingBalance: 0, debit: 0, credit: 0, closingBalance: 0 }
+
+  for (const account of accounts) {
+    const openingBalance =
+      (openingDebitByCompany.get(account.id) ?? 0) -
+      (openingCreditByCompany.get(account.id) ?? 0)
+    const debit = periodDebitByCompany.get(account.id) ?? 0
+    const credit = periodCreditByCompany.get(account.id) ?? 0
+    const closingBalance = openingBalance + debit - credit
+
+    if (openingBalance === 0 && debit === 0 && credit === 0 && closingBalance === 0) continue
+
+    rows.push({
+      accountName: account.companyName || (account as any).name || 'N/A',
+      contactPerson: (account as any).contactPersonName || (account as any).contactName || '',
+      phone: (account as any).primaryPhone || (account as any).secondaryPhone || '',
+      openingBalance,
+      debit,
+      credit,
+      closingBalance,
+    })
+
+    totals.openingBalance += openingBalance
+    totals.debit += debit
+    totals.credit += credit
+    totals.closingBalance += closingBalance
+  }
+
+  return { rows, totals, startDate, endDate }
+}
+
+/**
+ * Rendu Edge du corps du tableau (le header/footer sont gérés par Puppeteer)
+ */
+public async generateCityLedgerListHtml(
+  hotelName: string,
+  data: any,
+  printedBy: string = 'System',
+  currency: string = 'XAF'
+): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('node:path')
+
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  const fc = (v: number | null | undefined) =>
+    Number(v ?? 0).toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+
+  return await edge.render('reports/city_ledger_list', {
+    hotelName,
+    data,
+    printedBy,
+    currency,
+    helpers: { fc },
+  })
+}
 
 }

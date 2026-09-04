@@ -183,6 +183,10 @@
       {
         "id": "weekly_services_report",
         "name": "Services For a Period"
+      },
+      {
+        "id": "city_ledger_list",
+        "name": "City Ledger List"
       }
     ]
   },
