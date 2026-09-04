@@ -187,6 +187,10 @@
       {
         "id": "city_ledger_list",
         "name": "City Ledger List"
+      },
+      {
+        "id": "city_ledger_details",
+        "name": "City Ledger Details"
       }
     ]
   },

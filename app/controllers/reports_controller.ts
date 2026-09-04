@@ -15127,4 +15127,239 @@ public async generateCityLedgerListHtml(
   })
 }
 
+/**
+ * Generate City Ledger Details PDF (all company accounts of the hotel)
+ * Mise en page inspirée du Company Voucher + n° réservation, arrivée, départ, chambre.
+ */
+async generateCityLedgerDetailsPdf({ request, response, auth }: HttpContext) {
+  try {
+    const { hotelId, startDate, endDate, currency = 'XAF' } = request.only([
+      'hotelId',
+      'startDate',
+      'endDate',
+      'currency',
+    ])
+
+    if (!hotelId || !startDate || !endDate) {
+      return response.badRequest({
+        success: false,
+        message: 'hotelId, startDate et endDate sont requis',
+      })
+    }
+
+    const from = DateTime.fromISO(startDate)
+    const to = DateTime.fromISO(endDate)
+    if (!from.isValid || !to.isValid) {
+      return response.badRequest({ success: false, message: 'Format de date invalide' })
+    }
+
+    const { default: Hotel } = await import('#models/hotel')
+    const hotel = await Hotel.findOrFail(hotelId)
+
+    const user = auth.user
+    const printedBy = user
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
+      : 'System'
+
+    const data = await this.getCityLedgerDetailsData(Number(hotelId), from, to)
+
+    const htmlContent = await this.generateCityLedgerDetailsHtml(data)
+
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    const formattedFrom = from.toFormat('dd/MM/yyyy')
+    const formattedTo = to.toFormat('dd/MM/yyyy')
+
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:2px 10px; margin:0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:4px; margin-bottom:2px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">City Ledger Details</div>
+      </div>
+
+      <div style="font-size:9px; margin:3px 0; padding-top:2px;">
+        <span style="margin-right:10px;">Period: ${formattedFrom} to ${formattedTo}</span>
+        <span>Currency: ${currency}</span>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5; border-top:1px solid #333; border-bottom:1px solid #333;">
+            <th style="width:4%; text-align:left; padding:2px 1px; font-weight:bold;">No</th>
+            <th style="width:14%; text-align:left; padding:2px 1px; font-weight:bold;">Account Name</th>
+            <th style="width:9%; text-align:left; padding:2px 1px; font-weight:bold;">Date</th>
+            <th style="width:18%; text-align:left; padding:2px 1px; font-weight:bold;">Description</th>
+            <th style="width:10%; text-align:left; padding:2px 1px; font-weight:bold;">Payment Type</th>
+            <th style="width:10%; text-align:left; padding:2px 1px; font-weight:bold;">Reservation No</th>
+            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Arrival</th>
+            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Departure</th>
+            <th style="width:5%; text-align:left; padding:2px 1px; font-weight:bold;">Room</th>
+            <th style="width:7%; text-align:right; padding:2px 1px; font-weight:bold;">Credit</th>
+            <th style="width:7%; text-align:right; padding:2px 1px; font-weight:bold;">Debit</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+    `
+
+    const footerTemplate = `
+    <div style="font-size:7px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
+
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      orientation: 'landscape',
+      margin: {
+        top: '115px',
+        right: '10px',
+        bottom: '55px',
+        left: '10px',
+      },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      printBackground: true,
+    })
+
+    const fileName = `city-ledger-details-${hotel.hotelName.replace(/\s+/g, '-')}-${to.toFormat('yyyy-MM-dd')}.pdf`
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    return response.send(pdfBuffer)
+  } catch (error) {
+    logger.error('Error generating city ledger details PDF:', error)
+    return response.internalServerError({
+      success: false,
+      message: 'Failed to generate city ledger details PDF',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Données du rapport City Ledger Details : toutes les transactions des folios
+ * compagnie de l'hôtel sur la période, regroupées par compte, avec les infos
+ * de réservation (n° réservation, arrivée, départ, chambre).
+ */
+private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, endDate: DateTime) {
+  const { default: CompanyAccount } = await import('#models/company_account')
+  const { default: Folio } = await import('#models/folio')
+
+  const fromStr = startDate.toFormat('yyyy-MM-dd')
+  const toStr = endDate.toFormat('yyyy-MM-dd')
+
+  const accounts = await CompanyAccount.query()
+    .where('hotel_id', hotelId)
+    .orderBy('company_name', 'asc')
+
+  // Tous les folios compagnie de l'hôtel en une seule requête
+  const companyFolios = await Folio.query()
+    .where('hotel_id', hotelId)
+    .where('folio_type', FolioType.COMPANY)
+    .select('id', 'company_id')
+
+
+  const allFolioIds: number[] = []
+  for (const folio of companyFolios) {
+    if (!folio.companyId) continue
+    allFolioIds.push(folio.id)
+  }
+
+  const accountById = new Map<number, any>(accounts.map((acc) => [acc.id, acc]))
+
+  if (allFolioIds.length === 0) {
+    return {
+      rows: [],
+      totals: { totalCredit: 0, totalDebit: 0, balance: 0 },
+      startDate,
+      endDate,
+    }
+  }
+
+  // Toutes les transactions de la période en une seule requête (avec réservation/chambre)
+  const transactions = await FolioTransaction.query()
+    .where('hotel_id', hotelId)
+    .whereIn('folio_id', allFolioIds)
+    .where('is_voided', false)
+    .whereNotIn('status', ['cancelled', 'voided'])
+    .whereBetween('current_working_date', [fromStr, toStr])
+    .preload('folio', (folioQuery: any) => {
+      folioQuery.preload('reservationRoom', (rrQuery: any) => rrQuery.preload('room'))
+      folioQuery.preload('reservation')
+    })
+    .preload('paymentMethod')
+    .preload('reservationRoom', (rrQuery: any) => {
+      rrQuery.preload('room')
+      rrQuery.preload('reservation')
+    })
+    .orderBy('current_working_date', 'asc')
+    .orderBy('id', 'asc')
+
+  const rows: any[] = []
+  const totals = { totalCredit: 0, totalDebit: 0, balance: 0 }
+
+  for (const txn of transactions) {
+    const companyId = txn.folio?.companyId
+    if (!companyId) continue
+    const account = accountById.get(companyId)
+    if (!account) continue
+
+    const credit = txn.transactionType === TransactionType.PAYMENT ? Math.abs(txn.amount || 0) : 0
+    const debit = txn.category === TransactionCategory.TRANSFER_IN ? Math.abs(txn.amount || 0) : 0
+
+    // Infos réservation : on privilégie le lien reservationRoom de la transaction,
+    // sinon celui du folio, sinon la réservation du folio.
+    const rr = txn.reservationRoom || txn.folio?.reservationRoom
+    const reservation = rr?.reservation || txn.folio?.reservation
+
+    rows.push({
+      accountName: account.companyName || (account as any).name || 'N/A',
+      date: txn.currentWorkingDate || txn.transactionDate,
+      description: txn.description || txn.particular || '',
+      paymentType: txn.paymentMethod?.methodName || txn.subcategory || txn.category || '',
+      credit,
+      debit,
+      reservationNumber: reservation?.reservationNumber || (txn.reservationId ? `#${txn.reservationId}` : '') || '—',
+      arrivalDate: reservation?.arrivedDate || rr?.checkInDate,
+      departureDate: reservation?.departDate || rr?.checkOutDate,
+      roomNumber: rr?.room?.roomNumber || txn.roomNumber || '—',
+    })
+
+    totals.totalCredit += credit
+    totals.totalDebit += debit
+  }
+  totals.balance = totals.totalDebit - totals.totalCredit
+
+  return {
+    rows,
+    totals,
+    startDate,
+    endDate,
+  }
+}
+
+/**
+ * Rendu Edge du rapport City Ledger Details
+ */
+public async generateCityLedgerDetailsHtml(data: any): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('node:path')
+
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  const fc = (v: number | null | undefined) =>
+    Number(v ?? 0).toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })
+
+  return await edge.render('reports/city_ledger_details', {
+    data,
+    helpers: { fc },
+  })
+}
+
 }
