@@ -15101,6 +15101,9 @@ private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDat
 
     if (openingBalance === 0 && debit === 0 && credit === 0 && closingBalance === 0) continue
 
+    // Affichage sans signe négatif : le montant est présenté en valeur absolue
+    const closingDisplay = Math.abs(closingBalance)
+
     rows.push({
       accountName: account.companyName || (account as any).name || 'N/A',
       contactPerson: (account as any).contactPersonName || (account as any).contactName || '',
@@ -15108,13 +15111,13 @@ private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDat
       openingBalance,
       debit,
       credit,
-      closingBalance,
+      closingBalance: closingDisplay,
     })
 
     totals.openingBalance += openingBalance
     totals.debit += debit
     totals.credit += credit
-    totals.closingBalance += closingBalance
+    totals.closingBalance += closingDisplay
   }
 
   return { rows, totals, startDate, endDate }
