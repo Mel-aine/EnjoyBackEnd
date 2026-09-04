@@ -14995,19 +14995,46 @@ private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDat
     .where('hotel_id', hotelId)
     .orderBy('company_name', 'asc')
 
+  // Charge tous les folios compagnie de l'hôtel en une seule requête
+  // (au lieu d'une requête par compte) puis regroupe les folio_ids par compte.
+  const companyFolios = await Folio.query()
+    .where('hotel_id', hotelId)
+    .where('folio_type', FolioType.COMPANY)
+    .select('id', 'company_id')
 
-  const sumByType = async (
-    folioIds: number[],
+  const folioIdsByCompany = new Map<number, number[]>()
+  const allFolioIds: number[] = []
+  for (const folio of companyFolios) {
+    if (!folio.companyId) continue
+    allFolioIds.push(folio.id)
+    const list = folioIdsByCompany.get(folio.companyId) || []
+    list.push(folio.id)
+    folioIdsByCompany.set(folio.companyId, list)
+  }
+
+  if (allFolioIds.length === 0) {
+    return {
+      rows: [],
+      totals: { openingBalance: 0, debit: 0, credit: 0, closingBalance: 0 },
+      startDate,
+      endDate,
+    }
+  }
+
+  // Sommes agrégées par folio en une seule requête par (type, période),
+  // au lieu d'une requête par compte (2 types x 2 périodes = 4 requêtes au total).
+  const sumByTypeByFolio = async (
     transactionType: TransactionType,
     opts: { before?: string; between?: [string, string] }
-  ) => {
-    if (folioIds.length === 0) return 0
+  ): Promise<Map<number, number>> => {
     const query = FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .whereIn('folio_id', folioIds)
+      .whereIn('folio_id', allFolioIds)
       .where('transaction_type', transactionType)
       .where('is_voided', false)
       .whereNotIn('status', ['cancelled', 'voided'])
+      .select('folio_id')
+      .groupBy('folio_id')
 
     if (opts.before) {
       query.where('current_working_date', '<', opts.before)
@@ -15015,31 +15042,38 @@ private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDat
       query.whereBetween('current_working_date', opts.between)
     }
 
-    const result = await query.sum('amount as total').first()
-    return Math.abs(Number((result as any)?.$extras?.total ?? 0))
+    const rows = await query.sum('amount as total')
+    const totalsByFolio = new Map<number, number>()
+    for (const row of rows as any[]) {
+      totalsByFolio.set(row.folioId, Math.abs(Number(row.$extras?.total ?? 0)))
+    }
+    return totalsByFolio
   }
+
+  const openingDebitByFolio = await sumByTypeByFolio(TransactionType.TRANSFER, { before: fromStr })
+  const openingCreditByFolio = await sumByTypeByFolio(TransactionType.PAYMENT, { before: fromStr })
+  const debitByFolio = await sumByTypeByFolio(TransactionType.TRANSFER, { between: [fromStr, toStr] })
+  const creditByFolio = await sumByTypeByFolio(TransactionType.PAYMENT, { between: [fromStr, toStr] })
+
+  const sumForCompany = (map: Map<number, number>, folioIds: number[]) =>
+    folioIds.reduce((acc, id) => acc + (map.get(id) || 0), 0)
 
   const rows: any[] = []
   const totals = { openingBalance: 0, debit: 0, credit: 0, closingBalance: 0 }
 
   for (const account of accounts) {
 
-    const companyFolios = await Folio.query()
-      .where('hotel_id', hotelId)
-      .where('folio_type', FolioType.COMPANY)
-      .where('company_id', account.id)
-
-    const folioIds = companyFolios.map((f: any) => f.id)
+    const folioIds = folioIdsByCompany.get(account.id) || []
     if (folioIds.length === 0) continue
 
     // Solde d'ouverture : mouvements avant la période
-    const openingDebit = await sumByType(folioIds, TransactionType.TRANSFER, { before: fromStr })
-    const openingCredit = await sumByType(folioIds, TransactionType.PAYMENT, { before: fromStr })
+    const openingDebit = sumForCompany(openingDebitByFolio, folioIds)
+    const openingCredit = sumForCompany(openingCreditByFolio, folioIds)
     const openingBalance = openingDebit - openingCredit
 
     // Mouvements de la période
-    const debit = await sumByType(folioIds, TransactionType.TRANSFER, { between: [fromStr, toStr] })
-    const credit = await sumByType(folioIds, TransactionType.PAYMENT, { between: [fromStr, toStr] })
+    const debit = sumForCompany(debitByFolio, folioIds)
+    const credit = sumForCompany(creditByFolio, folioIds)
 
     const closingBalance = openingBalance + debit - credit
 
