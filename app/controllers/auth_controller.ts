@@ -987,7 +987,8 @@ export default class AuthController {
           RateType.query()
             .whereIn('hotel_id', hotelIds)
             .where('is_deleted', false)
-            .preload('roomTypes', (query) => query.preload('roomRates')),
+            .orderBy('sort_order', 'asc')
+            .preload('roomTypes', (query) => query.preload('roomRates'))
         ])
 
       await LoggerService.log({
