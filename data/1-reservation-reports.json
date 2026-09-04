@@ -189,7 +189,7 @@
         "name": "City Ledger List"
       },
       {
-        "id": "city_ledger_details",
+        "id": "city_ledger_detail",
         "name": "City Ledger Details"
       }
     ]

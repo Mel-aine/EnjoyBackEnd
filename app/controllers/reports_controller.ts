@@ -15188,15 +15188,12 @@ async generateCityLedgerDetailsPdf({ request, response, auth }: HttpContext) {
           <tr style="background-color:#f5f5f5; border-top:1px solid #333; border-bottom:1px solid #333;">
             <th style="width:4%; text-align:left; padding:2px 1px; font-weight:bold;">No</th>
             <th style="width:14%; text-align:left; padding:2px 1px; font-weight:bold;">Account Name</th>
-            <th style="width:9%; text-align:left; padding:2px 1px; font-weight:bold;">Date</th>
-            <th style="width:18%; text-align:left; padding:2px 1px; font-weight:bold;">Description</th>
-            <th style="width:10%; text-align:left; padding:2px 1px; font-weight:bold;">Payment Type</th>
-            <th style="width:10%; text-align:left; padding:2px 1px; font-weight:bold;">Reservation No</th>
-            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Arrival</th>
-            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Departure</th>
-            <th style="width:5%; text-align:left; padding:2px 1px; font-weight:bold;">Room</th>
-            <th style="width:7%; text-align:right; padding:2px 1px; font-weight:bold;">Credit</th>
-            <th style="width:7%; text-align:right; padding:2px 1px; font-weight:bold;">Debit</th>
+            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Date</th>
+            <th style="width:24%; text-align:left; padding:2px 1px; font-weight:bold;">Description</th>
+            <th style="width:9%; text-align:left; padding:2px 1px; font-weight:bold;">Payment Type</th>
+            <th style="width:18%; text-align:left; padding:2px 1px; font-weight:bold;">Reservation Details</th>
+            <th style="width:6.5%; text-align:right; padding:2px 1px; font-weight:bold;">Credit</th>
+            <th style="width:6.5%; text-align:right; padding:2px 1px; font-weight:bold;">Debit</th>
           </tr>
         </thead>
       </table>

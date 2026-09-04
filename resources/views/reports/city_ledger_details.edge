@@ -50,22 +50,26 @@
       <tbody>
         @if(data.rows.length === 0)
           <tr>
-            <td colspan="11" class="no-data">No City Ledger transactions found for the selected period</td>
+            <td colspan="8" class="no-data">No City Ledger transactions found for the selected period</td>
           </tr>
         @else
           @each((row, index) in data.rows)
             <tr>
               <td class="center" style="width: 4%;">{{ index + 1 }}</td>
               <td style="width: 14%;">{{ row.accountName }}</td>
-              <td style="width: 9%;">{{ row.date.toFormat('dd/MM/yyyy') }}</td>
-              <td style="width: 18%;">{{ row.description }}</td>
-              <td style="width: 10%;">{{ row.paymentType }}</td>
-              <td style="width: 10%;">{{ row.reservationNumber }}</td>
-              <td style="width: 8%;">{{ row.arrivalDate ? row.arrivalDate.toFormat('dd/MM/yyyy') : '—' }}</td>
-              <td style="width: 8%;">{{ row.departureDate ? row.departureDate.toFormat('dd/MM/yyyy') : '—' }}</td>
-              <td style="width: 5%;">{{ row.roomNumber }}</td>
-              <td class="num" style="width: 7%;">{{ helpers.fc(row.credit) }}</td>
-              <td class="num" style="width: 7%;">{{ helpers.fc(row.debit) }}</td>
+              <td style="width: 8%;">{{ row.date.toFormat('dd/MM/yyyy') }}</td>
+              <td style="width: 24%;">{{ row.description }}</td>
+              <td style="width: 9%;">{{ row.paymentType }}</td>
+              <td style="width: 18%; font-size: 9px;">
+                <div>{{ row.reservationNumber }}</div>
+                <div style="color: #555; font-size: 8px;">
+                  Arr: {{ row.arrivalDate ? row.arrivalDate.toFormat('dd/MM/yyyy') : '—' }}<br />
+                  Dep: {{ row.departureDate ? row.departureDate.toFormat('dd/MM/yyyy') : '—' }}<br />
+                  Room: {{ row.roomNumber }}
+                </div>
+              </td>
+              <td class="num" style="width: 6.5%;">{{ helpers.fc(row.credit) }}</td>
+              <td class="num" style="width: 6.5%;">{{ helpers.fc(row.debit) }}</td>
             </tr>
           @endeach
         @endif
@@ -73,9 +77,9 @@
       @if(data.rows.length > 0)
       <tfoot>
         <tr>
-          <td colspan="9" style="text-align: left;"><strong>TOTAL</strong></td>
-          <td class="num" style="width: 7%;"><strong>{{ helpers.fc(data.totals.totalCredit) }}</strong></td>
-          <td class="num" style="width: 7%;"><strong>{{ helpers.fc(data.totals.totalDebit) }}</strong></td>
+          <td colspan="6" style="text-align: left;"><strong>TOTAL</strong></td>
+          <td class="num" style="width: 6.5%;"><strong>{{ helpers.fc(data.totals.totalCredit) }}</strong></td>
+          <td class="num" style="width: 6.5%;"><strong>{{ helpers.fc(data.totals.totalDebit) }}</strong></td>
         </tr>
       </tfoot>
       @endif
