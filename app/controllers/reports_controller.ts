@@ -14884,24 +14884,23 @@ async generateCityLedgerListPdf({ request, response, auth }: HttpContext) {
   try {
     const {
       hotelId,
-      asOnDate,
+      startDate,
+      endDate,
       currency = 'XAF',
-    } = request.only(['hotelId', 'asOnDate', 'currency'])
+    } = request.only(['hotelId', 'startDate', 'endDate', 'currency'])
 
-    if (!hotelId || !asOnDate) {
+    if (!hotelId || !startDate || !endDate) {
       return response.badRequest({
         success: false,
-        message: 'hotelId et asOnDate sont requis',
+        message: 'hotelId, startDate et endDate sont requis',
       })
     }
 
-    const to = DateTime.fromISO(asOnDate)
-    if (!to.isValid) {
+    const from = DateTime.fromISO(startDate)
+    const to = DateTime.fromISO(endDate)
+    if (!from.isValid || !to.isValid) {
       return response.badRequest({ success: false, message: 'Format de date invalide' })
     }
-
-
-    const from = to.startOf('month')
 
     const { default: Hotel } = await import('#models/hotel')
     const hotel = await Hotel.findOrFail(hotelId)
@@ -14929,7 +14928,6 @@ async generateCityLedgerListPdf({ request, response, auth }: HttpContext) {
       </div>
 
       <div style="font-size:9px; margin:3px 0; padding-top:2px;">
-        <span style="margin-right:10px;">As On Date: ${formattedTo}</span>
         <span style="margin-right:10px;">Period: ${formattedFrom} to ${formattedTo}</span>
         <span>Currency: ${currency}</span>
       </div>
@@ -14986,123 +14984,66 @@ async generateCityLedgerListPdf({ request, response, auth }: HttpContext) {
   }
 }
 
-/**
- * Récupère, pour chaque compte City Ledger : solde d'ouverture, débit
- * (créances transférées sur la période), crédit (paiements reçus),
- * solde de clôture. Même logique Dr./Cr. que la section « City Ledger »
- * du Manager Report (voir getManagementCityLedgerData).
- */
 private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDate: DateTime) {
   const { default: CompanyAccount } = await import('#models/company_account')
-  const { default: PaymentMethod } = await import('#models/payment_method')
+  const { default: Folio } = await import('#models/folio')
 
   const fromStr = startDate.toFormat('yyyy-MM-dd')
   const toStr = endDate.toFormat('yyyy-MM-dd')
 
-  // ── 1. Chargements de base, en parallèle ──────────────────────────
-  const { default: Folio } = await import('#models/folio')
-
-  const [accounts, cityLedgerMethods] = await Promise.all([
-    CompanyAccount.query().where('hotel_id', hotelId).orderBy('company_name', 'asc'),
-    PaymentMethod.query()
-      .where('hotel_id', hotelId)
-      .where('method_type', PaymentMethodType.CITY_LEDGER),
-  ])
-  const cityLedgerMethodIds = cityLedgerMethods.map((pm: any) => pm.id)
-  const companyIds = accounts.map((account: any) => account.id)
-
-  // Folios rattachés à un compte entreprise : sert à mapper folio → compte
-  const companyFolios = await Folio.query()
+  const accounts = await CompanyAccount.query()
     .where('hotel_id', hotelId)
-    .whereIn('company_id', companyIds)
-    .select('id', 'company_id', 'folio_type')
+    .orderBy('company_name', 'asc')
 
-  const debitFolioIds: number[] = []
-  const creditFolioIds: number[] = []
-  const folioToCompany = new Map<number, number>()
-  for (const folio of companyFolios) {
-    if (folio.companyId == null) continue
-    folioToCompany.set(folio.id, folio.companyId)
-    debitFolioIds.push(folio.id)
-    // Le crédit (paiements reçus) ne concerne que les folios COMPANY / CITY_LEDGER
-    if ([FolioType.COMPANY, FolioType.CITY_LEDGER].includes(folio.folioType)) {
-      creditFolioIds.push(folio.id)
-    }
-  }
 
-  // ── 2. Agrégats GROUP BY folio : 4 requêtes au total, quel que soit le nombre de comptes ──
-  // Même logique Dr./Cr. que la section « City Ledger » du Manager Report :
-  //   Débit  = paiements enregistrés avec une méthode de paiement City Ledger (créances transférées)
-  //   Crédit = paiements reçus (autres méthodes) sur les folios entreprise
-  const activeTransactions = (ids: number[]) =>
-    FolioTransaction.query()
+  const sumByType = async (
+    folioIds: number[],
+    transactionType: TransactionType,
+    opts: { before?: string; between?: [string, string] }
+  ) => {
+    if (folioIds.length === 0) return 0
+    const query = FolioTransaction.query()
       .where('hotel_id', hotelId)
-      .whereIn('folio_id', ids)
-      .where('transaction_type', TransactionType.PAYMENT)
+      .whereIn('folio_id', folioIds)
+      .where('transaction_type', transactionType)
       .where('is_voided', false)
       .whereNotIn('status', ['cancelled', 'voided'])
 
-  const [priorDebitRows, priorCreditRows, periodDebitRows, periodCreditRows] = await Promise.all([
-    // Solde d'ouverture – débit : créances transférées (méthode City Ledger) avant la période
-    activeTransactions(debitFolioIds)
-      .whereIn('payment_method_id', cityLedgerMethodIds)
-      .where('current_working_date', '<', fromStr)
-      .select('folio_id as fid')
-      .sum('amount as total')
-      .groupBy('folio_id'),
-    // Solde d'ouverture – crédit : paiements reçus (hors méthode City Ledger) avant la période
-    activeTransactions(creditFolioIds)
-      .whereNotIn('payment_method_id', cityLedgerMethodIds)
-      .where('current_working_date', '<', fromStr)
-      .select('folio_id as fid')
-      .sum('amount as total')
-      .groupBy('folio_id'),
-    // Débit (créances transférées) sur la période
-    activeTransactions(debitFolioIds)
-      .whereIn('payment_method_id', cityLedgerMethodIds)
-      .whereBetween('current_working_date', [fromStr, toStr])
-      .select('folio_id as fid')
-      .sum('amount as total')
-      .groupBy('folio_id'),
-    // Crédit (paiements reçus) sur la période
-    activeTransactions(creditFolioIds)
-      .whereNotIn('payment_method_id', cityLedgerMethodIds)
-      .whereBetween('current_working_date', [fromStr, toStr])
-      .select('folio_id as fid')
-      .sum('amount as total')
-      .groupBy('folio_id'),
-  ])
-
-  const sumByCompany = (rows: any[]) => {
-    const map = new Map<number, number>()
-    for (const row of rows) {
-      const companyId = folioToCompany.get(Number(row.$extras?.fid))
-      if (companyId === undefined) continue
-      map.set(companyId, (map.get(companyId) ?? 0) + Math.abs(Number(row.$extras?.total ?? 0)))
+    if (opts.before) {
+      query.where('current_working_date', '<', opts.before)
+    } else if (opts.between) {
+      query.whereBetween('current_working_date', opts.between)
     }
-    return map
-  }
 
-  const openingDebitByCompany = sumByCompany(priorDebitRows)
-  const openingCreditByCompany = sumByCompany(priorCreditRows)
-  const periodDebitByCompany = sumByCompany(periodDebitRows)
-  const periodCreditByCompany = sumByCompany(periodCreditRows)
+    const result = await query.sum('amount as total').first()
+    return Math.abs(Number((result as any)?.$extras?.total ?? 0))
+  }
 
   const rows: any[] = []
   const totals = { openingBalance: 0, debit: 0, credit: 0, closingBalance: 0 }
 
   for (const account of accounts) {
-    const openingBalance =
-      (openingDebitByCompany.get(account.id) ?? 0) -
-      (openingCreditByCompany.get(account.id) ?? 0)
-    const debit = periodDebitByCompany.get(account.id) ?? 0
-    const credit = periodCreditByCompany.get(account.id) ?? 0
+
+    const companyFolios = await Folio.query()
+      .where('hotel_id', hotelId)
+      .where('folio_type', FolioType.COMPANY)
+      .where('company_id', account.id)
+
+    const folioIds = companyFolios.map((f: any) => f.id)
+    if (folioIds.length === 0) continue
+
+    // Solde d'ouverture : mouvements avant la période
+    const openingDebit = await sumByType(folioIds, TransactionType.TRANSFER, { before: fromStr })
+    const openingCredit = await sumByType(folioIds, TransactionType.PAYMENT, { before: fromStr })
+    const openingBalance = openingDebit - openingCredit
+
+    // Mouvements de la période
+    const debit = await sumByType(folioIds, TransactionType.TRANSFER, { between: [fromStr, toStr] })
+    const credit = await sumByType(folioIds, TransactionType.PAYMENT, { between: [fromStr, toStr] })
+
     const closingBalance = openingBalance + debit - credit
 
     if (openingBalance === 0 && debit === 0 && credit === 0 && closingBalance === 0) continue
-
-    // Affichage sans signe négatif : le montant est présenté en valeur absolue
-    const closingDisplay = Math.abs(closingBalance)
 
     rows.push({
       accountName: account.companyName || (account as any).name || 'N/A',
@@ -15111,13 +15052,13 @@ private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDat
       openingBalance,
       debit,
       credit,
-      closingBalance: closingDisplay,
+      closingBalance,
     })
 
     totals.openingBalance += openingBalance
     totals.debit += debit
     totals.credit += credit
-    totals.closingBalance += closingDisplay
+    totals.closingBalance += closingBalance
   }
 
   return { rows, totals, startDate, endDate }
