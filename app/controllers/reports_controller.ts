@@ -15075,9 +15075,12 @@ private async getCityLedgerListData(hotelId: number, startDate: DateTime, endDat
     const debit = sumForCompany(debitByFolio, folioIds)
     const credit = sumForCompany(creditByFolio, folioIds)
 
-    const closingBalance = openingBalance + debit - credit
+    const closingBalance = debit - credit
 
-    if (openingBalance === 0 && debit === 0 && credit === 0 && closingBalance === 0) continue
+    //  if (openingBalance === 0 && debit === 0 && credit === 0 && closingBalance === 0) continue
+     if (debit === 0 && credit === 0) continue
+
+
 
     rows.push({
       accountName: account.companyName || (account as any).name || 'N/A',
@@ -15138,6 +15141,7 @@ async generateCityLedgerDetailsPdf({ request, response, auth }: HttpContext) {
       'startDate',
       'endDate',
       'currency',
+      'companyId'
     ])
 
     if (!hotelId || !startDate || !endDate) {
@@ -15161,7 +15165,8 @@ async generateCityLedgerDetailsPdf({ request, response, auth }: HttpContext) {
       ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
       : 'System'
 
-    const data = await this.getCityLedgerDetailsData(Number(hotelId), from, to)
+    const companyId = request.input('companyId')
+    const data = await this.getCityLedgerDetailsData(Number(hotelId), from, to ,companyId ? Number(companyId) : undefined)
 
     const htmlContent = await this.generateCityLedgerDetailsHtml(data)
 
@@ -15238,26 +15243,29 @@ async generateCityLedgerDetailsPdf({ request, response, auth }: HttpContext) {
 
 /**
  * Données du rapport City Ledger Details : toutes les transactions des folios
- * compagnie de l'hôtel sur la période, regroupées par compte, avec les infos
- * de réservation (n° réservation, arrivée, départ, chambre).
  */
-private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, endDate: DateTime) {
+private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, endDate: DateTime ,companyId?: number) {
   const { default: CompanyAccount } = await import('#models/company_account')
   const { default: Folio } = await import('#models/folio')
 
   const fromStr = startDate.toFormat('yyyy-MM-dd')
   const toStr = endDate.toFormat('yyyy-MM-dd')
 
-  const accounts = await CompanyAccount.query()
-    .where('hotel_id', hotelId)
-    .orderBy('company_name', 'asc')
+   const accountsQuery = CompanyAccount.query()
+     .where('hotel_id', hotelId)
+   if (companyId) {
+     accountsQuery.where('id', companyId)
+   }
+   const accounts = await accountsQuery.orderBy('company_name', 'asc')
 
   // Tous les folios compagnie de l'hôtel en une seule requête
-  const companyFolios = await Folio.query()
+  const companyFoliosQuery = Folio.query()
     .where('hotel_id', hotelId)
-    .where('folio_type', FolioType.COMPANY)
-    .select('id', 'company_id')
-
+     .where('folio_type', FolioType.COMPANY)
+   if (companyId) {
+     companyFoliosQuery.where('company_id', companyId)
+   }
+   const companyFolios = await companyFoliosQuery.select('id', 'company_id')
 
   const allFolioIds: number[] = []
   for (const folio of companyFolios) {
@@ -15275,6 +15283,7 @@ private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, end
       endDate,
     }
   }
+
 
   // Toutes les transactions de la période en une seule requête (avec réservation/chambre)
   const transactions = await FolioTransaction.query()
@@ -15295,6 +15304,34 @@ private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, end
     .orderBy('current_working_date', 'asc')
     .orderBy('id', 'asc')
 
+
+  const originIds = [
+    ...new Set(
+      transactions
+        .filter((t) => !t.reservationRoom && !t.folio?.reservationRoom && t.originalTransactionId)
+        .map((t) => t.originalTransactionId as number)
+    ),
+  ]
+
+  let originMap = new Map<number, FolioTransaction>()
+  if (originIds.length > 0) {
+    const originTxns = await FolioTransaction.query()
+      .whereIn('id', originIds)
+      .preload('reservationRoom', (rrQuery: any) => {
+        rrQuery.preload('room')
+        rrQuery.preload('reservation')
+      })
+
+      .preload('folio', (folioQuery: any) => {
+        folioQuery.preload('reservationRoom', (rrQuery: any) => {
+          rrQuery.preload('room')
+          rrQuery.preload('reservation')
+        })
+        folioQuery.preload('reservation')
+      })
+    originMap = new Map(originTxns.map((o) => [o.id, o]))
+  }
+
   const rows: any[] = []
   const totals = { totalCredit: 0, totalDebit: 0, balance: 0 }
 
@@ -15307,10 +15344,21 @@ private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, end
     const credit = txn.transactionType === TransactionType.PAYMENT ? Math.abs(txn.amount || 0) : 0
     const debit = txn.category === TransactionCategory.TRANSFER_IN ? Math.abs(txn.amount || 0) : 0
 
-    // Infos réservation : on privilégie le lien reservationRoom de la transaction,
-    // sinon celui du folio, sinon la réservation du folio.
-    const rr = txn.reservationRoom || txn.folio?.reservationRoom
-    const reservation = rr?.reservation || txn.folio?.reservation
+
+    const originTxn = txn.originalTransactionId ? originMap.get(txn.originalTransactionId) : null
+    const rr =
+      txn.reservationRoom ||
+      txn.folio?.reservationRoom ||
+      originTxn?.reservationRoom ||
+      originTxn?.folio?.reservationRoom
+    const reservation =
+      rr?.reservation ||
+      txn.folio?.reservation ||
+      originTxn?.folio?.reservation
+
+
+    const roomFromDescription = txn.description?.match(/Room:\s*([^,]+)/)?.[1]?.trim()
+    const guestFromDescription = txn.description?.match(/Guest:\s*([^,]+?)(?:\s*\/\/|,\s*Room:)/)?.[1]?.trim()
 
     rows.push({
       accountName: account.companyName || (account as any).name || 'N/A',
@@ -15319,16 +15367,28 @@ private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, end
       paymentType: txn.paymentMethod?.methodName || txn.subcategory || txn.category || '',
       credit,
       debit,
-      reservationNumber: reservation?.reservationNumber || (txn.reservationId ? `#${txn.reservationId}` : '') || '—',
+      reservationNumber:
+        reservation?.reservationNumber ||
+        (txn.reservationId ? `#${txn.reservationId}` : '') ||
+        (txn.originalTransactionId ? `#${txn.originalTransactionId}` : '') ||
+        '—',
       arrivalDate: reservation?.arrivedDate || rr?.checkInDate,
       departureDate: reservation?.departDate || rr?.checkOutDate,
-      roomNumber: rr?.room?.roomNumber || txn.roomNumber || '—',
+      roomNumber: rr?.room?.roomNumber || txn.roomNumber || roomFromDescription || '—',
+      guestName: txn.guestName || guestFromDescription || '',
     })
 
     totals.totalCredit += credit
     totals.totalDebit += debit
   }
   totals.balance = totals.totalDebit - totals.totalCredit
+
+
+  rows.sort((a, b) => {
+    const nameCompare = a.accountName.localeCompare(b.accountName, 'fr', { sensitivity: 'base' })
+    if (nameCompare !== 0) return nameCompare
+    return (a.date?.toMillis?.() ?? 0) - (b.date?.toMillis?.() ?? 0)
+  })
 
   return {
     rows,
