@@ -13,6 +13,7 @@ import ActivityLog from '#models/activity_log'
 import logger from '@adonisjs/core/services/logger'
 import Role from '#models/role'
 
+
 export default class UsersController extends CrudController<typeof User> {
   private userService: CrudService<typeof User>
 
@@ -547,7 +548,23 @@ public async getUserById({ params, response }: HttpContext) {
     }
   }
 
+async toggleStatus({ params, auth, response }: HttpContext) {
+  const user = await User.findOrFail(params.id)
 
+  if (auth.user!.id === user.id) {
+    return response.badRequest({ message: 'You cannot toggle your own status.' })
+  }
 
+  user.isActive = !user.isActive
+  await user.save()
 
+  if (!user.isActive) {
+    const tokens = await User.accessTokens.all(user)
+    for (const token of tokens) {
+      await User.accessTokens.delete(user, token.identifier)
+    }
+  }
+
+  return response.ok({ data: user })
+}
 }

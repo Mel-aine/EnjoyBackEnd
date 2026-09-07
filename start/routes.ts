@@ -488,6 +488,7 @@ router
         usersController.getClientsByService.bind(usersController)
       )
       router.post('/users', usersController.store.bind(usersController))
+      router.patch('/assign-user/:id/toggle-status', usersController.toggleStatus.bind(usersController))
     })
     router.group(() => {
       router.get('/payroll', payrollController.getMultiple.bind(payrollController))
